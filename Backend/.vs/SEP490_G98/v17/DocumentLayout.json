@@ -1,0 +1,77 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\khanh\\Downloads\\SEP490_G98\\SEP490_G98\\Backend\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{1FD5F37B-A146-41A9-9FE4-E90C6175AAB9}|Warehouse.DataAcces\\Warehouse.DataAcces.csproj|c:\\users\\khanh\\downloads\\sep490_g98\\sep490_g98\\backend\\warehouse.dataacces\\warehouse.dataacces.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{1FD5F37B-A146-41A9-9FE4-E90C6175AAB9}|Warehouse.DataAcces\\Warehouse.DataAcces.csproj|solutionrelative:warehouse.dataacces\\warehouse.dataacces.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{d78612c7-9962-4b83-95d9-268046dad23a}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{b1e99781-ab81-11d0-b683-00aa00a3ee26}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Warehouse.DataAcces.csproj",
+              "DocumentMoniker": "C:\\Users\\khanh\\Downloads\\SEP490_G98\\SEP490_G98\\Backend\\Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
+              "RelativeDocumentMoniker": "Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
+              "ToolTip": "C:\\Users\\khanh\\Downloads\\SEP490_G98\\SEP490_G98\\Backend\\Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
+              "RelativeToolTip": "Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-01-19T08:10:39.27Z",
+              "EditorCaption": ""
+            }
+          ]
+        },
+        {
+          "DockedWidth": 73,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            }
+          ]
+        },
+        {
+          "DockedWidth": 1304,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:23:0:{e8034f19-ab72-4f06-83fd-f6832b41aa63}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:24:0:{e8034f19-ab72-4f06-83fd-f6832b41aa63}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
