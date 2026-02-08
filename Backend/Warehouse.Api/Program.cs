@@ -1,3 +1,12 @@
+﻿
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
+using Warehouse.DataAcces.Service;
+using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Models;
 
 namespace Warehouse.Api
 {
@@ -13,6 +22,13 @@ namespace Warehouse.Api
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            builder.Services.AddDbContext<Mkiwms3Context>(options =>
+            {
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+            });
+           
+            builder.Services.AddScoped<IAuthService, AuthService>();
 
             var app = builder.Build();
 

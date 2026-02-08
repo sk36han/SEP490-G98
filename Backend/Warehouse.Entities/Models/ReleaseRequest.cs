@@ -13,7 +13,7 @@ public partial class ReleaseRequest
 
     public long ReceiverId { get; set; }
 
-    public int WarehouseId { get; set; }
+    public long WarehouseId { get; set; }
 
     public DateOnly? RequestedDate { get; set; }
 

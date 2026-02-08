@@ -13,7 +13,7 @@ public partial class ReleaseRequestLine
 
     public decimal RequestedQty { get; set; }
 
-    public int UomId { get; set; }
+    public long UomId { get; set; }
 
     public string? Note { get; set; }
 
