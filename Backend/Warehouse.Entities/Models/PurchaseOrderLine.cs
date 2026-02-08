@@ -13,7 +13,7 @@ public partial class PurchaseOrderLine
 
     public decimal OrderedQty { get; set; }
 
-    public int UomId { get; set; }
+    public long UomId { get; set; }
 
     public string? Note { get; set; }
 

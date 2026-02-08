@@ -11,7 +11,7 @@ public partial class InventoryTransaction
 
     public DateTime TxnDate { get; set; }
 
-    public int WarehouseId { get; set; }
+    public long WarehouseId { get; set; }
 
     public string ReferenceType { get; set; } = null!;
 

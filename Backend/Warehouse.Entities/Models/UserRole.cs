@@ -9,7 +9,7 @@ public partial class UserRole
 
     public long UserId { get; set; }
 
-    public int RoleId { get; set; }
+    public long RoleId { get; set; }
 
     public DateTime AssignedAt { get; set; }
 

@@ -15,13 +15,13 @@ public partial class Item
 
     public string? Description { get; set; }
 
-    public int? CategoryId { get; set; }
+    public long? CategoryId { get; set; }
 
-    public int? BrandId { get; set; }
+    public long? BrandId { get; set; }
 
-    public int BaseUomId { get; set; }
+    public long BaseUomId { get; set; }
 
-    public int? PackagingSpecId { get; set; }
+    public long? PackagingSpecId { get; set; }
 
     public bool RequiresCo { get; set; }
 
@@ -29,7 +29,7 @@ public partial class Item
 
     public bool IsActive { get; set; }
 
-    public int? DefaultWarehouseId { get; set; }
+    public long? DefaultWarehouseId { get; set; }
 
     public string? InventoryAccount { get; set; }
 
