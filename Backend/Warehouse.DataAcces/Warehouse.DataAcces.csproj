@@ -10,4 +10,8 @@
     <Folder Include="Service\Interface\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Warehouse.Entities\Warehouse.Entities.csproj" />
+  </ItemGroup>
+
 </Project>

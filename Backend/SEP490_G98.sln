@@ -1,13 +1,16 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35931.197 d17.13
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warehouse.Api", "Warehouse.Api\Warehouse.Api.csproj", "{3769E6BD-1695-4423-B36C-A38EB97C2C24}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warehouse.Entities", "Warehouse.Entities\Warehouse.Entities.csproj", "{5C2659BE-4612-4626-8E88-DC8C513C5FEB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Warehouse.DataAcces", "Warehouse.DataAcces\Warehouse.DataAcces.csproj", "{1FD5F37B-A146-41A9-9FE4-E90C6175AAB9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{5C2659BE-4612-4626-8E88-DC8C513C5FEB} = {5C2659BE-4612-4626-8E88-DC8C513C5FEB}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

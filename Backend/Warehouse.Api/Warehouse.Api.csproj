@@ -16,4 +16,8 @@
     <Folder Include="ApiController\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Warehouse.DataAcces\Warehouse.DataAcces.csproj" />
+  </ItemGroup>
+
 </Project>
