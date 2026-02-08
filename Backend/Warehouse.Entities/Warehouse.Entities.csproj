@@ -17,8 +17,7 @@
   <ItemGroup>
     <Folder Include="ModelRequest\" />
     <Folder Include="ModelResponse\" />
-    <Folder Include="ModelRequest\" />
-    <Folder Include="ModelResponse\" />
+  
   </ItemGroup>
 
 </Project>

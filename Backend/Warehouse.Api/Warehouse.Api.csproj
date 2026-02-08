@@ -14,7 +14,6 @@
 
   <ItemGroup>
     <Folder Include="ApiController\" />
-    <Folder Include="ApiController\" />
   </ItemGroup>
 
 </Project>
