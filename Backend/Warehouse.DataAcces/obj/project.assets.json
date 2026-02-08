@@ -8,23 +8,23 @@
     "net8.0": []
   },
   "packageFolders": {
-    "C:\\Users\\khanh\\.nuget\\packages\\": {},
+    "C:\\Users\\DIEN MAY XANH\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\khanh\\Downloads\\SEP490_G98\\SEP490_G98\\Backend\\Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
+      "projectUniqueName": "D:\\FU\\Do An\\SEP490-G98\\SEP490-G98\\Backend\\Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
       "projectName": "Warehouse.DataAcces",
-      "projectPath": "C:\\Users\\khanh\\Downloads\\SEP490_G98\\SEP490_G98\\Backend\\Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
-      "packagesPath": "C:\\Users\\khanh\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\khanh\\Downloads\\SEP490_G98\\SEP490_G98\\Backend\\Warehouse.DataAcces\\obj\\",
+      "projectPath": "D:\\FU\\Do An\\SEP490-G98\\SEP490-G98\\Backend\\Warehouse.DataAcces\\Warehouse.DataAcces.csproj",
+      "packagesPath": "C:\\Users\\DIEN MAY XANH\\.nuget\\packages\\",
+      "outputPath": "D:\\FU\\Do An\\SEP490-G98\\SEP490-G98\\Backend\\Warehouse.DataAcces\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\khanh\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\DIEN MAY XANH\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
