@@ -1,0 +1,223 @@
+/* Login Container */
+.login-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-base);
+}
+
+/* Background with warehouse image */
+.login-background {
+  width: 100%;
+  height: 100%;
+  background-image: url('../../assets/images/backgound.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Overlay to darken background */
+.login-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+/* Form container */
+.login-form-container {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Login form với specifications mới */
+.login-form {
+  width: 420px;
+  height: 396px;
+  max-width: 1296px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.60);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 30px 70px 0 rgba(0, 0, 0, 0.25);
+  padding: var(--spacing-2xl) var(--spacing-xl);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+/* Logo section */
+.logo-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.company-logo {
+  max-width: 200px;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
+
+/* Welcome text */
+.welcome-text {
+  color: #6B7280;
+  text-align: center;
+  font-family: Inter;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Input groups */
+.input-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.login-input {
+  width: 100%;
+  padding: 12px var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-base);
+  background: white;
+  color: black;
+  transition: all var(--transition-normal);
+  box-sizing: border-box;
+}
+
+.login-input:focus {
+  outline: none;
+  border: none;
+  box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.1);
+  background: white;
+}
+
+.login-input::placeholder {
+  color: #999;
+  font-size: var(--font-size-base);
+}
+
+/* Login options */
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  color: #6B7280;
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember-me input[type="checkbox"] {
+  margin-right: var(--spacing-sm);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
+
+.forgot-password {
+  color: #64b5f6;
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-normal);
+}
+
+.forgot-password:hover {
+  color: #90caf9;
+  text-decoration: underline;
+}
+
+/* Login button */
+.login-button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #1976d2, #2196f3);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4);
+}
+
+.login-button:hover {
+  background: linear-gradient(135deg, #1565c0, #1976d2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.5);
+}
+
+.login-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.4);
+}
+
+/* Footer text */
+.footer-text {
+  margin-top: var(--spacing-lg);
+  color: #6B7280;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .login-form {
+    width: 90%;
+    max-width: 360px;
+    height: auto;
+    padding: var(--spacing-xl) var(--spacing-lg);
+  }
+  
+  .company-name {
+    font-size: var(--font-size-xl);
+  }
+  
+  .company-subtitle {
+    font-size: 10px;
+  }
+}
+
+/* Animation for form appearance */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-form {
+  animation: fadeInUp 0.6s ease-out;
+}
