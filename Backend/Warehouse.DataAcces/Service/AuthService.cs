@@ -103,7 +103,6 @@ namespace Warehouse.DataAcces.Service
             throw new NotImplementedException("Password reset functionality not yet implemented");
         }
 
-        #region Helper Methods
 
         private bool VerifyPasswordHash(string password, string storedHash)
         {
