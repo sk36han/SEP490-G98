@@ -12,10 +12,10 @@ namespace Warehouse.DataAcces.Repositories
 
     public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
-        protected readonly Mkiwms3Context _context;
-        public Mkiwms3Context Context => _context;
+        protected readonly Mkiwms4Context _context;
+        public Mkiwms4Context Context => _context;
         protected readonly DbSet<T> _dbSet;
-        public GenericRepository(Mkiwms3Context context)
+        public GenericRepository(Mkiwms4Context context)
         {
             _context = context;
             _dbSet = _context.Set<T>();
