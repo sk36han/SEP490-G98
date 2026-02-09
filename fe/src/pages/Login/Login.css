@@ -76,13 +76,9 @@
 
 /* Welcome text */
 .welcome-text {
-  color: #6B7280;
+  color: var(--text-subtitle-color);
   text-align: center;
-  font-family: Inter;
-  font-size: 13px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: normal;
+  font: var(--text-subtitle-style);
   margin-bottom: var(--spacing-lg);
 }
 
@@ -127,7 +123,7 @@
 .remember-me {
   display: flex;
   align-items: center;
-  color: #6B7280;
+  color: var(--text-subtitle-color);
   cursor: pointer;
   user-select: none;
 }
@@ -183,7 +179,7 @@
 /* Footer text */
 .footer-text {
   margin-top: var(--spacing-lg);
-  color: #6B7280;
+  color: var(--text-subtitle-color);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-normal);
 }

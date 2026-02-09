@@ -45,6 +45,9 @@
   
   /* Typography */
   --font-family-base: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-family-inter: 'Inter', sans-serif;
+  --font-family-arial: 'Arial', sans-serif;
+  
   --font-size-xs: 11px;
   --font-size-sm: 13px;
   --font-size-base: 14px;
@@ -61,6 +64,12 @@
   --line-height-tight: 1.2;
   --line-height-normal: 1.4;
   --line-height-relaxed: 1.6;
+  
+  /* Custom Text Styles */
+  --text-subtitle-style: normal 400 13px/normal 'Inter', sans-serif;
+  --text-button-style: normal 700 13.3px/normal 'Arial', sans-serif;
+  --text-subtitle-color: #6B7280;
+  --text-button-color: #033042;
   
   /* Transitions */
   --transition-fast: 0.15s ease;

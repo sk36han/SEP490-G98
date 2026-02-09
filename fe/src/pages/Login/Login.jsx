@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import './Login.css';
 import logo from '../../assets/images/logo.png';
 
@@ -56,7 +57,7 @@ const Login = () => {
                   />
                   Ghi nhớ
                 </label>
-                <a href="#" className="forgot-password">Quên mật khẩu?</a>
+                <Link to="/forgot-password" className="forgot-password">Quên mật khẩu?</Link>
               </div>
               
               <button type="submit" className="login-button">
