@@ -9,7 +9,7 @@ public partial class StocktakeSession
 
     public string StocktakeCode { get; set; } = null!;
 
-    public int WarehouseId { get; set; }
+    public long WarehouseId { get; set; }
 
     public string Mode { get; set; } = null!;
 

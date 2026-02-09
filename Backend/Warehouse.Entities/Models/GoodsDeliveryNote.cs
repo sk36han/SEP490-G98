@@ -11,7 +11,7 @@ public partial class GoodsDeliveryNote
 
     public long ReleaseRequestId { get; set; }
 
-    public int WarehouseId { get; set; }
+    public long WarehouseId { get; set; }
 
     public DateOnly IssueDate { get; set; }
 
