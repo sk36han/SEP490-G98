@@ -5,7 +5,7 @@ namespace Warehouse.Entities.Models;
 
 public partial class UnitOfMeasure
 {
-    public int UomId { get; set; }
+    public long UomId { get; set; }
 
     public string UomCode { get; set; } = null!;
 
