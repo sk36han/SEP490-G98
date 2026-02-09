@@ -13,7 +13,7 @@ public partial class GoodsReceiptNote
 
     public long SupplierId { get; set; }
 
-    public long WarehouseId { get; set; }
+    public int WarehouseId { get; set; }
 
     public DateOnly ReceiptDate { get; set; }
 

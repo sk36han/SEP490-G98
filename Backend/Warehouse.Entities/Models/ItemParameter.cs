@@ -5,7 +5,7 @@ namespace Warehouse.Entities.Models;
 
 public partial class ItemParameter
 {
-    public long ParamId { get; set; }
+    public int ParamId { get; set; }
 
     public string ParamCode { get; set; } = null!;
 

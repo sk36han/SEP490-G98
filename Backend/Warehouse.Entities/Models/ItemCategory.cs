@@ -5,13 +5,13 @@ namespace Warehouse.Entities.Models;
 
 public partial class ItemCategory
 {
-    public long CategoryId { get; set; }
+    public int CategoryId { get; set; }
 
     public string CategoryCode { get; set; } = null!;
 
     public string CategoryName { get; set; } = null!;
 
-    public long? ParentId { get; set; }
+    public int? ParentId { get; set; }
 
     public bool IsActive { get; set; }
 

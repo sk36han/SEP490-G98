@@ -15,6 +15,10 @@ public partial class User
 
     public string? Phone { get; set; }
 
+    public byte[] PasswordHash { get; set; } = null!;
+
+    public byte[] PasswordSalt { get; set; } = null!;
+
     public bool IsActive { get; set; }
 
     public DateTime? LastLoginAt { get; set; }
@@ -22,8 +26,6 @@ public partial class User
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
-
-    public string PasswordHash { get; set; } = null!;
 
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 

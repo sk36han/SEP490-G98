@@ -1,6 +1,4 @@
 ﻿using AutoMapper;
-using Warehouse.Entities.Models;
-using Warehouse.Entities.ModelResponse;
 
 namespace Warehouse.Api.Helper
 {
@@ -8,8 +6,7 @@ namespace Warehouse.Api.Helper
     {
         public MapperClass()
         {
-            // User mappings
-            CreateMap<User, UserResponse>();
+            // add automapper configurations here
         }
     }
 }

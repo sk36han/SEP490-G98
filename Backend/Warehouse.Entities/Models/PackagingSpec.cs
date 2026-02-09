@@ -5,7 +5,7 @@ namespace Warehouse.Entities.Models;
 
 public partial class PackagingSpec
 {
-    public long PackagingSpecId { get; set; }
+    public int PackagingSpecId { get; set; }
 
     public string SpecCode { get; set; } = null!;
 

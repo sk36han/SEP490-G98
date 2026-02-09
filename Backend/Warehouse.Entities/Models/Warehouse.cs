@@ -5,7 +5,7 @@ namespace Warehouse.Entities.Models;
 
 public partial class Warehouse
 {
-    public long WarehouseId { get; set; }
+    public int WarehouseId { get; set; }
 
     public string WarehouseCode { get; set; } = null!;
 

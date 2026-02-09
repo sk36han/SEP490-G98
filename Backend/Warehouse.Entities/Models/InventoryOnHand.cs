@@ -7,7 +7,7 @@ public partial class InventoryOnHand
 {
     public long InventoryId { get; set; }
 
-    public long WarehouseId { get; set; }
+    public int WarehouseId { get; set; }
 
     public long ItemId { get; set; }
 

@@ -9,7 +9,7 @@ public partial class ItemWarehousePolicy
 
     public long ItemId { get; set; }
 
-    public long WarehouseId { get; set; }
+    public int WarehouseId { get; set; }
 
     public decimal MinQty { get; set; }
 

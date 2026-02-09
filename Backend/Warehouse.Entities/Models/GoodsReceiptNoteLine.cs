@@ -15,7 +15,7 @@ public partial class GoodsReceiptNoteLine
 
     public decimal ActualQty { get; set; }
 
-    public long UomId { get; set; }
+    public int UomId { get; set; }
 
     public bool RequiresCocq { get; set; }
 

@@ -5,7 +5,7 @@ namespace Warehouse.Entities.Models;
 
 public partial class Brand
 {
-    public long BrandId { get; set; }
+    public int BrandId { get; set; }
 
     public string BrandName { get; set; } = null!;
 

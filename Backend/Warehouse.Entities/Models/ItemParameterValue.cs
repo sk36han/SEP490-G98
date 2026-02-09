@@ -9,7 +9,7 @@ public partial class ItemParameterValue
 
     public long ItemId { get; set; }
 
-    public long ParamId { get; set; }
+    public int ParamId { get; set; }
 
     public string? ParamValue { get; set; }
 

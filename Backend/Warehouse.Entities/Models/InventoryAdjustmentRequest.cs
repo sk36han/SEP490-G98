@@ -11,7 +11,7 @@ public partial class InventoryAdjustmentRequest
 
     public long? StocktakeId { get; set; }
 
-    public long WarehouseId { get; set; }
+    public int WarehouseId { get; set; }
 
     public long SubmittedBy { get; set; }
 

@@ -15,7 +15,7 @@ public partial class GoodsDeliveryNoteLine
 
     public decimal ActualQty { get; set; }
 
-    public long UomId { get; set; }
+    public int UomId { get; set; }
 
     public virtual GoodsDeliveryNote Gdn { get; set; } = null!;
 

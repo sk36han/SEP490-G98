@@ -5,7 +5,7 @@ namespace Warehouse.Entities.Models;
 
 public partial class Role
 {
-    public long RoleId { get; set; }
+    public int RoleId { get; set; }
 
     public string RoleCode { get; set; } = null!;
 
