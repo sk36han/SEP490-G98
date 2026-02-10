@@ -23,6 +23,8 @@ namespace Warehouse.DataAcces.Service.Interface
         );
 
         Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request);
+
+        Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request);
     }
 }
 

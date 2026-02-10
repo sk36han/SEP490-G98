@@ -145,6 +145,55 @@ namespace Warehouse.DataAcces.Service
                 Items = items
             };
         }
+
+        public async Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request)
+        {
+            // 1️⃣ Check supplier exists
+            var supplier = await _supplierRepository.GetByIdAsync(id);
+            if (supplier == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy nhà cung cấp với ID = {id}");
+            }
+
+            // 2️⃣ Check duplicate Email (if provided and different from current)
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                var allSuppliers = await _supplierRepository.GetAllAsync();
+                var duplicateEmail = allSuppliers.Any(s =>
+                    s.SupplierId != id &&
+                    !string.IsNullOrWhiteSpace(s.Email) &&
+                    s.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+
+                if (duplicateEmail)
+                {
+                    throw new InvalidOperationException("Email đã được sử dụng bởi nhà cung cấp khác");
+                }
+            }
+
+            // 3️⃣ Map request fields to entity (keep SupplierCode & CreatedAt unchanged)
+            supplier.SupplierName = request.SupplierName;
+            supplier.TaxCode = request.TaxCode;
+            supplier.Phone = request.Phone;
+            supplier.Email = request.Email;
+            supplier.Address = request.Address;
+            supplier.IsActive = request.IsActive;
+
+            // 4️⃣ Save
+            await _supplierRepository.UpdateAsync(supplier);
+
+            // 5️⃣ Return response
+            return new SupplierResponse
+            {
+                SupplierId = supplier.SupplierId,
+                SupplierCode = supplier.SupplierCode,
+                SupplierName = supplier.SupplierName,
+                TaxCode = supplier.TaxCode,
+                Phone = supplier.Phone,
+                Email = supplier.Email,
+                Address = supplier.Address,
+                IsActive = supplier.IsActive
+            };
+        }
     }
 }
 
