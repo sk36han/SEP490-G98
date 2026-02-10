@@ -9,6 +9,15 @@ namespace Warehouse.DataAcces.Service.Interface
 {
     public interface ISupplierService
     {
-        Task<List<SupplierResponse>> GetSupplierListAsync();
+        Task<PagedResponse<SupplierResponse>> GetSuppliersAsync(
+            int page,
+            int pageSize,
+            string? supplierCode,
+            string? supplierName,
+            string? taxCode,
+            bool? isActive,
+            DateTime? fromDate,
+            DateTime? toDate
+        );
     }
 }

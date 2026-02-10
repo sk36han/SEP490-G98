@@ -6,7 +6,7 @@ namespace Warehouse.Api.ApiController
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // bắt buộc login
+    [Authorize] // bắt buộc đăng nhập
     public class SupplierController : ControllerBase
     {
         private readonly ISupplierService _supplierService;
@@ -17,9 +17,27 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetSuppliers()
+        public async Task<IActionResult> GetSuppliers(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? supplierCode = null,
+            [FromQuery] string? supplierName = null,
+            [FromQuery] string? taxCode = null,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null)
         {
-            var result = await _supplierService.GetSupplierListAsync();
+            var result = await _supplierService.GetSuppliersAsync(
+                page,
+                pageSize,
+                supplierCode,
+                supplierName,
+                taxCode,
+                isActive,
+                fromDate,
+                toDate
+            );
+
             return Ok(result);
         }
     }
