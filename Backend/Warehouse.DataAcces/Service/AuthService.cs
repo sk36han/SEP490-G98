@@ -51,13 +51,17 @@ namespace Warehouse.DataAcces.Service
             return user;
         }
 
-        public async Task<(string accessToken, DateTime expiresAt, string refreshToken)> IssueTokensAsync(User user, bool rememberMe)
+        public async Task<(string accessToken, DateTime expiresAt)> IssueTokensAsync(User user, bool rememberMe)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"];
             var issuer = jwtSettings["Issuer"];
             var audience = jwtSettings["Audience"];
-            var expirationMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "60");
+
+            // Access token lifetime
+            var defaultMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "60");
+            var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? defaultMinutes.ToString());
+            var expirationMinutes = rememberMe ? rememberMeMinutes : defaultMinutes;
 
             // Create claims
             var claims = new List<Claim>
@@ -89,9 +93,8 @@ namespace Warehouse.DataAcces.Service
             );
 
             var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
-            var refreshToken = GenerateRefreshToken();
 
-            return (accessToken, expiresAt, refreshToken);
+            return (accessToken, expiresAt);
         }
 
         public async Task SendResetPasswordEmailAsync(string email)
@@ -216,7 +219,7 @@ namespace Warehouse.DataAcces.Service
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromMinutes(30)
+                ClockSkew = TimeSpan.Zero
             };
 
             var handler = new JwtSecurityTokenHandler();
@@ -274,16 +277,6 @@ namespace Warehouse.DataAcces.Service
                 return false;
 
             return BCrypt.Net.BCrypt.Verify(password, storedHash);
-        }
-
-        private string GenerateRefreshToken()
-        {
-            var randomNumber = new byte[32];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(randomNumber);
-                return Convert.ToBase64String(randomNumber);
-            }
         }
 
         public static string CreatePasswordHash(string password)

@@ -129,7 +129,7 @@ namespace Warehouse.Api.ApiController
                 }
 
                 // Generate tokens
-                var (accessToken, expiresAt, refreshToken) = await _authService.IssueTokensAsync(user, request.RememberMe);
+                var (accessToken, expiresAt) = await _authService.IssueTokensAsync(user, request.RememberMe);
 
                 // Map user to response DTO
                 var userResponse = _mapper.Map<UserResponse>(user);
@@ -137,7 +137,6 @@ namespace Warehouse.Api.ApiController
                 var response = new LoginResponse
                 {
                     AccessToken = accessToken,
-                    RefreshToken = refreshToken,
                     ExpiresAt = expiresAt,
                     User = userResponse
                 };
