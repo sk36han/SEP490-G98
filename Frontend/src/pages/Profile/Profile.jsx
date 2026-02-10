@@ -23,6 +23,7 @@ const Profile = () => {
     });
 
     const [toast, setToast] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -38,7 +39,17 @@ const Profile = () => {
 
     const handleSave = (e) => {
         e.preventDefault();
+
+        // Validation số điện thoại
+        const phoneRegex = /^0\d{9}$/;
+        if (!phoneRegex.test(formData.phone)) {
+            showToast('Số điện thoại phải có 10 chữ số và bắt đầu bằng số 0!', 'error');
+            return;
+        }
+
+        // TODO: Call API to update profile
         showToast('Đã cập nhật thông tin thành công!', 'success');
+        setIsEditing(false);
     };
 
     const handlePasswordChange = (e) => {
@@ -121,6 +132,23 @@ const Profile = () => {
                     <h2>{formData.fullName}</h2>
                     <p>Chức vụ: {formData.role}</p>
                 </div>
+                <button
+                    className="edit-profile-btn"
+                    onClick={() => setIsEditing(!isEditing)}
+                    title={isEditing ? "Hủy chỉnh sửa" : "Chỉnh sửa thông tin"}
+                >
+                    {isEditing ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    )}
+                </button>
             </div>
 
             <div className="profile-body">
@@ -132,7 +160,9 @@ const Profile = () => {
                             name="fullName"
                             value={formData.fullName}
                             onChange={handleChange}
+                            disabled={!isEditing}
                             className="form-input"
+                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         />
                     </div>
 
@@ -156,7 +186,10 @@ const Profile = () => {
                             name="phone"
                             value={formData.phone}
                             onChange={handleChange}
+                            disabled={!isEditing}
                             className="form-input"
+                            placeholder="Nhập số điện thoại (10 chữ số)"
+                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         />
                     </div>
 
@@ -166,7 +199,9 @@ const Profile = () => {
                             name="gender"
                             value={formData.gender}
                             onChange={handleChange}
+                            disabled={!isEditing}
                             className="form-input"
+                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         >
                             <option value="Nam">Nam</option>
                             <option value="Nữ">Nữ</option>
@@ -181,13 +216,24 @@ const Profile = () => {
                             name="dob"
                             value={formData.dob}
                             onChange={handleChange}
+                            disabled={!isEditing}
                             className="form-input"
+                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         />
                     </div>
 
-                    <div className="form-actions full-width" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                        <button type="submit" className="btn-save">Lưu thay đổi</button>
-                    </div>
+                    {isEditing && (
+                        <div className="form-actions full-width" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button
+                                type="button"
+                                className="btn-cancel"
+                                onClick={() => setIsEditing(false)}
+                            >
+                                Hủy
+                            </button>
+                            <button type="submit" className="btn-save">Lưu thay đổi</button>
+                        </div>
+                    )}
                 </form>
             </div>
         </>
