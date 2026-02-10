@@ -127,6 +127,6 @@ namespace Warehouse.DataAcces.Service
             return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
         }
 
-        #endregion
+       // #endregion
     }
 }

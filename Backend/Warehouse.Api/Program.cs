@@ -67,9 +67,9 @@ namespace Warehouse.Api
 
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
-
-            // JWT Authentication
-            var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+			builder.Services.AddScoped<IUserService, UserService>();
+			// JWT Authentication
+			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"];
 
             builder.Services.AddAuthentication(options =>
