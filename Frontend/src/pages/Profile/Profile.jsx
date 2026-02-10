@@ -15,6 +15,12 @@ const Profile = () => {
         role: 'Quản lý kho'
     });
 
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -26,6 +32,44 @@ const Profile = () => {
     const handleSave = (e) => {
         e.preventDefault();
         alert('Đã cập nhật thông tin thành công!');
+    };
+
+    const handlePasswordChange = (e) => {
+        const { name, value } = e.target;
+        setPasswordData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handlePasswordSubmit = (e) => {
+        e.preventDefault();
+
+        // Validation
+        if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+            alert('Vui lòng điền đầy đủ thông tin!');
+            return;
+        }
+
+        if (passwordData.newPassword.length < 6) {
+            alert('Mật khẩu mới phải có ít nhất 6 ký tự!');
+            return;
+        }
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            alert('Mật khẩu xác nhận không khớp!');
+            return;
+        }
+
+        // TODO: Call API to change password
+        alert('Đổi mật khẩu thành công!');
+
+        // Reset form
+        setPasswordData({
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+        });
     };
 
     const renderProfileContent = () => (
@@ -124,14 +168,88 @@ const Profile = () => {
 
     const renderSettingsContent = () => (
         <div className="settings-body">
-            <div style={{ padding: '40px', textAlign: 'center' }}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-                <h3 style={{ color: '#666', marginTop: '16px' }}>Thiết lập tài khoản</h3>
-                <p style={{ color: '#999' }}>Chức năng này đang được phát triển</p>
+            <div className="settings-header">
+                <h2>Đổi mật khẩu</h2>
+                <p>Cập nhật mật khẩu để bảo mật tài khoản của bạn</p>
             </div>
+
+            <form onSubmit={handlePasswordSubmit} className="password-form">
+                <div className="form-group-password">
+                    <label className="form-label">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Mật khẩu hiện tại
+                    </label>
+                    <input
+                        type="password"
+                        name="currentPassword"
+                        value={passwordData.currentPassword}
+                        onChange={handlePasswordChange}
+                        className="form-input-password"
+                        placeholder="Nhập mật khẩu hiện tại"
+                        required
+                    />
+                </div>
+
+                <div className="form-group-password">
+                    <label className="form-label">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Mật khẩu mới
+                    </label>
+                    <input
+                        type="password"
+                        name="newPassword"
+                        value={passwordData.newPassword}
+                        onChange={handlePasswordChange}
+                        className="form-input-password"
+                        placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                        required
+                        minLength="6"
+                    />
+                    <span className="form-hint">Mật khẩu phải có ít nhất 6 ký tự</span>
+                </div>
+
+                <div className="form-group-password">
+                    <label className="form-label">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Xác nhận mật khẩu mới
+                    </label>
+                    <input
+                        type="password"
+                        name="confirmPassword"
+                        value={passwordData.confirmPassword}
+                        onChange={handlePasswordChange}
+                        className="form-input-password"
+                        placeholder="Nhập lại mật khẩu mới"
+                        required
+                    />
+                </div>
+
+                <div className="password-form-actions">
+                    <button
+                        type="button"
+                        className="btn-cancel"
+                        onClick={() => setPasswordData({
+                            currentPassword: '',
+                            newPassword: '',
+                            confirmPassword: ''
+                        })}
+                    >
+                        Hủy
+                    </button>
+                    <button type="submit" className="btn-save">
+                        Đổi mật khẩu
+                    </button>
+                </div>
+            </form>
         </div>
     );
 
