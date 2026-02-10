@@ -8,6 +8,7 @@ using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
+using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -18,6 +19,45 @@ namespace Warehouse.DataAcces.Service
         public SupplierService(IGenericRepository<Supplier> supplierRepository)
         {
             _supplierRepository = supplierRepository;
+        }
+
+        public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request)
+        {
+            // 1️⃣ Check duplicate SupplierCode
+            var suppliers = await _supplierRepository.GetAllAsync();
+            if (suppliers.Any(s => s.SupplierCode == request.SupplierCode))
+            {
+                throw new InvalidOperationException("Supplier code already exists");
+            }
+
+            // 2️⃣ Create entity
+            var supplier = new Supplier
+            {
+                SupplierCode = request.SupplierCode,
+                SupplierName = request.SupplierName,
+                TaxCode = request.TaxCode,
+                Phone = request.Phone,
+                Email = request.Email,
+                Address = request.Address,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // 3️⃣ Save
+            await _supplierRepository.CreateAsync(supplier);
+
+            // 4️⃣ Return response
+            return new SupplierResponse
+            {
+                SupplierId = supplier.SupplierId,
+                SupplierCode = supplier.SupplierCode,
+                SupplierName = supplier.SupplierName,
+                TaxCode = supplier.TaxCode,
+                Phone = supplier.Phone,
+                Email = supplier.Email,
+                Address = supplier.Address,
+                IsActive = supplier.IsActive
+            };
         }
 
         public async Task<PagedResponse<SupplierResponse>> GetSuppliersAsync(

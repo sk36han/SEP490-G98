@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Warehouse.Entities.ModelResponse;
+using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.DataAcces.Service.Interface
 {
@@ -20,6 +21,8 @@ namespace Warehouse.DataAcces.Service.Interface
             DateTime? fromDate,
             DateTime? toDate
         );
+
+        Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request);
     }
 }
 

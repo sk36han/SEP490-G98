@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.Api.ApiController
 {
@@ -14,6 +15,26 @@ namespace Warehouse.Api.ApiController
         public SupplierController(ISupplierService supplierService)
         {
             _supplierService = supplierService;
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> CreateSupplier([FromBody] CreateSupplierRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var result = await _supplierService.CreateSupplierAsync(request);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpGet]
