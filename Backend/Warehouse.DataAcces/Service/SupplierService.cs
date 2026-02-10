@@ -194,6 +194,43 @@ namespace Warehouse.DataAcces.Service
                 IsActive = supplier.IsActive
             };
         }
+
+        public async Task<SupplierResponse> ToggleSupplierStatusAsync(long id, bool isActive)
+        {
+            // 1️⃣ Check supplier exists
+            var supplier = await _supplierRepository.GetByIdAsync(id);
+            if (supplier == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy nhà cung cấp với ID = {id}");
+            }
+
+            // 2️⃣ Check new status differs from current status
+            if (supplier.IsActive == isActive)
+            {
+                var statusText = isActive ? "đang hoạt động" : "đã bị vô hiệu hóa";
+                throw new InvalidOperationException(
+                    $"Nhà cung cấp '{supplier.SupplierName}' hiện tại {statusText}. Không cần thay đổi.");
+            }
+
+            // 3️⃣ Update only IsActive (keep all other fields unchanged)
+            supplier.IsActive = isActive;
+
+            // 4️⃣ Save
+            await _supplierRepository.UpdateAsync(supplier);
+
+            // 5️⃣ Return response
+            return new SupplierResponse
+            {
+                SupplierId = supplier.SupplierId,
+                SupplierCode = supplier.SupplierCode,
+                SupplierName = supplier.SupplierName,
+                TaxCode = supplier.TaxCode,
+                Phone = supplier.Phone,
+                Email = supplier.Email,
+                Address = supplier.Address,
+                IsActive = supplier.IsActive
+            };
+        }
     }
 }
 

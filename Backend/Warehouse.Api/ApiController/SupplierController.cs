@@ -85,5 +85,24 @@ namespace Warehouse.Api.ApiController
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpPatch("{id}/status")]
+        [Authorize]
+        public async Task<IActionResult> ToggleSupplierStatus(long id, [FromQuery] bool isActive)
+        {
+            try
+            {
+                var result = await _supplierService.ToggleSupplierStatusAsync(id, isActive);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
