@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './Profile.css';
 import { useNavigate } from 'react-router-dom';
+import Toast from '../../components/Toast/Toast';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -21,6 +22,12 @@ const Profile = () => {
         confirmPassword: ''
     });
 
+    const [toast, setToast] = useState(null);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -31,7 +38,7 @@ const Profile = () => {
 
     const handleSave = (e) => {
         e.preventDefault();
-        alert('Đã cập nhật thông tin thành công!');
+        showToast('Đã cập nhật thông tin thành công!', 'success');
     };
 
     const handlePasswordChange = (e) => {
@@ -47,22 +54,42 @@ const Profile = () => {
 
         // Validation
         if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-            alert('Vui lòng điền đầy đủ thông tin!');
+            showToast('Vui lòng điền đầy đủ thông tin!', 'error');
             return;
         }
 
+        // Validation - Độ dài tối thiểu
         if (passwordData.newPassword.length < 6) {
-            alert('Mật khẩu mới phải có ít nhất 6 ký tự!');
+            showToast('Mật khẩu mới phải có ít nhất 6 ký tự!', 'error');
             return;
         }
 
+        // Validation - Phải có ít nhất 1 chữ hoa
+        if (!/[A-Z]/.test(passwordData.newPassword)) {
+            showToast('Mật khẩu mới phải có ít nhất 1 chữ in hoa (A-Z)!', 'error');
+            return;
+        }
+
+        // Validation - Phải có ít nhất 1 số
+        if (!/[0-9]/.test(passwordData.newPassword)) {
+            showToast('Mật khẩu mới phải có ít nhất 1 chữ số (0-9)!', 'error');
+            return;
+        }
+
+        // Validation - Phải có ít nhất 1 ký tự đặc biệt
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(passwordData.newPassword)) {
+            showToast('Mật khẩu mới phải có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)!', 'error');
+            return;
+        }
+
+        // Validation - Xác nhận mật khẩu khớp
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-            alert('Mật khẩu xác nhận không khớp!');
+            showToast('Mật khẩu xác nhận không khớp!', 'error');
             return;
         }
 
         // TODO: Call API to change password
-        alert('Đổi mật khẩu thành công!');
+        showToast('Đổi mật khẩu thành công!', 'success');
 
         // Reset form
         setPasswordData({
@@ -92,7 +119,7 @@ const Profile = () => {
                 </div>
                 <div className="header-info">
                     <h2>{formData.fullName}</h2>
-                    <p>{formData.role}</p>
+                    <p>Chức vụ: {formData.role}</p>
                 </div>
             </div>
 
@@ -211,7 +238,7 @@ const Profile = () => {
                         required
                         minLength="6"
                     />
-                    <span className="form-hint">Mật khẩu phải có ít nhất 6 ký tự</span>
+                    <span className="form-hint">Mật khẩu phải có ít nhất 6 ký tự, 1 chữ hoa, 1 số và 1 ký tự đặc biệt</span>
                 </div>
 
                 <div className="form-group-password">
@@ -317,6 +344,15 @@ const Profile = () => {
                 </div>
 
             </div>
+
+            {/* Toast Notification */}
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };
