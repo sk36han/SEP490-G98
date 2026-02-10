@@ -7,6 +7,7 @@ using System.Text;
 using Warehouse.DataAcces.Service;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.DataAcces.Repositories;
 
 namespace Warehouse.Api
 {
@@ -27,8 +28,24 @@ namespace Warehouse.Api
             {
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
             });
+<<<<<<< Updated upstream
            
+=======
+
+            // AutoMapper
+            builder.Services.AddAutoMapper(cfg =>
+            {
+                cfg.AddProfile<MapperClass>();
+            });
+
+            // Repositories
+            builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+            // Services
+>>>>>>> Stashed changes
             builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<ISupplierService, SupplierService>();
+
 
             var app = builder.Build();
 
