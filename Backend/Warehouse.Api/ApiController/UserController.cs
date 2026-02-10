@@ -26,9 +26,9 @@ namespace Warehouse.Api.ApiController
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = ex.Message });
+				// Ghi log lỗi tại đây (Serilog, NLog...)
+				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
 			}
 		}
-	
- }
+	}
 }

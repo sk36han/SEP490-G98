@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -19,73 +18,24 @@ namespace Warehouse.DataAcces.Service
 			_context = context;
 		}
 
-		public async Task<(IEnumerable<UserDto> Data, int TotalCount)> GetUserListAsync(UserFilterRequest filter)
+		public async Task<PagedResult<UserDto>> GetUserListAsync(UserFilterRequest filter)
 		{
-			// 1. Khởi tạo Query
+			
 			var query = _context.Users
 				.Include(u => u.UserRoleUser)
 				.ThenInclude(ur => ur.Role)
-				.AsNoTracking()
-				.AsQueryable();
+				.AsNoTracking();
 
-			// 2. Filter: Trạng thái
-			if (filter.IsActive.HasValue)
-			{
-				query = query.Where(u => u.IsActive == filter.IsActive.Value);
-			}
+			
+			query = ApplyFilters(query, filter);
+			query = ApplySearch(query, filter.SearchKeyword);
+			query = ApplySorting(query, filter.IsNameAscending);
 
-			// 3. Filter: Quyền hạn
-			if (filter.RoleId.HasValue)
-			{
-				query = query.Where(u => u.UserRoleUser != null && u.UserRoleUser.RoleId == filter.RoleId);
-			}
-
-			// 4. Filter: Tìm kiếm thông minh (Smart Search)
-			if (!string.IsNullOrEmpty(filter.SearchKeyword))
-			{
-				string key = filter.SearchKeyword.Trim().ToLower();
-
-				// Kiểm tra xem có phải đang tìm số (ID/SĐT) không
-				if (long.TryParse(key, out long searchId))
-				{
-					// Tìm chính xác UserId HOẶC Số điện thoại chứa số đó
-					query = query.Where(u => u.UserId == searchId || (u.Phone != null && u.Phone.Contains(key)));
-				}
-				else
-				{
-					// Tìm theo Text (Username, Email, FullName)
-					// Lưu ý: Cần check Username != null trước khi .ToLower() để tránh lỗi
-					query = query.Where(u => (u.Username != null && u.Username.ToLower().Contains(key))
-										  || u.Email.ToLower().Contains(key)
-										  || u.FullName.ToLower().Contains(key));
-				}
-			}
-
-			// 5. Tính tổng số bản ghi (trước khi phân trang)
+			
 			int totalCount = await query.CountAsync();
 
-			// 6. Sắp xếp (Sorting) - Logic đơn giản hóa
-			if (filter.IsNameAscending.HasValue)
-			{
-				if (filter.IsNameAscending.Value)
-				{
-					// True -> Tăng dần (A -> Z) theo Tên đầy đủ
-					query = query.OrderBy(u => u.FullName);
-				}
-				else
-				{
-					// False -> Giảm dần (Z -> A) theo Tên đầy đủ
-					query = query.OrderByDescending(u => u.FullName);
-				}
-			}
-			else
-			{
-				// Null -> Mặc định: Người mới nhất lên đầu
-				query = query.OrderByDescending(u => u.UserId);
-			}
-
-			// 7. Phân trang & Mapping dữ liệu
-			var data = await query
+			
+			var items = await query
 				.Skip((filter.PageNumber - 1) * filter.PageSize)
 				.Take(filter.PageSize)
 				.Select(u => new UserDto
@@ -97,15 +47,59 @@ namespace Warehouse.DataAcces.Service
 					Phone = u.Phone,
 					IsActive = u.IsActive,
 					LastLoginAt = u.LastLoginAt,
-
-					// Xử lý RoleName an toàn
+					CreatedAt = u.CreatedAt,
 					RoleName = (u.UserRoleUser != null && u.UserRoleUser.Role != null)
-							   ? u.UserRoleUser.Role.RoleName
-							   : "N/A"
+							   ? u.UserRoleUser.Role.RoleName : "N/A"
 				})
 				.ToListAsync();
 
-			return (data, totalCount);
+			
+			return new PagedResult<UserDto>(items, totalCount, filter.PageNumber, filter.PageSize);
+		}
+
+		
+
+		private IQueryable<User> ApplyFilters(IQueryable<User> query, UserFilterRequest filter)
+		{
+			if (filter.IsActive.HasValue)
+				query = query.Where(u => u.IsActive == filter.IsActive.Value);
+
+			if (filter.RoleId.HasValue)
+				query = query.Where(u => u.UserRoleUser != null && u.UserRoleUser.RoleId == filter.RoleId);
+
+			return query;
+		}
+
+		private IQueryable<User> ApplySearch(IQueryable<User> query, string? keyword)
+		{
+			if (string.IsNullOrWhiteSpace(keyword)) return query;
+
+			string key = keyword.Trim().ToLower();
+
+			
+			if (long.TryParse(key, out long searchId))
+			{
+				return query.Where(u => u.UserId == searchId || (u.Phone != null && u.Phone.Contains(key)));
+			}
+
+			
+			return query.Where(u =>
+				(u.Username != null && u.Username.ToLower().Contains(key)) ||
+				(u.Email != null && u.Email.ToLower().Contains(key)) ||
+				(u.FullName != null && u.FullName.ToLower().Contains(key))
+			);
+		}
+
+		private IQueryable<User> ApplySorting(IQueryable<User> query, bool? isNameAscending)
+		{
+			if (isNameAscending.HasValue)
+			{
+				return isNameAscending.Value
+					? query.OrderBy(u => u.FullName)
+					: query.OrderByDescending(u => u.FullName);
+			}
+			
+			return query.OrderByDescending(u => u.UserId);
 		}
 	}
 }

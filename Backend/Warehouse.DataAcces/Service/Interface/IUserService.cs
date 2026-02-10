@@ -12,6 +12,6 @@ namespace Warehouse.DataAcces.Service.Interface
 {
 	public interface IUserService
 	{
-		Task<(IEnumerable<UserDto> Data, int TotalCount)> GetUserListAsync(UserFilterRequest filter);
+		Task<PagedResult<UserDto>> GetUserListAsync(UserFilterRequest filter);
 	}
 }
