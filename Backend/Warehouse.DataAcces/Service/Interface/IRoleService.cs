@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Warehouse.Entities.ModelDto;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 

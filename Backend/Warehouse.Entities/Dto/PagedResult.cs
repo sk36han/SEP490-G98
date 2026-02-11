@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
-namespace Warehouse.Entities.ModelResponse
+namespace Warehouse.Entities.ModelDto
 {
 	public class PagedResult<T>
 	{

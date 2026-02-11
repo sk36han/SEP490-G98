@@ -1,11 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.Api.ApiController
 {
-	[Route("api/[controller]")]
+	[Route("api/admin/users")]
 	[ApiController]
 	public class AdminController : ControllerBase
 	{
@@ -16,8 +15,12 @@ namespace Warehouse.Api.ApiController
 			_userService = userService;
 		}
 
-		[HttpGet("UserAccountlist")]
-		public async Task<IActionResult> GetList([FromQuery] UserFilterRequest filter)
+		/// <summary>
+		/// Lấy danh sách user (có filter, paging, search)
+		/// GET: /api/users
+		/// </summary>
+		[HttpGet]
+		public async Task<IActionResult> GetUsers([FromQuery] UserFilterRequest filter)
 		{
 			try
 			{
@@ -31,20 +34,20 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
-		/// Tạo tài khoản người dùng mới bằng email và mật khẩu ngẫu nhiên.
+		/// Tạo tài khoản user
+		/// POST: /api/users
 		/// </summary>
-		[HttpPost("createUserAccount")]
+		[HttpPost]
 		public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
 		{
 			try
 			{
 				if (!ModelState.IsValid)
-				{
 					return BadRequest(ModelState);
-				}
 
 				var result = await _userService.CreateUserAccountAsync(request);
-				return Ok(new
+
+				return Created("", new
 				{
 					message = "Tạo tài khoản thành công.",
 					data = result
@@ -61,19 +64,19 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
-		/// Cập nhật thông tin người dùng.
+		/// Update thông tin user
+		/// PUT: /api/users/{id}
 		/// </summary>
-		[HttpPut("updateAccount/{id}")]
+		[HttpPut("{id}")]
 		public async Task<IActionResult> UpdateUser(long id, [FromBody] UpdateUserRequest request)
 		{
 			try
 			{
 				if (!ModelState.IsValid)
-				{
 					return BadRequest(ModelState);
-				}
 
 				var result = await _userService.UpdateUserAsync(id, request);
+
 				return Ok(new
 				{
 					message = "Cập nhật thông tin người dùng thành công.",
@@ -95,18 +98,19 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
-		/// Enable hoặc Disable tài khoản người dùng.
+		/// Enable/Disable user
+		/// PATCH: /api/users/{id}/status
 		/// </summary>
-		[HttpPut("toggle-status/{id}")]
+		[HttpPatch("{id}/status")]
 		public async Task<IActionResult> ToggleUserStatus(long id)
 		{
 			try
 			{
 				var result = await _userService.ToggleUserStatusAsync(id);
-				string status = result.IsActive ? "Enable" : "Disable";
+
 				return Ok(new
 				{
-					message = $"Đã chuyển trạng thái tài khoản thành {status}.",
+					message = $"Đã chuyển trạng thái tài khoản thành {(result.IsActive ? "Enable" : "Disable")}.",
 					data = result
 				});
 			}

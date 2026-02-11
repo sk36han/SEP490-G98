@@ -1,4 +1,4 @@
-namespace Warehouse.Entities.ModelResponse
+namespace Warehouse.Entities.ModelDto
 {
 	public class RoleDto
 	{

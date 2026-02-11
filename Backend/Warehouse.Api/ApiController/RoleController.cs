@@ -18,7 +18,7 @@ namespace Warehouse.Api.ApiController
 		/// <summary>
 		/// Lấy danh sách tất cả các role.
 		/// </summary>
-		[HttpGet("list")]
+		[HttpGet]
 		public async Task<IActionResult> GetAllRoles()
 		{
 			try
@@ -35,7 +35,7 @@ namespace Warehouse.Api.ApiController
 		/// <summary>
 		/// Tạo role mới.
 		/// </summary>
-		[HttpPost("create")]
+		[HttpPost]
 		public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
 		{
 			try
@@ -65,7 +65,7 @@ namespace Warehouse.Api.ApiController
 		/// <summary>
 		/// Cập nhật thông tin role.
 		/// </summary>
-		[HttpPut("update/{id}")]
+		[HttpPut("{id}")]
 		public async Task<IActionResult> UpdateRole(long id, [FromBody] UpdateRoleRequest request)
 		{
 			try
