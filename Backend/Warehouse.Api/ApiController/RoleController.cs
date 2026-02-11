@@ -1,4 +1,3 @@
-﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -7,21 +6,24 @@ namespace Warehouse.Api.ApiController
 {
 	[Route("api/[controller]")]
 	[ApiController]
-	public class UserController : ControllerBase
+	public class RoleController : ControllerBase
 	{
-		private readonly IUserService _userService;
+		private readonly IRoleService _roleService;
 
-		public UserController(IUserService userService)
+		public RoleController(IRoleService roleService)
 		{
-			_userService = userService;
+			_roleService = roleService;
 		}
 
+		/// <summary>
+		/// Lấy danh sách tất cả các role.
+		/// </summary>
 		[HttpGet("list")]
-		public async Task<IActionResult> GetList([FromQuery] UserFilterRequest filter)
+		public async Task<IActionResult> GetAllRoles()
 		{
 			try
 			{
-				var result = await _userService.GetUserListAsync(filter);
+				var result = await _roleService.GetAllRolesAsync();
 				return Ok(result);
 			}
 			catch (Exception ex)
@@ -31,10 +33,10 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
-		/// Tạo tài khoản người dùng mới bằng email và mật khẩu ngẫu nhiên.
+		/// Tạo role mới.
 		/// </summary>
 		[HttpPost("create")]
-		public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
+		public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
 		{
 			try
 			{
@@ -43,10 +45,10 @@ namespace Warehouse.Api.ApiController
 					return BadRequest(ModelState);
 				}
 
-				var result = await _userService.CreateUserAccountAsync(request);
+				var result = await _roleService.CreateRoleAsync(request);
 				return Ok(new
 				{
-					message = "Tạo tài khoản thành công.",
+					message = "Tạo role thành công.",
 					data = result
 				});
 			}
@@ -61,10 +63,10 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
-		/// Cập nhật thông tin người dùng.
+		/// Cập nhật thông tin role.
 		/// </summary>
 		[HttpPut("update/{id}")]
-		public async Task<IActionResult> UpdateUser(long id, [FromBody] UpdateUserRequest request)
+		public async Task<IActionResult> UpdateRole(long id, [FromBody] UpdateRoleRequest request)
 		{
 			try
 			{
@@ -73,10 +75,10 @@ namespace Warehouse.Api.ApiController
 					return BadRequest(ModelState);
 				}
 
-				var result = await _userService.UpdateUserAsync(id, request);
+				var result = await _roleService.UpdateRoleAsync(id, request);
 				return Ok(new
 				{
-					message = "Cập nhật thông tin người dùng thành công.",
+					message = "Cập nhật role thành công.",
 					data = result
 				});
 			}
@@ -95,24 +97,32 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
-		/// Enable hoặc Disable tài khoản người dùng.
+		/// Gán role cho user.
 		/// </summary>
-		[HttpPut("toggle-status/{id}")]
-		public async Task<IActionResult> ToggleUserStatus(long id)
+		[HttpPost("assign")]
+		public async Task<IActionResult> AssignRoleToUser([FromBody] AssignRoleRequest request)
 		{
 			try
 			{
-				var result = await _userService.ToggleUserStatusAsync(id);
-				string status = result.IsActive ? "Enable" : "Disable";
+				if (!ModelState.IsValid)
+				{
+					return BadRequest(ModelState);
+				}
+
+				var result = await _roleService.AssignRoleToUserAsync(request);
 				return Ok(new
 				{
-					message = $"Đã chuyển trạng thái tài khoản thành {status}.",
+					message = "Gán role cho người dùng thành công.",
 					data = result
 				});
 			}
 			catch (KeyNotFoundException ex)
 			{
 				return NotFound(new { message = ex.Message });
+			}
+			catch (InvalidOperationException ex)
+			{
+				return BadRequest(new { message = ex.Message });
 			}
 			catch (Exception ex)
 			{

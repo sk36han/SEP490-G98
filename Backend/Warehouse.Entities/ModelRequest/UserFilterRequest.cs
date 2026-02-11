@@ -2,14 +2,7 @@
 {
 	public class UserFilterRequest
 	{
-		public string? SearchKeyword { get; set; }
-		public long? RoleId { get; set; }
-		public bool? IsActive { get; set; }
-
-		// true: A-Z | false: Z-A | null: Mặc định
-		public bool? IsNameAscending { get; set; }
-
-		// Encapsulation: Đảm bảo PageNumber luôn >= 1
+		// Đảm bảo PageNumber luôn >= 1
 		private int _pageNumber = 1;
 		public int PageNumber
 		{
