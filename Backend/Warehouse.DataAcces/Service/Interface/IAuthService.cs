@@ -12,8 +12,9 @@ namespace Warehouse.DataAcces.Service.Interface
     {
 
         Task<User?> ValidateLoginAsync(string identifier, string password);
-        Task<(string accessToken, DateTime expiresAt, string refreshToken)> IssueTokensAsync(User user, bool rememberMe);
+        Task<(string accessToken, DateTime expiresAt)> IssueTokensAsync(User user, bool rememberMe);
         Task SendResetPasswordEmailAsync(string email);
         Task ResetPasswordAsync(string token, string newPassword);
+        Task<bool> ChangePasswordByEmailAsync(string email, string newPassword);
     }
 }
