@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelDto;
 using Warehouse.Entities.ModelRequest;
@@ -11,13 +13,12 @@ using Warehouse.Entities.Models;
 
 namespace Warehouse.DataAcces.Service
 {
-	public class RoleService : IRoleService
+	public class RoleService : GenericRepository<Role>, IRoleService
 	{
-		private readonly Mkiwms4Context _context;
-
-		public RoleService(Mkiwms4Context context)
+		private readonly IConfiguration _configuration;
+		public RoleService(Mkiwms4Context context, IConfiguration configuration) : base(context)
 		{
-			_context = context;
+			_configuration = configuration;
 		}
 
 		public async Task<List<RoleDto>> GetAllRolesAsync()

@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelDto;
 using Warehouse.Entities.ModelRequest;
@@ -11,15 +13,15 @@ using Warehouse.Entities.Models;
 
 namespace Warehouse.DataAcces.Service
 {
-	public class UserService : IUserService
+	public class UserService : GenericRepository<User>, IUserService
 	{
-		private readonly Mkiwms4Context _context;
-
-		public UserService(Mkiwms4Context context)
+		private readonly IConfiguration _configuration;
+		private readonly IAuthService _emailService;
+		public UserService(Mkiwms4Context context, IConfiguration configuration, IAuthService emailService) : base(context)
 		{
-			_context = context;
+			_configuration = configuration;
+			_emailService = emailService;
 		}
-
 		public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request)
 		{
 			// Kiểm tra email đã tồn tại chưa
@@ -71,6 +73,20 @@ namespace Warehouse.DataAcces.Service
 			};
 			_context.UserRoles.Add(userRole);
 			await _context.SaveChangesAsync();
+
+			// Gửi email thông báo tài khoản
+			string subject = "Thông tin tài khoản của bạn";
+			string body = $@"
+				<h2>Chào {newUser.FullName},</h2>
+				<p>Tài khoản của bạn đã được tạo thành công. Dưới đây là thông tin đăng nhập:</p>
+				<table style='border-collapse: collapse;'>
+					<tr><td style='padding: 8px; font-weight: bold;'>Email:</td><td style='padding: 8px;'>{newUser.Email}</td></tr>
+					<tr><td style='padding: 8px; font-weight: bold;'>Mật khẩu:</td><td style='padding: 8px;'>{generatedPassword}</td></tr>
+				</table>
+				<p>Vui lòng đổi mật khẩu sau khi đăng nhập lần đầu.</p>
+				<p>Trân trọng,<br/>Hệ thống quản lý kho</p>";
+
+			await _emailService.SendEmailUserAccountAsync(newUser.Email, subject, body);
 
 			return new CreateUserResponse
 			{
