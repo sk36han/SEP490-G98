@@ -11,7 +11,7 @@ namespace Warehouse.Entities.ModelResponse
 		public long UserId { get; set; }
 		public string Email { get; set; } = null!;
 		public string FullName { get; set; } = null!;
-		public string? Phone { get; set; }
+		public string? Username { get; set; }
 		public string GeneratedPassword { get; set; } = null!;
 		public string? RoleName { get; set; }
 		public DateTime CreatedAt { get; set; }

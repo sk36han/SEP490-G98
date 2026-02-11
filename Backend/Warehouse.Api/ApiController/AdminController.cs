@@ -7,16 +7,16 @@ namespace Warehouse.Api.ApiController
 {
 	[Route("api/[controller]")]
 	[ApiController]
-	public class UserController : ControllerBase
+	public class AdminController : ControllerBase
 	{
 		private readonly IUserService _userService;
 
-		public UserController(IUserService userService)
+		public AdminController(IUserService userService)
 		{
 			_userService = userService;
 		}
 
-		[HttpGet("list")]
+		[HttpGet("UserAccountlist")]
 		public async Task<IActionResult> GetList([FromQuery] UserFilterRequest filter)
 		{
 			try
@@ -33,7 +33,7 @@ namespace Warehouse.Api.ApiController
 		/// <summary>
 		/// Tạo tài khoản người dùng mới bằng email và mật khẩu ngẫu nhiên.
 		/// </summary>
-		[HttpPost("create")]
+		[HttpPost("createUserAccount")]
 		public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
 		{
 			try
@@ -63,7 +63,7 @@ namespace Warehouse.Api.ApiController
 		/// <summary>
 		/// Cập nhật thông tin người dùng.
 		/// </summary>
-		[HttpPut("update/{id}")]
+		[HttpPut("updateAccount/{id}")]
 		public async Task<IActionResult> UpdateUser(long id, [FromBody] UpdateUserRequest request)
 		{
 			try

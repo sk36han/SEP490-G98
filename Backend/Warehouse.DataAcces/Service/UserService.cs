@@ -31,6 +31,16 @@ namespace Warehouse.DataAcces.Service
 				throw new InvalidOperationException("Email này đã được sử dụng.");
 			}
 
+			// Kiểm tra role tồn tại
+			var role = await _context.Roles.FindAsync(request.RoleId);
+			if (role == null)
+			{
+				throw new InvalidOperationException("Role không tồn tại.");
+			}
+
+			// Tự động sinh username từ FullName
+			string generatedUsername = await GenerateUsernameAsync(request.FullName);
+
 			// Tạo mật khẩu ngẫu nhiên
 			string generatedPassword = GenerateRandomPassword(12);
 
@@ -42,8 +52,7 @@ namespace Warehouse.DataAcces.Service
 			{
 				Email = request.Email,
 				FullName = request.FullName,
-				Phone = request.Phone,
-				Username = request.Email.Split('@')[0], // Lấy phần trước @ làm username
+				Username = generatedUsername,
 				PasswordHash = passwordHash,
 				IsActive = true,
 				CreatedAt = DateTime.UtcNow,
@@ -53,13 +62,7 @@ namespace Warehouse.DataAcces.Service
 			_context.Users.Add(newUser);
 			await _context.SaveChangesAsync();
 
-			// Gán role (bắt buộc)
-			var role = await _context.Roles.FindAsync(request.RoleId);
-			if (role == null)
-			{
-				throw new InvalidOperationException("Role không tồn tại.");
-			}
-
+			// Gán role
 			var userRole = new UserRole
 			{
 				UserId = newUser.UserId,
@@ -68,18 +71,82 @@ namespace Warehouse.DataAcces.Service
 			};
 			_context.UserRoles.Add(userRole);
 			await _context.SaveChangesAsync();
-			string roleName = role.RoleName;
 
 			return new CreateUserResponse
 			{
 				UserId = newUser.UserId,
 				Email = newUser.Email,
 				FullName = newUser.FullName,
-				Phone = newUser.Phone,
+				Username = newUser.Username,
 				GeneratedPassword = generatedPassword,
-				RoleName = roleName,
+				RoleName = role.RoleName,
 				CreatedAt = newUser.CreatedAt
 			};
+		}
+
+		/// <summary>
+		/// Tự động sinh username từ FullName.
+		/// Số thứ tự là số toàn hệ thống (tổng user + 1).
+		/// Ví dụ: User 1 "Vũ Đức Thắng" → "thangvd1", User 2 "Vũ Hải Nam" → "namvh2"...
+		/// </summary>
+		private async Task<string> GenerateUsernameAsync(string fullName)
+		{
+			// Bỏ dấu tiếng Việt
+			string normalized = RemoveDiacritics(fullName.Trim().ToLower());
+
+			// Tách các phần tên
+			string[] parts = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+			if (parts.Length == 0)
+			{
+				throw new InvalidOperationException("Họ tên không hợp lệ.");
+			}
+
+			// Lấy tên (phần cuối) + chữ cái đầu các phần còn lại
+			// "vu duc thang" → lastName = "thang", initials = "vd"
+			string lastName = parts[^1];
+			string initials = string.Concat(parts.Take(parts.Length - 1).Select(p => p[0]));
+
+			string baseUsername = lastName + initials; // "thangvd"
+
+			// Số thứ tự = tổng số user hiện tại + 1
+			int suffix = await _context.Users.CountAsync() + 1;
+			string candidateUsername = baseUsername + suffix;
+
+			// Kiểm tra trùng, nếu trùng thì tăng lên
+			while (await _context.Users.AnyAsync(u => u.Username == candidateUsername))
+			{
+				suffix++;
+				candidateUsername = baseUsername + suffix;
+			}
+
+			return candidateUsername;
+		}
+
+		/// <summary>
+		/// Bỏ dấu tiếng Việt.
+		/// </summary>
+		private static string RemoveDiacritics(string text)
+		{
+			if (string.IsNullOrEmpty(text)) return text;
+
+			var normalizedString = text.Normalize(System.Text.NormalizationForm.FormD);
+			var sb = new System.Text.StringBuilder();
+
+			foreach (var c in normalizedString)
+			{
+				var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+				if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+				{
+					sb.Append(c);
+				}
+			}
+
+			// Xử lý các ký tự đặc biệt tiếng Việt
+			string result = sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
+			result = result.Replace("đ", "d").Replace("Đ", "D");
+
+			return result;
 		}
 
 		/// <summary>
@@ -178,17 +245,10 @@ namespace Warehouse.DataAcces.Service
 				throw new KeyNotFoundException("Người dùng không tồn tại.");
 			}
 
-			// Cập nhật Username nếu có
-			if (!string.IsNullOrWhiteSpace(request.Username))
+			// Cập nhật trạng thái nếu có
+			if (request.IsActive.HasValue)
 			{
-				// Kiểm tra username trùng
-				var existingUser = await _context.Users
-					.FirstOrDefaultAsync(u => u.Username == request.Username && u.UserId != userId);
-				if (existingUser != null)
-				{
-					throw new InvalidOperationException("Username này đã được sử dụng.");
-				}
-				user.Username = request.Username;
+				user.IsActive = request.IsActive.Value;
 			}
 
 			// Cập nhật Role nếu có
