@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import '../../styles/ResetPassword.css';
-import logo from '../../assets/logo.png';
-import Toast from '../../../components/Toast/Toast';
+import '../styles/ResetPassword.css';
+import logo from '../assets/logo.png';
+import Toast from '../../components/Toast/Toast';
+import authService from '../lib/authService';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
@@ -15,6 +16,7 @@ const ResetPassword = () => {
     });
     const [toast, setToast] = useState(null);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -28,8 +30,14 @@ const ResetPassword = () => {
         }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Check if token exists
+        if (!token) {
+            showToast('Token không hợp lệ. Vui lòng thử lại từ email.', 'error');
+            return;
+        }
 
         // Validation - Kiểm tra trường trống
         if (!passwordData.newPassword || !passwordData.confirmPassword) {
@@ -67,16 +75,24 @@ const ResetPassword = () => {
             return;
         }
 
-        // TODO: Call API to reset password with token
-        console.log('Reset password with token:', token);
+        setLoading(true);
 
-        showToast('Đặt lại mật khẩu thành công!', 'success');
-        setIsSuccess(true);
+        try {
+            // Call API to reset password with token
+            await authService.resetPassword(token, passwordData.newPassword);
 
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-            navigate('/login');
-        }, 2000);
+            showToast('Đặt lại mật khẩu thành công!', 'success');
+            setIsSuccess(true);
+
+            // Redirect to login after 2 seconds
+            setTimeout(() => {
+                navigate('/login');
+            }, 2000);
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -123,8 +139,8 @@ const ResetPassword = () => {
                                         Mật khẩu phải có ít nhất 6 ký tự, 1 chữ hoa, 1 số và 1 ký tự đặc biệt
                                     </p>
 
-                                    <button type="submit" className="reset-password-button">
-                                        Đặt lại mật khẩu
+                                    <button type="submit" className="reset-password-button" disabled={loading}>
+                                        {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
                                     </button>
 
                                     <Link to="/login" className="back-to-login">

@@ -128,7 +128,11 @@ namespace Warehouse.Api
                 app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
+            // Only redirect to HTTPS in production to avoid CORS issues in development
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseCors("AllowAll");
 

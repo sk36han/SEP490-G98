@@ -1,10 +1,10 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './shared/pages/Login/Login'
-import ForgotPassword from './shared/pages/ForgotPassword/ForgotPassword'
-import ResetPassword from './shared/pages/ResetPassword/ResetPassword'
-import Profile from './shared/pages/Profile/Profile'
-import CreateSupplier from './shared/pages/CreateSupplier/CreateSupplier'
+import Login from './shared/pages/Login'
+import ForgotPassword from './shared/pages/ForgotPassword'
+import ResetPassword from './shared/pages/ResetPassword'
+import Profile from './shared/pages/Profile'
+import CreateSupplier from './shared/pages/CreateSupplier'
 import './App.css'
 
 function App() {

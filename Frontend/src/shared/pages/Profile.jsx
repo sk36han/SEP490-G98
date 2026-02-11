@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import '../../styles/Profile.css';
+import '../styles/Profile.css';
 import { useNavigate } from 'react-router-dom';
-import Toast from '../../../components/Toast/Toast';
+import Toast from '../../components/Toast/Toast';
 
 const Profile = () => {
     const navigate = useNavigate();

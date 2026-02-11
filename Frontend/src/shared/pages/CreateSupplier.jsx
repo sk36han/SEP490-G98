@@ -12,8 +12,8 @@ import {
     Globe
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Toast from '../../../components/Toast/Toast';
-import '../../styles/CreateSupplier.css';
+import Toast from '../../components/Toast/Toast';
+import '../styles/CreateSupplier.css';
 
 const CreateSupplier = () => {
     const navigate = useNavigate();
