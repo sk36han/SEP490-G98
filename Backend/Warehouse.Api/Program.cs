@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Warehouse.Api.Helper;
+using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
@@ -65,8 +66,13 @@ namespace Warehouse.Api
                 cfg.AddProfile<MapperClass>();
             });
 
+            // Repositories
+            builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<ISupplierService, SupplierService>();
+
 
             // JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
