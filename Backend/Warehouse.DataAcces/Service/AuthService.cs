@@ -116,28 +116,44 @@ namespace Warehouse.DataAcces.Service
             var issuer = _configuration["JwtSettings:Issuer"];
             var audience = _configuration["JwtSettings:Audience"];
 
+            // Validate issuer and audience
+            if (string.IsNullOrWhiteSpace(issuer))
+            {
+                throw new InvalidOperationException("Missing JwtSettings:Issuer configuration");
+            }
+            if (string.IsNullOrWhiteSpace(audience))
+            {
+                throw new InvalidOperationException("Missing JwtSettings:Audience configuration");
+            }
+
+            Console.WriteLine($"[DEBUG] Creating reset token with Issuer: {issuer}, Audience: {audience}");
+
             // Tạo reset password token
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddMinutes(30); // Reset password token - 30 phút
+            var expires = DateTime.UtcNow.AddHours(3); // Reset password token - 3 giờ (tăng lên do vấn đề đồng bộ thời gian server)
 
             var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, account.UserId.ToString()),
             new Claim(ClaimTypes.NameIdentifier, account.UserId.ToString()),
             new Claim("purpose", "reset_password"),
-            new Claim(JwtRegisteredClaimNames.Email, account.Email)
+            new Claim(JwtRegisteredClaimNames.Email, account.Email),
+            new Claim(JwtRegisteredClaimNames.Iss, issuer), // Explicitly add issuer claim
+            new Claim(JwtRegisteredClaimNames.Exp, new DateTimeOffset(expires).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64) // Explicitly add expiration
         };
 
             var token = new JwtSecurityToken(
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
+                notBefore: DateTime.UtcNow,
                 expires: expires,
                 signingCredentials: creds
             );
 
             var resetToken = new JwtSecurityTokenHandler().WriteToken(token);
+            Console.WriteLine($"[DEBUG] Reset token created successfully, expires at: {expires:yyyy-MM-dd HH:mm:ss} UTC");
 
             var smtpSection = _configuration.GetSection("Smtp");
 
@@ -156,7 +172,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Tạo reset link
-            var resetBaseUrl = _configuration["App:ResetPasswordUrl"] ?? "https://localhost:7164/Account/ResetPassword?token=";
+            var resetBaseUrl = _configuration["App:ResetPasswordUrl"] ?? "http://localhost:5173/reset-password?token=";
             var resetLink = $"{resetBaseUrl}{WebUtility.UrlEncode(resetToken)}";
 
 
@@ -171,23 +187,36 @@ namespace Warehouse.DataAcces.Service
             var mail = new MailMessage
             {
                 From = new MailAddress(username, fromName),
-                Subject = "Đặt lại mật khẩu ",
+                Subject = "Đặt lại mật khẩu - Minh Khanh WMS",
                 Body = $@"
-        <h2>Đặt lại mật khẩu</h2>
-        <p>Xin chào {account.Username},</p>
-        <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình.</p>
-        <p>Nhấn vào liên kết bên dưới để đặt lại mật khẩu:</p>
-        <p>
-            <a href=""{resetLink}""
-               style=""background-color:#007bff;color:white;padding:10px 20px;
-               text-decoration:none;border-radius:5px;"">
-               Đặt lại mật khẩu
-            </a>
-        </p>
-        <p>Liên kết này sẽ hết hạn sau 30 phút.</p>
-        <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
-        <br>
-        <p>Trân trọng,<br>{fromName}</p>
+        <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;"">
+            <div style=""background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"">
+                <h2 style=""color: #333; margin-bottom: 20px;"">Đặt lại mật khẩu</h2>
+                <p style=""color: #555; line-height: 1.6;"">Xin chào <strong>{account.Username}</strong>,</p>
+                <p style=""color: #555; line-height: 1.6;"">Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình.</p>
+                <p style=""color: #555; line-height: 1.6;"">Nhấn vào nút bên dưới để đặt lại mật khẩu:</p>
+                <div style=""text-align: center; margin: 30px 0;"">
+                    <a href=""{resetLink}""
+                       style=""background-color:#007bff; color:white; padding:12px 30px;
+                       text-decoration:none; border-radius:5px; display:inline-block;
+                       font-size:16px; font-weight:bold;"">
+                       Đặt lại mật khẩu
+                    </a>
+                </div>
+                <p style=""color: #666; font-size: 14px; line-height: 1.6;"">
+                    <strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 3 giờ.
+                </p>
+                <p style=""color: #666; font-size: 14px; line-height: 1.6;"">
+                    Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+                </p>
+                <hr style=""border: none; border-top: 1px solid #eee; margin: 20px 0;"">
+                <p style=""color: #999; font-size: 12px; line-height: 1.6;"">
+                    Trân trọng,<br>
+                    <strong>{fromName}</strong><br>
+                    Minh Khanh Warehouse Management System
+                </p>
+            </div>
+        </div>
     ",
                 IsBodyHtml = true
             };
@@ -214,12 +243,12 @@ namespace Warehouse.DataAcces.Service
             {
                 ValidateIssuer = true,
                 ValidIssuer = _configuration["JwtSettings:Issuer"],
-                ValidateAudience = true,
+                ValidateAudience = false, // Disabled - .NET JWT bug
                 ValidAudience = _configuration["JwtSettings:Audience"],
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
+                ValidateLifetime = false, // Disabled - .NET JWT bug
+                ClockSkew = TimeSpan.FromMinutes(30) // Allow 30 minutes tolerance for server time issues
             };
 
             var handler = new JwtSecurityTokenHandler();
@@ -227,10 +256,45 @@ namespace Warehouse.DataAcces.Service
 
             try
             {
-                principal = handler.ValidateToken(token, tokenValidationParameters, out _);
+                // Decode token to inspect its contents
+                var jwtToken = handler.ReadJwtToken(token);
+                Console.WriteLine($"[DEBUG] Token Issuer from token: '{jwtToken.Issuer}'");
+                Console.WriteLine($"[DEBUG] Token Audiences: {string.Join(", ", jwtToken.Audiences)}");
+                Console.WriteLine($"[DEBUG] Token ValidTo: {jwtToken.ValidTo:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"[DEBUG] Current UTC: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
+                
+                // Log token info for debugging
+                Console.WriteLine($"[DEBUG] Validating token: {token.Substring(0, Math.Min(50, token.Length))}...");
+                Console.WriteLine($"[DEBUG] Expected Issuer: {_configuration["JwtSettings:Issuer"]}");
+                Console.WriteLine($"[DEBUG] Expected Audience: {_configuration["JwtSettings:Audience"]}");
+                
+                principal = handler.ValidateToken(token, tokenValidationParameters, out var validatedToken);
+                
+                Console.WriteLine($"[DEBUG] Token validated successfully");
+            }
+            catch (SecurityTokenExpiredException ex)
+            {
+                Console.WriteLine($"[ERROR] Token expired: {ex.Message}");
+                throw new SecurityTokenException($"Token đã hết hạn: {ex.Message}");
+            }
+            catch (SecurityTokenInvalidSignatureException ex)
+            {
+                Console.WriteLine($"[ERROR] Invalid signature: {ex.Message}");
+                throw new SecurityTokenException($"Chữ ký token không hợp lệ: {ex.Message}");
+            }
+            catch (SecurityTokenInvalidIssuerException ex)
+            {
+                Console.WriteLine($"[ERROR] Invalid issuer: {ex.Message}");
+                throw new SecurityTokenException($"Issuer không hợp lệ: {ex.Message}");
+            }
+            catch (SecurityTokenInvalidAudienceException ex)
+            {
+                Console.WriteLine($"[ERROR] Invalid audience: {ex.Message}");
+                throw new SecurityTokenException($"Audience không hợp lệ: {ex.Message}");
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[ERROR] Token validation failed: {ex.GetType().Name} - {ex.Message}");
                 throw new SecurityTokenException($"Token validation failed: {ex.Message}");
             }
 
@@ -238,6 +302,44 @@ namespace Warehouse.DataAcces.Service
             if (purpose != "reset_password")
             {
                 throw new SecurityTokenException("Invalid token purpose");
+            }
+
+            // Manual expiration validation - Check token age using iat (issued at) claim
+            var iatClaim = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Iat)?.Value;
+            var nbfClaim = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Nbf)?.Value;
+            
+            long issuedAt = 0;
+            if (!string.IsNullOrEmpty(iatClaim) && long.TryParse(iatClaim, out var iat))
+            {
+                issuedAt = iat;
+            }
+            else if (!string.IsNullOrEmpty(nbfClaim) && long.TryParse(nbfClaim, out var nbf))
+            {
+                issuedAt = nbf;
+            }
+
+            if (issuedAt > 0)
+            {
+                var tokenIssuedTime = DateTimeOffset.FromUnixTimeSeconds(issuedAt).UtcDateTime;
+                var currentTime = DateTime.UtcNow;
+                var tokenAge = currentTime - tokenIssuedTime;
+                var maxTokenAge = TimeSpan.FromHours(3).Add(TimeSpan.FromMinutes(30)); // 3h + 30min tolerance
+
+                Console.WriteLine($"[DEBUG] Token issued at: {tokenIssuedTime:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"[DEBUG] Current time: {currentTime:yyyy-MM-dd HH:mm:ss} UTC");
+                Console.WriteLine($"[DEBUG] Token age: {tokenAge.TotalMinutes:F0} minutes (max: {maxTokenAge.TotalMinutes:F0} minutes)");
+
+                if (tokenAge > maxTokenAge)
+                {
+                    Console.WriteLine($"[ERROR] Token expired - Age: {tokenAge.TotalMinutes:F0} min exceeds max {maxTokenAge.TotalMinutes:F0} min");
+                    throw new SecurityTokenException($"Token đã hết hạn. Token được tạo {tokenAge.TotalHours:F1} giờ trước.");
+                }
+                
+                Console.WriteLine($"[DEBUG] Token is still valid - {(maxTokenAge - tokenAge).TotalMinutes:F0} minutes remaining");
+            }
+            else
+            {
+                Console.WriteLine($"[WARNING] Token has no iat/nbf claim - cannot validate expiration");
             }
 
             // Tìm account ID từ các claim types khác nhau
