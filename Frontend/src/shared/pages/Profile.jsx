@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import './Profile.css';
+import '../../styles/Profile.css';
 import { useNavigate } from 'react-router-dom';
-import Toast from '../../components/Toast/Toast';
+import Toast from '../../../components/Toast/Toast';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -132,23 +132,18 @@ const Profile = () => {
                     <h2>{formData.fullName}</h2>
                     <p>Chức vụ: {formData.role}</p>
                 </div>
-                <button
-                    className="edit-profile-btn"
-                    onClick={() => setIsEditing(!isEditing)}
-                    title={isEditing ? "Hủy chỉnh sửa" : "Chỉnh sửa thông tin"}
-                >
-                    {isEditing ? (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    ) : (
+                <div className="header-actions">
+                    <button
+                        className="edit-profile-btn"
+                        onClick={() => setIsEditing(!isEditing)}
+                        title="Chỉnh sửa thông tin"
+                    >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                         </svg>
-                    )}
-                </button>
+                    </button>
+                </div>
             </div>
 
             <div className="profile-body">
@@ -162,7 +157,6 @@ const Profile = () => {
                             onChange={handleChange}
                             disabled={!isEditing}
                             className="form-input"
-                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         />
                     </div>
 
@@ -175,7 +169,6 @@ const Profile = () => {
                             onChange={handleChange}
                             disabled
                             className="form-input"
-                            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
                         />
                     </div>
 
@@ -189,7 +182,6 @@ const Profile = () => {
                             disabled={!isEditing}
                             className="form-input"
                             placeholder="Nhập số điện thoại (10 chữ số)"
-                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         />
                     </div>
 
@@ -201,7 +193,6 @@ const Profile = () => {
                             onChange={handleChange}
                             disabled={!isEditing}
                             className="form-input"
-                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         >
                             <option value="Nam">Nam</option>
                             <option value="Nữ">Nữ</option>
@@ -218,12 +209,11 @@ const Profile = () => {
                             onChange={handleChange}
                             disabled={!isEditing}
                             className="form-input"
-                            style={!isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                         />
                     </div>
 
                     {isEditing && (
-                        <div className="form-actions full-width" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                        <div className="form-actions full-width">
                             <button
                                 type="button"
                                 className="btn-cancel"
