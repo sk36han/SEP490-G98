@@ -8,11 +8,11 @@ namespace Warehouse.Api.ApiController
 	[ApiController]
 	public class AdminController : ControllerBase
 	{
-		private readonly IUserService _userService;
+		private readonly IAdminService _adminService;
 
-		public AdminController(IUserService userService)
+		public AdminController(IAdminService adminservice)
 		{
-			_userService = userService;
+            _adminService = adminservice;
 		}
 
 		/// <summary>
@@ -24,7 +24,7 @@ namespace Warehouse.Api.ApiController
 		{
 			try
 			{
-				var result = await _userService.GetUserListAsync(filter);
+				var result = await _adminService.GetUserListAsync(filter);
 				return Ok(result);
 			}
 			catch (Exception ex)
@@ -45,7 +45,7 @@ namespace Warehouse.Api.ApiController
 				if (!ModelState.IsValid)
 					return BadRequest(ModelState);
 
-				var result = await _userService.CreateUserAccountAsync(request);
+				var result = await _adminService.CreateUserAccountAsync(request);
 
 				return Created("", new
 				{
@@ -75,7 +75,7 @@ namespace Warehouse.Api.ApiController
 				if (!ModelState.IsValid)
 					return BadRequest(ModelState);
 
-				var result = await _userService.UpdateUserAsync(id, request);
+				var result = await _adminService.UpdateUserAsync(id, request);
 
 				return Ok(new
 				{
@@ -106,7 +106,7 @@ namespace Warehouse.Api.ApiController
 		{
 			try
 			{
-				var result = await _userService.ToggleUserStatusAsync(id);
+				var result = await _adminService.ToggleUserStatusAsync(id);
 
 				return Ok(new
 				{

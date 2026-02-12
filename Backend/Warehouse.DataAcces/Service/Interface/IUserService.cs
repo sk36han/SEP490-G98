@@ -13,9 +13,8 @@ namespace Warehouse.DataAcces.Service.Interface
 {
 	public interface IUserService
 	{
-		Task<PagedResult<UserDto>> GetUserListAsync(UserFilterRequest filter);
-		Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request);
-		Task<UserDto> UpdateUserAsync(long userId, UpdateUserRequest request);
-		Task<UserDto> ToggleUserStatusAsync(long userId);
+		
+		Task<UserResponse?> GetUserProfileAsync(long userId);
+
 	}
 }
