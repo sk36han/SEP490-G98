@@ -8,7 +8,7 @@ using Warehouse.Entities.Models;
 
 namespace Warehouse.DataAcces.Service.Interface
 {
-    public interface IAuthService :IGenericRepository<User>
+    public interface IAuthService 
     {
 
         Task<User?> ValidateLoginAsync(string identifier, string password);
