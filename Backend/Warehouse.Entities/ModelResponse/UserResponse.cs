@@ -8,6 +8,7 @@ namespace Warehouse.Entities.ModelResponse
         public string FullName { get; set; } = null!;
         public string? Phone { get; set; }
         public bool IsActive { get; set; }
+        public string? RoleName { get; set; }
         public DateTime? LastLoginAt { get; set; }
     }
 }

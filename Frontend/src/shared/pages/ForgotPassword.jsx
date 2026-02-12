@@ -3,18 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import '../styles/ForgotPassword.css';
 import logo from '../assets/logo.png';
 import Toast from '../../components/Toast/Toast';
+import authService from '../lib/authService';
 
 const ForgotPassword = () => {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [toast, setToast] = useState(null);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         // Validation
@@ -30,15 +32,23 @@ const ForgotPassword = () => {
             return;
         }
 
-        // TODO: Call API to send reset password email
-        console.log('Forgot password for:', email);
-        showToast('Email khôi phục mật khẩu đã được gửi!', 'success');
-        setIsSuccess(true);
+        setLoading(true);
 
-        // Navigate back to login after 3 seconds
-        setTimeout(() => {
-            navigate('/login');
-        }, 3000);
+        try {
+            // Call API to send reset password email
+            await authService.forgotPassword(email);
+            showToast('Email khôi phục mật khẩu đã được gửi!', 'success');
+            setIsSuccess(true);
+
+            // Navigate back to login after 3 seconds
+            setTimeout(() => {
+                navigate('/login');
+            }, 3000);
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -70,8 +80,8 @@ const ForgotPassword = () => {
                                         />
                                     </div>
 
-                                    <button type="submit" className="forgot-password-button">
-                                        Gửi liên kết đặt lại
+                                    <button type="submit" className="forgot-password-button" disabled={loading}>
+                                        {loading ? 'Đang gửi...' : 'Gửi liên kết đặt lại'}
                                     </button>
 
                                     <Link to="/login" className="back-to-login">

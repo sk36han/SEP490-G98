@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import '../styles/Login.css';
 import logo from '../assets/logo.png';
 import Toast from '../../components/Toast/Toast';
+import authService from '../lib/authService';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -12,6 +13,7 @@ const Login = () => {
         rememberMe: false
     });
     const [toast, setToast] = useState(null);
+    const [loading, setLoading] = useState(false);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -25,7 +27,7 @@ const Login = () => {
         }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         // Validation
@@ -34,14 +36,27 @@ const Login = () => {
             return;
         }
 
-        // TODO: Call API to login
-        console.log('Login data:', formData);
-        showToast('Đăng nhập thành công!', 'success');
+        setLoading(true);
 
-        // Navigate to home after success
-        setTimeout(() => {
-            navigate('/');
-        }, 1500);
+        try {
+            // Call API to login
+            await authService.login(
+                formData.email,
+                formData.password,
+                formData.rememberMe
+            );
+
+            showToast('Đăng nhập thành công!', 'success');
+
+            // Navigate to home after success
+            setTimeout(() => {
+                navigate('/');
+            }, 1500);
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -98,8 +113,8 @@ const Login = () => {
                                 </Link>
                             </div>
 
-                            <button type="submit" className="login-button">
-                                Đăng nhập
+                            <button type="submit" className="login-button" disabled={loading}>
+                                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                             </button>
                         </form>
 

@@ -2,7 +2,6 @@
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
@@ -116,23 +115,36 @@ namespace Warehouse.DataAcces.Service
             var issuer = _configuration["JwtSettings:Issuer"];
             var audience = _configuration["JwtSettings:Audience"];
 
+            // Validate issuer and audience
+            if (string.IsNullOrWhiteSpace(issuer))
+            {
+                throw new InvalidOperationException("Missing JwtSettings:Issuer configuration");
+            }
+            if (string.IsNullOrWhiteSpace(audience))
+            {
+                throw new InvalidOperationException("Missing JwtSettings:Audience configuration");
+            }
+
             // Tạo reset password token
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddMinutes(30); // Reset password token - 30 phút
+            var expires = DateTime.UtcNow.AddHours(1); // Token có hiệu lực trong 1 giờ
 
             var claims = new List<Claim>
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, account.UserId.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, account.UserId.ToString()),
-            new Claim("purpose", "reset_password"),
-            new Claim(JwtRegisteredClaimNames.Email, account.Email)
-        };
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, account.UserId.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, account.UserId.ToString()),
+                new Claim("purpose", "reset_password"),
+                new Claim(JwtRegisteredClaimNames.Email, account.Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            };
 
+            // Đảm bảo issuer và audience được truyền vào constructor thay vì chỉ nằm trong claims list
             var token = new JwtSecurityToken(
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
+                notBefore: DateTime.UtcNow,
                 expires: expires,
                 signingCredentials: creds
             );
@@ -156,7 +168,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Tạo reset link
-            var resetBaseUrl = _configuration["App:ResetPasswordUrl"] ?? "https://localhost:7164/Account/ResetPassword?token=";
+            var resetBaseUrl = _configuration["App:ResetPasswordUrl"] ?? "http://localhost:5173/reset-password?token=";
             var resetLink = $"{resetBaseUrl}{WebUtility.UrlEncode(resetToken)}";
 
 
@@ -171,23 +183,36 @@ namespace Warehouse.DataAcces.Service
             var mail = new MailMessage
             {
                 From = new MailAddress(username, fromName),
-                Subject = "Đặt lại mật khẩu ",
+                Subject = "Đặt lại mật khẩu - Minh Khanh WMS",
                 Body = $@"
-        <h2>Đặt lại mật khẩu</h2>
-        <p>Xin chào {account.Username},</p>
-        <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình.</p>
-        <p>Nhấn vào liên kết bên dưới để đặt lại mật khẩu:</p>
-        <p>
-            <a href=""{resetLink}""
-               style=""background-color:#007bff;color:white;padding:10px 20px;
-               text-decoration:none;border-radius:5px;"">
-               Đặt lại mật khẩu
-            </a>
-        </p>
-        <p>Liên kết này sẽ hết hạn sau 30 phút.</p>
-        <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
-        <br>
-        <p>Trân trọng,<br>{fromName}</p>
+        <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;"">
+            <div style=""background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"">
+                <h2 style=""color: #333; margin-bottom: 20px;"">Đặt lại mật khẩu</h2>
+                <p style=""color: #555; line-height: 1.6;"">Xin chào <strong>{account.Username}</strong>,</p>
+                <p style=""color: #555; line-height: 1.6;"">Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình.</p>
+                <p style=""color: #555; line-height: 1.6;"">Nhấn vào nút bên dưới để đặt lại mật khẩu:</p>
+                <div style=""text-align: center; margin: 30px 0;"">
+                    <a href=""{resetLink}""
+                       style=""background-color:#007bff; color:white; padding:12px 30px;
+                       text-decoration:none; border-radius:5px; display:inline-block;
+                       font-size:16px; font-weight:bold;"">
+                       Đặt lại mật khẩu
+                    </a>
+                </div>
+                <p style=""color: #666; font-size: 14px; line-height: 1.6;"">
+                    <strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 1 giờ.
+                </p>
+                <p style=""color: #666; font-size: 14px; line-height: 1.6;"">
+                    Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+                </p>
+                <hr style=""border: none; border-top: 1px solid #eee; margin: 20px 0;"">
+                <p style=""color: #999; font-size: 12px; line-height: 1.6;"">
+                    Trân trọng,<br>
+                    <strong>{fromName}</strong><br>
+                    Minh Khanh Warehouse Management System
+                </p>
+            </div>
+        </div>
     ",
                 IsBodyHtml = true
             };
@@ -203,71 +228,59 @@ namespace Warehouse.DataAcces.Service
         public async Task ResetPasswordAsync(string token, string newPassword)
         {
             var jwtKey = _configuration["JwtSettings:SecretKey"];
-            if (string.IsNullOrWhiteSpace(jwtKey))
+            var issuer = _configuration["JwtSettings:Issuer"];
+            var audience = _configuration["JwtSettings:Audience"];
+
+            if (string.IsNullOrWhiteSpace(jwtKey) || string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(token))
             {
-                throw new InvalidOperationException("Missing JwtSettings:SecretKey configuration");
+                throw new InvalidOperationException("Thiếu cấu hình JWT hoặc token rỗng.");
             }
 
-
-
+            var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
             var tokenValidationParameters = new TokenValidationParameters
             {
-                ValidateIssuer = true,
-                ValidIssuer = _configuration["JwtSettings:Issuer"],
+                ValidateIssuer = false,
                 ValidateAudience = true,
-                ValidAudience = _configuration["JwtSettings:Audience"],
+                ValidAudience = audience,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
+                ClockSkew = TimeSpan.FromMinutes(1)
             };
-
-            var handler = new JwtSecurityTokenHandler();
-            ClaimsPrincipal principal;
 
             try
             {
-                principal = handler.ValidateToken(token, tokenValidationParameters, out _);
+                var principal = handler.ValidateToken(token, tokenValidationParameters, out _);
+                
+                if (principal.Claims.FirstOrDefault(c => c.Type == "purpose")?.Value != "reset_password")
+                    throw new SecurityTokenException("Mục đích token không hợp lệ.");
+
+                var accountIdString = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub || c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+                if (!long.TryParse(accountIdString, out var accountId))
+                    throw new SecurityTokenException("ID người dùng không hợp lệ trong token.");
+
+                var account = await _context.Users.FindAsync(accountId) 
+                              ?? throw new InvalidOperationException("Không tìm thấy tài khoản.");
+
+                account.PasswordHash = CreatePasswordHash(newPassword);
+                account.UpdatedAt = DateTime.UtcNow;
+
+                _context.Update(account);
+                await _context.SaveChangesAsync();
             }
-            catch (Exception ex)
+            catch (SecurityTokenExpiredException)
             {
-                throw new SecurityTokenException($"Token validation failed: {ex.Message}");
+                throw new SecurityTokenException("Liên kết đặt lại mật khẩu đã hết hạn.");
             }
-
-            var purpose = principal.Claims.FirstOrDefault(c => c.Type == "purpose")?.Value;
-            if (purpose != "reset_password")
+            catch (SecurityTokenInvalidSignatureException)
             {
-                throw new SecurityTokenException("Invalid token purpose");
+                throw new SecurityTokenException("Chữ ký xác thực không hợp lệ.");
             }
-
-            // Tìm account ID từ các claim types khác nhau
-            var sub = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value;
-            var nameIdentifier = principal.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-
-            // Sử dụng nameIdentifier nếu sub không có
-            var accountIdString = sub ?? nameIdentifier;
-
-            if (string.IsNullOrEmpty(accountIdString))
+            catch (Exception ex) when (ex is not SecurityTokenException && ex is not InvalidOperationException)
             {
-                throw new SecurityTokenException("Token sub and nameIdentifier are null or empty");
+                throw new SecurityTokenException($"Lỗi xác thực: {ex.Message}");
             }
-
-            if (!long.TryParse(accountIdString, out var accountId))
-            {
-                throw new SecurityTokenException("Invalid account ID in token");
-            }
-
-            var account = await _context.Set<User>().FirstOrDefaultAsync(a => a.UserId == accountId);
-            if (account == null)
-            {
-                throw new InvalidOperationException("Account not found");
-            }
-
-            account.PasswordHash = CreatePasswordHash(newPassword);
-            account.UpdatedAt = DateTime.UtcNow;
-
-            _context.Update(account);
-            await _context.SaveChangesAsync();
         }
 
 
