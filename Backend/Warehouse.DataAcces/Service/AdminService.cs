@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
@@ -44,11 +45,11 @@ namespace Warehouse.DataAcces.Service
             // Tự động sinh username từ FullName
             string generatedUsername = await GenerateUsernameAsync(request.FullName);
 
-            // Mật khẩu mặc định
-            string generatedPassword = "Mkh123456@";
+			// Tạo mật khẩu ngẫu nhiên
+			string generatedPassword = GenerateRandomPassword(12);
 
-            // Hash mật khẩu
-            string passwordHash = AuthService.CreatePasswordHash(generatedPassword);
+			// Hash mật khẩu
+			string passwordHash = AuthService.CreatePasswordHash(generatedPassword);
 
             // Tạo user mới
             var newUser = new User
@@ -174,9 +175,10 @@ namespace Warehouse.DataAcces.Service
                 .Include(u => u.UserRoleUser)
                 .ThenInclude(ur => ur.Role)
                 .AsNoTracking()
-                .OrderByDescending(u => u.UserId);
+                .OrderBy(u => u.UserId);
 
-            int totalCount = await query.CountAsync();
+
+			int totalCount = await query.CountAsync();
 
             var items = await query
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
@@ -302,5 +304,56 @@ namespace Warehouse.DataAcces.Service
                            ? user.UserRoleUser.Role.RoleName : "N/A"
             };
         }
-    }
+		/// <summary>
+		/// Tạo mật khẩu ngẫu nhiên với độ dài chỉ định.
+		/// Bao gồm chữ hoa, chữ thường, số, và ký tự đặc biệt.
+		/// </summary>
+		private static string GenerateRandomPassword(int length)
+		{
+			const string upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			const string lowerCase = "abcdefghijklmnopqrstuvwxyz";
+			const string digits = "0123456789";
+			const string special = "!@#$%&*?";
+			const string allChars = upperCase + lowerCase + digits + special;
+
+			var password = new char[length];
+			using var rng = RandomNumberGenerator.Create();
+
+			// Đảm bảo có ít nhất 1 ký tự mỗi loại
+			password[0] = GetRandomChar(rng, upperCase);
+			password[1] = GetRandomChar(rng, lowerCase);
+			password[2] = GetRandomChar(rng, digits);
+			password[3] = GetRandomChar(rng, special);
+
+			// Các ký tự còn lại random từ tất cả
+			for (int i = 4; i < length; i++)
+			{
+				password[i] = GetRandomChar(rng, allChars);
+			}
+
+			// Shuffle để không bị đoán thứ tự
+			Shuffle(rng, password);
+
+			return new string(password);
+		}
+
+		private static char GetRandomChar(RandomNumberGenerator rng, string chars)
+		{
+			var bytes = new byte[4];
+			rng.GetBytes(bytes);
+			int index = (int)(BitConverter.ToUInt32(bytes, 0) % (uint)chars.Length);
+			return chars[index];
+		}
+
+		private static void Shuffle(RandomNumberGenerator rng, char[] array)
+		{
+			var bytes = new byte[4];
+			for (int i = array.Length - 1; i > 0; i--)
+			{
+				rng.GetBytes(bytes);
+				int j = (int)(BitConverter.ToUInt32(bytes, 0) % (uint)(i + 1));
+				(array[i], array[j]) = (array[j], array[i]);
+			}
+		}
+	}
 }

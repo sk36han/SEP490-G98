@@ -71,15 +71,15 @@ namespace Warehouse.Api
 
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
-          builder.Services.AddScoped<ISupplierService, SupplierService>();
-
-
-            // JWT Authentication
-            var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-		builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<ISupplierService, SupplierService>();
+			builder.Services.AddScoped<IUserService, UserService>();
 			builder.Services.AddScoped<IRoleService, RoleService>();
 			builder.Services.AddScoped<IAdminService, AdminService>();
 
+			// JWT Authentication
+			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+		
+			
 
 			var secretKey = jwtSettings["SecretKey"];
 
