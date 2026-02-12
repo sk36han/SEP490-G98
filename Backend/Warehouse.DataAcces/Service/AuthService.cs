@@ -322,5 +322,35 @@ namespace Warehouse.DataAcces.Service
         }
 
 
-    }
+
+		// #endregion
+		public async Task SendEmailUserAccountAsync(string toEmail, string subject, string body)
+		{
+			var smtpHost = _configuration["Smtp:Host"];
+			var smtpPort = int.Parse(_configuration["Smtp:Port"]!);
+			var smtpUsername = _configuration["Smtp:Username"];
+			var smtpPassword = _configuration["Smtp:Password"];
+			var enableSsl = bool.Parse(_configuration["Smtp:EnableSsl"]!);
+			var fromName = _configuration["Smtp:FromName"];
+
+			using var smtpClient = new SmtpClient(smtpHost, smtpPort)
+			{
+				Credentials = new NetworkCredential(smtpUsername, smtpPassword),
+				EnableSsl = enableSsl
+			};
+
+			var mailMessage = new MailMessage
+			{
+				From = new MailAddress(smtpUsername!, fromName),
+				Subject = subject,
+				Body = body,
+				IsBodyHtml = true
+			};
+
+			mailMessage.To.Add(toEmail);
+
+			await smtpClient.SendMailAsync(mailMessage);
+		}
+	}
+
 }
