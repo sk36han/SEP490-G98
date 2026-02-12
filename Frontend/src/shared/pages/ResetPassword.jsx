@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import '../../styles/ResetPassword.css';
-import logo from '../../assets/logo.png';
-import Toast from '../../../components/Toast/Toast';
+import '../styles/ResetPassword.css';
+import logo from '../assets/logo.png';
+import Toast from '../../components/Toast/Toast';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();

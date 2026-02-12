@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import '../../styles/Login.css';
-import logo from '../../assets/logo.png';
-import Toast from '../../../components/Toast/Toast';
+import '../styles/Login.css';
+import logo from '../assets/logo.png';
+import Toast from '../../components/Toast/Toast';
 
 const Login = () => {
     const navigate = useNavigate();

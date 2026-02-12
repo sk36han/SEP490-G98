@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import '../../styles/ForgotPassword.css';
-import logo from '../../assets/logo.png';
-import Toast from '../../../components/Toast/Toast';
+import '../styles/ForgotPassword.css';
+import logo from '../assets/logo.png';
+import Toast from '../../components/Toast/Toast';
 
 const ForgotPassword = () => {
     const navigate = useNavigate();
