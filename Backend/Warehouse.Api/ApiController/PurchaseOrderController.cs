@@ -40,5 +40,18 @@ namespace Warehouse.Api.ApiController
 
             return Ok(result);
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetPurchaseOrder(long id)
+        {
+            var result = await _purchaseOrderService.GetPurchaseOrderByIdAsync(id);
+
+            if (result == null)
+            {
+                return NotFound(new { message = $"Không tìm thấy đơn hàng với ID = {id}" });
+            }
+
+            return Ok(result);
+        }
     }
 }

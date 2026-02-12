@@ -16,5 +16,7 @@ namespace Warehouse.DataAcces.Service.Interface
             DateTime? toDate,
             string? requestedByName
         );
+
+        Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id);
     }
 }

@@ -15,15 +15,7 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly IGenericRepository<PurchaseOrder> _purchaseOrderRepository;
 
-        // Note: GenericRepository usually returns IQueryable or IEnumerable. 
-        // If it doesn't support Include, we might need to access Context or cast.
-        // Assuming GenericRepository exposes Context or we can cast it, 
-        // OR we just use GetAllAsync and load into memory if data is small (bad practice).
-        // Best practice with current GenericRepo: utilize its Context if public, 
-        // or check if it returns IQueryable.
-        // Looking at previous `SupplierService`, it uses `GetAllAsync` returning `IEnumerable`.
-        // However, `GenericRepository` has `_context` as protected but `Context` property public!
-        // So we can use `_purchaseOrderRepository.Context.PurchaseOrders` to allow Includes.
+
 
         public PurchaseOrderService(IGenericRepository<PurchaseOrder> purchaseOrderRepository)
         {
@@ -43,16 +35,7 @@ namespace Warehouse.DataAcces.Service
             if (page <= 0) page = 1;
             if (pageSize <= 0) pageSize = 20;
 
-            // Access via Context to use Include
-            // CAST to GenericRepository to access Context if interface doesn't expose it, 
-            // BUT standard way here:
-            // Since GenericRepository definition showed: public Mkiwms4Context Context => _context;
-            // We can treat it as `GenericRepository<PurchaseOrder>` if we inject it as such, 
-            // OR we just cast strict. 
-            // Better: use the repository's DbContext if exposed.
-            
-            // Let's check GenericRepository again... Yes, `public Mkiwms4Context Context => _context;`
-            // But we inject `IGenericRepository`. Creating a helper to access DbContext or casting.
+
             
             var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
 
@@ -127,6 +110,54 @@ namespace Warehouse.DataAcces.Service
                 PageSize = pageSize,
                 TotalItems = totalItems,
                 Items = items
+            };
+        }
+
+        public async Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id)
+        {
+            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
+
+            var po = await context.PurchaseOrders
+                .Include(p => p.Supplier)
+                .Include(p => p.RequestedByNavigation)
+                .Include(p => p.PurchaseOrderLines)
+                    .ThenInclude(line => line.Item)
+                .Include(p => p.PurchaseOrderLines)
+                    .ThenInclude(line => line.Uom)
+                .FirstOrDefaultAsync(p => p.PurchaseOrderId == id);
+
+            if (po == null)
+            {
+                return null;
+            }
+
+            return new PurchaseOrderDetailResponse
+            {
+                PurchaseOrderId = po.PurchaseOrderId,
+                Pocode = po.Pocode,
+                RequestedBy = po.RequestedBy,
+                SupplierId = po.SupplierId,
+                RequestedDate = po.RequestedDate,
+                Justification = po.Justification,
+                Status = po.Status,
+                CurrentStageNo = po.CurrentStageNo,
+                CreatedAt = po.CreatedAt,
+                SubmittedAt = po.SubmittedAt,
+                UpdatedAt = po.UpdatedAt,
+                SupplierName = po.Supplier != null ? po.Supplier.SupplierName : null,
+                RequestedByName = po.RequestedByNavigation.FullName,
+                PurchaseOrderLines = po.PurchaseOrderLines.Select(line => new PurchaseOrderLineResponse
+                {
+                    PurchaseOrderLineId = line.PurchaseOrderLineId,
+                    PurchaseOrderId = line.PurchaseOrderId,
+                    ItemId = line.ItemId,
+                    ItemCode = line.Item.ItemCode,
+                    ItemName = line.Item.ItemName,
+                    OrderedQty = line.OrderedQty,
+                    UomId = line.UomId,
+                    UomName = line.Uom.UomName,
+                    Note = line.Note
+                }).ToList()
             };
         }
     }
