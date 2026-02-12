@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
+using Warehouse.Entities.ModelResponse;
 
 namespace Warehouse.Api.ApiController
 {
@@ -24,11 +25,11 @@ namespace Warehouse.Api.ApiController
 			try
 			{
 				var result = await _roleService.GetAllRolesAsync();
-				return Ok(result);
+				return Ok(ApiResponse<List<RoleResponse>>.SuccessResponse(result, "Lấy danh sách role thành công."));
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 
@@ -42,23 +43,19 @@ namespace Warehouse.Api.ApiController
 			{
 				if (!ModelState.IsValid)
 				{
-					return BadRequest(ModelState);
+					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
 				}
 
 				var result = await _roleService.CreateRoleAsync(request);
-				return Ok(new
-				{
-					message = "Tạo role thành công.",
-					data = result
-				});
+				return Ok(ApiResponse<RoleResponse>.SuccessResponse(result, "Tạo role thành công."));
 			}
 			catch (InvalidOperationException ex)
 			{
-				return BadRequest(new { message = ex.Message });
+				return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 
@@ -72,27 +69,23 @@ namespace Warehouse.Api.ApiController
 			{
 				if (!ModelState.IsValid)
 				{
-					return BadRequest(ModelState);
+					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
 				}
 
 				var result = await _roleService.UpdateRoleAsync(id, request);
-				return Ok(new
-				{
-					message = "Cập nhật role thành công.",
-					data = result
-				});
+				return Ok(ApiResponse<RoleResponse>.SuccessResponse(result, "Cập nhật role thành công."));
 			}
 			catch (KeyNotFoundException ex)
 			{
-				return NotFound(new { message = ex.Message });
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (InvalidOperationException ex)
 			{
-				return BadRequest(new { message = ex.Message });
+				return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 
@@ -106,27 +99,23 @@ namespace Warehouse.Api.ApiController
 			{
 				if (!ModelState.IsValid)
 				{
-					return BadRequest(ModelState);
+					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
 				}
 
 				var result = await _roleService.AssignRoleToUserAsync(request);
-				return Ok(new
-				{
-					message = "Gán role cho người dùng thành công.",
-					data = result
-				});
+				return Ok(ApiResponse<AdminUserResponse>.SuccessResponse(result, "Gán role cho người dùng thành công."));
 			}
 			catch (KeyNotFoundException ex)
 			{
-				return NotFound(new { message = ex.Message });
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (InvalidOperationException ex)
 			{
-				return BadRequest(new { message = ex.Message });
+				return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 	}

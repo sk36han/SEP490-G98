@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
-using Warehouse.Entities.ModelDto;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -21,11 +20,11 @@ namespace Warehouse.DataAcces.Service
 			_configuration = configuration;
 		}
 
-		public async Task<List<RoleDto>> GetAllRolesAsync()
+		public async Task<List<RoleResponse>> GetAllRolesAsync()
 		{
 			return await _context.Roles
 				.AsNoTracking()
-				.Select(r => new RoleDto
+				.Select(r => new RoleResponse
 				{
 					RoleId = r.RoleId,
 					RoleCode = r.RoleCode,
@@ -34,7 +33,7 @@ namespace Warehouse.DataAcces.Service
 				.ToListAsync();
 		}
 
-		public async Task<RoleDto> CreateRoleAsync(CreateRoleRequest request)
+		public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request)
 		{
 			// Kiểm tra RoleCode đã tồn tại chưa
 			var exists = await _context.Roles
@@ -54,7 +53,7 @@ namespace Warehouse.DataAcces.Service
 			_context.Roles.Add(role);
 			await _context.SaveChangesAsync();
 
-			return new RoleDto
+			return new RoleResponse
 			{
 				RoleId = role.RoleId,
 				RoleCode = role.RoleCode,
@@ -62,7 +61,7 @@ namespace Warehouse.DataAcces.Service
 			};
 		}
 
-		public async Task<RoleDto> UpdateRoleAsync(long roleId, UpdateRoleRequest request)
+		public async Task<RoleResponse> UpdateRoleAsync(long roleId, UpdateRoleRequest request)
 		{
 			var role = await _context.Roles.FindAsync(roleId);
 			if (role == null)
@@ -84,7 +83,7 @@ namespace Warehouse.DataAcces.Service
 
 			await _context.SaveChangesAsync();
 
-			return new RoleDto
+			return new RoleResponse
 			{
 				RoleId = role.RoleId,
 				RoleCode = role.RoleCode,
@@ -92,7 +91,7 @@ namespace Warehouse.DataAcces.Service
 			};
 		}
 
-		public async Task<UserDto> AssignRoleToUserAsync(AssignRoleRequest request)
+		public async Task<AdminUserResponse> AssignRoleToUserAsync(AssignRoleRequest request)
 		{
 			// Kiểm tra user tồn tại
 			var user = await _context.Users
@@ -131,7 +130,7 @@ namespace Warehouse.DataAcces.Service
 			user.UpdatedAt = DateTime.UtcNow;
 			await _context.SaveChangesAsync();
 
-			return new UserDto
+			return new AdminUserResponse
 			{
 				UserId = user.UserId,
 				Username = user.Username,

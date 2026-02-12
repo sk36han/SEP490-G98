@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
-using Warehouse.Entities.ModelDto;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -169,7 +168,7 @@ namespace Warehouse.DataAcces.Service
 
 
 
-        public async Task<PagedResult<UserDto>> GetUserListAsync(UserFilterRequest filter)
+        public async Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter)
         {
             var query = _context.Users
                 .Include(u => u.UserRoleUser)
@@ -182,7 +181,7 @@ namespace Warehouse.DataAcces.Service
             var items = await query
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
                 .Take(filter.PageSize)
-                .Select(u => new UserDto
+                .Select(u => new AdminUserResponse
                 {
                     UserId = u.UserId,
                     Username = u.Username,
@@ -197,10 +196,10 @@ namespace Warehouse.DataAcces.Service
                 })
                 .ToListAsync();
 
-            return new PagedResult<UserDto>(items, totalCount, filter.PageNumber, filter.PageSize);
+            return new PagedResult<AdminUserResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
         }
 
-        public async Task<UserDto> UpdateUserAsync(long userId, UpdateUserRequest request)
+        public async Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request)
         {
             // Tìm user
             var user = await _context.Users
@@ -256,7 +255,7 @@ namespace Warehouse.DataAcces.Service
                 await _context.Entry(user.UserRoleUser).Reference(ur => ur.Role).LoadAsync();
             }
 
-            return new UserDto
+            return new AdminUserResponse
             {
                 UserId = user.UserId,
                 Username = user.Username,
@@ -271,7 +270,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<UserDto> ToggleUserStatusAsync(long userId)
+        public async Task<AdminUserResponse> ToggleUserStatusAsync(long userId)
         {
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
@@ -289,7 +288,7 @@ namespace Warehouse.DataAcces.Service
 
             await _context.SaveChangesAsync();
 
-            return new UserDto
+            return new AdminUserResponse
             {
                 UserId = user.UserId,
                 Username = user.Username,

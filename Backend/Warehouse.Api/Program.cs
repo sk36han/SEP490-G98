@@ -78,9 +78,10 @@ namespace Warehouse.Api
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 		builder.Services.AddScoped<IUserService, UserService>();
 			builder.Services.AddScoped<IRoleService, RoleService>();
-			
-		
-            var secretKey = jwtSettings["SecretKey"];
+			builder.Services.AddScoped<IAdminService, AdminService>();
+
+
+			var secretKey = jwtSettings["SecretKey"];
 
             builder.Services.AddAuthentication(options =>
             {
