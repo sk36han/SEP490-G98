@@ -34,7 +34,7 @@ namespace Warehouse.DataAcces.Service
             {
                 throw new InvalidOperationException("Email này đã được sử dụng.");
             }
-
+           
             // Kiểm tra role tồn tại
             var role = await _context.Roles.FindAsync(request.RoleId);
             if (role == null)
