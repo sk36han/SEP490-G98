@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -61,9 +61,15 @@ namespace Warehouse.DataAcces.Service
             var defaultMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "60");
             var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? defaultMinutes.ToString());
             var expirationMinutes = rememberMe ? rememberMeMinutes : defaultMinutes;
+			// Lấy RoleCode (khớp với [Authorize(Roles = "Admin")]) - không dùng RoleName
+			var roleCode = await _context.UserRoles
+				.Where(ur => ur.UserId == user.UserId)
+				.Include(ur => ur.Role)
+				.Select(ur => ur.Role.RoleCode)
+				.FirstOrDefaultAsync();
 
-            // Create claims
-            var claims = new List<Claim>
+			// Create claims
+			var claims = new List<Claim>
             {
 
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
@@ -77,9 +83,12 @@ namespace Warehouse.DataAcces.Service
             {
                 claims.Add(new Claim("username", user.Username));
             }
-
-            // Create token
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
+			if (!string.IsNullOrEmpty(roleCode))
+			{
+				claims.Add(new Claim(ClaimTypes.Role, roleCode));
+			}
+			// Create token
+			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
 
@@ -322,5 +331,35 @@ namespace Warehouse.DataAcces.Service
         }
 
 
-    }
+
+		// #endregion
+		public async Task SendEmailUserAccountAsync(string toEmail, string subject, string body)
+		{
+			var smtpHost = _configuration["Smtp:Host"];
+			var smtpPort = int.Parse(_configuration["Smtp:Port"]!);
+			var smtpUsername = _configuration["Smtp:Username"];
+			var smtpPassword = _configuration["Smtp:Password"];
+			var enableSsl = bool.Parse(_configuration["Smtp:EnableSsl"]!);
+			var fromName = _configuration["Smtp:FromName"];
+
+			using var smtpClient = new SmtpClient(smtpHost, smtpPort)
+			{
+				Credentials = new NetworkCredential(smtpUsername, smtpPassword),
+				EnableSsl = enableSsl
+			};
+
+			var mailMessage = new MailMessage
+			{
+				From = new MailAddress(smtpUsername!, fromName),
+				Subject = subject,
+				Body = body,
+				IsBodyHtml = true
+			};
+
+			mailMessage.To.Add(toEmail);
+
+			await smtpClient.SendMailAsync(mailMessage);
+		}
+	}
+
 }
