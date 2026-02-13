@@ -327,7 +327,7 @@ namespace Warehouse.DataAcces.Service
             var worksheet = workbook.Worksheets.Add("Users");
 
             // Header
-            var headers = new string[] { "UserId", "Full Name", "Username", "Email", "Phone", "Role", "Status", "Last Login", "Created At" };
+            var headers = new string[] { "UserId", "Full Name", "Username", "Email", "Phone", "Role", "Status" };
             for (int i = 0; i < headers.Length; i++)
             {
                 var cell = worksheet.Cell(1, i + 1);
@@ -347,8 +347,6 @@ namespace Warehouse.DataAcces.Service
                 worksheet.Cell(row, 5).Value = user.Phone ?? "N/A";
                 worksheet.Cell(row, 6).Value = user.UserRoleUser?.Role?.RoleName ?? "N/A";
                 worksheet.Cell(row, 7).Value = user.IsActive ? "Active" : "Inactive";
-                worksheet.Cell(row, 8).Value = user.LastLoginAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never";
-                worksheet.Cell(row, 9).Value = user.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss");
                 row++;
             }
 
