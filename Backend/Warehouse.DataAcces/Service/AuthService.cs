@@ -137,7 +137,7 @@ namespace Warehouse.DataAcces.Service
             // Tạo reset password token
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddMinutes(5); // Token chỉ có hiệu lực trong 5 phút
+            var expires = DateTime.UtcNow.AddHours(1); // Token có hiệu lực trong 1 giờ
 
             var claims = new List<Claim>
             {
@@ -209,7 +209,7 @@ namespace Warehouse.DataAcces.Service
                     </a>
                 </div>
                 <p style=""color: #666; font-size: 14px; line-height: 1.6;"">
-                    <strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 3 giờ.
+                    <strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 1 giờ.
                 </p>
                 <p style=""color: #666; font-size: 14px; line-height: 1.6;"">
                     Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.

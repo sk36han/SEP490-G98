@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import '../styles/Login.css';
+import {
+    Box, Card, CardContent, TextField, Button, Checkbox,
+    FormControlLabel, Typography, InputAdornment, IconButton,
+    CircularProgress, Container, Fade
+} from '@mui/material';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import logo from '../assets/logo.png';
+import backgroundImage from '../assets/background.jpg';
 import Toast from '../../components/Toast/Toast';
 import authService from '../lib/authService';
 
@@ -12,6 +18,8 @@ const Login = () => {
         password: '',
         rememberMe: false
     });
+
+    const [showPassword, setShowPassword] = useState(false);
     const [toast, setToast] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -21,7 +29,7 @@ const Login = () => {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
@@ -30,7 +38,6 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation
         if (!formData.email || !formData.password) {
             showToast('Vui lòng điền đầy đủ thông tin!', 'error');
             return;
@@ -39,19 +46,25 @@ const Login = () => {
         setLoading(true);
 
         try {
-            // Call API to login
-            await authService.login(
-                formData.email,
-                formData.password,
-                formData.rememberMe
-            );
-
+            await authService.login(formData.email, formData.password, formData.rememberMe);
             showToast('Đăng nhập thành công!', 'success');
 
-            // Navigate to home after success
+            const userInfo = authService.getUser();
+            const role = userInfo?.roleCode || userInfo?.roleName;
+
             setTimeout(() => {
-                navigate('/');
-            }, 1500);
+                const roleUpper = role?.toUpperCase();
+
+                if (roleUpper === 'ADMIN') {
+                    navigate('/admin/home');
+                } else if (roleUpper === 'MANAGER' || roleUpper === 'WAREHOUSE MANAGER') {
+                    navigate('/manager/home');
+                } else if (roleUpper === 'STAFF') {
+                    navigate('/staff/home');
+                } else {
+                    navigate('/home');
+                }
+            }, 1000);
         } catch (error) {
             showToast(error.message, 'error');
         } finally {
@@ -60,70 +73,209 @@ const Login = () => {
     };
 
     return (
-        <div className="login-container">
-            <div className="login-background">
-                <div className="login-form-container">
-                    <div className="login-form">
-                        <div className="logo-section">
-                            <img src={logo} alt="Minh Khanh Logo" className="company-logo" />
-                        </div>
+        <Box
+            sx={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundImage: `url(${backgroundImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                position: 'relative',
+                '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    backdropFilter: 'blur(3px)'
+                },
+                p: 2
+            }}
+        >
+            <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
+                <Fade in={true} timeout={1000}>
+                    <Card
+                        elevation={24}
+                        sx={{
+                            borderRadius: 4,
+                            background: 'rgba(255, 255, 255, 0.85)',
+                            backdropFilter: 'blur(20px)',
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                        }}
+                    >
+                        <CardContent sx={{ p: 5 }}>
+                            {/* Logo */}
+                            <Box sx={{ textAlign: 'center', mb: 2 }}>
+                                <img
+                                    src={logo}
+                                    alt="Minh Khanh Logo"
+                                    style={{
+                                        maxWidth: '140px',
+                                        height: 'auto',
+                                        filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'
+                                    }}
+                                />
+                            </Box>
 
-                        <p className="welcome-text">
-                            Chào mừng bạn đến với Minh Khanh Warehouse Management System
-                        </p>
+                            {/* Welcome Text */}
+                            <Typography
+                                variant="h4"
+                                component="h1"
+                                align="center"
+                                fontWeight="800"
+                                color="primary.main"
+                                gutterBottom
+                            >
+                                Chào mừng trở lại!
+                            </Typography>
+                            <Typography
+                                variant="body1"
+                                align="center"
+                                color="text.secondary"
+                                sx={{ mb: 4 }}
+                            >
+                                Đăng nhập vào hệ thống quản lý kho
+                            </Typography>
 
-                        <form onSubmit={handleSubmit}>
-                            <div className="input-group">
-                                <input
+                            {/* Login Form */}
+                            <form onSubmit={handleSubmit}>
+                                <TextField
+                                    fullWidth
                                     type="email"
                                     name="email"
-                                    placeholder="Email"
+                                    label="Email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="login-input"
+                                    margin="normal"
                                     required
+                                    autoComplete="email"
+                                    autoFocus
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 2,
+                                            bgcolor: 'rgba(255,255,255,0.5)'
+                                        }
+                                    }}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Mail size={20} className="text-gray-400" />
+                                            </InputAdornment>
+                                        ),
+                                    }}
                                 />
-                            </div>
 
-                            <div className="input-group">
-                                <input
-                                    type="password"
+                                <TextField
+                                    fullWidth
+                                    type={showPassword ? 'text' : 'password'}
                                     name="password"
-                                    placeholder="Mật khẩu"
+                                    label="Mật khẩu"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="login-input"
+                                    margin="normal"
                                     required
+                                    autoComplete="current-password"
+                                    sx={{
+                                        mt: 2,
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 2,
+                                            bgcolor: 'rgba(255,255,255,0.5)'
+                                        }
+                                    }}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Lock size={20} className="text-gray-400" />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    edge="end"
+                                                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                                >
+                                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    }}
                                 />
-                            </div>
 
-                            <div className="login-options">
-                                <label className="remember-me">
-                                    <input
-                                        type="checkbox"
-                                        name="rememberMe"
-                                        checked={formData.rememberMe}
-                                        onChange={handleChange}
+                                {/* Remember Me & Forgot Password */}
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, mb: 3 }}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                name="rememberMe"
+                                                checked={formData.rememberMe}
+                                                onChange={handleChange}
+                                                size="small"
+                                                sx={{ '&.Mui-checked': { color: 'primary.main' } }}
+                                            />
+                                        }
+                                        label={<Typography variant="body2" color="text.secondary">Ghi nhớ đăng nhập</Typography>}
                                     />
-                                    Ghi nhớ đăng nhập
-                                </label>
+                                    <Link
+                                        to="/forgot-password"
+                                        style={{
+                                            textDecoration: 'none',
+                                            color: '#1976D2',
+                                            fontWeight: 600,
+                                            fontSize: '0.875rem'
+                                        }}
+                                    >
+                                        Quên mật khẩu?
+                                    </Link>
+                                </Box>
 
-                                <Link to="/forgot-password" className="forgot-password">
-                                    Quên mật khẩu?
-                                </Link>
-                            </div>
+                                {/* Submit Button */}
+                                <Button
+                                    type="submit"
+                                    fullWidth
+                                    variant="contained"
+                                    size="large"
+                                    disabled={loading}
+                                    sx={{
+                                        py: 1.8,
+                                        borderRadius: 2,
+                                        fontSize: '1rem',
+                                        fontWeight: 'bold',
+                                        textTransform: 'none',
+                                        boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
+                                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                                        '&:hover': {
+                                            background: 'linear-gradient(45deg, #2196F3 60%, #21CBF3 90%)',
+                                            boxShadow: '0 6px 20px rgba(0,118,255,0.23)'
+                                        }
+                                    }}
+                                >
+                                    {loading ? (
+                                        <CircularProgress size={24} color="inherit" />
+                                    ) : (
+                                        'Đăng nhập'
+                                    )}
+                                </Button>
+                            </form>
 
-                            <button type="submit" className="login-button" disabled={loading}>
-                                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                            </button>
-                        </form>
-
-                        <div className="footer-text">
-                            © 2026 Minh Khanh Warehouse Management System
-                        </div>
-                    </div>
-                </div>
-            </div>
+                            {/* Footer */}
+                            <Typography
+                                variant="caption"
+                                align="center"
+                                color="text.secondary"
+                                sx={{ display: 'block', mt: 4 }}
+                            >
+                                © 2026 Minh Khanh Warehouse Management System
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Fade>
+            </Container>
 
             {/* Toast Notification */}
             {toast && (
@@ -133,7 +285,7 @@ const Login = () => {
                     onClose={() => setToast(null)}
                 />
             )}
-        </div>
+        </Box >
     );
 };
 

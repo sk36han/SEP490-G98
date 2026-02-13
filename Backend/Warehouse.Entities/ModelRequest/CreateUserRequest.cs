@@ -17,7 +17,10 @@ namespace Warehouse.Entities.ModelRequest
 		[StringLength(100, ErrorMessage = "Họ tên không được vượt quá 100 ký tự.")]
 		public string FullName { get; set; } = null!;
 
+
 		[Required(ErrorMessage = "Role là bắt buộc.")]
 		public long RoleId { get; set; }
+
+		public string? Username { get; set; }
 	}
 }

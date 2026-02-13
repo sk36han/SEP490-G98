@@ -1,0 +1,40 @@
+/* Global Layout Styles */
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+    background-color: #f8fafc;
+    /* Slate 50 background */
+}
+
+/* Sidebar is handled by its own component, taking up space */
+
+/* Main Content Area */
+.main-content {
+    flex: 1;
+    /* Takes remaining width */
+    height: 100vh;
+    overflow-y: auto;
+    /* Scroll inside main content, keep sidebar sticky */
+    position: relative;
+    transition: margin-left 0.3s ease;
+    /* Ensure smooth transition if margin is used */
+}
+
+/* Container for Page Content */
+.content-container {
+    padding: 24px;
+    /* max-width: 1280px;  Optional: restrict max width for readability */
+    margin: 0 auto;
+    min-height: calc(100vh - 48px);
+    /* Height minus padding */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .app-layout {
+        flex-direction: column;
+    }
+
+    /* Sidebar handling on mobile would need extensive CSS logic or JS overlay */
+    /* For now, maintain basic layout or hide sidebar on mobile if needed */
+}
