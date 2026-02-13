@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
 
@@ -159,6 +160,71 @@ namespace Warehouse.DataAcces.Service
                     Note = line.Note
                 }).ToList()
             };
+        }
+
+        public async Task<PurchaseOrderDetailResponse> CreatePurchaseOrderAsync(long requestedByUserId, CreatePurchaseOrderRequest request)
+        {
+            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
+
+            // 1. Validate PO Code uniqueness
+            var isDuplicate = await context.PurchaseOrders.AnyAsync(p => p.Pocode == request.Pocode);
+            if (isDuplicate)
+            {
+                throw new InvalidOperationException($"Mã đơn hàng '{request.Pocode}' đã tồn tại trong hệ thống.");
+            }
+
+            using var transaction = await context.Database.BeginTransactionAsync();
+            try
+            {
+                // 2. Map & Create Header
+                var purchaseOrder = new PurchaseOrder
+                {
+                    Pocode = request.Pocode,
+                    RequestedBy = requestedByUserId,
+                    SupplierId = request.SupplierId,
+                    RequestedDate = request.RequestedDate,
+                    Justification = request.Justification,
+                    Status = request.Status,
+                    CurrentStageNo = request.CurrentStageNo,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                context.PurchaseOrders.Add(purchaseOrder);
+                await context.SaveChangesAsync(); // Save to get PurchaseOrderId
+
+                // 3. Map & Create Lines
+                foreach (var lineReq in request.OrderLines)
+                {
+                    var line = new PurchaseOrderLine
+                    {
+                        PurchaseOrderId = purchaseOrder.PurchaseOrderId,
+                        ItemId = lineReq.ItemId,
+                        OrderedQty = lineReq.OrderedQty,
+                        UomId = lineReq.UomId,
+                        Note = lineReq.Note
+                    };
+                    context.PurchaseOrderLines.Add(line);
+                }
+
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // 4. Return created detail
+                return await GetPurchaseOrderByIdAsync(purchaseOrder.PurchaseOrderId)
+                       ?? throw new Exception("Error retrieving created Purchase Order");
+            }
+            catch (DbUpdateException ex)
+            {
+                await transaction.RollbackAsync();
+                var message = ex.InnerException?.Message ?? ex.Message;
+                throw new InvalidOperationException($"Lỗi DB: {message}");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }

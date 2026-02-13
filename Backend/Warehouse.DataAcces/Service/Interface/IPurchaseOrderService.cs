@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
 namespace Warehouse.DataAcces.Service.Interface
@@ -18,5 +19,7 @@ namespace Warehouse.DataAcces.Service.Interface
         );
 
         Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id);
+
+        Task<PurchaseOrderDetailResponse> CreatePurchaseOrderAsync(long requestedByUserId, CreatePurchaseOrderRequest request);
     }
 }
