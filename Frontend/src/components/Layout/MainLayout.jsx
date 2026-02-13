@@ -1,9 +1,8 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
 import Sidebar from '../Sidebar/Sidebar';
 import './MainLayout.css';
 
-const MainLayout = ({ children }) => { // Children or Outlet depending on usage, but Outlet is better for Router
+const MainLayout = ({ children }) => {
     return (
         <div className="app-layout">
             {/* Sidebar Component */}
@@ -12,8 +11,8 @@ const MainLayout = ({ children }) => { // Children or Outlet depending on usage,
             {/* Main Content Area */}
             <main className="main-content">
                 <div className="content-container">
-                    {/* Render nested routes here */}
-                    <Outlet />
+                    {/* Render children components */}
+                    {children}
                 </div>
             </main>
         </div>

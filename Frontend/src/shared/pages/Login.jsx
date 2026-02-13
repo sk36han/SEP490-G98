@@ -49,8 +49,29 @@ const Login = () => {
 
             showToast('Đăng nhập thành công!', 'success');
 
+            // Get user info to determine redirect path based on role
+            const userInfo = authService.getUser();
+            const role = userInfo?.roleName;
+
+            console.log('User info after login:', userInfo);
+            console.log('Detected role:', role);
+
             setTimeout(() => {
-                navigate('/home');
+                // Redirect based on role to role-specific home
+                if (role === 'ADMIN') {
+                    console.log('Redirecting to /admin/home');
+                    navigate('/admin/home');
+                } else if (role === 'MANAGER') {
+                    console.log('Redirecting to /manager/home');
+                    navigate('/manager/home');
+                } else if (role === 'STAFF') {
+                    console.log('Redirecting to /staff/home');
+                    navigate('/staff/home');
+                } else {
+                    // Fallback to generic home if role is unknown
+                    console.log('Role unknown, redirecting to /home. Role was:', role);
+                    navigate('/home');
+                }
             }, 1500);
         } catch (error) {
             showToast(error.message, 'error');

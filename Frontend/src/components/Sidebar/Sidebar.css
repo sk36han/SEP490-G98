@@ -61,14 +61,32 @@
     border-radius: 8px;
 }
 
-/* Toggle Button */
-.toggle-btn {
+/* Logo Image */
+.logo-image {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+}
+
+.sidebar.collapsed .logo-image {
+    height: 32px;
+}
+
+.logo-text {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary-color, #2563eb);
+}
+
+
+/* Sidebar Toggle Button - Circular, centered on right edge */
+.sidebar-toggle-btn {
     position: absolute;
-    right: -12px;
     top: 50%;
+    right: -12px;
     transform: translateY(-50%);
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     background-color: white;
     border: 1px solid #e5e7eb;
     border-radius: 50%;
@@ -76,39 +94,27 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 10;
+    z-index: 100;
     color: #6b7280;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    transition: all 0.2s;
-    opacity: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
 }
 
-.sidebar:hover .toggle-btn {
-    opacity: 1;
-    right: 12px;
+.sidebar-toggle-btn:hover {
+    background-color: #f9fafb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: var(--primary-color, #2563eb);
 }
 
-.sidebar.collapsed:hover .toggle-btn {
-    right: auto;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    top: 70px;
-    /* Adjust based on header height */
-    opacity: 0;
-    /* Hide toggle on collapsed hover if preferred, or adjust styling */
+.sidebar-toggle-btn:active {
+    transform: translateY(-50%) scale(0.95);
 }
 
-/* Override toggle for better UX: Put it inside or leave it */
-/* Let's make a specific toggle area at the top right of header */
+/* Remove old toggle wrapper styles */
 .sidebar-toggle-wrapper {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-}
-
-.sidebar.collapsed .sidebar-toggle-wrapper {
     display: none;
 }
+
 
 /* --- Menu Section --- */
 .sidebar-nav {

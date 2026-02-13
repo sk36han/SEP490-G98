@@ -13,21 +13,24 @@ import {
     Truck,
     ShoppingCart
 } from 'lucide-react';
+import authService from '../../shared/lib/authService';
+import logo from '../../shared/assets/logo.png';
 import './Sidebar.css';
-
-// Mock user data - In real app, get this from AuthService or Context
-const MOCK_USER = {
-    name: 'Nguyễn Văn A',
-    role: 'Warehouse Manager', // 'Admin', 'Staff'
-    email: 'manager@warehouse.com',
-    avatar: '' // URL or empty
-};
 
 const Sidebar = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const [user, setUser] = useState(MOCK_USER);
     const location = useLocation();
     const navigate = useNavigate();
+
+    // Get user data from authService (real data from backend)
+    const userInfo = authService.getUser();
+    // Try roleCode first (what backend uses), fallback to roleName
+    const roleFromBackend = userInfo?.roleCode || userInfo?.roleName || 'STAFF';
+    const user = {
+        name: userInfo?.fullName || 'User',
+        role: roleFromBackend.toUpperCase(), // Normalize to uppercase
+        email: userInfo?.email || ''
+    };
 
     // Toggle Sidebar
     const toggleSidebar = () => {
@@ -36,34 +39,46 @@ const Sidebar = () => {
 
     // Logout Handler
     const handleLogout = () => {
-        // Call AuthService.logout() here
-        console.log('Logging out...');
-        navigate('/login');
+        if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
+            authService.logout();
+            navigate('/login');
+        }
     };
 
     // Menu Configuration based on Roles
     const getMenuItems = (role) => {
         const common = [
-            { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-            { path: '/profile', icon: User, label: 'Cá nhân' },
+            { path: '/profile', icon: User, label: 'Hồ sơ cá nhân' },
+        ];
+
+        const adminItems = [
+            { path: '/admin/home', icon: LayoutDashboard, label: 'Trang chủ' },
+            { path: '/admin/users', icon: Users, label: 'Quản lý người dùng' },
+            { path: '/inventory', icon: Box, label: 'Quản lý kho' },
+            { path: '/suppliers', icon: Truck, label: 'Nhà cung cấp' },
+            { path: '/orders', icon: ShoppingCart, label: 'Đơn hàng' },
+            { path: '/reports', icon: FileText, label: 'Báo cáo' },
+            { path: '/settings', icon: Settings, label: 'Cài đặt' },
         ];
 
         const managerItems = [
-            { path: '/inventory', icon: Box, label: 'Kho hàng' },
+            { path: '/manager/home', icon: LayoutDashboard, label: 'Trang chủ' },
+            { path: '/inventory', icon: Box, label: 'Quản lý kho' },
             { path: '/suppliers', icon: Truck, label: 'Nhà cung cấp' },
-            { path: '/supplier/create', icon: FileText, label: 'Tạo NCC (Mới)' }, // Added for easy access during dev
+            { path: '/orders', icon: ShoppingCart, label: 'Đơn hàng' },
             { path: '/reports', icon: FileText, label: 'Báo cáo' },
-            { path: '/users', icon: Users, label: 'Nhân viên' },
         ];
 
         const staffItems = [
-            { path: '/inventory', icon: Box, label: 'Kho hàng' },
+            { path: '/staff/home', icon: LayoutDashboard, label: 'Trang chủ' },
             { path: '/orders', icon: ShoppingCart, label: 'Đơn hàng' },
         ];
 
-        // Simple role check logic
-        if (role === 'Warehouse Manager' || role === 'Admin') {
-            return [...common, ...managerItems, { path: '/settings', icon: Settings, label: 'Cài đặt' }];
+        // Role-based menu rendering
+        if (role === 'ADMIN') {
+            return [...common, ...adminItems];
+        } else if (role === 'MANAGER' || role === 'Warehouse Manager') {
+            return [...common, ...managerItems];
         }
 
         return [...common, ...staffItems];
@@ -76,28 +91,20 @@ const Sidebar = () => {
             {/* Header / Logo */}
             <div className="sidebar-header">
                 <div className="logo-container">
-                    <div className="logo-icon">W</div>
-                    {!isCollapsed && <span>Warehouse</span>}
+                    <img src={logo} alt="Logo" className="logo-image" />
                 </div>
-
-                {/* Collapse Toggle Button */}
-                {!isCollapsed && (
-                    <div className="sidebar-toggle-wrapper">
-                        <button onClick={toggleSidebar} className="collapse-trigger" title="Thu gọn">
-                            <ChevronLeft size={20} />
-                        </button>
-                    </div>
-                )}
             </div>
 
-            {/* Collapsed Toggle (Centered when collapsed) */}
-            {isCollapsed && (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
-                    <button onClick={toggleSidebar} className="collapse-trigger" title="Mở rộng">
-                        <ChevronRight size={20} />
-                    </button>
-                </div>
-            )}
+            {/* Toggle Button - Circular, centered on right edge */}
+            <button
+                onClick={toggleSidebar}
+                className="sidebar-toggle-btn"
+                title={isCollapsed ? "Mở rộng" : "Thu gọn"}
+            >
+                {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </button>
+
+
 
             {/* Navigation Menu */}
             <nav className="sidebar-nav">
