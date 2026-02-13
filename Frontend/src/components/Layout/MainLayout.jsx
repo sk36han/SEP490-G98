@@ -1,21 +1,16 @@
 import React from 'react';
+import Box from '@mui/material/Box';
 import Sidebar from '../Sidebar/Sidebar';
-import './MainLayout.css';
+import './MainLayout.css'; // Keep consistent with existing styles for now, or remove if not needed.
 
 const MainLayout = ({ children }) => {
     return (
-        <div className="app-layout">
-            {/* Sidebar Component */}
+        <Box sx={{ display: 'flex' }}>
             <Sidebar />
-
-            {/* Main Content Area */}
-            <main className="main-content">
-                <div className="content-container">
-                    {/* Render children components */}
-                    {children}
-                </div>
-            </main>
-        </div>
+            <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
+                {children}
+            </Box>
+        </Box>
     );
 };
 
