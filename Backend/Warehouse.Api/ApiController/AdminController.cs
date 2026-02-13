@@ -123,5 +123,23 @@ namespace Warehouse.Api.ApiController
 				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
 			}
 		}
+
+		[HttpGet("export-excel")]
+		public async Task<IActionResult> ExportUsersExcel()
+		{
+			try
+			{
+				var (content, fileName) = await _adminService.ExportUserListExcelAsync();
+				return File(
+					content,
+					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+					fileName
+				);
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+			}
+		}
 	}
 }

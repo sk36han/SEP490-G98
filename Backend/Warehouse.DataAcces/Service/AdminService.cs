@@ -303,5 +303,53 @@ namespace Warehouse.DataAcces.Service
                            ? user.UserRoleUser.Role.RoleName : "N/A"
             };
         }
+
+        public async Task<(byte[] content, string fileName)> ExportUserListExcelAsync()
+        {
+            var users = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .ThenInclude(ur => ur.Role)
+                .AsNoTracking()
+                .OrderByDescending(u => u.CreatedAt)
+                .ToListAsync();
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Users");
+
+            // Header
+            var headers = new string[] { "UserId", "Full Name", "Username", "Email", "Phone", "Role", "Status", "Last Login", "Created At" };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = worksheet.Cell(1, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
+            }
+
+            // Data
+            int row = 2;
+            foreach (var user in users)
+            {
+                worksheet.Cell(row, 1).Value = user.UserId;
+                worksheet.Cell(row, 2).Value = user.FullName;
+                worksheet.Cell(row, 3).Value = user.Username;
+                worksheet.Cell(row, 4).Value = user.Email;
+                worksheet.Cell(row, 5).Value = user.Phone ?? "N/A";
+                worksheet.Cell(row, 6).Value = user.UserRoleUser?.Role?.RoleName ?? "N/A";
+                worksheet.Cell(row, 7).Value = user.IsActive ? "Active" : "Inactive";
+                worksheet.Cell(row, 8).Value = user.LastLoginAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never";
+                worksheet.Cell(row, 9).Value = user.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss");
+                row++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new System.IO.MemoryStream();
+            workbook.SaveAs(stream);
+            var content = stream.ToArray();
+            var fileName = $"Users_Export_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+            return (content, fileName);
+        }
     }
 }

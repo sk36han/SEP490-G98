@@ -15,5 +15,6 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request);
         Task<UserDto> UpdateUserAsync(long userId, UpdateUserRequest request);
         Task<UserDto> ToggleUserStatusAsync(long userId);
+        Task<(byte[] content, string fileName)> ExportUserListExcelAsync();
     }
 }
