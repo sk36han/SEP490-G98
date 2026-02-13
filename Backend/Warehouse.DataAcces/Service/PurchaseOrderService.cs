@@ -324,5 +324,31 @@ namespace Warehouse.DataAcces.Service
                 throw;
             }
         }
+
+        public async Task<bool> CancelPurchaseOrderAsync(long id)
+        {
+            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
+
+            var purchaseOrder = await context.PurchaseOrders
+                .FirstOrDefaultAsync(p => p.PurchaseOrderId == id);
+
+            if (purchaseOrder == null)
+            {
+                return false;
+            }
+
+            // Business rule: Không cho phép hủy nếu đã RECEIVED hoặc COMPLETED
+            var forbiddenStatuses = new[] { "RECEIVED", "COMPLETED", "CANCELLED" };
+            if (forbiddenStatuses.Contains(purchaseOrder.Status.ToUpper()))
+            {
+                throw new InvalidOperationException($"Không thể hủy đơn hàng đang ở trạng thái {purchaseOrder.Status}.");
+            }
+
+            purchaseOrder.Status = "CANCELLED";
+            purchaseOrder.UpdatedAt = DateTime.UtcNow;
+
+            await context.SaveChangesAsync();
+            return true;
+        }
     }
 }

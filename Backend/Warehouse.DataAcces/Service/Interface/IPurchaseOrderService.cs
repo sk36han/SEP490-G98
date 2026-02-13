@@ -23,5 +23,7 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<PurchaseOrderDetailResponse> CreatePurchaseOrderAsync(long requestedByUserId, CreatePurchaseOrderRequest request);
 
         Task<PurchaseOrderDetailResponse?> UpdatePurchaseOrderAsync(long id, UpdatePurchaseOrderRequest request);
+
+        Task<bool> CancelPurchaseOrderAsync(long id);
     }
 }
