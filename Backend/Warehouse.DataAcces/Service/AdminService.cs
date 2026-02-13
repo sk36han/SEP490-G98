@@ -209,7 +209,16 @@ namespace Warehouse.DataAcces.Service
                 .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.UserId == userId);
 
-            if (user == null)
+			// Update FullName + auto update Username
+			if (!string.IsNullOrWhiteSpace(request.FullName))
+			{
+				user.FullName = request.FullName.Trim();
+
+				// Generate lại username từ fullname mới
+				user.Username = await GenerateUsernameAsync(user.FullName);
+			}
+
+			if (user == null)
             {
                 throw new KeyNotFoundException("Người dùng không tồn tại.");
             }
@@ -259,17 +268,16 @@ namespace Warehouse.DataAcces.Service
 
             return new AdminUserResponse
             {
-                UserId = user.UserId,
-                Username = user.Username,
-                FullName = user.FullName,
-                Email = user.Email,
-                Phone = user.Phone,
-                IsActive = user.IsActive,
-                LastLoginAt = user.LastLoginAt,
-                CreatedAt = user.CreatedAt,
-                RoleName = (user.UserRoleUser != null && user.UserRoleUser.Role != null)
-                           ? user.UserRoleUser.Role.RoleName : "N/A"
-            };
+				UserId = user.UserId,
+				Username = user.Username,
+				FullName = user.FullName,
+				Email = user.Email,
+				Phone = user.Phone,
+				IsActive = user.IsActive,
+				LastLoginAt = user.LastLoginAt,
+				CreatedAt = user.CreatedAt,
+				RoleName = user.UserRoleUser?.Role?.RoleName ?? "N/A"
+			};
         }
 
         public async Task<AdminUserResponse> ToggleUserStatusAsync(long userId)
