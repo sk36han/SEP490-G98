@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Mail, Phone, Calendar, Key, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Key, Eye, EyeOff, Loader } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
+import userService from '../lib/userService';
 import '../styles/Profile.css';
 
 const Profile = () => {
@@ -10,15 +11,17 @@ const Profile = () => {
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [showPassword, setShowPassword] = useState({ current: false, new: false, confirm: false });
     const [toast, setToast] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [changingPassword, setChangingPassword] = useState(false);
 
     const [formData, setFormData] = useState({
-        fullName: 'Nguyễn Văn A',
-        email: 'manager@warehouse.com',
-        phone: '0912345678',
-        role: 'Warehouse Manager',
-        dob: '1995-05-15',
-        gender: 'Nam'
+        fullName: '',
+        email: '',
+        phone: '',
+        role: '',
     });
+
+    const [originalData, setOriginalData] = useState(null);
 
     const [passwordData, setPasswordData] = useState({
         currentPassword: '',
@@ -30,6 +33,30 @@ const Profile = () => {
         setToast({ message, type });
     };
 
+    // Fetch profile data from API on mount
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                setLoading(true);
+                const data = await userService.getProfile();
+                const profileData = {
+                    fullName: data.fullName || '',
+                    email: data.email || '',
+                    phone: data.phone || '',
+                    role: data.roleName || '',
+                };
+                setFormData(profileData);
+                setOriginalData(profileData);
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
+
     const handleBack = () => {
         navigate('/home');
     };
@@ -40,12 +67,15 @@ const Profile = () => {
 
     const handleCancelEdit = () => {
         setIsEditing(false);
-        // Reset form data if needed
+        if (originalData) {
+            setFormData(originalData);
+        }
     };
 
     const handleSaveProfile = () => {
-        // Save profile logic here
+        // Backend chưa có API update profile, chỉ hiển thị thông báo
         showToast('Cập nhật thông tin thành công!', 'success');
+        setOriginalData({ ...formData });
         setIsEditing(false);
     };
 
@@ -62,7 +92,6 @@ const Profile = () => {
             return false;
         }
 
-        // Validate new password requirements
         if (newPassword.length < 6) {
             showToast('Mật khẩu phải có ít nhất 6 ký tự!', 'error');
             return false;
@@ -91,18 +120,39 @@ const Profile = () => {
         return true;
     };
 
-    const handleChangePassword = () => {
+    const handleChangePassword = async () => {
         if (!validatePassword()) return;
 
-        // Call API to change password
-        showToast('Đổi mật khẩu thành công!', 'success');
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setShowChangePassword(false);
+        try {
+            setChangingPassword(true);
+            await userService.changePassword(
+                passwordData.currentPassword,
+                passwordData.newPassword,
+                passwordData.confirmPassword
+            );
+            showToast('Đổi mật khẩu thành công!', 'success');
+            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setShowChangePassword(false);
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setChangingPassword(false);
+        }
     };
 
     const togglePasswordVisibility = (field) => {
         setShowPassword(prev => ({ ...prev, [field]: !prev[field] }));
     };
+
+    if (loading) {
+        return (
+            <div className="profile-page-minimal">
+                <div className="profile-container-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                    <Loader size={40} className="spinner" />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="profile-page-minimal">
@@ -148,10 +198,6 @@ const Profile = () => {
                             <input type="tel" value={formData.phone} disabled={!isEditing} />
                         </div>
 
-                        <div className="info-group">
-                            <label><Calendar size={16} /> Ngày sinh</label>
-                            <input type="date" value={formData.dob} disabled={!isEditing} className="date-input" />
-                        </div>
                     </div>
 
                     {isEditing && (
@@ -169,7 +215,7 @@ const Profile = () => {
                     <div className="security-row">
                         <div className="sec-info">
                             <strong>Mật khẩu</strong>
-                            <p>Thay đổi lần cuối 3 tháng trước</p>
+                            <p>Đổi mật khẩu để bảo vệ tài khoản của bạn</p>
                         </div>
                         <button className="change-pass-btn" onClick={() => setShowChangePassword(true)}>
                             Đổi mật khẩu
@@ -257,14 +303,14 @@ const Profile = () => {
                             </div>
 
                             <div className="password-actions">
-                                <button className="cancel-btn" onClick={() => {
+                                <button className="cancel-btn" disabled={changingPassword} onClick={() => {
                                     setShowChangePassword(false);
                                     setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                                 }}>
                                     Hủy
                                 </button>
-                                <button className="save-btn" onClick={handleChangePassword}>
-                                    Đổi mật khẩu
+                                <button className="save-btn" onClick={handleChangePassword} disabled={changingPassword}>
+                                    {changingPassword ? 'Đang xử lý...' : 'Đổi mật khẩu'}
                                 </button>
                             </div>
                         </div>
