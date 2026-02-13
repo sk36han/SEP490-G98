@@ -22,7 +22,7 @@ namespace Warehouse.Api.ApiController
 		/// Lấy danh sách user (có filter, paging, search)
 		/// GET: /api/admin/users
 		/// </summary>
-		[HttpGet]
+		[HttpGet("get-users")]
 		public async Task<IActionResult> GetUsers([FromQuery] UserFilterRequest filter)
 		{
 			try
@@ -40,7 +40,7 @@ namespace Warehouse.Api.ApiController
 		/// Tạo tài khoản user
 		/// POST: /api/admin/users
 		/// </summary>
-		[HttpPost]
+		[HttpPost("create-user")]
 		public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
 		{
 			try
@@ -66,7 +66,7 @@ namespace Warehouse.Api.ApiController
 		/// Update thông tin user
 		/// PUT: /api/admin/users/{id}
 		/// </summary>
-		[HttpPut("{id}")]
+		[HttpPut("update-user/{id}")]
 		public async Task<IActionResult> UpdateUser(long id, [FromBody] UpdateUserRequest request)
 		{
 			try
@@ -96,7 +96,7 @@ namespace Warehouse.Api.ApiController
 		/// Enable/Disable user
 		/// PATCH: /api/admin/users/{id}/status
 		/// </summary>
-		[HttpPatch("{id}/status")]
+		[HttpPatch("toggle-status/{id}")]
 		public async Task<IActionResult> ToggleUserStatus(long id)
 		{
 			try
