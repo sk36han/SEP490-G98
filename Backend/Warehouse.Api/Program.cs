@@ -1,4 +1,4 @@
-﻿
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,11 +78,8 @@ namespace Warehouse.Api
 
             // JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-		builder.Services.AddScoped<IUserService, UserService>();
-			builder.Services.AddScoped<IRoleService, RoleService>();
-			
-		
-            var secretKey = jwtSettings["SecretKey"];
+
+			var secretKey = jwtSettings["SecretKey"];
 
             builder.Services.AddAuthentication(options =>
             {

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -61,9 +61,15 @@ namespace Warehouse.DataAcces.Service
             var defaultMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "60");
             var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? defaultMinutes.ToString());
             var expirationMinutes = rememberMe ? rememberMeMinutes : defaultMinutes;
+			// Lấy RoleCode (khớp với [Authorize(Roles = "Admin")]) - không dùng RoleName
+			var roleCode = await _context.UserRoles
+				.Where(ur => ur.UserId == user.UserId)
+				.Include(ur => ur.Role)
+				.Select(ur => ur.Role.RoleCode)
+				.FirstOrDefaultAsync();
 
-            // Create claims
-            var claims = new List<Claim>
+			// Create claims
+			var claims = new List<Claim>
             {
 
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
@@ -77,9 +83,12 @@ namespace Warehouse.DataAcces.Service
             {
                 claims.Add(new Claim("username", user.Username));
             }
-
-            // Create token
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
+			if (!string.IsNullOrEmpty(roleCode))
+			{
+				claims.Add(new Claim(ClaimTypes.Role, roleCode));
+			}
+			// Create token
+			var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
 

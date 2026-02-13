@@ -1,11 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
+using Warehouse.Entities.ModelResponse;
 
 namespace Warehouse.Api.ApiController
 {
 	[Route("api/admin/users")]
 	[ApiController]
+	[Authorize(Roles = "ADMIN")]
 	public class AdminController : ControllerBase
 	{
 		private readonly IAdminService _adminService;
@@ -17,110 +20,99 @@ namespace Warehouse.Api.ApiController
 
 		/// <summary>
 		/// Lấy danh sách user (có filter, paging, search)
-		/// GET: /api/users
+		/// GET: /api/admin/users
 		/// </summary>
-		[HttpGet]
+		[HttpGet("get-users")]
 		public async Task<IActionResult> GetUsers([FromQuery] UserFilterRequest filter)
 		{
 			try
 			{
 				var result = await _adminService.GetUserListAsync(filter);
-				return Ok(result);
+				return Ok(ApiResponse<object>.SuccessResponse(result, "Lấy danh sách người dùng thành công."));
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 
 		/// <summary>
 		/// Tạo tài khoản user
-		/// POST: /api/users
+		/// POST: /api/admin/users
 		/// </summary>
-		[HttpPost]
+		[HttpPost("create-user")]
 		public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
 		{
 			try
 			{
 				if (!ModelState.IsValid)
-					return BadRequest(ModelState);
+					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
 
 				var result = await _adminService.CreateUserAccountAsync(request);
 
-				return Created("", new
-				{
-					message = "Tạo tài khoản thành công.",
-					data = result
-				});
+				return Created("", ApiResponse<CreateUserResponse>.SuccessResponse(result, "Tạo tài khoản thành công."));
 			}
 			catch (InvalidOperationException ex)
 			{
-				return BadRequest(new { message = ex.Message });
+				return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
-			catch (Exception ex)
+			catch (Exception)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 
 		/// <summary>
 		/// Update thông tin user
-		/// PUT: /api/users/{id}
+		/// PUT: /api/admin/users/{id}
 		/// </summary>
-		[HttpPut("{id}")]
+		[HttpPut("update-user/{id}")]
 		public async Task<IActionResult> UpdateUser(long id, [FromBody] UpdateUserRequest request)
 		{
 			try
 			{
 				if (!ModelState.IsValid)
-					return BadRequest(ModelState);
+					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
 
 				var result = await _adminService.UpdateUserAsync(id, request);
 
-				return Ok(new
-				{
-					message = "Cập nhật thông tin người dùng thành công.",
-					data = result
-				});
+				return Ok(ApiResponse<AdminUserResponse>.SuccessResponse(result, "Cập nhật thông tin người dùng thành công."));
 			}
 			catch (KeyNotFoundException ex)
 			{
-				return NotFound(new { message = ex.Message });
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (InvalidOperationException ex)
 			{
-				return BadRequest(new { message = ex.Message });
+				return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 
 		/// <summary>
 		/// Enable/Disable user
-		/// PATCH: /api/users/{id}/status
+		/// PATCH: /api/admin/users/{id}/status
 		/// </summary>
-		[HttpPatch("{id}/status")]
+		[HttpPatch("toggle-status/{id}")]
 		public async Task<IActionResult> ToggleUserStatus(long id)
 		{
 			try
 			{
 				var result = await _adminService.ToggleUserStatusAsync(id);
 
-				return Ok(new
-				{
-					message = $"Đã chuyển trạng thái tài khoản thành {(result.IsActive ? "Enable" : "Disable")}.",
-					data = result
-				});
+				return Ok(ApiResponse<AdminUserResponse>.SuccessResponse(result,
+					$"Đã chuyển trạng thái tài khoản thành {(result.IsActive ? "Enable" : "Disable")}."));
 			}
 			catch (KeyNotFoundException ex)
 			{
-				return NotFound(new { message = ex.Message });
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
 

@@ -1,6 +1,6 @@
-namespace Warehouse.Entities.ModelDto
+namespace Warehouse.Entities.ModelResponse
 {
-	public class RoleDto
+	public class RoleResponse
 	{
 		public long RoleId { get; set; }
 		public string RoleCode { get; set; } = null!;
