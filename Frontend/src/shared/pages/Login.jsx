@@ -4,6 +4,7 @@ import '../styles/Login.css';
 import logo from '../assets/logo.png';
 import Toast from '../../components/Toast/Toast';
 import authService from '../lib/authService';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -12,6 +13,8 @@ const Login = () => {
         password: '',
         rememberMe: false
     });
+
+    const [showPassword, setShowPassword] = useState(false);
     const [toast, setToast] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -19,9 +22,13 @@ const Login = () => {
         setToast({ message, type });
     };
 
+    const togglePasswordVisibility = () => {
+        setShowPassword((prev) => !prev);
+    };
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
@@ -30,7 +37,6 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation
         if (!formData.email || !formData.password) {
             showToast('Vui lòng điền đầy đủ thông tin!', 'error');
             return;
@@ -39,18 +45,12 @@ const Login = () => {
         setLoading(true);
 
         try {
-            // Call API to login
-            await authService.login(
-                formData.email,
-                formData.password,
-                formData.rememberMe
-            );
+            await authService.login(formData.email, formData.password, formData.rememberMe);
 
             showToast('Đăng nhập thành công!', 'success');
 
-            // Navigate to home after success
             setTimeout(() => {
-                navigate('/');
+                navigate('/home');
             }, 1500);
         } catch (error) {
             showToast(error.message, 'error');
@@ -86,15 +86,26 @@ const Login = () => {
                             </div>
 
                             <div className="input-group">
-                                <input
-                                    type="password"
-                                    name="password"
-                                    placeholder="Mật khẩu"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="login-input"
-                                    required
-                                />
+                                <div className="password-input-wrapper">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="password"
+                                        placeholder="Mật khẩu"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        className="login-input"
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        className="toggle-password"
+                                        onClick={togglePasswordVisibility}
+                                        aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                        title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="login-options">
@@ -118,20 +129,13 @@ const Login = () => {
                             </button>
                         </form>
 
-                        <div className="footer-text">
-                            © 2026 Minh Khanh Warehouse Management System
-                        </div>
+                        <div className="footer-text">© 2026 Minh Khanh Warehouse Management System</div>
                     </div>
                 </div>
             </div>
 
-            {/* Toast Notification */}
             {toast && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast(null)}
-                />
+                <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
             )}
         </div>
     );
