@@ -12,7 +12,7 @@ namespace Warehouse.DataAcces.Service.Interface
     {
         Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter);
         Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy);
-        Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request);
+        Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request, long assignedBy);
         Task<AdminUserResponse> ToggleUserStatusAsync(long userId);
     }
 }

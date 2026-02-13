@@ -104,7 +104,14 @@ namespace Warehouse.Api.ApiController
 					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
 				}
 
-				var result = await _roleService.AssignRoleToUserAsync(request);
+				// Lấy ID người tạo từ token (claim "id" hoặc ClaimTypes.NameIdentifier)
+				var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long assignedBy))
+				{
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
+				}
+
+				var result = await _roleService.AssignRoleToUserAsync(request, assignedBy);
 				return Ok(ApiResponse<AdminUserResponse>.SuccessResponse(result, "Gán role cho người dùng thành công."));
 			}
 			catch (KeyNotFoundException ex)

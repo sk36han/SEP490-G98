@@ -91,41 +91,43 @@ namespace Warehouse.DataAcces.Service
 			};
 		}
 
-		public async Task<AdminUserResponse> AssignRoleToUserAsync(AssignRoleRequest request)
-		{
-			// Kiểm tra user tồn tại
-			var user = await _context.Users
-				.Include(u => u.UserRoleUser)
-				.FirstOrDefaultAsync(u => u.UserId == request.UserId);
+        public async Task<AdminUserResponse> AssignRoleToUserAsync(AssignRoleRequest request, long assignedBy)
+        {
+            // Kiểm tra user tồn tại
+            var user = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .FirstOrDefaultAsync(u => u.UserId == request.UserId);
 
-			if (user == null)
-			{
-				throw new KeyNotFoundException("Người dùng không tồn tại.");
-			}
+            if (user == null)
+            {
+                throw new KeyNotFoundException("Người dùng không tồn tại.");
+            }
 
-			// Kiểm tra role tồn tại
-			var role = await _context.Roles.FindAsync(request.RoleId);
-			if (role == null)
-			{
-				throw new InvalidOperationException("Role không tồn tại.");
-			}
+            // Kiểm tra role tồn tại
+            var role = await _context.Roles.FindAsync(request.RoleId);
+            if (role == null)
+            {
+                throw new InvalidOperationException("Role không tồn tại.");
+            }
 
-			// Gán hoặc cập nhật role
-			if (user.UserRoleUser != null)
-			{
-				user.UserRoleUser.RoleId = role.RoleId;
-				user.UserRoleUser.AssignedAt = DateTime.UtcNow;
-			}
-			else
-			{
-				var userRole = new UserRole
-				{
-					UserId = user.UserId,
-					RoleId = role.RoleId,
-					AssignedAt = DateTime.UtcNow
-				};
-				_context.UserRoles.Add(userRole);
-			}
+            // Gán hoặc cập nhật role
+            if (user.UserRoleUser != null)
+            {
+                user.UserRoleUser.RoleId = role.RoleId;
+                user.UserRoleUser.AssignedAt = DateTime.UtcNow;
+                user.UserRoleUser.AssignedBy = assignedBy;
+            }
+            else
+            {
+                var userRole = new UserRole
+                {
+                    UserId = user.UserId,
+                    RoleId = role.RoleId,
+                    AssignedAt = DateTime.UtcNow,
+                    AssignedBy = assignedBy
+                };
+                _context.UserRoles.Add(userRole);
+            }
 
 			user.UpdatedAt = DateTime.UtcNow;
 			await _context.SaveChangesAsync();

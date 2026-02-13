@@ -202,7 +202,7 @@ namespace Warehouse.DataAcces.Service
             return new PagedResult<AdminUserResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
         }
 
-        public async Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request)
+        public async Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request, long assignedBy)
         {
             // Tìm user
             var user = await _context.Users
@@ -244,6 +244,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     user.UserRoleUser.RoleId = request.RoleId.Value;
                     user.UserRoleUser.AssignedAt = DateTime.UtcNow;
+                    user.UserRoleUser.AssignedBy = assignedBy;
                 }
                 else
                 {
@@ -251,7 +252,8 @@ namespace Warehouse.DataAcces.Service
                     {
                         UserId = user.UserId,
                         RoleId = request.RoleId.Value,
-                        AssignedAt = DateTime.UtcNow
+                        AssignedAt = DateTime.UtcNow,
+                        AssignedBy = assignedBy
                     };
                     _context.UserRoles.Add(userRole);
                 }
