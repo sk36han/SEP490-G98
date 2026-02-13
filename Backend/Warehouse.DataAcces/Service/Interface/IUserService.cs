@@ -15,6 +15,7 @@ namespace Warehouse.DataAcces.Service.Interface
 	{
 		
 		Task<UserResponse?> GetUserProfileAsync(long userId);
+		Task ChangePasswordAsync(long userId, string oldPassword, string newPassword);
 
 	}
 }
