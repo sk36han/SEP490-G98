@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -24,7 +24,7 @@ namespace Warehouse.DataAcces.Service
             _configuration = configuration;
             _emailService = emailService;
         }
-        public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request)
+        public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy)
         {
             // Kiểm tra email đã tồn tại chưa
             var existingUser = await _context.Users
@@ -71,7 +71,8 @@ namespace Warehouse.DataAcces.Service
             {
                 UserId = newUser.UserId,
                 RoleId = role.RoleId,
-                AssignedAt = DateTime.UtcNow
+                AssignedAt = DateTime.UtcNow,
+                AssignedBy = assignedBy
             };
             _context.UserRoles.Add(userRole);
             await _context.SaveChangesAsync();

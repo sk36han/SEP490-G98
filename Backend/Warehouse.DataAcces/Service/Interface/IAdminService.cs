@@ -11,7 +11,7 @@ namespace Warehouse.DataAcces.Service.Interface
     public interface IAdminService
     {
         Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter);
-        Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request);
+        Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy);
         Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request);
         Task<AdminUserResponse> ToggleUserStatusAsync(long userId);
     }

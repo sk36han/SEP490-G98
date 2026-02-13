@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -48,7 +48,14 @@ namespace Warehouse.Api.ApiController
 				if (!ModelState.IsValid)
 					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
 
-				var result = await _adminService.CreateUserAccountAsync(request);
+                // Lấy ID người tạo từ token (claim "id" hoặc ClaimTypes.NameIdentifier)
+                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long assignedBy))
+				{
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
+				}
+
+				var result = await _adminService.CreateUserAccountAsync(request, assignedBy);
 
 				return Created("", ApiResponse<CreateUserResponse>.SuccessResponse(result, "Tạo tài khoản thành công."));
 			}
