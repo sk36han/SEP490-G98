@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -7,6 +8,7 @@ namespace Warehouse.Api.ApiController
 {
 	[Route("api/admin/users")]
 	[ApiController]
+	[Authorize(Roles = "ADMIN")]
 	public class AdminController : ControllerBase
 	{
 		private readonly IAdminService _adminService;

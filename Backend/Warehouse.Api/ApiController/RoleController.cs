@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -7,6 +8,7 @@ namespace Warehouse.Api.ApiController
 {
 	[Route("api/[controller]")]
 	[ApiController]
+	[Authorize(Roles = "ADMIN")]
 	public class RoleController : ControllerBase
 	{
 		private readonly IRoleService _roleService;
