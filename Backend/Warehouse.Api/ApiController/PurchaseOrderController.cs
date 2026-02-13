@@ -56,6 +56,35 @@ namespace Warehouse.Api.ApiController
             return Ok(result);
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdatePurchaseOrder(long id, [FromBody] UpdatePurchaseOrderRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var result = await _purchaseOrderService.UpdatePurchaseOrderAsync(id, request);
+
+                if (result == null)
+                {
+                    return NotFound(new { message = $"Không tìm thấy đơn hàng với ID = {id}" });
+                }
+
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật đơn hàng.", error = ex.Message });
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreatePurchaseOrder([FromBody] CreatePurchaseOrderRequest request)
         {

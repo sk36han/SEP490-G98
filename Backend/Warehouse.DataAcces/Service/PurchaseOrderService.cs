@@ -226,5 +226,103 @@ namespace Warehouse.DataAcces.Service
                 throw;
             }
         }
+
+        public async Task<PurchaseOrderDetailResponse?> UpdatePurchaseOrderAsync(long id, UpdatePurchaseOrderRequest request)
+        {
+            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
+
+            var purchaseOrder = await context.PurchaseOrders
+                .Include(p => p.PurchaseOrderLines)
+                .FirstOrDefaultAsync(p => p.PurchaseOrderId == id);
+
+            if (purchaseOrder == null)
+            {
+                return null;
+            }
+
+            // 1. Validate PO Code uniqueness (if changed)
+            if (purchaseOrder.Pocode != request.Pocode)
+            {
+                var isDuplicate = await context.PurchaseOrders.AnyAsync(p => p.Pocode == request.Pocode && p.PurchaseOrderId != id);
+                if (isDuplicate)
+                {
+                    throw new InvalidOperationException($"Mã đơn hàng '{request.Pocode}' đã tồn tại trong hệ thống.");
+                }
+            }
+
+            using var transaction = await context.Database.BeginTransactionAsync();
+            try
+            {
+                // 2. Update Header
+                purchaseOrder.Pocode = request.Pocode;
+                purchaseOrder.SupplierId = request.SupplierId;
+                purchaseOrder.RequestedDate = request.RequestedDate;
+                purchaseOrder.Justification = request.Justification;
+                purchaseOrder.Status = request.Status;
+                purchaseOrder.CurrentStageNo = request.CurrentStageNo;
+                purchaseOrder.UpdatedAt = DateTime.UtcNow;
+
+                // 3. Update Lines
+                // Remove lines that are not in the request
+                var requestedLineIds = request.OrderLines
+                    .Where(l => l.PurchaseOrderLineId.HasValue)
+                    .Select(l => l.PurchaseOrderLineId!.Value)
+                    .ToList();
+
+                var linesToRemove = purchaseOrder.PurchaseOrderLines
+                    .Where(l => !requestedLineIds.Contains(l.PurchaseOrderLineId))
+                    .ToList();
+
+                context.PurchaseOrderLines.RemoveRange(linesToRemove);
+
+                // Add or update lines
+                foreach (var lineReq in request.OrderLines)
+                {
+                    if (lineReq.PurchaseOrderLineId.HasValue)
+                    {
+                        // Update existing line
+                        var existingLine = purchaseOrder.PurchaseOrderLines
+                            .FirstOrDefault(l => l.PurchaseOrderLineId == lineReq.PurchaseOrderLineId.Value);
+
+                        if (existingLine != null)
+                        {
+                            existingLine.ItemId = lineReq.ItemId;
+                            existingLine.OrderedQty = lineReq.OrderedQty;
+                            existingLine.UomId = lineReq.UomId;
+                            existingLine.Note = lineReq.Note;
+                        }
+                    }
+                    else
+                    {
+                        // Add new line
+                        var newLine = new PurchaseOrderLine
+                        {
+                            PurchaseOrderId = id,
+                            ItemId = lineReq.ItemId,
+                            OrderedQty = lineReq.OrderedQty,
+                            UomId = lineReq.UomId,
+                            Note = lineReq.Note
+                        };
+                        context.PurchaseOrderLines.Add(newLine);
+                    }
+                }
+
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return await GetPurchaseOrderByIdAsync(id);
+            }
+            catch (DbUpdateException ex)
+            {
+                await transaction.RollbackAsync();
+                var message = ex.InnerException?.Message ?? ex.Message;
+                throw new InvalidOperationException($"Lỗi DB khi cập nhật: {message}");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
     }
 }
