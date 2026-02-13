@@ -12,12 +12,10 @@ namespace Warehouse.DataAcces.Service.Interface
     {
         Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter);
         Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request);
-
-        Task<UserDto> UpdateUserAsync(long userId, UpdateUserRequest request);
-        Task<UserDto> ToggleUserStatusAsync(long userId);
-
         Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request);
         Task<AdminUserResponse> ToggleUserStatusAsync(long userId);
+       Task<(byte[] content, string fileName)> ExportUserListExcelAsync();
+
 
     }
 }

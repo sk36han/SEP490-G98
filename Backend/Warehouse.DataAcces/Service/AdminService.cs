@@ -361,7 +361,7 @@ namespace Warehouse.DataAcces.Service
 
             return (content, fileName);
         }
-    }
+   
 
 		/// <summary>
 		/// Tạo mật khẩu ngẫu nhiên với độ dài chỉ định.
