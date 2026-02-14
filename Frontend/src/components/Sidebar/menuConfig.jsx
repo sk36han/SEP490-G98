@@ -42,9 +42,16 @@ const warehouseKeeperItems = [
     { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
 ];
 
+// Sale Support - Trang chủ, Đơn hàng, Xem sản phẩm (để tư vấn), Hồ sơ
+const saleSupportItems = [
+    { path: '/sale-support/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh mục sản phẩm' },
+    { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
+];
+
 /**
  * Get menu items based on user permission role
- * @param {string} role - 'ADMIN' | 'MANAGER' | 'WAREHOUSE_KEEPER' | 'STAFF'
+ * @param {string} role - 'ADMIN' | 'MANAGER' | 'WAREHOUSE_KEEPER' | 'SALE_SUPPORT' | 'STAFF'
  * @returns {Array} Menu items with path, icon, label
  */
 export const getMenuItems = (role) => {
@@ -53,6 +60,9 @@ export const getMenuItems = (role) => {
     }
     if (role === 'WAREHOUSE_KEEPER') {
         return [...commonItems, ...warehouseKeeperItems];
+    }
+    if (role === 'SALE_SUPPORT') {
+        return [...commonItems, ...saleSupportItems];
     }
     if (role === 'MANAGER' || role === 'Warehouse Manager') {
         return [...commonItems, ...managerItems];
