@@ -176,14 +176,14 @@ const Sidebar = () => {
                     }
                 }}
             >
-                <DrawerHeader>
+                <DrawerHeader sx={{ overflow: 'hidden' }}>
                     {open ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', transition: 'all 0.3s' }}>
-                            <img src={logo} alt="Logo" style={{ height: 50, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }} />
+                            <img src={logo} alt="Logo" style={{ height: 50, maxWidth: '100%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }} />
                         </Box>
                     ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <img src={logo} alt="Logo" style={{ height: 32, width: 'auto' }} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
+                            <img src={logo} alt="Logo" style={{ height: 32, maxWidth: 40, width: 'auto', objectFit: 'contain' }} />
                         </Box>
                     )}
                 </DrawerHeader>
