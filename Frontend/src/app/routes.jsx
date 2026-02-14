@@ -60,6 +60,16 @@ const AppRoutes = () => (
             }
         />
         <Route
+            path="/sale-support/home"
+            element={
+                <ProtectedRoute>
+                    <MainLayout>
+                        <Home />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
             path="/profile"
             element={
                 <ProtectedRoute>
@@ -82,7 +92,7 @@ const AppRoutes = () => (
         <Route
             path="/products"
             element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ProductManagement />
                     </MainLayout>

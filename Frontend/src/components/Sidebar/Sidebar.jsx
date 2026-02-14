@@ -20,7 +20,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import authService from '../../shared/lib/authService';
 import logo from '../../shared/assets/logo.png';
 import { getMenuItems } from './menuConfig';
-import { getPermissionRole } from '../../shared/permissions/roleUtils';
+import { getPermissionRole, getPermissionRoleLabel } from '../../shared/permissions/roleUtils';
 
 const drawerWidth = 260; // Slightly wider for better spacing
 
@@ -246,7 +246,7 @@ const Sidebar = () => {
                                         {user.name}
                                     </Typography>
                                     <Typography variant="caption" noWrap sx={{ color: 'text.secondary', display: 'block' }}>
-                                        {user.permissionRole}
+                                        {getPermissionRoleLabel(user.permissionRole)}
                                     </Typography>
                                 </Box>
                             </Box>
