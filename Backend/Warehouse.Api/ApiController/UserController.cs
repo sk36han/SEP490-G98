@@ -69,5 +69,35 @@ namespace Warehouse.Api.ApiController
                 return NotFound(new { success = false, message = ex.Message });
             }
         }
+
+        [HttpPut("profile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !long.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng từ token." });
+            }
+
+            try
+            {
+                var updated = await _userService.UpdateProfilePhoneAsync(userId, request.Phone);
+                if (updated == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thông tin người dùng." });
+                }
+
+                return Ok(new { success = true, message = "Cập nhật số điện thoại thành công.", data = updated });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
     }
 }

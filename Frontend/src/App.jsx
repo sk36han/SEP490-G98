@@ -1,43 +1,21 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './shared/pages/Login'
-import ForgotPassword from './shared/pages/ForgotPassword'
-import ResetPassword from './shared/pages/ResetPassword'
-import Profile from './shared/pages/Profile'
-import HomeLayout from './shared/pages/HomeLayout'
-import HomeDashboard from './shared/pages/HomeDashboard'
-import SupplierView from './shared/pages/SupplierView'
-// import CreateSupplier from './shared/pages/CreateSupplier' // Có thể import nếu cần dùng cho route con
-import './App.css'
+import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import { theme } from './app/theme';
+import AppRoutes from './app/routes';
+import './App.css';
 
 function App() {
-  return (
-    <div className="App">
-      <Router>
-        <Routes>
-          {/* Default Redirect: / -> /home */}
-          <Route path="/" element={<Navigate to="/home" replace />} />
-
-          {/* Authentication Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-
-          {/* Layout chuẩn: sidebar (giống Home) + Outlet. Dashboard & Supplier trong main content. */}
-          <Route path="/home" element={<HomeLayout />}>
-            <Route index element={<HomeDashboard />} />
-            <Route path="suppliers" element={<SupplierView />} />
-          </Route>
-
-          {/* Profile Page (Standalone, no sidebar) */}
-          <Route path="/profile" element={<Profile />} />
-
-          {/* Các routes khác nếu cần, ví dụ tạo supplier có thể nằm trong Home hoặc riêng */}
-          {/* <Route path="/supplier/create" element={<CreateSupplier />} /> */}
-        </Routes>
-      </Router>
-    </div>
-  )
+    return (
+        <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <div className="App">
+                <Router>
+                    <AppRoutes />
+                </Router>
+            </div>
+        </ThemeProvider>
+    );
 }
 
-export default App
+export default App;

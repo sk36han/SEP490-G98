@@ -18,10 +18,20 @@ const authService = {
 
             const { accessToken, expiresAt, user } = response.data;
 
-            // Store token and user data
+            // Store token first (needed for authenticated API calls)
             localStorage.setItem('token', accessToken);
-            localStorage.setItem('user', JSON.stringify(user));
             localStorage.setItem('tokenExpiresAt', expiresAt);
+
+            // Fetch complete user profile with role from /api/User/profile
+            try {
+                const profileResponse = await apiClient.get('/User/profile');
+                const userWithRole = profileResponse.data;
+                localStorage.setItem('userInfo', JSON.stringify(userWithRole));
+            } catch (profileError) {
+                // Fallback: use user from login response if profile fetch fails
+                console.warn('Failed to fetch user profile, using login data:', profileError);
+                localStorage.setItem('userInfo', JSON.stringify(user));
+            }
 
             return response.data;
         } catch (error) {
@@ -45,7 +55,7 @@ const authService = {
      */
     logout() {
         localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.removeItem('userInfo');
         localStorage.removeItem('tokenExpiresAt');
     },
 
@@ -62,7 +72,7 @@ const authService = {
      * @returns {object|null}
      */
     getUser() {
-        const userStr = localStorage.getItem('user');
+        const userStr = localStorage.getItem('userInfo');
         try {
             return userStr ? JSON.parse(userStr) : null;
         } catch {
@@ -120,6 +130,58 @@ const authService = {
             return response.data;
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
+        }
+    },
+
+    /**
+     * Get current user profile from API
+     * @returns {Promise<object>}
+     */
+    async getProfile() {
+        try {
+            const response = await apiClient.get('/User/profile');
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Không thể tải thông tin hồ sơ.');
+        }
+    },
+
+    /**
+     * Update user profile (currently only Phone)
+     * @param {string} phone - New phone number
+     * @returns {Promise<object>}
+     */
+    async updateProfile(phone) {
+        try {
+            const response = await apiClient.put('/User/profile', { phone });
+            // Update local storage if successful
+            const currentUser = this.getUser();
+            if (currentUser) {
+                currentUser.phone = phone;
+                localStorage.setItem('userInfo', JSON.stringify(currentUser));
+            }
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Không thể cập nhật hồ sơ.');
+        }
+    },
+
+    /**
+     * Change password
+     * @param {string} oldPassword
+     * @param {string} newPassword
+     * @param {string} confirmPassword
+     */
+    async changePassword(oldPassword, newPassword, confirmPassword) {
+        try {
+            const response = await apiClient.post('/User/change-password', {
+                oldPassword,
+                newPassword,
+                confirmPassword
+            });
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Đổi mật khẩu thất bại.');
         }
     },
 };

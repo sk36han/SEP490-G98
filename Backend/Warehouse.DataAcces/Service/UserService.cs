@@ -32,7 +32,6 @@ namespace Warehouse.DataAcces.Service
 
             var result = new UserResponse
             {
-                UserId = userId,
                 Email = user.Email,
                 Username = user.Username,
                 FullName = user.FullName,
@@ -71,6 +70,34 @@ namespace Warehouse.DataAcces.Service
 
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<UserResponse?> UpdateProfilePhoneAsync(long userId, string phone)
+        {
+            var user = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+            {
+                return null;
+            }
+
+            user.Phone = phone;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return new UserResponse
+            {
+                Email = user.Email,
+                Username = user.Username,
+                FullName = user.FullName,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                RoleName = user.UserRoleUser?.Role?.RoleName,
+                LastLoginAt = user.LastLoginAt
+            };
         }
     }
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useToast } from '../hooks/useToast';
 import {
     ArrowLeft,
     Save,
@@ -17,7 +18,7 @@ import '../styles/CreateSupplier.css';
 
 const CreateSupplier = () => {
     const navigate = useNavigate();
-    const [toast, setToast] = useState(null);
+    const { toast, showToast, clearToast } = useToast();
     const [formData, setFormData] = useState({
         supplierCode: '',
         supplierName: '',
@@ -33,10 +34,6 @@ const CreateSupplier = () => {
     });
 
     const [errors, setErrors] = useState({});
-
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type });
-    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -376,7 +373,7 @@ const CreateSupplier = () => {
                 <Toast
                     message={toast.message}
                     type={toast.type}
-                    onClose={() => setToast(null)}
+                    onClose={clearToast}
                 />
             )}
         </div>

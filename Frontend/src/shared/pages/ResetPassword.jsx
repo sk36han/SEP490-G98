@@ -1,33 +1,36 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import '../styles/ResetPassword.css';
-import logo from '../assets/logo.png';
+import {
+    Box,
+    TextField,
+    Button,
+    Typography,
+    CircularProgress,
+    InputAdornment,
+    IconButton,
+    Avatar,
+    Fade,
+} from '@mui/material';
+import { Eye, EyeOff, CheckCircle, ShieldCheck, Lock } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
+import AuthLayout from '../../components/Layout/AuthLayout';
 import authService from '../lib/authService';
-import { Eye, EyeOff } from 'lucide-react';
+import { useToast } from '../hooks/useToast';
+import { validatePassword } from '../utils/validation';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const token = searchParams.get('token');
+    const { toast, showToast, clearToast } = useToast();
 
     const [passwordData, setPasswordData] = useState({
         newPassword: '',
-        confirmPassword: ''
+        confirmPassword: '',
     });
-
-    const [showPassword, setShowPassword] = useState({
-        new: false,
-        confirm: false
-    });
-
-    const [toast, setToast] = useState(null);
+    const [showPassword, setShowPassword] = useState({ new: false, confirm: false });
     const [isSuccess, setIsSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
-
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type });
-    };
 
     const togglePasswordVisibility = (field) => {
         setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -51,23 +54,9 @@ const ResetPassword = () => {
             return;
         }
 
-        if (passwordData.newPassword.length < 6) {
-            showToast('Mật khẩu mới phải có ít nhất 6 ký tự!', 'error');
-            return;
-        }
-
-        if (!/[A-Z]/.test(passwordData.newPassword)) {
-            showToast('Mật khẩu mới phải có ít nhất 1 chữ in hoa (A-Z)!', 'error');
-            return;
-        }
-
-        if (!/[0-9]/.test(passwordData.newPassword)) {
-            showToast('Mật khẩu mới phải có ít nhất 1 chữ số (0-9)!', 'error');
-            return;
-        }
-
-        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(passwordData.newPassword)) {
-            showToast('Mật khẩu mới phải có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)!', 'error');
+        const pwdValidation = validatePassword(passwordData.newPassword);
+        if (!pwdValidation.valid) {
+            showToast(pwdValidation.message, 'error');
             return;
         }
 
@@ -94,107 +83,167 @@ const ResetPassword = () => {
     };
 
     return (
-        <div className="reset-password-container">
-            <div className="reset-password-background">
-                <div className="reset-password-form-container">
-                    <div className="reset-password-form">
-                        <div className="logo-section">
-                            <img src={logo} alt="Minh Khanh Logo" className="company-logo" />
-                        </div>
+        <>
+        <AuthLayout cardBg="rgba(255, 255, 255, 0.9)">
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+                <Avatar
+                    sx={{
+                        m: 1,
+                        bgcolor: 'primary.main',
+                        width: 64,
+                        height: 64,
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                    }}
+                >
+                    <ShieldCheck size={32} color="white" />
+                </Avatar>
+                <Typography component="h1" variant="h4" fontWeight="800" color="primary.dark" gutterBottom>
+                    Đặt Lại Mật Khẩu
+                </Typography>
+                <Typography variant="body1" color="text.secondary" align="center">
+                    {!isSuccess
+                        ? 'Vui lòng nhập mật khẩu mới để bảo vệ tài khoản của bạn.'
+                        : 'Tài khoản của bạn đã được bảo vệ thành công!'}
+                </Typography>
+            </Box>
 
-                        {!isSuccess ? (
-                            <>
-                                <p className="reset-password-subtitle">Vui lòng nhập mật khẩu mới của bạn</p>
-
-                                <form onSubmit={handleSubmit}>
-                                    <div className="input-group">
-                                        <div className="password-input-wrapper">
-                                            <input
-                                                type={showPassword.new ? 'text' : 'password'}
-                                                name="newPassword"
-                                                placeholder="Mật khẩu mới"
-                                                value={passwordData.newPassword}
-                                                onChange={handleChange}
-                                                className="reset-password-input"
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                className="toggle-password"
-                                                onClick={() => togglePasswordVisibility('new')}
-                                                aria-label={showPassword.new ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                                                title={showPassword.new ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                                            >
-                                                {showPassword.new ? <EyeOff size={18} /> : <Eye size={18} />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="input-group">
-                                        <div className="password-input-wrapper">
-                                            <input
-                                                type={showPassword.confirm ? 'text' : 'password'}
-                                                name="confirmPassword"
-                                                placeholder="Xác nhận mật khẩu mới"
-                                                value={passwordData.confirmPassword}
-                                                onChange={handleChange}
-                                                className="reset-password-input"
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                className="toggle-password"
-                                                onClick={() => togglePasswordVisibility('confirm')}
-                                                aria-label={showPassword.confirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                                                title={showPassword.confirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                                            >
-                                                {showPassword.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <p className="password-hint">
-                                        Mật khẩu phải có ít nhất 6 ký tự, 1 chữ hoa, 1 số và 1 ký tự đặc biệt
-                                    </p>
-
-                                    <button type="submit" className="reset-password-button" disabled={loading}>
-                                        {loading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
-                                    </button>
-
-                                    <Link to="/login" className="back-to-login">
-                                        ← Quay lại đăng nhập
-                                    </Link>
-                                </form>
-                            </>
-                        ) : (
-                            <div className="success-message">
-                                <div className="success-icon">
-                                    <svg
-                                        width="64"
-                                        height="64"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="#10b981"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
+            {!isSuccess ? (
+                <form onSubmit={handleSubmit}>
+                    <TextField
+                        fullWidth
+                        type={showPassword.new ? 'text' : 'password'}
+                        name="newPassword"
+                        label="Mật khẩu mới"
+                        value={passwordData.newPassword}
+                        onChange={handleChange}
+                        margin="normal"
+                        required
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                bgcolor: 'rgba(255,255,255,0.5)',
+                            },
+                        }}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <Lock size={20} className="text-gray-400" />
+                                </InputAdornment>
+                            ),
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => togglePasswordVisibility('new')}
+                                        edge="end"
                                     >
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                    </svg>
-                                </div>
-                                <h3>Đặt lại mật khẩu thành công!</h3>
-                                <p>Mật khẩu của bạn đã được cập nhật. Bạn sẽ được chuyển đến trang đăng nhập...</p>
-                            </div>
+                                        {showPassword.new ? <EyeOff size={20} /> : <Eye size={20} />}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        }}
+                    />
+
+                    <TextField
+                        fullWidth
+                        type={showPassword.confirm ? 'text' : 'password'}
+                        name="confirmPassword"
+                        label="Xác nhận mật khẩu mới"
+                        value={passwordData.confirmPassword}
+                        onChange={handleChange}
+                        margin="normal"
+                        required
+                        sx={{
+                            mt: 2,
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                bgcolor: 'rgba(255,255,255,0.5)',
+                            },
+                        }}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <Lock size={20} className="text-gray-400" />
+                                </InputAdornment>
+                            ),
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => togglePasswordVisibility('confirm')}
+                                        edge="end"
+                                    >
+                                        {showPassword.confirm ? (
+                                            <EyeOff size={20} />
+                                        ) : (
+                                            <Eye size={20} />
+                                        )}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        }}
+                        helperText="Mật khẩu phải có ít nhất 6 ký tự, 1 chữ hoa, 1 số và 1 ký tự đặc biệt"
+                    />
+
+                    <Button
+                        type="submit"
+                        fullWidth
+                        variant="contained"
+                        size="large"
+                        disabled={loading}
+                        sx={{
+                            mt: 4,
+                            mb: 2,
+                            py: 1.8,
+                            borderRadius: 2,
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            textTransform: 'none',
+                            boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
+                            background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                            '&:hover': {
+                                background: 'linear-gradient(45deg, #2196F3 60%, #21CBF3 90%)',
+                                boxShadow: '0 6px 20px rgba(0,118,255,0.23)',
+                            },
+                        }}
+                    >
+                        {loading ? (
+                            <CircularProgress size={24} color="inherit" />
+                        ) : (
+                            'Đặt lại mật khẩu'
                         )}
+                    </Button>
 
-                        <div className="footer-text">© 2026 Minh Khanh Warehouse Management System</div>
-                    </div>
-                </div>
-            </div>
+                    <Box sx={{ textAlign: 'center', mt: 2 }}>
+                        <Link
+                            to="/login"
+                            style={{
+                                textDecoration: 'none',
+                                color: '#1976D2',
+                                fontWeight: 600,
+                            }}
+                        >
+                            ← Quay lại đăng nhập
+                        </Link>
+                    </Box>
+                </form>
+            ) : (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                    <Fade in={isSuccess} timeout={1000}>
+                        <Box sx={{ mb: 3, color: 'success.main', display: 'flex', justifyContent: 'center' }}>
+                            <CheckCircle size={80} strokeWidth={1.5} />
+                        </Box>
+                    </Fade>
+                    <Typography variant="h5" fontWeight="bold" gutterBottom>
+                        Thành công!
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                        Mật khẩu của bạn đã được cập nhật. Đang chuyển hướng về trang đăng nhập...
+                    </Typography>
+                </Box>
+            )}
 
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        </div>
+        </AuthLayout>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+        </>
     );
 };
 
