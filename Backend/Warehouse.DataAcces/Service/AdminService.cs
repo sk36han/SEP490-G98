@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -58,8 +58,9 @@ namespace Warehouse.DataAcces.Service
                 finalUsername = await GenerateUsernameAsync(request.FullName);
             }
 
-            // 2. Hash password default
-            string passwordHash = AuthService.CreatePasswordHash("123456");
+            // 2. Sinh mật khẩu ngẫu nhiên và hash
+            string generatedPassword = GenerateRandomPassword(12);
+            string passwordHash = AuthService.CreatePasswordHash(generatedPassword);
 
             // Tạo user mới
             var newUser = new User
