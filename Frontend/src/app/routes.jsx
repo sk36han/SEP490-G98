@@ -6,7 +6,17 @@ import ResetPassword from '../shared/pages/ResetPassword';
 import Profile from '../shared/pages/Profile';
 import Home from '../shared/pages/Home';
 import UserAccountList from '../shared/pages/UserAccountList';
-import ProductManagement from '../shared/pages/ProductManagement';
+import ItemList from '../shared/pages/ItemList';
+import CreateItem from '../shared/pages/CreateItem';
+import EditItem from '../shared/pages/EditItem';
+import ViewItem from '../shared/pages/ViewItem';
+import PurchaseOrderList from '../shared/pages/PurchaseOrderList';
+import ViewPurchaseOrder from '../shared/pages/ViewPurchaseOrder';
+import CreatePO from '../shared/pages/CreatePO';
+import EditPO from '../shared/pages/EditPO';
+import AdminNotifications from '../shared/pages/AdminNotifications';
+import AdminAuditLog from '../shared/pages/AdminAuditLog';
+import SupplierList from '../shared/pages/SupplierList';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -89,11 +99,113 @@ const AppRoutes = () => (
             }
         />
         <Route
+            path="/admin/notifications"
+            element={
+                <ProtectedRoute allowedRoles={['ADMIN']}>
+                    <MainLayout>
+                        <AdminNotifications />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/admin/audit-log"
+            element={
+                <ProtectedRoute allowedRoles={['ADMIN']}>
+                    <MainLayout>
+                        <AdminAuditLog />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Item mockup: public cho tất cả user trừ Admin */}
+        <Route
             path="/products"
             element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
                     <MainLayout>
-                        <ProductManagement />
+                        <ItemList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/items/create"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
+                    <MainLayout>
+                        <CreateItem />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/items/edit/:id"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
+                    <MainLayout>
+                        <EditItem />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/items/:id"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
+                    <MainLayout>
+                        <ViewItem />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/suppliers"
+            element={
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                    <MainLayout>
+                        <SupplierList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Purchase order mockup: chỉ Sale Support */}
+        <Route
+            path="/purchase-orders"
+            element={
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                    <MainLayout>
+                        <PurchaseOrderList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/purchase-orders/create"
+            element={
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                    <MainLayout>
+                        <CreatePO />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/purchase-orders/edit/:id"
+            element={
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                    <MainLayout>
+                        <EditPO />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/purchase-orders/:id"
+            element={
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewPurchaseOrder />
                     </MainLayout>
                 </ProtectedRoute>
             }
