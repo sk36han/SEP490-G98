@@ -7,6 +7,7 @@ import Profile from '../shared/pages/Profile';
 import Home from '../shared/pages/Home';
 import UserAccountList from '../shared/pages/UserAccountList';
 import ProductManagement from '../shared/pages/ProductManagement';
+import SupplierView from '../shared/pages/SupplierView';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -84,6 +85,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ProductManagement />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/suppliers"
+            element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <SupplierView />
                     </MainLayout>
                 </ProtectedRoute>
             }
