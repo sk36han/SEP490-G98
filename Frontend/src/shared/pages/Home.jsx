@@ -85,7 +85,7 @@ const Home = () => {
                             {!isCollapsed && <span className="menu-label">Kho hàng</span>}
                         </div>
 
-                        <div className="menu-item" title="Nhà cung cấp">
+                        <div className="menu-item" style={{ cursor: 'pointer' }} title="Nhà cung cấp" onClick={() => navigate('/suppliers')} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/suppliers'); } }}>
                             <Truck size={20} />
                             {!isCollapsed && <span className="menu-label">Nhà cung cấp</span>}
                         </div>

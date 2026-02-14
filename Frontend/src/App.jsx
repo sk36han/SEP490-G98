@@ -4,7 +4,9 @@ import Login from './shared/pages/Login'
 import ForgotPassword from './shared/pages/ForgotPassword'
 import ResetPassword from './shared/pages/ResetPassword'
 import Profile from './shared/pages/Profile'
-import Home from './shared/pages/Home'
+import HomeLayout from './shared/pages/HomeLayout'
+import HomeDashboard from './shared/pages/HomeDashboard'
+import SupplierView from './shared/pages/SupplierView'
 // import CreateSupplier from './shared/pages/CreateSupplier' // Có thể import nếu cần dùng cho route con
 import './App.css'
 
@@ -21,8 +23,11 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Main Dashboard Layout (Sidebar is inside Home) */}
-          <Route path="/home" element={<Home />} />
+          {/* Layout chuẩn: sidebar (giống Home) + Outlet. Dashboard & Supplier trong main content. */}
+          <Route path="/home" element={<HomeLayout />}>
+            <Route index element={<HomeDashboard />} />
+            <Route path="suppliers" element={<SupplierView />} />
+          </Route>
 
           {/* Profile Page (Standalone, no sidebar) */}
           <Route path="/profile" element={<Profile />} />
