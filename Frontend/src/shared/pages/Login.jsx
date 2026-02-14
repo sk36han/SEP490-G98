@@ -64,6 +64,8 @@ const Login = () => {
                     navigate('/admin/home');
                 } else if (roleUpper === 'MANAGER' || roleUpper === 'WAREHOUSE MANAGER') {
                     navigate('/manager/home');
+                } else if (roleUpper?.includes('SALE SUPPORT') || roleUpper?.includes('SALE_SUPPORT')) {
+                    navigate('/sale-support/home');
                 } else if (roleUpper === 'STAFF') {
                     navigate('/staff/home');
                 } else {

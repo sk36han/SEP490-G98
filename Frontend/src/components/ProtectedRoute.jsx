@@ -10,7 +10,7 @@ import { getPermissionRole } from '../shared/permissions/roleUtils';
  *
  * @param {object} props - Component props
  * @param {React.ReactElement} props.children - Child component to render if authenticated
- * @param {string[]} props.allowedRoles - Array of permission roles: ADMIN, MANAGER, WAREHOUSE_KEEPER, STAFF
+ * @param {string[]} props.allowedRoles - Array of permission roles: ADMIN, MANAGER, WAREHOUSE_KEEPER, SALE_SUPPORT, STAFF
  * @returns {React.ReactElement} - Child component or redirect
  */
 const ProtectedRoute = ({ children, allowedRoles = null }) => {
@@ -33,6 +33,7 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
             if (permissionRole === 'ADMIN') return <Navigate to="/admin/home" replace />;
             if (permissionRole === 'WAREHOUSE_KEEPER') return <Navigate to="/products" replace />;
             if (permissionRole === 'MANAGER') return <Navigate to="/manager/home" replace />;
+            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/sale-support/home" replace />;
             if (permissionRole === 'STAFF') return <Navigate to="/staff/home" replace />;
             return <Navigate to="/home" replace />;
         }
