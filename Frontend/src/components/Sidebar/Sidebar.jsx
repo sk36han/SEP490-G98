@@ -17,18 +17,10 @@ import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import LogoutIcon from '@mui/icons-material/Logout';
-import {
-    LayoutDashboard,
-    Box as BoxIcon,
-    Users,
-    Settings,
-    User,
-    FileText,
-    Truck,
-    ShoppingCart
-} from 'lucide-react';
 import authService from '../../shared/lib/authService';
 import logo from '../../shared/assets/logo.png';
+import { getMenuItems } from './menuConfig';
+import { getPermissionRole } from '../../shared/permissions/roleUtils';
 
 const drawerWidth = 260; // Slightly wider for better spacing
 
@@ -85,18 +77,8 @@ const Sidebar = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Get user data from authService
     const userInfo = authService.getUser();
     const roleFromBackend = userInfo?.roleCode || userInfo?.roleName || 'STAFF';
-
-    // Normalize role for permission checking
-    const getPermissionRole = (originalRole) => {
-        const upper = originalRole.toUpperCase();
-        if (upper.includes('ADMIN')) return 'ADMIN';
-        if (upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR')) return 'ADMIN';
-        if (upper.includes('MANAGER') || upper.includes('THỦ KHO') || upper.includes('QUẢN LÝ')) return 'MANAGER';
-        return 'STAFF';
-    };
 
     const user = {
         name: userInfo?.fullName || 'User',
@@ -119,43 +101,6 @@ const Sidebar = () => {
             authService.logout();
             navigate('/login');
         }
-    };
-
-    const getMenuItems = (role) => {
-        const common = [
-            { path: '/profile', icon: <User size={22} />, label: 'Hồ sơ cá nhân' },
-        ];
-
-        const adminItems = [
-            { path: '/admin/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
-            { path: '/admin/users', icon: <Users size={22} />, label: 'Quản lý người dùng' },
-            { path: '/inventory', icon: <BoxIcon size={22} />, label: 'Quản lý kho' },
-            { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-            { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
-            { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
-            { path: '/settings', icon: <Settings size={22} />, label: 'Cài đặt' },
-        ];
-
-        const managerItems = [
-            { path: '/manager/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
-            { path: '/inventory', icon: <BoxIcon size={22} />, label: 'Quản lý kho' },
-            { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-            { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
-            { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
-        ];
-
-        const staffItems = [
-            { path: '/staff/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
-            { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
-        ];
-
-        if (role === 'ADMIN') {
-            return [...common, ...adminItems];
-        } else if (role === 'MANAGER' || role === 'Warehouse Manager') {
-            return [...common, ...managerItems];
-        }
-
-        return [...common, ...staffItems];
     };
 
     const menuItems = getMenuItems(user.permissionRole);

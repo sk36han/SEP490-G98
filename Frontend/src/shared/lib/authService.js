@@ -132,6 +132,58 @@ const authService = {
             throw new Error(error.response?.data?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
         }
     },
+
+    /**
+     * Get current user profile from API
+     * @returns {Promise<object>}
+     */
+    async getProfile() {
+        try {
+            const response = await apiClient.get('/User/profile');
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Không thể tải thông tin hồ sơ.');
+        }
+    },
+
+    /**
+     * Update user profile (currently only Phone)
+     * @param {string} phone - New phone number
+     * @returns {Promise<object>}
+     */
+    async updateProfile(phone) {
+        try {
+            const response = await apiClient.put('/User/profile', { phone });
+            // Update local storage if successful
+            const currentUser = this.getUser();
+            if (currentUser) {
+                currentUser.phone = phone;
+                localStorage.setItem('userInfo', JSON.stringify(currentUser));
+            }
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Không thể cập nhật hồ sơ.');
+        }
+    },
+
+    /**
+     * Change password
+     * @param {string} oldPassword
+     * @param {string} newPassword
+     * @param {string} confirmPassword
+     */
+    async changePassword(oldPassword, newPassword, confirmPassword) {
+        try {
+            const response = await apiClient.post('/User/change-password', {
+                oldPassword,
+                newPassword,
+                confirmPassword
+            });
+            return response.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Đổi mật khẩu thất bại.');
+        }
+    },
 };
 
 export default authService;
