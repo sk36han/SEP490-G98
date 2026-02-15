@@ -1,21 +1,23 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
-
+using WarehouseEntity = Warehouse.Entities.Models.Warehouse;
 namespace Warehouse.DataAcces.Service
 {
-    public class WarehouseService : IWarehouseService
+    public class WarehouseService : GenericRepository<WarehouseEntity>, IWarehouseService
     {
-        private readonly Mkiwms4Context _context;
+		private readonly IConfiguration _configuration;
+		public WarehouseService(Mkiwms4Context context, IConfiguration configuration) : base(context)
+		{
+			_configuration = configuration;
+		}
 
-        public WarehouseService(Mkiwms4Context context)
-        {
-            _context = context;
-        }
 
-        public async Task<PagedResult<WarehouseResponse>> GetWarehouseListAsync(FilterRequest filter)
+		public async Task<PagedResult<WarehouseResponse>> GetWarehouseListAsync(FilterRequest filter)
         {
             var query = _context.Warehouses.AsNoTracking().OrderBy(w => w.WarehouseId);
 
@@ -36,6 +38,35 @@ namespace Warehouse.DataAcces.Service
                 .ToListAsync();
 
             return new PagedResult<WarehouseResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
+        }
+
+        public async Task<WarehouseResponse> CreateWarehouseAsync(CreateWarehouseRequest request)
+        {
+            var exists = await _context.Warehouses
+                .AnyAsync(w => w.WarehouseCode == request.WarehouseCode);
+            if (exists)
+                throw new InvalidOperationException("Mã kho đã tồn tại.");
+
+            var entity = new WarehouseEntity
+            {
+                WarehouseCode = request.WarehouseCode,
+                WarehouseName = request.WarehouseName,
+                Address = request.Address,
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await CreateAsync(entity);
+
+            return new WarehouseResponse
+            {
+                WarehouseId = entity.WarehouseId,
+                WarehouseCode = entity.WarehouseCode,
+                WarehouseName = entity.WarehouseName,
+                Address = entity.Address,
+                IsActive = entity.IsActive,
+                CreatedAt = entity.CreatedAt
+            };
         }
     }
 }

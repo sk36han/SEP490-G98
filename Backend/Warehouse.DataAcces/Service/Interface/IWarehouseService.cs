@@ -6,5 +6,6 @@ namespace Warehouse.DataAcces.Service.Interface
     public interface IWarehouseService
     {
         Task<PagedResult<WarehouseResponse>> GetWarehouseListAsync(FilterRequest filter);
+        Task<WarehouseResponse> CreateWarehouseAsync(CreateWarehouseRequest request);
     }
 }

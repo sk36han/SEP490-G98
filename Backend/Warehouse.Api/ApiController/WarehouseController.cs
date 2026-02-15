@@ -35,5 +35,30 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
             }
         }
+
+		/// <summary>
+		/// Tạo kho mới
+		/// POST: /api/warehouse/create
+		/// </summary>
+		[HttpPost("create-warehouse")]
+		public async Task<IActionResult> CreateWarehouse([FromBody] CreateWarehouseRequest request)
+		{
+			if (!ModelState.IsValid)
+				return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+
+			try
+			{
+				var result = await _warehouseService.CreateWarehouseAsync(request);
+				return Ok(ApiResponse<WarehouseResponse>.SuccessResponse(result, "Tạo kho thành công."));
+			}
+			catch (InvalidOperationException ex)
+			{
+				return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
     }
 }
