@@ -62,6 +62,31 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
+		/// Cập nhật thông tin kho
+		/// PUT: /api/warehouse/{id}
+		/// </summary>
+		[HttpPut("update-warehouse/{id}")]
+		public async Task<IActionResult> UpdateWarehouse(long id, [FromBody] UpdateWarehouseRequest request)
+		{
+			if (!ModelState.IsValid)
+				return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+
+			try
+			{
+				var result = await _warehouseService.UpdateWarehouseAsync(id, request);
+				return Ok(ApiResponse<WarehouseResponse>.SuccessResponse(result, "Cập nhật kho thành công."));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+
+		/// <summary>
 		/// Bật/Tắt trạng thái kho (Enable/Disable)
 		/// PATCH: /api/warehouse/toggle-status/{id}
 		/// </summary>

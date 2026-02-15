@@ -7,6 +7,7 @@ namespace Warehouse.DataAcces.Service.Interface
     {
         Task<PagedResult<WarehouseResponse>> GetWarehouseListAsync(FilterRequest filter);
         Task<WarehouseResponse> CreateWarehouseAsync(CreateWarehouseRequest request);
+        Task<WarehouseResponse> UpdateWarehouseAsync(long id, UpdateWarehouseRequest request);
         Task<WarehouseResponse> ToggleWarehouseStatusAsync(long id);
     }
 }
