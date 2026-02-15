@@ -5,18 +5,18 @@ import ForgotPassword from '../shared/pages/ForgotPassword';
 import ResetPassword from '../shared/pages/ResetPassword';
 import Profile from '../shared/pages/Profile';
 import Home from '../shared/pages/Home';
-import UserAccountList from '../shared/pages/UserAccountList';
-import ItemList from '../shared/pages/ItemList';
+import UserAccountList from '../shared/pages/ViewUserAccountList';
+import ItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
 import EditItem from '../shared/pages/EditItem';
 import ViewItem from '../shared/pages/ViewItem';
-import PurchaseOrderList from '../shared/pages/PurchaseOrderList';
+import PurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrder from '../shared/pages/ViewPurchaseOrder';
 import CreatePO from '../shared/pages/CreatePO';
 import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
-import AdminAuditLog from '../shared/pages/AdminAuditLog';
-import SupplierList from '../shared/pages/SupplierList';
+import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
+import SupplierView from '../shared/pages/SupplierView';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -164,7 +164,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
-                        <SupplierList />
+                        <SupplierView />
                     </MainLayout>
                 </ProtectedRoute>
             }

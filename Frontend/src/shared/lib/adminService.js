@@ -8,12 +8,23 @@ const adminService = {
      */
     getUserList: async (filter = { pageNumber: 1, pageSize: 10, searchTerm: '' }) => {
         try {
-            // baseURL already has /api, so just use /admin/users/get-users
-            const response = await axiosInstance.get('/admin/users/get-users', {
-                params: filter
-            });
-            // Backend returns ApiResponse wrapper: { success, message, data: PagedResult }
-            return response.data; // Returns { success, message, data: {items, totalCount, ...} }
+            // ASP.NET Core [FromQuery] UserFilterRequest filter bind theo prefix "filter." hoặc không prefix
+            const pageNum = filter.pageNumber ?? 1;
+            const pageSz = Math.min(Math.max(1, filter.pageSize || 10), 100);
+            const params = {
+                pageNumber: pageNum,
+                pageSize: pageSz,
+                searchTerm: filter.searchTerm ?? '',
+                'filter.PageNumber': pageNum,
+                'filter.PageSize': pageSz,
+                'filter.SearchTerm': filter.searchTerm ?? ''
+            };
+            const response = await axiosInstance.get('/admin/users/get-users', { params });
+            // Backend trả về ApiResponse: { success, message, data: PagedResult }; PagedResult có Items (PascalCase) hoặc items (camelCase)
+            const body = response.data;
+            const paged = body?.data ?? body;
+            const list = paged?.items ?? paged?.Items ?? [];
+            return { data: { ...paged, items: list }, raw: body };
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Không thể tải danh sách người dùng');
         }

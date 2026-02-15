@@ -134,13 +134,14 @@ const Sidebar = () => {
                 </DrawerHeader>
                 <Divider sx={{ borderColor: 'rgba(0,0,0,0.06)' }} />
 
-                {/* Floating Toggle Button */}
+                {/* Floating Toggle Button – căn giữa theo chiều dọc */}
                 <IconButton
                     onClick={open ? handleDrawerClose : handleDrawerOpen}
                     sx={{
                         position: 'absolute',
                         right: -14,
-                        top: 85, // Position near the top
+                        top: '50%',
+                        transform: 'translateY(-50%)',
                         zIndex: 1201,
                         backgroundColor: 'white',
                         border: '1px solid rgba(0,0,0,0.1)',
@@ -149,7 +150,7 @@ const Sidebar = () => {
                         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                         '&:hover': {
                             backgroundColor: '#f5f5f5',
-                            transform: 'scale(1.1)'
+                            transform: 'translateY(-50%) scale(1.1)'
                         },
                         transition: 'all 0.2s'
                     }}

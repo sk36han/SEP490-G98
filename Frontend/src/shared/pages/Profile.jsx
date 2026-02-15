@@ -169,17 +169,19 @@ const Profile = () => {
                     <Grid container spacing={2} sx={{ flex: 1, minHeight: 0 }}>
                         <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
                             <Card
-                                elevation={10}
+                                elevation={0}
                                 sx={{
                                     borderRadius: 3,
-                                    background: 'rgba(255, 255, 255, 0.75)',
+                                    background: 'rgba(255, 255, 255, 0.92)',
                                     backdropFilter: 'blur(16px)',
-                                    border: '1px solid rgba(255, 255, 255, 0.5)',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
                                     textAlign: 'center',
                                     p: 2,
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
+                                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                                 }}
                             >
                                 <Box sx={{ position: 'relative', display: 'inline-block', mb: 1.5 }}>
@@ -272,20 +274,22 @@ const Profile = () => {
 
                         <Grid item xs={12} md={8} sx={{ display: 'flex' }}>
                             <Card
-                                elevation={10}
+                                elevation={0}
                                 sx={{
                                     borderRadius: 3,
-                                    background: 'rgba(255, 255, 255, 0.85)',
-                                    backdropFilter: 'blur(20px)',
-                                    border: '1px solid rgba(255, 255, 255, 0.5)',
+                                    background: 'rgba(255, 255, 255, 0.92)',
+                                    backdropFilter: 'blur(16px)',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     flex: 1,
                                     minHeight: 0,
+                                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                                 }}
                             >
-                                <CardContent sx={{ p: 2, flex: 1, minHeight: 0, '&:last-child': { pb: 2 } }}>
+                                <CardContent sx={{ p: 2.5, flex: 1, minHeight: 0, bgcolor: 'grey.50', '&:last-child': { pb: 2.5 } }}>
                                     <Box
                                         sx={{
                                             display: 'flex',
@@ -294,12 +298,11 @@ const Profile = () => {
                                             mb: 2,
                                         }}
                                     >
-                                        <Typography variant="subtitle1" fontWeight="bold" color="primary">
+                                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main">
                                             Thông tin cá nhân
                                         </Typography>
                                         <Button
-                                            variant={isEditing ? 'contained' : 'soft'}
-                                            color={isEditing ? 'primary' : 'inherit'}
+                                            variant={isEditing ? 'contained' : 'outlined'}
                                             size="small"
                                             startIcon={
                                                 isEditing ? <Save size={16} /> : <User size={16} />
@@ -309,7 +312,10 @@ const Profile = () => {
                                                 borderRadius: 2,
                                                 textTransform: 'none',
                                                 fontWeight: 600,
-                                                bgcolor: isEditing ? 'primary.main' : 'rgba(0,0,0,0.05)',
+                                                ...(isEditing && {
+                                                    background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
+                                                    boxShadow: '0 2px 8px rgba(25, 118, 210, 0.35)',
+                                                }),
                                             }}
                                             disabled={loading}
                                         >
@@ -332,7 +338,7 @@ const Profile = () => {
                                                             <User size={16} className="text-gray-500" />
                                                         </InputAdornment>
                                                     ),
-                                                    sx: { borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0.02)' },
+                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
                                                 }}
                                                 helperText="Liên hệ Admin để thay đổi"
                                             />
@@ -351,7 +357,7 @@ const Profile = () => {
                                                             <Mail size={16} className="text-gray-500" />
                                                         </InputAdornment>
                                                     ),
-                                                    sx: { borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0.02)' },
+                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
                                                 }}
                                             />
                                         </Grid>
@@ -372,7 +378,7 @@ const Profile = () => {
                                                             <Phone size={16} className="text-gray-500" />
                                                         </InputAdornment>
                                                     ),
-                                                    sx: { borderRadius: 1.5 },
+                                                    sx: { borderRadius: 2, bgcolor: isEditing ? 'white' : 'grey.100' },
                                                 }}
                                             />
                                         </Grid>
@@ -390,7 +396,7 @@ const Profile = () => {
                                                             <Briefcase size={16} className="text-gray-500" />
                                                         </InputAdornment>
                                                     ),
-                                                    sx: { borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0.02)' },
+                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
                                                 }}
                                             />
                                         </Grid>
@@ -409,7 +415,7 @@ const Profile = () => {
                                                             <Calendar size={16} className="text-gray-500" />
                                                         </InputAdornment>
                                                     ),
-                                                    sx: { borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0.02)' },
+                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
                                                 }}
                                                 InputLabelProps={{ shrink: true }}
                                             />

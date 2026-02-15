@@ -3,9 +3,9 @@
 .supplier-view {
     font-family: var(--font-family-base, 'Inter', sans-serif);
     box-sizing: border-box;
-    margin: 20px;
-    width: calc(100% - 40px);
-    max-width: calc(100% - 40px);
+    margin: 12px;
+    width: calc(100% - 24px);
+    max-width: calc(100% - 24px);
 }
 
 /* Giới hạn max-width vừa phải (1200–1280), có khoảng thở với nền (chỉ Supplier View) */
@@ -20,7 +20,7 @@
 }
 /* Chiều cao vùng bảng theo viewport để giảm khoảng trống dọc */
 .supplier-view .supplier-grid-wrapper {
-    min-height: calc(100vh - 260px);
+    min-height: calc(100vh - 220px);
 }
 
 /* Thu nhỏ chữ placeholder + input thanh search (chỉ Supplier View) */

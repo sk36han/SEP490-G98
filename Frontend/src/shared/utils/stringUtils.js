@@ -13,14 +13,16 @@ export const removeDiacritics = (str) => {
 };
 
 /**
- * Generate username from full name (lastName + initials)
- * @param {string} fullName - Full name
- * @returns {string}
+ * Sinh phần gốc username từ họ tên (khớp backend AdminService.GenerateUsernameAsync).
+ * Backend: lastName + initials của các phần trước + số thứ tự (tổng user + 1). Số chỉ có trên server.
+ * Frontend chỉ sinh phần gốc (lastName + initials) để preview; khi tạo tài khoản không gửi username
+ * để backend tự sinh đầy đủ (có số), tránh trùng.
+ * VD: "Vũ Đức Thắng" → "thangvd" (backend sẽ thành "thangvd1", "thangvd2"...)
  */
 export const generateUsername = (fullName) => {
-    if (!fullName) return '';
+    if (!fullName || !fullName.trim()) return '';
     const normalized = removeDiacritics(fullName.trim().toLowerCase());
-    const parts = normalized.split(/\s+/);
+    const parts = normalized.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return '';
     const lastName = parts[parts.length - 1];
     const initials = parts.slice(0, parts.length - 1).map((p) => p[0]).join('');
