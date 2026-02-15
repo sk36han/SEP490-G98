@@ -90,3 +90,40 @@ export async function getSupplierSuggestions(field, query) {
         return [];
     }
 }
+
+/**
+ * Tạo nhà cung cấp mới
+ * POST /api/Supplier
+ * @param {Object} data
+ * @param {string} data.supplierCode - Mã NCC (required, max 50)
+ * @param {string} data.supplierName - Tên NCC (required, max 255)
+ * @param {string} [data.taxCode] - Mã số thuế (max 50)
+ * @param {string} [data.phone] - SĐT (max 20)
+ * @param {string} [data.email] - Email
+ * @param {string} [data.address] - Địa chỉ (max 255)
+ * @returns {Promise<Object>} SupplierResponse
+ */
+export async function createSupplier(data) {
+    try {
+        const response = await apiClient.post('/Supplier', {
+            supplierCode: data.supplierCode,
+            supplierName: data.supplierName,
+            taxCode: data.taxCode || null,
+            phone: data.phone || null,
+            email: data.email || null,
+            address: data.address || null,
+        });
+        return response.data;
+    } catch (error) {
+        if (error.response?.status === 400) {
+            throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ.');
+        } else if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.message === 'Network Error') {
+            throw new Error('Không thể kết nối đến server.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tạo nhà cung cấp.');
+        }
+    }
+}
+
