@@ -1,0 +1,62 @@
+/* Scoped styles – Supplier View / List page only. Do not affect other pages. */
+
+.supplier-view {
+    font-family: var(--font-family-base, 'Inter', sans-serif);
+    box-sizing: border-box;
+    margin: 12px;
+    width: calc(100% - 24px);
+    max-width: calc(100% - 24px);
+}
+
+/* Giới hạn max-width vừa phải (1200–1280), có khoảng thở với nền (chỉ Supplier View) */
+.content-container:has(.supplier-view) {
+    max-width: 1280px;
+    padding-left: 24px;
+    padding-right: 24px;
+}
+.supplier-view .supplier-grid-card,
+.supplier-view .supplier-filter-card {
+    width: 100%;
+}
+/* Chiều cao vùng bảng theo viewport để giảm khoảng trống dọc */
+.supplier-view .supplier-grid-wrapper {
+    min-height: calc(100vh - 220px);
+}
+
+/* Thu nhỏ chữ placeholder + input thanh search (chỉ Supplier View) */
+.supplier-view .supplier-filter-card .supplier-search-input .MuiInputBase-input,
+.supplier-view .supplier-filter-card .supplier-search-input .MuiInputBase-input::placeholder {
+    font-size: 0.8125rem;
+}
+.supplier-view .supplier-filter-card .supplier-search-input .MuiInputBase-root {
+    font-size: 0.8125rem;
+}
+
+/* Buttons on Supplier page: modern, scoped */
+.supplier-view .supplier-page-btn,
+.supplier-view .supplier-filter-card .supplier-page-btn {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    text-transform: none !important;
+    border-radius: 10px !important;
+    min-height: 36px !important;
+    padding: 6px 16px !important;
+}
+
+/* DataGrid: no boxed cell, header alignment handled via sx in component */
+.supplier-view .supplier-grid-card .MuiDataGrid-root {
+    border: none;
+}
+
+.supplier-view .supplier-grid-card .MuiDataGrid-columnHeadersInner {
+    align-items: center;
+}
+
+.supplier-view .supplier-grid-card .MuiDataGrid-columnHeaderTitle {
+    text-align: center;
+}
+
+/* Error overlay stays within grid body area */
+.supplier-view .supplier-grid-error-overlay {
+    pointer-events: none;
+}

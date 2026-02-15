@@ -42,21 +42,32 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Role không tồn tại.");
             }
 
-            // Tự động sinh username từ FullName
-            string generatedUsername = await GenerateUsernameAsync(request.FullName);
+            // 1. Tạo Username: Nếu request có Username thì dùng, nếu không thì tự sinh
+            string finalUsername;
+            if (!string.IsNullOrWhiteSpace(request.Username))
+            {
+                finalUsername = request.Username.Trim();
+                // Check duplicate
+                if (await _context.Users.AnyAsync(u => u.Username == finalUsername))
+                {
+                    throw new InvalidOperationException($"Username '{finalUsername}' đã tồn tại.");
+                }
+            }
+            else
+            {
+                finalUsername = await GenerateUsernameAsync(request.FullName);
+            }
 
-			// Tạo mật khẩu ngẫu nhiên
-			string generatedPassword = GenerateRandomPassword(12);
-
-			// Hash mật khẩu
-			string passwordHash = AuthService.CreatePasswordHash(generatedPassword);
+            // 2. Sinh mật khẩu ngẫu nhiên và hash
+            string generatedPassword = GenerateRandomPassword(12);
+            string passwordHash = AuthService.CreatePasswordHash(generatedPassword);
 
             // Tạo user mới
             var newUser = new User
             {
                 Email = request.Email,
+                Username = finalUsername,
                 FullName = request.FullName,
-                Username = generatedUsername,
                 PasswordHash = passwordHash,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -210,14 +221,33 @@ namespace Warehouse.DataAcces.Service
                 .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.UserId == userId);
 
-			// Update FullName + auto update Username
+			// Update FullName
 			if (!string.IsNullOrWhiteSpace(request.FullName))
 			{
 				user.FullName = request.FullName.Trim();
-
-				// Generate lại username từ fullname mới
-				user.Username = await GenerateUsernameAsync(user.FullName);
 			}
+
+            // Update Username if provided
+            if (!string.IsNullOrWhiteSpace(request.Username))
+            {
+                var newUsername = request.Username.Trim();
+                if (newUsername != user.Username)
+                {
+                    // Check duplicate
+                    if (await _context.Users.AnyAsync(u => u.Username == newUsername))
+                    {
+                        throw new InvalidOperationException($"Username '{newUsername}' đã tồn tại.");
+                    }
+                    user.Username = newUsername;
+                }
+            }
+            // Optional: If Username is NOT provided but FullName CHANGED, 
+            // do we still auto-generate? 
+            // The user requested to "move" the feature, implying manual control.
+            // So if they don't provide a username, we probably shouldn't change the existing one 
+            // just because they fixed a typo in the name.
+            // However, if it's a new user creation (handled above), we auto-gen.
+            // For Update: Let's assume ONLY explicit Username update changes it.
 
 			if (user == null)
             {
@@ -315,6 +345,55 @@ namespace Warehouse.DataAcces.Service
                            ? user.UserRoleUser.Role.RoleName : "N/A"
             };
         }
+
+
+        public async Task<(byte[] content, string fileName)> ExportUserListExcelAsync()
+        {
+            var users = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .ThenInclude(ur => ur.Role)
+                .AsNoTracking()
+                .OrderByDescending(u => u.CreatedAt)
+                .ToListAsync();
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Users");
+
+            // Header
+            var headers = new string[] { "UserId", "Full Name", "Username", "Email", "Phone", "Role", "Status" };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = worksheet.Cell(1, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
+            }
+
+            // Data
+            int row = 2;
+            foreach (var user in users)
+            {
+                worksheet.Cell(row, 1).Value = user.UserId;
+                worksheet.Cell(row, 2).Value = user.FullName;
+                worksheet.Cell(row, 3).Value = user.Username;
+                worksheet.Cell(row, 4).Value = user.Email;
+                worksheet.Cell(row, 5).Value = user.Phone ?? "N/A";
+                worksheet.Cell(row, 6).Value = user.UserRoleUser?.Role?.RoleName ?? "N/A";
+                worksheet.Cell(row, 7).Value = user.IsActive ? "Active" : "Inactive";
+                row++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new System.IO.MemoryStream();
+            workbook.SaveAs(stream);
+            var content = stream.ToArray();
+            var fileName = $"Users_Export_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+            return (content, fileName);
+        }
+   
+
 		/// <summary>
 		/// Tạo mật khẩu ngẫu nhiên với độ dài chỉ định.
 		/// Bao gồm chữ hoa, chữ thường, số, và ký tự đặc biệt.
@@ -367,4 +446,5 @@ namespace Warehouse.DataAcces.Service
 			}
 		}
 	}
+
 }

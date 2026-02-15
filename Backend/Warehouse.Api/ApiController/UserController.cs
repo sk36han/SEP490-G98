@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
 namespace Warehouse.Api.ApiController
@@ -13,10 +14,12 @@ namespace Warehouse.Api.ApiController
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IMapper _mapper;
 
-        public UserController(IUserService userService)
+        public UserController(IUserService userService, IMapper mapper)
         {
             _userService = userService;
+            _mapper = mapper;
         }
 
         [HttpGet("profile")]
@@ -28,13 +31,73 @@ namespace Warehouse.Api.ApiController
                 return Unauthorized(new { message = "Không xác định được người dùng từ token." });
             }
 
-            var profile = await _userService.GetUserProfileAsync(userId);
-            if (profile == null)
+            var user = await _userService.GetUserProfileAsync(userId);
+            if (user == null)
             {
                 return NotFound(new { message = "Không tìm thấy thông tin người dùng." });
             }
 
+            var profile = _mapper.Map<UserResponse>(user);
             return Ok(profile);
+        }
+
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !long.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng từ token." });
+            }
+
+            try
+            {
+                await _userService.ChangePasswordAsync(userId, request.OldPassword, request.NewPassword);
+                return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPut("profile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !long.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng từ token." });
+            }
+
+            try
+            {
+                var updated = await _userService.UpdateProfilePhoneAsync(userId, request.Phone);
+                if (updated == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy thông tin người dùng." });
+                }
+
+                return Ok(new { success = true, message = "Cập nhật số điện thoại thành công.", data = updated });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
         }
     }
 }

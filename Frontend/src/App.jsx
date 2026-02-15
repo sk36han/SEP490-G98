@@ -1,27 +1,21 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './shared/pages/Login'
-import ForgotPassword from './shared/pages/ForgotPassword'
-import ResetPassword from './shared/pages/ResetPassword'
-import Profile from './shared/pages/Profile'
-import CreateSupplier from './shared/pages/CreateSupplier'
-import './App.css'
+import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import { theme } from './app/theme';
+import AppRoutes from './app/routes';
+import './App.css';
 
 function App() {
-  return (
-    <div className="App">
-      <Router>
-        <Routes>
-          <Route path="/" element={<CreateSupplier />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/supplier/create" element={<CreateSupplier />} />
-        </Routes>
-      </Router>
-    </div>
-  )
+    return (
+        <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <div className="App">
+                <Router>
+                    <AppRoutes />
+                </Router>
+            </div>
+        </ThemeProvider>
+    );
 }
 
-export default App
+export default App;
