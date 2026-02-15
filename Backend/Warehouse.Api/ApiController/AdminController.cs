@@ -115,7 +115,13 @@ namespace Warehouse.Api.ApiController
 		{
 			try
 			{
-				var result = await _adminService.ToggleUserStatusAsync(id);
+				var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long currentUserId))
+				{
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
+				}
+
+				var result = await _adminService.ToggleUserStatusAsync(id, currentUserId);
 
 				return Ok(ApiResponse<AdminUserResponse>.SuccessResponse(result,
 					$"Đã chuyển trạng thái tài khoản thành {(result.IsActive ? "Enable" : "Disable")}."));
@@ -123,6 +129,10 @@ namespace Warehouse.Api.ApiController
 			catch (KeyNotFoundException ex)
 			{
 				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (InvalidOperationException ex)
+			{
+				return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
 			}
 			catch (Exception ex)
 			{

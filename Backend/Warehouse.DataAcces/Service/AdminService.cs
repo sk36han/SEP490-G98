@@ -215,6 +215,12 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request, long assignedBy)
         {
+            // Không cho phép admin tự đổi trạng thái (IsActive) tài khoản của chính mình
+            if (userId == assignedBy && request.IsActive.HasValue)
+            {
+                throw new InvalidOperationException("Bạn không được phép thay đổi trạng thái tài khoản của chính mình.");
+            }
+
             // Tìm user
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
@@ -313,8 +319,14 @@ namespace Warehouse.DataAcces.Service
 			};
         }
 
-        public async Task<AdminUserResponse> ToggleUserStatusAsync(long userId)
+        public async Task<AdminUserResponse> ToggleUserStatusAsync(long userId, long currentUserId)
         {
+            // Không cho phép admin tự đổi trạng thái (enable/disable) tài khoản của chính mình
+            if (userId == currentUserId)
+            {
+                throw new InvalidOperationException("Bạn không được phép thay đổi trạng thái tài khoản của chính mình.");
+            }
+
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
                 .ThenInclude(ur => ur.Role)

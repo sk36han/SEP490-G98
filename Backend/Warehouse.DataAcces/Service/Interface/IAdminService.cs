@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,7 +13,7 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter);
         Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy);
         Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request, long assignedBy);
-        Task<AdminUserResponse> ToggleUserStatusAsync(long userId);
+        Task<AdminUserResponse> ToggleUserStatusAsync(long userId, long currentUserId);
        Task<(byte[] content, string fileName)> ExportUserListExcelAsync();
 
 
