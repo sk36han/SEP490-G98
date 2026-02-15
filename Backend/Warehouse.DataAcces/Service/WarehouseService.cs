@@ -68,5 +68,25 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = entity.CreatedAt
             };
         }
+
+        public async Task<WarehouseResponse> ToggleWarehouseStatusAsync(long id)
+        {
+            var entity = await _context.Warehouses.FindAsync(id);
+            if (entity == null)
+                throw new KeyNotFoundException("Không tìm thấy kho.");
+
+            entity.IsActive = !entity.IsActive;
+            await _context.SaveChangesAsync();
+
+            return new WarehouseResponse
+            {
+                WarehouseId = entity.WarehouseId,
+                WarehouseCode = entity.WarehouseCode,
+                WarehouseName = entity.WarehouseName,
+                Address = entity.Address,
+                IsActive = entity.IsActive,
+                CreatedAt = entity.CreatedAt
+            };
+        }
     }
 }

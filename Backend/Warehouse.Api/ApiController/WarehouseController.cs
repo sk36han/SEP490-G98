@@ -60,5 +60,28 @@ namespace Warehouse.Api.ApiController
 				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
+
+		/// <summary>
+		/// Bật/Tắt trạng thái kho (Enable/Disable)
+		/// PATCH: /api/warehouse/toggle-status/{id}
+		/// </summary>
+		[HttpPatch("toggle-status/{id}")]
+		public async Task<IActionResult> ToggleWarehouseStatus(long id)
+		{
+			try
+			{
+				var result = await _warehouseService.ToggleWarehouseStatusAsync(id);
+				return Ok(ApiResponse<WarehouseResponse>.SuccessResponse(result,
+					$"Đã chuyển trạng thái kho thành {(result.IsActive ? "Enable" : "Disable")}."));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
     }
 }
