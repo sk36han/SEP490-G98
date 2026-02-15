@@ -8,7 +8,7 @@ namespace Warehouse.Api.ApiController
 {
 	[Route("api/admin/users")]
 	[ApiController]
-	[Authorize(Roles = "ADMIN")]
+	//[Authorize(Roles = "ADMIN")]
 	public class AdminController : ControllerBase
 	{
 		private readonly IAdminService _adminService;
@@ -23,7 +23,7 @@ namespace Warehouse.Api.ApiController
 		/// GET: /api/admin/users
 		/// </summary>
 		[HttpGet("get-users")]
-		public async Task<IActionResult> GetUsers([FromQuery] UserFilterRequest filter)
+		public async Task<IActionResult> GetUsers([FromQuery] FilterRequest filter)
 		{
 			try
 			{

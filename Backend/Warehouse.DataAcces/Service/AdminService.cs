@@ -181,7 +181,7 @@ namespace Warehouse.DataAcces.Service
 
 
 
-        public async Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter)
+        public async Task<PagedResult<AdminUserResponse>> GetUserListAsync(FilterRequest filter)
         {
             var query = _context.Users
                 .Include(u => u.UserRoleUser)
