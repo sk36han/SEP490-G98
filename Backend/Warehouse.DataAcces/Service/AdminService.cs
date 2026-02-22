@@ -24,7 +24,7 @@ namespace Warehouse.DataAcces.Service
             _configuration = configuration;
             _emailService = emailService;
         }
-        public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request)
+        public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy)
         {
             // Kiểm tra email đã tồn tại chưa
             var existingUser = await _context.Users
@@ -42,24 +42,26 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Role không tồn tại.");
             }
 
-            // 1. Tạo Username: Nếu request có Username thì dùng, nếu không thì tự sinh
-            string finalUsername;
-            if (!string.IsNullOrWhiteSpace(request.Username))
-            {
-                finalUsername = request.Username.Trim();
-                // Check duplicate
-                if (await _context.Users.AnyAsync(u => u.Username == finalUsername))
-                {
-                    throw new InvalidOperationException($"Username '{finalUsername}' đã tồn tại.");
-                }
-            }
-            else
-            {
-                finalUsername = await GenerateUsernameAsync(request.FullName);
-            }
+			// 1. Tạo Username: Nếu request có Username thì dùng, nếu không thì tự sinh
+			//string finalUsername;
+			//if (!string.IsNullOrWhiteSpace(request.Username))
+			//{
+			//    finalUsername = request.Username.Trim();
+			//    // Check duplicate
+			//    if (await _context.Users.AnyAsync(u => u.Username == finalUsername))
+			//    {
+			//        throw new InvalidOperationException($"Username '{finalUsername}' đã tồn tại.");
+			//    }
+			//}
+			//else
+			//{
+			//    finalUsername = await GenerateUsernameAsync(request.FullName);
+			//}
+			// 1. Luôn tự sinh Username từ FullName
+			string finalUsername = await GenerateUsernameAsync(request.FullName);
 
-            // 2. Sinh mật khẩu ngẫu nhiên và hash
-            string generatedPassword = GenerateRandomPassword(12);
+			// 2. Sinh mật khẩu ngẫu nhiên và hash
+			string generatedPassword = GenerateRandomPassword(12);
             string passwordHash = AuthService.CreatePasswordHash(generatedPassword);
 
             // Tạo user mới
@@ -82,7 +84,8 @@ namespace Warehouse.DataAcces.Service
             {
                 UserId = newUser.UserId,
                 RoleId = role.RoleId,
-                AssignedAt = DateTime.UtcNow
+                AssignedAt = DateTime.UtcNow,
+                AssignedBy = assignedBy
             };
             _context.UserRoles.Add(userRole);
             await _context.SaveChangesAsync();
@@ -180,7 +183,7 @@ namespace Warehouse.DataAcces.Service
 
 
 
-        public async Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter)
+        public async Task<PagedResult<AdminUserResponse>> GetUserListAsync(FilterRequest filter)
         {
             var query = _context.Users
                 .Include(u => u.UserRoleUser)
@@ -212,8 +215,14 @@ namespace Warehouse.DataAcces.Service
             return new PagedResult<AdminUserResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
         }
 
-        public async Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request)
+        public async Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request, long assignedBy)
         {
+            // Không cho phép admin tự đổi trạng thái (IsActive) tài khoản của chính mình
+            if (userId == assignedBy && request.IsActive.HasValue)
+            {
+                throw new InvalidOperationException("Bạn không được phép thay đổi trạng thái tài khoản của chính mình.");
+            }
+
             // Tìm user
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
@@ -273,6 +282,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     user.UserRoleUser.RoleId = request.RoleId.Value;
                     user.UserRoleUser.AssignedAt = DateTime.UtcNow;
+                    user.UserRoleUser.AssignedBy = assignedBy;
                 }
                 else
                 {
@@ -280,7 +290,8 @@ namespace Warehouse.DataAcces.Service
                     {
                         UserId = user.UserId,
                         RoleId = request.RoleId.Value,
-                        AssignedAt = DateTime.UtcNow
+                        AssignedAt = DateTime.UtcNow,
+                        AssignedBy = assignedBy
                     };
                     _context.UserRoles.Add(userRole);
                 }
@@ -310,8 +321,14 @@ namespace Warehouse.DataAcces.Service
 			};
         }
 
-        public async Task<AdminUserResponse> ToggleUserStatusAsync(long userId)
+        public async Task<AdminUserResponse> ToggleUserStatusAsync(long userId, long currentUserId)
         {
+            // Không cho phép admin tự đổi trạng thái (enable/disable) tài khoản của chính mình
+            if (userId == currentUserId)
+            {
+                throw new InvalidOperationException("Bạn không được phép thay đổi trạng thái tài khoản của chính mình.");
+            }
+
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
                 .ThenInclude(ur => ur.Role)

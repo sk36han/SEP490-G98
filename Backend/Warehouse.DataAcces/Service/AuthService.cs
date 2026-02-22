@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -48,6 +48,12 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             return user;
+        }
+
+        public async Task<bool> IsUserActiveAsync(long userId)
+        {
+            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == userId);
+            return user != null && user.IsActive;
         }
 
         public async Task<(string accessToken, DateTime expiresAt)> IssueTokensAsync(User user, bool rememberMe)
