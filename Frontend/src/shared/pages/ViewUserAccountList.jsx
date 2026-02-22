@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Table,
     TableBody,
@@ -63,6 +63,7 @@ const UserAccountList = () => {
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [creatingUser, setCreatingUser] = useState(false);
+    const createSubmittingRef = useRef(false);
     // Dự phòng cho audit log (ghi lại admin đã chỉnh sửa những gì)
     // const [selectedUser, setSelectedUser] = useState(null);
 
@@ -150,11 +151,12 @@ const UserAccountList = () => {
 
     const handleCreateUser = async (e) => {
         e.preventDefault();
-        if (creatingUser) return;
+        if (createSubmittingRef.current || creatingUser) return;
         if (!createForm.email || !createForm.fullName) {
             showToast('Vui lòng điền đầy đủ Email và Họ tên!', 'error');
             return;
         }
+        createSubmittingRef.current = true;
         setCreatingUser(true);
         try {
             const payload = { email: createForm.email, fullName: createForm.fullName, roleId: createForm.roleId };
@@ -174,6 +176,7 @@ const UserAccountList = () => {
         } catch (error) {
             showToast(error.message, 'error');
         } finally {
+            createSubmittingRef.current = false;
             setCreatingUser(false);
         }
     };

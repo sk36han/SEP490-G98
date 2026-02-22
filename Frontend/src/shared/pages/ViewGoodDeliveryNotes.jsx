@@ -113,7 +113,7 @@ const ViewGoodDeliveryNotes = () => {
         <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
             <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography variant="h4" component="h1" gutterBottom fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
-                    Yêu cầu xuất hàng
+                    Phiếu xuất hàng
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                     Danh sách phiếu xuất hàng – tìm theo mã phiếu, yêu cầu xuất, kho, ngày xuất.

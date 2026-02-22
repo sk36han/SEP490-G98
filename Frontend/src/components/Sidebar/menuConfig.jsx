@@ -34,8 +34,8 @@ const directorItems = [
 const warehouseKeeperItems = [
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
-    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
+    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Giấy nhập hàng' },
+    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Giấy xuất hàng' },
 ];
 
 // Sale Support: Quản lý nhà cung cấp, Quản lý đơn mua hàng, Vật tư
