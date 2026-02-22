@@ -172,33 +172,33 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Quản lý kho – Manager, Thủ kho */}
+        {/* Quản lý kho – chỉ Thủ kho */}
         <Route
             path="/inventory"
             element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewWarehouseList />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu nhập hàng (GRN) */}
+        {/* Yêu cầu nhập hàng (GRN) – chỉ Thủ kho */}
         <Route
             path="/good-receipt-notes"
             element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'STAFF']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewGoodReceiptNotes />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu xuất hàng (GDN) */}
+        {/* Yêu cầu xuất hàng (GDN) – chỉ Thủ kho */}
         <Route
             path="/good-delivery-notes"
             element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'STAFF']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewGoodDeliveryNotes />
                     </MainLayout>

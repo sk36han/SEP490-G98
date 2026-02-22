@@ -10,8 +10,8 @@ export const getPermissionRole = (originalRole) => {
     const noDiacritics = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     if (upper.includes('ADMIN')) return 'ADMIN';
     if (upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR')) return 'ADMIN';
-    // Thủ kho = Warehouse Keeper - home là trang quản lý sản phẩm
-    if (upper.includes('THỦ KHO') || noDiacritics.includes('THU KHO') || upper.includes('WAREHOUSE_KEEPER')) return 'WAREHOUSE_KEEPER';
+    // Thủ kho = Warehouse Keeper – quản lý kho, yêu cầu nhập/xuất hàng
+    if (upper.includes('THỦ KHO') || noDiacritics.includes('THU KHO') || upper.includes('WAREHOUSE_KEEPER') || upper === 'WK') return 'WAREHOUSE_KEEPER';
     if (upper.includes('MANAGER') || upper.includes('QUẢN LÝ')) return 'MANAGER';
     // Sale Support - hỗ trợ bán hàng: xem đơn hàng, xem sản phẩm, hồ sơ
     if (upper.includes('SALE SUPPORT') || upper.includes('SALE_SUPPORT') || noDiacritics.includes('SALE SUPPORT')) return 'SALE_SUPPORT';

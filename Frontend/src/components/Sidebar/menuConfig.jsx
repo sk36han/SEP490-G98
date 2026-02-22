@@ -24,23 +24,18 @@ const adminItems = [
     { path: '/admin/audit-log', icon: <ClipboardList size={22} />, label: 'Audit Log hệ thống' },
 ];
 
-// Manager: có Danh sách vật tư, Yêu cầu nhập/xuất hàng
+// Manager: Danh sách vật tư, Nhà cung cấp, Báo cáo (không có Quản lý kho, Yêu cầu nhập/xuất – dành cho Thủ kho)
 const managerItems = [
     { path: '/manager/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
-    { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
-    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
 ];
 
-// Staff: có Danh sách vật tư, Yêu cầu nhập/xuất hàng
+// Staff: Danh sách vật tư (không có Quản lý kho, Yêu cầu nhập/xuất – dành cho Thủ kho)
 const staffItems = [
     { path: '/staff/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
-    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
 // Thủ kho: có Danh sách vật tư, Quản lý kho, Yêu cầu nhập/xuất hàng
