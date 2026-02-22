@@ -254,10 +254,23 @@ const UserAccountList = () => {
     };
 
     return (
-        <Container maxWidth="xl" sx={{ pt: 0, pb: 0 }}>
+        <Container
+            maxWidth="xl"
+            sx={{
+                pt: 0,
+                pb: 0,
+                mt: -3,
+                height: 'calc(100vh - 112px)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+            }}
+        >
             <Box
                 sx={{
                     mb: 1,
+                    mt: 0,
+                    flexShrink: 0,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'flex-start',
@@ -270,6 +283,7 @@ const UserAccountList = () => {
                     gutterBottom
                     fontWeight="800"
                     sx={{
+                        mt: 0,
                         background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
                         backgroundClip: 'text',
                         textFillColor: 'transparent',
@@ -281,7 +295,7 @@ const UserAccountList = () => {
                 >
                     Quản lý người dùng
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                <Typography variant="body1" color="text.secondary" sx={{wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                     Quản lý tài khoản, phân quyền và trạng thái hoạt động của nhân viên trong hệ thống.
                 </Typography>
             </Box>
@@ -291,6 +305,10 @@ const UserAccountList = () => {
                 sx={{
                     p: 1,
                     borderRadius: 4,
+                    flex: 1,
+                    minHeight: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
                     background: 'rgba(255, 255, 255, 0.8)',
                     backdropFilter: 'blur(20px)',
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.05)',
@@ -300,6 +318,7 @@ const UserAccountList = () => {
                 <Box
                     sx={{
                         mb: 0.5,
+                        flexShrink: 0,
                         display: 'flex',
                         gap: 2,
                         alignItems: 'center',
@@ -386,7 +405,7 @@ const UserAccountList = () => {
                     </FormGroup>
                 </Popover>
 
-                <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
+                <TableContainer sx={{ flex: 1, minHeight: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
                     <Table stickyHeader>
                         <TableHead>
                             <TableRow>
@@ -541,6 +560,7 @@ const UserAccountList = () => {
             <Box
                 sx={{
                     mt: 0,
+                    flexShrink: 0,
                     display: 'flex',
                     flexWrap: 'wrap',
                     alignItems: 'center',

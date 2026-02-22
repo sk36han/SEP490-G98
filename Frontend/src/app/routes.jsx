@@ -52,7 +52,7 @@ const AppRoutes = () => (
             }
         />
         <Route
-            path="/manager/home"
+            path="/director/home"
             element={
                 <ProtectedRoute>
                     <MainLayout>
@@ -62,7 +62,7 @@ const AppRoutes = () => (
             }
         />
         <Route
-            path="/staff/home"
+            path="/warehouse-keeper/home"
             element={
                 <ProtectedRoute>
                     <MainLayout>
@@ -73,6 +73,26 @@ const AppRoutes = () => (
         />
         <Route
             path="/sale-support/home"
+            element={
+                <ProtectedRoute>
+                    <MainLayout>
+                        <Home />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/sale-engineer/home"
+            element={
+                <ProtectedRoute>
+                    <MainLayout>
+                        <Home />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/accountants/home"
             element={
                 <ProtectedRoute>
                     <MainLayout>
@@ -94,7 +114,7 @@ const AppRoutes = () => (
         <Route
             path="/admin/users"
             element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
+                <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
                     <MainLayout>
                         <UserAccountList />
                     </MainLayout>
@@ -104,7 +124,7 @@ const AppRoutes = () => (
         <Route
             path="/admin/notifications"
             element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
+                <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
                     <MainLayout>
                         <AdminNotifications />
                     </MainLayout>
@@ -114,7 +134,7 @@ const AppRoutes = () => (
         <Route
             path="/admin/audit-log"
             element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
+                <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']}>
                     <MainLayout>
                         <AdminAuditLog />
                     </MainLayout>
@@ -125,7 +145,7 @@ const AppRoutes = () => (
         <Route
             path="/products"
             element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ItemList />
                     </MainLayout>
@@ -135,7 +155,7 @@ const AppRoutes = () => (
         <Route
             path="/items/create"
             element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateItem />
                     </MainLayout>
@@ -145,7 +165,7 @@ const AppRoutes = () => (
         <Route
             path="/items/edit/:id"
             element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <EditItem />
                     </MainLayout>
@@ -155,7 +175,7 @@ const AppRoutes = () => (
         <Route
             path="/items/:id"
             element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewItemDetail />
                     </MainLayout>
@@ -165,40 +185,40 @@ const AppRoutes = () => (
         <Route
             path="/suppliers"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'SALE_SUPPORT', 'SALE_ENGINEER']}>
                     <MainLayout>
                         <SupplierView />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Quản lý kho – chỉ Thủ kho */}
+        {/* Quản lý kho – Thủ kho (menu chỉ hiển thị cho Thủ kho; route cho phép cả Manager/Staff nếu truy cập trực tiếp) */}
         <Route
             path="/inventory"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewWarehouseList />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu nhập hàng (GRN) – chỉ Thủ kho */}
+        {/* Yêu cầu nhập hàng (GRN) – Thủ kho */}
         <Route
             path="/good-receipt-notes"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewGoodReceiptNotes />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu xuất hàng (GDN) – chỉ Thủ kho */}
+        {/* Yêu cầu xuất hàng (GDN) – Thủ kho */}
         <Route
             path="/good-delivery-notes"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewGoodDeliveryNotes />
                     </MainLayout>
@@ -209,7 +229,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <PurchaseOrderList />
                     </MainLayout>
@@ -219,7 +239,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/create"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <CreatePO />
                     </MainLayout>
@@ -229,7 +249,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/edit/:id"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <EditPO />
                     </MainLayout>
@@ -239,9 +259,36 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/:id"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewPurchaseOrder />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/reports"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <div style={{ padding: 24, textAlign: 'center' }}>
+                            <p style={{ marginBottom: 16 }}>Trang báo cáo đang được phát triển.</p>
+                            <a href="/home" style={{ color: '#0284c7' }}>Về trang chủ</a>
+                        </div>
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Fallback: nếu không có route nào khớp (tránh trang trống) */}
+        <Route
+            path="*"
+            element={
+                <ProtectedRoute>
+                    <MainLayout>
+                        <div style={{ padding: 24, textAlign: 'center' }}>
+                            <p style={{ marginBottom: 16 }}>Trang không tồn tại.</p>
+                            <a href="/home" style={{ color: '#0284c7' }}>Về trang chủ</a>
+                        </div>
                     </MainLayout>
                 </ProtectedRoute>
             }

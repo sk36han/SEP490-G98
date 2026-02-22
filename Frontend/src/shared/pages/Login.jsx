@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
     Box,
     TextField,
@@ -17,10 +17,21 @@ import Toast from '../../components/Toast/Toast';
 import AuthLayout from '../../components/Layout/AuthLayout';
 import authService from '../lib/authService';
 import { useToast } from '../hooks/useToast';
+import { getPermissionRole, isPermissionRoleValid } from '../permissions/roleUtils';
+
+const ROLE_ERROR_MESSAGE = 'Tài khoản đang bị lỗi vai trò. Vui lòng liên hệ quản trị viên.';
 
 const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { toast, showToast, clearToast } = useToast();
+
+    useEffect(() => {
+        if (location.state?.roleError) {
+            showToast(ROLE_ERROR_MESSAGE, 'error');
+            window.history.replaceState({}, '', location.pathname);
+        }
+    }, [location.state?.roleError]);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -49,27 +60,29 @@ const Login = () => {
 
         try {
             await authService.login(formData.email, formData.password, formData.rememberMe);
-            showToast('Đăng nhập thành công!', 'success');
 
             const userInfo = authService.getUser();
-            const role = userInfo?.roleCode || userInfo?.roleName;
+            const rawRole = userInfo?.roleCode || userInfo?.roleName;
+            const permissionRole = getPermissionRole(rawRole);
+
+            if (!isPermissionRoleValid(permissionRole)) {
+                authService.logout();
+                showToast(ROLE_ERROR_MESSAGE, 'error');
+                setLoading(false);
+                return;
+            }
+
+            showToast('Đăng nhập thành công!', 'success');
 
             setTimeout(() => {
-                const roleUpper = role?.toUpperCase();
-                const roleNormalized = String(role || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                // Thủ kho (Warehouse Keeper) -> trang quản lý sản phẩm
-                if (roleUpper?.includes('THỦ KHO') || roleNormalized?.toLowerCase().includes('thukho') || roleUpper?.includes('WAREHOUSE_KEEPER')) {
-                    navigate('/products');
-                } else if (roleUpper === 'ADMIN') {
-                    navigate('/admin/home');
-                } else if (roleUpper === 'MANAGER' || roleUpper === 'WAREHOUSE MANAGER') {
-                    navigate('/manager/home');
-                } else if (roleUpper?.includes('SALE SUPPORT') || roleUpper?.includes('SALE_SUPPORT')) {
-                    navigate('/sale-support/home');
-                } else if (roleUpper === 'STAFF') {
-                    navigate('/staff/home');
-                } else {
-                    navigate('/home');
+                switch (permissionRole) {
+                    case 'ADMIN': navigate('/admin/home'); break;
+                    case 'DIRECTOR': navigate('/director/home'); break;
+                    case 'WAREHOUSE_KEEPER': navigate('/products'); break;
+                    case 'SALE_SUPPORT': navigate('/sale-support/home'); break;
+                    case 'SALE_ENGINEER': navigate('/sale-engineer/home'); break;
+                    case 'ACCOUNTANTS': navigate('/accountants/home'); break;
+                    default: navigate('/home');
                 }
             }, 1000);
         } catch (error) {
