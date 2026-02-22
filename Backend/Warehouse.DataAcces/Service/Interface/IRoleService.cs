@@ -10,6 +10,6 @@ namespace Warehouse.DataAcces.Service.Interface
 		Task<List<RoleResponse>> GetAllRolesAsync();
 		Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request);
 		Task<RoleResponse> UpdateRoleAsync(long roleId, UpdateRoleRequest request);
-		Task<AdminUserResponse> AssignRoleToUserAsync(AssignRoleRequest request);
+		Task<AdminUserResponse> AssignRoleToUserAsync(AssignRoleRequest request, long assignedBy);
 	}
 }
