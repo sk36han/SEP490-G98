@@ -42,24 +42,26 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Role không tồn tại.");
             }
 
-            // 1. Tạo Username: Nếu request có Username thì dùng, nếu không thì tự sinh
-            string finalUsername;
-            if (!string.IsNullOrWhiteSpace(request.Username))
-            {
-                finalUsername = request.Username.Trim();
-                // Check duplicate
-                if (await _context.Users.AnyAsync(u => u.Username == finalUsername))
-                {
-                    throw new InvalidOperationException($"Username '{finalUsername}' đã tồn tại.");
-                }
-            }
-            else
-            {
-                finalUsername = await GenerateUsernameAsync(request.FullName);
-            }
+			// 1. Tạo Username: Nếu request có Username thì dùng, nếu không thì tự sinh
+			//string finalUsername;
+			//if (!string.IsNullOrWhiteSpace(request.Username))
+			//{
+			//    finalUsername = request.Username.Trim();
+			//    // Check duplicate
+			//    if (await _context.Users.AnyAsync(u => u.Username == finalUsername))
+			//    {
+			//        throw new InvalidOperationException($"Username '{finalUsername}' đã tồn tại.");
+			//    }
+			//}
+			//else
+			//{
+			//    finalUsername = await GenerateUsernameAsync(request.FullName);
+			//}
+			// 1. Luôn tự sinh Username từ FullName
+			string finalUsername = await GenerateUsernameAsync(request.FullName);
 
-            // 2. Sinh mật khẩu ngẫu nhiên và hash
-            string generatedPassword = GenerateRandomPassword(12);
+			// 2. Sinh mật khẩu ngẫu nhiên và hash
+			string generatedPassword = GenerateRandomPassword(12);
             string passwordHash = AuthService.CreatePasswordHash(generatedPassword);
 
             // Tạo user mới
