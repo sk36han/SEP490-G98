@@ -142,7 +142,7 @@ export default function SupplierView() {
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
 
     return (
-        <>
+        <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
             {/* Tiêu đề trang – tách riêng, style cũ (gradient, h4, 800) */}
             <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography
@@ -435,6 +435,6 @@ export default function SupplierView() {
                 </Button>
             </Box>
             </Box>
-        </>
+        </Box>
     );
 }

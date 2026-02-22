@@ -9,7 +9,7 @@ import UserAccountList from '../shared/pages/ViewUserAccountList';
 import ItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
 import EditItem from '../shared/pages/EditItem';
-import ViewItem from '../shared/pages/ViewItem';
+import ViewItemDetail from '../shared/pages/ViewItemDetail';
 import PurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrder from '../shared/pages/ViewPurchaseOrder';
 import CreatePO from '../shared/pages/CreatePO';
@@ -17,6 +17,9 @@ import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 import SupplierView from '../shared/pages/SupplierView';
+import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
+import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -154,7 +157,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'STAFF']}>
                     <MainLayout>
-                        <ViewItem />
+                        <ViewItemDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -165,6 +168,39 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
                         <SupplierView />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Quản lý kho – Manager, Thủ kho */}
+        <Route
+            path="/inventory"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewWarehouseList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Yêu cầu nhập hàng (GRN) */}
+        <Route
+            path="/good-receipt-notes"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'STAFF']}>
+                    <MainLayout>
+                        <ViewGoodReceiptNotes />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Yêu cầu xuất hàng (GDN) */}
+        <Route
+            path="/good-delivery-notes"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'STAFF']}>
+                    <MainLayout>
+                        <ViewGoodDeliveryNotes />
                     </MainLayout>
                 </ProtectedRoute>
             }

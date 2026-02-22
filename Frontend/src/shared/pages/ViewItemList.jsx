@@ -170,7 +170,7 @@ const ViewItemList = () => {
     };
 
     return (
-        <>
+        <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
             <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography variant="h4" component="h1" gutterBottom fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
                     Danh sách vật tư
@@ -212,7 +212,7 @@ const ViewItemList = () => {
                             </Tooltip>
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                 <Button className="list-page-btn" variant="outlined" startIcon={<Download size={18} />} onClick={handleExport} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>Xuất Excel</Button>
-                                <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => navigate('/items/create')} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>Thêm vật tư</Button>
+                                <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => navigate('/items/create')} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>Tạo thêm vật tư</Button>
                             </Box>
                         </Box>
                     </CardContent>
@@ -321,7 +321,7 @@ const ViewItemList = () => {
 
                 {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
             </Box>
-        </>
+        </Box>
     );
 };
 

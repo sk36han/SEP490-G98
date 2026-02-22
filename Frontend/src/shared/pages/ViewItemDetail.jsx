@@ -26,7 +26,7 @@ const VIEW_ITEM_FIELDS = [
 ];
 const DEFAULT_VISIBLE_FIELD_IDS = VIEW_ITEM_FIELDS.map((f) => f.id);
 
-const ViewItem = () => {
+const ViewItemDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [item, setItem] = useState(null);
@@ -123,4 +123,4 @@ const ViewItem = () => {
     );
 };
 
-export default ViewItem;
+export default ViewItemDetail;
