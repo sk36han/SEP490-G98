@@ -25,7 +25,7 @@ export const getPermissionRole = (originalRole) => {
     if (upper.includes('THỦ KHO') || noDiacritics.includes('THU KHO') || noDiacritics.includes('THUKHO') || upper.includes('WAREHOUSE_KEEPER') || upper.includes('WAREHOUSE KEEPER') || upper === 'WK' || upper === 'WHK' || upper === 'THU_KHO') return 'WAREHOUSE_KEEPER';
     if (upper.includes('SALE SUPPORT') || upper.includes('SALE_SUPPORT') || noDiacritics.includes('SALE SUPPORT')) return 'SALE_SUPPORT';
     if (upper.includes('SALE ENGINEER') || upper.includes('SALE_ENGINEER') || noDiacritics.includes('SALE ENGINEER')) return 'SALE_ENGINEER';
-    if (upper.includes('KẾ TOÁN') || noDiacritics.includes('KE TOAN') || upper.includes('ACCOUNTANT')) return 'ACCOUNTANTS';
+    if (upper === 'ACCOUNTANTS' || upper.includes('KẾ TOÁN') || noDiacritics.includes('KE TOAN') || upper.includes('ACCOUNTANT')) return 'ACCOUNTANTS';
     return null;
 };
 

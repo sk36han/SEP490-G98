@@ -51,10 +51,10 @@ const saleEngineerItems = [
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
 ];
 
-// Accountants: Báo cáo, Đơn mua hàng
+// Accountants (Kế toán): Hồ sơ của tôi, Quản lý vật tư
 const accountantsItems = [
-    { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
-    { path: '/purchase-orders', icon: <FileText size={22} />, label: 'Đơn mua hàng' },
+    { path: '/profile', icon: <User size={22} />, label: 'Hồ sơ của tôi' },
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý vật tư' },
 ];
 
 /**
@@ -69,6 +69,6 @@ export const getMenuItems = (role) => {
     if (role === 'WAREHOUSE_KEEPER') return [...commonItems, ...warehouseKeeperItems];
     if (role === 'SALE_SUPPORT') return [...commonItems, ...saleSupportItems];
     if (role === 'SALE_ENGINEER') return [...commonItems, ...saleEngineerItems];
-    if (role === 'ACCOUNTANTS') return [...commonItems, ...accountantsItems];
+    if (role === 'ACCOUNTANTS') return accountantsItems;
     return commonItems;
 };

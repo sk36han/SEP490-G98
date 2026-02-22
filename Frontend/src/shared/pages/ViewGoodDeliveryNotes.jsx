@@ -25,7 +25,7 @@ import {
     useTheme,
     useMediaQuery,
 } from '@mui/material';
-import { Plus, Eye, Edit, Columns, PackageUp } from 'lucide-react';
+import { Plus, Eye, Edit, Columns, Package } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import '../styles/ListView.css';
@@ -170,7 +170,7 @@ const ViewGoodDeliveryNotes = () => {
                     <Box className="list-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
                         {paginatedList.length === 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
-                                <PackageUp size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                                <Package size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                                 <Typography>Chưa có phiếu xuất hàng</Typography>
                             </Box>
                         ) : (

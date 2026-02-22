@@ -81,7 +81,7 @@ const Login = () => {
                     case 'WAREHOUSE_KEEPER': navigate('/products'); break;
                     case 'SALE_SUPPORT': navigate('/sale-support/home'); break;
                     case 'SALE_ENGINEER': navigate('/sale-engineer/home'); break;
-                    case 'ACCOUNTANTS': navigate('/accountants/home'); break;
+                    case 'ACCOUNTANTS': navigate('/products'); break;
                     default: navigate('/home');
                 }
             }, 1000);

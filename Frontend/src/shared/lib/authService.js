@@ -1,5 +1,19 @@
 import apiClient from './axios';
 
+/**
+ * Lấy role từ JWT payload (backend gửi ClaimTypes.Role trong token).
+ * Tránh phụ thuộc GET /User/profile khi endpoint đó trả 500 (vd: user chưa có role).
+ */
+function getRoleFromToken(token) {
+    if (!token || typeof token !== 'string') return null;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ?? null;
+    } catch {
+        return null;
+    }
+}
+
 const authService = {
     /**
      * Login user with email/username and password
@@ -28,9 +42,15 @@ const authService = {
                 const userWithRole = profileResponse.data;
                 localStorage.setItem('userInfo', JSON.stringify(userWithRole));
             } catch (profileError) {
-                // Fallback: use user from login response if profile fetch fails
-                console.warn('Failed to fetch user profile, using login data:', profileError);
-                localStorage.setItem('userInfo', JSON.stringify(user));
+                // Fallback: profile trả 500 (vd: user chưa có role) → dùng user từ login + role từ JWT
+                console.warn('Failed to fetch user profile, using login data and role from token:', profileError?.response?.status);
+                const roleFromToken = getRoleFromToken(accessToken);
+                const userForStorage = {
+                    ...(user || {}),
+                    roleCode: user?.roleCode ?? roleFromToken,
+                    roleName: user?.roleName ?? roleFromToken,
+                };
+                localStorage.setItem('userInfo', JSON.stringify(userForStorage));
             }
 
             return response.data;
@@ -39,7 +59,10 @@ const authService = {
             if (error.response?.status === 401) {
                 throw new Error('Email/Username hoặc mật khẩu không đúng');
             } else if (error.response?.status === 500) {
-                throw new Error('Lỗi server. Vui lòng thử lại sau.');
+                const detail = error.response?.data?.error || error.response?.data?.message;
+                throw new Error(detail
+                    ? `Lỗi server: ${detail}`
+                    : 'Lỗi server. Có thể do tài khoản chưa được gán vai trò hoặc cấu hình server. Liên hệ quản trị viên.');
             } else if (error.code === 'ECONNABORTED') {
                 throw new Error('Timeout. Vui lòng kiểm tra kết nối.');
             } else if (error.message === 'Network Error') {

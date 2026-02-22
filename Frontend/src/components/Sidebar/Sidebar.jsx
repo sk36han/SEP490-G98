@@ -78,13 +78,13 @@ const Sidebar = () => {
     const location = useLocation();
 
     const userInfo = authService.getUser();
-    const roleFromBackend = userInfo?.roleCode || userInfo?.roleName || '';
+    const roleFromBackend = userInfo?.roleCode || userInfo?.roleName || userInfo?.RoleCode || userInfo?.RoleName || '';
 
     const user = {
-        name: userInfo?.fullName || 'User',
+        name: String(userInfo?.fullName ?? userInfo?.FullName ?? 'User').slice(0, 100),
         role: roleFromBackend,
         permissionRole: getPermissionRole(roleFromBackend),
-        email: userInfo?.email || '',
+        email: userInfo?.email ?? userInfo?.Email ?? '',
         avatar: userInfo?.avatar
     };
 
@@ -240,7 +240,7 @@ const Sidebar = () => {
                                         boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                                     }}
                                 >
-                                    {user.name.charAt(0)}
+                                    {(user.name || 'U').charAt(0).toUpperCase()}
                                 </Avatar>
                                 <Box sx={{ overflow: 'hidden' }}>
                                     <Typography variant="subtitle2" noWrap sx={{ fontWeight: 'bold', color: 'text.primary' }}>
