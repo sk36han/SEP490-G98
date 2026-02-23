@@ -17,6 +17,7 @@ import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 import SupplierView from '../shared/pages/SupplierView';
+import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
@@ -175,11 +176,17 @@ const AppRoutes = () => (
         <Route
             path="/suppliers"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
-                    <MainLayout>
-                        <SupplierView />
-                    </MainLayout>
-                </ProtectedRoute>
+                <MainLayout>
+                    <SupplierView />
+                </MainLayout>
+            }
+        />
+        <Route
+            path="/suppliers/create"
+            element={
+                <MainLayout>
+                    <CreateSupplier />
+                </MainLayout>
             }
         />
         {/* Quản lý kho – Manager, Thủ kho */}

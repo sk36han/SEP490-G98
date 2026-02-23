@@ -189,251 +189,265 @@ export default function SupplierView() {
                 />
 
                 {/* Header + Search: gộp 1 dòng */}
-            <Card
-                className="supplier-filter-card"
-                sx={{
-                    mb: 1,
-                    borderRadius: 3,
-                    border: '1px solid rgba(0,0,0,0.12)',
-                    boxShadow: (t) => t.shadows[1],
-                }}
-            >
-                <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            flexDirection: isMobile ? 'column' : 'row',
-                            gap: 1.5,
-                            alignItems: isMobile ? 'stretch' : 'center',
-                            flexWrap: 'wrap',
-                        }}
-                    >
-                        <SearchInput
-                            placeholder="Tìm kiếm theo mã NCC, tên nhà cung cấp…"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            sx={{
-                                flex: '1 1 200px',
-                                minWidth: isMobile ? '100%' : 200,
-                                maxWidth: isMobile ? '100%' : 480,
-                            }}
-                        />
-                        <Tooltip title="Bộ lọc">
-                            <IconButton
-                                color="primary"
-                                onClick={() => setFilterOpen(true)}
-                                aria-label="Bộ lọc"
-                                sx={{ border: 1, borderColor: 'divider' }}
-                            >
-                                <Filter size={20} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Chọn cột hiển thị">
-                            <IconButton
-                                color="primary"
-                                onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
-                                aria-label="Chọn cột"
-                                sx={{ border: 1, borderColor: 'divider' }}
-                            >
-                                <Columns size={20} />
-                            </IconButton>
-                        </Tooltip>
-                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                            <Button
-                                className="supplier-page-btn"
-                                variant="contained"
-                                disabled
-                                sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}
-                            >
-                                Tạo mới (Coming soon)
-                            </Button>
-                        </Box>
-                    </Box>
-                </CardContent>
-            </Card>
-
-            <Popover
-                open={columnSelectorOpen}
-                anchorEl={columnSelectorAnchor}
-                onClose={() => setColumnSelectorAnchor(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
-            >
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
-                    Chọn cột hiển thị
-                </Typography>
-                <FormGroup>
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                checked={visibleColumnIds.size === SUPPLIER_COLUMNS.length}
-                                indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < SUPPLIER_COLUMNS.length}
-                                onChange={(e) => handleSelectAllColumns(e.target.checked)}
-                            />
-                        }
-                        label="Tất cả"
-                    />
-                    {SUPPLIER_COLUMNS.map((col) => (
-                        <FormControlLabel
-                            key={col.id}
-                            control={
-                                <Checkbox
-                                    checked={visibleColumnIds.has(col.id)}
-                                    onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                />
-                            }
-                            label={col.label}
-                        />
-                    ))}
-                </FormGroup>
-            </Popover>
-
-            {/* Bảng danh sách – MUI Table (không dùng @mui/x-data-grid) */}
-            <Card
-                className="supplier-grid-card"
-                sx={{
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    border: '1px solid rgba(0,0,0,0.12)',
-                    boxShadow: (t) => t.shadows[1],
-                    p: 1,
-                }}
-            >
-                <Box className="supplier-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
-                    {loading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                            <Typography color="text.secondary">Đang tải…</Typography>
-                        </Box>
-                    ) : showOverlayError ? (
+                <Card
+                    className="supplier-filter-card"
+                    sx={{
+                        mb: 1,
+                        borderRadius: 3,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        boxShadow: (t) => t.shadows[1],
+                    }}
+                >
+                    <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
                         <Box
-                            className="supplier-grid-error-overlay"
                             sx={{
                                 display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                minHeight: 200,
-                                backgroundColor: 'rgba(255,255,255,0.95)',
+                                flexDirection: isMobile ? 'column' : 'row',
                                 gap: 1.5,
+                                alignItems: isMobile ? 'stretch' : 'center',
+                                flexWrap: 'wrap',
                             }}
                         >
-                            <CloudOff size={40} style={{ color: theme.palette.text.secondary }} />
-                            <Typography variant="subtitle1" fontWeight={600} color="text.primary">
-                                Không thể kết nối đến máy chủ
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Vui lòng thử lại sau
-                            </Typography>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => fetchData()}
-                                sx={{ mt: 0.5, textTransform: 'none' }}
-                            >
-                                Thử lại
-                            </Button>
+                            <SearchInput
+                                placeholder="Tìm kiếm theo mã NCC, tên nhà cung cấp…"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                sx={{
+                                    flex: '1 1 200px',
+                                    minWidth: isMobile ? '100%' : 200,
+                                    maxWidth: isMobile ? '100%' : 480,
+                                }}
+                            />
+                            <Tooltip title="Bộ lọc">
+                                <IconButton
+                                    color="primary"
+                                    onClick={() => setFilterOpen(true)}
+                                    aria-label="Bộ lọc"
+                                    sx={{ border: 1, borderColor: 'divider' }}
+                                >
+                                    <Filter size={20} />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Chọn cột hiển thị">
+                                <IconButton
+                                    color="primary"
+                                    onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
+                                    aria-label="Chọn cột"
+                                    sx={{ border: 1, borderColor: 'divider' }}
+                                >
+                                    <Columns size={20} />
+                                </IconButton>
+                            </Tooltip>
+                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
+                                <Button
+                                    className="supplier-page-btn"
+                                    variant="contained"
+                                    onClick={() => navigate('/suppliers/create')}
+                                    sx={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        textTransform: 'none',
+                                        borderRadius: 2,
+                                        minHeight: 36,
+                                        px: 2,
+                                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                                        boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+                                        '&:hover': {
+                                            background: 'linear-gradient(45deg, #1976D2 30%, #00BCD4 90%)',
+                                            boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)',
+                                        },
+                                    }}
+                                    startIcon={<span style={{ fontSize: 18, fontWeight: 700 }}>+</span>}
+                                >
+                                    Tạo mới
+                                </Button>
+                            </Box>
                         </Box>
-                    ) : showEmpty ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
-                            <Typography>Chưa có dữ liệu nhà cung cấp</Typography>
-                        </Box>
-                    ) : (
-                        <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden' }}>
-                            <Table size="small" stickyHeader>
-                                <TableHead>
-                                    <TableRow>
-                                        {visibleColumns.map((col) => (
-                                            <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' ? 'right' : 'left'}>
-                                                {col.label}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {rows.map((row, index) => (
-                                        <TableRow key={row.supplierId} hover>
-                                            {visibleColumns.map((col) => {
-                                                if (col.id === 'stt') {
-                                                    return (
-                                                        <TableCell key={col.id} align="left">
-                                                            {page * pageSize + index + 1}
-                                                        </TableCell>
-                                                    );
-                                                }
-                                                if (col.id === 'actions') {
-                                                    return (
-                                                        <TableCell key={col.id} align="right">
-                                                            <Tooltip title="Xem">
-                                                                <IconButton size="small" onClick={() => navigate(`/suppliers/${row.supplierId}`)} aria-label="Xem">
-                                                                    <Eye size={18} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Sửa">
-                                                                <IconButton size="small" onClick={() => navigate(`/suppliers/edit/${row.supplierId}`)} aria-label="Sửa">
-                                                                    <Edit size={18} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </TableCell>
-                                                    );
-                                                }
-                                                return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
-                                            })}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </Box>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            {/* Pagination – gom hết bên phải: Số dòng/trang + dropdown + range + Trước/Sau */}
-            <Box
-                sx={{
-                    mt: 0,
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                    gap: 2,
-                }}
-            >
-                <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
-                <FormControl size="small" sx={{ minWidth: 72 }}>
-                    <Select
-                        value={pageSize}
-                        onChange={handlePageSizeChange}
-                        sx={{ height: 32, fontSize: '0.875rem' }}
-                    >
-                        {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                            <MenuItem key={n} value={n}>{n}</MenuItem>
+                <Popover
+                    open={columnSelectorOpen}
+                    anchorEl={columnSelectorAnchor}
+                    onClose={() => setColumnSelectorAnchor(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                >
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
+                        Chọn cột hiển thị
+                    </Typography>
+                    <FormGroup>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={visibleColumnIds.size === SUPPLIER_COLUMNS.length}
+                                    indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < SUPPLIER_COLUMNS.length}
+                                    onChange={(e) => handleSelectAllColumns(e.target.checked)}
+                                />
+                            }
+                            label="Tất cả"
+                        />
+                        {SUPPLIER_COLUMNS.map((col) => (
+                            <FormControlLabel
+                                key={col.id}
+                                control={
+                                    <Checkbox
+                                        checked={visibleColumnIds.has(col.id)}
+                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                    />
+                                }
+                                label={col.label}
+                            />
                         ))}
-                    </Select>
-                </FormControl>
-                <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
-                    {start}–{end} / {totalRows} (Tổng {totalPages} trang)
-                </Typography>
-                <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={page <= 0}
-                    onClick={() => handlePageChange(page - 1)}
-                    sx={{ minWidth: 36, textTransform: 'none' }}
+                    </FormGroup>
+                </Popover>
+
+                {/* Bảng danh sách – MUI Table (không dùng @mui/x-data-grid) */}
+                <Card
+                    className="supplier-grid-card"
+                    sx={{
+                        borderRadius: 3,
+                        overflow: 'hidden',
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        boxShadow: (t) => t.shadows[1],
+                        p: 1,
+                    }}
                 >
-                    Trước
-                </Button>
-                <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={end >= totalRows || totalRows === 0}
-                    onClick={() => handlePageChange(page + 1)}
-                    sx={{ minWidth: 36, textTransform: 'none' }}
+                    <Box className="supplier-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
+                        {loading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+                                <Typography color="text.secondary">Đang tải…</Typography>
+                            </Box>
+                        ) : showOverlayError ? (
+                            <Box
+                                className="supplier-grid-error-overlay"
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: 200,
+                                    backgroundColor: 'rgba(255,255,255,0.95)',
+                                    gap: 1.5,
+                                }}
+                            >
+                                <CloudOff size={40} style={{ color: theme.palette.text.secondary }} />
+                                <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+                                    Không thể kết nối đến máy chủ
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Vui lòng thử lại sau
+                                </Typography>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => fetchData()}
+                                    sx={{ mt: 0.5, textTransform: 'none' }}
+                                >
+                                    Thử lại
+                                </Button>
+                            </Box>
+                        ) : showEmpty ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
+                                <Typography>Chưa có dữ liệu nhà cung cấp</Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                                <Table size="small" stickyHeader>
+                                    <TableHead>
+                                        <TableRow>
+                                            {visibleColumns.map((col) => (
+                                                <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' ? 'right' : 'left'}>
+                                                    {col.label}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {rows.map((row, index) => (
+                                            <TableRow key={row.supplierId} hover>
+                                                {visibleColumns.map((col) => {
+                                                    if (col.id === 'stt') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                {page * pageSize + index + 1}
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    if (col.id === 'actions') {
+                                                        return (
+                                                            <TableCell key={col.id} align="right">
+                                                                <Tooltip title="Xem">
+                                                                    <IconButton size="small" onClick={() => navigate(`/suppliers/${row.supplierId}`)} aria-label="Xem">
+                                                                        <Eye size={18} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                                <Tooltip title="Sửa">
+                                                                    <IconButton size="small" onClick={() => navigate(`/suppliers/edit/${row.supplierId}`)} aria-label="Sửa">
+                                                                        <Edit size={18} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
+                                                })}
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Box>
+                </Card>
+
+                {/* Pagination – gom hết bên phải: Số dòng/trang + dropdown + range + Trước/Sau */}
+                <Box
+                    sx={{
+                        mt: 0,
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: 2,
+                    }}
                 >
-                    Sau
-                </Button>
-            </Box>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                    <FormControl size="small" sx={{ minWidth: 72 }}>
+                        <Select
+                            value={pageSize}
+                            onChange={handlePageSizeChange}
+                            sx={{ height: 32, fontSize: '0.875rem' }}
+                        >
+                            {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                <MenuItem key={n} value={n}>{n}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                        {start}–{end} / {totalRows} (Tổng {totalPages} trang)
+                    </Typography>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={page <= 0}
+                        onClick={() => handlePageChange(page - 1)}
+                        sx={{ minWidth: 36, textTransform: 'none' }}
+                    >
+                        Trước
+                    </Button>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={end >= totalRows || totalRows === 0}
+                        onClick={() => handlePageChange(page + 1)}
+                        sx={{ minWidth: 36, textTransform: 'none' }}
+                    >
+                        Sau
+                    </Button>
+                </Box>
             </Box>
         </Box>
     );
