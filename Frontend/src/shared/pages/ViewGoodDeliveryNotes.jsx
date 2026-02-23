@@ -25,7 +25,7 @@ import {
     useTheme,
     useMediaQuery,
 } from '@mui/material';
-import { Plus, Eye, Edit, Columns, Package } from 'lucide-react';
+import { Plus, Eye, Edit, Columns, PackageOpen } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import '../styles/ListView.css';
@@ -113,7 +113,7 @@ const ViewGoodDeliveryNotes = () => {
         <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
             <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography variant="h4" component="h1" gutterBottom fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
-                    Phiếu xuất hàng
+                    Yêu cầu xuất hàng
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                     Danh sách phiếu xuất hàng – tìm theo mã phiếu, yêu cầu xuất, kho, ngày xuất.
@@ -170,7 +170,7 @@ const ViewGoodDeliveryNotes = () => {
                     <Box className="list-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
                         {paginatedList.length === 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
-                                <Package size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                                <PackageOpen size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                                 <Typography>Chưa có phiếu xuất hàng</Typography>
                             </Box>
                         ) : (

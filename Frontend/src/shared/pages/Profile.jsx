@@ -2,24 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
-    Card,
-    CardContent,
+    Container,
     Typography,
     Button,
     TextField,
     Grid,
     Avatar,
-    Chip,
     IconButton,
     Fade,
-    InputAdornment,
     LinearProgress,
+    Tooltip,
+    Paper,
+    Stack,
+    Divider,
 } from '@mui/material';
-import { ArrowLeft, User, Mail, Phone, Calendar, Key, Camera, Save, Briefcase } from 'lucide-react';
+import { ArrowLeft, User, Key, Save, Pencil, Mars, Venus, Camera } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import ChangePasswordDialog from '../../components/profile/ChangePasswordDialog';
 import authService from '../lib/authService';
-import backgroundImage from '../assets/background.jpg';
 import { useToast } from '../hooks/useToast';
 import { validatePhoneWithMessage } from '../utils/validation';
 import { ROLE_OPTIONS } from '../constants/roles';
@@ -97,50 +97,17 @@ const Profile = () => {
         if (message) showToast(message, type);
     };
 
+    const isFemale = formData.gender && (
+        String(formData.gender).toLowerCase().includes('nữ') ||
+        String(formData.gender).toLowerCase().includes('female') ||
+        String(formData.gender).toLowerCase() === 'f'
+    );
+
     return (
-        <Box
-            sx={{
-                height: 'calc(100vh - 100px)',
-                maxHeight: 'calc(100vh - 100px)',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                backgroundImage: `url(${backgroundImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                position: 'relative',
-                borderRadius: 3,
-                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-                '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(240, 242, 245, 0.4)',
-                    backdropFilter: 'blur(8px)',
-                    zIndex: 0,
-                },
-            }}
-        >
-            <Fade in={true} timeout={800}>
-                <Box
-                    sx={{
-                        position: 'relative',
-                        zIndex: 1,
-                        flex: 1,
-                        minHeight: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        maxWidth: 1000,
-                        mx: 'auto',
-                        width: '100%',
-                        py: 2,
-                        px: 2,
-                    }}
-                >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexShrink: 0 }}>
+        <Box sx={{ minHeight: '100%', bgcolor: 'grey.50', py: 3 }}>
+            <Fade in={true} timeout={400}>
+                <Container maxWidth="lg" sx={{ py: 4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                         <Button
                             startIcon={<ArrowLeft size={22} />}
                             onClick={handleBack}
@@ -159,272 +126,236 @@ const Profile = () => {
                         >
                             Quay lại
                         </Button>
-                        <Typography variant="h4" fontWeight="800" color="primary.dark">
-                            Hồ sơ cá nhân
-                        </Typography>
                     </Box>
 
-                    {loading && <LinearProgress sx={{ mb: 1, borderRadius: 1, flexShrink: 0 }} />}
+                    {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
 
-                    <Grid container spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-                        <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
-                            <Card
-                                elevation={0}
-                                sx={{
-                                    borderRadius: 3,
-                                    background: 'rgba(255, 255, 255, 0.92)',
-                                    backdropFilter: 'blur(16px)',
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    textAlign: 'center',
-                                    p: 2,
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                                }}
+                    <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: 3,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                boxShadow: 1,
+                            }}
+                        >
+                            <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                justifyContent="space-between"
+                                alignItems={{ xs: 'stretch', sm: 'center' }}
+                                spacing={2}
+                                sx={{ mb: 0 }}
                             >
-                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 1.5 }}>
-                                    <Avatar
-                                        sx={{
-                                            width: 88,
-                                            height: 88,
-                                            margin: '0 auto',
-                                            bgcolor: 'primary.main',
-                                            fontSize: '3rem',
-                                            boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                                            border: '4px solid white',
-                                        }}
-                                    >
-                                        {formData.fullName ? (
-                                            formData.fullName.charAt(0)
-                                        ) : (
-                                            <User size={44} />
-                                        )}
-                                    </Avatar>
-                                    <IconButton
-                                        sx={{
-                                            position: 'absolute',
-                                            bottom: 0,
-                                            right: 0,
-                                            bgcolor: 'white',
-                                            boxShadow: 2,
-                                            '&:hover': { bgcolor: 'grey.100' },
-                                        }}
-                                        size="small"
-                                    >
-                                        <Camera size={18} color="#1976d2" />
-                                    </IconButton>
-                                </Box>
-
-                                <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ fontSize: '1rem' }}>
-                                    {formData.fullName}
-                                </Typography>
-                                <Chip
-                                    label={formData.role || 'N/A'}
-                                    color="primary"
-                                    size="small"
-                                    sx={{ fontWeight: 600, mb: 1.5 }}
-                                />
-
-                                <Box sx={{ textAlign: 'left', mt: 1 }}>
-                                    <Box
-                                        sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            mb: 1,
-                                            p: 1,
-                                            bgcolor: 'rgba(25, 118, 210, 0.08)',
-                                            borderRadius: 1.5,
-                                        }}
-                                    >
-                                        <Mail size={16} style={{ marginRight: 8, color: '#1976d2' }} />
-                                        <Typography variant="body2" noWrap title={formData.email} sx={{ fontSize: '0.8rem' }}>
-                                            {formData.email}
-                                        </Typography>
-                                    </Box>
-                                    <Box
-                                        sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            p: 1,
-                                            bgcolor: 'rgba(25, 118, 210, 0.08)',
-                                            borderRadius: 1.5,
-                                        }}
-                                    >
-                                        <Phone size={16} style={{ marginRight: 8, color: '#1976d2' }} />
-                                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                                            {formData.phone || 'Chưa cập nhật'}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-
-                                <Button
-                                    variant="outlined"
-                                    fullWidth
-                                    size="small"
-                                    startIcon={<Key size={16} />}
-                                    sx={{ mt: 1.5, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-                                    onClick={() => setOpenPasswordDialog(true)}
-                                >
-                                    Đổi mật khẩu
-                                </Button>
-                            </Card>
-                        </Grid>
-
-                        <Grid item xs={12} md={8} sx={{ display: 'flex' }}>
-                            <Card
-                                elevation={0}
-                                sx={{
-                                    borderRadius: 3,
-                                    background: 'rgba(255, 255, 255, 0.92)',
-                                    backdropFilter: 'blur(16px)',
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    flex: 1,
-                                    minHeight: 0,
-                                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                                }}
-                            >
-                                <CardContent sx={{ p: 2.5, flex: 1, minHeight: 0, bgcolor: 'grey.50', '&:last-child': { pb: 2.5 } }}>
-                                    <Box
-                                        sx={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            mb: 2,
-                                        }}
-                                    >
-                                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main">
-                                            Thông tin cá nhân
-                                        </Typography>
-                                        <Button
-                                            variant={isEditing ? 'contained' : 'outlined'}
+                                <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0 }}>
+                                    <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                                        <Avatar
+                                            sx={{
+                                                width: 80,
+                                                height: 80,
+                                                borderRadius: '50%',
+                                                bgcolor: isFemale ? 'secondary.main' : 'primary.main',
+                                                boxShadow: 1,
+                                            }}
+                                        >
+                                            {formData.fullName ? (
+                                                formData.fullName.charAt(0)
+                                            ) : isFemale ? (
+                                                <Venus size={40} color="white" />
+                                            ) : formData.gender ? (
+                                                <Mars size={40} color="white" />
+                                            ) : (
+                                                <User size={40} color="white" />
+                                            )}
+                                        </Avatar>
+                                        <IconButton
+                                            sx={{
+                                                position: 'absolute',
+                                                bottom: 0,
+                                                right: 0,
+                                                bgcolor: 'background.paper',
+                                                boxShadow: 2,
+                                                '&:hover': { bgcolor: 'grey.100' },
+                                            }}
                                             size="small"
-                                            startIcon={
-                                                isEditing ? <Save size={16} /> : <User size={16} />
-                                            }
-                                            onClick={isEditing ? handleSaveProfile : handleEditToggle}
+                                        >
+                                            <Camera size={18} color="#1976d2" />
+                                        </IconButton>
+                                    </Box>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="h6" fontWeight="bold" sx={{ lineHeight: 1.3 }}>
+                                            {formData.fullName || '—'}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            {formData.email || '—'}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+                                    {isEditing ? (
+                                        <>
+                                            <Button
+                                                variant="contained"
+                                                size="medium"
+                                                startIcon={<Save size={18} />}
+                                                onClick={handleSaveProfile}
+                                                disabled={loading}
+                                                sx={{
+                                                    borderRadius: 2,
+                                                    textTransform: 'none',
+                                                    fontWeight: 600,
+                                                    px: 2,
+                                                }}
+                                            >
+                                                Lưu
+                                            </Button>
+                                            <Button
+                                                variant="outlined"
+                                                size="medium"
+                                                onClick={handleEditToggle}
+                                                disabled={loading}
+                                                sx={{
+                                                    borderRadius: 2,
+                                                    textTransform: 'none',
+                                                    fontWeight: 600,
+                                                    px: 2,
+                                                }}
+                                            >
+                                                Hủy
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button
+                                            variant="contained"
+                                            size="medium"
+                                            startIcon={<Pencil size={18} />}
+                                            onClick={handleEditToggle}
                                             sx={{
                                                 borderRadius: 2,
                                                 textTransform: 'none',
                                                 fontWeight: 600,
-                                                ...(isEditing && {
-                                                    background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
-                                                    boxShadow: '0 2px 8px rgba(25, 118, 210, 0.35)',
-                                                }),
+                                                px: 2,
                                             }}
-                                            disabled={loading}
                                         >
-                                            {isEditing ? 'Lưu thay đổi' : 'Chỉnh sửa'}
+                                            Chỉnh sửa
                                         </Button>
-                                    </Box>
+                                    )}
+                                    <Tooltip title="Đổi mật khẩu">
+                                        <IconButton
+                                            onClick={() => setOpenPasswordDialog(true)}
+                                            color="default"
+                                            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+                                        >
+                                            <Key size={20} />
+                                        </IconButton>
+                                    </Tooltip>
+                                </Stack>
+                            </Stack>
 
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} sm={6}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                label="Họ và tên"
-                                                name="fullName"
-                                                value={formData.fullName}
-                                                InputProps={{
-                                                    readOnly: true,
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <User size={16} className="text-gray-500" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
-                                                }}
-                                                helperText="Liên hệ Admin để thay đổi"
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                label="Email"
-                                                name="email"
-                                                value={formData.email}
-                                                InputProps={{
-                                                    readOnly: true,
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Mail size={16} className="text-gray-500" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
-                                                }}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                label="Số điện thoại"
-                                                name="phone"
-                                                value={formData.phone}
-                                                onChange={(e) =>
-                                                    setFormData({ ...formData, phone: e.target.value })
-                                                }
-                                                InputProps={{
-                                                    readOnly: !isEditing,
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Phone size={16} className="text-gray-500" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    sx: { borderRadius: 2, bgcolor: isEditing ? 'white' : 'grey.100' },
-                                                }}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                label="Vai trò"
-                                                name="role"
-                                                value={formData.role}
-                                                InputProps={{
-                                                    readOnly: true,
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Briefcase size={16} className="text-gray-500" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
-                                                }}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                label="Ngày sinh"
-                                                name="dob"
-                                                type={isEditing ? 'date' : 'text'}
-                                                value={formData.dob}
-                                                InputProps={{
-                                                    readOnly: true,
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Calendar size={16} className="text-gray-500" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    sx: { borderRadius: 2, bgcolor: 'grey.100' },
-                                                }}
-                                                InputLabelProps={{ shrink: true }}
-                                            />
-                                        </Grid>
-                                    </Grid>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    </Grid>
+                            <Divider sx={{ my: 3 }} />
+
+                            <Box sx={{ maxWidth: 640 }}>
+                                <Grid container spacing={3}>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Họ và tên"
+                                        name="fullName"
+                                        value={formData.fullName || ''}
+                                        InputProps={{
+                                            readOnly: true,
+                                            sx: {
+                                                borderRadius: 2,
+                                                bgcolor: '#f6f7f9',
+                                                '& input': { py: 1.25 },
+                                            },
+                                        }}
+                                        helperText="Liên hệ Admin để thay đổi"
+                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Email"
+                                        name="email"
+                                        value={formData.email || ''}
+                                        InputProps={{
+                                            readOnly: true,
+                                            sx: {
+                                                borderRadius: 2,
+                                                bgcolor: '#f6f7f9',
+                                                '& input': { py: 1.25 },
+                                            },
+                                        }}
+                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Số điện thoại"
+                                        name="phone"
+                                        value={formData.phone || ''}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, phone: e.target.value })
+                                        }
+                                        InputProps={{
+                                            readOnly: !isEditing,
+                                            sx: {
+                                                borderRadius: 2,
+                                                bgcolor: isEditing ? 'background.paper' : '#f6f7f9',
+                                                '& input': { py: 1.25 },
+                                            },
+                                        }}
+                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Ngày sinh"
+                                        name="dob"
+                                        type={isEditing ? 'date' : 'text'}
+                                        value={formData.dob || ''}
+                                        InputProps={{
+                                            readOnly: true,
+                                            sx: {
+                                                borderRadius: 2,
+                                                bgcolor: '#f6f7f9',
+                                                '& input': { py: 1.25 },
+                                            },
+                                        }}
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Giới tính"
+                                        name="gender"
+                                        value={formData.gender || ''}
+                                        InputProps={{
+                                            readOnly: true,
+                                            sx: {
+                                                borderRadius: 2,
+                                                bgcolor: '#f6f7f9',
+                                                '& input': { py: 1.25 },
+                                            },
+                                        }}
+                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
+                                    />
+                                </Grid>
+                                </Grid>
+                            </Box>
+                        </Paper>
 
                     <ChangePasswordDialog
                         open={openPasswordDialog}
@@ -435,7 +366,7 @@ const Profile = () => {
                     {toast && (
                         <Toast message={toast.message} type={toast.type} onClose={clearToast} />
                     )}
-                </Box>
+                </Container>
             </Fade>
         </Box>
     );
