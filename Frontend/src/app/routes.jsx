@@ -70,6 +70,16 @@ const AppRoutes = () => (
             }
         />
         <Route
+            path="/sale-support/home/suppliers-view"
+            element={
+                <ProtectedRoute>
+                    <MainLayout>
+                        <SupplierView />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
             path="/profile"
             element={
                 <ProtectedRoute>
