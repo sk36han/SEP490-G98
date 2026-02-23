@@ -82,6 +82,16 @@ const AppRoutes = () => (
             }
         />
         <Route
+            path="/sale-support/home/suppliers-view"
+            element={
+                <ProtectedRoute>
+                    <MainLayout>
+                        <SupplierView />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
             path="/profile"
             element={
                 <ProtectedRoute>
@@ -242,6 +252,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewPurchaseOrder />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/suppliers"
+            element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <SupplierView />
                     </MainLayout>
                 </ProtectedRoute>
             }
