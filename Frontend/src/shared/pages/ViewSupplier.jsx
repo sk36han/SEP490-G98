@@ -28,15 +28,11 @@ import { Filter, CloudOff, Columns, Eye, Edit } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
+import ViewSupplierDetail from '../components/ViewSupplierDetail';
 import '../styles/SupplierView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-/**
- * Cột bảng nhà cung cấp.
- * Backend trả về danh sách sắp xếp theo SupplierName (OrderBy(s => s.SupplierName)),
- * nên thứ tự hiển thị theo tên A–Z, không theo ID. STT = số thứ tự trên trang (1, 2, 3, ...).
- */
 const SUPPLIER_COLUMNS = [
     { id: 'stt', label: 'STT', getValue: () => '' },
     { id: 'supplierCode', label: 'Mã NCC', getValue: (row) => row.supplierCode ?? '' },
@@ -51,7 +47,7 @@ const SUPPLIER_COLUMNS = [
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
 
-export default function SupplierView() {
+export default function ViewSupplier() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
@@ -67,6 +63,8 @@ export default function SupplierView() {
     const [pageSize, setPageSize] = useState(20);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [detailSupplier, setDetailSupplier] = useState(null);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -143,7 +141,15 @@ export default function SupplierView() {
 
     return (
         <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
-            {/* Tiêu đề trang – tách riêng, style cũ (gradient, h4, 800) */}
+            <ViewSupplierDetail
+                open={detailOpen}
+                onClose={() => {
+                    setDetailOpen(false);
+                    setDetailSupplier(null);
+                }}
+                supplier={detailSupplier}
+            />
+
             <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography
                     variant="h4"
@@ -188,7 +194,6 @@ export default function SupplierView() {
                     onApply={handleFilterApply}
                 />
 
-                {/* Header + Search: gộp 1 dòng */}
                 <Card
                     className="supplier-filter-card"
                     sx={{
@@ -304,7 +309,6 @@ export default function SupplierView() {
                     </FormGroup>
                 </Popover>
 
-                {/* Bảng danh sách – MUI Table (không dùng @mui/x-data-grid) */}
                 <Card
                     className="supplier-grid-card"
                     sx={{
@@ -380,7 +384,14 @@ export default function SupplierView() {
                                                         return (
                                                             <TableCell key={col.id} align="right">
                                                                 <Tooltip title="Xem">
-                                                                    <IconButton size="small" onClick={() => navigate(`/suppliers/${row.supplierId}`)} aria-label="Xem">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={() => {
+                                                                            setDetailSupplier(row);
+                                                                            setDetailOpen(true);
+                                                                        }}
+                                                                        aria-label="Xem"
+                                                                    >
                                                                         <Eye size={18} />
                                                                     </IconButton>
                                                                 </Tooltip>
@@ -403,7 +414,6 @@ export default function SupplierView() {
                     </Box>
                 </Card>
 
-                {/* Pagination – gom hết bên phải: Số dòng/trang + dropdown + range + Trước/Sau */}
                 <Box
                     sx={{
                         mt: 0,

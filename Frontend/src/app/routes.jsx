@@ -16,7 +16,7 @@ import CreatePO from '../shared/pages/CreatePO';
 import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
-import SupplierView from '../shared/pages/SupplierView';
+import ViewSupplier from '../shared/pages/ViewSupplier';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
@@ -87,7 +87,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute>
                     <MainLayout>
-                        <SupplierView />
+                        <ViewSupplier />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -177,7 +177,7 @@ const AppRoutes = () => (
             path="/suppliers"
             element={
                 <MainLayout>
-                    <SupplierView />
+                    <ViewSupplier />
                 </MainLayout>
             }
         />
@@ -268,7 +268,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
-                        <SupplierView />
+                        <ViewSupplier />
                     </MainLayout>
                 </ProtectedRoute>
             }
