@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -31,46 +31,11 @@ import {
   Eye,
   Edit,
   Columns,
+  CloudOff,
 } from "lucide-react";
-import { removeDiacritics } from "../utils/stringUtils";
 import SearchInput from "../components/SearchInput";
+import { getWarehouses } from "../lib/warehouseService";
 import "../styles/ListView.css";
-
-/** Mock danh sách kho – có thể thay bằng API */
-const MOCK_WAREHOUSES = [
-  {
-    warehouseId: 1,
-    warehouseCode: "WH001",
-    warehouseName: "Kho chính",
-    address: "123 Đường A, Quận 1, TP.HCM",
-    isActive: true,
-    createdAt: "2025-02-01T08:00:00",
-  },
-  {
-    warehouseId: 2,
-    warehouseCode: "WH002",
-    warehouseName: "Kho phụ",
-    address: "456 Đường B, Quận 2, TP.HCM",
-    isActive: true,
-    createdAt: "2025-02-05T09:00:00",
-  },
-  {
-    warehouseId: 3,
-    warehouseCode: "WH003",
-    warehouseName: "Kho lạnh",
-    address: "789 Đường C, Quận 7, TP.HCM",
-    isActive: true,
-    createdAt: "2025-02-10T10:00:00",
-  },
-  {
-    warehouseId: 4,
-    warehouseCode: "WH004",
-    warehouseName: "Kho tạm ngưng",
-    address: "321 Đường D, Quận Bình Thạnh",
-    isActive: false,
-    createdAt: "2025-01-15T14:00:00",
-  },
-];
 
 const WAREHOUSE_COLUMNS = [
   { id: "stt", label: "STT", getValue: () => "" },
@@ -112,6 +77,9 @@ const ViewWarehouseList = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
   const [list, setList] = useState([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -120,42 +88,51 @@ const ViewWarehouseList = () => {
   );
   const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
 
+  const getApiParams = useCallback(
+    () => ({ pageNumber: page + 1, pageSize }),
+    [page, pageSize],
+  );
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getWarehouses(getApiParams());
+      setList(res.items ?? []);
+      setTotalRows(res.totalItems ?? 0);
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ??
+          err?.response?.data?.Message ??
+          err?.message ??
+          "Không thể kết nối đến server",
+      );
+      setList([]);
+      setTotalRows(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [getApiParams]);
+
   useEffect(() => {
-    setList(MOCK_WAREHOUSES);
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
-  const filteredList = React.useMemo(() => {
-    if (!searchTerm.trim()) return list;
-    const normalize = (str) =>
-      str ? removeDiacritics(String(str).toLowerCase()) : "";
-    const term = normalize(searchTerm.trim());
-    return list.filter((wh) => {
-      const matchCode = normalize(wh.warehouseCode).includes(term);
-      const matchName = normalize(wh.warehouseName).includes(term);
-      const matchAddress = normalize(wh.address).includes(term);
-      return matchCode || matchName || matchAddress;
-    });
-  }, [list, searchTerm]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [searchTerm]);
-
-  const totalCount = filteredList.length;
+  const totalCount = totalRows;
   const start = totalCount === 0 ? 0 : page * pageSize + 1;
   const end = Math.min((page + 1) * pageSize, totalCount);
   const totalPages =
     pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
-  const paginatedList = filteredList.slice(
-    page * pageSize,
-    (page + 1) * pageSize,
-  );
+  const paginatedList = list;
 
   const handlePageChange = (newPage) => setPage(newPage);
   const handlePageSizeChange = (e) => {
     setPageSize(Number(e.target.value));
     setPage(0);
   };
+
+  const showOverlayError = Boolean(error && !loading);
+  const showEmpty = !loading && !error && list.length === 0;
 
   const handleColumnVisibilityChange = (columnId, checked) => {
     setVisibleColumnIds((prev) => {
@@ -374,7 +351,54 @@ const ViewWarehouseList = () => {
             className="list-grid-wrapper"
             sx={{ position: "relative", minHeight: "calc(100vh - 220px)" }}
           >
-            {paginatedList.length === 0 ? (
+            {loading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  py: 6,
+                }}
+              >
+                <Typography color="text.secondary">Đang tải…</Typography>
+              </Box>
+            ) : showOverlayError ? (
+              <Box
+                className="list-grid-error-overlay"
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: 200,
+                  backgroundColor: "rgba(255,255,255,0.95)",
+                  gap: 1.5,
+                }}
+              >
+                <CloudOff
+                  size={40}
+                  style={{ color: theme.palette.text.secondary }}
+                />
+                <Typography
+                  variant="subtitle1"
+                  fontWeight={600}
+                  color="text.primary"
+                >
+                  Không thể kết nối đến máy chủ
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {error}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => fetchData()}
+                  sx={{ mt: 0.5, textTransform: "none" }}
+                >
+                  Thử lại
+                </Button>
+              </Box>
+            ) : showEmpty ? (
               <Box
                 sx={{
                   display: "flex",
@@ -462,7 +486,7 @@ const ViewWarehouseList = () => {
                                 <Tooltip title="Xem chi tiết">
                                   <IconButton
                                     size="small"
-                                    onClick={() => {}}
+                                    onClick={() => navigate(`/inventory/${wh.warehouseId}`)}
                                     sx={{
                                       color: "text.secondary",
                                       "&:hover": {

@@ -7,9 +7,18 @@ const MainLayout = ({ children }) => {
     return (
         <Box sx={{ display: 'flex' }}>
             <Sidebar />
-            <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
-                {children}
-            </Box>
+        <Box
+            component="main"
+            sx={{
+                flexGrow: 1,
+                p: 3,
+                minHeight: '100vh',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+            }}
+        >
+            {children}
+        </Box>
         </Box>
     );
 };

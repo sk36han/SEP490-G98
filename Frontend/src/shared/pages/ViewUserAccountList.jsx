@@ -25,7 +25,7 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Search, Edit, Power, UserPlus, Download, Columns } from 'lucide-react';
+import { Search, Edit, Power, UserPlus, Download, Columns, RefreshCw, Filter } from 'lucide-react';
 import adminService from '../lib/adminService';
 import authService from '../lib/authService';
 import Toast from '../../components/Toast/Toast';
@@ -34,6 +34,7 @@ import EditUserDialog from '../../components/admin/EditUserDialog';
 import { useToast } from '../hooks/useToast';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
+import UserAccountFilterPopup from '../components/UserAccountFilterPopup';
 import { ROLE_DISPLAY_MAPPING, ROLE_COLORS, ROLE_NAME_TO_ID } from '../constants/roles';
 
 /** Cột bảng danh sách user – dùng cho chọn cột hiển thị */
@@ -59,6 +60,8 @@ const UserAccountList = () => {
     const [pageSize, setPageSize] = useState(10);
     const [totalCount, setTotalCount] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [filterValues, setFilterValues] = useState({ role: '', isActive: null, fromDate: null, toDate: null });
 
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
@@ -133,21 +136,56 @@ const UserAccountList = () => {
         if (searchTerm.trim()) {
             const normalize = (str) => (str ? removeDiacritics(str.toLowerCase()) : '');
             const lowerTerm = normalize(searchTerm.trim());
-            result = allUsers.filter(
+            result = result.filter(
                 (user) =>
                     normalize(user.fullName).includes(lowerTerm) ||
                     normalize(user.email).includes(lowerTerm) ||
                     normalize(user.username).includes(lowerTerm)
             );
         }
+        if (filterValues.role) {
+            result = result.filter(
+                (user) => (ROLE_DISPLAY_MAPPING[user.roleName] || user.roleName) === filterValues.role
+            );
+        }
+        if (filterValues.isActive !== null && filterValues.isActive !== undefined) {
+            result = result.filter((user) => Boolean(user.isActive) === filterValues.isActive);
+        }
+        if (filterValues.fromDate || filterValues.toDate) {
+            result = result.filter((user) => {
+                const createdAt = user.createdAt ? new Date(user.createdAt) : null;
+                if (!createdAt || isNaN(createdAt.getTime())) return false;
+                if (filterValues.fromDate) {
+                    const from = new Date(filterValues.fromDate);
+                    from.setHours(0, 0, 0, 0);
+                    if (createdAt < from) return false;
+                }
+                if (filterValues.toDate) {
+                    const to = new Date(filterValues.toDate);
+                    to.setHours(23, 59, 59, 999);
+                    if (createdAt > to) return false;
+                }
+                return true;
+            });
+        }
         setTotalCount(result.length);
         const start = (pageNumber - 1) * pageSize;
         setUsers(result.slice(start, start + pageSize));
-    }, [allUsers, searchTerm, pageNumber, pageSize]);
+    }, [allUsers, searchTerm, filterValues, pageNumber, pageSize]);
 
     useEffect(() => {
         setPageNumber(1);
-    }, [searchTerm]);
+    }, [searchTerm, filterValues.role, filterValues.isActive, filterValues.fromDate, filterValues.toDate]);
+
+    const handleFilterApply = (values) => {
+        setFilterValues({
+            role: values.role ?? '',
+            isActive: values.isActive ?? null,
+            fromDate: values.fromDate ?? null,
+            toDate: values.toDate ?? null,
+        });
+        setPageNumber(1);
+    };
 
     const handleCreateUser = async (e) => {
         e.preventDefault();
@@ -258,12 +296,15 @@ const UserAccountList = () => {
 
     return (
         <Container
-            maxWidth="xl"
+            maxWidth={false}
             sx={{
-                pt: 0,
+                pt: 3,
                 pb: 0,
                 mt: -3,
-                height: 'calc(100vh - 112px)',
+                width: '100%',
+                maxWidth: 2304,
+                height: 'calc(100vh - 5px)',
+                minHeight: 620,
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
@@ -271,7 +312,7 @@ const UserAccountList = () => {
         >
             <Box
                 sx={{
-                    mb: 1,
+                    mb: 0.75,
                     mt: 0,
                     flexShrink: 0,
                     display: 'flex',
@@ -298,7 +339,11 @@ const UserAccountList = () => {
                 >
                     Quản lý người dùng
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                <Typography
+                    variant="body1"
+                    color="text.secondary"
+                    sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
                     Quản lý tài khoản, phân quyền và trạng thái hoạt động của nhân viên trong hệ thống.
                 </Typography>
             </Box>
@@ -306,7 +351,8 @@ const UserAccountList = () => {
             <Paper
                 elevation={3}
                 sx={{
-                    p: 1,
+                    mt: 1.5,
+                    p: 0.5,
                     borderRadius: 4,
                     flex: 1,
                     minHeight: 0,
@@ -318,24 +364,54 @@ const UserAccountList = () => {
                     border: '1px solid rgba(0, 0, 0, 0.12)',
                 }}
             >
+                <UserAccountFilterPopup
+                    open={filterOpen}
+                    onClose={() => setFilterOpen(false)}
+                    initialValues={filterValues}
+                    onApply={handleFilterApply}
+                />
                 <Box
                     sx={{
-                        mb: 0.5,
+                        mb: 0.25,
                         flexShrink: 0,
                         display: 'flex',
                         gap: 2,
                         alignItems: 'center',
                         flexWrap: 'wrap',
                         justifyContent: 'space-between',
+                        py: 1.5,
+                        px: 2,
                     }}
                 >
-                    <SearchInput
-                        placeholder="Tìm kiếm theo email, tên, username..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        sx={{ flexGrow: 1, maxWidth: 500 }}
-                    />
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flex: '1 1 auto', minWidth: 0 }}>
+                        <SearchInput
+                            placeholder="Tìm kiếm theo email, tên, username..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            sx={{ flexGrow: 1, maxWidth: 420, minWidth: 160 }}
+                        />
+                        <Tooltip title="Bộ lọc">
+                            <IconButton
+                                color="primary"
+                                onClick={() => setFilterOpen(true)}
+                                aria-label="Bộ lọc"
+                                sx={{ border: 1, borderColor: 'divider' }}
+                            >
+                                <Filter size={20} />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexShrink: 0 }}>
+                        <Tooltip title="Làm mới danh sách">
+                            <IconButton
+                                color="primary"
+                                onClick={() => loadUsers()}
+                                aria-label="Làm mới"
+                                sx={{ border: 1, borderColor: 'divider' }}
+                            >
+                                <RefreshCw size={20} />
+                            </IconButton>
+                        </Tooltip>
                         <Tooltip title="Chọn cột hiển thị">
                             <IconButton
                                 color="primary"
@@ -408,7 +484,7 @@ const UserAccountList = () => {
                     </FormGroup>
                 </Popover>
 
-                <TableContainer sx={{ flex: 1, minHeight: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
+                <TableContainer sx={{ flex: 1, minHeight: 460, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
                     <Table stickyHeader>
                         <TableHead>
                             <TableRow>
@@ -559,16 +635,17 @@ const UserAccountList = () => {
                 </TableContainer>
             </Paper>
 
-            {/* Pagination – gom hết bên phải: Số dòng/trang + dropdown + range + Trước/Sau */}
+            {/* Phần chân bảng: khoảng trắng nhỏ với bảng, sát đáy viewport */}
             <Box
                 sx={{
-                    mt: 0,
+                    mt: 1.5,
                     flexShrink: 0,
                     display: 'flex',
                     flexWrap: 'wrap',
                     alignItems: 'center',
                     justifyContent: 'flex-end',
                     gap: 2,
+                    py: 1,
                 }}
             >
                 <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>

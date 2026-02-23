@@ -24,7 +24,7 @@ import {
     FormControlLabel,
     Checkbox,
 } from '@mui/material';
-import { Filter, CloudOff, Columns, Eye, Edit } from 'lucide-react';
+import { Filter, CloudOff, Columns, Eye, Edit, Plus } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
@@ -48,7 +48,7 @@ const SUPPLIER_COLUMNS = [
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
 
-export default function ViewSupplier() {
+export default function ViewSupplierList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
@@ -257,28 +257,16 @@ export default function ViewSupplier() {
                             </Tooltip>
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                 <Button
-                                    className="supplier-page-btn"
+                                    className="list-page-btn"
                                     variant="contained"
+                                    startIcon={<Plus size={18} />}
                                     onClick={() => navigate('/suppliers/create')}
-                                    sx={{
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        textTransform: 'none',
-                                        borderRadius: 2,
-                                        minHeight: 36,
-                                        px: 2,
-                                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                                        boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
-                                        '&:hover': {
-                                            background: 'linear-gradient(45deg, #1976D2 30%, #00BCD4 90%)',
-                                            boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)',
-                                        },
-                                    }}
-                                    startIcon={<span style={{ fontSize: 18, fontWeight: 700 }}>+</span>}
+                                    sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}
                                 >
-                                    Tạo mới
+                                    Thêm nhà cung cấp
                                 </Button>
                             </Box>
+                            
                         </Box>
                     </CardContent>
                 </Card>

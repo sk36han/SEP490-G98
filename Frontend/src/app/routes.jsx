@@ -16,9 +16,10 @@ import CreatePO from '../shared/pages/CreatePO';
 import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
-import ViewSupplier from '../shared/pages/ViewSupplier';
+import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import ViewWarehouseDetail from '../shared/pages/ViewWarehouseDetail';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ProtectedRoute from '../components/ProtectedRoute';
@@ -87,7 +88,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute>
                     <MainLayout>
-                        <ViewSupplier />
+                        <ViewSupplierList />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -177,7 +178,7 @@ const AppRoutes = () => (
             path="/suppliers"
             element={
                 <MainLayout>
-                    <ViewSupplier />
+                    <ViewSupplierList />
                 </MainLayout>
             }
         />
@@ -196,6 +197,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewWarehouseList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/:id"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewWarehouseDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -268,7 +279,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
-                        <ViewSupplier />
+                        <ViewSupplierList />
                     </MainLayout>
                 </ProtectedRoute>
             }
