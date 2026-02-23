@@ -159,6 +159,7 @@ export default function ViewSupplier() {
                     setEditSupplier(null);
                 }}
                 supplier={editSupplier}
+                onSave={fetchData}
             />
 
             <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
