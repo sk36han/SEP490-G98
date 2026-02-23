@@ -29,6 +29,7 @@ import { getSuppliers } from '../lib/supplierService';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
 import ViewSupplierDetail from '../components/ViewSupplierDetail';
+import EditSupplierPopup from '../components/EditSupplierPopup';
 import '../styles/SupplierView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -65,6 +66,8 @@ export default function ViewSupplier() {
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
     const [detailOpen, setDetailOpen] = useState(false);
     const [detailSupplier, setDetailSupplier] = useState(null);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editSupplier, setEditSupplier] = useState(null);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -148,6 +151,14 @@ export default function ViewSupplier() {
                     setDetailSupplier(null);
                 }}
                 supplier={detailSupplier}
+            />
+            <EditSupplierPopup
+                open={editOpen}
+                onClose={() => {
+                    setEditOpen(false);
+                    setEditSupplier(null);
+                }}
+                supplier={editSupplier}
             />
 
             <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
@@ -396,7 +407,14 @@ export default function ViewSupplier() {
                                                                     </IconButton>
                                                                 </Tooltip>
                                                                 <Tooltip title="Sửa">
-                                                                    <IconButton size="small" onClick={() => navigate(`/suppliers/edit/${row.supplierId}`)} aria-label="Sửa">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={() => {
+                                                                            setEditSupplier(row);
+                                                                            setEditOpen(true);
+                                                                        }}
+                                                                        aria-label="Sửa"
+                                                                    >
                                                                         <Edit size={18} />
                                                                     </IconButton>
                                                                 </Tooltip>
