@@ -10,8 +10,8 @@ import ItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
 import EditItem from '../shared/pages/EditItem';
 import ViewItemDetail from '../shared/pages/ViewItemDetail';
-import PurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrder from '../shared/pages/ViewPurchaseOrder';
+import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
 import CreatePO from '../shared/pages/CreatePO';
 import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
@@ -228,7 +228,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
-                        <PurchaseOrderList />
+                        <ViewPurchaseOrder />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -258,7 +258,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
-                        <ViewPurchaseOrder />
+                        <ViewPurchaseOrderDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }

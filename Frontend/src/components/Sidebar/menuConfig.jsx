@@ -54,7 +54,7 @@ const warehouseKeeperItems = [
 // Sale Support: Quản lý nhà cung cấp, Quản lý đơn mua hàng, Xem vật tư
 const saleSupportItems = [
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
-    { path: '/purchase-orders', icon: <FileText size={22} />, label: 'Quản lý đơn mua hàng' },
+    { path: '/purchase-orders', icon: <FileText size={22} />, label: 'Quản lý đơn mua (PO)' },
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý vật tư' },
 ];
 
