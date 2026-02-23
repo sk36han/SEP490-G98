@@ -1,0 +1,53 @@
+/* Shared list/view page styles – same look as SupplierView. */
+
+.list-view,
+.view-detail-view {
+    font-family: var(--font-family-base, 'Inter', sans-serif);
+    box-sizing: border-box;
+    margin: 12px;
+    width: calc(100% - 24px);
+    max-width: calc(100% - 24px);
+}
+
+.content-container:has(.list-view),
+.content-container:has(.view-detail-view) {
+    max-width: 1280px;
+    padding-left: 24px;
+    padding-right: 24px;
+}
+
+.list-view .list-grid-card,
+.list-view .list-filter-card,
+.view-detail-view .list-grid-card,
+.view-detail-view .list-filter-card {
+    width: 100%;
+}
+
+.list-view .list-grid-wrapper,
+.view-detail-view .list-grid-wrapper {
+    min-height: calc(100vh - 220px);
+}
+
+.list-view .list-filter-card .list-search-input .MuiInputBase-input,
+.list-view .list-filter-card .list-search-input .MuiInputBase-input::placeholder {
+    font-size: 0.8125rem;
+}
+.list-view .list-filter-card .list-search-input .MuiInputBase-root {
+    font-size: 0.8125rem;
+}
+
+.list-view .list-page-btn,
+.list-view .list-filter-card .list-page-btn,
+.view-detail-view .list-page-btn {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    text-transform: none !important;
+    border-radius: 10px !important;
+    min-height: 36px !important;
+    padding: 6px 16px !important;
+}
+
+.list-view .list-grid-error-overlay,
+.view-detail-view .list-grid-error-overlay {
+    pointer-events: none;
+}

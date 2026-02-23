@@ -7,46 +7,55 @@ import {
     FileText,
     Truck,
     ShoppingCart,
+    Bell,
+    ClipboardList,
+    Warehouse,
 } from 'lucide-react';
 
 const commonItems = [
     { path: '/profile', icon: <User size={22} />, label: 'Hồ sơ cá nhân' },
 ];
 
+// Admin: Quản lý người dùng, Hồ sơ cá nhân, Cài đặt thông báo, Audit Log hệ thống
 const adminItems = [
-    { path: '/admin/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
     { path: '/admin/users', icon: <Users size={22} />, label: 'Quản lý người dùng' },
-    { path: '/inventory', icon: <BoxIcon size={22} />, label: 'Quản lý kho' },
-    { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-    { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
-    { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
-    { path: '/settings', icon: <Settings size={22} />, label: 'Cài đặt' },
+    { path: '/profile', icon: <User size={22} />, label: 'Hồ sơ cá nhân' },
+    { path: '/admin/notifications', icon: <Bell size={22} />, label: 'Cài đặt thông báo' },
+    { path: '/admin/audit-log', icon: <ClipboardList size={22} />, label: 'Audit Log hệ thống' },
 ];
 
+// Manager: có Danh sách vật tư, Yêu cầu nhập/xuất hàng
 const managerItems = [
     { path: '/manager/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
-    { path: '/inventory', icon: <BoxIcon size={22} />, label: 'Quản lý kho' },
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
+    { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-    { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
+    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
 ];
 
+// Staff: có Danh sách vật tư, Yêu cầu nhập/xuất hàng
 const staffItems = [
     { path: '/staff/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
-    { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
+    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
-// Thủ kho - Home = Quản lý sản phẩm
+// Thủ kho: có Danh sách vật tư, Quản lý kho, Yêu cầu nhập/xuất hàng
 const warehouseKeeperItems = [
-    { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý sản phẩm' },
-    { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
+    { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
+    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
-// Sale Support - Trang chủ, Đơn hàng, Xem sản phẩm (để tư vấn), Hồ sơ
+// Sale Support: Quản lý nhà cung cấp, Quản lý đơn mua hàng, Xem vật tư
 const saleSupportItems = [
-    { path: '/sale-support/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
-    { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh mục sản phẩm' },
-    { path: '/orders', icon: <ShoppingCart size={22} />, label: 'Đơn hàng' },
+    { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
+    { path: '/purchase-orders', icon: <FileText size={22} />, label: 'Quản lý đơn mua hàng' },
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý vật tư' },
 ];
 
 /**
@@ -56,7 +65,7 @@ const saleSupportItems = [
  */
 export const getMenuItems = (role) => {
     if (role === 'ADMIN') {
-        return [...commonItems, ...adminItems];
+        return adminItems;
     }
     if (role === 'WAREHOUSE_KEEPER') {
         return [...commonItems, ...warehouseKeeperItems];

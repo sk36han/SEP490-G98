@@ -22,10 +22,10 @@
 
 /* Container for Page Content */
 .content-container {
-    padding: 24px;
+    padding: 6px;
     /* max-width: 1280px;  Optional: restrict max width for readability */
     margin: 0 auto;
-    min-height: calc(100vh - 48px);
+    min-height: calc(100vh - 12px);
     /* Height minus padding */
 }
 

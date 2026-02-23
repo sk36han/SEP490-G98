@@ -7,6 +7,11 @@ export const ROLE_OPTIONS = {
     7: 'Thủ kho',
 };
 
+/** Map roleName (từ API) -> roleId để điền form Edit */
+export const ROLE_NAME_TO_ID = Object.fromEntries(
+    Object.entries(ROLE_OPTIONS).map(([id, name]) => [name, parseInt(id, 10)])
+);
+
 export const ROLE_DISPLAY_MAPPING = {
     'Giám Đốc': 'Giám Đốc',
     'Sale Engineer': 'Sale Engineer',

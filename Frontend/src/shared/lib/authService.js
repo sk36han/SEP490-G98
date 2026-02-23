@@ -81,6 +81,26 @@ const authService = {
     },
 
     /**
+     * Get current user ID (for so sánh với danh sách user). Ưu tiên từ userInfo, fallback decode JWT.
+     * @returns {number|null}
+     */
+    getCurrentUserId() {
+        const user = this.getUser();
+        const fromUser = user?.userId ?? user?.UserId;
+        if (fromUser != null) return Number(fromUser);
+        try {
+            const token = this.getToken();
+            if (!token) return null;
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const sub = payload.sub ?? payload.nameid;
+            if (sub != null) return Number(sub);
+        } catch {
+            // ignore
+        }
+        return null;
+    },
+
+    /**
      * Check if user is authenticated
      * @returns {boolean}
      */
