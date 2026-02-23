@@ -10,15 +10,18 @@ import {
     MapPin,
     User,
     FileText,
-    Globe
+    Globe,
+    Loader
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Toast from '../../components/Toast/Toast';
+import { createSupplier } from '../lib/supplierService';
 import '../styles/CreateSupplier.css';
 
 const CreateSupplier = () => {
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
+    const [submitting, setSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         supplierCode: '',
         supplierName: '',
@@ -81,12 +84,11 @@ const CreateSupplier = () => {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!validateForm()) {
             showToast('Vui lòng kiểm tra lại thông tin!', 'error');
-            // Focus on first error field
             const firstErrorField = Object.keys(errors)[0];
             if (firstErrorField) {
                 document.getElementsByName(firstErrorField)[0]?.focus();
@@ -94,20 +96,25 @@ const CreateSupplier = () => {
             return;
         }
 
-        // TODO: Call API to create supplier
-        console.log('Form data:', formData);
-        showToast('Tạo nhà cung cấp thành công!', 'success');
-
-        // Navigate back after success
-        setTimeout(() => {
-            navigate(-1);
-        }, 1500);
-    };
-
-    const handleSaveDraft = () => {
-        // TODO: Call API to save draft
-        console.log('Save draft:', formData);
-        showToast('Đã lưu nháp!', 'success');
+        try {
+            setSubmitting(true);
+            await createSupplier({
+                supplierCode: formData.supplierCode.trim(),
+                supplierName: formData.supplierName.trim(),
+                taxCode: formData.taxCode.trim() || null,
+                phone: formData.phone.trim() || null,
+                email: formData.email.trim() || null,
+                address: formData.address.trim() || null,
+            });
+            showToast('Tạo nhà cung cấp thành công!', 'success');
+            setTimeout(() => {
+                navigate(-1);
+            }, 1500);
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleCancel = () => {
@@ -348,20 +355,24 @@ const CreateSupplier = () => {
 
                     {/* Form Actions */}
                     <div className="form-actions">
-                        <button type="button" onClick={handleCancel} className="btn btn-cancel">
+                        <button type="button" onClick={handleCancel} className="btn btn-cancel" disabled={submitting}>
                             <X size={16} className="btn-icon" />
                             Hủy
                         </button>
 
                         <div className="actions-right">
-                            <button type="button" onClick={handleSaveDraft} className="btn btn-draft">
-                                <Save size={16} className="btn-icon" />
-                                Lưu nháp
-                            </button>
-
-                            <button type="submit" className="btn btn-primary">
-                                <Save size={16} className="btn-icon" />
-                                Tạo nhà cung cấp
+                            <button type="submit" className="btn btn-primary" disabled={submitting}>
+                                {submitting ? (
+                                    <>
+                                        <Loader size={16} className="btn-icon spinner" />
+                                        Đang tạo...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={16} className="btn-icon" />
+                                        Tạo nhà cung cấp
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
