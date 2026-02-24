@@ -17,7 +17,7 @@ namespace Warehouse.Api.ApiController
             _receiverService = receiverService;
         }
 
-        [HttpPost]
+        [HttpPost("create")]
         [Authorize]
         public async Task<IActionResult> CreateReceiver([FromBody] CreateReceiverRequest request)
         {
@@ -37,7 +37,7 @@ namespace Warehouse.Api.ApiController
             }
         }
 
-        [HttpGet]
+        [HttpGet("list-all")]
         public async Task<IActionResult> GetReceivers(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
@@ -60,7 +60,7 @@ namespace Warehouse.Api.ApiController
             return Ok(result);
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("update/{id}")]
         [Authorize]
         public async Task<IActionResult> UpdateReceiver(long id, [FromBody] UpdateReceiverRequest request)
         {
@@ -84,7 +84,7 @@ namespace Warehouse.Api.ApiController
             }
         }
 
-        [HttpPatch("{id}/status")]
+        [HttpPatch("change-status/{id}")]
         [Authorize]
         public async Task<IActionResult> ToggleReceiverStatus(long id, [FromQuery] bool isActive)
         {
