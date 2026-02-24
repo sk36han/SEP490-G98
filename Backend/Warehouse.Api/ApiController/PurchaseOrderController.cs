@@ -18,7 +18,7 @@ namespace Warehouse.Api.ApiController
             _purchaseOrderService = purchaseOrderService;
         }
 
-        [HttpGet]
+        [HttpGet("list-all")]
         public async Task<IActionResult> GetPurchaseOrders(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
@@ -43,7 +43,7 @@ namespace Warehouse.Api.ApiController
             return Ok(result);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("get/{id}")]
         public async Task<IActionResult> GetPurchaseOrder(long id)
         {
             var result = await _purchaseOrderService.GetPurchaseOrderByIdAsync(id);
@@ -56,7 +56,7 @@ namespace Warehouse.Api.ApiController
             return Ok(result);
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("update/{id}")]
         public async Task<IActionResult> UpdatePurchaseOrder(long id, [FromBody] UpdatePurchaseOrderRequest request)
         {
             if (!ModelState.IsValid)
@@ -85,7 +85,7 @@ namespace Warehouse.Api.ApiController
             }
         }
 
-        [HttpPost]
+        [HttpPost("create")]
         public async Task<IActionResult> CreatePurchaseOrder([FromBody] CreatePurchaseOrderRequest request)
         {
             if (!ModelState.IsValid)
