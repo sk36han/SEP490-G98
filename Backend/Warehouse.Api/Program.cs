@@ -1,4 +1,4 @@
-﻿
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,13 +72,20 @@ namespace Warehouse.Api
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<ISupplierService, SupplierService>();
+<<<<<<< HEAD
             builder.Services.AddScoped<IReceiverService, ReceiverService>();
             builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 
+=======
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IRoleService, RoleService>();
+            builder.Services.AddScoped<IAdminService, AdminService>();
+>>>>>>> origin/khanhvd
 
             // JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-            var secretKey = jwtSettings["SecretKey"];
+
+			var secretKey = jwtSettings["SecretKey"];
 
             builder.Services.AddAuthentication(options =>
             {
@@ -130,7 +137,11 @@ namespace Warehouse.Api
                 app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
+            // Only redirect to HTTPS in production to avoid CORS issues in development
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseCors("AllowAll");
 

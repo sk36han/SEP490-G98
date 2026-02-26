@@ -12,7 +12,7 @@ using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.DataAcces.Service
 {
-    public class SupplierService : ISupplierService
+    public class SupplierService :  ISupplierService
     {
         private readonly IGenericRepository<Supplier> _supplierRepository;
 

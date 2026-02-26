@@ -9,7 +9,11 @@ namespace Warehouse.Api.Helper
         public MapperClass()
         {
             // User mappings
-            CreateMap<User, UserResponse>();
+            CreateMap<User, UserResponse>()
+                .ForMember(d => d.RoleName,
+                    opt => opt.MapFrom(s => s.UserRoleUser != null && s.UserRoleUser.Role != null
+                        ? s.UserRoleUser.Role.RoleName
+                        : null));
         }
     }
 }
