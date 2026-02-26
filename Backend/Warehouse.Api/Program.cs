@@ -80,6 +80,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
+            builder.Services.AddScoped<IItemService, ItemService>();
 
 
             // JWT Authentication
