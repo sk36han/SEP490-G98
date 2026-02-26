@@ -72,15 +72,15 @@ namespace Warehouse.Api
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<ISupplierService, SupplierService>();
-<<<<<<< HEAD
+
             builder.Services.AddScoped<IReceiverService, ReceiverService>();
             builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 
-=======
+
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
->>>>>>> origin/khanhvd
+
 
             // JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
