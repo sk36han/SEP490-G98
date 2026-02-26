@@ -18,11 +18,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly IConfiguration _configuration;
         private readonly IAuthService _emailService;
+        private readonly INotificationService _notificationService;
 
-        public AdminService(Mkiwms4Context context, IConfiguration configuration, IAuthService emailService) : base(context)
+        public AdminService(Mkiwms4Context context, IConfiguration configuration, IAuthService emailService, INotificationService notificationService) : base(context)
         {
             _configuration = configuration;
             _emailService = emailService;
+            _notificationService = notificationService;
         }
         public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy)
         {
@@ -103,6 +105,15 @@ namespace Warehouse.DataAcces.Service
 				<p>Trân trọng,<br/>Hệ thống quản lý kho</p>";
 
             await _emailService.SendEmailUserAccountAsync(newUser.Email, subject, body);
+
+            // Gửi notification cho user mới
+            await _notificationService.CreateAsync(
+                newUser.UserId,
+                "Chào mừng bạn!",
+                $"Tài khoản của bạn đã được tạo thành công. Username: {newUser.Username}, Role: {role.RoleName}.",
+                "USER_CREATED",
+                newUser.UserId
+            );
 
             return new CreateUserResponse
             {
@@ -307,6 +318,15 @@ namespace Warehouse.DataAcces.Service
                 await _context.Entry(user.UserRoleUser).Reference(ur => ur.Role).LoadAsync();
             }
 
+            // Gửi notification cho user bị chỉnh sửa
+            await _notificationService.CreateAsync(
+                user.UserId,
+                "Thông tin tài khoản được cập nhật",
+                "Thông tin tài khoản của bạn đã được quản trị viên cập nhật. Vui lòng kiểm tra lại.",
+                "USER_UPDATED",
+                user.UserId
+            );
+
             return new AdminUserResponse
             {
 				UserId = user.UserId,
@@ -344,6 +364,16 @@ namespace Warehouse.DataAcces.Service
             user.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            // Gửi notification cho user bị thay đổi trạng thái
+            var statusText = user.IsActive ? "kích hoạt" : "vô hiệu hóa";
+            await _notificationService.CreateAsync(
+                user.UserId,
+                "Trạng thái tài khoản thay đổi",
+                $"Tài khoản của bạn đã được {statusText} bởi quản trị viên.",
+                "USER_STATUS_CHANGED",
+                user.UserId
+            );
 
             return new AdminUserResponse
             {

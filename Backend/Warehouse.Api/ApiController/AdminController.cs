@@ -8,7 +8,7 @@ namespace Warehouse.Api.ApiController
 {
 	[Route("api/admin/users")]
 	[ApiController]
-	//[Authorize(Roles = "ADMIN")]
+	[Authorize(Roles = "ADMIN")]
 	public class AdminController : ControllerBase
 	{
 		private readonly IAdminService _adminService;
@@ -41,7 +41,7 @@ namespace Warehouse.Api.ApiController
 		/// POST: /api/admin/users
 		/// </summary>
 		[HttpPost("create-user")]
-		public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
+		public async Task<IActionResult> CreateUser([FromForm] CreateUserRequest request)
 		{
 			try
 			{
@@ -74,7 +74,7 @@ namespace Warehouse.Api.ApiController
 		/// PUT: /api/admin/users/{id}
 		/// </summary>
 		[HttpPut("update-user/{id}")]
-		public async Task<IActionResult> UpdateUser(long id, [FromBody] UpdateUserRequest request)
+		public async Task<IActionResult> UpdateUser(long id, [FromForm] UpdateUserRequest request)
 		{
 			try
 			{

@@ -15,13 +15,18 @@ namespace Warehouse.DataAcces.Service
     public class SupplierService :  ISupplierService
     {
         private readonly IGenericRepository<Supplier> _supplierRepository;
+        private readonly INotificationService _notificationService;
 
-        public SupplierService(IGenericRepository<Supplier> supplierRepository)
+        // Các role sẽ nhận thông báo về supplier
+        private static readonly string[] _notifyRoleCodes = { "ADMIN", "GD", "SALE SP" };
+
+        public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService)
         {
             _supplierRepository = supplierRepository;
+            _notificationService = notificationService;
         }
 
-        public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request)
+        public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
         {
             // 1️⃣ Check duplicate SupplierCode
             var suppliers = await _supplierRepository.GetAllAsync();
@@ -46,7 +51,17 @@ namespace Warehouse.DataAcces.Service
             // 3️⃣ Save
             await _supplierRepository.CreateAsync(supplier);
 
-            // 4️⃣ Return response
+            // 4️⃣ Gửi thông báo cho Admin, Giám đốc, Sale Support
+            await _notificationService.CreateForRolesAsync(
+                _notifyRoleCodes,
+                "Nhà cung cấp mới",
+                $"Nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode}) đã được tạo.",
+                "SUPPLIER",
+                supplier.SupplierId,
+                excludeUserId: currentUserId
+            );
+
+            // 5️⃣ Return response
             return new SupplierResponse
             {
                 SupplierId = supplier.SupplierId,
@@ -146,7 +161,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request)
+        public async Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request, long currentUserId)
         {
             // 1️⃣ Check supplier exists
             var supplier = await _supplierRepository.GetByIdAsync(id);
@@ -181,7 +196,17 @@ namespace Warehouse.DataAcces.Service
             // 4️⃣ Save
             await _supplierRepository.UpdateAsync(supplier);
 
-            // 5️⃣ Return response
+            // 5️⃣ Gửi thông báo cho Admin, Giám đốc, Sale Support
+            await _notificationService.CreateForRolesAsync(
+                _notifyRoleCodes,
+                "Cập nhật nhà cung cấp",
+                $"Nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode}) đã được cập nhật.",
+                "SUPPLIER",
+                supplier.SupplierId,
+                excludeUserId: currentUserId
+            );
+
+            // 6️⃣ Return response
             return new SupplierResponse
             {
                 SupplierId = supplier.SupplierId,
