@@ -30,6 +30,7 @@ const managerItems = [
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
+    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
     { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
@@ -39,6 +40,7 @@ const managerItems = [
 const staffItems = [
     { path: '/staff/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
+    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
     { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
@@ -51,10 +53,11 @@ const warehouseKeeperItems = [
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
-// Sale Support: Quản lý nhà cung cấp, Quản lý đơn mua hàng, Xem vật tư
+// Sale Support: Quản lý nhà cung cấp, Quản lý đơn mua hàng, Xem vật tư, Người nhận hàng
 const saleSupportItems = [
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
     { path: '/purchase-orders', icon: <FileText size={22} />, label: 'Quản lý đơn mua (PO)' },
+    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý vật tư' },
 ];
 

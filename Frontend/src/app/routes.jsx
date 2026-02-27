@@ -21,6 +21,8 @@ import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
+import ViewReceiver from '../shared/pages/ViewReceiver';
+import CreateReceiver from '../shared/pages/CreateReceiver';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -218,6 +220,26 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'STAFF']}>
                     <MainLayout>
                         <ViewGoodDeliveryNotes />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/receivers"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'STAFF', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewReceiver />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/receivers/create"
+            element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'WAREHOUSE_KEEPER', 'STAFF', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <CreateReceiver />
                     </MainLayout>
                 </ProtectedRoute>
             }
