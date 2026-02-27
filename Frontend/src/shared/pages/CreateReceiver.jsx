@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -11,30 +11,114 @@ import {
     Globe,
     FileText,
 } from 'lucide-react';
+import { COUNTRIES } from '../data/vietnamAdministrative';
+import { getProvinces, getProvinceWithWards } from '../lib/locationService';
 import '../styles/CreateSupplier.css';
 
 const CreateReceiver = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        receiverCode: '',
         receiverName: '',
         phone: '',
         email: '',
-        ward: '',
-        province: '',
-        country: 'Việt Nam',
+        country: 'VN',
+        provinceCode: '',
+        wardCode: '',
         address: '',
         notes: '',
         isActive: 'true',
     });
     const [errors, setErrors] = useState({});
 
+    const [provinces, setProvinces] = useState([]);
+    const [loadingProvinces, setLoadingProvinces] = useState(false);
+    const [provinceError, setProvinceError] = useState('');
+    const [provinceDetail, setProvinceDetail] = useState(null);
+    const [loadingWards, setLoadingWards] = useState(false);
+    const [wardError, setWardError] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+        const fetchProvinces = async () => {
+            setLoadingProvinces(true);
+            setProvinceError('');
+            try {
+                const list = await getProvinces();
+                if (!cancelled) {
+                    setProvinces(list || []);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to load provinces', err);
+                    setProvinceError('Không tải được danh sách tỉnh/thành phố. Vui lòng thử lại sau.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingProvinces(false);
+                }
+            }
+        };
+        fetchProvinces();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!formData.provinceCode) {
+            setProvinceDetail(null);
+            setWardError('');
+            return;
+        }
+        let cancelled = false;
+        setWardError('');
+        setLoadingWards(true);
+        getProvinceWithWards(formData.provinceCode)
+            .then((detail) => {
+                if (!cancelled && detail) {
+                    setProvinceDetail(detail);
+                }
+            })
+            .catch((err) => {
+                if (!cancelled) {
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to load wards', err);
+                    setWardError('Không tải được danh sách phường/xã. Vui lòng thử lại.');
+                    setProvinceDetail(null);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoadingWards(false);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [formData.provinceCode]);
+
+    const selectedProvince = useMemo(
+        () => provinces.find((p) => String(p.code) === formData.provinceCode),
+        [provinces, formData.provinceCode]
+    );
+    const wardOptions = useMemo(
+        () =>
+            provinceDetail?.districts
+                ? provinceDetail.districts.flatMap((d) => d.wards || [])
+                : [],
+        [provinceDetail]
+    );
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+        setFormData((prev) => {
+            const next = { ...prev, [name]: value };
+            if (name === 'provinceCode') {
+                next.wardCode = '';
+            }
+            return next;
+        });
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: '' }));
         }
@@ -42,9 +126,6 @@ const CreateReceiver = () => {
 
     const validateForm = () => {
         const newErrors = {};
-        if (!formData.receiverCode.trim()) {
-            newErrors.receiverCode = 'Mã người nhận là bắt buộc';
-        }
         if (!formData.receiverName.trim()) {
             newErrors.receiverName = 'Tên người nhận là bắt buộc';
         }
@@ -55,7 +136,7 @@ const CreateReceiver = () => {
             newErrors.email = 'Email là bắt buộc';
         }
         if (!formData.address.trim()) {
-            newErrors.address = 'Địa chỉ là bắt buộc';
+            newErrors.address = 'Địa chỉ chi tiết là bắt buộc';
         }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -66,9 +147,16 @@ const CreateReceiver = () => {
         if (!validateForm()) {
             return;
         }
-        // UI demo only – chưa gọi API, chỉ log ra console
+        const payload = {
+            ...formData,
+            countryName: COUNTRIES.find((c) => c.code === formData.country)?.name ?? formData.country,
+            provinceName: selectedProvince?.name ?? '',
+            wardName:
+                wardOptions.find((w) => String(w.code) === formData.wardCode)?.name ?? '',
+        };
+        // UI demo only – mã người nhận sẽ do backend tự sinh
         // eslint-disable-next-line no-console
-        console.log('Receiver form submitted', formData);
+        console.log('Receiver form submitted', payload);
         navigate(-1);
     };
 
@@ -79,14 +167,14 @@ const CreateReceiver = () => {
     return (
         <div className="create-supplier-page">
             <div className="page-header">
-                <button onClick={handleCancel} className="back-button">
+                <button type="button" onClick={handleCancel} className="back-button">
                     <ArrowLeft size={20} />
                     <span>Quay lại</span>
                 </button>
 
                 <div>
                     <h1 className="page-title">Tạo người nhận mới</h1>
-                    <p className="page-subtitle">Điền thông tin để tạo người nhận hàng trong hệ thống</p>
+                    <p className="page-subtitle">Điền thông tin để tạo người nhận hàng trong hệ thống. Mã người nhận sẽ được hệ thống tự sinh.</p>
                 </div>
             </div>
 
@@ -98,26 +186,6 @@ const CreateReceiver = () => {
 
                 <form onSubmit={handleSubmit} className="form-content">
                     <div className="form-grid">
-                        <div className="form-field">
-                            <label className="form-label">
-                                Mã người nhận <span className="required-mark">*</span>
-                            </label>
-                            <div className="input-wrapper">
-                                <FileText className="input-icon" size={16} />
-                                <input
-                                    type="text"
-                                    name="receiverCode"
-                                    value={formData.receiverCode}
-                                    onChange={handleChange}
-                                    placeholder="Nhập mã người nhận (VD: RCV001)"
-                                    className={`form-input ${errors.receiverCode ? 'error' : ''}`}
-                                />
-                            </div>
-                            {errors.receiverCode && (
-                                <span className="error-message">{errors.receiverCode}</span>
-                            )}
-                        </div>
-
                         <div className="form-field span-2">
                             <label className="form-label">
                                 Tên người nhận <span className="required-mark">*</span>
@@ -185,7 +253,7 @@ const CreateReceiver = () => {
                                     name="address"
                                     value={formData.address}
                                     onChange={handleChange}
-                                    placeholder="Số nhà, đường, quận/huyện..."
+                                    placeholder="Số nhà, đường..."
                                     className={`form-input ${errors.address ? 'error' : ''}`}
                                 />
                             </div>
@@ -193,17 +261,21 @@ const CreateReceiver = () => {
                         </div>
 
                         <div className="form-field">
-                            <label className="form-label">Phường</label>
+                            <label className="form-label">Quốc gia</label>
                             <div className="input-wrapper">
-                                <MapPin className="input-icon" size={16} />
-                                <input
-                                    type="text"
-                                    name="ward"
-                                    value={formData.ward}
+                                <Globe className="input-icon" size={16} />
+                                <select
+                                    name="country"
+                                    value={formData.country}
                                     onChange={handleChange}
-                                    placeholder="Nhập phường"
                                     className="form-input"
-                                />
+                                >
+                                    {COUNTRIES.map((c) => (
+                                        <option key={c.code} value={c.code}>
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
@@ -211,30 +283,63 @@ const CreateReceiver = () => {
                             <label className="form-label">Tỉnh / Thành phố</label>
                             <div className="input-wrapper">
                                 <MapPin className="input-icon" size={16} />
-                                <input
-                                    type="text"
-                                    name="province"
-                                    value={formData.province}
+                                <select
+                                    name="provinceCode"
+                                    value={formData.provinceCode}
                                     onChange={handleChange}
-                                    placeholder="Nhập tỉnh / thành phố"
                                     className="form-input"
-                                />
+                                    disabled={loadingProvinces || !!provinceError}
+                                >
+                                    <option value="">
+                                        {loadingProvinces
+                                            ? 'Đang tải danh sách tỉnh/thành...'
+                                            : provinceError || '-- Chọn tỉnh / thành phố --'}
+                                    </option>
+                                    {!loadingProvinces &&
+                                        !provinceError &&
+                                        provinces.map((p) => (
+                                            <option key={p.code} value={String(p.code)}>
+                                                {p.name}
+                                            </option>
+                                        ))}
+                                </select>
                             </div>
                         </div>
 
                         <div className="form-field">
-                            <label className="form-label">Quốc gia</label>
+                            <label className="form-label">Phường / Xã</label>
                             <div className="input-wrapper">
-                                <Globe className="input-icon" size={16} />
-                                <input
-                                    type="text"
-                                    name="country"
-                                    value={formData.country}
+                                <MapPin className="input-icon" size={16} />
+                                <select
+                                    name="wardCode"
+                                    value={formData.wardCode}
                                     onChange={handleChange}
-                                    placeholder="Nhập quốc gia"
                                     className="form-input"
-                                />
+                                    disabled={!formData.provinceCode || loadingWards}
+                                >
+                                    <option value="">
+                                        {!formData.provinceCode
+                                            ? '-- Chọn tỉnh/thành trước --'
+                                            : loadingWards
+                                                ? 'Đang tải phường/xã...'
+                                                : '-- Chọn phường / xã --'}
+                                    </option>
+                                    {!loadingWards &&
+                                        wardOptions.map((w) => {
+                                            const value = String(w.code);
+                                            return (
+                                                <option key={value} value={value}>
+                                                    {w.name}
+                                                </option>
+                                            );
+                                        })}
+                                </select>
                             </div>
+                            {wardError && (
+                                <span className="form-error" style={{ marginTop: 4, display: 'block' }}>
+                                    {wardError}
+                                </span>
+                            )}
                         </div>
 
                         <div className="form-field">
@@ -285,4 +390,3 @@ const CreateReceiver = () => {
 };
 
 export default CreateReceiver;
-
