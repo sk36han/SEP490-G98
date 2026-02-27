@@ -130,8 +130,8 @@ const CreateReceiver = () => {
         if (!formData.phone.trim()) {
             newErrors.phone = 'Số điện thoại là bắt buộc';
         }
-        if (!formData.email.trim()) {
-            newErrors.email = 'Email là bắt buộc';
+        if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+            newErrors.email = 'Email không hợp lệ';
         }
         if (!formData.address.trim()) {
             newErrors.address = 'Địa chỉ chi tiết là bắt buộc';
@@ -205,9 +205,7 @@ const CreateReceiver = () => {
                         </div>
 
                         <div className="form-field">
-                            <label className="form-label">
-                                Email <span className="required-mark">*</span>
-                            </label>
+                            <label className="form-label">Email</label>
                             <div className="input-wrapper">
                                 <Mail className="input-icon" size={16} />
                                 <input
