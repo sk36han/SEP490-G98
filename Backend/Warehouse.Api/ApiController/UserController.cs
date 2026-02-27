@@ -70,6 +70,8 @@ namespace Warehouse.Api.ApiController
             }
         }
 
+        [Authorize]
+
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
