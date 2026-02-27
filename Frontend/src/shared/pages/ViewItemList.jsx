@@ -82,7 +82,17 @@ const ViewItemList = () => {
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
     const userInfo = authService.getUser();
-    const permissionRole = getPermissionRole(userInfo?.roleCode || userInfo?.roleName || '');
+    const rawRole =
+        (userInfo?.roleId != null ? String(userInfo.roleId) : '')
+        || (userInfo?.RoleId != null ? String(userInfo.RoleId) : '')
+        || userInfo?.roleCode
+        || userInfo?.roleName
+        || userInfo?.role
+        || userInfo?.RoleCode
+        || userInfo?.RoleName
+        || userInfo?.Role
+        || '';
+    const permissionRole = getPermissionRole(rawRole);
     const canCreateEdit = canCreateOrEditItems(permissionRole);
     const showPriceColumn = showPriceColumnForRole(permissionRole);
     const effectiveItemColumns = showPriceColumn

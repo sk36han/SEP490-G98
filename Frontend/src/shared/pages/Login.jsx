@@ -52,7 +52,7 @@ const Login = () => {
         e.preventDefault();
 
         if (!formData.email || !formData.password) {
-            showToast('Vui lòng điền đầy đủ thông tin!', 'error');
+            showToast('Vui lòng nhập Email/Username và Mật khẩu!', 'error');
             return;
         }
 
@@ -62,7 +62,16 @@ const Login = () => {
             await authService.login(formData.email, formData.password, formData.rememberMe);
 
             const userInfo = authService.getUser();
-            const rawRole = userInfo?.roleCode ?? userInfo?.roleName ?? userInfo?.role ?? userInfo?.RoleCode ?? userInfo?.RoleName ?? userInfo?.Role;
+            const rawRole =
+                (userInfo?.roleId != null ? String(userInfo.roleId) : '')
+                || (userInfo?.RoleId != null ? String(userInfo.RoleId) : '')
+                || userInfo?.roleCode
+                || userInfo?.roleName
+                || userInfo?.role
+                || userInfo?.RoleCode
+                || userInfo?.RoleName
+                || userInfo?.Role
+                || '';
             const permissionRole = getPermissionRole(rawRole);
 
             if (!isPermissionRoleValid(permissionRole)) {
@@ -76,13 +85,20 @@ const Login = () => {
 
             setTimeout(() => {
                 switch (permissionRole) {
-                    case 'ADMIN': navigate('/admin/home'); break;
-                    case 'DIRECTOR': navigate('/director/home'); break;
-                    case 'WAREHOUSE_KEEPER': navigate('/products'); break;
-                    case 'SALE_SUPPORT': navigate('/sale-support/home'); break;
-                    case 'SALE_ENGINEER': navigate('/sale-engineer/home'); break;
-                    case 'ACCOUNTANTS': navigate('/products'); break;
-                    default: navigate('/home');
+                    case 'ADMIN':
+                        navigate('/admin/users');
+                        break;
+                    case 'DIRECTOR':
+                        navigate('/home');
+                        break;
+                    case 'WAREHOUSE_KEEPER':
+                    case 'SALE_SUPPORT':
+                    case 'SALE_ENGINEER':
+                    case 'ACCOUNTANTS':
+                        navigate('/products');
+                        break;
+                    default:
+                        navigate('/home');
                 }
             }, 1000);
         } catch (error) {
@@ -124,14 +140,15 @@ const Login = () => {
             <form onSubmit={handleSubmit}>
                 <TextField
                     fullWidth
-                    type="email"
+                    type="text"
                     name="email"
-                    label="Email"
+                    label="Email hoặc Username"
+                    placeholder="VD: user@company.com hoặc username"
                     value={formData.email}
                     onChange={handleChange}
                     margin="normal"
                     required
-                    autoComplete="email"
+                    autoComplete="username"
                     autoFocus
                     sx={{
                         '& .MuiOutlinedInput-root': {

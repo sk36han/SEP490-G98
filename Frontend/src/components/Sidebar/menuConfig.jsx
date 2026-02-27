@@ -30,7 +30,6 @@ const managerItems = [
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
-    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
     { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
@@ -40,7 +39,6 @@ const managerItems = [
 const staffItems = [
     { path: '/staff/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
-    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
     { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
@@ -57,13 +55,18 @@ const warehouseKeeperItems = [
 const saleSupportItems = [
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
     { path: '/purchase-orders', icon: <FileText size={22} />, label: 'Quản lý đơn mua (PO)' },
-    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
     { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý vật tư' },
+];
+
+// Sale Engineer: Quản lý vật tư, giao dịch với người nhận
+const saleEngineerItems = [
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý vật tư' },
+    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
 ];
 
 /**
  * Get menu items based on user permission role
- * @param {string} role - 'ADMIN' | 'MANAGER' | 'WAREHOUSE_KEEPER' | 'SALE_SUPPORT' | 'STAFF'
+ * @param {string} role - 'ADMIN' | 'MANAGER' | 'WAREHOUSE_KEEPER' | 'SALE_SUPPORT' | 'SALE_ENGINEER' | 'STAFF'
  * @returns {Array} Menu items with path, icon, label
  */
 export const getMenuItems = (role) => {
@@ -75,6 +78,9 @@ export const getMenuItems = (role) => {
     }
     if (role === 'SALE_SUPPORT') {
         return [...commonItems, ...saleSupportItems];
+    }
+    if (role === 'SALE_ENGINEER') {
+        return [...commonItems, ...saleEngineerItems];
     }
     if (role === 'MANAGER' || role === 'Warehouse Manager') {
         return [...commonItems, ...managerItems];

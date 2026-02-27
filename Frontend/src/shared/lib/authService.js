@@ -39,7 +39,19 @@ const authService = {
             // Fetch complete user profile with role from /api/User/profile
             try {
                 const profileResponse = await apiClient.get('/User/profile');
-                const userWithRole = profileResponse.data;
+                const userFromProfile = profileResponse.data;
+                const roleFromToken = getRoleFromToken(accessToken);
+
+                // Đảm bảo luôn có ít nhất một trong các trường roleCode/roleName/role,
+                // ưu tiên dữ liệu từ profile, fallback sang token nếu profile không có.
+                const userWithRole = {
+                    ...(userFromProfile || {}),
+                    roleCode: userFromProfile?.roleCode ?? userFromProfile?.RoleCode ?? user?.roleCode ?? roleFromToken,
+                    roleName: userFromProfile?.roleName ?? userFromProfile?.RoleName ?? user?.roleName ?? roleFromToken,
+                    role: userFromProfile?.role ?? userFromProfile?.Role ?? user?.role ?? roleFromToken,
+                    roleId: userFromProfile?.roleId ?? userFromProfile?.RoleId ?? user?.roleId,
+                };
+
                 localStorage.setItem('userInfo', JSON.stringify(userWithRole));
             } catch (profileError) {
                 // Fallback: profile trả 500 (vd: user chưa có role) → dùng user từ login + role từ JWT

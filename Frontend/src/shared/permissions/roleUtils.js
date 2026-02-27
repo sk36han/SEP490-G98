@@ -18,13 +18,41 @@ export const isPermissionRoleValid = (role) => {
 export const getPermissionRole = (originalRole) => {
     if (originalRole == null || String(originalRole).trim() === '') return null;
     const str = String(originalRole).trim();
+
+    // Trường hợp backend trả roleId dạng số (1,2,3,...)
+    const numeric = Number(str);
+    if (!Number.isNaN(numeric)) {
+        if (numeric === 6) return 'ADMIN';
+        if (numeric === 1) return 'DIRECTOR';
+        if (numeric === 7) return 'WAREHOUSE_KEEPER';
+        if (numeric === 4) return 'SALE_SUPPORT';
+        if (numeric === 2) return 'SALE_ENGINEER';
+        if (numeric === 3) return 'ACCOUNTANTS';
+    }
+
     const upper = str.toUpperCase();
     const noDiacritics = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     if (upper.includes('ADMIN')) return 'ADMIN';
     if (upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR') || noDiacritics.includes('GIAM DOC')) return 'DIRECTOR';
-    if (upper.includes('THỦ KHO') || noDiacritics.includes('THU KHO') || noDiacritics.includes('THUKHO') || upper.includes('WAREHOUSE_KEEPER') || upper.includes('WAREHOUSE KEEPER') || upper === 'WK' || upper === 'WHK' || upper === 'THU_KHO') return 'WAREHOUSE_KEEPER';
+    if (
+        upper.includes('WAREHOUSE_KEEPER') ||
+        upper.includes('WAREHOUSE KEEPER') ||
+        upper.includes('WAREHOUSE') ||
+        upper === 'WK' ||
+        upper === 'WHK' ||
+        upper === 'WH' ||
+        upper === 'TK' ||
+        upper === 'THU_KHO'
+    ) return 'WAREHOUSE_KEEPER';
     if (upper.includes('SALE SUPPORT') || upper.includes('SALE_SUPPORT') || noDiacritics.includes('SALE SUPPORT')) return 'SALE_SUPPORT';
-    if (upper.includes('SALE ENGINEER') || upper.includes('SALE_ENGINEER') || upper === 'SALEENGINEER' || noDiacritics.includes('SALE ENGINEER')) return 'SALE_ENGINEER';
+    if (
+        upper.includes('SALE ENGINEER') ||
+        upper.includes('SALE_ENGINEER') ||
+        upper === 'SALEENGINEER' ||
+        upper === 'SALES' ||
+        upper === 'SALE' ||
+        noDiacritics.includes('SALE ENGINEER')
+    ) return 'SALE_ENGINEER';
     if (upper === 'ACCOUNTANTS' || upper.includes('KẾ TOÁN') || noDiacritics.includes('KE TOAN') || upper.includes('ACCOUNTANT')) return 'ACCOUNTANTS';
     return null;
 };
