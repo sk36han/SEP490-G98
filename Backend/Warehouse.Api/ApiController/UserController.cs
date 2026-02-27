@@ -40,7 +40,7 @@ namespace Warehouse.Api.ApiController
             var profile = _mapper.Map<UserResponse>(user);
             return Ok(profile);
         }
-
+        [Authorize]
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {

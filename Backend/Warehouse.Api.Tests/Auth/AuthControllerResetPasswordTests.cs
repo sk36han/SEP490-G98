@@ -133,7 +133,27 @@ public class AuthControllerResetPasswordTests
     }
 
     [Fact]
-    public async Task UTC006_UnexpectedException_ShouldReturnInternalServerError()
+    public async Task UTC006_ConfirmPasswordMismatch_ShouldReturnValidationProblem_AndNotCallService()
+    {
+        var controller = CreateController();
+        controller.ModelState.AddModelError("ConfirmPassword", "Password and confirm password do not match");
+
+        var request = new ResetPasswordRequest
+        {
+            Token = "valid-token",
+            NewPassword = "newPassword123",
+            ConfirmPassword = "newPassword321"
+        };
+
+        var result = await controller.ResetPassword(request);
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.Value.Should().BeOfType<ValidationProblemDetails>();
+        _authServiceMock.Verify(x => x.ResetPasswordAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UTC007_UnexpectedException_ShouldReturnInternalServerError()
     {
         var controller = CreateController();
         var request = new ResetPasswordRequest
