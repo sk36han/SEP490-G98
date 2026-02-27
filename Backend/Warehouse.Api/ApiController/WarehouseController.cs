@@ -25,16 +25,25 @@ namespace Warehouse.Api.ApiController
 		[HttpGet("get-Warehouse")]
 		public async Task<IActionResult> GetWarehouseList([FromQuery] FilterRequest filter)
         {
-            try
-            {
-                var result = await _warehouseService.GetWarehouseListAsync(filter);
-                return Ok(ApiResponse<object>.SuccessResponse(result, "Lấy danh sách kho thành công."));
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
-            }
-        }
+			// 1. CHỐT CHẶN LOGIC: Bắt buộc phải có để trả về lỗi 400 
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+			}
+
+			try
+			{
+				var result = await _warehouseService.GetWarehouseListAsync(filter);
+
+				// 2. CHUẨN HÓA KIỂU: Trả về kiểu cụ thể 
+				return Ok(ApiResponse<PagedResult<WarehouseResponse>>.SuccessResponse(result, "Lấy danh sách kho thành công."));
+			}
+			catch (Exception)
+			{
+				// Trả về lỗi 500 cho các trường hợp UTCID 06, 07, 08
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
 
 		/// <summary>
 		/// Tạo kho mới
