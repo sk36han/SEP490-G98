@@ -78,7 +78,7 @@ const Sidebar = () => {
     const location = useLocation();
 
     const userInfo = authService.getUser();
-    const roleFromBackend = userInfo?.roleCode || userInfo?.roleName || userInfo?.RoleCode || userInfo?.RoleName || '';
+    const roleFromBackend = userInfo?.roleCode ?? userInfo?.roleName ?? userInfo?.role ?? userInfo?.RoleCode ?? userInfo?.RoleName ?? userInfo?.Role ?? '';
 
     const user = {
         name: String(userInfo?.fullName ?? userInfo?.FullName ?? 'User').slice(0, 100),

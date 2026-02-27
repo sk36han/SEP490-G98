@@ -13,7 +13,7 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
     const location = useLocation();
     const isAuthenticated = authService.isAuthenticated();
     const userInfo = authService.getUser();
-    const rawRole = userInfo?.roleCode || userInfo?.roleName || '';
+    const rawRole = userInfo?.roleCode ?? userInfo?.roleName ?? userInfo?.role ?? userInfo?.RoleCode ?? userInfo?.RoleName ?? userInfo?.Role ?? '';
     const permissionRole = getPermissionRole(rawRole);
 
     if (!isAuthenticated) {

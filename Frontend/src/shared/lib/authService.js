@@ -49,6 +49,7 @@ const authService = {
                     ...(user || {}),
                     roleCode: user?.roleCode ?? roleFromToken,
                     roleName: user?.roleName ?? roleFromToken,
+                    role: user?.role ?? roleFromToken,
                 };
                 localStorage.setItem('userInfo', JSON.stringify(userForStorage));
             }

@@ -62,7 +62,7 @@ const Login = () => {
             await authService.login(formData.email, formData.password, formData.rememberMe);
 
             const userInfo = authService.getUser();
-            const rawRole = userInfo?.roleCode || userInfo?.roleName;
+            const rawRole = userInfo?.roleCode ?? userInfo?.roleName ?? userInfo?.role ?? userInfo?.RoleCode ?? userInfo?.RoleName ?? userInfo?.Role;
             const permissionRole = getPermissionRole(rawRole);
 
             if (!isPermissionRoleValid(permissionRole)) {

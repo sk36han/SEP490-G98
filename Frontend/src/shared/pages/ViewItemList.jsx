@@ -31,19 +31,26 @@ import { useToast } from '../hooks/useToast';
 import SearchInput from '../components/SearchInput';
 import ItemFilterPopup from '../components/ItemFilterPopup';
 import { removeDiacritics } from '../utils/stringUtils';
+import authService from '../lib/authService';
+import { getPermissionRole } from '../permissions/roleUtils';
 import '../styles/ListView.css';
 
 /*
- * MOCK DATA - Khớp bảng [dbo].[Items] (MKIWMS5)
+ * MOCK DATA - Khớp bảng [dbo].[Items] (MKIWMS5). salePrice: giá bán (ItemPrices PriceType=SALE) cho role ACCOUNTANTS.
  */
 const MOCK_ITEMS = [
-    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', itemType: 'Product', description: 'Điện thoại iPhone 15 Pro Max bản 256GB', categoryId: 1, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', createdAt: '2025-02-14T08:30:00', updatedAt: '2025-02-14T08:30:00', categoryName: 'Điện thoại', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', itemType: 'Product', description: 'Điện thoại Samsung Galaxy S24 Ultra', categoryId: 1, brandId: 2, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', createdAt: '2025-02-13T14:20:00', updatedAt: '2025-02-13T14:20:00', categoryName: 'Điện thoại', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', itemType: 'Product', description: 'Laptop MacBook Pro 14 inch chip M3', categoryId: 2, brandId: 1, baseUomId: 1, packagingSpecId: 2, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', createdAt: '2025-02-12T09:15:00', updatedAt: '2025-02-12T09:15:00', categoryName: 'Laptop', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 4, itemCode: 'SP004', itemName: 'Tủ lạnh Samsung 234L', itemType: 'Product', description: 'Tủ lạnh Samsung 234 lít', categoryId: 3, brandId: 2, baseUomId: 1, packagingSpecId: 3, requiresCO: true, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', createdAt: '2025-02-10T16:45:00', updatedAt: '2025-02-10T16:45:00', categoryName: 'Điện lạnh', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 5, itemCode: 'SP005', itemName: 'Tai nghe AirPods Pro 2', itemType: 'Product', description: 'Tai nghe không dây AirPods Pro thế hệ 2', categoryId: 4, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', createdAt: '2025-02-14T07:00:00', updatedAt: '2025-02-14T07:00:00', categoryName: 'Phụ kiện', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 6, itemCode: 'SP006', itemName: 'Cáp sạc USB-C 2m', itemType: 'Product', description: 'Cáp sạc USB-C dài 2 mét', categoryId: 4, brandId: null, baseUomId: 1, packagingSpecId: null, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', createdAt: '2025-02-11T11:30:00', updatedAt: '2025-02-11T11:30:00', categoryName: 'Phụ kiện', brandName: null, baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
+    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', itemType: 'Product', description: 'Điện thoại iPhone 15 Pro Max bản 256GB', categoryId: 1, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', salePrice: 28500000, createdAt: '2025-02-14T08:30:00', updatedAt: '2025-02-14T08:30:00', categoryName: 'Điện thoại', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
+    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', itemType: 'Product', description: 'Điện thoại Samsung Galaxy S24 Ultra', categoryId: 1, brandId: 2, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', salePrice: 26900000, createdAt: '2025-02-13T14:20:00', updatedAt: '2025-02-13T14:20:00', categoryName: 'Điện thoại', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
+    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', itemType: 'Product', description: 'Laptop MacBook Pro 14 inch chip M3', categoryId: 2, brandId: 1, baseUomId: 1, packagingSpecId: 2, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', salePrice: 42900000, createdAt: '2025-02-12T09:15:00', updatedAt: '2025-02-12T09:15:00', categoryName: 'Laptop', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
+    { itemId: 4, itemCode: 'SP004', itemName: 'Tủ lạnh Samsung 234L', itemType: 'Product', description: 'Tủ lạnh Samsung 234 lít', categoryId: 3, brandId: 2, baseUomId: 1, packagingSpecId: 3, requiresCO: true, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', salePrice: 8990000, createdAt: '2025-02-10T16:45:00', updatedAt: '2025-02-10T16:45:00', categoryName: 'Điện lạnh', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
+    { itemId: 5, itemCode: 'SP005', itemName: 'Tai nghe AirPods Pro 2', itemType: 'Product', description: 'Tai nghe không dây AirPods Pro thế hệ 2', categoryId: 4, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', salePrice: 5990000, createdAt: '2025-02-14T07:00:00', updatedAt: '2025-02-14T07:00:00', categoryName: 'Phụ kiện', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
+    { itemId: 6, itemCode: 'SP006', itemName: 'Cáp sạc USB-C 2m', itemType: 'Product', description: 'Cáp sạc USB-C dài 2 mét', categoryId: 4, brandId: null, baseUomId: 1, packagingSpecId: null, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', salePrice: 189000, createdAt: '2025-02-11T11:30:00', updatedAt: '2025-02-11T11:30:00', categoryName: 'Phụ kiện', brandName: null, baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
 ];
+
+const formatPrice = (value) => {
+    if (value == null || value === '') return '-';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value));
+};
 
 const ITEM_LIST_COLUMNS = [
     { id: 'stt', label: 'STT', getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
@@ -52,6 +59,7 @@ const ITEM_LIST_COLUMNS = [
     { id: 'itemType', label: 'Dạng vật tư', getValue: (row) => row.itemType ?? '-' },
     { id: 'description', label: 'Mô tả', getValue: (row) => row.description ?? '-' },
     { id: 'category', label: 'Category', getValue: (row) => row.categoryName ?? '-' },
+    { id: 'salePrice', label: 'Giá bán', getValue: (row) => formatPrice(row.salePrice) },
     { id: 'createdAt', label: 'Được tạo vào ngày', getValue: (row) => row.createdAt ?? '' },
     { id: 'requiresCO', label: 'RequiresCO', getValue: (row) => (row.requiresCO ? 'Có' : 'Không') },
     { id: 'requiresCQ', label: 'RequiresCQ', getValue: (row) => (row.requiresCQ ? 'Có' : 'Không') },
@@ -59,14 +67,30 @@ const ITEM_LIST_COLUMNS = [
     { id: 'updatedAt', label: 'Cập nhật', getValue: (row) => row.updatedAt ?? '' },
     { id: 'actions', label: 'Hành động', getValue: () => '' },
 ];
-const DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'itemCode', 'itemName', 'itemType', 'category', 'createdAt', 'actions'];
+const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'itemCode', 'itemName', 'itemType', 'category', 'createdAt', 'actions'];
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+/** Chỉ Thủ kho được tạo/sửa vật tư (khớp route /items/create, /items/edit/:id). Các role khác chỉ xem. */
+const canCreateOrEditItems = (permissionRole) => permissionRole === 'WAREHOUSE_KEEPER';
+
+/** Chỉ Kế toán (ACCOUNTANTS) được xem cột Giá bán trên list; SALE_SUPPORT, SALE_ENGINEER, WAREHOUSE_KEEPER ẩn (ROLE_BASED_UI_RECOMMENDATION). */
+const showPriceColumnForRole = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
 const ViewItemList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(userInfo?.roleCode || userInfo?.roleName || '');
+    const canCreateEdit = canCreateOrEditItems(permissionRole);
+    const showPriceColumn = showPriceColumnForRole(permissionRole);
+    const effectiveItemColumns = showPriceColumn
+        ? ITEM_LIST_COLUMNS
+        : ITEM_LIST_COLUMNS.filter((c) => c.id !== 'salePrice');
+    const defaultVisibleIds = showPriceColumn
+        ? [...BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS, 'salePrice']
+        : BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS;
     const [items, setItems] = useState([]);
     const [filteredItems, setFilteredItems] = useState([]);
     const [page, setPage] = useState(0);
@@ -75,7 +99,7 @@ const ViewItemList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_ITEM_COLUMN_IDS));
+    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(defaultVisibleIds));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
@@ -87,9 +111,9 @@ const ViewItemList = () => {
         });
     };
     const handleSelectAllItemColumns = (checked) => {
-        setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_ITEM_COLUMN_IDS) : new Set());
+        setVisibleColumnIds(checked ? new Set(effectiveItemColumns.map((c) => c.id)) : new Set());
     };
-    const visibleColumns = ITEM_LIST_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
+    const visibleColumns = effectiveItemColumns.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     const loadItems = () => setItems(MOCK_ITEMS);
@@ -212,7 +236,9 @@ const ViewItemList = () => {
                             </Tooltip>
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                 <Button className="list-page-btn" variant="outlined" startIcon={<Download size={18} />} onClick={handleExport} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>Xuất Excel</Button>
-                                <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => navigate('/items/create')} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>Tạo thêm vật tư</Button>
+                                {canCreateEdit && (
+                                    <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => navigate('/items/create')} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>Tạo thêm vật tư</Button>
+                                )}
                             </Box>
                         </Box>
                     </CardContent>
@@ -221,8 +247,8 @@ const ViewItemList = () => {
                 <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={() => setColumnSelectorAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>Chọn cột hiển thị</Typography>
                     <FormGroup>
-                        <FormControlLabel control={<Checkbox checked={visibleColumnIds.size === ITEM_LIST_COLUMNS.length} indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < ITEM_LIST_COLUMNS.length} onChange={(e) => handleSelectAllItemColumns(e.target.checked)} />} label="Tất cả" />
-                        {ITEM_LIST_COLUMNS.map((col) => (
+                        <FormControlLabel control={<Checkbox checked={effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))} indeterminate={visibleColumnIds.size > 0 && !effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))} onChange={(e) => handleSelectAllItemColumns(e.target.checked)} />} label="Tất cả" />
+                        {effectiveItemColumns.map((col) => (
                             <FormControlLabel key={col.id} control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} label={col.label} />
                         ))}
                     </FormGroup>
@@ -241,7 +267,7 @@ const ViewItemList = () => {
                                     <TableHead>
                                         <TableRow>
                                             {visibleColumns.map((col) => (
-                                                <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' ? 'right' : 'left'}>{col.label}</TableCell>
+                                                <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' || col.id === 'salePrice' ? 'right' : 'left'}>{col.label}</TableCell>
                                             ))}
                                         </TableRow>
                                     </TableHead>
@@ -256,12 +282,15 @@ const ViewItemList = () => {
                                                     if (col.id === 'isActive') return <TableCell key={col.id} align="left"><Chip label={item.isActive ? 'Active' : 'Inactive'} size="small" color={item.isActive ? 'success' : 'default'} variant="filled" sx={{ borderRadius: 1.5 }} /></TableCell>;
                                                     if (col.id === 'createdAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(item.createdAt)}</TableCell>;
                                                     if (col.id === 'updatedAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(item.updatedAt)}</TableCell>;
+                                                    if (col.id === 'salePrice') return <TableCell key={col.id} align="right" sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatPrice(item.salePrice)}</TableCell>;
                                                     if (col.id === 'actions') {
                                                         return (
                                                             <TableCell key={col.id} align="right">
                                                                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                                                                     <Tooltip title="Xem chi tiết"><IconButton size="small" onClick={() => navigate(`/items/${item.itemId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}><Eye size={18} /></IconButton></Tooltip>
-                                                                    <Tooltip title="Chỉnh sửa"><IconButton size="small" onClick={() => navigate(`/items/edit/${item.itemId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}><Edit size={18} /></IconButton></Tooltip>
+                                                                    {canCreateEdit && (
+                                                                        <Tooltip title="Chỉnh sửa"><IconButton size="small" onClick={() => navigate(`/items/edit/${item.itemId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}><Edit size={18} /></IconButton></Tooltip>
+                                                                    )}
                                                                 </Box>
                                                             </TableCell>
                                                         );
