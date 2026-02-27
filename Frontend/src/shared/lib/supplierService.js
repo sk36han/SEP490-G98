@@ -127,3 +127,43 @@ export async function createSupplier(data) {
     }
 }
 
+/**
+ * Cập nhật nhà cung cấp
+ * PUT /api/Supplier/{id}
+ * @param {number} id - SupplierId
+ * @param {Object} data
+ * @param {string} data.supplierName - Tên NCC (required, max 255)
+ * @param {string} [data.taxCode] - Mã số thuế (max 50)
+ * @param {string} [data.phone] - SĐT (max 20)
+ * @param {string} [data.email] - Email (max 255)
+ * @param {string} [data.address] - Địa chỉ (max 255)
+ * @param {boolean} data.isActive - Trạng thái
+ * @returns {Promise<Object>} SupplierResponse
+ */
+export async function updateSupplier(id, data) {
+    try {
+        const response = await apiClient.put(`/Supplier/${id}`, {
+            supplierName: data.supplierName,
+            taxCode: data.taxCode || null,
+            phone: data.phone || null,
+            email: data.email || null,
+            address: data.address || null,
+            isActive: data.isActive,
+        });
+        return response.data;
+    } catch (error) {
+        if (error.response?.status === 400) {
+            throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ.');
+        } else if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhà cung cấp.');
+        } else if (error.message === 'Network Error') {
+            throw new Error('Không thể kết nối đến server.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi cập nhật nhà cung cấp.');
+        }
+    }
+}
+
+

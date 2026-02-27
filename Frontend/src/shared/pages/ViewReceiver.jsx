@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
 import {
     Box,
     Card,
@@ -23,51 +22,93 @@ import {
     FormGroup,
     FormControlLabel,
     Checkbox,
+    Chip,
 } from '@mui/material';
-import { Filter, CloudOff, Columns, Eye, Edit, Plus } from 'lucide-react';
-import { getSuppliers } from '../lib/supplierService';
+import { Columns, Filter, Eye, Edit } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import SearchInput from '../components/SearchInput';
-import SupplierFilterPopup from '../components/SupplierFilterPopup';
-import ViewSupplierDetail from '../components/ViewSupplierDetail';
-import EditSupplierPopup from '../components/EditSupplierPopup';
+import { removeDiacritics } from '../utils/stringUtils';
+import ReceiverFilterPopup from '../components/ReceiverFilterPopup';
 import '../styles/SupplierView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const SUPPLIER_COLUMNS = [
+const RECEIVER_COLUMNS = [
     { id: 'stt', label: 'STT', getValue: () => '' },
-    { id: 'supplierCode', label: 'Mã NCC', getValue: (row) => row.supplierCode ?? '' },
-    { id: 'supplierName', label: 'Tên nhà cung cấp', getValue: (row) => row.supplierName ?? '' },
-    { id: 'taxCode', label: 'Mã số thuế', getValue: (row) => row.taxCode ?? '' },
-    { id: 'phone', label: 'Điện thoại', getValue: (row) => row.phone ?? '' },
+    { id: 'receiverCode', label: 'Mã người nhận', getValue: (row) => row.receiverCode ?? '' },
+    { id: 'receiverName', label: 'Tên người nhận', getValue: (row) => row.receiverName ?? '' },
+    { id: 'phone', label: 'Số điện thoại', getValue: (row) => row.phone ?? '' },
     { id: 'email', label: 'Email', getValue: (row) => row.email ?? '' },
+    { id: 'ward', label: 'Phường', getValue: (row) => row.ward ?? '' },
+    { id: 'province', label: 'Tỉnh', getValue: (row) => row.province ?? '' },
+    { id: 'country', label: 'Quốc gia', getValue: (row) => row.country ?? '' },
     { id: 'address', label: 'Địa chỉ', getValue: (row) => row.address ?? '' },
-    { id: 'isActive', label: 'Trạng thái', getValue: (row) => (row.isActive ? 'Hoạt động' : 'Tắt') },
-    { id: 'actions', label: 'Hành động', getValue: () => '' },
+    { id: 'notes', label: 'Ghi chú', getValue: (row) => row.notes ?? '' },
+    { id: 'isActive', label: 'Trạng thái', getValue: (row) => (row.isActive ? 'Hoạt động' : 'Ngưng') },
+    { id: 'createdAt', label: 'Ngày tạo', getValue: (row) => row.createdAt ?? '' },
+    { id: 'actions', label: 'Thao tác', getValue: () => '' },
 ];
 
-const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
+const DEFAULT_VISIBLE_COLUMN_IDS = RECEIVER_COLUMNS.map((c) => c.id);
 
-export default function ViewSupplierList() {
+const MOCK_RECEIVERS = [
+    {
+        receiverId: 1,
+        receiverCode: 'RCV001',
+        receiverName: 'Anh Nguyễn Văn A',
+        phone: '0901 234 567',
+        email: 'receiver.a@example.com',
+        ward: 'Phường Bến Thành',
+        province: 'TP.HCM',
+        country: 'Việt Nam',
+        address: '123 Nguyễn Trãi, Quận 1',
+        notes: 'Nhận hàng giờ hành chính',
+        isActive: true,
+        createdAt: '2025-02-01',
+    },
+    {
+        receiverId: 2,
+        receiverCode: 'RCV002',
+        receiverName: 'Chị Trần Thị B',
+        phone: '0902 345 678',
+        email: 'receiver.b@example.com',
+        ward: 'Phường Bến Nghé',
+        province: 'TP.HCM',
+        country: 'Việt Nam',
+        address: '456 Lê Lợi, Quận 1',
+        notes: '',
+        isActive: true,
+        createdAt: '2025-02-03',
+    },
+    {
+        receiverId: 3,
+        receiverCode: 'RCV003',
+        receiverName: 'Kho công ty C',
+        phone: '028 3939 8888',
+        email: 'warehouse.c@example.com',
+        ward: 'Phường 25',
+        province: 'TP.HCM',
+        country: 'Việt Nam',
+        address: '789 Điện Biên Phủ, Quận Bình Thạnh',
+        notes: 'Kho ngoại thành',
+        isActive: false,
+        createdAt: '2025-01-20',
+    },
+];
+
+export default function ViewReceiver() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
+    const [data, setData] = useState(MOCK_RECEIVERS);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
-    const [rows, setRows] = useState([]);
-    const [totalRows, setTotalRows] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [detailOpen, setDetailOpen] = useState(false);
-    const [detailSupplier, setDetailSupplier] = useState(null);
-    const [editOpen, setEditOpen] = useState(false);
-    const [editSupplier, setEditSupplier] = useState(null);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -82,44 +123,99 @@ export default function ViewSupplierList() {
         setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
     };
 
-    const visibleColumns = SUPPLIER_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
+    const visibleColumns = RECEIVER_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
-    const getApiParams = useCallback(() => {
-        const supplierName = filterValues.supplierName !== undefined && filterValues.supplierName !== ''
-            ? filterValues.supplierName
-            : searchTerm.trim();
-        return {
-            page: page + 1,
-            pageSize,
-            supplierCode: filterValues.supplierCode ?? '',
-            supplierName: supplierName || '',
-            taxCode: filterValues.taxCode ?? '',
-            isActive: filterValues.isActive ?? null,
-            fromDate: filterValues.fromDate ?? null,
-            toDate: filterValues.toDate ?? null,
-        };
-    }, [page, pageSize, searchTerm, filterValues]);
+    const filteredRows = useMemo(() => {
+        const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
+        const term = searchTerm.trim() ? normalize(searchTerm.trim()) : '';
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await getSuppliers(getApiParams());
-            setRows(res.items ?? []);
-            setTotalRows(res.totalItems ?? 0);
-        } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Không thể kết nối đến server');
-            setRows([]);
-            setTotalRows(0);
-        } finally {
-            setLoading(false);
+        let list = [...data];
+
+        if (term) {
+            list = list.filter((row) => {
+                const matchCode = normalize(row.receiverCode).includes(term);
+                const matchName = normalize(row.receiverName).includes(term);
+                const matchPhone = normalize(row.phone).includes(term);
+                const matchEmail = normalize(row.email).includes(term);
+                const matchWard = normalize(row.ward).includes(term);
+                const matchProvince = normalize(row.province).includes(term);
+                const matchCountry = normalize(row.country).includes(term);
+                const matchAddress = normalize(row.address).includes(term);
+                return (
+                    matchCode ||
+                    matchName ||
+                    matchPhone ||
+                    matchEmail ||
+                    matchWard ||
+                    matchProvince ||
+                    matchCountry ||
+                    matchAddress
+                );
+            });
         }
-    }, [getApiParams]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (filterValues.receiverCode) {
+            const v = normalize(filterValues.receiverCode);
+            list = list.filter((row) => normalize(row.receiverCode).includes(v));
+        }
+        if (filterValues.receiverName) {
+            const v = normalize(filterValues.receiverName);
+            list = list.filter((row) => normalize(row.receiverName).includes(v));
+        }
+        if (filterValues.phone) {
+            const v = normalize(filterValues.phone);
+            list = list.filter((row) => normalize(row.phone).includes(v));
+        }
+        if (filterValues.email) {
+            const v = normalize(filterValues.email);
+            list = list.filter((row) => normalize(row.email).includes(v));
+        }
+        if (filterValues.ward) {
+            const v = normalize(filterValues.ward);
+            list = list.filter((row) => normalize(row.ward).includes(v));
+        }
+        if (filterValues.province) {
+            const v = normalize(filterValues.province);
+            list = list.filter((row) => normalize(row.province).includes(v));
+        }
+        if (filterValues.country) {
+            const v = normalize(filterValues.country);
+            list = list.filter((row) => normalize(row.country).includes(v));
+        }
+        if (filterValues.isActive !== undefined && filterValues.isActive !== null) {
+            list = list.filter((row) => row.isActive === filterValues.isActive);
+        }
+        if (filterValues.fromDate) {
+            list = list.filter((row) => row.createdAt && row.createdAt >= filterValues.fromDate);
+        }
+        if (filterValues.toDate) {
+            list = list.filter((row) => row.createdAt && row.createdAt <= filterValues.toDate);
+        }
+
+        return list;
+    }, [searchTerm, filterValues, data]);
+
+    const totalRows = filteredRows.length;
+    const start = totalRows === 0 ? 0 : page * pageSize + 1;
+    const end = Math.min((page + 1) * pageSize, totalRows);
+    const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
+
+    const rows = useMemo(
+        () => filteredRows.slice(page * pageSize, (page + 1) * pageSize),
+        [filteredRows, page, pageSize]
+    );
+
+    const handleStatusChange = (id, nextValue) => {
+        const isActive = nextValue === 'true';
+        const confirmed = window.confirm('Bạn có chắc chắn muốn thay đổi trạng thái người nhận này?');
+        if (!confirmed) return;
+        setData((prev) =>
+            prev.map((row) =>
+                row.receiverId === id ? { ...row, isActive } : row
+            )
+        );
+    };
 
     const handleSearch = () => {
         setPage(0);
@@ -136,33 +232,17 @@ export default function ViewSupplierList() {
         setPage(0);
     };
 
-    const showOverlayError = error && !loading;
-    const showEmpty = !loading && !error && rows.length === 0;
-    const start = totalRows === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalRows);
-    const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
-
     return (
         <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
-            <ViewSupplierDetail
-                open={detailOpen}
-                onClose={() => {
-                    setDetailOpen(false);
-                    setDetailSupplier(null);
+            <Box
+                sx={{
+                    mb: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    textAlign: 'left',
                 }}
-                supplier={detailSupplier}
-            />
-            <EditSupplierPopup
-                open={editOpen}
-                onClose={() => {
-                    setEditOpen(false);
-                    setEditSupplier(null);
-                }}
-                supplier={editSupplier}
-                onSave={fetchData}
-            />
-
-            <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+            >
                 <Typography
                     variant="h4"
                     component="h1"
@@ -178,10 +258,14 @@ export default function ViewSupplierList() {
                         whiteSpace: 'nowrap',
                     }}
                 >
-                    Quản lý nhà cung cấp
+                    Quản lý người nhận
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                    Tra cứu và quản lý thông tin nhà cung cấp.
+                <Typography
+                    variant="body1"
+                    color="text.secondary"
+                    sx={{ maxWidth: 560, wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                >
+                    Tra cứu và quản lý thông tin người nhận hàng.
                 </Typography>
             </Box>
 
@@ -199,13 +283,12 @@ export default function ViewSupplierList() {
                     boxSizing: 'border-box',
                 }}
             >
-                <SupplierFilterPopup
+                <ReceiverFilterPopup
                     open={filterOpen}
                     onClose={() => setFilterOpen(false)}
                     initialValues={filterValues}
                     onApply={handleFilterApply}
                 />
-
                 <Card
                     className="supplier-filter-card"
                     sx={{
@@ -224,9 +307,9 @@ export default function ViewSupplierList() {
                                 alignItems: isMobile ? 'stretch' : 'center',
                                 flexWrap: 'wrap',
                             }}
-                        >
+                            >
                             <SearchInput
-                                placeholder="Tìm kiếm theo mã NCC, tên nhà cung cấp…"
+                                placeholder="Tìm kiếm theo mã, tên, SĐT, email người nhận…"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -258,16 +341,28 @@ export default function ViewSupplierList() {
                             </Tooltip>
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                 <Button
-                                    className="list-page-btn"
+                                    className="supplier-page-btn"
                                     variant="contained"
-                                    startIcon={<Plus size={18} />}
-                                    onClick={() => navigate('/suppliers/create')}
-                                    sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}
+                                    onClick={() => navigate('/receivers/create')}
+                                    sx={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        textTransform: 'none',
+                                        borderRadius: 2,
+                                        minHeight: 36,
+                                        px: 2,
+                                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                                        boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+                                        '&:hover': {
+                                            background: 'linear-gradient(45deg, #1976D2 30%, #00BCD4 90%)',
+                                            boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)',
+                                        },
+                                    }}
+                                    startIcon={<span style={{ fontSize: 18, fontWeight: 700 }}>+</span>}
                                 >
-                                    Thêm nhà cung cấp
+                                    Tạo mới
                                 </Button>
                             </Box>
-                            
                         </Box>
                     </CardContent>
                 </Card>
@@ -287,14 +382,17 @@ export default function ViewSupplierList() {
                         <FormControlLabel
                             control={
                                 <Checkbox
-                                    checked={visibleColumnIds.size === SUPPLIER_COLUMNS.length}
-                                    indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < SUPPLIER_COLUMNS.length}
+                                    checked={visibleColumnIds.size === RECEIVER_COLUMNS.length}
+                                    indeterminate={
+                                        visibleColumnIds.size > 0 &&
+                                        visibleColumnIds.size < RECEIVER_COLUMNS.length
+                                    }
                                     onChange={(e) => handleSelectAllColumns(e.target.checked)}
                                 />
                             }
                             label="Tất cả"
                         />
-                        {SUPPLIER_COLUMNS.map((col) => (
+                        {RECEIVER_COLUMNS.map((col) => (
                             <FormControlLabel
                                 key={col.id}
                                 control={
@@ -319,51 +417,45 @@ export default function ViewSupplierList() {
                         p: 1,
                     }}
                 >
-                    <Box className="supplier-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
-                        {loading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                                <Typography color="text.secondary">Đang tải…</Typography>
-                            </Box>
-                        ) : showOverlayError ? (
+                    <Box
+                        className="supplier-grid-wrapper"
+                        sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}
+                    >
+                        {rows.length === 0 ? (
                             <Box
-                                className="supplier-grid-error-overlay"
                                 sx={{
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    minHeight: 200,
-                                    backgroundColor: 'rgba(255,255,255,0.95)',
-                                    gap: 1.5,
+                                    py: 6,
+                                    color: 'text.secondary',
                                 }}
                             >
-                                <CloudOff size={40} style={{ color: theme.palette.text.secondary }} />
-                                <Typography variant="subtitle1" fontWeight={600} color="text.primary">
-                                    Không thể kết nối đến máy chủ
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    Vui lòng thử lại sau
-                                </Typography>
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    onClick={() => fetchData()}
-                                    sx={{ mt: 0.5, textTransform: 'none' }}
-                                >
-                                    Thử lại
-                                </Button>
-                            </Box>
-                        ) : showEmpty ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
-                                <Typography>Chưa có dữ liệu nhà cung cấp</Typography>
+                                <Typography>Chưa có dữ liệu người nhận</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                            <TableContainer
+                                sx={{
+                                    maxHeight: 'calc(100vh - 240px)',
+                                    border: '1px solid rgba(0,0,0,0.2)',
+                                    borderRadius: 2,
+                                    overflow: 'hidden',
+                                }}
+                            >
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
                                             {visibleColumns.map((col) => (
-                                                <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' ? 'right' : 'left'}>
+                                                <TableCell
+                                                    key={col.id}
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        bgcolor: 'grey.50',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                    align="left"
+                                                >
                                                     {col.label}
                                                 </TableCell>
                                             ))}
@@ -371,12 +463,40 @@ export default function ViewSupplierList() {
                                     </TableHead>
                                     <TableBody>
                                         {rows.map((row, index) => (
-                                            <TableRow key={row.supplierId} hover>
+                                            <TableRow key={row.receiverId} hover>
                                                 {visibleColumns.map((col) => {
                                                     if (col.id === 'stt') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 {page * pageSize + index + 1}
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    if (col.id === 'isActive') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                                                    <Select
+                                                                        value={row.isActive ? 'true' : 'false'}
+                                                                        onChange={(e) =>
+                                                                            handleStatusChange(
+                                                                                row.receiverId,
+                                                                                e.target.value
+                                                                            )
+                                                                        }
+                                                                        sx={{
+                                                                            fontSize: '0.8125rem',
+                                                                            borderRadius: '50px',
+                                                                            '& .MuiSelect-select': {
+                                                                                py: 0.25,
+                                                                                px: 1.5,
+                                                                            },
+                                                                        }}
+                                                                    >
+                                                                        <MenuItem value="true">Hoạt động</MenuItem>
+                                                                        <MenuItem value="false">Ngưng</MenuItem>
+                                                                    </Select>
+                                                                </FormControl>
                                                             </TableCell>
                                                         );
                                                     }
@@ -386,10 +506,6 @@ export default function ViewSupplierList() {
                                                                 <Tooltip title="Xem">
                                                                     <IconButton
                                                                         size="small"
-                                                                        onClick={() => {
-                                                                            setDetailSupplier(row);
-                                                                            setDetailOpen(true);
-                                                                        }}
                                                                         aria-label="Xem"
                                                                     >
                                                                         <Eye size={18} />
@@ -398,10 +514,6 @@ export default function ViewSupplierList() {
                                                                 <Tooltip title="Sửa">
                                                                     <IconButton
                                                                         size="small"
-                                                                        onClick={() => {
-                                                                            setEditSupplier(row);
-                                                                            setEditOpen(true);
-                                                                        }}
                                                                         aria-label="Sửa"
                                                                     >
                                                                         <Edit size={18} />
@@ -410,7 +522,11 @@ export default function ViewSupplierList() {
                                                             </TableCell>
                                                         );
                                                     }
-                                                    return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
+                                                    return (
+                                                        <TableCell key={col.id} align="left">
+                                                            {col.getValue(row)}
+                                                        </TableCell>
+                                                    );
                                                 })}
                                             </TableRow>
                                         ))}
@@ -431,7 +547,14 @@ export default function ViewSupplierList() {
                         gap: 2,
                     }}
                 >
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        component="span"
+                        sx={{ whiteSpace: 'nowrap' }}
+                    >
+                        Số dòng / trang:
+                    </Typography>
                     <FormControl size="small" sx={{ minWidth: 72 }}>
                         <Select
                             value={pageSize}
@@ -439,11 +562,18 @@ export default function ViewSupplierList() {
                             sx={{ height: 32, fontSize: '0.875rem' }}
                         >
                             {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                <MenuItem key={n} value={n}>{n}</MenuItem>
+                                <MenuItem key={n} value={n}>
+                                    {n}
+                                </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        component="span"
+                        sx={{ whiteSpace: 'nowrap' }}
+                    >
                         {start}–{end} / {totalRows} (Tổng {totalPages} trang)
                     </Typography>
                     <Button
@@ -469,3 +599,4 @@ export default function ViewSupplierList() {
         </Box>
     );
 }
+

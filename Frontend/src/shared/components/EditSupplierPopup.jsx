@@ -13,8 +13,11 @@ import {
     Select,
     MenuItem,
     FormControl,
+    CircularProgress,
+    Alert,
 } from '@mui/material';
 import { Building2, FileText, Phone, Mail, MapPin } from 'lucide-react';
+import { updateSupplier } from '../lib/supplierService';
 
 const labelSx = { mb: 0.75, fontWeight: 500, fontSize: '0.8125rem', color: 'text.secondary' };
 const inputSx = {
@@ -25,8 +28,12 @@ const inputSx = {
     },
 };
 const inputReadOnlySx = {
-    ...inputSx,
-    '& .MuiOutlinedInput-root': { bgcolor: '#f6f7f9', '&.Mui-disabled': { bgcolor: '#f6f7f9' } },
+    '& .MuiOutlinedInput-root': {
+        borderRadius: 2,
+        bgcolor: '#f6f7f9',
+        '&.Mui-disabled': { bgcolor: '#f6f7f9' },
+        '& input': { fontSize: '0.8125rem', py: 1 },
+    },
 };
 
 function FieldBlock({ label, children }) {
@@ -38,7 +45,7 @@ function FieldBlock({ label, children }) {
     );
 }
 
-export default function EditSupplierPopup({ open, onClose, supplier }) {
+export default function EditSupplierPopup({ open, onClose, supplier, onSave }) {
     const [form, setForm] = useState({
         supplierCode: '',
         supplierName: '',
@@ -48,6 +55,8 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
         address: '',
         isActive: true,
     });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         if (supplier) {
@@ -60,6 +69,7 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                 address: supplier.address ?? '',
                 isActive: supplier.isActive ?? true,
             });
+            setError(null);
         }
     }, [supplier, open]);
 
@@ -69,11 +79,36 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
     };
 
     const handleClose = () => {
-        onClose();
+        if (!saving) {
+            setError(null);
+            onClose();
+        }
     };
 
-    const handleSave = () => {
-        onClose();
+    const handleSave = async () => {
+        if (!form.supplierName.trim()) {
+            setError('Tên nhà cung cấp không được để trống.');
+            return;
+        }
+
+        try {
+            setSaving(true);
+            setError(null);
+            await updateSupplier(supplier.supplierId, {
+                supplierName: form.supplierName.trim(),
+                taxCode: form.taxCode.trim() || null,
+                phone: form.phone.trim() || null,
+                email: form.email.trim() || null,
+                address: form.address.trim() || null,
+                isActive: form.isActive,
+            });
+            if (onSave) onSave();
+            onClose();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (!supplier) return null;
@@ -106,6 +141,11 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                 Chỉnh sửa nhà cung cấp
             </DialogTitle>
             <DialogContent sx={{ pt: 3, pb: 3, overflowY: 'auto' }}>
+                {error && (
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
                 <Grid container spacing={3}>
                     <Grid item xs={12} sm={6}>
                         <FieldBlock label="ID nhà cung cấp">
@@ -123,17 +163,16 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                             <TextField
                                 fullWidth
                                 size="small"
-                                name="supplierCode"
                                 value={form.supplierCode}
-                                onChange={handleChange}
                                 InputProps={{
+                                    readOnly: true,
                                     startAdornment: (
                                         <InputAdornment position="start">
                                             <Building2 size={18} color="#757575" />
                                         </InputAdornment>
                                     ),
                                 }}
-                                sx={inputSx}
+                                sx={inputReadOnlySx}
                             />
                         </FieldBlock>
                     </Grid>
@@ -145,6 +184,7 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                                 name="taxCode"
                                 value={form.taxCode}
                                 onChange={handleChange}
+                                disabled={saving}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
@@ -157,13 +197,14 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                         </FieldBlock>
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                        <FieldBlock label="Tên nhà cung cấp">
+                        <FieldBlock label="Tên nhà cung cấp *">
                             <TextField
                                 fullWidth
                                 size="small"
                                 name="supplierName"
                                 value={form.supplierName}
                                 onChange={handleChange}
+                                disabled={saving}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
@@ -183,6 +224,7 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                                 name="phone"
                                 value={form.phone}
                                 onChange={handleChange}
+                                disabled={saving}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
@@ -202,6 +244,7 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                                 name="email"
                                 value={form.email}
                                 onChange={handleChange}
+                                disabled={saving}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
@@ -221,6 +264,7 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                                 name="address"
                                 value={form.address}
                                 onChange={handleChange}
+                                disabled={saving}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
@@ -239,6 +283,7 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                                     name="isActive"
                                     value={form.isActive === true || form.isActive === 'true' ? 'true' : 'false'}
                                     onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.value === 'true' }))}
+                                    disabled={saving}
                                     sx={{ fontSize: '0.8125rem', py: 0.5 }}
                                 >
                                     <MenuItem value="true">Hoạt động</MenuItem>
@@ -250,11 +295,17 @@ export default function EditSupplierPopup({ open, onClose, supplier }) {
                 </Grid>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2, pt: 0, gap: 1 }}>
-                <Button onClick={handleClose} variant="outlined" sx={{ textTransform: 'none', borderRadius: 2 }}>
+                <Button onClick={handleClose} variant="outlined" disabled={saving} sx={{ textTransform: 'none', borderRadius: 2 }}>
                     Hủy
                 </Button>
-                <Button onClick={handleSave} variant="contained" sx={{ textTransform: 'none', borderRadius: 2 }}>
-                    Lưu
+                <Button
+                    onClick={handleSave}
+                    variant="contained"
+                    disabled={saving}
+                    sx={{ textTransform: 'none', borderRadius: 2, minWidth: 80 }}
+                    startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
+                >
+                    {saving ? 'Đang lưu...' : 'Lưu'}
                 </Button>
             </DialogActions>
         </Dialog>
