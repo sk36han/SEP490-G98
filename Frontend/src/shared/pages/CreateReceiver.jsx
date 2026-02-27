@@ -102,13 +102,11 @@ const CreateReceiver = () => {
         () => provinces.find((p) => String(p.code) === formData.provinceCode),
         [provinces, formData.provinceCode]
     );
-    const wardOptions = useMemo(
-        () =>
-            provinceDetail?.districts
-                ? provinceDetail.districts.flatMap((d) => d.wards || [])
-                : [],
-        [provinceDetail]
-    );
+    const wardOptions = useMemo(() => {
+        if (!provinceDetail?.districts) return [];
+        const list = provinceDetail.districts.flatMap((d) => d.wards || []);
+        return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    }, [provinceDetail]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
