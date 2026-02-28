@@ -39,6 +39,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = request.Phone,
                 Email = request.Email,
                 Address = request.Address,
+                City = request.City,
+                Ward = request.Ward,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -56,6 +58,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = supplier.Phone,
                 Email = supplier.Email,
                 Address = supplier.Address,
+                City = supplier.City,
+                Ward = supplier.Ward,
                 IsActive = supplier.IsActive
             };
         }
@@ -132,6 +136,8 @@ namespace Warehouse.DataAcces.Service
                     Phone = s.Phone,
                     Email = s.Email,
                     Address = s.Address,
+                    City = s.City,
+                    Ward = s.Ward,
                     IsActive = s.IsActive
                 })
                 .ToList();
@@ -176,6 +182,8 @@ namespace Warehouse.DataAcces.Service
             supplier.Phone = request.Phone;
             supplier.Email = request.Email;
             supplier.Address = request.Address;
+            supplier.City = request.City;
+            supplier.Ward = request.Ward;
             supplier.IsActive = request.IsActive;
 
             // 4️⃣ Save
@@ -191,6 +199,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = supplier.Phone,
                 Email = supplier.Email,
                 Address = supplier.Address,
+                City = supplier.City,
+                Ward = supplier.Ward,
                 IsActive = supplier.IsActive
             };
         }
@@ -228,6 +238,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = supplier.Phone,
                 Email = supplier.Email,
                 Address = supplier.Address,
+                City = supplier.City,
+                Ward = supplier.Ward,
                 IsActive = supplier.IsActive
             };
         }

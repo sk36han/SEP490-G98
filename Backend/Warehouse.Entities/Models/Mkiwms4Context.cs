@@ -748,12 +748,14 @@ public partial class Mkiwms4Context : DbContext
 
             entity.Property(e => e.Address).HasMaxLength(500);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.City).HasMaxLength(100);
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.Phone).HasMaxLength(30);
             entity.Property(e => e.SupplierCode).HasMaxLength(50);
             entity.Property(e => e.SupplierName).HasMaxLength(300);
             entity.Property(e => e.TaxCode).HasMaxLength(50);
+            entity.Property(e => e.Ward).HasMaxLength(100);
         });
 
         modelBuilder.Entity<UnitOfMeasure>(entity =>
