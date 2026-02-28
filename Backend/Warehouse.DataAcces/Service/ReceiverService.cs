@@ -38,6 +38,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = request.Phone,
                 Email = request.Email,
                 Address = request.Address,
+                City = request.City,
+                Ward = request.Ward,
                 Notes = request.Notes,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -55,6 +57,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = receiver.Phone,
                 Email = receiver.Email,
                 Address = receiver.Address,
+                City = receiver.City,
+                Ward = receiver.Ward,
                 Notes = receiver.Notes,
                 IsActive = receiver.IsActive
             };
@@ -123,6 +127,8 @@ namespace Warehouse.DataAcces.Service
                     Phone = r.Phone,
                     Email = r.Email,
                     Address = r.Address,
+                    City = r.City,
+                    Ward = r.Ward,
                     Notes = r.Notes,
                     IsActive = r.IsActive
                 })
@@ -167,6 +173,8 @@ namespace Warehouse.DataAcces.Service
             receiver.Phone = request.Phone;
             receiver.Email = request.Email;
             receiver.Address = request.Address;
+            receiver.City = request.City;
+            receiver.Ward = request.Ward;
             receiver.Notes = request.Notes;
             receiver.IsActive = request.IsActive;
 
@@ -182,6 +190,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = receiver.Phone,
                 Email = receiver.Email,
                 Address = receiver.Address,
+                City = receiver.City,
+                Ward = receiver.Ward,
                 Notes = receiver.Notes,
                 IsActive = receiver.IsActive
             };
@@ -219,6 +229,8 @@ namespace Warehouse.DataAcces.Service
                 Phone = receiver.Phone,
                 Email = receiver.Email,
                 Address = receiver.Address,
+                City = receiver.City,
+                Ward = receiver.Ward,
                 Notes = receiver.Notes,
                 IsActive = receiver.IsActive
             };

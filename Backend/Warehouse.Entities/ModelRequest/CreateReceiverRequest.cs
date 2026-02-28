@@ -21,6 +21,12 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(255)]
         public string? Address { get; set; }
 
+        [MaxLength(100)]
+        public string? City { get; set; }
+
+        [MaxLength(100)]
+        public string? Ward { get; set; }
+
         [MaxLength(500)]
         public string? Notes { get; set; }
     }

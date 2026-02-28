@@ -17,6 +17,10 @@ public partial class Receiver
 
     public string? Address { get; set; }
 
+    public string? City { get; set; }
+
+    public string? Ward { get; set; }
+
     public string? Notes { get; set; }
 
     public bool IsActive { get; set; }

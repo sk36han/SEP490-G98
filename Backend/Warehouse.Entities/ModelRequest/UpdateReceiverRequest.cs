@@ -19,6 +19,12 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(255, ErrorMessage = "Địa chỉ tối đa 255 ký tự")]
         public string? Address { get; set; }
 
+        [MaxLength(100, ErrorMessage = "Thành phố tối đa 100 ký tự")]
+        public string? City { get; set; }
+
+        [MaxLength(100, ErrorMessage = "Phường/Xã tối đa 100 ký tự")]
+        public string? Ward { get; set; }
+
         [MaxLength(500, ErrorMessage = "Ghi chú tối đa 500 ký tự")]
         public string? Notes { get; set; }
 
