@@ -38,7 +38,7 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
         if (!allowedRoles.includes(permissionRole)) {
             console.warn(`User with role ${permissionRole} tried to access ${location.pathname} but doesn't have permission`);
 
-            if (permissionRole === 'ADMIN') return <Navigate to="/admin/home" replace />;
+            if (permissionRole === 'ADMIN') return <Navigate to="/admin/users" replace />;
             if (permissionRole === 'DIRECTOR') return <Navigate to="/director/home" replace />;
             if (permissionRole === 'WAREHOUSE_KEEPER') return <Navigate to="/products" replace />;
             if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/sale-support/home" replace />;

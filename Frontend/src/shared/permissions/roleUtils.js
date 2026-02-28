@@ -32,28 +32,53 @@ export const getPermissionRole = (originalRole) => {
 
     const upper = str.toUpperCase();
     const noDiacritics = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-    if (upper.includes('ADMIN')) return 'ADMIN';
-    if (upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR') || noDiacritics.includes('GIAM DOC')) return 'DIRECTOR';
+
+    // ADMIN: RoleCode thường là "ADMIN" hoặc "Admin"
+    if (upper === 'ADMIN' || upper.includes('ADMIN')) return 'ADMIN';
+
+    // DIRECTOR: "DIRECTOR", "Giám đốc", "GD"
+    if (upper === 'GD' || upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR') || noDiacritics.includes('GIAM DOC')) return 'DIRECTOR';
+
+    // WAREHOUSE_KEEPER: "TK", "WH", "WHK", "WK", "WAREHOUSE"...
     if (
+        upper === 'TK' ||
+        upper === 'WH' ||
+        upper === 'WHK' ||
+        upper === 'WK' ||
+        upper === 'THU_KHO' ||
         upper.includes('WAREHOUSE_KEEPER') ||
         upper.includes('WAREHOUSE KEEPER') ||
         upper.includes('WAREHOUSE') ||
-        upper === 'WK' ||
-        upper === 'WHK' ||
-        upper === 'WH' ||
-        upper === 'TK' ||
-        upper === 'THU_KHO'
+        noDiacritics.includes('THU KHO') ||
+        noDiacritics.includes('THUKHO')
     ) return 'WAREHOUSE_KEEPER';
-    if (upper.includes('SALE SUPPORT') || upper.includes('SALE_SUPPORT') || noDiacritics.includes('SALE SUPPORT')) return 'SALE_SUPPORT';
+
+    // SALE_SUPPORT: kiểm tra trước SALE_ENGINEER vì "SALE" chung
     if (
+        upper === 'SS' ||
+        upper.includes('SALE SUPPORT') ||
+        upper.includes('SALE_SUPPORT') ||
+        noDiacritics.includes('SALE SUPPORT')
+    ) return 'SALE_SUPPORT';
+
+    // SALE_ENGINEER: "SALE", "SALES", "SALE_ENGINEER"...
+    if (
+        upper === 'SALE' ||
+        upper === 'SALES' ||
+        upper === 'SALEENGINEER' ||
         upper.includes('SALE ENGINEER') ||
         upper.includes('SALE_ENGINEER') ||
-        upper === 'SALEENGINEER' ||
-        upper === 'SALES' ||
-        upper === 'SALE' ||
         noDiacritics.includes('SALE ENGINEER')
     ) return 'SALE_ENGINEER';
-    if (upper === 'ACCOUNTANTS' || upper.includes('KẾ TOÁN') || noDiacritics.includes('KE TOAN') || upper.includes('ACCOUNTANT')) return 'ACCOUNTANTS';
+
+    // ACCOUNTANTS: "KT" (Kế toán), "ACCOUNTANTS", "ACCOUNTANT"
+    if (
+        upper === 'KT' ||
+        upper === 'ACCOUNTANTS' ||
+        upper.includes('ACCOUNTANT') ||
+        upper.includes('KẾ TOÁN') ||
+        noDiacritics.includes('KE TOAN')
+    ) return 'ACCOUNTANTS';
     return null;
 };
 

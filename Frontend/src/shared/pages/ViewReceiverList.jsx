@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
     Box,
     Card,
@@ -24,11 +24,11 @@ import {
     Checkbox,
     Chip,
 } from '@mui/material';
-import { Columns, Filter, Eye, Edit } from 'lucide-react';
+import { Columns, Filter, Eye, Edit, CloudOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SearchInput from '../components/SearchInput';
-import { removeDiacritics } from '../utils/stringUtils';
 import ReceiverFilterPopup from '../components/ReceiverFilterPopup';
+import { getReceivers, toggleReceiverStatus } from '../lib/receiverService';
 import '../styles/SupplierView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -51,57 +51,18 @@ const RECEIVER_COLUMNS = [
 
 const DEFAULT_VISIBLE_COLUMN_IDS = RECEIVER_COLUMNS.map((c) => c.id);
 
-const MOCK_RECEIVERS = [
-    {
-        receiverId: 1,
-        receiverCode: 'RCV001',
-        receiverName: 'Anh Nguyễn Văn A',
-        phone: '0901 234 567',
-        email: 'receiver.a@example.com',
-        ward: 'Phường Bến Thành',
-        province: 'TP.HCM',
-        country: 'Việt Nam',
-        address: '123 Nguyễn Trãi, Quận 1',
-        notes: 'Nhận hàng giờ hành chính',
-        isActive: true,
-        createdAt: '2025-02-01',
-    },
-    {
-        receiverId: 2,
-        receiverCode: 'RCV002',
-        receiverName: 'Chị Trần Thị B',
-        phone: '0902 345 678',
-        email: 'receiver.b@example.com',
-        ward: 'Phường Bến Nghé',
-        province: 'TP.HCM',
-        country: 'Việt Nam',
-        address: '456 Lê Lợi, Quận 1',
-        notes: '',
-        isActive: true,
-        createdAt: '2025-02-03',
-    },
-    {
-        receiverId: 3,
-        receiverCode: 'RCV003',
-        receiverName: 'Kho công ty C',
-        phone: '028 3939 8888',
-        email: 'warehouse.c@example.com',
-        ward: 'Phường 25',
-        province: 'TP.HCM',
-        country: 'Việt Nam',
-        address: '789 Điện Biên Phủ, Quận Bình Thạnh',
-        notes: 'Kho ngoại thành',
-        isActive: false,
-        createdAt: '2025-01-20',
-    },
-];
+// Giữ để tránh lỗi "MOCK_RECEIVERS is not defined" (dữ liệu thật lấy từ API getReceivers)
+const MOCK_RECEIVERS = [];
 
 export default function ViewReceiver() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    const [data, setData] = useState(MOCK_RECEIVERS);
+    const [rows, setRows] = useState([]);
+    const [totalRows, setTotalRows] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
@@ -109,6 +70,53 @@ export default function ViewReceiver() {
     const [pageSize, setPageSize] = useState(20);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+
+    const getApiParams = useCallback(() => {
+        const fv = filterValues || {};
+        const receiverName =
+            fv.receiverName !== undefined && String(fv.receiverName).trim() !== ''
+                ? String(fv.receiverName).trim()
+                : String(searchTerm ?? '').trim();
+        const fromDate = fv.fromDate;
+        const toDate = fv.toDate;
+        return {
+            page: Number(page) + 1 || 1,
+            pageSize: Number(pageSize) || 20,
+            receiverCode: fv.receiverCode != null ? String(fv.receiverCode) : '',
+            receiverName: receiverName || '',
+            isActive: fv.isActive ?? null,
+            fromDate: typeof fromDate === 'string' ? fromDate : null,
+            toDate: typeof toDate === 'string' ? toDate : null,
+        };
+    }, [page, pageSize, searchTerm, filterValues]);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await getReceivers(getApiParams());
+            setRows(Array.isArray(res?.items) ? res.items : []);
+            setTotalRows(res?.totalItems ?? 0);
+        } catch (err) {
+            const status = err?.response?.status;
+            let msg = err?.response?.data?.message ?? err?.message;
+            if (status === 404) {
+                msg =
+                    'API Receiver trả 404. Kiểm tra backend (localhost:5141) đang chạy và có Controller Receiver với route GET api/Receiver/list-all.';
+            } else if (!msg || typeof msg !== 'string') {
+                msg = 'Không thể kết nối đến server. Kiểm tra backend và CORS.';
+            }
+            setError(msg);
+            setRows([]);
+            setTotalRows(0);
+        } finally {
+            setLoading(false);
+        }
+    }, [getApiParams]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -126,95 +134,24 @@ export default function ViewReceiver() {
     const visibleColumns = RECEIVER_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
-    const filteredRows = useMemo(() => {
-        const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
-        const term = searchTerm.trim() ? normalize(searchTerm.trim()) : '';
-
-        let list = [...data];
-
-        if (term) {
-            list = list.filter((row) => {
-                const matchCode = normalize(row.receiverCode).includes(term);
-                const matchName = normalize(row.receiverName).includes(term);
-                const matchPhone = normalize(row.phone).includes(term);
-                const matchEmail = normalize(row.email).includes(term);
-                const matchWard = normalize(row.ward).includes(term);
-                const matchProvince = normalize(row.province).includes(term);
-                const matchCountry = normalize(row.country).includes(term);
-                const matchAddress = normalize(row.address).includes(term);
-                return (
-                    matchCode ||
-                    matchName ||
-                    matchPhone ||
-                    matchEmail ||
-                    matchWard ||
-                    matchProvince ||
-                    matchCountry ||
-                    matchAddress
-                );
-            });
-        }
-
-        if (filterValues.receiverCode) {
-            const v = normalize(filterValues.receiverCode);
-            list = list.filter((row) => normalize(row.receiverCode).includes(v));
-        }
-        if (filterValues.receiverName) {
-            const v = normalize(filterValues.receiverName);
-            list = list.filter((row) => normalize(row.receiverName).includes(v));
-        }
-        if (filterValues.phone) {
-            const v = normalize(filterValues.phone);
-            list = list.filter((row) => normalize(row.phone).includes(v));
-        }
-        if (filterValues.email) {
-            const v = normalize(filterValues.email);
-            list = list.filter((row) => normalize(row.email).includes(v));
-        }
-        if (filterValues.ward) {
-            const v = normalize(filterValues.ward);
-            list = list.filter((row) => normalize(row.ward).includes(v));
-        }
-        if (filterValues.province) {
-            const v = normalize(filterValues.province);
-            list = list.filter((row) => normalize(row.province).includes(v));
-        }
-        if (filterValues.country) {
-            const v = normalize(filterValues.country);
-            list = list.filter((row) => normalize(row.country).includes(v));
-        }
-        if (filterValues.isActive !== undefined && filterValues.isActive !== null) {
-            list = list.filter((row) => row.isActive === filterValues.isActive);
-        }
-        if (filterValues.fromDate) {
-            list = list.filter((row) => row.createdAt && row.createdAt >= filterValues.fromDate);
-        }
-        if (filterValues.toDate) {
-            list = list.filter((row) => row.createdAt && row.createdAt <= filterValues.toDate);
-        }
-
-        return list;
-    }, [searchTerm, filterValues, data]);
-
-    const totalRows = filteredRows.length;
     const start = totalRows === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalRows);
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
+    const showOverlayError = error && !loading;
+    const showEmpty = !loading && !error && rows.length === 0;
 
-    const rows = useMemo(
-        () => filteredRows.slice(page * pageSize, (page + 1) * pageSize),
-        [filteredRows, page, pageSize]
-    );
-
-    const handleStatusChange = (id, nextValue) => {
+    const handleStatusChange = async (id, nextValue) => {
         const isActive = nextValue === 'true';
         const confirmed = window.confirm('Bạn có chắc chắn muốn thay đổi trạng thái người nhận này?');
         if (!confirmed) return;
-        setData((prev) =>
-            prev.map((row) =>
-                row.receiverId === id ? { ...row, isActive } : row
-            )
-        );
+        try {
+            await toggleReceiverStatus(id, isActive);
+            setRows((prev) =>
+                prev.map((row) => (row.receiverId === id ? { ...row, isActive } : row))
+            );
+        } catch (err) {
+            setError(err?.message || 'Đổi trạng thái thất bại');
+        }
     };
 
     const handleSearch = () => {
@@ -421,7 +358,40 @@ export default function ViewReceiver() {
                         className="supplier-grid-wrapper"
                         sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}
                     >
-                        {rows.length === 0 ? (
+                        {loading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+                                <Typography color="text.secondary">Đang tải…</Typography>
+                            </Box>
+                        ) : showOverlayError ? (
+                            <Box
+                                className="supplier-grid-error-overlay"
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: 200,
+                                    backgroundColor: 'rgba(255,255,255,0.95)',
+                                    gap: 1.5,
+                                }}
+                            >
+                                <CloudOff size={40} style={{ color: theme.palette.text.secondary }} />
+                                <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+                                    Không thể kết nối đến máy chủ
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {error}
+                                </Typography>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => fetchData()}
+                                    sx={{ mt: 0.5, textTransform: 'none' }}
+                                >
+                                    Thử lại
+                                </Button>
+                            </Box>
+                        ) : showEmpty ? (
                             <Box
                                 sx={{
                                     display: 'flex',

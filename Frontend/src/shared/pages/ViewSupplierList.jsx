@@ -86,18 +86,22 @@ export default function ViewSupplierList() {
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     const getApiParams = useCallback(() => {
-        const supplierName = filterValues.supplierName !== undefined && filterValues.supplierName !== ''
-            ? filterValues.supplierName
-            : searchTerm.trim();
+        const fv = filterValues || {};
+        const supplierName =
+            fv.supplierName !== undefined && String(fv.supplierName).trim() !== ''
+                ? String(fv.supplierName).trim()
+                : String(searchTerm ?? '').trim();
+        const fromDate = fv.fromDate;
+        const toDate = fv.toDate;
         return {
-            page: page + 1,
-            pageSize,
-            supplierCode: filterValues.supplierCode ?? '',
+            page: Number(page) + 1 || 1,
+            pageSize: Number(pageSize) || 20,
+            supplierCode: fv.supplierCode != null ? String(fv.supplierCode) : '',
             supplierName: supplierName || '',
-            taxCode: filterValues.taxCode ?? '',
-            isActive: filterValues.isActive ?? null,
-            fromDate: filterValues.fromDate ?? null,
-            toDate: filterValues.toDate ?? null,
+            taxCode: fv.taxCode != null ? String(fv.taxCode) : '',
+            isActive: fv.isActive ?? null,
+            fromDate: typeof fromDate === 'string' ? fromDate : null,
+            toDate: typeof toDate === 'string' ? toDate : null,
         };
     }, [page, pageSize, searchTerm, filterValues]);
 
@@ -106,10 +110,18 @@ export default function ViewSupplierList() {
         setError(null);
         try {
             const res = await getSuppliers(getApiParams());
-            setRows(res.items ?? []);
-            setTotalRows(res.totalItems ?? 0);
+            setRows(Array.isArray(res?.items) ? res.items : []);
+            setTotalRows(res?.totalItems ?? 0);
         } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Không thể kết nối đến server');
+            const status = err?.response?.status;
+            let msg = err?.response?.data?.message ?? err?.message;
+            if (status === 404) {
+                msg =
+                    'API Supplier trả 404. Kiểm tra backend (localhost:5141) đang chạy và có Controller Supplier với route GET api/Supplier/list-all.';
+            } else if (!msg || typeof msg !== 'string') {
+                msg = 'Không thể kết nối đến server. Kiểm tra backend và CORS.';
+            }
+            setError(msg);
             setRows([]);
             setTotalRows(0);
         } finally {

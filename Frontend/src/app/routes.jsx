@@ -44,10 +44,11 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
+        {/* ADMIN: trang chủ sau login = /admin/users; /admin/home vẫn dùng được (Home) */}
         <Route
             path="/admin/home"
             element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['ADMIN']}>
                     <MainLayout>
                         <Home />
                     </MainLayout>
