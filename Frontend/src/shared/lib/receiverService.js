@@ -60,6 +60,8 @@ export async function getReceivers(params = {}) {
             phone: row.phone ?? row.Phone ?? '',
             email: row.email ?? row.Email ?? '',
             address: row.address ?? row.Address ?? '',
+            city: row.city ?? row.City ?? '',
+            ward: row.ward ?? row.Ward ?? '',
             notes: row.notes ?? row.Notes ?? '',
             isActive: row.isActive ?? row.IsActive ?? true,
         }));

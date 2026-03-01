@@ -20,7 +20,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import authService from '../../shared/lib/authService';
 import logo from '../../shared/assets/logo.png';
 import { getMenuItems } from './menuConfig';
-import { getPermissionRole, getPermissionRoleLabel } from '../../shared/permissions/roleUtils';
+import { getPermissionRole, getPermissionRoleLabel, getRawRoleFromUser } from '../../shared/permissions/roleUtils';
 
 const drawerWidth = 260; // Slightly wider for better spacing
 
@@ -78,16 +78,7 @@ const Sidebar = () => {
     const location = useLocation();
 
     const userInfo = authService.getUser();
-    const roleFromBackend =
-        (userInfo?.roleId != null ? String(userInfo.roleId) : '')
-        || (userInfo?.RoleId != null ? String(userInfo.RoleId) : '')
-        || userInfo?.roleCode
-        || userInfo?.roleName
-        || userInfo?.role
-        || userInfo?.RoleCode
-        || userInfo?.RoleName
-        || userInfo?.Role
-        || '';
+    const roleFromBackend = getRawRoleFromUser(userInfo);
 
     const user = {
         name: String(userInfo?.fullName ?? userInfo?.FullName ?? 'User').slice(0, 100),

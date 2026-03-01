@@ -17,7 +17,7 @@ import Toast from '../../components/Toast/Toast';
 import AuthLayout from '../../components/Layout/AuthLayout';
 import authService from '../lib/authService';
 import { useToast } from '../hooks/useToast';
-import { getPermissionRole, isPermissionRoleValid } from '../permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../permissions/roleUtils';
 
 const ROLE_ERROR_MESSAGE = 'Tài khoản đang bị lỗi vai trò. Vui lòng liên hệ quản trị viên.';
 
@@ -62,17 +62,7 @@ const Login = () => {
             await authService.login(formData.email, formData.password, formData.rememberMe);
 
             const userInfo = authService.getUser();
-            const rawRole =
-                (userInfo?.roleId != null ? String(userInfo.roleId) : '')
-                || (userInfo?.RoleId != null ? String(userInfo.RoleId) : '')
-                || userInfo?.roleCode
-                || userInfo?.roleName
-                || userInfo?.role
-                || userInfo?.RoleCode
-                || userInfo?.RoleName
-                || userInfo?.Role
-                || '';
-            const permissionRole = getPermissionRole(rawRole);
+            const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
             if (!isPermissionRoleValid(permissionRole)) {
                 authService.logout();
@@ -83,19 +73,20 @@ const Login = () => {
 
             showToast('Đăng nhập thành công!', 'success');
 
+            // Chuyển hướng theo role: Admin → listUserAccount, Director → Home, WD/Accountant/Sale Support/Sale Engine → ItemList
             setTimeout(() => {
                 switch (permissionRole) {
                     case 'ADMIN':
-                        navigate('/admin/users');
+                        navigate('/admin/users'); // listUserAccount
                         break;
                     case 'DIRECTOR':
-                        navigate('/home');
+                        navigate('/home'); // Home
                         break;
                     case 'WAREHOUSE_KEEPER':
                     case 'SALE_SUPPORT':
                     case 'SALE_ENGINEER':
                     case 'ACCOUNTANTS':
-                        navigate('/products');
+                        navigate('/products'); // ItemList
                         break;
                     default:
                         navigate('/home');

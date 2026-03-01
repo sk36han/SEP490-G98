@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import authService from '../shared/lib/authService';
-import { getPermissionRole, isPermissionRoleValid } from '../shared/permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../shared/permissions/roleUtils';
 
 /**
  * ProtectedRoute - Bảo vệ route theo authentication và authorization
@@ -13,17 +13,7 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
     const location = useLocation();
     const isAuthenticated = authService.isAuthenticated();
     const userInfo = authService.getUser();
-    const rawRole =
-        (userInfo?.roleId != null ? String(userInfo.roleId) : '')
-        || (userInfo?.RoleId != null ? String(userInfo.RoleId) : '')
-        || userInfo?.roleCode
-        || userInfo?.roleName
-        || userInfo?.role
-        || userInfo?.RoleCode
-        || userInfo?.RoleName
-        || userInfo?.Role
-        || '';
-    const permissionRole = getPermissionRole(rawRole);
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
