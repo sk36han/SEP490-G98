@@ -1,25 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using System.ComponentModel.DataAnnotations;
 
 namespace Warehouse.Entities.ModelRequest
 {
-    public class CreateSupplierRequest
+    public class CreateReceiverRequest
     {
         [Required]
         [MaxLength(50)]
-        public string SupplierCode { get; set; } = null!;
+        public string ReceiverCode { get; set; } = null!;
 
         [Required]
         [MaxLength(255)]
-        public string SupplierName { get; set; } = null!;
-
-        [MaxLength(50)]
-        public string? TaxCode { get; set; }
+        public string ReceiverName { get; set; } = null!;
 
         [MaxLength(20)]
         public string? Phone { get; set; }
@@ -35,6 +26,8 @@ namespace Warehouse.Entities.ModelRequest
 
         [MaxLength(100)]
         public string? Ward { get; set; }
+
+        [MaxLength(500)]
+        public string? Notes { get; set; }
     }
 }
-

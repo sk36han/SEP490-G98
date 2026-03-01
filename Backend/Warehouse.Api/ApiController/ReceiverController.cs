@@ -1,4 +1,3 @@
-﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
@@ -9,18 +8,18 @@ namespace Warehouse.Api.ApiController
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class SupplierController : ControllerBase
+    public class ReceiverController : ControllerBase
     {
-        private readonly ISupplierService _supplierService;
+        private readonly IReceiverService _receiverService;
 
-        public SupplierController(ISupplierService supplierService)
+        public ReceiverController(IReceiverService receiverService)
         {
-            _supplierService = supplierService;
+            _receiverService = receiverService;
         }
 
         [HttpPost("create")]
         [Authorize]
-        public async Task<IActionResult> CreateSupplier([FromBody] CreateSupplierRequest request)
+        public async Task<IActionResult> CreateReceiver([FromBody] CreateReceiverRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -29,13 +28,7 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
-                {
-                    return Unauthorized(new { message = "Không xác định được người dùng." });
-                }
-
-                var result = await _supplierService.CreateSupplierAsync(request, currentUserId);
+                var result = await _receiverService.CreateReceiverAsync(request);
                 return Ok(result);
             }
             catch (InvalidOperationException ex)
@@ -45,22 +38,20 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("list-all")]
-        public async Task<IActionResult> GetSuppliers(
+        public async Task<IActionResult> GetReceivers(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
-            [FromQuery] string? supplierCode = null,
-            [FromQuery] string? supplierName = null,
-            [FromQuery] string? taxCode = null,
+            [FromQuery] string? receiverCode = null,
+            [FromQuery] string? receiverName = null,
             [FromQuery] bool? isActive = null,
             [FromQuery] DateTime? fromDate = null,
             [FromQuery] DateTime? toDate = null)
         {
-            var result = await _supplierService.GetSuppliersAsync(
+            var result = await _receiverService.GetReceiversAsync(
                 page,
                 pageSize,
-                supplierCode,
-                supplierName,
-                taxCode,
+                receiverCode,
+                receiverName,
                 isActive,
                 fromDate,
                 toDate
@@ -71,7 +62,7 @@ namespace Warehouse.Api.ApiController
 
         [HttpPut("update/{id}")]
         [Authorize]
-        public async Task<IActionResult> UpdateSupplier(long id, [FromBody] UpdateSupplierRequest request)
+        public async Task<IActionResult> UpdateReceiver(long id, [FromBody] UpdateReceiverRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -80,13 +71,7 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
-                {
-                    return Unauthorized(new { message = "Không xác định được người dùng." });
-                }
-
-                var result = await _supplierService.UpdateSupplierAsync(id, request, currentUserId);
+                var result = await _receiverService.UpdateReceiverAsync(id, request);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)
@@ -101,11 +86,11 @@ namespace Warehouse.Api.ApiController
 
         [HttpPatch("change-status/{id}")]
         [Authorize]
-        public async Task<IActionResult> ToggleSupplierStatus(long id, [FromQuery] bool isActive)
+        public async Task<IActionResult> ToggleReceiverStatus(long id, [FromQuery] bool isActive)
         {
             try
             {
-                var result = await _supplierService.ToggleSupplierStatusAsync(id, isActive);
+                var result = await _receiverService.ToggleReceiverStatusAsync(id, isActive);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)
