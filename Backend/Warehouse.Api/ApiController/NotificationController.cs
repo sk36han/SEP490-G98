@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
 namespace Warehouse.Api.ApiController
@@ -19,11 +20,11 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
-		/// Lấy danh sách thông báo của user hiện tại
-		/// GET: /api/notification
+		/// Lấy danh sách thông báo của user hiện tại (có filter + phân trang)
+		/// GET: /api/notification/my-notification?type=...&severity=...&isRead=...&fromDate=...&toDate=...&pageNumber=1&pageSize=20
 		/// </summary>
 		[HttpGet("my-notification")]
-		public async Task<IActionResult> GetMyNotifications()
+		public async Task<IActionResult> GetMyNotifications([FromQuery] NotificationFilterRequest filter)
 		{
 			try
 			{
@@ -33,7 +34,7 @@ namespace Warehouse.Api.ApiController
 					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
 				}
 
-				var result = await _notificationService.GetByUserAsync(userId);
+				var result = await _notificationService.GetByUserAsync(userId, filter);
 				return Ok(ApiResponse<object>.SuccessResponse(result, "Lấy danh sách thông báo thành công."));
 			}
 			catch (Exception)
@@ -111,6 +112,58 @@ namespace Warehouse.Api.ApiController
 
 				await _notificationService.MarkAllAsReadAsync(userId);
 				return Ok(ApiResponse<object>.SuccessResponse(true, "Đánh dấu tất cả đã đọc thành công."));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+
+		/// <summary>
+		/// Xoá mềm 1 thông báo
+		/// DELETE: /api/notification/{id}
+		/// </summary>
+		[HttpDelete("{id}")]
+		public async Task<IActionResult> Delete(long id)
+		{
+			try
+			{
+				var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
+				{
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
+				}
+
+				await _notificationService.SoftDeleteAsync(id, userId);
+				return Ok(ApiResponse<object>.SuccessResponse(true, "Xoá thông báo thành công."));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+
+		/// <summary>
+		/// Xoá mềm tất cả thông báo
+		/// DELETE: /api/notification/delete-all
+		/// </summary>
+		[HttpDelete("delete-all")]
+		public async Task<IActionResult> DeleteAll()
+		{
+			try
+			{
+				var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
+				{
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
+				}
+
+				await _notificationService.SoftDeleteAllAsync(userId);
+				return Ok(ApiResponse<object>.SuccessResponse(true, "Xoá tất cả thông báo thành công."));
 			}
 			catch (Exception)
 			{

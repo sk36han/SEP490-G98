@@ -13,5 +13,9 @@ namespace Warehouse.Entities.ModelResponse
 		public string Message { get; set; } = null!;
 		public bool IsRead { get; set; }
 		public DateTime CreatedAt { get; set; }
+		public string? Type { get; set; }
+		public byte Severity { get; set; }
+		public bool IsDeleted { get; set; }
+		public DateTime? ExpiresAt { get; set; }
 	}
 }

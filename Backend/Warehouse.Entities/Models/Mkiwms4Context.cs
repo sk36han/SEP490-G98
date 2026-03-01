@@ -99,6 +99,8 @@ public partial class Mkiwms4Context : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.Detail).HasMaxLength(2000);
             entity.Property(e => e.EntityType).HasMaxLength(50);
+            entity.Property(e => e.OldValues);
+            entity.Property(e => e.NewValues);
 
             entity.HasOne(d => d.ActorUser).WithMany(p => p.AuditLogs)
                 .HasForeignKey(d => d.ActorUserId)
@@ -533,6 +535,10 @@ public partial class Mkiwms4Context : DbContext
             entity.Property(e => e.Message).HasMaxLength(1000);
             entity.Property(e => e.RefType).HasMaxLength(20);
             entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Type).HasMaxLength(50);
+            entity.Property(e => e.Severity).HasDefaultValue((byte)0);
+            entity.Property(e => e.IsDeleted).HasDefaultValue(false);
+            entity.Property(e => e.ExpiresAt).HasPrecision(0);
 
             entity.HasOne(d => d.User).WithMany(p => p.Notifications)
                 .HasForeignKey(d => d.UserId)
