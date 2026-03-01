@@ -37,48 +37,19 @@ export const getPermissionRole = (originalRole) => {
     if (upper === 'ADMIN' || upper.includes('ADMIN')) return 'ADMIN';
 
     // DIRECTOR: "DIRECTOR", "Giám đốc", "GD"
-    if (upper === 'GD' || upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR') || noDiacritics.includes('GIAM DOC')) return 'DIRECTOR';
+    if (upper === 'GD') return 'DIRECTOR';
 
     // WAREHOUSE_KEEPER: "TK", "WH", "WHK", "WK", "WAREHOUSE"...
-    if (
-        upper === 'TK' ||
-        upper === 'WH' ||
-        upper === 'WHK' ||
-        upper === 'WK' ||
-        upper === 'THU_KHO' ||
-        upper.includes('WAREHOUSE_KEEPER') ||
-        upper.includes('WAREHOUSE KEEPER') ||
-        upper.includes('WAREHOUSE') ||
-        noDiacritics.includes('THU KHO') ||
-        noDiacritics.includes('THUKHO')
-    ) return 'WAREHOUSE_KEEPER';
+    if (upper === 'TK') return 'WAREHOUSE_KEEPER';
 
     // SALE_SUPPORT: kiểm tra trước SALE_ENGINEER vì "SALE" chung
-    if (
-        upper === 'SS' ||
-        upper.includes('SALE SUPPORT') ||
-        upper.includes('SALE_SUPPORT') ||
-        noDiacritics.includes('SALE SUPPORT')
-    ) return 'SALE_SUPPORT';
+    if (upper === 'SP') return 'SALE_SUPPORT';
 
     // SALE_ENGINEER: "SALE", "SALES", "SALE_ENGINEER"...
-    if (
-        upper === 'SALE' ||
-        upper === 'SALES' ||
-        upper === 'SALEENGINEER' ||
-        upper.includes('SALE ENGINEER') ||
-        upper.includes('SALE_ENGINEER') ||
-        noDiacritics.includes('SALE ENGINEER')
-    ) return 'SALE_ENGINEER';
+    if (upper === 'SE') return 'SALE_ENGINEER';
 
     // ACCOUNTANTS: "KT" (Kế toán), "ACCOUNTANTS", "ACCOUNTANT"
-    if (
-        upper === 'KT' ||
-        upper === 'ACCOUNTANTS' ||
-        upper.includes('ACCOUNTANT') ||
-        upper.includes('KẾ TOÁN') ||
-        noDiacritics.includes('KE TOAN')
-    ) return 'ACCOUNTANTS';
+    if (upper === 'KT') return 'ACCOUNTANTS';
     return null;
 };
 
