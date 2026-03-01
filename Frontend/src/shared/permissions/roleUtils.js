@@ -2,28 +2,6 @@
 export const VALID_PERMISSION_ROLES = ['ADMIN', 'DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'];
 
 /**
- * Lấy giá trị role “thô” từ userInfo để đưa vào getPermissionRole.
- * Ưu tiên roleCode/roleName/role (TK vs KT rõ ràng) hơn roleId (phụ thuộc thứ tự ID trong DB), tránh nhầm Thủ Kho và Kế toán.
- * @param {object} userInfo - Đối tượng user từ authService.getUser()
- * @returns {string} Chuỗi role để getPermissionRole(…) xử lý
- */
-export const getRawRoleFromUser = (userInfo) => {
-    if (!userInfo) return '';
-    const code =
-        userInfo.roleCode ??
-        userInfo.RoleCode ??
-        userInfo.roleName ??
-        userInfo.RoleName ??
-        userInfo.role ??
-        userInfo.Role ??
-        '';
-    if (code != null && String(code).trim() !== '') return String(code).trim();
-    const id =
-        userInfo.roleId != null ? String(userInfo.roleId) : userInfo.RoleId != null ? String(userInfo.RoleId) : '';
-    return id;
-};
-
-/**
  * Kiểm tra role có phải là permission role hợp lệ không
  * @param {string|null} role
  * @returns {boolean}
@@ -34,7 +12,7 @@ export const isPermissionRoleValid = (role) => {
 
 /**
  * Chuẩn hóa role từ backend sang permission role. Không trả default.
- * @param {string} originalRole - Role từ backend (roleCode hoặc roleName); nên dùng getRawRoleFromUser(userInfo) để tránh nhầm TK/KT
+ * @param {string} originalRole - Role từ backend (roleCode hoặc roleName)
  * @returns {string|null} Một trong 6 role hợp lệ hoặc null nếu không nhận dạng được
  */
 export const getPermissionRole = (originalRole) => {
@@ -52,61 +30,26 @@ export const getPermissionRole = (originalRole) => {
         if (numeric === 3) return 'ACCOUNTANTS';
     }
 
-    const upper = str.toUpperCase().replace(/\s+/g, ' ').trim();
-    const noDiacritics = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const upper = str.toUpperCase();
+    const noDiacritics = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 
     // ADMIN: RoleCode thường là "ADMIN" hoặc "Admin"
     if (upper === 'ADMIN' || upper.includes('ADMIN')) return 'ADMIN';
 
     // DIRECTOR: "DIRECTOR", "Giám đốc", "GD"
-    if (upper === 'GD' || upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR') || noDiacritics.includes('GIAM DOC')) return 'DIRECTOR';
+    if (upper === 'GD') return 'DIRECTOR';
 
     // WAREHOUSE_KEEPER: "TK", "WH", "WHK", "WK", "WAREHOUSE"...
-    if (
-        upper === 'TK' ||
-        upper === 'WH' ||
-        upper === 'WHK' ||
-        upper === 'WK' ||
-        upper === 'THU_KHO' ||
-        upper.includes('WAREHOUSE_KEEPER') ||
-        upper.includes('WAREHOUSE KEEPER') ||
-        upper.includes('WAREHOUSE') ||
-        noDiacritics.includes('THU KHO') ||
-        noDiacritics.includes('THUKHO')
-    ) return 'WAREHOUSE_KEEPER';
+    if (upper === 'TK') return 'WAREHOUSE_KEEPER';
 
-    // SALE_SUPPORT: RoleCode 'SP' hoặc 'SALE SP', RoleName 'Sale Support'
-    if (
-        upper === 'SP' ||
-        upper === 'SS' ||
-        upper === 'SALE SP' ||
-        upper.includes('SALE SUPPORT') ||
-        upper.includes('SALE_SUPPORT') ||
-        noDiacritics.includes('SALE SUPPORT')
-    ) return 'SALE_SUPPORT';
+    // SALE_SUPPORT: kiểm tra trước SALE_ENGINEER vì "SALE" chung
+    if (upper === 'SP') return 'SALE_SUPPORT';
 
-    // SALE_ENGINEER: RoleCode 'SE' hoặc 'SALE', RoleName 'Sale Engine'
-    if (
-        upper === 'SE' ||
-        upper === 'SALE' ||
-        upper === 'SALES' ||
-        upper === 'SALEENGINEER' ||
-        upper === 'SALE ENGINE' ||
-        upper === 'SALE ENGINEER' ||
-        upper.includes('SALE ENGINE') ||
-        upper.includes('SALE ENGINEER') ||
-        upper.includes('SALE_ENGINEER') ||
-        noDiacritics.includes('SALE ENGINE')
-    ) return 'SALE_ENGINEER';
+    // SALE_ENGINEER: "SALE", "SALES", "SALE_ENGINEER"...
+    if (upper === 'SE') return 'SALE_ENGINEER';
 
     // ACCOUNTANTS: "KT" (Kế toán), "ACCOUNTANTS", "ACCOUNTANT"
-    if (
-        upper === 'KT' ||
-        upper === 'ACCOUNTANTS' ||
-        upper.includes('ACCOUNTANT') ||
-        upper.includes('KẾ TOÁN') ||
-        noDiacritics.includes('KE TOAN')
-    ) return 'ACCOUNTANTS';
+    if (upper === 'KT') return 'ACCOUNTANTS';
     return null;
 };
 
@@ -123,6 +66,3 @@ export const PERMISSION_ROLE_LABELS = {
 export const getPermissionRoleLabel = (permissionRole) => {
     return PERMISSION_ROLE_LABELS[permissionRole] ?? (permissionRole || 'Lỗi vai trò');
 };
-
-/** Kiểm tra view hiện tại dành cho Kế toán (ACCOUNTANTS) */
-export const isAccountantView = (permissionRole) => permissionRole === 'ACCOUNTANTS';
