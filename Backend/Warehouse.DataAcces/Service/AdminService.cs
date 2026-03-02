@@ -5,9 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -19,12 +21,14 @@ namespace Warehouse.DataAcces.Service
         private readonly IConfiguration _configuration;
         private readonly IAuthService _emailService;
         private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
-        public AdminService(Mkiwms4Context context, IConfiguration configuration, IAuthService emailService, INotificationService notificationService) : base(context)
+        public AdminService(Mkiwms4Context context, IConfiguration configuration, IAuthService emailService, INotificationService notificationService, IAuditLogService auditLogService) : base(context)
         {
             _configuration = configuration;
             _emailService = emailService;
             _notificationService = notificationService;
+            _auditLogService = auditLogService;
         }
         public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy)
         {
@@ -113,6 +117,15 @@ namespace Warehouse.DataAcces.Service
                 $"Tài khoản của bạn đã được tạo thành công. Username: {newUser.Username}, Role: {role.RoleName}.",
                 "USER_CREATED",
                 newUser.UserId
+            );
+
+            // Ghi audit log
+            await _auditLogService.LogAsync(
+                assignedBy,
+                AuditAction.Create,
+                AuditEntity.User,
+                newUser.UserId,
+                $"Tạo tài khoản '{newUser.Username}' ({newUser.Email}), Role: {role.RoleName}"
             );
 
             return new CreateUserResponse
@@ -240,6 +253,15 @@ namespace Warehouse.DataAcces.Service
                 .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.UserId == userId);
 
+            // Lưu giá trị cũ trước khi update
+            var oldValues = JsonSerializer.Serialize(new
+            {
+                user?.FullName,
+                user?.Username,
+                user?.IsActive,
+                RoleName = user?.UserRoleUser?.Role?.RoleName
+            });
+
 			// Update FullName
 			if (!string.IsNullOrWhiteSpace(request.FullName))
 			{
@@ -327,6 +349,24 @@ namespace Warehouse.DataAcces.Service
                 user.UserId
             );
 
+            // Ghi audit log
+            var newValues = JsonSerializer.Serialize(new
+            {
+                user.FullName,
+                user.Username,
+                user.IsActive,
+                RoleName = user.UserRoleUser?.Role?.RoleName
+            });
+            await _auditLogService.LogAsync(
+                assignedBy,
+                AuditAction.Update,
+                AuditEntity.User,
+                user.UserId,
+                $"Cập nhật tài khoản '{user.Username}'",
+                oldValues,
+                newValues
+            );
+
             return new AdminUserResponse
             {
 				UserId = user.UserId,
@@ -359,11 +399,25 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Người dùng không tồn tại.");
             }
 
+            // Lưu giá trị cũ
+            var oldIsActive = user.IsActive;
+
             // Chuyển đổi trạng thái: Enable <-> Disable
             user.IsActive = !user.IsActive;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            // Ghi audit log
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.User,
+                user.UserId,
+                $"Chuyển trạng thái tài khoản '{user.Username}'",
+                JsonSerializer.Serialize(new { IsActive = oldIsActive }),
+                JsonSerializer.Serialize(new { IsActive = user.IsActive })
+            );
 
             // Gửi notification cho user bị thay đổi trạng thái
             var statusText = user.IsActive ? "kích hoạt" : "vô hiệu hóa";

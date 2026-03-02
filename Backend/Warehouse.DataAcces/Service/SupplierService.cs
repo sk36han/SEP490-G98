@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.ModelRequest;
@@ -16,14 +18,16 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly IGenericRepository<Supplier> _supplierRepository;
         private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
         // Các role sẽ nhận thông báo về supplier
         private static readonly string[] _notifyRoleCodes = { "ADMIN", "GD", "SALE SP" };
 
-        public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService)
+        public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _supplierRepository = supplierRepository;
             _notificationService = notificationService;
+            _auditLogService = auditLogService;
         }
 
         public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
@@ -63,7 +67,16 @@ namespace Warehouse.DataAcces.Service
                 excludeUserId: currentUserId
             );
 
-            // 5️⃣ Return response
+            // 5️⃣ Ghi audit log
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Create,
+                AuditEntity.Supplier,
+                supplier.SupplierId,
+                $"Tạo nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode})"
+            );
+
+            // 6️⃣ Return response
             return new SupplierResponse
             {
                 SupplierId = supplier.SupplierId,
@@ -176,6 +189,19 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException($"Không tìm thấy nhà cung cấp với ID = {id}");
             }
 
+            // Lưu giá trị cũ trước khi update
+            var oldValues = JsonSerializer.Serialize(new
+            {
+                supplier.SupplierName,
+                supplier.TaxCode,
+                supplier.Phone,
+                supplier.Email,
+                supplier.Address,
+                supplier.City,
+                supplier.Ward,
+                supplier.IsActive
+            });
+
             // 2️⃣ Check duplicate Email (if provided and different from current)
             if (!string.IsNullOrWhiteSpace(request.Email))
             {
@@ -214,7 +240,29 @@ namespace Warehouse.DataAcces.Service
                 excludeUserId: currentUserId
             );
 
-            // 6️⃣ Return response
+            // 6️⃣ Ghi audit log
+            var newValues = JsonSerializer.Serialize(new
+            {
+                supplier.SupplierName,
+                supplier.TaxCode,
+                supplier.Phone,
+                supplier.Email,
+                supplier.Address,
+                supplier.City,
+                supplier.Ward,
+                supplier.IsActive
+            });
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.Supplier,
+                supplier.SupplierId,
+                $"Cập nhật nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode})",
+                oldValues,
+                newValues
+            );
+
+            // 7️⃣ Return response
             return new SupplierResponse
             {
                 SupplierId = supplier.SupplierId,

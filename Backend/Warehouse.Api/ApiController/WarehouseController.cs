@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -57,7 +58,13 @@ namespace Warehouse.Api.ApiController
 
 			try
 			{
-				var result = await _warehouseService.CreateWarehouseAsync(request);
+				var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long currentUserId))
+				{
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
+				}
+
+				var result = await _warehouseService.CreateWarehouseAsync(request, currentUserId);
 				return Ok(ApiResponse<WarehouseResponse>.SuccessResponse(result, "Tạo kho thành công."));
 			}
 			catch (InvalidOperationException ex)
@@ -82,7 +89,13 @@ namespace Warehouse.Api.ApiController
 
 			try
 			{
-				var result = await _warehouseService.UpdateWarehouseAsync(id, request);
+				var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long currentUserId))
+				{
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
+				}
+
+				var result = await _warehouseService.UpdateWarehouseAsync(id, request, currentUserId);
 				return Ok(ApiResponse<WarehouseResponse>.SuccessResponse(result, "Cập nhật kho thành công."));
 			}
 			catch (KeyNotFoundException ex)
