@@ -1,0 +1,110 @@
+================================================================================
+  TRANG ITEM LIST – DỮ LIỆU CẦN LẤY TỪ DATABASE (MKIWMS5)
+================================================================================
+Tài liệu ánh xạ: ViewItemList.jsx <-> Các bảng trong DB script đã gửi.
+================================================================================
+
+1. BẢNG CHÍNH: [dbo].[Items]
+--------------------------------------------------------------------------------
+Cột DB (PascalCase)    | Frontend dùng   | Ghi chú
+------------------------|-----------------|----------------------------------
+ItemId                  | itemId          | PK
+ItemCode                | itemCode        | Mã vật tư
+ItemName                | itemName        | Tên vật tư
+ItemType                | itemType        | Dạng vật tư
+Description             | description    | Mô tả
+CategoryId              | categoryId      | FK → cần join lấy CategoryName
+BrandId                 | brandId         | FK → cần join lấy BrandName (có thể null)
+BaseUomId               | baseUomId       | FK → cần join lấy BaseUomName
+PackagingSpecId         | packagingSpecId | Có thể null
+RequiresCO              | requiresCO      | Bit → Có/Không
+RequiresCQ              | requiresCQ      | Bit → Có/Không
+IsActive                | isActive        | Trạng thái giao dịch
+DefaultWarehouseId      | defaultWarehouseId | FK → cần join lấy DefaultWarehouseName
+InventoryAccount        | inventoryAccount| Cho Kế toán (có thể null)
+RevenueAccount          | revenueAccount  | Cho Kế toán (có thể null)
+CreatedAt               | createdAt       |
+UpdatedAt               | updatedAt       |
+
+
+2. BẢNG: [dbo].[ItemPrices]
+--------------------------------------------------------------------------------
+Lấy 2 loại giá (theo PriceType), thường lấy bản ghi đang hiệu lực
+(EffectiveFrom/EffectiveTo, IsActive):
+
+Cột DB    | Frontend       | Điều kiện
+----------|----------------|----------------------------------
+Amount    | purchasePrice  | PriceType = 'PURCHASE'
+Amount    | salePrice      | PriceType = 'SALE'
+
+
+3. BẢNG: [dbo].[InventoryOnHand]
+--------------------------------------------------------------------------------
+Tồn kho theo (WarehouseId, ItemId). Trang list cần một con số tồn cho mỗi item:
+
+- Cách A: Tồn tại kho mặc định của item
+  → InventoryOnHand có WarehouseId = Item.DefaultWarehouseId (và ItemId = Item.ItemId).
+- Cách B: Tổng tồn mọi kho
+  → SUM(OnHandQty), SUM(ReservedQty) GROUP BY ItemId.
+
+Trang hiện dùng một bộ (onHandQty, reservedQty) cho mỗi item.
+
+Cột DB      | Frontend    | Ghi chú
+------------|-------------|----------------------------------
+OnHandQty   | onHandQty   | Số lượng tồn (theo kho mặc định hoặc tổng)
+ReservedQty | reservedQty | Số lượng đã đặt
+(tính toán) | sellableQty | onHandQty - reservedQty (số có thể bán)
+
+
+4. BẢNG JOIN LẤY TÊN (để hiển thị Category, Brand, UoM, Kho)
+--------------------------------------------------------------------------------
+Bảng DB         | Cột lấy      | Frontend
+-----------------|--------------|----------------------------------
+ItemCategories   | CategoryName | categoryName
+Brands           | BrandName    | brandName (có thể null)
+UnitOfMeasure    | UomName      | baseUomName
+Warehouses       | WarehouseName| defaultWarehouseName (khi có DefaultWarehouseId)
+
+
+5. KHÔNG CÓ TRONG SCHEMA SQL ĐÃ GỬI
+--------------------------------------------------------------------------------
+- imageUrl (ảnh đại diện): Trong script không có bảng/bảng đính kèm ảnh cho Item.
+  Trang đang dùng placeholder hoặc URL ngoài; nếu sau này thêm ảnh vào DB thì cần
+  bảng (ví dụ ItemImages) và join tương ứng.
+
+
+================================================================================
+TÓM TẮT – API / QUERY CẦN TRẢ VỀ CHO ITEM LIST
+================================================================================
+
+Mỗi item trong danh sách cần đủ các field sau:
+
+(1) Từ Items:
+    ItemId, ItemCode, ItemName, ItemType, Description, CategoryId, BrandId,
+    BaseUomId, PackagingSpecId, RequiresCO, RequiresCQ, IsActive,
+    DefaultWarehouseId, InventoryAccount, RevenueAccount, CreatedAt, UpdatedAt.
+
+(2) Từ ItemCategories:
+    CategoryName → categoryName.
+
+(3) Từ Brands:
+    BrandName → brandName.
+
+(4) Từ UnitOfMeasure:
+    UomName → baseUomName.
+
+(5) Từ Warehouses (theo DefaultWarehouseId):
+    WarehouseName → defaultWarehouseName.
+
+(6) Từ ItemPrices:
+    - Một bản ghi PriceType = 'PURCHASE' (đang hiệu lực) → purchasePrice.
+    - Một bản ghi PriceType = 'SALE' (đang hiệu lực) → salePrice.
+
+(7) Từ InventoryOnHand:
+    Một bộ (OnHandQty, ReservedQty) theo chính sách đã chọn
+    (kho mặc định hoặc tổng) → onHandQty, reservedQty.
+    Frontend tính: sellableQty = onHandQty - reservedQty.
+
+================================================================================
+File được tạo từ yêu cầu "render ra FileText" – ánh xạ Item List vs DB MKIWMS5.
+================================================================================
