@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
@@ -15,11 +16,13 @@ namespace Warehouse.Api.ApiController
     {
         private readonly IAuthService _authService;
         private readonly IMapper _mapper;
+        private readonly IAuditLogService _auditLogService;
 
-        public AuthController(IAuthService authService, IMapper mapper)
+        public AuthController(IAuthService authService, IMapper mapper, IAuditLogService auditLogService)
         {
             _authService = authService;
             _mapper = mapper;
+            _auditLogService = auditLogService;
         }
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
@@ -130,6 +133,15 @@ namespace Warehouse.Api.ApiController
 
                 // Generate tokens
                 var (accessToken, expiresAt) = await _authService.IssueTokensAsync(user, request.RememberMe);
+
+                // Ghi audit log đăng nhập
+                await _auditLogService.LogAsync(
+                    user.UserId,
+                    AuditAction.Login,
+                    AuditEntity.User,
+                    user.UserId,
+                    $"Người dùng '{user.Username}' đăng nhập thành công"
+                );
 
                 // Map user to response DTO
                 var userResponse = _mapper.Map<UserResponse>(user);

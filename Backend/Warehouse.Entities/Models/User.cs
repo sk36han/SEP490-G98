@@ -25,6 +25,10 @@ public partial class User
 
     public string PasswordHash { get; set; } = null!;
 
+    public string? Gender { get; set; }
+
+    public DateOnly? DOB { get; set; }
+
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 
     public virtual ICollection<DocumentApproval> DocumentApprovals { get; set; } = new List<DocumentApproval>();
