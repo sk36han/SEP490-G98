@@ -152,24 +152,69 @@ const ViewItemDetail = () => {
                                 </Stack>
                             </Grid>
                             <Grid item xs={12} sm={8} md={9}>
-                                <Typography variant="subtitle2" fontWeight="600" color="text.secondary" sx={{ mb: 1 }}>Thông tin sản phẩm</Typography>
-                                <Stack component="ul" sx={{ m: 0, pl: 2.5, '& li': { mb: 0.5 } }}>
-                                    <li>
-                                        <Typography variant="body2" component="span" color="text.secondary">Thương hiệu: </Typography>
-                                        <Typography variant="body2" component="span" sx={{ color: 'primary.main', fontWeight: 500, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>{item.brandName || item.brandId || '–'}</Typography>
-                                    </li>
-                                    <li>
-                                        <Typography variant="body2" component="span" color="text.secondary">Loại sản phẩm: </Typography>
-                                        <Typography variant="body2" component="span" sx={{ color: 'primary.main', fontWeight: 500, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>{item.itemType || item.categoryName || '–'}</Typography>
-                                    </li>
-                                    <li>
-                                        <Typography variant="body2" component="span" color="text.secondary">Danh mục: </Typography>
-                                        <Typography variant="body2" component="span" sx={{ color: 'primary.main', fontWeight: 500 }}>{item.categoryName || '–'}</Typography>
-                                    </li>
+                                <Typography variant="subtitle2" fontWeight="600" color="text.secondary" sx={{ mb: 1 }}>
+                                    Thông tin sản phẩm
+                                </Typography>
+                                <Stack
+                                    component="div"
+                                    sx={{
+                                        m: 0,
+                                        pl: 2.5,
+                                        '& > *': { mb: 0.5 },
+                                    }}
+                                >
+                                    <Box>
+                                        <Typography variant="body2" component="span" color="text.secondary">
+                                            Thương hiệu:{' '}
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            component="span"
+                                            sx={{
+                                                color: 'primary.main',
+                                                fontWeight: 500,
+                                                cursor: 'pointer',
+                                                '&:hover': { textDecoration: 'underline' },
+                                            }}
+                                        >
+                                            {item.brandName || item.brandId || '–'}
+                                        </Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" component="span" color="text.secondary">
+                                            Loại sản phẩm:{' '}
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            component="span"
+                                            sx={{
+                                                color: 'primary.main',
+                                                fontWeight: 500,
+                                                cursor: 'pointer',
+                                                '&:hover': { textDecoration: 'underline' },
+                                            }}
+                                        >
+                                            {item.itemType || item.categoryName || '–'}
+                                        </Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" component="span" color="text.secondary">
+                                            Danh mục:{' '}
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            component="span"
+                                            sx={{ color: 'primary.main', fontWeight: 500 }}
+                                        >
+                                            {item.categoryName || '–'}
+                                        </Typography>
+                                    </Box>
                                     {item.description && (
-                                        <li>
-                                            <Typography variant="body2" color="text.secondary">{item.description}</Typography>
-                                        </li>
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {item.description}
+                                            </Typography>
+                                        </Box>
                                     )}
                                 </Stack>
                             </Grid>
