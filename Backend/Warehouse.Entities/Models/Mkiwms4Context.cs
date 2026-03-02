@@ -797,6 +797,8 @@ public partial class Mkiwms4Context : DbContext
             entity.Property(e => e.Phone).HasMaxLength(30);
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.Username).HasMaxLength(100);
+            entity.Property(e => e.Gender).HasMaxLength(10);
+            entity.Property(e => e.DOB);
         });
 
         modelBuilder.Entity<UserRole>(entity =>

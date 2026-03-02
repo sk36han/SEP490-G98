@@ -232,7 +232,9 @@ namespace Warehouse.DataAcces.Service
                     LastLoginAt = u.LastLoginAt,
                     CreatedAt = u.CreatedAt,
                     RoleName = (u.UserRoleUser != null && u.UserRoleUser.Role != null)
-                               ? u.UserRoleUser.Role.RoleName : "N/A"
+                               ? u.UserRoleUser.Role.RoleName : "N/A",
+                    Gender = u.Gender,
+                    DOB = u.DOB
                 })
                 .ToListAsync();
 
@@ -258,7 +260,10 @@ namespace Warehouse.DataAcces.Service
             {
                 user?.FullName,
                 user?.Username,
+                user?.Email,
                 user?.IsActive,
+                user?.Gender,
+                user?.DOB,
                 RoleName = user?.UserRoleUser?.Role?.RoleName
             });
 
@@ -282,13 +287,20 @@ namespace Warehouse.DataAcces.Service
                     user.Username = newUsername;
                 }
             }
-            // Optional: If Username is NOT provided but FullName CHANGED, 
-            // do we still auto-generate? 
-            // The user requested to "move" the feature, implying manual control.
-            // So if they don't provide a username, we probably shouldn't change the existing one 
-            // just because they fixed a typo in the name.
-            // However, if it's a new user creation (handled above), we auto-gen.
-            // For Update: Let's assume ONLY explicit Username update changes it.
+            // Update Email if provided
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                var newEmail = request.Email.Trim();
+                if (newEmail != user.Email)
+                {
+                    // Check duplicate email
+                    if (await _context.Users.AnyAsync(u => u.Email == newEmail && u.UserId != user.UserId))
+                    {
+                        throw new InvalidOperationException($"Email '{newEmail}' đã được sử dụng.");
+                    }
+                    user.Email = newEmail;
+                }
+            }
 
 			if (user == null)
             {
@@ -354,7 +366,10 @@ namespace Warehouse.DataAcces.Service
             {
                 user.FullName,
                 user.Username,
+                user.Email,
                 user.IsActive,
+                user.Gender,
+                user.DOB,
                 RoleName = user.UserRoleUser?.Role?.RoleName
             });
             await _auditLogService.LogAsync(
@@ -377,7 +392,9 @@ namespace Warehouse.DataAcces.Service
 				IsActive = user.IsActive,
 				LastLoginAt = user.LastLoginAt,
 				CreatedAt = user.CreatedAt,
-				RoleName = user.UserRoleUser?.Role?.RoleName ?? "N/A"
+				RoleName = user.UserRoleUser?.Role?.RoleName ?? "N/A",
+				Gender = user.Gender,
+				DOB = user.DOB
 			};
         }
 
@@ -440,7 +457,9 @@ namespace Warehouse.DataAcces.Service
                 LastLoginAt = user.LastLoginAt,
                 CreatedAt = user.CreatedAt,
                 RoleName = (user.UserRoleUser != null && user.UserRoleUser.Role != null)
-                           ? user.UserRoleUser.Role.RoleName : "N/A"
+                           ? user.UserRoleUser.Role.RoleName : "N/A",
+                Gender = user.Gender,
+                DOB = user.DOB
             };
         }
 
@@ -458,7 +477,7 @@ namespace Warehouse.DataAcces.Service
             var worksheet = workbook.Worksheets.Add("Users");
 
             // Header
-            var headers = new string[] { "UserId", "Full Name", "Username", "Email", "Phone", "Role", "Status" };
+            var headers = new string[] { "UserId", "Full Name", "Username", "Email", "Phone", "Role", "Status", "Gender", "DOB" };
             for (int i = 0; i < headers.Length; i++)
             {
                 var cell = worksheet.Cell(1, i + 1);
@@ -478,6 +497,8 @@ namespace Warehouse.DataAcces.Service
                 worksheet.Cell(row, 5).Value = user.Phone ?? "N/A";
                 worksheet.Cell(row, 6).Value = user.UserRoleUser?.Role?.RoleName ?? "N/A";
                 worksheet.Cell(row, 7).Value = user.IsActive ? "Active" : "Inactive";
+                worksheet.Cell(row, 8).Value = user.Gender ?? "N/A";
+                worksheet.Cell(row, 9).Value = user.DOB.HasValue ? user.DOB.Value.ToString("yyyy-MM-dd") : "N/A";
                 row++;
             }
 
