@@ -147,6 +147,29 @@ namespace Warehouse.DataAcces.Service
         /// </summary>
         private async Task<string> GenerateUsernameAsync(string fullName)
         {
+            string baseUsername = GenerateBaseUsername(fullName);
+
+            // Số thứ tự = tổng số user hiện tại + 1
+            int suffix = await _context.Users.CountAsync() + 1;
+            string candidateUsername = baseUsername + suffix;
+
+            // Kiểm tra trùng, nếu trùng thì tăng lên
+            while (await _context.Users.AnyAsync(u => u.Username == candidateUsername))
+            {
+                suffix++;
+                candidateUsername = baseUsername + suffix;
+            }
+
+            return candidateUsername;
+        }
+
+        /// <summary>
+        /// Tạo phần chữ cái của Username từ FullName.
+        /// Bỏ chữ có dấu, lấy tên (phần cuối) + chữ cái đầu của các phần còn lại.
+        /// Ví dụ: "Vũ Đức Thắng" -> "thangvd"
+        /// </summary>
+        private static string GenerateBaseUsername(string fullName)
+        {
             // Bỏ dấu tiếng Việt
             string normalized = RemoveDiacritics(fullName.Trim().ToLower());
 
@@ -163,20 +186,7 @@ namespace Warehouse.DataAcces.Service
             string lastName = parts[^1];
             string initials = string.Concat(parts.Take(parts.Length - 1).Select(p => p[0]));
 
-            string baseUsername = lastName + initials; // "thangvd"
-
-            // Số thứ tự = tổng số user hiện tại + 1
-            int suffix = await _context.Users.CountAsync() + 1;
-            string candidateUsername = baseUsername + suffix;
-
-            // Kiểm tra trùng, nếu trùng thì tăng lên
-            while (await _context.Users.AnyAsync(u => u.Username == candidateUsername))
-            {
-                suffix++;
-                candidateUsername = baseUsername + suffix;
-            }
-
-            return candidateUsername;
+            return lastName + initials;
         }
 
         /// <summary>
@@ -267,10 +277,45 @@ namespace Warehouse.DataAcces.Service
                 RoleName = user?.UserRoleUser?.Role?.RoleName
             });
 
-			// Update FullName
+			// Cập nhật FullName và tự động cập nhật Username
 			if (!string.IsNullOrWhiteSpace(request.FullName))
 			{
-				user.FullName = request.FullName.Trim();
+				var newFullName = request.FullName.Trim();
+				if (newFullName != user.FullName)
+				{
+					user.FullName = newFullName;
+
+					// Cập nhật Username theo FullName mới nhưng giữ nguyên số cuối
+					string newBaseUsername = GenerateBaseUsername(newFullName);
+					
+					// Trích xuất phần số từ Username cũ
+					string oldUsername = user.Username; 
+					string numericSuffix = string.Empty;
+					for (int i = oldUsername.Length - 1; i >= 0; i--)
+					{
+						if (char.IsDigit(oldUsername[i]))
+						{
+							numericSuffix = oldUsername[i] + numericSuffix;
+						}
+						else
+						{
+							break;
+						}
+					}
+
+					// Ghép lại thành Username mới
+					string newUsername = newBaseUsername + numericSuffix;
+					
+					if (newUsername != user.Username)
+					{
+						// Check duplicate
+						if (await _context.Users.AnyAsync(u => u.Username == newUsername))
+						{
+							throw new InvalidOperationException($"Username '{newUsername}' đã tồn tại.");
+						}
+						user.Username = newUsername;
+					}
+				}
 			}
 
             // Update Username if provided
