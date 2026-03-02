@@ -2,6 +2,33 @@
 export const VALID_PERMISSION_ROLES = ['ADMIN', 'DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'];
 
 /**
+ * Lấy chuỗi role thô từ userInfo (để đưa vào getPermissionRole)
+ * @param {object|null} userInfo - object từ authService.getUser()
+ * @returns {string}
+ */
+export const getRawRoleFromUser = (userInfo) => {
+    if (!userInfo) return '';
+    return (
+        (userInfo.roleId != null ? String(userInfo.roleId) : '') ||
+        (userInfo.RoleId != null ? String(userInfo.RoleId) : '') ||
+        userInfo.roleCode ||
+        userInfo.roleName ||
+        userInfo.role ||
+        userInfo.RoleCode ||
+        userInfo.RoleName ||
+        userInfo.Role ||
+        ''
+    );
+};
+
+/**
+ * Kiểm tra có phải view dành cho Kế toán (ACCOUNTANTS) không
+ * @param {string|null} permissionRole
+ * @returns {boolean}
+ */
+export const isAccountantView = (permissionRole) => permissionRole === 'ACCOUNTANTS';
+
+/**
  * Kiểm tra role có phải là permission role hợp lệ không
  * @param {string|null} role
  * @returns {boolean}
@@ -31,7 +58,6 @@ export const getPermissionRole = (originalRole) => {
     }
 
     const upper = str.toUpperCase();
-    const noDiacritics = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 
     // ADMIN: RoleCode thường là "ADMIN" hoặc "Admin"
     if (upper === 'ADMIN' || upper.includes('ADMIN')) return 'ADMIN';

@@ -26,7 +26,7 @@ import {
     Chip,
     Switch,
 } from '@mui/material';
-import { Package, Download, Eye, Plus, Columns, Filter, Edit } from 'lucide-react';
+import { Package, Download, Eye, Plus, Columns, Filter, Edit, Check, X } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import SearchInput from '../components/SearchInput';
@@ -42,12 +42,12 @@ import '../styles/ListView.css';
  * Trường hiển thị cho Kế toán: InventoryAccount, RevenueAccount, Số lượng tồn, Giá nhập (ItemPrices PURCHASE), Giá xuất (ItemPrices SALE).
  */
 const MOCK_ITEMS = [
-    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', itemType: 'Product', description: 'Điện thoại iPhone 15 Pro Max bản 256GB', categoryId: 1, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 26500000, salePrice: 28500000, onHandQty: 42, reservedQty: 2, createdAt: '2025-02-14T08:30:00', updatedAt: '2025-02-14T08:30:00', categoryName: 'Điện thoại', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', itemType: 'Product', description: 'Điện thoại Samsung Galaxy S24 Ultra', categoryId: 1, brandId: 2, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 24900000, salePrice: 26900000, onHandQty: 28, reservedQty: 0, createdAt: '2025-02-13T14:20:00', updatedAt: '2025-02-13T14:20:00', categoryName: 'Điện thoại', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', itemType: 'Product', description: 'Laptop MacBook Pro 14 inch chip M3', categoryId: 2, brandId: 1, baseUomId: 1, packagingSpecId: 2, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 39900000, salePrice: 42900000, onHandQty: 15, reservedQty: 1, createdAt: '2025-02-12T09:15:00', updatedAt: '2025-02-12T09:15:00', categoryName: 'Laptop', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 4, itemCode: 'SP004', itemName: 'Tủ lạnh Samsung 234L', itemType: 'Product', description: 'Tủ lạnh Samsung 234 lít', categoryId: 3, brandId: 2, baseUomId: 1, packagingSpecId: 3, requiresCO: true, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 7990000, salePrice: 8990000, onHandQty: 8, reservedQty: 0, createdAt: '2025-02-10T16:45:00', updatedAt: '2025-02-10T16:45:00', categoryName: 'Điện lạnh', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 5, itemCode: 'SP005', itemName: 'Tai nghe AirPods Pro 2', itemType: 'Product', description: 'Tai nghe không dây AirPods Pro thế hệ 2', categoryId: 4, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 5190000, salePrice: 5990000, onHandQty: 120, reservedQty: 5, createdAt: '2025-02-14T07:00:00', updatedAt: '2025-02-14T07:00:00', categoryName: 'Phụ kiện', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
-    { itemId: 6, itemCode: 'SP006', itemName: 'Cáp sạc USB-C 2m', itemType: 'Product', description: 'Cáp sạc USB-C dài 2 mét', categoryId: 4, brandId: null, baseUomId: 1, packagingSpecId: null, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 89000, salePrice: 189000, onHandQty: 350, reservedQty: 0, createdAt: '2025-02-11T11:30:00', updatedAt: '2025-02-11T11:30:00', categoryName: 'Phụ kiện', brandName: null, baseUomName: 'Cái', defaultWarehouseName: 'Kho chính' },
+    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', itemType: 'Product', description: 'Điện thoại iPhone 15 Pro Max bản 256GB', categoryId: 1, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 26500000, salePrice: 28500000, onHandQty: 42, reservedQty: 2, createdAt: '2025-02-14T08:30:00', updatedAt: '2025-02-14T08:30:00', categoryName: 'Điện thoại', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP001' },
+    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', itemType: 'Product', description: 'Điện thoại Samsung Galaxy S24 Ultra', categoryId: 1, brandId: 2, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 24900000, salePrice: 26900000, onHandQty: 28, reservedQty: 0, createdAt: '2025-02-13T14:20:00', updatedAt: '2025-02-13T14:20:00', categoryName: 'Điện thoại', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP002' },
+    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', itemType: 'Product', description: 'Laptop MacBook Pro 14 inch chip M3', categoryId: 2, brandId: 1, baseUomId: 1, packagingSpecId: 2, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 39900000, salePrice: 42900000, onHandQty: 15, reservedQty: 1, createdAt: '2025-02-12T09:15:00', updatedAt: '2025-02-12T09:15:00', categoryName: 'Laptop', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP003' },
+    { itemId: 4, itemCode: 'SP004', itemName: 'Tủ lạnh Samsung 234L', itemType: 'Product', description: 'Tủ lạnh Samsung 234 lít', categoryId: 3, brandId: 2, baseUomId: 1, packagingSpecId: 3, requiresCO: true, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 7990000, salePrice: 8990000, onHandQty: 8, reservedQty: 0, createdAt: '2025-02-10T16:45:00', updatedAt: '2025-02-10T16:45:00', categoryName: 'Điện lạnh', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP004' },
+    { itemId: 5, itemCode: 'SP005', itemName: 'Tai nghe AirPods Pro 2', itemType: 'Product', description: 'Tai nghe không dây AirPods Pro thế hệ 2', categoryId: 4, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 5190000, salePrice: 5990000, onHandQty: 120, reservedQty: 5, createdAt: '2025-02-14T07:00:00', updatedAt: '2025-02-14T07:00:00', categoryName: 'Phụ kiện', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP005' },
+    { itemId: 6, itemCode: 'SP006', itemName: 'Cáp sạc USB-C 2m', itemType: 'Product', description: 'Cáp sạc USB-C dài 2 mét', categoryId: 4, brandId: null, baseUomId: 1, packagingSpecId: null, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 89000, salePrice: 189000, onHandQty: 350, reservedQty: 0, createdAt: '2025-02-11T11:30:00', updatedAt: '2025-02-11T11:30:00', categoryName: 'Phụ kiện', brandName: null, baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: null },
 ];
 
 const formatPrice = (value) => {
@@ -64,6 +64,7 @@ const getSellableQty = (row) => {
 
 const ITEM_LIST_COLUMNS = [
     { id: 'stt', label: 'STT', getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
+    { id: 'thumbnail', label: 'Ảnh', getValue: () => '' },
     { id: 'itemCode', label: 'Mã vật tư', getValue: (row) => row.itemCode ?? '' },
     { id: 'itemName', label: 'Tên vật tư', getValue: (row) => row.itemName ?? '' },
     { id: 'itemType', label: 'Dạng vật tư', getValue: (row) => row.itemType ?? '-' },
@@ -84,8 +85,8 @@ const ITEM_LIST_COLUMNS = [
 ];
 /** Cột chỉ hiển thị cho Kế toán (ACCOUNTANTS): có thể bật trong chọn cột. */
 const ACCOUNTANT_ONLY_COLUMN_IDS = ['inventoryAccount', 'revenueAccount', 'purchasePrice', 'salePrice'];
-/** Cột mặc định chung cho tất cả role: STT, Mã, Tên, Dạng, Category, Được tạo vào, Số lượng có thể bán, Số lượng tồn kho, Trạng thái giao dịch, Thao tác. */
-const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'itemCode', 'itemName', 'itemType', 'category', 'createdAt', 'sellableQty', 'onHandQty', 'isActive', 'actions'];
+/** Cột mặc định: Ảnh luôn hiển thị; Được tạo vào (createdAt) ẩn, bật qua "Chọn cột" khi cần. */
+const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemCode', 'itemName', 'itemType', 'category', 'sellableQty', 'onHandQty', 'isActive', 'actions'];
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 /** Chỉ Thủ kho được tạo/sửa vật tư (khớp route /items/create, /items/edit/:id). Các role khác chỉ xem. */
@@ -321,7 +322,7 @@ const ViewItemList = () => {
                                                         borderLeft: isAccountant && ACCOUNTANT_ONLY_COLUMN_IDS.includes(col.id) ? '2px solid' : 'none',
                                                         borderColor: 'success.main',
                                                     }}
-                                                    align={col.id === 'actions' || col.id === 'salePrice' || col.id === 'purchasePrice' || col.id === 'onHandQty' || col.id === 'sellableQty' ? 'right' : 'left'}
+                                                    align={col.id === 'thumbnail' || col.id === 'requiresCO' || col.id === 'requiresCQ' ? 'center' : col.id === 'actions' || col.id === 'salePrice' || col.id === 'purchasePrice' || col.id === 'onHandQty' || col.id === 'sellableQty' ? 'right' : 'left'}
                                                 >
                                                     {col.label}
                                                 </TableCell>
@@ -334,12 +335,73 @@ const ViewItemList = () => {
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
                                                     if (col.id === 'stt') return <TableCell key={col.id} align="left">{col.getValue(item, index, opts)}</TableCell>;
+                                                    if (col.id === 'thumbnail') {
+                                                        return (
+                                                            <TableCell key={col.id} align="center" sx={{ width: 72, minWidth: 72, py: 0.75, verticalAlign: 'middle' }}>
+                                                                <Box
+                                                                    sx={{
+                                                                        width: 48,
+                                                                        height: 48,
+                                                                        borderRadius: 1.5,
+                                                                        overflow: 'hidden',
+                                                                        bgcolor: 'grey.100',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        border: '1px solid',
+                                                                        borderColor: 'divider',
+                                                                        position: 'relative',
+                                                                    }}
+                                                                >
+                                                                    <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                        <Package size={22} sx={{ color: 'text.disabled' }} />
+                                                                    </Box>
+                                                                    {item.imageUrl && item.imageUrl.trim() && (
+                                                                        <img
+                                                                            src={item.imageUrl}
+                                                                            alt=""
+                                                                            style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'relative', zIndex: 1 }}
+                                                                            loading="lazy"
+                                                                            onError={(e) => { e.target.style.display = 'none'; }}
+                                                                        />
+                                                                    )}
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
                                                     if (col.id === 'itemCode') return <TableCell key={col.id} align="left" sx={{ fontWeight: 600 }}>{item.itemCode}</TableCell>;
                                                     if (col.id === 'description') return <TableCell key={col.id} align="left" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.description}>{item.description ?? '-'}</TableCell>;
                                                     if (col.id === 'isActive') return <TableCell key={col.id} align="left"><Chip label={item.isActive ? 'Đang giao dịch' : 'Tạm dừng'} size="small" color={item.isActive ? 'success' : 'default'} variant="filled" sx={{ borderRadius: 1.5 }} /></TableCell>;
                                                     if (col.id === 'sellableQty' || col.id === 'onHandQty') return <TableCell key={col.id} align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{col.getValue(item, index, opts)}</TableCell>;
                                                     if (col.id === 'createdAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(item.createdAt)}</TableCell>;
                                                     if (col.id === 'updatedAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(item.updatedAt)}</TableCell>;
+                                                    if (col.id === 'requiresCO' || col.id === 'requiresCQ') {
+                                                        const value = col.id === 'requiresCO' ? item.requiresCO : item.requiresCQ;
+                                                        return (
+                                                            <TableCell key={col.id} align="center" sx={{ py: 0.5 }}>
+                                                                <Box
+                                                                    sx={{
+                                                                        width: 28,
+                                                                        height: 28,
+                                                                        borderRadius: 1,
+                                                                        border: '1px solid',
+                                                                        borderColor: 'divider',
+                                                                        bgcolor: 'background.paper',
+                                                                        color: value ? 'grey.700' : 'grey.500',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                    }}
+                                                                >
+                                                                    {value ? (
+                                                                        <Check size={18} strokeWidth={2.5} style={{ color: 'inherit' }} />
+                                                                    ) : (
+                                                                        <X size={18} strokeWidth={2.5} style={{ color: 'inherit' }} />
+                                                                    )}
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
                                                     if (col.id === 'salePrice') {
                                                         return (
                                                             <TableCell

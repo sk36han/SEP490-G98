@@ -10,7 +10,7 @@ import ItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
 import EditItem from '../shared/pages/EditItem';
 import ViewItemDetail from '../shared/pages/ViewItemDetail';
-import ViewPurchaseOrder from '../shared/pages/ViewPurchaseOrder';
+import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
 import CreatePO from '../shared/pages/CreatePO';
 import EditPO from '../shared/pages/EditPO';
@@ -233,7 +233,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
-                        <ViewPurchaseOrder />
+                        <ViewPurchaseOrderList />
                     </MainLayout>
                 </ProtectedRoute>
             }

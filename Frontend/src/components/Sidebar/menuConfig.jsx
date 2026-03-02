@@ -51,11 +51,12 @@ const warehouseKeeperItems = [
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
-// Sale Support: Quản lý nhà cung cấp, Quản lý đơn mua hàng, Xem vật tư, Người nhận hàng
+// Sale Support: Trang chủ, Quản lý nhà cung cấp, Quản lý đơn mua hàng (PO), Xem vật tư
 const saleSupportItems = [
+    { path: '/sale-support/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
-    { path: '/purchase-orders', icon: <FileText size={22} />, label: 'Quản lý đơn mua (PO)' },
-    { path: '/products', icon: <BoxIcon size={22} />, label: 'Quản lý vật tư' },
+    { path: '/purchase-orders', icon: <ShoppingCart size={22} />, label: 'Danh sách đơn mua (PO)' },
+    { path: '/products', icon: <BoxIcon size={22} />, label: 'Danh sách vật tư' },
 ];
 
 // Sale Engineer: Quản lý vật tư, giao dịch với người nhận
