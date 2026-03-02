@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Sidebar from '../Sidebar/Sidebar';
+import AppHeader from './AppHeader';
 import './MainLayout.css';
 
 class LayoutErrorBoundary extends React.Component {
@@ -28,6 +29,10 @@ class LayoutErrorBoundary extends React.Component {
     }
 }
 
+/**
+ * Layout chung cho mọi role sau khi đăng nhập.
+ * Bao gồm: Sidebar (menu theo role) + AppHeader (thông báo, avatar, tên, vai trò) + nội dung trang.
+ */
 const MainLayout = ({ children }) => {
     return (
         <LayoutErrorBoundary>
@@ -37,13 +42,28 @@ const MainLayout = ({ children }) => {
                     component="main"
                     sx={{
                         flexGrow: 1,
+                        minHeight: 0,
+                        minWidth: 0,
+                        height: '100vh',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
                         p: 3,
-                        minHeight: '100vh',
-                        overflowY: 'auto',
-                        overflowX: 'hidden',
                     }}
                 >
-                    {children}
+                    <AppHeader />
+                    <Box
+                        sx={{
+                            flex: 1,
+                            minHeight: 0,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                        }}
+                    >
+                        {children}
+                    </Box>
                 </Box>
             </Box>
         </LayoutErrorBoundary>

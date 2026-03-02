@@ -163,9 +163,10 @@ const ViewWarehouseList = () => {
   };
 
   return (
-    <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
+    <Box sx={{ height: "100%", minHeight: 0, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", pt: 0, pb: 2 }}>
       <Box
         sx={{
+          flexShrink: 0,
           mb: 1,
           display: "flex",
           flexDirection: "column",
@@ -206,6 +207,12 @@ const ViewWarehouseList = () => {
       <Box
         className="list-view"
         sx={{
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
           width: "100%",
           maxWidth: "100%",
           background:
@@ -340,8 +347,13 @@ const ViewWarehouseList = () => {
         <Card
           className="list-grid-card"
           sx={{
-            borderRadius: 3,
+            flex: 1,
+            minHeight: 0,
+            minWidth: 0,
             overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            borderRadius: 3,
             border: "1px solid rgba(0,0,0,0.12)",
             boxShadow: (t) => t.shadows[1],
             p: 1,
@@ -349,7 +361,7 @@ const ViewWarehouseList = () => {
         >
           <Box
             className="list-grid-wrapper"
-            sx={{ position: "relative", minHeight: "calc(100vh - 220px)" }}
+            sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}
           >
             {loading ? (
               <Box
@@ -418,10 +430,12 @@ const ViewWarehouseList = () => {
             ) : (
               <TableContainer
                 sx={{
-                  maxHeight: "calc(100vh - 240px)",
+                  flex: 1,
+                  minHeight: 0,
+                  minWidth: 0,
                   border: "1px solid rgba(0,0,0,0.2)",
                   borderRadius: 2,
-                  overflow: "hidden",
+                  overflow: "auto",
                 }}
               >
                 <Table size="small" stickyHeader>
@@ -533,7 +547,8 @@ const ViewWarehouseList = () => {
 
         <Box
           sx={{
-            mt: 0,
+            flexShrink: 0,
+            mt: 1,
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",

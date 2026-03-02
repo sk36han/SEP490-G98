@@ -220,8 +220,8 @@ const ViewItemList = () => {
     };
 
     return (
-        <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
-            <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
+            <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.5 }}>
                     <Typography variant="h4" component="h1" fontWeight="800" sx={{ background: isAccountant ? 'linear-gradient(45deg, #2E7D32 20%, #66BB6A 90%)' : 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
                         Danh sách vật tư
@@ -246,6 +246,12 @@ const ViewItemList = () => {
             <Box
                 className="list-view"
                 sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                     width: '100%',
                     maxWidth: '100%',
                     background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
@@ -300,15 +306,15 @@ const ViewItemList = () => {
                     </FormGroup>
                 </Popover>
 
-                <Card className="list-grid-card" sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
-                    <Box className="list-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
+                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
+                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                         {filteredItems.length === 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
                                 <Package size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                                 <Typography>Chưa có dữ liệu vật tư</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
@@ -469,7 +475,8 @@ const ViewItemList = () => {
                 {/* Pagination – gom hết bên phải: Số dòng/trang + dropdown + range + Trước/Sau */}
                 <Box
                     sx={{
-                        mt: 0,
+                        flexShrink: 0,
+                        mt: 1,
                         display: 'flex',
                         flexWrap: 'wrap',
                         alignItems: 'center',

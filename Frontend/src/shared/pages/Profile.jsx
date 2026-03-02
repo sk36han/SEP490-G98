@@ -15,8 +15,13 @@ import {
     Paper,
     Stack,
     Divider,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    InputAdornment,
 } from '@mui/material';
-import { ArrowLeft, User, Key, Save, Pencil, Mars, Venus, Camera } from 'lucide-react';
+import { ArrowLeft, User, Key, Save, Pencil, Mars, Venus, Camera, Calendar } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import ChangePasswordDialog from '../../components/profile/ChangePasswordDialog';
 import authService from '../lib/authService';
@@ -272,7 +277,26 @@ const Profile = () => {
                                                 '& input': { py: 1.25 },
                                             },
                                         }}
-                                        helperText="Liên hệ Admin để thay đổi"
+                                        helperText="Chỉ Admin mới có quyền thay đổi"
+                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Vai trò"
+                                        name="role"
+                                        value={formData.role || ''}
+                                        InputProps={{
+                                            readOnly: true,
+                                            sx: {
+                                                borderRadius: 2,
+                                                bgcolor: '#f6f7f9',
+                                                '& input': { py: 1.25 },
+                                            },
+                                        }}
+                                        helperText="Chỉ Admin mới có quyền thay đổi"
                                         sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
                                     />
                                 </Grid>
@@ -315,43 +339,86 @@ const Profile = () => {
                                         sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={6}>
+                                <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
                                     <TextField
                                         fullWidth
                                         size="small"
                                         label="Ngày sinh"
                                         name="dob"
                                         type={isEditing ? 'date' : 'text'}
-                                        value={formData.dob || ''}
+                                        value={
+                                            isEditing
+                                                ? (formData.dob || '')
+                                                : (formData.dob
+                                                    ? new Date(formData.dob + 'T00:00:00').toLocaleDateString('vi-VN', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                    })
+                                                    : '')
+                                        }
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, dob: e.target.value })
+                                        }
                                         InputProps={{
-                                            readOnly: true,
+                                            readOnly: !isEditing,
+                                            startAdornment: !isEditing && formData.dob ? (
+                                                <InputAdornment position="start" sx={{ mr: 1 }}>
+                                                    <Calendar size={18} style={{ color: 'var(--mui-palette-text-secondary)' }} />
+                                                </InputAdornment>
+                                            ) : null,
                                             sx: {
                                                 borderRadius: 2,
-                                                bgcolor: '#f6f7f9',
+                                                bgcolor: isEditing ? 'background.paper' : '#f6f7f9',
                                                 '& input': { py: 1.25 },
+                                                '& fieldset': { borderRadius: 2 },
                                             },
                                         }}
                                         InputLabelProps={{ shrink: true }}
-                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
+                                        sx={{ width: '100%', minWidth: 0, '& .MuiFormHelperText-root': { mx: 0 } }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
+                                <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
+                                    <FormControl
                                         fullWidth
                                         size="small"
-                                        label="Giới tính"
-                                        name="gender"
-                                        value={formData.gender || ''}
-                                        InputProps={{
-                                            readOnly: true,
-                                            sx: {
+                                        disabled={!isEditing}
+                                        variant="outlined"
+                                        sx={{
+                                            width: '100%',
+                                            minWidth: 0,
+                                            '& .MuiOutlinedInput-root': {
                                                 borderRadius: 2,
-                                                bgcolor: '#f6f7f9',
-                                                '& input': { py: 1.25 },
+                                                bgcolor: isEditing ? 'background.paper' : '#f6f7f9',
+                                                '& fieldset': { borderRadius: 2, borderColor: 'divider' },
+                                                '&:hover fieldset': { borderColor: isEditing ? 'primary.light' : undefined },
+                                                '&.Mui-focused fieldset': { borderWidth: 2 },
                                             },
+                                            '& .MuiSelect-select': { width: '100%', minWidth: 0 },
                                         }}
-                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
-                                    />
+                                    >
+                                        <InputLabel id="profile-gender-label" shrink>
+                                            Giới tính
+                                        </InputLabel>
+                                        <Select
+                                            labelId="profile-gender-label"
+                                            label="Giới tính"
+                                            value={formData.gender || ''}
+                                            displayEmpty
+                                            onChange={(e) =>
+                                                setFormData({ ...formData, gender: e.target.value })
+                                            }
+                                            renderValue={(v) => {
+                                                if (!v) return ' ';
+                                                const map = { male: 'Nam', female: 'Nữ', other: 'Khác' };
+                                                return map[v] || v;
+                                            }}
+                                        >
+                                            <MenuItem value="male">Nam</MenuItem>
+                                            <MenuItem value="female">Nữ</MenuItem>
+                                            <MenuItem value="other">Khác</MenuItem>
+                                        </Select>
+                                    </FormControl>
                                 </Grid>
                                 </Grid>
                             </Box>

@@ -208,14 +208,13 @@ const authService = {
     },
 
     /**
-     * Update user profile (currently only Phone)
-     * @param {string} phone - New phone number
+     * Update user profile (backend hiện chỉ hỗ trợ cập nhật Phone)
+     * @param {string} phone - Số điện thoại
      * @returns {Promise<object>}
      */
     async updateProfile(phone) {
         try {
             const response = await apiClient.put('/User/profile', { phone });
-            // Update local storage if successful
             const currentUser = this.getUser();
             if (currentUser) {
                 currentUser.phone = phone;

@@ -155,7 +155,7 @@ export default function ViewSupplierList() {
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
 
     return (
-        <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
+        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
             <ViewSupplierDetail
                 open={detailOpen}
                 onClose={() => {
@@ -174,7 +174,7 @@ export default function ViewSupplierList() {
                 onSave={fetchData}
             />
 
-            <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+            <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography
                     variant="h4"
                     component="h1"
@@ -200,6 +200,12 @@ export default function ViewSupplierList() {
             <Box
                 className="supplier-view"
                 sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                     width: '100%',
                     maxWidth: '100%',
                     background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
@@ -324,14 +330,19 @@ export default function ViewSupplierList() {
                 <Card
                     className="supplier-grid-card"
                     sx={{
-                        borderRadius: 3,
+                        flex: 1,
+                        minHeight: 0,
+                        minWidth: 0,
                         overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: 3,
                         border: '1px solid rgba(0,0,0,0.12)',
                         boxShadow: (t) => t.shadows[1],
                         p: 1,
                     }}
                 >
-                    <Box className="supplier-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
+                    <Box className="supplier-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                         {loading ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
                                 <Typography color="text.secondary">Đang tải…</Typography>
@@ -370,7 +381,7 @@ export default function ViewSupplierList() {
                                 <Typography>Chưa có dữ liệu nhà cung cấp</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
@@ -435,7 +446,8 @@ export default function ViewSupplierList() {
 
                 <Box
                     sx={{
-                        mt: 0,
+                        flexShrink: 0,
+                        mt: 1,
                         display: 'flex',
                         flexWrap: 'wrap',
                         alignItems: 'center',

@@ -110,8 +110,8 @@ const ViewGoodDeliveryNotes = () => {
     const statusColor = (s) => (s === 'Approved' ? 'success' : s === 'Submitted' ? 'info' : 'default');
 
     return (
-        <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
-            <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
+            <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography variant="h4" component="h1" gutterBottom fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
                     Yêu cầu xuất hàng
                 </Typography>
@@ -122,6 +122,12 @@ const ViewGoodDeliveryNotes = () => {
             <Box
                 className="list-view"
                 sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                     width: '100%',
                     maxWidth: '100%',
                     background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
@@ -166,15 +172,15 @@ const ViewGoodDeliveryNotes = () => {
                     </FormGroup>
                 </Popover>
 
-                <Card className="list-grid-card" sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
-                    <Box className="list-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
+                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
+                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                         {paginatedList.length === 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
                                 <PackageOpen size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                                 <Typography>Chưa có phiếu xuất hàng</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
@@ -208,7 +214,7 @@ const ViewGoodDeliveryNotes = () => {
                     </Box>
                 </Card>
 
-                <Box sx={{ mt: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                <Box sx={{ flexShrink: 0, mt: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
                     <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
                     <FormControl size="small" sx={{ minWidth: 72 }}>
                         <Select value={pageSize} onChange={handlePageSizeChange} sx={{ height: 32, fontSize: '0.875rem' }}>

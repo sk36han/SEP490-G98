@@ -6,6 +6,7 @@ import ResetPassword from '../shared/pages/ResetPassword';
 import Profile from '../shared/pages/Profile';
 import Home from '../shared/pages/Home';
 import UserAccountList from '../shared/pages/ViewUserAccountList';
+import DeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
 import ItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
 import EditItem from '../shared/pages/EditItem';
@@ -15,6 +16,7 @@ import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
 import CreatePO from '../shared/pages/CreatePO';
 import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
+import ViewNotifications from '../shared/pages/ViewNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import CreateSupplier from '../shared/pages/CreateSupplier';
@@ -34,21 +36,22 @@ const AppRoutes = () => (
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
+        {/* Home Dashboard: chỉ Giám đốc (DIRECTOR) mới có quyền truy cập */}
         <Route
             path="/home"
             element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['DIRECTOR']}>
                     <MainLayout>
                         <Home />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* ADMIN: trang chủ sau login = /admin/users; /admin/home vẫn dùng được (Home) */}
+        {/* Home dashboard chỉ dành cho Giám đốc; Admin không có đường /admin/home tới dashboard */}
         <Route
             path="/admin/home"
             element={
-                <ProtectedRoute allowedRoles={['ADMIN']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR']}>
                     <MainLayout>
                         <Home />
                     </MainLayout>
@@ -58,7 +61,7 @@ const AppRoutes = () => (
         <Route
             path="/sale-support/home"
             element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['DIRECTOR']}>
                     <MainLayout>
                         <Home />
                     </MainLayout>
@@ -86,6 +89,16 @@ const AppRoutes = () => (
             }
         />
         <Route
+            path="/admin/users/deactivated"
+            element={
+                <ProtectedRoute allowedRoles={['ADMIN']}>
+                    <MainLayout>
+                        <DeactivatedUsersList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
             path="/admin/users"
             element={
                 <ProtectedRoute allowedRoles={['ADMIN']}>
@@ -95,6 +108,18 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
+        {/* Thông báo dùng chung cho mọi role (mockup theo role) */}
+        <Route
+            path="/notifications"
+            element={
+                <ProtectedRoute>
+                    <MainLayout>
+                        <ViewNotifications />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Cài đặt thông báo (chỉ Admin) */}
         <Route
             path="/admin/notifications"
             element={

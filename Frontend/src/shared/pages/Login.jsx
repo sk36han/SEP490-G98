@@ -89,7 +89,7 @@ const Login = () => {
                         navigate('/products'); // ItemList
                         break;
                     default:
-                        navigate('/home');
+                        navigate('/products');
                 }
             }, 1000);
         } catch (error) {
