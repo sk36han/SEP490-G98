@@ -16,7 +16,7 @@ import {
   Box,
 } from "@mui/material";
 import { User, Key, Mail, Phone, CreditCard } from "lucide-react";
-import { ROLE_OPTIONS } from "../../shared/constants/roles";
+import { ROLE_DROPDOWN_LABELS } from "../../shared/constants/roles";
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -44,12 +44,7 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
     if (!init) return false;
     return (
       (formData.fullName ?? "") !== (init.fullName ?? "") ||
-      (formData.username ?? "") !== (init.username ?? "") ||
-      (formData.email ?? "") !== (init.email ?? "") ||
-      (formData.phone ?? "") !== (init.phone ?? "") ||
-      Number(formData.roleId) !== Number(init.roleId ?? 2) ||
-      (formData.gender ?? "") !== (init.gender ?? "") ||
-      (formData.citizenId ?? "") !== (init.citizenId ?? "")
+      Number(formData.roleId) !== Number(init.roleId ?? 2)
     );
   };
 
@@ -112,12 +107,17 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
             textShadow: "0 1px 2px rgba(0,0,0,0.1)",
           }}
         >
-          Chỉnh sửa thông tin
+          Chỉnh sửa tài khoản (Admin)
         </Typography>
       </DialogTitle>
       <form onSubmit={onSubmit}>
         <DialogContent sx={{ p: 0, bgcolor: "grey.50" }}>
-          <Box sx={{ px: 3, pt: 3, pb: 1 }}>
+          <Box sx={{ px: 3, pt: 2, pb: 0 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Chỉ Họ tên và Vai trò được phép chỉnh sửa. Các trường khác chỉ xem.
+            </Typography>
+          </Box>
+          <Box sx={{ px: 3, pt: 1, pb: 1 }}>
             <Typography
               variant="subtitle2"
               color="text.secondary"
@@ -169,7 +169,7 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                     ...inputSx,
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
-                      bgcolor: "grey.100",
+                      bgcolor: "grey.200",
                       "& fieldset": { borderColor: "divider" },
                     },
                   }}
@@ -196,22 +196,28 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                     ...inputSx,
                     "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
-                      bgcolor: "grey.100",
+                      bgcolor: "grey.200",
                       "& fieldset": { borderColor: "divider" },
                     },
                   }}
                 />
               </Grid>
               <Grid item xs={6} sx={{ width: "50%", maxWidth: "50%", flexBasis: "50%" }}>
-                <FormControl fullWidth size="small" sx={inputSx}>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  disabled
+                  sx={{
+                    ...inputSx,
+                    "& .MuiOutlinedInput-root": { ...inputSx["& .MuiOutlinedInput-root"], bgcolor: "grey.200" },
+                  }}
+                >
                   <InputLabel id="edit-gender-label">Giới tính</InputLabel>
                   <Select
                     labelId="edit-gender-label"
                     value={formData.gender ?? ""}
                     label="Giới tính"
-                    onChange={(e) =>
-                      onFormChange({ ...formData, gender: e.target.value })
-                    }
+                    inputProps={{ readOnly: true }}
                   >
                     <MenuItem value="male">Nam</MenuItem>
                     <MenuItem value="female">Nữ</MenuItem>
@@ -223,14 +229,14 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                 <TextField
                   fullWidth
                   size="small"
-                  label="Số căn cước công dân"
-                  placeholder="VD: 001099012345"
-                  value={formData.citizenId ?? ""}
-                  onChange={(e) =>
-                    onFormChange({ ...formData, citizenId: e.target.value })
+                  label="Ngày sinh"
+                  value={
+                    (formData.dob || formData.dateOfBirth)
+                      ? new Date(formData.dob || formData.dateOfBirth).toLocaleDateString("vi-VN")
+                      : ""
                   }
-                  sx={inputSx}
                   InputProps={{
+                    readOnly: true,
                     startAdornment: (
                       <InputAdornment position="start" sx={{ mr: 1 }}>
                         <CreditCard
@@ -240,6 +246,14 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                       </InputAdornment>
                     ),
                   }}
+                  sx={{
+                    ...inputSx,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      bgcolor: "grey.200",
+                      "& fieldset": { borderColor: "divider" },
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={6} sx={{ width: "50%", maxWidth: "50%", flexBasis: "50%" }}>
@@ -247,19 +261,126 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                   <InputLabel id="edit-role-label">Vai trò</InputLabel>
                   <Select
                     labelId="edit-role-label"
-                    value={formData.roleId ?? 2}
+                    value={
+                      ROLE_DROPDOWN_LABELS[formData.roleId] != null
+                        ? Number(formData.roleId)
+                        : 2
+                    }
                     label="Vai trò"
                     onChange={(e) =>
                       onFormChange({ ...formData, roleId: e.target.value })
                     }
                   >
-                    {Object.entries(ROLE_OPTIONS).map(([id, name]) => (
+                    {Object.entries(ROLE_DROPDOWN_LABELS).map(([id, name]) => (
                       <MenuItem key={id} value={parseInt(id, 10)}>
                         {name}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+          <Box sx={{ px: 3, pt: 1, pb: 2 }}>
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              sx={{ mb: 1.5, fontWeight: 600 }}
+            >
+              Thông tin hệ thống
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Ngày tạo"
+                  value={
+                    formData.createdAt
+                      ? new Date(formData.createdAt).toLocaleDateString("vi-VN")
+                      : ""
+                  }
+                  InputProps={{ readOnly: true }}
+                  sx={{
+                    ...inputSx,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      bgcolor: "grey.200",
+                      "& fieldset": { borderColor: "divider" },
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Giờ tạo"
+                  value={
+                    formData.createdAt
+                      ? new Date(formData.createdAt).toLocaleTimeString("vi-VN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
+                      : ""
+                  }
+                  InputProps={{ readOnly: true }}
+                  sx={{
+                    ...inputSx,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      bgcolor: "grey.200",
+                      "& fieldset": { borderColor: "divider" },
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Lần đăng nhập cuối"
+                  value={
+                    formData.lastLoginAt
+                      ? new Date(formData.lastLoginAt).toLocaleDateString("vi-VN")
+                      : ""
+                  }
+                  InputProps={{ readOnly: true }}
+                  sx={{
+                    ...inputSx,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      bgcolor: "grey.200",
+                      "& fieldset": { borderColor: "divider" },
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Giờ đăng nhập cuối"
+                  value={
+                    formData.lastLoginAt
+                      ? new Date(formData.lastLoginAt).toLocaleTimeString("vi-VN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
+                      : ""
+                  }
+                  InputProps={{ readOnly: true }}
+                  sx={{
+                    ...inputSx,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                      bgcolor: "grey.200",
+                      "& fieldset": { borderColor: "divider" },
+                    },
+                  }}
+                />
               </Grid>
             </Grid>
           </Box>
@@ -292,7 +413,7 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                 ...inputSx,
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 2,
-                  bgcolor: "grey.100",
+                  bgcolor: "grey.200",
                   "& fieldset": { borderColor: "divider" },
                 },
                 "& .MuiFormHelperText-root": { fontSize: "0.75rem", mt: 0.5 },

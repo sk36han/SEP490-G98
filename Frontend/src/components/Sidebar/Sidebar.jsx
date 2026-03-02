@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import MuiDrawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -9,18 +9,18 @@ import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import Collapse from '@mui/material/Collapse';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import LogoutIcon from '@mui/icons-material/Logout';
 import authService from '../../shared/lib/authService';
 import logo from '../../shared/assets/logo.png';
 import { getMenuItems } from './menuConfig';
-import { getPermissionRole, getPermissionRoleLabel } from '../../shared/permissions/roleUtils';
+import { getPermissionRole, getPermissionRoleLabel, getRawRoleFromUser } from '../../shared/permissions/roleUtils';
 
 const drawerWidth = 260; // Slightly wider for better spacing
 
@@ -71,21 +71,59 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
     }),
 );
 
+const isUserMgmtPath = (pathname) =>
+    pathname === '/admin/users' || pathname.startsWith('/admin/users/');
+
+const isProductsPath = (pathname) =>
+    pathname === '/products' || pathname.startsWith('/items/');
+
 const Sidebar = () => {
-    const theme = useTheme();
     const [open, setOpen] = useState(true);
+    const [userMgmtCollapsed, setUserMgmtCollapsed] = useState(false);
+    const [productsCollapsed, setProductsCollapsed] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const pathname = location.pathname;
 
     const userInfo = authService.getUser();
-    const roleFromBackend = userInfo?.roleCode || userInfo?.roleName || 'STAFF';
+    const roleFromBackend = getRawRoleFromUser(userInfo);
 
     const user = {
-        name: userInfo?.fullName || 'User',
+        name: String(userInfo?.fullName ?? userInfo?.FullName ?? 'User').slice(0, 100),
         role: roleFromBackend,
         permissionRole: getPermissionRole(roleFromBackend),
-        email: userInfo?.email || '',
+        email: userInfo?.email ?? userInfo?.Email ?? '',
         avatar: userInfo?.avatar
+    };
+
+    const menuItems = getMenuItems(user.permissionRole);
+
+    // Rời trang quản lý người dùng / vật tư → reset collapsed để lần sau vào lại section sẽ mở
+    useEffect(() => {
+        if (!isUserMgmtPath(pathname)) {
+            const id = setTimeout(() => setUserMgmtCollapsed(false), 0);
+            return () => clearTimeout(id);
+        }
+    }, [pathname]);
+    useEffect(() => {
+        if (!isProductsPath(pathname)) {
+            const id = setTimeout(() => setProductsCollapsed(false), 0);
+            return () => clearTimeout(id);
+        }
+    }, [pathname]);
+
+    const isOnUserMgmtPath = () => isUserMgmtPath(pathname);
+    const isOnProductsPath = () => isProductsPath(pathname);
+
+    const isGroupExpanded = (item) => {
+        if (!item.id) return false;
+        if (item.id === 'user-mgmt') {
+            return isOnUserMgmtPath() && !userMgmtCollapsed;
+        }
+        if (item.id === 'products-mgmt') {
+            return isOnProductsPath() && !productsCollapsed;
+        }
+        return false;
     };
 
     const handleDrawerOpen = () => {
@@ -103,7 +141,34 @@ const Sidebar = () => {
         }
     };
 
-    const menuItems = getMenuItems(user.permissionRole);
+    const handleParentClick = (item) => {
+        const onUserMgmt = item.id === 'user-mgmt' && isOnUserMgmtPath();
+        const onProducts = item.id === 'products-mgmt' && isOnProductsPath();
+        if (onUserMgmt) {
+            setUserMgmtCollapsed((prev) => !prev);
+        } else if (onProducts) {
+            setProductsCollapsed((prev) => !prev);
+        } else {
+            navigate(item.path);
+            setUserMgmtCollapsed(false);
+            setProductsCollapsed(false);
+        }
+    };
+
+    const handleChildClick = (child) => {
+        navigate(child.path, { state: child.state ?? undefined });
+    };
+
+    const isParentActive = (item) => {
+        if (!item.children) return location.pathname === item.path;
+        if (item.id === 'products-mgmt' && isProductsPath(pathname)) return true;
+        return item.children.some((c) => location.pathname === c.path);
+    };
+
+    const isChildActive = (child) => {
+        if (child.state?.openCreate) return location.pathname === child.path && location.state?.openCreate;
+        return location.pathname === child.path;
+    };
 
     return (
         <Box sx={{ display: 'flex' }}>
@@ -160,61 +225,186 @@ const Sidebar = () => {
                 </IconButton>
 
                 <List sx={{ px: 1.5, py: 2 }}>
-                    {menuItems.map((item) => (
-                        <ListItem key={item.path} disablePadding sx={{ display: 'block', mb: 0.5 }}>
-                            <Tooltip title={!open ? item.label : ''} placement="right" arrow>
-                                <ListItemButton
-                                    sx={{
-                                        minHeight: 50,
-                                        justifyContent: open ? 'initial' : 'center',
-                                        px: 2.5,
-                                        borderRadius: 3,
-                                        transition: 'all 0.2s ease-in-out',
-                                        position: 'relative',
-                                        overflow: 'hidden',
-                                        ...(location.pathname === item.path ? {
-                                            background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-                                            color: 'white',
-                                            boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)',
-                                            '&:hover': {
-                                                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                                                boxShadow: '0 6px 16px rgba(14, 165, 233, 0.4)',
-                                            }
-                                        } : {
-                                            color: 'text.secondary',
-                                            '&:hover': {
-                                                backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                                color: 'primary.main',
-                                                transform: 'translateX(4px)'
-                                            }
-                                        }),
-                                    }}
-                                    onClick={() => navigate(item.path)}
-                                    selected={location.pathname === item.path}
-                                >
-                                    <ListItemIcon
+                    {menuItems.map((item) => {
+                        const hasChildren = item.children && item.children.length > 0;
+                        const isExpanded = open && isGroupExpanded(item);
+                        const parentActive = isParentActive(item);
+
+                        if (hasChildren) {
+                            return (
+                                <ListItem key={item.id || item.path} disablePadding sx={{ display: 'block', mb: 0.5 }}>
+                                    <Tooltip title={!open ? item.label : ''} placement="right" arrow>
+                                        <ListItemButton
+                                            sx={{
+                                                minHeight: 50,
+                                                justifyContent: open ? 'initial' : 'center',
+                                                px: 2.5,
+                                                borderRadius: 3,
+                                                transition: 'all 0.2s ease-in-out',
+                                                position: 'relative',
+                                                overflow: 'hidden',
+                                                ...(parentActive ? {
+                                                    background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                                                    color: 'white',
+                                                    boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)',
+                                                    '&:hover': {
+                                                        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                                                        boxShadow: '0 6px 16px rgba(14, 165, 233, 0.4)',
+                                                    }
+                                                } : {
+                                                    color: 'text.secondary',
+                                                    '&:hover': {
+                                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                                        color: 'primary.main',
+                                                        transform: 'translateX(4px)'
+                                                    }
+                                                }),
+                                            }}
+                                            onClick={() => handleParentClick(item)}
+                                            selected={parentActive}
+                                        >
+                                            <ListItemIcon
+                                                sx={{
+                                                    minWidth: 0,
+                                                    mr: open ? 2 : 'auto',
+                                                    justifyContent: 'center',
+                                                    color: parentActive ? 'white' : 'inherit',
+                                                    transition: 'color 0.2s'
+                                                }}
+                                            >
+                                                {item.icon}
+                                            </ListItemIcon>
+                                            <ListItemText
+                                                primary={item.label}
+                                                primaryTypographyProps={{
+                                                    fontWeight: parentActive ? 600 : 500,
+                                                    fontSize: '0.95rem'
+                                                }}
+                                                sx={{ opacity: open ? 1 : 0 }}
+                                            />
+                                        </ListItemButton>
+                                    </Tooltip>
+                                    {open && (
+                                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                                            <List
+                                                component="div"
+                                                disablePadding
+                                                sx={{
+                                                    mt: 1,
+                                                    pl: 1.5,
+                                                    pr: 0.5,
+                                                    py: 1.5,
+                                                    borderRadius: 2,
+                                                    bgcolor: 'rgba(0, 0, 0, 0.02)',
+                                                    borderLeft: '2px solid rgba(14, 165, 233, 0.2)',
+                                                }}
+                                            >
+                                                {item.children.map((child, idx) => {
+                                                    const childActive = isChildActive(child);
+                                                    return (
+                                                        <ListItem
+                                                            key={child.path + (child.state?.openCreate ? '-create' : (child.path + idx))}
+                                                            disablePadding
+                                                            sx={{ mb: 1.25, '&:last-child': { mb: 0 } }}
+                                                        >
+                                                            <ListItemButton
+                                                                sx={{
+                                                                    borderRadius: 2,
+                                                                    py: 1.25,
+                                                                    pl: 2,
+                                                                    minHeight: 40,
+                                                                    transition: 'all 0.2s ease',
+                                                                    ...(childActive
+                                                                        ? {
+                                                                            backgroundColor: 'rgba(14, 165, 233, 0.14)',
+                                                                            color: 'primary.main',
+                                                                            fontWeight: 600,
+                                                                            '&:hover': {
+                                                                                backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                                                                            },
+                                                                        }
+                                                                        : {
+                                                                            color: 'text.secondary',
+                                                                            backgroundColor: 'transparent',
+                                                                            '&:hover': {
+                                                                                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                                                                                color: 'primary.main',
+                                                                            },
+                                                                        }),
+                                                                }}
+                                                                onClick={() => handleChildClick(child)}
+                                                            >
+                                                                <ListItemText
+                                                                    primary={child.label}
+                                                                    primaryTypographyProps={{ fontSize: '0.875rem' }}
+                                                                />
+                                                            </ListItemButton>
+                                                        </ListItem>
+                                                    );
+                                                })}
+                                            </List>
+                                        </Collapse>
+                                    )}
+                                </ListItem>
+                            );
+                        }
+
+                        return (
+                            <ListItem key={item.path} disablePadding sx={{ display: 'block', mb: 0.5 }}>
+                                <Tooltip title={!open ? item.label : ''} placement="right" arrow>
+                                    <ListItemButton
                                         sx={{
-                                            minWidth: 0,
-                                            mr: open ? 2 : 'auto',
-                                            justifyContent: 'center',
-                                            color: location.pathname === item.path ? 'white' : 'inherit',
-                                            transition: 'color 0.2s'
+                                            minHeight: 50,
+                                            justifyContent: open ? 'initial' : 'center',
+                                            px: 2.5,
+                                            borderRadius: 3,
+                                            transition: 'all 0.2s ease-in-out',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            ...(location.pathname === item.path ? {
+                                                background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                                                color: 'white',
+                                                boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)',
+                                                '&:hover': {
+                                                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                                                    boxShadow: '0 6px 16px rgba(14, 165, 233, 0.4)',
+                                                }
+                                            } : {
+                                                color: 'text.secondary',
+                                                '&:hover': {
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                                    color: 'primary.main',
+                                                    transform: 'translateX(4px)'
+                                                }
+                                            }),
                                         }}
+                                        onClick={() => navigate(item.path)}
+                                        selected={location.pathname === item.path}
                                     >
-                                        {item.icon}
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary={item.label}
-                                        primaryTypographyProps={{
-                                            fontWeight: location.pathname === item.path ? 600 : 500,
-                                            fontSize: '0.95rem'
-                                        }}
-                                        sx={{ opacity: open ? 1 : 0 }}
-                                    />
-                                </ListItemButton>
-                            </Tooltip>
-                        </ListItem>
-                    ))}
+                                        <ListItemIcon
+                                            sx={{
+                                                minWidth: 0,
+                                                mr: open ? 2 : 'auto',
+                                                justifyContent: 'center',
+                                                color: location.pathname === item.path ? 'white' : 'inherit',
+                                                transition: 'color 0.2s'
+                                            }}
+                                        >
+                                            {item.icon}
+                                        </ListItemIcon>
+                                        <ListItemText
+                                            primary={item.label}
+                                            primaryTypographyProps={{
+                                                fontWeight: location.pathname === item.path ? 600 : 500,
+                                                fontSize: '0.95rem'
+                                            }}
+                                            sx={{ opacity: open ? 1 : 0 }}
+                                        />
+                                    </ListItemButton>
+                                </Tooltip>
+                            </ListItem>
+                        );
+                    })}
                 </List>
 
                 <Box sx={{ mt: 'auto', p: 2 }}>
@@ -227,32 +417,6 @@ const Sidebar = () => {
                         alignItems: open ? 'flex-start' : 'center',
                         transition: 'all 0.3s'
                     }}>
-                        {open && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, width: '100%' }}>
-                                <Avatar
-                                    src={user.avatar}
-                                    alt={user.name}
-                                    sx={{
-                                        width: 40,
-                                        height: 40,
-                                        mr: 1.5,
-                                        border: '2px solid white',
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                    }}
-                                >
-                                    {user.name.charAt(0)}
-                                </Avatar>
-                                <Box sx={{ overflow: 'hidden' }}>
-                                    <Typography variant="subtitle2" noWrap sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                                        {user.name}
-                                    </Typography>
-                                    <Typography variant="caption" noWrap sx={{ color: 'text.secondary', display: 'block' }}>
-                                        {getPermissionRoleLabel(user.permissionRole)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        )}
-
                         <Tooltip title={!open ? "Đăng xuất" : ""} placement="right">
                             <ListItemButton
                                 onClick={handleLogout}

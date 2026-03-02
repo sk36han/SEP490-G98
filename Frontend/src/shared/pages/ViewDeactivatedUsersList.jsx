@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import {
     Table,
     TableBody,
@@ -9,8 +8,6 @@ import {
     TableRow,
     Paper,
     Button,
-    TextField,
-    Chip,
     IconButton,
     Tooltip,
     Box,
@@ -26,11 +23,10 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Search, Edit, Power, UserPlus, Download, Columns, RefreshCw, Filter } from 'lucide-react';
+import { Search, Edit, Power, Download, Columns, RefreshCw, Filter } from 'lucide-react';
 import adminService from '../lib/adminService';
 import authService from '../lib/authService';
 import Toast from '../../components/Toast/Toast';
-import CreateAccountDialog from '../../components/admin/CreateAccountDialog';
 import EditUserDialog from '../../components/admin/EditUserDialog';
 import { useToast } from '../hooks/useToast';
 import { removeDiacritics } from '../utils/stringUtils';
@@ -38,7 +34,6 @@ import SearchInput from '../components/SearchInput';
 import UserAccountFilterPopup from '../components/UserAccountFilterPopup';
 import { ROLE_DISPLAY_MAPPING, ROLE_COLORS, ROLE_NAME_TO_ID } from '../constants/roles';
 
-/** Cột bảng danh sách user – dùng cho chọn cột hiển thị */
 const USER_ACCOUNT_COLUMNS = [
     { id: 'stt', label: 'STT', getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
     { id: 'username', label: 'Username', getValue: (row) => row.username ?? '' },
@@ -51,10 +46,8 @@ const USER_ACCOUNT_COLUMNS = [
 const DEFAULT_VISIBLE_USER_COLUMN_IDS = USER_ACCOUNT_COLUMNS.map((c) => c.id);
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const UserAccountList = () => {
+const DeactivatedUsersList = () => {
     const { toast, showToast, clearToast } = useToast();
-    const location = useLocation();
-    const navigate = useNavigate();
     const currentUserId = authService.getCurrentUserId();
     const [allUsers, setAllUsers] = useState([]);
     const [users, setUsers] = useState([]);
@@ -66,21 +59,7 @@ const UserAccountList = () => {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({ role: '', isActive: null, fromDate: null, toDate: null });
 
-    const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
-    const [creatingUser, setCreatingUser] = useState(false);
-    const createSubmittingRef = useRef(false);
-    // Dự phòng cho audit log (ghi lại admin đã chỉnh sửa những gì)
-    // const [selectedUser, setSelectedUser] = useState(null);
-
-    const [createForm, setCreateForm] = useState({
-        email: '',
-        fullName: '',
-        username: '',
-        roleId: 2,
-        gender: '',
-        citizenId: '',
-    });
     const [editForm, setEditForm] = useState({
         userId: null,
         fullName: '',
@@ -121,10 +100,8 @@ const UserAccountList = () => {
             });
             const list = response?.data?.items ?? response?.items ?? [];
             setAllUsers(Array.isArray(list) ? list : []);
-            return (response?.data?.items ?? list)?.length ?? 0;
         } catch (error) {
             showToast(error.message, 'error');
-            return 0;
         } finally {
             setLoading(false);
         }
@@ -134,16 +111,9 @@ const UserAccountList = () => {
         loadUsers();
     }, []);
 
-    // Mở dialog Tạo mới khi điều hướng từ Sidebar với state.openCreate
+    // Chỉ lấy người dùng đã vô hiệu hóa, sau đó áp dụng search + filter
     useEffect(() => {
-        if (location.state?.openCreate) {
-            setShowCreateDialog(true);
-            navigate(location.pathname, { replace: true, state: {} });
-        }
-    }, [location.pathname, location.state?.openCreate, navigate]);
-
-    useEffect(() => {
-        let result = allUsers;
+        let result = allUsers.filter((user) => !user.isActive);
         if (searchTerm.trim()) {
             const normalize = (str) => (str ? removeDiacritics(str.toLowerCase()) : '');
             const lowerTerm = normalize(searchTerm.trim());
@@ -158,9 +128,6 @@ const UserAccountList = () => {
             result = result.filter(
                 (user) => (ROLE_DISPLAY_MAPPING[user.roleName] || user.roleName) === filterValues.role
             );
-        }
-        if (filterValues.isActive !== null && filterValues.isActive !== undefined) {
-            result = result.filter((user) => Boolean(user.isActive) === filterValues.isActive);
         }
         if (filterValues.fromDate || filterValues.toDate) {
             result = result.filter((user) => {
@@ -186,48 +153,16 @@ const UserAccountList = () => {
 
     useEffect(() => {
         setPageNumber(1);
-    }, [searchTerm, filterValues.role, filterValues.isActive, filterValues.fromDate, filterValues.toDate]);
+    }, [searchTerm, filterValues.role, filterValues.fromDate, filterValues.toDate]);
 
     const handleFilterApply = (values) => {
         setFilterValues({
             role: values.role ?? '',
-            isActive: values.isActive ?? null,
+            isActive: null,
             fromDate: values.fromDate ?? null,
             toDate: values.toDate ?? null,
         });
         setPageNumber(1);
-    };
-
-    const handleCreateUser = async (e) => {
-        e.preventDefault();
-        if (createSubmittingRef.current || creatingUser) return;
-        if (!createForm.email || !createForm.fullName) {
-            showToast('Vui lòng điền đầy đủ Email và Họ tên!', 'error');
-            return;
-        }
-        createSubmittingRef.current = true;
-        setCreatingUser(true);
-        try {
-            const payload = { email: createForm.email, fullName: createForm.fullName, roleId: createForm.roleId };
-            const result = await adminService.createUser(payload);
-            const createdUsername = result?.data?.username;
-            const msg = createdUsername
-                ? `Tạo tài khoản thành công! Tên đăng nhập: ${createdUsername}`
-                : 'Tạo tài khoản thành công!';
-            showToast(msg, 'success');
-            setShowCreateDialog(false);
-            setCreateForm({ email: '', fullName: '', username: '', roleId: 2, gender: '', citizenId: '' });
-            const count = await loadUsers();
-            if (count > 0) {
-                const lastPage = Math.ceil(count / pageSize);
-                setPageNumber(lastPage);
-            }
-        } catch (error) {
-            showToast(error.message, 'error');
-        } finally {
-            createSubmittingRef.current = false;
-            setCreatingUser(false);
-        }
     };
 
     const handleEditUser = async (e) => {
@@ -250,10 +185,6 @@ const UserAccountList = () => {
     };
 
     const handleToggleStatus = async (userId, currentStatus) => {
-        if (currentUserId != null && Number(userId) === Number(currentUserId) && currentStatus) {
-            showToast('Bạn không thể vô hiệu hóa tài khoản của chính mình.', 'error');
-            return;
-        }
         const action = currentStatus ? 'vô hiệu hóa' : 'kích hoạt';
         if (!window.confirm(`Bạn có chắc muốn ${action} tài khoản này?`)) return;
         try {
@@ -274,7 +205,7 @@ const UserAccountList = () => {
             email: user.email ?? '',
             phone: user.phone ?? '',
             roleId: Number(roleId) || 2,
-            isActive: user.isActive ?? true,
+            isActive: user.isActive ?? false,
             createdAt: user.createdAt ?? null,
             lastLoginAt: user.lastLoginAt ?? null,
             gender: user.gender ?? '',
@@ -289,7 +220,7 @@ const UserAccountList = () => {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `users_${new Date().toISOString().split('T')[0]}.xlsx`;
+            link.download = `users_deactivated_${new Date().toISOString().split('T')[0]}.xlsx`;
             link.click();
             window.URL.revokeObjectURL(url);
             showToast('Xuất file Excel thành công!', 'success');
@@ -341,23 +272,22 @@ const UserAccountList = () => {
                     fontWeight="800"
                     sx={{
                         mt: 0,
-                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                        background: 'linear-gradient(45deg, #64748b 30%, #94a3b8 90%)',
                         backgroundClip: 'text',
                         textFillColor: 'transparent',
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)',
                         whiteSpace: 'nowrap',
                     }}
                 >
-                    Quản lý người dùng
+                    Người dùng đã vô hiệu hóa
                 </Typography>
                 <Typography
                     variant="body1"
                     color="text.secondary"
                     sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                 >
-                    Quản lý tài khoản, phân quyền và trạng thái hoạt động của nhân viên trong hệ thống.
+                    Thống kê danh sách tài khoản đã bị vô hiệu hóa. Có thể chỉnh sửa hoặc kích hoạt lại từng tài khoản.
                 </Typography>
             </Box>
 
@@ -381,7 +311,7 @@ const UserAccountList = () => {
                 <UserAccountFilterPopup
                     open={filterOpen}
                     onClose={() => setFilterOpen(false)}
-                    initialValues={filterValues}
+                    initialValues={{ ...filterValues, isActive: false }}
                     onApply={handleFilterApply}
                 />
                 <Box
@@ -399,7 +329,7 @@ const UserAccountList = () => {
                 >
                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flex: '1 1 auto', minWidth: 0 }}>
                         <SearchInput
-                            placeholder="Tìm kiếm theo email, tên, username..."
+                            placeholder="Tìm theo email, tên, username..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             sx={{ flexGrow: 1, maxWidth: 420, minWidth: 160 }}
@@ -443,20 +373,6 @@ const UserAccountList = () => {
                             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                         >
                             Xuất Excel
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<UserPlus size={18} />}
-                            onClick={() => setShowCreateDialog(true)}
-                            sx={{
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                                boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
-                            }}
-                        >
-                            Tạo tài khoản
                         </Button>
                     </Box>
                 </Box>
@@ -532,7 +448,7 @@ const UserAccountList = () => {
                                             }}
                                         >
                                             <Search size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
-                                            <Typography>Không tìm thấy người dùng nào</Typography>
+                                            <Typography>Không có tài khoản nào đã vô hiệu hóa</Typography>
                                         </Box>
                                     </TableCell>
                                 </TableRow>
@@ -564,8 +480,8 @@ const UserAccountList = () => {
                                                 return (
                                                     <TableCell key={col.id}>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: 'primary.light', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: 'bold' }}>
-                                                                {user.fullName.charAt(0)}
+                                                            <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: 'grey.400', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: 'bold' }}>
+                                                                {(user.fullName || ' ').charAt(0)}
                                                             </Box>
                                                             {user.fullName}
                                                         </Box>
@@ -589,7 +505,7 @@ const UserAccountList = () => {
                                                 return (
                                                     <TableCell key={col.id}>
                                                         <Chip
-                                                            label={user.isActive ? 'Active' : 'Inactive'}
+                                                            label="Vô hiệu"
                                                             size="small"
                                                             variant="outlined"
                                                             sx={{
@@ -597,9 +513,9 @@ const UserAccountList = () => {
                                                                 borderRadius: '50px',
                                                                 px: 1.25,
                                                                 bgcolor: 'transparent',
-                                                                color: user.isActive ? 'success.main' : 'text.secondary',
+                                                                color: 'text.secondary',
                                                                 border: '1px solid',
-                                                                borderColor: user.isActive ? 'success.main' : 'grey.400',
+                                                                borderColor: 'grey.400',
                                                             }}
                                                         />
                                                     </TableCell>
@@ -614,27 +530,18 @@ const UserAccountList = () => {
                                                                     <Edit size={18} />
                                                                 </IconButton>
                                                             </Tooltip>
-                                                            {(() => {
-                                                                const isSelf = currentUserId != null && Number(user.userId) === Number(currentUserId);
-                                                                const cannotDeactivateSelf = isSelf && user.isActive;
-                                                                return (
-                                                                    <Tooltip title={cannotDeactivateSelf ? 'Không thể vô hiệu hóa chính mình' : (user.isActive ? 'Vô hiệu hóa' : 'Kích hoạt')}>
-                                                                        <span>
-                                                                            <IconButton
-                                                                                size="small"
-                                                                                disabled={cannotDeactivateSelf}
-                                                                                onClick={() => handleToggleStatus(user.userId, user.isActive)}
-                                                                                sx={{
-                                                                                    color: cannotDeactivateSelf ? 'grey.400' : (user.isActive ? 'success.main' : 'text.disabled'),
-                                                                                    '&:hover': cannotDeactivateSelf ? {} : { color: user.isActive ? 'error.main' : 'success.main', bgcolor: 'action.hover' }
-                                                                                }}
-                                                                            >
-                                                                                <Power size={18} />
-                                                                            </IconButton>
-                                                                        </span>
-                                                                    </Tooltip>
-                                                                );
-                                                            })()}
+                                                            <Tooltip title="Kích hoạt lại">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => handleToggleStatus(user.userId, user.isActive)}
+                                                                    sx={{
+                                                                        color: 'success.main',
+                                                                        '&:hover': { color: 'success.dark', bgcolor: 'action.hover' }
+                                                                    }}
+                                                                >
+                                                                    <Power size={18} />
+                                                                </IconButton>
+                                                            </Tooltip>
                                                         </Box>
                                                     </TableCell>
                                                 );
@@ -649,7 +556,6 @@ const UserAccountList = () => {
                 </TableContainer>
             </Paper>
 
-            {/* Phần chân bảng: khoảng trắng nhỏ với bảng, sát đáy viewport */}
             <Box
                 sx={{
                     mt: 1.5,
@@ -707,15 +613,6 @@ const UserAccountList = () => {
                 )}
             </Box>
 
-            <CreateAccountDialog
-                open={showCreateDialog}
-                formData={createForm}
-                onFormChange={setCreateForm}
-                onSubmit={handleCreateUser}
-                onClose={() => setShowCreateDialog(false)}
-                submitting={creatingUser}
-            />
-
             <EditUserDialog
                 open={showEditDialog}
                 formData={editForm}
@@ -731,4 +628,4 @@ const UserAccountList = () => {
     );
 };
 
-export default UserAccountList;
+export default DeactivatedUsersList;

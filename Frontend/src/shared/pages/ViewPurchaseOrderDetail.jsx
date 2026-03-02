@@ -52,7 +52,7 @@ const PO_LINE_COLUMNS = [
 ];
 const DEFAULT_VISIBLE_LINE_COLUMN_IDS = PO_LINE_COLUMNS.map((c) => c.id);
 
-const ViewPurchaseOrder = () => {
+const ViewPurchaseOrderDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [po, setPo] = useState(null);
@@ -166,4 +166,4 @@ const ViewPurchaseOrder = () => {
     );
 };
 
-export default ViewPurchaseOrder;
+export default ViewPurchaseOrderDetail;

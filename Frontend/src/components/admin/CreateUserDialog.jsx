@@ -15,8 +15,8 @@ import {
   Typography,
   Box,
 } from "@mui/material";
-import { User, Mail, Key, CreditCard } from "lucide-react";
-import { ROLE_OPTIONS } from "../../shared/constants/roles";
+import { User, Mail, Key } from "lucide-react";
+import { ROLE_DROPDOWN_LABELS } from "../../shared/constants/roles";
 import { generateUsername } from "../../shared/utils/stringUtils";
 
 const inputSx = {
@@ -43,8 +43,6 @@ const CreateUserDialog = ({
     (formData.email ?? "").trim() ||
       (formData.fullName ?? "").trim() ||
       (formData.username ?? "").trim() ||
-      (formData.gender ?? "") ||
-      (formData.citizenId ?? "").trim() ||
       (formData.roleId !== undefined && formData.roleId !== 2)
   );
 
@@ -172,46 +170,6 @@ const CreateUserDialog = ({
               </Grid>
               <Grid item xs={6} sx={{ width: "50%", maxWidth: "50%", flexBasis: "50%" }}>
                 <FormControl fullWidth size="small" sx={inputSx}>
-                  <InputLabel id="create-gender-label">Giới tính</InputLabel>
-                  <Select
-                    labelId="create-gender-label"
-                    value={formData.gender ?? ""}
-                    label="Giới tính"
-                    onChange={(e) =>
-                      onFormChange({ ...formData, gender: e.target.value })
-                    }
-                  >
-                    <MenuItem value="male">Nam</MenuItem>
-                    <MenuItem value="female">Nữ</MenuItem>
-                    <MenuItem value="other">Khác</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={6} sx={{ width: "50%", maxWidth: "50%", flexBasis: "50%" }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Số căn cước công dân"
-                  placeholder="VD: 001099012345"
-                  value={formData.citizenId ?? ""}
-                  onChange={(e) =>
-                    onFormChange({ ...formData, citizenId: e.target.value })
-                  }
-                  sx={inputSx}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start" sx={{ mr: 1 }}>
-                        <CreditCard
-                          size={18}
-                          style={{ color: "var(--mui-palette-text-secondary)" }}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6} sx={{ width: "50%", maxWidth: "50%", flexBasis: "50%" }}>
-                <FormControl fullWidth size="small" sx={inputSx}>
                   <InputLabel id="create-role-label">Vai trò</InputLabel>
                   <Select
                     labelId="create-role-label"
@@ -221,7 +179,7 @@ const CreateUserDialog = ({
                       onFormChange({ ...formData, roleId: e.target.value })
                     }
                   >
-                    {Object.entries(ROLE_OPTIONS).map(([id, name]) => (
+                    {Object.entries(ROLE_DROPDOWN_LABELS).map(([id, name]) => (
                       <MenuItem key={id} value={parseInt(id)}>
                         {name}
                       </MenuItem>

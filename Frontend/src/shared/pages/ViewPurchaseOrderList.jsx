@@ -1,19 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Card,
     CardContent,
-    Typography,
     Button,
+    Typography,
+    IconButton,
+    Tooltip,
+    useTheme,
+    useMediaQuery,
     Table,
     TableBody,
     TableCell,
     TableContainer,
     TableHead,
     TableRow,
-    IconButton,
-    Tooltip,
     Popover,
     FormGroup,
     FormControlLabel,
@@ -22,67 +24,78 @@ import {
     Select,
     MenuItem,
     Chip,
-    useTheme,
-    useMediaQuery,
+    TableSortLabel,
 } from '@mui/material';
-import { Plus, Eye, Edit, Columns } from 'lucide-react';
+import { FileText, Filter, Eye, Edit, Columns, Plus } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
+import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import '../styles/ListView.css';
 
-const MOCK_POS = [
-    { purchaseOrderId: 1, pocode: 'PO-2025-001', supplierId: 1, supplierName: 'Công ty A', requestedDate: '2025-02-10', status: 'Draft', currentStageNo: 0, createdAt: '2025-02-10T08:00:00' },
-    { purchaseOrderId: 2, pocode: 'PO-2025-002', supplierId: 2, supplierName: 'Công ty B', requestedDate: '2025-02-12', status: 'Submitted', currentStageNo: 1, createdAt: '2025-02-12T09:00:00' },
-    { purchaseOrderId: 3, pocode: 'PO-2025-003', supplierId: 1, supplierName: 'Công ty A', requestedDate: '2025-02-14', status: 'Approved', currentStageNo: 2, createdAt: '2025-02-14T10:00:00' },
-];
-
-const PO_LIST_COLUMNS = [
-    { id: 'pocode', label: 'PO Code', getValue: (row) => row.pocode ?? '' },
-    { id: 'supplierName', label: 'Nhà cung cấp', getValue: (row) => row.supplierName ?? '' },
-    { id: 'requestedDate', label: 'Ngày yêu cầu', getValue: (row) => row.requestedDate ?? '' },
-    { id: 'status', label: 'Trạng thái', getValue: (row) => row.status ?? '' },
-    { id: 'actions', label: 'Hành động', getValue: () => '' },
-];
-const DEFAULT_VISIBLE_PO_COLUMN_IDS = PO_LIST_COLUMNS.map((c) => c.id);
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const PurchaseOrderList = () => {
+const PO_STATUS_STYLE = {
+    Draft: { color: 'text.secondary', borderColor: 'grey.400', label: 'Nháp' },
+    Submitted: { color: 'warning.main', borderColor: 'warning.main', label: 'Đã gửi' },
+    Approved: { color: 'success.main', borderColor: 'success.main', label: 'Đã duyệt' },
+};
+
+const PO_COLUMNS = [
+    { id: 'stt', label: 'STT', sortable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
+    { id: 'orderCode', label: 'PO Code', sortable: true, getValue: (row) => row.orderCode ?? '' },
+    { id: 'status', label: 'Status', sortable: true, getValue: (row) => PO_STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
+    { id: 'currentApprovalStage', label: 'Current Approval Stage', sortable: true, getValue: (row) => row.currentApprovalStage ?? '-' },
+    { id: 'requester', label: 'Requester', sortable: true, getValue: (row) => row.requester ?? '' },
+    { id: 'supplierName', label: 'Supplier', sortable: true, getValue: (row) => row.supplierName ?? '' },
+    { id: 'requestedDate', label: 'Requested Date', sortable: true, getValue: (row) => row.requestedDate ?? '' },
+    { id: 'createdAt', label: 'Created At', sortable: true, getValue: (row) => row.createdAt ?? '' },
+    { id: 'submittedAt', label: 'Submitted At', sortable: true, getValue: (row) => row.submittedAt ?? '-' },
+    { id: 'updatedAt', label: 'Updated At', sortable: true, getValue: (row) => row.updatedAt ?? '-' },
+    { id: 'justification', label: 'Lý do mua', sortable: true, getValue: (row) => row.justification ?? '-' },
+    { id: 'actions', label: 'Thao tác', sortable: false, getValue: () => '' },
+];
+
+/** Mặc định ẩn: Created At, Submitted At, Updated At (có thể bật lại qua "Chọn cột hiển thị"). */
+const HIDDEN_BY_DEFAULT_PO_COLUMN_IDS = ['createdAt', 'submittedAt', 'updatedAt'];
+const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id).filter((id) => !HIDDEN_BY_DEFAULT_PO_COLUMN_IDS.includes(id));
+const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
+
+/** Mock danh sách đơn mua – đủ cột theo yêu cầu (UI only). */
+const MOCK_PO_LIST = [
+    { purchaseOrderId: 1, orderCode: 'PO-2025-001', status: 'Draft', currentApprovalStage: '-', requester: 'Nguyễn Văn A', supplierName: 'Công ty TNHH ABC', requestedDate: '2025-02-10', createdAt: '2025-02-09T08:00:00', submittedAt: null, updatedAt: '2025-02-09T08:00:00', justification: 'Bổ sung tồn kho quý 1' },
+    { purchaseOrderId: 2, orderCode: 'PO-2025-002', status: 'Submitted', currentApprovalStage: 'Chờ Giám đốc', requester: 'Trần Thị B', supplierName: 'Công ty CP XYZ', requestedDate: '2025-02-12', createdAt: '2025-02-11T09:00:00', submittedAt: '2025-02-12T10:00:00', updatedAt: '2025-02-12T10:00:00', justification: 'Đặt hàng vật tư dự án' },
+    { purchaseOrderId: 3, orderCode: 'PO-2025-003', status: 'Approved', currentApprovalStage: 'Đã duyệt', requester: 'Lê Văn C', supplierName: 'Công ty TNHH ABC', requestedDate: '2025-02-14', createdAt: '2025-02-13T14:00:00', submittedAt: '2025-02-14T08:00:00', updatedAt: '2025-02-14T11:00:00', justification: 'Mua thiết bị văn phòng' },
+    { purchaseOrderId: 4, orderCode: 'PO-2025-004', status: 'Draft', currentApprovalStage: '-', requester: 'Phạm Thị D', supplierName: 'Công ty CP XYZ', requestedDate: '2025-02-15', createdAt: '2025-02-14T16:00:00', submittedAt: null, updatedAt: '2025-02-14T16:00:00', justification: 'Nguyên vật liệu sản xuất' },
+];
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatDateOnly = (dateStr) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('vi-VN');
+};
+
+export default function ViewPurchaseOrderList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [filterValues, setFilterValues] = useState({});
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_PO_COLUMN_IDS));
+    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+    const [orderBy, setOrderBy] = useState('orderCode');
+    const [order, setOrder] = useState('asc');
 
-    useEffect(() => setList(MOCK_POS), []);
-
-    const filteredList = React.useMemo(() => {
-        if (!searchTerm.trim()) return list;
-        const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
-        const term = normalize(searchTerm.trim());
-        return list.filter((po) => {
-            const matchPocode = normalize(po.pocode).includes(term);
-            const matchSupplier = normalize(po.supplierName).includes(term);
-            const matchDate = (po.requestedDate && String(po.requestedDate).toLowerCase().includes(term)) || normalize(po.requestedDate).includes(term);
-            return matchPocode || matchSupplier || matchDate;
-        });
-    }, [list, searchTerm]);
-
-    useEffect(() => setPage(0), [searchTerm]);
-
-    const totalCount = filteredList.length;
-    const start = totalCount === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalCount);
-    const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
-    const paginatedList = filteredList.slice(page * pageSize, (page + 1) * pageSize);
-    const handlePageChange = (newPage) => setPage(newPage);
-    const handlePageSizeChange = (e) => {
-        setPageSize(Number(e.target.value));
-        setPage(0);
-    };
+    useEffect(() => setList(MOCK_PO_LIST), []);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -92,25 +105,109 @@ const PurchaseOrderList = () => {
             return next;
         });
     };
-    const handleSelectAllPOColumns = (checked) => {
-        setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_PO_COLUMN_IDS) : new Set());
+    const handleSelectAllColumns = (checked) => {
+        setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
     };
-    const visibleColumns = PO_LIST_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
+    const visibleColumns = PO_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
-    const statusColor = (s) => (s === 'Approved' ? 'success' : s === 'Submitted' ? 'info' : 'default');
+    const handleSortRequest = (columnId) => {
+        if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
+        const isAsc = orderBy === columnId && order === 'asc';
+        setOrderBy(columnId);
+        setOrder(isAsc ? 'desc' : 'asc');
+        setPage(0);
+    };
+
+    const filteredAndSortedRows = useMemo(() => {
+        const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
+        const term = searchTerm.trim() ? normalize(searchTerm.trim()) : '';
+        let result = [...list];
+
+        if (term) {
+            result = result.filter((row) =>
+                normalize(row.orderCode ?? '').includes(term) ||
+                normalize(row.requester ?? '').includes(term) ||
+                normalize(row.supplierName ?? '').includes(term) ||
+                normalize(row.justification ?? '').includes(term) ||
+                normalize(row.currentApprovalStage ?? '').includes(term)
+            );
+        }
+        if (filterValues.status) {
+            result = result.filter((row) => row.status === filterValues.status);
+        }
+        if (filterValues.fromDate) {
+            result = result.filter((row) => {
+                const d = row.requestedDate || row.createdAt;
+                return d && String(d).slice(0, 10) >= filterValues.fromDate;
+            });
+        }
+        if (filterValues.toDate) {
+            result = result.filter((row) => {
+                const d = row.requestedDate || row.createdAt;
+                return d && String(d).slice(0, 10) <= filterValues.toDate;
+            });
+        }
+
+        result.sort((a, b) => {
+            const aVal = a[orderBy];
+            const bVal = b[orderBy];
+            const isDate = ['requestedDate', 'createdAt', 'submittedAt', 'updatedAt'].includes(orderBy);
+            let cmp = 0;
+            if (isDate) {
+                const tA = aVal ? new Date(aVal).getTime() : 0;
+                const tB = bVal ? new Date(bVal).getTime() : 0;
+                cmp = tA - tB;
+            } else {
+                const strA = String(aVal ?? '').toLowerCase();
+                const strB = String(bVal ?? '').toLowerCase();
+                cmp = strA.localeCompare(strB);
+            }
+            return order === 'asc' ? cmp : -cmp;
+        });
+        return result;
+    }, [list, searchTerm, filterValues, orderBy, order]);
+
+    const totalCount = filteredAndSortedRows.length;
+    const start = totalCount === 0 ? 0 : page * pageSize + 1;
+    const end = Math.min((page + 1) * pageSize, totalCount);
+    const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
+    const rows = filteredAndSortedRows.slice(page * pageSize, (page + 1) * pageSize);
+
+    useEffect(() => setPage(0), [searchTerm, filterValues]);
+
+    const handleFilterApply = (values) => {
+        setFilterValues(values);
+        setPage(0);
+    };
+    const handlePageChange = (newPage) => setPage(newPage);
+    const handlePageSizeChange = (e) => {
+        setPageSize(Number(e.target.value));
+        setPage(0);
+    };
 
     return (
-        <>
-            <Box sx={{ mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
-                <Typography variant="h4" component="h1" gutterBottom fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
-                    Quản lý đơn mua hàng
+        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
+            <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                <Typography variant="h4" component="h1" fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
+                    Danh sách đơn mua hàng (PO)
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, wordBreak: 'break-word', overflowWrap: 'break-word' }}>Danh sách đơn mua hàng – tìm kiếm theo PO code, nhà cung cấp, ngày yêu cầu.</Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                    Tra cứu đơn mua: tìm kiếm, lọc theo trạng thái/ngày, sắp xếp và xem chi tiết.
+                </Typography>
             </Box>
+
+            <PurchaseOrderFilterPopup open={filterOpen} onClose={() => setFilterOpen(false)} initialValues={filterValues} onApply={handleFilterApply} />
+
             <Box
                 className="list-view"
                 sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                     width: '100%',
                     maxWidth: '100%',
                     background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
@@ -123,122 +220,132 @@ const PurchaseOrderList = () => {
                 }}
             >
                 <Card className="list-filter-card" sx={{ mb: 1, borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1] }}>
-                <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
-                    <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
-                        <SearchInput
-                            placeholder="Tìm theo PO code, nhà cung cấp, ngày yêu cầu…"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            sx={{ flex: '1 1 200px', minWidth: isMobile ? '100%' : 200, maxWidth: isMobile ? '100%' : 420 }}
-                        />
-                        <Tooltip title="Chọn cột hiển thị">
-                            <IconButton color="primary" onClick={(e) => setColumnSelectorAnchor(e.currentTarget)} aria-label="Chọn cột" sx={{ border: 1, borderColor: 'divider' }}>
-                                <Columns size={20} />
-                            </IconButton>
-                        </Tooltip>
-                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                            <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => navigate('/purchase-orders/create')} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>
-                                Tạo đơn mua hàng
-                            </Button>
+                    <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
+                        <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
+                            <SearchInput
+                                placeholder="Tìm theo PO Code, Requester, Supplier, Lý do mua…"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                sx={{ flex: '1 1 200px', minWidth: isMobile ? '100%' : 200, maxWidth: isMobile ? '100%' : 480 }}
+                            />
+                            <Tooltip title="Bộ lọc">
+                                <IconButton color="primary" onClick={() => setFilterOpen(true)} aria-label="Bộ lọc" sx={{ border: 1, borderColor: 'divider' }}>
+                                    <Filter size={20} />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Chọn cột hiển thị">
+                                <IconButton color="primary" onClick={(e) => setColumnSelectorAnchor(e.currentTarget)} aria-label="Chọn cột" sx={{ border: 1, borderColor: 'divider' }}>
+                                    <Columns size={20} />
+                                </IconButton>
+                            </Tooltip>
+                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
+                                <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => navigate('/purchase-orders/create')} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>
+                                    Tạo đơn mua hàng
+                                </Button>
+                            </Box>
                         </Box>
-                    </Box>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={() => setColumnSelectorAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>Chọn cột hiển thị</Typography>
-                <FormGroup>
-                    <FormControlLabel control={<Checkbox checked={visibleColumnIds.size === PO_LIST_COLUMNS.length} indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PO_LIST_COLUMNS.length} onChange={(e) => handleSelectAllPOColumns(e.target.checked)} />} label="Tất cả" />
-                    {PO_LIST_COLUMNS.map((col) => (
-                        <FormControlLabel key={col.id} control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} label={col.label} />
-                    ))}
-                </FormGroup>
-            </Popover>
-
-            <Card className="list-grid-card" sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
-                <Box className="list-grid-wrapper" sx={{ position: 'relative', minHeight: 'calc(100vh - 220px)' }}>
-                    {paginatedList.length === 0 ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
-                            <Typography>Chưa có dữ liệu đơn mua hàng</Typography>
-                        </Box>
-                    ) : (
-                        <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'hidden' }}>
-                            <Table size="small" stickyHeader>
-                                <TableHead>
-                                    <TableRow>
-                                        {visibleColumns.map((col) => (
-                                            <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' ? 'right' : 'left'}>{col.label}</TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {paginatedList.map((po) => (
-                                        <TableRow key={po.purchaseOrderId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                            {visibleColumns.map((col) => {
-                                                if (col.id === 'status') return <TableCell key={col.id} align="left"><Chip label={po.status} size="small" color={statusColor(po.status)} /></TableCell>;
-                                                if (col.id === 'actions') {
-                                                    return (
-                                                        <TableCell key={col.id} align="right">
-                                                            <Tooltip title="Xem"><IconButton size="small" onClick={() => navigate(`/purchase-orders/${po.purchaseOrderId}`)}><Eye size={18} /></IconButton></Tooltip>
-                                                            <Tooltip title="Sửa"><IconButton size="small" onClick={() => navigate(`/purchase-orders/edit/${po.purchaseOrderId}`)}><Edit size={18} /></IconButton></Tooltip>
-                                                        </TableCell>
-                                                    );
-                                                }
-                                                return <TableCell key={col.id} align="left">{col.getValue(po)}</TableCell>;
-                                            })}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </Box>
-            </Card>
-
-            {/* Pagination – gom hết bên phải: Số dòng/trang + dropdown + range + Trước/Sau */}
-            <Box
-                sx={{
-                    mt: 0,
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                    gap: 2,
-                }}
-            >
-                <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
-                <FormControl size="small" sx={{ minWidth: 72 }}>
-                    <Select value={pageSize} onChange={handlePageSizeChange} sx={{ height: 32, fontSize: '0.875rem' }}>
-                        {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                            <MenuItem key={n} value={n}>{n}</MenuItem>
+                <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={() => setColumnSelectorAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 240 } } }}>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>Chọn cột hiển thị</Typography>
+                    <FormGroup>
+                        <FormControlLabel control={<Checkbox checked={visibleColumnIds.size === PO_COLUMNS.length} indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PO_COLUMNS.length} onChange={(e) => handleSelectAllColumns(e.target.checked)} />} label="Tất cả" />
+                        {PO_COLUMNS.map((col) => (
+                            <FormControlLabel key={col.id} control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} label={col.label} />
                         ))}
-                    </Select>
-                </FormControl>
-                <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
-                    {start}–{end} / {totalCount} (Tổng {totalPages} trang)
-                </Typography>
-                <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={page <= 0}
-                    onClick={() => handlePageChange(page - 1)}
-                    sx={{ minWidth: 36, textTransform: 'none' }}
-                >
-                    Trước
-                </Button>
-                <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={end >= totalCount || totalCount === 0}
-                    onClick={() => handlePageChange(page + 1)}
-                    sx={{ minWidth: 36, textTransform: 'none' }}
-                >
-                    Sau
-                </Button>
-            </Box>
-            </Box>
-        </>
-    );
-};
+                    </FormGroup>
+                </Popover>
 
-export default PurchaseOrderList;
+                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
+                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                        {rows.length === 0 ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
+                                <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                                <Typography>Chưa có dữ liệu đơn mua hàng</Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
+                                <Table size="small" stickyHeader>
+                                    <TableHead>
+                                        <TableRow>
+                                            {visibleColumns.map((col) => (
+                                                <TableCell
+                                                    key={col.id}
+                                                    sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }}
+                                                    align={col.id === 'actions' ? 'right' : col.id === 'stt' ? 'left' : 'left'}
+                                                >
+                                                    {col.sortable ? (
+                                                        <TableSortLabel active={orderBy === col.id} direction={orderBy === col.id ? order : 'asc'} onClick={() => handleSortRequest(col.id)}>
+                                                            {col.label}
+                                                        </TableSortLabel>
+                                                    ) : (
+                                                        col.label
+                                                    )}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {rows.map((row, index) => (
+                                            <TableRow key={row.purchaseOrderId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                {visibleColumns.map((col) => {
+                                                    const opts = { pageNumber: page + 1, pageSize };
+                                                    if (col.id === 'stt') return <TableCell key={col.id} align="left">{col.getValue(row, index, opts)}</TableCell>;
+                                                    if (col.id === 'status') {
+                                                        const style = PO_STATUS_STYLE[row.status] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.status ?? '' };
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Chip label={style.label} size="small" variant="outlined" sx={{ fontWeight: 600, borderRadius: '50px', px: 1.25, bgcolor: 'transparent', color: style.color, border: '1px solid', borderColor: style.borderColor }} />
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    if (col.id === 'requestedDate') return <TableCell key={col.id} align="left">{formatDateOnly(row.requestedDate)}</TableCell>;
+                                                    if (col.id === 'createdAt' || col.id === 'submittedAt' || col.id === 'updatedAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(row[col.id])}</TableCell>;
+                                                    if (col.id === 'justification') return <TableCell key={col.id} align="left" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }} title={row.justification}>{row.justification ?? '-'}</TableCell>;
+                                                    if (col.id === 'actions') {
+                                                        return (
+                                                            <TableCell key={col.id} align="right">
+                                                                <Tooltip title="Xem chi tiết">
+                                                                    <IconButton size="small" onClick={() => navigate(`/purchase-orders/${row.purchaseOrderId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
+                                                                        <Eye size={18} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                                <Tooltip title="Chỉnh sửa">
+                                                                    <IconButton size="small" onClick={() => navigate(`/purchase-orders/edit/${row.purchaseOrderId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
+                                                                        <Edit size={18} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
+                                                })}
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Box>
+                </Card>
+
+                <Box sx={{ flexShrink: 0, mt: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                    <FormControl size="small" sx={{ minWidth: 72 }}>
+                        <Select value={pageSize} onChange={handlePageSizeChange} sx={{ height: 32, fontSize: '0.875rem' }}>
+                            {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                <MenuItem key={n} value={n}>{n}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                        {start}–{end} / {totalCount} (Tổng {totalPages} trang)
+                    </Typography>
+                    <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Trước</Button>
+                    <Button size="small" variant="outlined" disabled={end >= totalCount || totalCount === 0} onClick={() => handlePageChange(page + 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Sau</Button>
+                </Box>
+            </Box>
+        </Box>
+    );
+}

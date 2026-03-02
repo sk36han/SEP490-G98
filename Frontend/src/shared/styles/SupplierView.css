@@ -18,9 +18,9 @@
 .supplier-view .supplier-filter-card {
     width: 100%;
 }
-/* Chiều cao vùng bảng theo viewport để giảm khoảng trống dọc */
+/* Flex layout: wrapper co theo chiều cao, scroll trong TableContainer */
 .supplier-view .supplier-grid-wrapper {
-    min-height: calc(100vh - 220px);
+    min-height: 0;
 }
 
 /* Thu nhỏ chữ placeholder + input thanh search (chỉ Supplier View) */
