@@ -303,6 +303,7 @@ const Sidebar = () => {
                                                     const childActive = isChildActive(child);
                                                     return (
                                                         <ListItem
+                                                            component="div"
                                                             key={child.path + (child.state?.openCreate ? '-create' : (child.path + idx))}
                                                             disablePadding
                                                             sx={{ mb: 1.25, '&:last-child': { mb: 0 } }}
