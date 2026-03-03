@@ -364,4 +364,95 @@ public class ReceiverControllerTests
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
         badRequestResult.Value.Should().BeEquivalentTo(new { message = "Status already applied" });
     }
+
+    // =========================================================
+    // 5. GetReceiverById (2 Tests)
+    // =========================================================
+
+    [Fact]
+    public async Task GetReceiverById_ShouldReturnOk_WhenReceiverExists()
+    {
+        var controller = new ReceiverController(_receiverServiceMock.Object);
+        var expectedResponse = new ReceiverResponse { ReceiverId = 1, ReceiverCode = "RCV01", ReceiverName = "Receiver 01" };
+        _receiverServiceMock.Setup(x => x.GetReceiverByIdAsync(1)).ReturnsAsync(expectedResponse);
+
+        var result = await controller.GetReceiverById(1);
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<ReceiverResponse>().Subject;
+        response.ReceiverId.Should().Be(1);
+        response.ReceiverCode.Should().Be("RCV01");
+    }
+
+    [Fact]
+    public async Task GetReceiverById_ShouldReturnNotFound_WhenReceiverDoesNotExist()
+    {
+        var controller = new ReceiverController(_receiverServiceMock.Object);
+        _receiverServiceMock.Setup(x => x.GetReceiverByIdAsync(999)).ThrowsAsync(new KeyNotFoundException("Receiver not found"));
+
+        var result = await controller.GetReceiverById(999);
+
+        var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        notFoundResult.Value.Should().BeEquivalentTo(new { message = "Receiver not found" });
+    }
+
+    // =========================================================
+    // 6. ViewTransactionHistory (3 Tests)
+    // =========================================================
+
+    [Fact]
+    public async Task ViewTransactionHistory_ShouldReturnOk_WithUnifiedResponse()
+    {
+        var controller = new ReceiverController(_receiverServiceMock.Object);
+        var expectedResponse = new ReceiverTransactionUnifiedResponse
+        {
+            Summary = new ReceiverTransactionSummaryDto { TotalReleaseRequests = 4 },
+            History = new PagedResponse<ReceiverTransactionDto> { Items = new List<ReceiverTransactionDto>(), TotalItems = 0 }
+        };
+
+        _receiverServiceMock
+            .Setup(x => x.GetReceiverTransactionsAsync(1, 1, 20, null, null, null, null, null, null))
+            .ReturnsAsync(expectedResponse);
+
+        var result = await controller.ViewTransactionHistory(1, 1, 20);
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<ReceiverTransactionUnifiedResponse>().Subject;
+        response.Summary.Should().NotBeNull();
+        response.Summary!.TotalReleaseRequests.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task ViewTransactionHistory_ShouldReturnDetail_WhenDetailParametersProvided()
+    {
+        var controller = new ReceiverController(_receiverServiceMock.Object);
+        var expectedResponse = new ReceiverTransactionUnifiedResponse
+        {
+            Detail = new { Header = new { Id = 567 }, Lines = new List<object>() }
+        };
+
+        _receiverServiceMock
+            .Setup(x => x.GetReceiverTransactionsAsync(1, 1, 20, null, null, null, null, "RR", 567))
+            .ReturnsAsync(expectedResponse);
+
+        var result = await controller.ViewTransactionHistory(1, 1, 20, null, null, null, null, "RR", 567);
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<ReceiverTransactionUnifiedResponse>().Subject;
+        response.Detail.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ViewTransactionHistory_ShouldReturnBadRequest_WhenServiceThrowsException()
+    {
+        var controller = new ReceiverController(_receiverServiceMock.Object);
+        _receiverServiceMock
+            .Setup(x => x.GetReceiverTransactionsAsync(1, 1, 20, null, null, null, null, null, null))
+            .ThrowsAsync(new Exception("Receiver not found"));
+
+        var result = await controller.ViewTransactionHistory(1, 1, 20);
+
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequestResult.Value.Should().BeEquivalentTo(new { message = "Receiver not found" });
+    }
 }

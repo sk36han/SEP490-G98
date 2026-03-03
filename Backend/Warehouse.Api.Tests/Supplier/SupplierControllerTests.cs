@@ -382,4 +382,37 @@ public class SupplierControllerTests
         var response = okResult.Value.Should().BeOfType<SupplierTransactionUnifiedResponse>().Subject;
         response.Detail.Should().NotBeNull();
     }
+
+    [Fact]
+    public async Task ViewTransactionHistory_ShouldReturnBadRequest_WhenServiceThrowsException()
+    {
+        var controller = new SupplierController(_supplierServiceMock.Object);
+        _supplierServiceMock
+            .Setup(x => x.GetSupplierTransactionsAsync(1, 1, 20, null, null, null, null, null, null))
+            .ThrowsAsync(new Exception("Supplier not found"));
+
+        var result = await controller.ViewTransactionHistory(1, 1, 20);
+
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequestResult.Value.Should().BeEquivalentTo(new { message = "Supplier not found" });
+    }
+
+    [Fact]
+    public async Task ViewTransactionHistory_ShouldPassAllQueryParams_ToServiceCorrectly()
+    {
+        var controller = new SupplierController(_supplierServiceMock.Object);
+        var fromDate = new DateTime(2025, 1, 1);
+        var toDate = new DateTime(2025, 12, 31);
+
+        _supplierServiceMock
+            .Setup(x => x.GetSupplierTransactionsAsync(5, 2, 50, "GRN", "APPROVED", fromDate, toDate, "GRN", 777))
+            .ReturnsAsync(new SupplierTransactionUnifiedResponse())
+            .Verifiable();
+
+        await controller.ViewTransactionHistory(5, 2, 50, "GRN", "APPROVED", fromDate, toDate, "GRN", 777);
+
+        _supplierServiceMock.Verify(
+            x => x.GetSupplierTransactionsAsync(5, 2, 50, "GRN", "APPROVED", fromDate, toDate, "GRN", 777),
+            Times.Once);
+    }
 }
