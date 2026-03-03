@@ -90,7 +90,7 @@ const ChangePasswordDialog = ({ open, onClose, onSuccess }) => {
                     py: 2,
                 }}
             >
-                <Typography variant="h6" fontWeight="bold">
+                <Typography variant="h6" component="span" fontWeight="bold">
                     Đổi mật khẩu
                 </Typography>
                 <IconButton onClick={handleClose} size="small" sx={{ color: 'white' }}>

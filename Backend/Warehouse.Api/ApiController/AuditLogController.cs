@@ -8,7 +8,7 @@ namespace Warehouse.Api.ApiController
 {
 	[Route("api/audit-log")]
 	[ApiController]
-	//[Authorize(Roles = "ADMIN")]
+	[Authorize]
 	public class AuditLogController : ControllerBase
 	{
 		private readonly IAuditLogService _auditLogService;

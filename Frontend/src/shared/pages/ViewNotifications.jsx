@@ -99,9 +99,11 @@ const ViewNotifications = () => {
                                         </Box>
                                     </ListItemIcon>
                                     <ListItemText
+                                        primaryTypographyProps={{ component: 'div' }}
+                                        secondaryTypographyProps={{ component: 'div' }}
                                         primary={
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                                <Typography variant="subtitle1" fontWeight={600}>
+                                                <Typography variant="subtitle1" fontWeight={600} component="span">
                                                     {item.title}
                                                 </Typography>
                                                 {item.isNew && (
@@ -110,14 +112,14 @@ const ViewNotifications = () => {
                                             </Box>
                                         }
                                         secondary={
-                                            <>
+                                            <Box component="span" sx={{ display: 'block' }}>
                                                 <Typography component="span" variant="body2" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                                                     {item.message}
                                                 </Typography>
                                                 <Typography component="span" variant="caption" color="text.disabled" sx={{ mt: 0.5, display: 'block' }}>
                                                     {item.time}
                                                 </Typography>
-                                            </>
+                                            </Box>
                                         }
                                     />
                                 </ListItem>
