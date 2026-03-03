@@ -88,7 +88,14 @@ const Profile = () => {
 
         setLoading(true);
         try {
-            await authService.updateProfile(formData.phone);
+            const dobStr = formData.dob
+                ? (typeof formData.dob === 'string' && formData.dob.length >= 10 ? formData.dob.substring(0, 10) : new Date(formData.dob).toISOString().slice(0, 10))
+                : undefined;
+            await authService.updateProfile({
+                phone: formData.phone,
+                gender: formData.gender || undefined,
+                dob: dobStr,
+            });
             showToast('Cập nhật thông tin thành công!', 'success');
             setIsEditing(false);
         } catch (error) {

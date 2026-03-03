@@ -44,7 +44,9 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
     if (!init) return false;
     return (
       (formData.fullName ?? "") !== (init.fullName ?? "") ||
-      Number(formData.roleId) !== Number(init.roleId ?? 2)
+      Number(formData.roleId) !== Number(init.roleId ?? 2) ||
+      (formData.gender ?? "") !== (init.gender ?? "") ||
+      (formData.dob ?? "") !== (init.dob ?? "")
     );
   };
 
@@ -114,7 +116,7 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
         <DialogContent sx={{ p: 0, bgcolor: "grey.50" }}>
           <Box sx={{ px: 3, pt: 2, pb: 0 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Chỉ Họ tên và Vai trò được phép chỉnh sửa. Các trường khác chỉ xem.
+              Họ tên, Vai trò, Giới tính và Ngày sinh có thể chỉnh sửa. Các trường khác chỉ xem.
             </Typography>
           </Box>
           <Box sx={{ px: 3, pt: 1, pb: 1 }}>
@@ -203,22 +205,15 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                 />
               </Grid>
               <Grid item xs={6} sx={{ width: "50%", maxWidth: "50%", flexBasis: "50%" }}>
-                <FormControl
-                  fullWidth
-                  size="small"
-                  disabled
-                  sx={{
-                    ...inputSx,
-                    "& .MuiOutlinedInput-root": { ...inputSx["& .MuiOutlinedInput-root"], bgcolor: "grey.200" },
-                  }}
-                >
+                <FormControl fullWidth size="small" sx={inputSx}>
                   <InputLabel id="edit-gender-label">Giới tính</InputLabel>
                   <Select
                     labelId="edit-gender-label"
                     value={formData.gender ?? ""}
                     label="Giới tính"
-                    inputProps={{ readOnly: true }}
+                    onChange={(e) => onFormChange({ ...formData, gender: e.target.value })}
                   >
+                    <MenuItem value="">—</MenuItem>
                     <MenuItem value="male">Nam</MenuItem>
                     <MenuItem value="female">Nữ</MenuItem>
                     <MenuItem value="other">Khác</MenuItem>
@@ -229,14 +224,17 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                 <TextField
                   fullWidth
                   size="small"
+                  type="date"
                   label="Ngày sinh"
                   value={
                     (formData.dob || formData.dateOfBirth)
-                      ? new Date(formData.dob || formData.dateOfBirth).toLocaleDateString("vi-VN")
+                      ? (typeof (formData.dob || formData.dateOfBirth) === "string" && (formData.dob || formData.dateOfBirth).length >= 10
+                          ? (formData.dob || formData.dateOfBirth).substring(0, 10)
+                          : new Date(formData.dob || formData.dateOfBirth).toISOString().slice(0, 10))
                       : ""
                   }
+                  onChange={(e) => onFormChange({ ...formData, dob: e.target.value || null })}
                   InputProps={{
-                    readOnly: true,
                     startAdornment: (
                       <InputAdornment position="start" sx={{ mr: 1 }}>
                         <CreditCard
@@ -246,14 +244,8 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
                       </InputAdornment>
                     ),
                   }}
-                  sx={{
-                    ...inputSx,
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                      bgcolor: "grey.200",
-                      "& fieldset": { borderColor: "divider" },
-                    },
-                  }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={inputSx}
                 />
               </Grid>
               <Grid item xs={6} sx={{ width: "50%", maxWidth: "50%", flexBasis: "50%" }}>

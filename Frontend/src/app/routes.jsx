@@ -25,6 +25,10 @@ import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
+import ViewUomList from '../shared/pages/ViewUomList';
+import ViewPackagingSpecList from '../shared/pages/ViewPackagingSpecList';
+import ViewSpecList from '../shared/pages/ViewSpecList';
+import ViewBrandList from '../shared/pages/ViewBrandList';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -182,9 +186,50 @@ const AppRoutes = () => (
             }
         />
         <Route
+            path="/uom"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewUomList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/packaging-spec"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewPackagingSpecList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/specs"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewSpecList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route path="/item-masters" element={<Navigate to="/uom" replace />} />
+        <Route
+            path="/brands"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'SALE_SUPPORT', 'SALE_ENGINEER']}>
+                    <MainLayout>
+                        <ViewBrandList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
             path="/suppliers"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'SALE_SUPPORT', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewSupplierList />
                     </MainLayout>
@@ -235,7 +280,7 @@ const AppRoutes = () => (
         <Route
             path="/receivers"
             element={
-                <ProtectedRoute allowedRoles={['SALE_ENGINEER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewReceiver />
                     </MainLayout>

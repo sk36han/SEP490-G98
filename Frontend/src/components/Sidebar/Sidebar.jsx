@@ -71,12 +71,6 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
     }),
 );
 
-const isUserMgmtPath = (pathname) =>
-    pathname === '/admin/users' || pathname.startsWith('/admin/users/');
-
-const isProductsPath = (pathname) =>
-    pathname === '/products' || pathname.startsWith('/items/');
-
 const Sidebar = () => {
     const [open, setOpen] = useState(true);
     const [userMgmtCollapsed, setUserMgmtCollapsed] = useState(false);
@@ -98,30 +92,38 @@ const Sidebar = () => {
 
     const menuItems = getMenuItems(user.permissionRole);
 
+    // Kiểm tra path hiện tại có thuộc một nhóm menu (theo id) hay không
+    const isPathInGroup = (groupId) => {
+        const group = menuItems.find((m) => m.id === groupId);
+        if (!group) return false;
+        const paths = [
+            group.path,
+            ...(Array.isArray(group.children) ? group.children.map((c) => c.path) : []),
+        ].filter(Boolean);
+        return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    };
+
     // Rời trang quản lý người dùng / vật tư → reset collapsed để lần sau vào lại section sẽ mở
     useEffect(() => {
-        if (!isUserMgmtPath(pathname)) {
+        if (!isPathInGroup('user-mgmt')) {
             const id = setTimeout(() => setUserMgmtCollapsed(false), 0);
             return () => clearTimeout(id);
         }
-    }, [pathname]);
+    }, [pathname, menuItems]);
     useEffect(() => {
-        if (!isProductsPath(pathname)) {
+        if (!isPathInGroup('products-mgmt')) {
             const id = setTimeout(() => setProductsCollapsed(false), 0);
             return () => clearTimeout(id);
         }
-    }, [pathname]);
-
-    const isOnUserMgmtPath = () => isUserMgmtPath(pathname);
-    const isOnProductsPath = () => isProductsPath(pathname);
+    }, [pathname, menuItems]);
 
     const isGroupExpanded = (item) => {
         if (!item.id) return false;
         if (item.id === 'user-mgmt') {
-            return isOnUserMgmtPath() && !userMgmtCollapsed;
+            return isPathInGroup('user-mgmt') && !userMgmtCollapsed;
         }
         if (item.id === 'products-mgmt') {
-            return isOnProductsPath() && !productsCollapsed;
+            return isPathInGroup('products-mgmt') && !productsCollapsed;
         }
         return false;
     };
@@ -142,8 +144,8 @@ const Sidebar = () => {
     };
 
     const handleParentClick = (item) => {
-        const onUserMgmt = item.id === 'user-mgmt' && isOnUserMgmtPath();
-        const onProducts = item.id === 'products-mgmt' && isOnProductsPath();
+        const onUserMgmt = item.id === 'user-mgmt' && isPathInGroup('user-mgmt');
+        const onProducts = item.id === 'products-mgmt' && isPathInGroup('products-mgmt');
         if (onUserMgmt) {
             setUserMgmtCollapsed((prev) => !prev);
         } else if (onProducts) {
@@ -161,7 +163,9 @@ const Sidebar = () => {
 
     const isParentActive = (item) => {
         if (!item.children) return location.pathname === item.path;
-        if (item.id === 'products-mgmt' && isProductsPath(pathname)) return true;
+        if (item.id === 'user-mgmt' || item.id === 'products-mgmt') {
+            return isPathInGroup(item.id);
+        }
         return item.children.some((c) => location.pathname === c.path);
     };
 

@@ -32,7 +32,7 @@ import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import '../styles/ListView.css';
 
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
 const PO_STATUS_STYLE = {
     Draft: { color: 'text.secondary', borderColor: 'grey.400', label: 'Nháp' },
@@ -59,6 +59,27 @@ const PO_COLUMNS = [
 const HIDDEN_BY_DEFAULT_PO_COLUMN_IDS = ['createdAt', 'submittedAt', 'updatedAt'];
 const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id).filter((id) => !HIDDEN_BY_DEFAULT_PO_COLUMN_IDS.includes(id));
 const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
+
+const getColumnWeight = (colId) => {
+    switch (colId) {
+        case 'stt': return 0.6;
+        case 'orderCode': return 1.2;
+        case 'status': return 1.2;
+        case 'currentApprovalStage': return 1.5;
+        case 'requester': return 1.5;
+        case 'supplierName': return 1.8;
+        case 'requestedDate': return 1.2;
+        case 'createdAt': case 'submittedAt': case 'updatedAt': return 1.2;
+        case 'justification': return 2;
+        case 'actions': return 1.4;
+        default: return 1;
+    }
+};
+
+const getColumnCellSx = (colId, widthPct) => {
+    const base = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: 'border-box' };
+    return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
+};
 
 /** Mock danh sách đơn mua – đủ cột theo yêu cầu (UI only). */
 const MOCK_PO_LIST = [
@@ -89,7 +110,7 @@ export default function ViewPurchaseOrderList() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(7);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
     const [orderBy, setOrderBy] = useState('orderCode');
@@ -110,6 +131,8 @@ export default function ViewPurchaseOrderList() {
     };
     const visibleColumns = PO_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
+    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
+    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
     const handleSortRequest = (columnId) => {
         if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
@@ -187,7 +210,23 @@ export default function ViewPurchaseOrderList() {
     };
 
     return (
-        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
+        <Box
+            sx={{
+                height: '100%',
+                minHeight: 0,
+                minWidth: 0,
+                overflow: 'visible',
+                display: 'flex',
+                flexDirection: 'column',
+                pt: 0,
+                pb: 2,
+                width: '100%',
+                maxWidth: '100%',
+                ml: 0,
+                mr: 0,
+                boxSizing: 'border-box',
+            }}
+        >
             <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography variant="h4" component="h1" fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
                     Danh sách đơn mua hàng (PO)
@@ -205,7 +244,7 @@ export default function ViewPurchaseOrderList() {
                     flex: 1,
                     minHeight: 0,
                     minWidth: 0,
-                    overflow: 'hidden',
+                    overflow: 'visible',
                     display: 'flex',
                     flexDirection: 'column',
                     width: '100%',
@@ -257,23 +296,23 @@ export default function ViewPurchaseOrderList() {
                     </FormGroup>
                 </Popover>
 
-                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
-                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 400, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
+                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                         {rows.length === 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
                                 <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                                 <Typography>Chưa có dữ liệu đơn mua hàng</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
-                                <Table size="small" stickyHeader>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', maxWidth: '100%', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+                                <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow>
                                             {visibleColumns.map((col) => (
                                                 <TableCell
                                                     key={col.id}
-                                                    sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }}
-                                                    align={col.id === 'actions' ? 'right' : col.id === 'stt' ? 'left' : 'left'}
+                                                    sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }}
+                                                    align={col.id === 'actions' ? 'right' : 'left'}
                                                 >
                                                     {col.sortable ? (
                                                         <TableSortLabel active={orderBy === col.id} direction={orderBy === col.id ? order : 'asc'} onClick={() => handleSortRequest(col.id)}>
@@ -291,21 +330,21 @@ export default function ViewPurchaseOrderList() {
                                             <TableRow key={row.purchaseOrderId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
-                                                    if (col.id === 'stt') return <TableCell key={col.id} align="left">{col.getValue(row, index, opts)}</TableCell>;
+                                                    if (col.id === 'stt') return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>{col.getValue(row, index, opts)}</TableCell>;
                                                     if (col.id === 'status') {
                                                         const style = PO_STATUS_STYLE[row.status] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.status ?? '' };
                                                         return (
-                                                            <TableCell key={col.id} align="left">
+                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 <Chip label={style.label} size="small" variant="outlined" sx={{ fontWeight: 600, borderRadius: '50px', px: 1.25, bgcolor: 'transparent', color: style.color, border: '1px solid', borderColor: style.borderColor }} />
                                                             </TableCell>
                                                         );
                                                     }
-                                                    if (col.id === 'requestedDate') return <TableCell key={col.id} align="left">{formatDateOnly(row.requestedDate)}</TableCell>;
-                                                    if (col.id === 'createdAt' || col.id === 'submittedAt' || col.id === 'updatedAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(row[col.id])}</TableCell>;
-                                                    if (col.id === 'justification') return <TableCell key={col.id} align="left" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }} title={row.justification}>{row.justification ?? '-'}</TableCell>;
+                                                    if (col.id === 'requestedDate') return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>{formatDateOnly(row.requestedDate)}</TableCell>;
+                                                    if (col.id === 'createdAt' || col.id === 'submittedAt' || col.id === 'updatedAt') return <TableCell key={col.id} align="left" sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontSize: '0.8rem' }}>{formatDate(row[col.id])}</TableCell>;
+                                                    if (col.id === 'justification') return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={row.justification ?? '-'}>{row.justification ?? '-'}</TableCell>;
                                                     if (col.id === 'actions') {
                                                         return (
-                                                            <TableCell key={col.id} align="right">
+                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 <Tooltip title="Xem chi tiết">
                                                                     <IconButton size="small" onClick={() => navigate(`/purchase-orders/${row.purchaseOrderId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
                                                                         <Eye size={18} />
@@ -319,7 +358,7 @@ export default function ViewPurchaseOrderList() {
                                                             </TableCell>
                                                         );
                                                     }
-                                                    return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
+                                                    return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(row)}>{col.getValue(row)}</TableCell>;
                                                 })}
                                             </TableRow>
                                         ))}
@@ -330,8 +369,8 @@ export default function ViewPurchaseOrderList() {
                     </Box>
                 </Card>
 
-                <Box sx={{ flexShrink: 0, mt: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                <Box sx={{ flexShrink: 0, mt: 1, pt: 1, pb: 0.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2, overflow: 'visible', minHeight: 48 }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>Số dòng / trang:</Typography>
                     <FormControl size="small" sx={{ minWidth: 72 }}>
                         <Select value={pageSize} onChange={handlePageSizeChange} sx={{ height: 32, fontSize: '0.875rem' }}>
                             {ROWS_PER_PAGE_OPTIONS.map((n) => (
@@ -339,10 +378,11 @@ export default function ViewPurchaseOrderList() {
                             ))}
                         </Select>
                     </FormControl>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                         {start}–{end} / {totalCount} (Tổng {totalPages} trang)
                     </Typography>
                     <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Trước</Button>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0 }}>Trang {page + 1} / {totalPages || 1}</Typography>
                     <Button size="small" variant="outlined" disabled={end >= totalCount || totalCount === 0} onClick={() => handlePageChange(page + 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Sau</Button>
                 </Box>
             </Box>

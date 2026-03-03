@@ -49,7 +49,7 @@ const USER_ACCOUNT_COLUMNS = [
     { id: 'actions', label: 'Hành động', getValue: () => '' },
 ];
 const DEFAULT_VISIBLE_USER_COLUMN_IDS = USER_ACCOUNT_COLUMNS.map((c) => c.id);
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
 const UserAccountList = () => {
     const { toast, showToast, clearToast } = useToast();
@@ -60,7 +60,7 @@ const UserAccountList = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [pageNumber, setPageNumber] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(7);
     const [totalCount, setTotalCount] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
@@ -240,6 +240,8 @@ const UserAccountList = () => {
             await adminService.updateUser(editForm.userId, {
                 fullName: editForm.fullName,
                 roleId: editForm.roleId,
+                gender: editForm.gender || undefined,
+                dob: editForm.dob || undefined,
             });
             showToast('Cập nhật thành công!', 'success');
             setShowEditDialog(false);
@@ -267,6 +269,10 @@ const UserAccountList = () => {
 
     const openEditDialog = (user) => {
         const roleId = user.roleId ?? ROLE_NAME_TO_ID[user.roleName] ?? 2;
+        const rawDob = user.dob ?? user.dateOfBirth ?? null;
+        const dobStr = rawDob
+            ? (typeof rawDob === 'string' && rawDob.length >= 10 ? rawDob.substring(0, 10) : new Date(rawDob).toISOString().slice(0, 10))
+            : '';
         setEditForm({
             userId: user.userId,
             fullName: user.fullName ?? '',
@@ -278,6 +284,7 @@ const UserAccountList = () => {
             createdAt: user.createdAt ?? null,
             lastLoginAt: user.lastLoginAt ?? null,
             gender: user.gender ?? '',
+            dob: dobStr,
             citizenId: user.citizenId ?? '',
         });
         setShowEditDialog(true);
@@ -309,16 +316,13 @@ const UserAccountList = () => {
 
     return (
         <Container
-            maxWidth={false}
+            maxWidth="xl"
             sx={{
                 pt: 2,
-                pb: 0,
-                width: '100%',
-                maxWidth: 2304,
+                pb: 2,
+                mx: 'auto',
                 height: '100%',
                 minHeight: 0,
-                minWidth: 0,
-                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
             }}
@@ -686,6 +690,9 @@ const UserAccountList = () => {
                 >
                     Trước
                 </Button>
+                <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, minWidth: 72, textAlign: 'center' }}>
+                    Trang {pageNumber} / {totalPages || 1}
+                </Typography>
                 <Button
                     size="small"
                     variant="outlined"

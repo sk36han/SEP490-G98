@@ -70,7 +70,24 @@ const DEFAULT_VISIBLE_COLUMN_IDS = [
   "isActive",
   "actions",
 ];
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
+
+const getColumnWeight = (colId) => {
+  switch (colId) {
+    case "stt": return 0.6;
+    case "warehouseCode": return 1.2;
+    case "warehouseName": return 2;
+    case "address": return 2;
+    case "isActive": return 1.2;
+    case "createdAt": return 1.2;
+    case "actions": return 1.4;
+    default: return 1;
+  }
+};
+const getColumnCellSx = (colId, widthPct) => {
+  const base = { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: "border-box" };
+  return colId === "actions" ? { ...base, overflow: "visible" } : base;
+};
 
 const ViewWarehouseList = () => {
   const theme = useTheme();
@@ -82,7 +99,7 @@ const ViewWarehouseList = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(7);
   const [visibleColumnIds, setVisibleColumnIds] = useState(
     () => new Set(DEFAULT_VISIBLE_COLUMN_IDS),
   );
@@ -147,6 +164,8 @@ const ViewWarehouseList = () => {
       checked ? new Set(WAREHOUSE_COLUMNS.map((c) => c.id)) : new Set(),
     );
   };
+  const totalWeight = WAREHOUSE_COLUMNS.filter((col) => visibleColumnIds.has(col.id)).reduce((acc, col) => acc + getColumnWeight(col.id), 0);
+  const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
   const visibleColumns = WAREHOUSE_COLUMNS.filter((col) =>
     visibleColumnIds.has(col.id),
   );
@@ -163,7 +182,7 @@ const ViewWarehouseList = () => {
   };
 
   return (
-    <Box sx={{ height: "100%", minHeight: 0, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", pt: 0, pb: 2 }}>
+    <Box sx={{ height: "100%", minHeight: 0, minWidth: 0, overflow: "visible", display: "flex", flexDirection: "column", pt: 0, pb: 2, width: "100%", maxWidth: "100%", ml: 0, mr: 0, boxSizing: "border-box" }}>
       <Box
         sx={{
           flexShrink: 0,
@@ -210,7 +229,7 @@ const ViewWarehouseList = () => {
           flex: 1,
           minHeight: 0,
           minWidth: 0,
-          overflow: "hidden",
+          overflow: "visible",
           display: "flex",
           flexDirection: "column",
           width: "100%",
@@ -348,9 +367,9 @@ const ViewWarehouseList = () => {
           className="list-grid-card"
           sx={{
             flex: 1,
-            minHeight: 0,
+            minHeight: 400,
             minWidth: 0,
-            overflow: "hidden",
+            overflow: "visible",
             display: "flex",
             flexDirection: "column",
             borderRadius: 3,
@@ -361,7 +380,7 @@ const ViewWarehouseList = () => {
         >
           <Box
             className="list-grid-wrapper"
-            sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}
+            sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: "visible", display: "flex", flexDirection: "column", position: "relative" }}
           >
             {loading ? (
               <Box
@@ -433,22 +452,22 @@ const ViewWarehouseList = () => {
                   flex: 1,
                   minHeight: 0,
                   minWidth: 0,
+                  width: "100%",
+                  maxWidth: "100%",
                   border: "1px solid rgba(0,0,0,0.2)",
                   borderRadius: 2,
-                  overflow: "auto",
+                  overflowY: "auto",
+                  overflowX: "hidden",
+                  boxSizing: "border-box",
                 }}
               >
-                <Table size="small" stickyHeader>
+                <Table size="small" stickyHeader sx={{ width: "100%", tableLayout: "fixed" }}>
                   <TableHead>
                     <TableRow>
                       {visibleColumns.map((col) => (
                         <TableCell
                           key={col.id}
-                          sx={{
-                            fontWeight: 600,
-                            bgcolor: "grey.50",
-                            whiteSpace: "nowrap",
-                          }}
+                          sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: "grey.50" }}
                           align={col.id === "actions" ? "right" : "left"}
                         >
                           {col.label}
@@ -468,13 +487,13 @@ const ViewWarehouseList = () => {
                         {visibleColumns.map((col) => {
                           if (col.id === "stt")
                             return (
-                              <TableCell key={col.id} align="left">
+                              <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                 {page * pageSize + index + 1}
                               </TableCell>
                             );
                           if (col.id === "isActive")
                             return (
-                              <TableCell key={col.id} align="left">
+                              <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                 <Chip
                                   label={wh.isActive ? "Hoạt động" : "Tắt"}
                                   size="small"
@@ -489,14 +508,14 @@ const ViewWarehouseList = () => {
                               <TableCell
                                 key={col.id}
                                 align="left"
-                                sx={{ fontSize: "0.8rem" }}
+                                sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontSize: "0.8rem" }}
                               >
                                 {formatDate(wh.createdAt)}
                               </TableCell>
                             );
                           if (col.id === "actions") {
                             return (
-                              <TableCell key={col.id} align="right">
+                              <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                 <Tooltip title="Xem chi tiết">
                                   <IconButton
                                     size="small"
@@ -531,7 +550,7 @@ const ViewWarehouseList = () => {
                             );
                           }
                           return (
-                            <TableCell key={col.id} align="left">
+                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(wh)}>
                               {col.getValue(wh)}
                             </TableCell>
                           );
@@ -549,18 +568,22 @@ const ViewWarehouseList = () => {
           sx={{
             flexShrink: 0,
             mt: 1,
+            pt: 1,
+            pb: 0.5,
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
             justifyContent: "flex-end",
             gap: 2,
+            overflow: "visible",
+            minHeight: 48,
           }}
         >
           <Typography
             variant="body2"
             color="text.secondary"
             component="span"
-            sx={{ whiteSpace: "nowrap" }}
+            sx={{ whiteSpace: "nowrap", flexShrink: 0 }}
           >
             Số dòng / trang:
           </Typography>
@@ -581,7 +604,7 @@ const ViewWarehouseList = () => {
             variant="body2"
             color="text.secondary"
             component="span"
-            sx={{ whiteSpace: "nowrap" }}
+            sx={{ whiteSpace: "nowrap", flexShrink: 0 }}
           >
             {start}–{end} / {totalCount} (Tổng {totalPages} trang)
           </Typography>
@@ -594,6 +617,9 @@ const ViewWarehouseList = () => {
           >
             Trước
           </Button>
+          <Typography variant="body2" color="text.secondary" component="span" sx={{ px: 1.5, minWidth: 72, textAlign: "center", flexShrink: 0 }}>
+            Trang {page + 1} / {totalPages || 1}
+          </Typography>
           <Button
             size="small"
             variant="outlined"

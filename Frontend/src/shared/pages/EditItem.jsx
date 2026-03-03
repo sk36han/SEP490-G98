@@ -26,10 +26,15 @@ import {
   TableHead,
   TableRow,
   InputAdornment,
+  Autocomplete,
+  Divider,
 } from "@mui/material";
-import { ArrowLeft, Save, ImagePlus } from "lucide-react";
+import { ArrowLeft, Save, ImagePlus, Plus } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
+import CreateUomDialog from "../components/CreateUomDialog";
+import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
+import CreateSpecDialog from "../components/CreateSpecDialog";
 
 /** Đơn vị tính – UnitOfMeasure (BaseUomId) */
 const UOM_OPTIONS = [
@@ -70,6 +75,43 @@ const WAREHOUSE_OPTIONS = [
   { id: 3, name: "Kho lạnh" },
 ];
 
+/** Tài khoản kho – InventoryAccount */
+const INVENTORY_ACCOUNT_OPTIONS = [
+  { code: "1561", label: "1561 - Hàng tồn kho" },
+  { code: "1562", label: "1562 - Hàng mua đang đi đường" },
+  { code: "157", label: "157 - Hàng gửi bán" },
+];
+
+/** Tài khoản doanh thu – RevenueAccount */
+const REVENUE_ACCOUNT_OPTIONS = [
+  { code: "5111", label: "5111 - Doanh thu bán hàng" },
+  { code: "5112", label: "5112 - Doanh thu bán thành phẩm" },
+  { code: "5113", label: "5113 - Doanh thu cung cấp dịch vụ" },
+];
+
+/** Thông số sản phẩm – Spec (cấu trúc giống ViewSpecList) */
+const SPEC_OPTIONS = [
+  { specId: 1, specCode: "MICROONG_01", specName: "microong" },
+  { specId: 2, specCode: "MICROONG_02", specName: "microong" },
+  { specId: 3, specCode: "MICROONG_03", specName: "microong" },
+  { specId: 4, specCode: "MICROONG_04", specName: "microong" },
+];
+
+const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tạo mới đơn vị tính" };
+const CREATE_PACK_OPTION = { id: "CREATE_PACK", name: "Tạo mới quy cách đóng gói" };
+const CREATE_SPEC_OPTION = { specId: "CREATE_SPEC", specCode: "", specName: "Tạo mới thông số sản phẩm" };
+
+function CreateOptionContent({ label }) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+      <Box sx={{ width: 28, height: 28, borderRadius: "50%", bgcolor: "primary.main", color: "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Plus size={16} strokeWidth={2.5} />
+      </Box>
+      <Typography variant="body2" sx={{ color: "primary.main", fontWeight: 500, whiteSpace: "nowrap" }}>{label}</Typography>
+    </Box>
+  );
+}
+
 const inputSx = {
   "& .MuiOutlinedInput-root": {
     borderRadius: 2,
@@ -94,11 +136,18 @@ const selectInputSx = {
   },
 };
 
+/** MenuProps dùng chung cho Select – bo góc, giới hạn chiều cao */
+const selectMenuProps = {
+  PaperProps: { sx: { borderRadius: 2, maxHeight: 280 } },
+  disableScrollLock: true,
+};
+
 const NUMBER_FIELDS = new Set([
   "categoryId",
   "brandId",
   "baseUomId",
   "packagingSpecId",
+  "specId",
   "defaultWarehouseId",
   "purchasePrice",
   "salePrice",
@@ -130,6 +179,8 @@ const EditItem = () => {
     brandId: "",
     baseUomId: 1,
     packagingSpecId: "",
+    specId: "",
+    laThongSo: false,
     requiresCO: false,
     requiresCQ: false,
     isActive: true,
@@ -142,6 +193,12 @@ const EditItem = () => {
     reservedQty: "",
   });
   const [notFound, setNotFound] = useState(false);
+  const [uomOptions, setUomOptions] = useState([...UOM_OPTIONS]);
+  const [packagingOptions, setPackagingOptions] = useState([...PACKAGING_OPTIONS]);
+  const [specOptions, setSpecOptions] = useState([...SPEC_OPTIONS]);
+  const [createUomOpen, setCreateUomOpen] = useState(false);
+  const [createPackOpen, setCreatePackOpen] = useState(false);
+  const [createSpecOpen, setCreateSpecOpen] = useState(false);
 
   useEffect(() => {
     const item = MOCK_ITEMS.find((i) => String(i.itemId) === String(id));
@@ -159,6 +216,8 @@ const EditItem = () => {
       brandId: item.brandId ?? "",
       baseUomId: item.baseUomId ?? 1,
       packagingSpecId: item.packagingSpecId ?? "",
+      specId: item.specId ?? "",
+      laThongSo: item.laThongSo ?? false,
       requiresCO: item.requiresCO ?? false,
       requiresCQ: item.requiresCQ ?? false,
       isActive: item.isActive ?? true,
@@ -184,6 +243,8 @@ const EditItem = () => {
     let nextValue;
     if (type === "checkbox") {
       nextValue = checked;
+    } else if (name === "laThongSo") {
+      nextValue = value === "true";
     } else if (NUMBER_FIELDS.has(name)) {
       nextValue = value === "" ? "" : Number(value);
     } else {
@@ -253,37 +314,150 @@ const EditItem = () => {
         </Stack>
 
         <Box component="form" id="edit-item-form" onSubmit={handleSubmit}>
-          <Grid container spacing={3}>
-            {/* Cột trái: Thông tin sản phẩm (Mô tả riêng 1 dòng), Thông tin giá, Thông tin kho */}
-            <Grid item xs={12} sm={8}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", md: "row" },
+              gap: 3,
+              alignItems: "flex-start",
+              width: "100%",
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
                 <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Thông tin sản phẩm</Typography>
-                {/* Hàng 1: Tên + Mã SKU */}
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
+                  <Box sx={{ width: "100%" }}>
+                    <TextField fullWidth size="small" label="Mã sản phẩm" name="itemCode" value={form.itemCode} onChange={handleChange} placeholder="VD: SKU112" InputLabelProps={{ shrink: true }} sx={inputSx} />
+                  </Box>
+                  <Box sx={{ width: "100%" }}>
                     <TextField fullWidth size="small" label="Tên sản phẩm" name="itemName" value={form.itemName} onChange={handleChange} required placeholder="VD: Mũ Beanie Nam Đẹp" InputLabelProps={{ shrink: true }} sx={inputSx} />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField fullWidth size="small" label="Mã SKU" name="itemCode" value={form.itemCode} onChange={handleChange} placeholder="VD: SKU112" InputLabelProps={{ shrink: true }} sx={inputSx} />
-                  </Grid>
-                </Grid>
-                {/* Hàng 2: Đơn vị tính + Quy cách đóng gói (trên Mô tả); minWidth để label một dòng không bị vỡ */}
+                  </Box>
+                </Box>
                 <Grid container spacing={2} sx={{ mt: 2 }}>
-                  <Grid item xs={12} sm={6} sx={{ minWidth: { xs: 0, sm: 220 } }}>
-                    <TextField select fullWidth size="small" label="Đơn vị tính" name="baseUomId" value={form.baseUomId === "" || form.baseUomId == null ? "" : String(form.baseUomId)} onChange={handleChange} required InputLabelProps={{ shrink: true }} sx={selectInputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => { const s = String(v ?? "").trim(); if (s === "") return "\u00A0"; const name = UOM_OPTIONS.find((o) => String(o.id) === s)?.name; return name ?? "\u00A0"; }, MenuProps: { PaperProps: { sx: { borderRadius: 2 } } } }}>
-                      <MenuItem value="">Chọn đơn vị tính</MenuItem>
-                      {UOM_OPTIONS.map((u) => (
-                        <MenuItem key={u.id} value={String(u.id)}>{u.name}</MenuItem>
-                      ))}
-                    </TextField>
+                  <Grid item xs={12}>
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      options={[CREATE_UOM_OPTION, ...uomOptions]}
+                      getOptionLabel={(opt) => (opt && opt.name) || ""}
+                      value={uomOptions.find((o) => String(o.id) === String(form.baseUomId)) ?? null}
+                      onChange={(e, newValue) => {
+                        if (newValue && newValue.id === "CREATE_UOM") {
+                          setCreateUomOpen(true);
+                          return;
+                        }
+                        setForm((prev) => ({ ...prev, baseUomId: newValue?.id ?? "" }));
+                      }}
+                      isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
+                      renderOption={(props, option) => {
+                        if (option && option.id === "CREATE_UOM") {
+                          return (
+                            <li {...props} key={option.id}>
+                              <CreateOptionContent label={option.name} />
+                              <Divider sx={{ mt: 1 }} />
+                            </li>
+                          );
+                        }
+                        return <li {...props} key={option.id}>{option.name}</li>;
+                      }}
+                      ListboxProps={{ sx: { minWidth: 320 } }}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          label="Đơn vị tính" 
+                          required 
+                          InputLabelProps={{ shrink: true }} 
+                          sx={{ 
+                            ...selectInputSx, 
+                            "& .MuiInputBase-input": { fontSize: 13 } 
+                          }} 
+                        />
+                      )}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    />
                   </Grid>
-                  <Grid item xs={12} sm={6} sx={{ minWidth: { xs: 0, sm: 220 } }}>
-                    <TextField select fullWidth size="small" label="Quy cách đóng gói" name="packagingSpecId" value={form.packagingSpecId ?? ""} onChange={handleChange} sx={selectInputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => { const s = String(v ?? "").trim(); if (s === "") return "\u00A0"; const name = PACKAGING_OPTIONS.find((o) => String(o.id) === s)?.name; return name ?? "\u00A0"; }, MenuProps: { PaperProps: { sx: { borderRadius: 2 } } } }} InputLabelProps={{ shrink: true }}>
-                      <MenuItem value="">Chọn quy cách</MenuItem>
-                      {PACKAGING_OPTIONS.map((o) => (
-                        <MenuItem key={o.id} value={String(o.id)}>{o.name}</MenuItem>
-                      ))}
-                    </TextField>
+                  <Grid item xs={12} md={6}>
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      options={[CREATE_PACK_OPTION, ...packagingOptions]}
+                      getOptionLabel={(opt) => (opt && opt.name) || ""}
+                      value={packagingOptions.find((o) => String(o.id) === String(form.packagingSpecId)) ?? null}
+                      onChange={(e, newValue) => {
+                        if (newValue && newValue.id === "CREATE_PACK") {
+                          setCreatePackOpen(true);
+                          return;
+                        }
+                        setForm((prev) => ({ ...prev, packagingSpecId: newValue?.id ?? "" }));
+                      }}
+                      isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
+                      renderOption={(props, option) => {
+                        if (option && option.id === "CREATE_PACK") {
+                          return (
+                            <li {...props} key={option.id}>
+                              <CreateOptionContent label={option.name} />
+                              <Divider sx={{ mt: 1 }} />
+                            </li>
+                          );
+                        }
+                        return <li {...props} key={option.id}>{option.name}</li>;
+                      }}
+                      ListboxProps={{ sx: { minWidth: 320 } }}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          label="Quy cách đóng gói" 
+                          InputLabelProps={{ shrink: true }} 
+                          sx={{ 
+                            ...selectInputSx, 
+                            "& .MuiInputBase-input": { fontSize: 13 } 
+                          }} 
+                        />
+                      )}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      options={[CREATE_SPEC_OPTION, ...specOptions]}
+                      getOptionLabel={(opt) => (opt && opt.specName) || ""}
+                      value={specOptions.find((o) => String(o.specId) === String(form.specId)) ?? null}
+                      onChange={(e, newValue) => {
+                        if (newValue && newValue.specId === "CREATE_SPEC") {
+                          setCreateSpecOpen(true);
+                          return;
+                        }
+                        setForm((prev) => ({ ...prev, specId: newValue?.specId ?? "" }));
+                      }}
+                      isOptionEqualToValue={(opt, val) => String(opt?.specId) === String(val?.specId)}
+                      renderOption={(props, option) => {
+                        if (option && option.specId === "CREATE_SPEC") {
+                          return (
+                            <li {...props} key={option.specId}>
+                              <CreateOptionContent label={option.specName} />
+                              <Divider sx={{ mt: 1 }} />
+                            </li>
+                          );
+                        }
+                        return <li {...props} key={option.specId}>{option.specName}</li>;
+                      }}
+                      ListboxProps={{ sx: { minWidth: 320 } }}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          label="Thông số sản phẩm" 
+                          InputLabelProps={{ shrink: true }} 
+                          sx={{ 
+                            ...selectInputSx, 
+                            "& .MuiInputBase-input": { fontSize: 13 } 
+                          }} 
+                        />
+                      )}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    />
                   </Grid>
                 </Grid>
                 {/* Mô tả: riêng một dòng, full width (dưới Đơn vị + Quy cách) */}
@@ -335,10 +509,15 @@ const EditItem = () => {
                   </Table>
                 </TableContainer>
               </Paper>
-            </Grid>
+            </Box>
 
-            {/* Cột phải: Ảnh, Phân loại, Tùy chọn – không xuống dòng khi có chỗ */}
-            <Grid item xs={12} sm={4} sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                width: { xs: "100%", md: 260 },
+                minWidth: { xs: "100%", md: 260 },
+                flexShrink: 0,
+              }}
+            >
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
                 <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Ảnh sản phẩm</Typography>
                 <Box
@@ -365,22 +544,27 @@ const EditItem = () => {
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
                 <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Phân loại</Typography>
                 <Stack spacing={2}>
-                  <TextField select fullWidth size="small" label="Danh mục" name="categoryId" value={String(form.categoryId ?? "")} onChange={handleChange} sx={inputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "Chọn danh mục" : CATEGORY_OPTIONS.find((o) => String(o.id) === String(v))?.name ?? "Chọn danh mục"), MenuProps: { PaperProps: { sx: { borderRadius: 2 } } } }} InputLabelProps={{ shrink: true }}>
+                  <TextField select fullWidth size="small" label="Danh mục" name="categoryId" value={String(form.categoryId ?? "")} onChange={handleChange} sx={selectInputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "\u00A0" : CATEGORY_OPTIONS.find((o) => String(o.id) === String(v))?.name ?? "\u00A0"), MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
                     <MenuItem value="">Chọn danh mục</MenuItem>
                     {CATEGORY_OPTIONS.map((o) => (
                       <MenuItem key={o.id} value={String(o.id)}>{o.name}</MenuItem>
                     ))}
                   </TextField>
-                  <TextField select fullWidth size="small" label="Nhãn hiệu" name="brandId" value={String(form.brandId ?? "")} onChange={handleChange} sx={inputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "Chọn nhãn hiệu" : BRAND_OPTIONS.find((o) => String(o.id) === String(v))?.name ?? "Chọn nhãn hiệu"), MenuProps: { PaperProps: { sx: { borderRadius: 2 } } } }} InputLabelProps={{ shrink: true }}>
+                  <TextField select fullWidth size="small" label="Nhãn hiệu" name="brandId" value={String(form.brandId ?? "")} onChange={handleChange} sx={selectInputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "\u00A0" : BRAND_OPTIONS.find((o) => String(o.id) === String(v))?.name ?? "\u00A0"), MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
                     <MenuItem value="">Chọn nhãn hiệu</MenuItem>
                     {BRAND_OPTIONS.map((o) => (
                       <MenuItem key={o.id} value={String(o.id)}>{o.name}</MenuItem>
                     ))}
                   </TextField>
-                  <TextField select fullWidth size="small" label="Loại sản phẩm" name="itemType" value={form.itemType} onChange={handleChange} sx={inputSx} SelectProps={{ MenuProps: { PaperProps: { sx: { borderRadius: 2 } } } }} InputLabelProps={{ shrink: true }}>
+                  <TextField select fullWidth size="small" label="Loại sản phẩm" name="itemType" value={form.itemType} onChange={handleChange} sx={selectInputSx} SelectProps={{ MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
                     <MenuItem value="Product">Product</MenuItem>
                     <MenuItem value="Material">Material</MenuItem>
                     <MenuItem value="Service">Service</MenuItem>
+                  </TextField>
+                  <TextField select fullWidth size="small" label="Là thông số" name="laThongSo" value={String(form.laThongSo)} onChange={handleChange} sx={selectInputSx} SelectProps={{ renderValue: (v) => LA_THONG_SO_OPTIONS.find((o) => String(o.value) === String(v))?.label ?? "\u00A0", MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
+                    {LA_THONG_SO_OPTIONS.map((o) => (
+                      <MenuItem key={String(o.value)} value={String(o.value)}>{o.label}</MenuItem>
+                    ))}
                   </TextField>
                 </Stack>
               </Paper>
@@ -391,13 +575,59 @@ const EditItem = () => {
                   <FormControlLabel control={<Checkbox name="requiresCO" checked={form.requiresCO} onChange={handleChange} />} label="Yêu cầu CO" />
                   <FormControlLabel control={<Checkbox name="requiresCQ" checked={form.requiresCQ} onChange={handleChange} />} label="Yêu cầu CQ" />
                   <FormControlLabel control={<Checkbox name="isActive" checked={form.isActive} onChange={handleChange} />} label="Đang hoạt động" />
-                  <TextField fullWidth size="small" label="Tài khoản kho" name="inventoryAccount" value={form.inventoryAccount} onChange={handleChange} InputLabelProps={{ shrink: true }} sx={inputSx} />
-                  <TextField fullWidth size="small" label="Tài khoản doanh thu" name="revenueAccount" value={form.revenueAccount} onChange={handleChange} InputLabelProps={{ shrink: true }} sx={inputSx} />
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    options={INVENTORY_ACCOUNT_OPTIONS}
+                    getOptionLabel={(opt) => (typeof opt === "string" ? opt : opt?.label ?? "")}
+                    value={INVENTORY_ACCOUNT_OPTIONS.find((o) => o.code === form.inventoryAccount) ?? null}
+                    onChange={(_, newValue) => setForm((prev) => ({ ...prev, inventoryAccount: newValue?.code ?? "" }))}
+                    renderInput={(params) => <TextField {...params} label="Tài khoản kho" InputLabelProps={{ shrink: true }} sx={inputSx} />}
+                    sx={{ "& .MuiOutlinedInput-root": inputSx["& .MuiOutlinedInput-root"] }}
+                  />
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    options={REVENUE_ACCOUNT_OPTIONS}
+                    getOptionLabel={(opt) => (typeof opt === "string" ? opt : opt?.label ?? "")}
+                    value={REVENUE_ACCOUNT_OPTIONS.find((o) => o.code === form.revenueAccount) ?? null}
+                    onChange={(_, newValue) => setForm((prev) => ({ ...prev, revenueAccount: newValue?.code ?? "" }))}
+                    renderInput={(params) => <TextField {...params} label="Tài khoản doanh thu" InputLabelProps={{ shrink: true }} sx={inputSx} />}
+                    sx={{ "& .MuiOutlinedInput-root": inputSx["& .MuiOutlinedInput-root"] }}
+                  />
                 </Stack>
               </Paper>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </Box>
+
+        <CreateUomDialog
+          open={createUomOpen}
+          onClose={() => setCreateUomOpen(false)}
+          onSubmit={(newUom) => {
+            setUomOptions((prev) => [...prev, { id: newUom.id, code: newUom.code, name: newUom.name }]);
+            setForm((prev) => ({ ...prev, baseUomId: newUom.id }));
+            setCreateUomOpen(false);
+          }}
+        />
+        <CreatePackagingSpecDialog
+          open={createPackOpen}
+          onClose={() => setCreatePackOpen(false)}
+          onSubmit={(newItem) => {
+            setPackagingOptions((prev) => [...prev, { id: newItem.id, name: newItem.specName ?? newItem.name }]);
+            setForm((prev) => ({ ...prev, packagingSpecId: newItem.id }));
+            setCreatePackOpen(false);
+          }}
+        />
+        <CreateSpecDialog
+          open={createSpecOpen}
+          onClose={() => setCreateSpecOpen(false)}
+          onSubmit={(newItem) => {
+            setSpecOptions((prev) => [...prev, { specId: newItem.specId, specCode: newItem.specCode, specName: newItem.specName }]);
+            setForm((prev) => ({ ...prev, specId: newItem.specId }));
+            setCreateSpecOpen(false);
+          }}
+        />
 
         {toast && (
           <Toast

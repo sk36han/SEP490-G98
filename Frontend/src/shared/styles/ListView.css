@@ -23,6 +23,11 @@
     width: 100%;
 }
 
+/* Đảm bảo vùng bảng luôn có chiều cao tối thiểu, tránh bảng bị "mất" khi layout flex co về 0 */
+.list-view .list-grid-card {
+    min-height: 400px;
+}
+
 .list-view .list-grid-wrapper,
 .view-detail-view .list-grid-wrapper {
     min-height: 0; /* flex layout: cho phép co lại, scroll trong TableContainer */
