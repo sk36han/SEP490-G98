@@ -27,6 +27,17 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request);
 
         Task<SupplierResponse> ToggleSupplierStatusAsync(long id, bool isActive);
+
+        Task<SupplierTransactionUnifiedResponse> GetSupplierTransactionsAsync(
+            long supplierId,
+            int page,
+            int pageSize,
+            string? transactionType,
+            string? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? detailType,
+            long? detailDocId);
     }
 }
 

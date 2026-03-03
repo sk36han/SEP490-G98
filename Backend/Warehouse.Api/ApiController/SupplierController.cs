@@ -104,5 +104,29 @@ namespace Warehouse.Api.ApiController
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpGet("{id}/transactions")]
+        public async Task<IActionResult> GetSupplierTransactions(
+            long id,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? transactionType = null,
+            [FromQuery] string? status = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? detailType = null,
+            [FromQuery] long? detailDocId = null)
+        {
+            try
+            {
+                var result = await _supplierService.GetSupplierTransactionsAsync(
+                    id, page, pageSize, transactionType, status, fromDate, toDate, detailType, detailDocId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

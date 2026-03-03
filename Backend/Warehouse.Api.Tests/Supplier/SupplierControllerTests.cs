@@ -317,4 +317,41 @@ public class SupplierControllerTests
         await controller.ToggleSupplierStatus(55, true);
         _supplierServiceMock.Verify(x => x.ToggleSupplierStatusAsync(55, true), Times.Once);
     }
+
+    [Fact]
+    public async Task GetSupplierTransactions_ShouldReturnOk_WithUnifiedResponse()
+    {
+        var controller = new SupplierController(_supplierServiceMock.Object);
+        var expectedResponse = new SupplierTransactionUnifiedResponse
+        {
+            Summary = new SupplierTransactionSummaryDto { TotalPurchaseOrders = 5 },
+            History = new PagedResponse<SupplierTransactionDto> { Items = new List<SupplierTransactionDto>(), TotalItems = 0 }
+        };
+
+        _supplierServiceMock.Setup(x => x.GetSupplierTransactionsAsync(1, 1, 20, null, null, null, null, null, null))
+            .ReturnsAsync(expectedResponse);
+
+        var result = await controller.GetSupplierTransactions(1, 1, 20);
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<SupplierTransactionUnifiedResponse>().Subject;
+        response.Summary.TotalPurchaseOrders.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetSupplierTransactions_ShouldReturnDetail_WhenParametersProvided()
+    {
+        var controller = new SupplierController(_supplierServiceMock.Object);
+        var expectedResponse = new SupplierTransactionUnifiedResponse
+        {
+            Detail = new { Header = new { Id = 123 }, Lines = new List<object>() }
+        };
+
+        _supplierServiceMock.Setup(x => x.GetSupplierTransactionsAsync(1, 1, 20, null, null, null, null, "PO", 123))
+            .ReturnsAsync(expectedResponse);
+
+        var result = await controller.GetSupplierTransactions(1, 1, 20, null, null, null, null, "PO", 123);
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<SupplierTransactionUnifiedResponse>().Subject;
+        response.Detail.Should().NotBeNull();
+    }
 }

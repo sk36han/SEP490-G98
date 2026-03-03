@@ -15,10 +15,12 @@ namespace Warehouse.DataAcces.Service
     public class SupplierService :  ISupplierService
     {
         private readonly IGenericRepository<Supplier> _supplierRepository;
+        private readonly Mkiwms5Context _context;
 
-        public SupplierService(IGenericRepository<Supplier> supplierRepository)
+        public SupplierService(IGenericRepository<Supplier> supplierRepository, Mkiwms5Context context)
         {
             _supplierRepository = supplierRepository;
+            _context = context;
         }
 
         public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request)
@@ -242,6 +244,124 @@ namespace Warehouse.DataAcces.Service
                 Ward = supplier.Ward,
                 IsActive = supplier.IsActive
             };
+        }
+        public async Task<SupplierTransactionUnifiedResponse> GetSupplierTransactionsAsync(
+            long supplierId,
+            int page,
+            int pageSize,
+            string? transactionType,
+            string? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? detailType,
+            long? detailDocId)
+        {
+            var response = new SupplierTransactionUnifiedResponse();
+
+            // 1. DETAIL (If requested)
+            if (detailDocId.HasValue && !string.IsNullOrWhiteSpace(detailType))
+            {
+                if (detailType.ToUpper() == "PO")
+                {
+                    var po = await _context.PurchaseOrders.FindAsync(detailDocId.Value);
+                    var poLines = _context.PurchaseOrderLines.Where(l => l.PurchaseOrderId == detailDocId.Value).ToList();
+                    if (po != null) response.Detail = new { Header = po, Lines = poLines };
+                }
+                else if (detailType.ToUpper() == "GRN")
+                {
+                    var grn = await _context.GoodsReceiptNotes.FindAsync(detailDocId.Value);
+                    var grnLines = _context.GoodsReceiptNoteLines.Where(l => l.Grnid == detailDocId.Value).ToList();
+                    if (grn != null) response.Detail = new { Header = grn, Lines = grnLines };
+                }
+                return response;
+            }
+
+            // 2. SUMMARY
+            var totalPo = _context.PurchaseOrders.Count(x => x.SupplierId == supplierId);
+            var totalGrn = _context.GoodsReceiptNotes.Count(x => x.SupplierId == supplierId);
+            var totalQtyReceived = _context.GoodsReceiptNoteLines.Where(x => x.Grn.SupplierId == supplierId).Sum(x => (decimal?)x.ActualQty) ?? 0;
+            var totalQtyOrdered = _context.PurchaseOrderLines.Where(x => x.PurchaseOrder.SupplierId == supplierId).Sum(x => (decimal?)x.OrderedQty) ?? 0;
+
+            response.Summary = new SupplierTransactionSummaryDto
+            {
+                TotalPurchaseOrders = totalPo,
+                TotalGoodsReceiptNotes = totalGrn,
+                TotalQuantityReceived = totalQtyReceived,
+                TotalQuantityOrdered = totalQtyOrdered
+            };
+
+            // 3. HISTORY (List) - Fixed: Fetch separately then union in memory to avoid EF Translation issues
+            if (page <= 0) page = 1;
+            if (pageSize <= 0) pageSize = 20;
+
+            // Define PO Query
+            var poQuery = _context.PurchaseOrders.Where(x => x.SupplierId == supplierId);
+            if (!string.IsNullOrWhiteSpace(status)) poQuery = poQuery.Where(x => x.Status.ToUpper() == status.ToUpper());
+            
+            var poList = poQuery.Select(x => new SupplierTransactionDto
+            {
+                TransactionId = x.PurchaseOrderId,
+                TransactionDate = x.RequestedDate.HasValue 
+                    ? x.RequestedDate.Value.ToDateTime(TimeOnly.MinValue) 
+                    : x.CreatedAt.Date,
+                TransactionCode = x.Pocode,
+                TransactionType = "PO",
+                Status = x.Status,
+                Note = x.Justification,
+                WarehouseName = null,
+                CreatedBy = x.RequestedByNavigation.FullName,
+                ItemCount = x.PurchaseOrderLines.Count,
+                TotalQuantity = x.PurchaseOrderLines.Sum(l => l.OrderedQty),
+                CreatedAt = x.CreatedAt
+            }).ToList();
+
+            // Define GRN Query
+            var grnQuery = _context.GoodsReceiptNotes.Where(x => x.SupplierId == supplierId);
+            if (!string.IsNullOrWhiteSpace(status)) grnQuery = grnQuery.Where(x => x.Status.ToUpper() == status.ToUpper());
+
+            var grnList = grnQuery.Select(x => new SupplierTransactionDto
+            {
+                TransactionId = x.Grnid,
+                TransactionDate = x.ReceiptDate.ToDateTime(TimeOnly.MinValue),
+                TransactionCode = x.Grncode,
+                TransactionType = "GRN",
+                Status = x.Status,
+                Note = x.Note,
+                WarehouseName = x.Warehouse.WarehouseName,
+                CreatedBy = x.CreatedByNavigation.FullName,
+                ItemCount = x.GoodsReceiptNoteLines.Count,
+                TotalQuantity = x.GoodsReceiptNoteLines.Sum(l => (decimal?)l.ActualQty) ?? 0,
+                CreatedAt = x.SubmittedAt ?? x.PostedAt ?? x.ApprovedAt ?? DateTime.UtcNow
+            }).ToList();
+
+            // Merge and Filter further in memory
+            var merged = poList.Concat(grnList).AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(transactionType))
+                merged = merged.Where(x => x.TransactionType.ToUpper() == transactionType.ToUpper());
+
+            if (fromDate.HasValue)
+                merged = merged.Where(x => x.TransactionDate >= fromDate.Value.Date);
+
+            if (toDate.HasValue)
+                merged = merged.Where(x => x.TransactionDate <= toDate.Value.Date);
+
+            var totalItems = merged.Count();
+            var items = merged
+                .OrderByDescending(x => x.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            response.History = new PagedResponse<SupplierTransactionDto>
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                Items = items
+            };
+
+            return response;
         }
     }
 }
