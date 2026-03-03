@@ -23,5 +23,13 @@ public partial class Notification
 
     public DateTime? ReadAt { get; set; }
 
+    public string? Type { get; set; }
+
+    public byte Severity { get; set; }
+
+    public bool IsDeleted { get; set; }
+
+    public DateTime? ExpiresAt { get; set; }
+
     public virtual User User { get; set; } = null!;
 }
