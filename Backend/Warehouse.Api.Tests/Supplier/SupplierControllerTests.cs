@@ -318,8 +318,36 @@ public class SupplierControllerTests
         _supplierServiceMock.Verify(x => x.ToggleSupplierStatusAsync(55, true), Times.Once);
     }
 
+    // =========================================================
+    // 5. GetSupplierById (2 Tests)
+    // =========================================================
+
     [Fact]
-    public async Task GetSupplierTransactions_ShouldReturnOk_WithUnifiedResponse()
+    public async Task GetSupplierById_ShouldReturnOk_WhenSupplierExists()
+    {
+        var controller = new SupplierController(_supplierServiceMock.Object);
+        var expectedResponse = new SupplierResponse { SupplierId = 1, SupplierCode = "SUP01" };
+        _supplierServiceMock.Setup(x => x.GetSupplierByIdAsync(1)).ReturnsAsync(expectedResponse);
+
+        var result = await controller.GetSupplierById(1);
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<SupplierResponse>().Subject;
+        response.SupplierId.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetSupplierById_ShouldReturnNotFound_WhenSupplierDoesNotExist()
+    {
+        var controller = new SupplierController(_supplierServiceMock.Object);
+        _supplierServiceMock.Setup(x => x.GetSupplierByIdAsync(99)).ThrowsAsync(new KeyNotFoundException("Not found"));
+
+        var result = await controller.GetSupplierById(99);
+        var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        notFoundResult.Value.Should().BeEquivalentTo(new { message = "Not found" });
+    }
+
+    [Fact]
+    public async Task ViewTransactionHistory_ShouldReturnOk_WithUnifiedResponse()
     {
         var controller = new SupplierController(_supplierServiceMock.Object);
         var expectedResponse = new SupplierTransactionUnifiedResponse
@@ -331,14 +359,14 @@ public class SupplierControllerTests
         _supplierServiceMock.Setup(x => x.GetSupplierTransactionsAsync(1, 1, 20, null, null, null, null, null, null))
             .ReturnsAsync(expectedResponse);
 
-        var result = await controller.GetSupplierTransactions(1, 1, 20);
+        var result = await controller.ViewTransactionHistory(1, 1, 20);
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var response = okResult.Value.Should().BeOfType<SupplierTransactionUnifiedResponse>().Subject;
         response.Summary.TotalPurchaseOrders.Should().Be(5);
     }
 
     [Fact]
-    public async Task GetSupplierTransactions_ShouldReturnDetail_WhenParametersProvided()
+    public async Task ViewTransactionHistory_ShouldReturnDetail_WhenParametersProvided()
     {
         var controller = new SupplierController(_supplierServiceMock.Object);
         var expectedResponse = new SupplierTransactionUnifiedResponse
@@ -349,7 +377,7 @@ public class SupplierControllerTests
         _supplierServiceMock.Setup(x => x.GetSupplierTransactionsAsync(1, 1, 20, null, null, null, null, "PO", 123))
             .ReturnsAsync(expectedResponse);
 
-        var result = await controller.GetSupplierTransactions(1, 1, 20, null, null, null, null, "PO", 123);
+        var result = await controller.ViewTransactionHistory(1, 1, 20, null, null, null, null, "PO", 123);
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var response = okResult.Value.Should().BeOfType<SupplierTransactionUnifiedResponse>().Subject;
         response.Detail.Should().NotBeNull();

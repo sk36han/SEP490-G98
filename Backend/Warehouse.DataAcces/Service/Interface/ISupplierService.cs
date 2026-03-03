@@ -28,6 +28,14 @@ namespace Warehouse.DataAcces.Service.Interface
 
         Task<SupplierResponse> ToggleSupplierStatusAsync(long id, bool isActive);
 
+        /// <summary>
+        /// Lấy thông tin chi tiết nhà cung cấp theo ID (Get Supplier By ID)
+        /// </summary>
+        Task<SupplierResponse> GetSupplierByIdAsync(long id);
+
+        /// <summary>
+        /// Xem lịch sử giao dịch của nhà cung cấp (View Transaction History)
+        /// </summary>
         Task<SupplierTransactionUnifiedResponse> GetSupplierTransactionsAsync(
             long supplierId,
             int page,

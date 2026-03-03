@@ -245,6 +245,29 @@ namespace Warehouse.DataAcces.Service
                 IsActive = supplier.IsActive
             };
         }
+        public async Task<SupplierResponse> GetSupplierByIdAsync(long id)
+        {
+            var supplier = await _supplierRepository.GetByIdAsync(id);
+            if (supplier == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy nhà cung cấp với ID = {id}");
+            }
+
+            return new SupplierResponse
+            {
+                SupplierId = supplier.SupplierId,
+                SupplierCode = supplier.SupplierCode,
+                SupplierName = supplier.SupplierName,
+                TaxCode = supplier.TaxCode,
+                Phone = supplier.Phone,
+                Email = supplier.Email,
+                Address = supplier.Address,
+                City = supplier.City,
+                Ward = supplier.Ward,
+                IsActive = supplier.IsActive
+            };
+        }
+
         public async Task<SupplierTransactionUnifiedResponse> GetSupplierTransactionsAsync(
             long supplierId,
             int page,

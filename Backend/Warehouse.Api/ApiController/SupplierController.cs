@@ -105,8 +105,38 @@ namespace Warehouse.Api.ApiController
             }
         }
 
-        [HttpGet("{id}/transactions")]
-        public async Task<IActionResult> GetSupplierTransactions(
+        /// <summary>
+        /// Lấy thông tin chi tiết nhà cung cấp (Get Supplier By ID)
+        /// </summary>
+        /// <param name="id">ID của nhà cung cấp</param>
+        [HttpGet("get-supplier-by-id/{id}")]
+        public async Task<IActionResult> GetSupplierById(long id)
+        {
+            try
+            {
+                var result = await _supplierService.GetSupplierByIdAsync(id);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Xem lịch sử giao dịch của nhà cung cấp (View Transaction History)
+        /// </summary>
+        /// <param name="id">ID của nhà cung cấp</param>
+        /// <param name="page">Số trang</param>
+        /// <param name="pageSize">Số lượng item mỗi trang</param>
+        /// <param name="transactionType">Loại giao dịch (PO/GRN)</param>
+        /// <param name="status">Trạng thái giao dịch</param>
+        /// <param name="fromDate">Từ ngày</param>
+        /// <param name="toDate">Đến ngày</param>
+        /// <param name="detailType">Loại chi tiết (PO/GRN)</param>
+        /// <param name="detailDocId">ID chứng từ chi tiết</param>
+        [HttpGet("view-transaction-history/{id}")]
+        public async Task<IActionResult> ViewTransactionHistory(
             long id,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
