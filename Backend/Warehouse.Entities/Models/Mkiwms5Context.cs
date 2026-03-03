@@ -790,7 +790,7 @@ public partial class Mkiwms5Context : DbContext
             entity.HasIndex(e => e.Email, "UQ__Users__A9D1053476FE3E96").IsUnique();
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Dob).HasColumnName("DOB");
+            entity.Property(e => e.DOB).HasColumnName("DOB");
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.FullName).HasMaxLength(200);
             entity.Property(e => e.Gender).HasMaxLength(10);

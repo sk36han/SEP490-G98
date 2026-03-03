@@ -16,7 +16,7 @@ namespace Warehouse.DataAcces.Service
     public class UserService : GenericRepository<User>, IUserService
     {
 
-        public UserService(Mkiwms4Context context) : base(context)
+        public UserService(Mkiwms5Context context) : base(context)
         {
 
         }

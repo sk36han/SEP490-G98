@@ -9,7 +9,7 @@ namespace Warehouse.DataAcces.Service
 {
 	public class AuditLogService : GenericRepository<AuditLog>, IAuditLogService
 	{
-		public AuditLogService(Mkiwms4Context context) : base(context)
+		public AuditLogService(Mkiwms5Context context) : base(context)
 		{
 		}
 
