@@ -21,7 +21,7 @@ namespace Warehouse.DataAcces.Service
     public class AuthService : GenericRepository<User>, IAuthService
     {
         private readonly IConfiguration _configuration;
-        public AuthService(Mkiwms4Context context, IConfiguration configuration) : base(context)
+        public AuthService(Mkiwms5Context context, IConfiguration configuration) : base(context)
         {
             _configuration = configuration;
         }

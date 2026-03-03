@@ -27,9 +27,6 @@ public partial class Supplier
 
     public DateTime CreatedAt { get; set; }
 
-    public string? City { get; set; }
-
-    public string? Ward { get; set; }
 
     public virtual ICollection<GoodsReceiptNote> GoodsReceiptNotes { get; set; } = new List<GoodsReceiptNote>();
 

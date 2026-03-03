@@ -19,7 +19,7 @@ namespace Warehouse.DataAcces.Service
         private readonly IConfiguration _configuration;
         private readonly IAuthService _emailService;
 
-        public AdminService(Mkiwms4Context context, IConfiguration configuration, IAuthService emailService) : base(context)
+        public AdminService(Mkiwms5Context context, IConfiguration configuration, IAuthService emailService) : base(context)
         {
             _configuration = configuration;
             _emailService = emailService;

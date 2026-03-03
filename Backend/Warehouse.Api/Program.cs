@@ -55,7 +55,7 @@ namespace Warehouse.Api
             });
 
             // Database context
-            builder.Services.AddDbContext<Mkiwms4Context>(options =>
+            builder.Services.AddDbContext<Mkiwms5Context>(options =>
             {
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
             });
