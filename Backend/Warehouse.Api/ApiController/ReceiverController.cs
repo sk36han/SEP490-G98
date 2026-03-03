@@ -102,5 +102,59 @@ namespace Warehouse.Api.ApiController
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Lấy thông tin chi tiết người nhận (Get Receiver By ID)
+        /// </summary>
+        /// <param name="id">ID của người nhận</param>
+        [HttpGet("get-receiver-by-id/{id}")]
+        public async Task<IActionResult> GetReceiverById(long id)
+        {
+            try
+            {
+                var result = await _receiverService.GetReceiverByIdAsync(id);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Xem lịch sử giao dịch của người nhận (View Transaction History)
+        /// </summary>
+        /// <param name="id">ID của người nhận</param>
+        /// <param name="page">Số trang</param>
+        /// <param name="pageSize">Số lượng item mỗi trang</param>
+        /// <param name="transactionType">Loại giao dịch (RR/GDN)</param>
+        /// <param name="status">Trạng thái giao dịch</param>
+        /// <param name="fromDate">Từ ngày</param>
+        /// <param name="toDate">Đến ngày</param>
+        /// <param name="detailType">Loại chi tiết (RR/GDN)</param>
+        /// <param name="detailDocId">ID chứng từ chi tiết</param>
+        [HttpGet("view-transaction-history/{id}")]
+        public async Task<IActionResult> ViewTransactionHistory(
+            long id,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? transactionType = null,
+            [FromQuery] string? status = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? detailType = null,
+            [FromQuery] long? detailDocId = null)
+        {
+            try
+            {
+                var result = await _receiverService.GetReceiverTransactionsAsync(
+                    id, page, pageSize, transactionType, status, fromDate, toDate, detailType, detailDocId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

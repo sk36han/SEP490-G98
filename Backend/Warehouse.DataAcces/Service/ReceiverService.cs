@@ -15,10 +15,12 @@ namespace Warehouse.DataAcces.Service
     public class ReceiverService : IReceiverService
     {
         private readonly IGenericRepository<Receiver> _receiverRepository;
+        private readonly Mkiwms5Context _context;
 
-        public ReceiverService(IGenericRepository<Receiver> receiverRepository)
+        public ReceiverService(IGenericRepository<Receiver> receiverRepository, Mkiwms5Context context)
         {
             _receiverRepository = receiverRepository;
+            _context = context;
         }
 
         public async Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request)
@@ -234,6 +236,147 @@ namespace Warehouse.DataAcces.Service
                 Notes = receiver.Notes,
                 IsActive = receiver.IsActive
             };
+        }
+        public async Task<ReceiverResponse> GetReceiverByIdAsync(long id)
+        {
+            var receiver = await _receiverRepository.GetByIdAsync(id);
+            if (receiver == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy người nhận với ID = {id}");
+            }
+
+            return new ReceiverResponse
+            {
+                ReceiverId = receiver.ReceiverId,
+                ReceiverCode = receiver.ReceiverCode,
+                ReceiverName = receiver.ReceiverName,
+                Phone = receiver.Phone,
+                Email = receiver.Email,
+                Address = receiver.Address,
+                City = receiver.City,
+                Ward = receiver.Ward,
+                Notes = receiver.Notes,
+                IsActive = receiver.IsActive
+            };
+        }
+
+        public async Task<ReceiverTransactionUnifiedResponse> GetReceiverTransactionsAsync(
+            long receiverId,
+            int page,
+            int pageSize,
+            string? transactionType,
+            string? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? detailType,
+            long? detailDocId)
+        {
+            var response = new ReceiverTransactionUnifiedResponse();
+
+            // 1. DETAIL (If requested)
+            if (detailDocId.HasValue && !string.IsNullOrWhiteSpace(detailType))
+            {
+                if (detailType.ToUpper() == "RR")
+                {
+                    var rr = await _context.ReleaseRequests.FindAsync(detailDocId.Value);
+                    var rrLines = _context.ReleaseRequestLines.Where(l => l.ReleaseRequestId == detailDocId.Value).ToList();
+                    if (rr != null) response.Detail = new { Header = rr, Lines = rrLines };
+                }
+                else if (detailType.ToUpper() == "GDN")
+                {
+                    var gdn = await _context.GoodsDeliveryNotes.FindAsync(detailDocId.Value);
+                    var gdnLines = _context.GoodsDeliveryNoteLines.Where(l => l.Gdnid == detailDocId.Value).ToList();
+                    if (gdn != null) response.Detail = new { Header = gdn, Lines = gdnLines };
+                }
+                return response;
+            }
+
+            // 2. SUMMARY
+            var totalRr = _context.ReleaseRequests.Count(x => x.ReceiverId == receiverId);
+            var totalGdn = _context.GoodsDeliveryNotes.Count(x => x.ReleaseRequest.ReceiverId == receiverId);
+            var totalQtyRequested = _context.ReleaseRequestLines.Where(x => x.ReleaseRequest.ReceiverId == receiverId).Sum(x => (decimal?)x.RequestedQty) ?? 0;
+            var totalQtyDelivered = _context.GoodsDeliveryNoteLines.Where(x => x.Gdn.ReleaseRequest.ReceiverId == receiverId).Sum(x => (decimal?)x.ActualQty) ?? 0;
+
+            response.Summary = new ReceiverTransactionSummaryDto
+            {
+                TotalReleaseRequests = totalRr,
+                TotalGoodsDeliveryNotes = totalGdn,
+                TotalQuantityRequested = totalQtyRequested,
+                TotalQuantityDelivered = totalQtyDelivered
+            };
+
+            // 3. HISTORY
+            if (page <= 0) page = 1;
+            if (pageSize <= 0) pageSize = 20;
+
+            // RR Query
+            var rrQuery = _context.ReleaseRequests.Where(x => x.ReceiverId == receiverId);
+            if (!string.IsNullOrWhiteSpace(status)) rrQuery = rrQuery.Where(x => x.Status.ToUpper() == status.ToUpper());
+            
+            var rrList = rrQuery.Select(x => new ReceiverTransactionDto
+            {
+                TransactionId = x.ReleaseRequestId,
+                TransactionDate = x.RequestedDate.HasValue 
+                    ? x.RequestedDate.Value.ToDateTime(TimeOnly.MinValue) 
+                    : x.CreatedAt.Date,
+                TransactionCode = x.ReleaseRequestCode,
+                TransactionType = "RR",
+                Status = x.Status,
+                Note = x.Purpose,
+                WarehouseName = x.Warehouse.WarehouseName,
+                CreatedBy = x.RequestedByNavigation.FullName,
+                ItemCount = x.ReleaseRequestLines.Count,
+                TotalQuantity = x.ReleaseRequestLines.Sum(l => l.RequestedQty),
+                CreatedAt = x.CreatedAt
+            }).ToList();
+
+            // GDN Query
+            var gdnQuery = _context.GoodsDeliveryNotes.Where(x => x.ReleaseRequest.ReceiverId == receiverId);
+            if (!string.IsNullOrWhiteSpace(status)) gdnQuery = gdnQuery.Where(x => x.Status.ToUpper() == status.ToUpper());
+
+            var gdnList = gdnQuery.Select(x => new ReceiverTransactionDto
+            {
+                TransactionId = x.Gdnid,
+                TransactionDate = x.IssueDate.ToDateTime(TimeOnly.MinValue),
+                TransactionCode = x.Gdncode,
+                TransactionType = "GDN",
+                Status = x.Status,
+                Note = x.Note,
+                WarehouseName = x.Warehouse.WarehouseName,
+                CreatedBy = x.CreatedByNavigation.FullName,
+                ItemCount = x.GoodsDeliveryNoteLines.Count,
+                TotalQuantity = x.GoodsDeliveryNoteLines.Sum(l => (decimal?)l.ActualQty) ?? 0,
+                CreatedAt = x.SubmittedAt ?? x.PostedAt ?? x.ApprovedAt ?? DateTime.UtcNow
+            }).ToList();
+
+            // Merge and Filter
+            var merged = rrList.Concat(gdnList).AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(transactionType))
+                merged = merged.Where(x => x.TransactionType.ToUpper() == transactionType.ToUpper());
+
+            if (fromDate.HasValue)
+                merged = merged.Where(x => x.TransactionDate >= fromDate.Value.Date);
+
+            if (toDate.HasValue)
+                merged = merged.Where(x => x.TransactionDate <= toDate.Value.Date);
+
+            var totalItems = merged.Count();
+            var items = merged
+                .OrderByDescending(x => x.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            response.History = new PagedResponse<ReceiverTransactionDto>
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                Items = items
+            };
+
+            return response;
         }
     }
 }
