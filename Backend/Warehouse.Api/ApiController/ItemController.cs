@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
-using Warehouse.Entities.ModelResponse;
 
 namespace Warehouse.Api.ApiController
 {
@@ -17,8 +16,38 @@ namespace Warehouse.Api.ApiController
             _itemService = itemService;
         }
 
-        [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateStatus(long id, [FromQuery] bool isActive)
+        [HttpGet("display-all-item")]
+        public async Task<IActionResult> GetAllItemsForDisplay()
+        {
+            var items = await _itemService.GetAllItemsDisplayAsync();
+
+            return Ok(new
+            {
+                success = true,
+                message = "Lấy danh sách sản phẩm thành công",
+                data = items
+            });
+        }
+
+        [HttpGet("display/{id:long}")]
+        public async Task<IActionResult> GetItemForDisplayById(long id)
+        {
+            var item = await _itemService.GetItemDisplayByIdAsync(id);
+            if (item == null)
+            {
+                return NotFound(new { success = false, message = "Không tìm thấy sản phẩm." });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = "Lấy thông tin sản phẩm thành công",
+                data = item
+            });
+        }
+
+        [HttpPatch("{id:long}/status")]
+        public async Task<IActionResult> UpdateItemStatus(long id, [FromQuery] bool isActive)
         {
             try
             {
