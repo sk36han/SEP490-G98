@@ -14,8 +14,10 @@ public class AuthControllerLoginTests
 {
     private readonly Mock<IAuthService> _authServiceMock = new();
     private readonly Mock<IMapper> _mapperMock = new();
+    private readonly Mock<IAuditLogService> _auditLogServiceMock = new();
 
-    private AuthController CreateController() => new(_authServiceMock.Object, _mapperMock.Object);
+    private AuthController CreateController() =>
+        new(_authServiceMock.Object, _mapperMock.Object, _auditLogServiceMock.Object);
 
     private static User BuildActiveUser() =>
         new()
@@ -45,6 +47,11 @@ public class AuthControllerLoginTests
         _authServiceMock
             .Setup(x => x.IssueTokensAsync(user, false))
             .ReturnsAsync((token, expiresAt));
+
+        _auditLogServiceMock
+            .Setup(x => x.LogAsync(It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<long?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
 
         _mapperMock
             .Setup(x => x.Map<UserResponse>(user))
@@ -220,6 +227,11 @@ public class AuthControllerLoginTests
             .Setup(x => x.IssueTokensAsync(user, true))
             .ThrowsAsync(new Exception("Token error"));
 
+        _auditLogServiceMock
+            .Setup(x => x.LogAsync(It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<long?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
+
         var request = new LoginRequest
         {
             Identifier = "john.doe@example.com",
@@ -248,6 +260,11 @@ public class AuthControllerLoginTests
         _authServiceMock
             .Setup(x => x.IssueTokensAsync(user, true))
             .ReturnsAsync((token, expiresAt));
+
+        _auditLogServiceMock
+            .Setup(x => x.LogAsync(It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<long?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
 
         _mapperMock
             .Setup(x => x.Map<UserResponse>(user))

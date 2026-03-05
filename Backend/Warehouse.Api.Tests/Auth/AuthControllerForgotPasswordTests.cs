@@ -13,8 +13,10 @@ public class AuthControllerForgotPasswordTests
 {
     private readonly Mock<IAuthService> _authServiceMock = new();
     private readonly Mock<IMapper> _mapperMock = new();
+    private readonly Mock<IAuditLogService> _auditLogServiceMock = new();
 
-    private AuthController CreateController() => new(_authServiceMock.Object, _mapperMock.Object);
+    private AuthController CreateController() =>
+        new(_authServiceMock.Object, _mapperMock.Object, _auditLogServiceMock.Object);
 
     [Fact]
     public async Task FP_UTC001_ValidEmail_ShouldReturnOkSuccessResponse()

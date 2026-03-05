@@ -12,7 +12,7 @@ using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Xunit;
 
-namespace Warehouse.Api.Tests
+namespace Warehouse.Api.Tests.Role
 {
     public class RoleControllerTests
     {

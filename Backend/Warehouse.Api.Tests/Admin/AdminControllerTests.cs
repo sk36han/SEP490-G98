@@ -12,7 +12,7 @@ using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Xunit;
 
-namespace Warehouse.Api.Tests
+namespace Warehouse.Api.Tests.Admin
 {
     public class AdminControllerTests
     {
@@ -460,7 +460,9 @@ namespace Warehouse.Api.Tests
                     FullName = "Nguyễn Văn A",
                     Email = "a@company.com",
                     IsActive = true,
-                    RoleName = "ADMIN"
+                    RoleName = "ADMIN",
+                    Gender = null,
+                    DOB = null
                 },
                 new AdminUserResponse
                 {
@@ -468,7 +470,9 @@ namespace Warehouse.Api.Tests
                     FullName = "Trần Thị B",
                     Email = "b@company.com",
                     IsActive = true,
-                    RoleName = "STAFF"
+                    RoleName = "STAFF",
+                    Gender = "Female",
+                    DOB = new DateOnly(1995, 5, 20)
                 }
             };
             var expected = new PagedResult<AdminUserResponse>(users, 2, 1, 10);
@@ -533,7 +537,9 @@ namespace Warehouse.Api.Tests
                     IsActive = true,
                     RoleName = "DIRECTOR",
                     CreatedAt = createdAt,
-                    LastLoginAt = createdAt.AddDays(5)
+                    LastLoginAt = createdAt.AddDays(5),
+                    Gender = "Male",
+                    DOB = new DateOnly(1990, 3, 15)
                 }
             };
             var expected = new PagedResult<AdminUserResponse>(users, 1, 1, 10);
@@ -643,7 +649,9 @@ namespace Warehouse.Api.Tests
 			{
 				FullName = "vu duc thang",
 				RoleName = "ADMIN", // Đã sửa từ RoleId thành RoleName
-				IsActive = true
+				IsActive = true,
+				Gender = null,
+				DOB = null
 			};
 
 			_adminServiceMock.Setup(x => x.UpdateUserAsync(1, request, 5)).ReturnsAsync(expected);
@@ -655,6 +663,8 @@ namespace Warehouse.Api.Tests
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var response = ok.Value.Should().BeOfType<ApiResponse<AdminUserResponse>>().Subject;
 			response.Data!.RoleName.Should().Be("ADMIN"); // Verify theo RoleName
+			response.Data!.Gender.Should().BeNull();
+			response.Data!.DOB.Should().BeNull();
 			response.Message.Should().Be("Cập nhật thông tin người dùng thành công.");
 		}
 		#endregion
@@ -666,7 +676,7 @@ namespace Warehouse.Api.Tests
 			// Arrange — Role: Empty, Status: Disable
 			var controller = CreateControllerWithUser(userId: 5);
 			var request = new UpdateUserRequest { RoleId = null, IsActive = false };
-			var expected = new AdminUserResponse { IsActive = false };
+			var expected = new AdminUserResponse { IsActive = false, Gender = null, DOB = null };
 
 			_adminServiceMock.Setup(x => x.UpdateUserAsync(1, request, 5)).ReturnsAsync(expected);
 
@@ -675,6 +685,37 @@ namespace Warehouse.Api.Tests
 
 			// Assert
 			result.Should().BeOfType<OkObjectResult>(); //
+		}
+		#endregion
+
+		#region UTCID 02b: UpdateUser — Normal — Cập nhật Gender và DOB thành công
+		[Fact]
+		public async Task UpdateUser_UTCID02b_ReturnsOk_WhenGenderAndDOBUpdated()
+		{
+			// Arrange — Cập nhật Gender = "Male", DOB = 1995-06-15
+			var controller = CreateControllerWithUser(userId: 5);
+			var dob = new DateOnly(1995, 6, 15);
+			var request = new UpdateUserRequest { Gender = "Male", DOB = dob };
+			var expected = new AdminUserResponse
+			{
+				FullName = "vu duc thang",
+				RoleName = "ADMIN",
+				IsActive = true,
+				Gender = "Male",
+				DOB = dob
+			};
+
+			_adminServiceMock.Setup(x => x.UpdateUserAsync(1, request, 5)).ReturnsAsync(expected);
+
+			// Act
+			var result = await controller.UpdateUser(1, request);
+
+			// Assert
+			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+			var response = ok.Value.Should().BeOfType<ApiResponse<AdminUserResponse>>().Subject;
+			response.Data!.Gender.Should().Be("Male");
+			response.Data!.DOB.Should().Be(dob);
+			response.Message.Should().Be("Cập nhật thông tin người dùng thành công.");
 		}
 		#endregion
 
@@ -835,7 +876,9 @@ namespace Warehouse.Api.Tests
 			var expected = new AdminUserResponse
 			{
 				UserId = 1,
-				IsActive = false
+				IsActive = false,
+				Gender = null,
+				DOB = null
 			};
 
 			_adminServiceMock
@@ -864,7 +907,9 @@ namespace Warehouse.Api.Tests
 			var expected = new AdminUserResponse
 			{
 				UserId = 2,
-				IsActive = true
+				IsActive = true,
+				Gender = "Male",
+				DOB = new DateOnly(1992, 8, 10)
 			};
 
 			_adminServiceMock
