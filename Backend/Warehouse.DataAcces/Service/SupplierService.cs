@@ -17,6 +17,7 @@ namespace Warehouse.DataAcces.Service
     public class SupplierService :  ISupplierService
     {
         private readonly IGenericRepository<Supplier> _supplierRepository;
+        private readonly Mkiwms5Context _context;
 
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
