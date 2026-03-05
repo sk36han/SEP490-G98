@@ -53,12 +53,12 @@ const PACKAGING_OPTIONS = [
   { id: 4, name: "Khác" },
 ];
 
-/** Danh mục – ItemCategory */
+/** Danh mục – ItemCategory (map với ItemCategories.CategoryId, CategoryCode, CategoryName) */
 const CATEGORY_OPTIONS = [
-  { id: 1, name: "Điện thoại" },
-  { id: 2, name: "Laptop" },
-  { id: 3, name: "Điện lạnh" },
-  { id: 4, name: "Phụ kiện" },
+  { id: 1, code: "DT", name: "Điện thoại" },
+  { id: 2, code: "LT", name: "Laptop" },
+  { id: 3, code: "DL", name: "Điện lạnh" },
+  { id: 4, code: "PK", name: "Phụ kiện" },
 ];
 
 /** Nhãn hiệu – Brand */
@@ -870,12 +870,16 @@ const CreateItem = () => {
                     sx={selectInputSx}
                     SelectProps={{
                       displayEmpty: true,
-                      renderValue: (v) =>
-                        v === ""
-                          ? "\u00A0"
-                          : CATEGORY_OPTIONS.find(
-                              (o) => String(o.id) === String(v),
-                            )?.name ?? "\u00A0",
+                      renderValue: (v) => {
+                        if (v === "") return "\u00A0";
+                        const found = CATEGORY_OPTIONS.find(
+                          (o) => String(o.id) === String(v),
+                        );
+                        if (!found) return "\u00A0";
+                        return found.code
+                          ? `${found.code} - ${found.name}`
+                          : found.name;
+                      },
                       MenuProps: selectMenuProps,
                     }}
                     InputLabelProps={{ shrink: true }}
@@ -883,7 +887,7 @@ const CreateItem = () => {
                     <MenuItem value="">Chọn danh mục</MenuItem>
                     {CATEGORY_OPTIONS.map((o) => (
                       <MenuItem key={o.id} value={String(o.id)}>
-                        {o.name}
+                        {o.code ? `${o.code} - ${o.name}` : o.name}
                       </MenuItem>
                     ))}
                   </TextField>

@@ -25,7 +25,9 @@ import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
-import ViewUomList from '../shared/pages/ViewUomList';
+import ViewCategoryList from '../shared/pages/ViewCategoryList';
+import CreateCategory from '../shared/pages/CreateCategory';
+import EditCategory from '../shared/pages/EditCategory';
 import ViewPackagingSpecList from '../shared/pages/ViewPackagingSpecList';
 import ViewSpecList from '../shared/pages/ViewSpecList';
 import ViewBrandList from '../shared/pages/ViewBrandList';
@@ -186,11 +188,31 @@ const AppRoutes = () => (
             }
         />
         <Route
-            path="/uom"
+            path="/categories"
             element={
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
-                        <ViewUomList />
+                        <ViewCategoryList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/categories/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <CreateCategory />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/categories/edit/:id"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <EditCategory />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -215,7 +237,8 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        <Route path="/item-masters" element={<Navigate to="/uom" replace />} />
+        <Route path="/item-masters" element={<Navigate to="/categories" replace />} />
+        <Route path="/uom" element={<Navigate to="/categories" replace />} />
         <Route
             path="/brands"
             element={

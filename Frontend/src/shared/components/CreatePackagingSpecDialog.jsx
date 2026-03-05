@@ -14,6 +14,7 @@ import {
 
 const inputSx = {
     '& .MuiOutlinedInput-root': { borderRadius: 2, '& fieldset': { borderColor: 'divider' } },
+    '& .MuiInputLabel-root': { overflow: 'visible' },
 };
 
 export default function CreatePackagingSpecDialog({ open, onClose, onSubmit }) {
@@ -41,7 +42,7 @@ export default function CreatePackagingSpecDialog({ open, onClose, onSubmit }) {
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
             <DialogTitle>Tạo mới quy cách đóng gói</DialogTitle>
             <form onSubmit={handleSubmit}>
-                <DialogContent sx={{ pt: 0 }}>
+                <DialogContent sx={{ pt: 2, pb: 1, overflow: 'visible' }}>
                     <TextField
                         fullWidth
                         size="small"

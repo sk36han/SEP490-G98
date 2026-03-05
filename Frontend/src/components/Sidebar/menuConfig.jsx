@@ -47,7 +47,7 @@ const warehouseKeeperItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/categories', label: 'Danh mục sản phẩm' },
             { path: '/packaging-spec', label: 'Quy cách' },
             { path: '/specs', label: 'Thông số' },
         ],
