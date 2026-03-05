@@ -33,7 +33,9 @@ apiClient.interceptors.response.use(
         if (error.response?.status === 401) {
             // Clear auth data
             localStorage.removeItem('token');
+            localStorage.removeItem('tokenExpiresAt');
             localStorage.removeItem('user');
+            localStorage.removeItem('userInfo');
 
             // Redirect to login if not already there
             if (window.location.pathname !== '/login') {

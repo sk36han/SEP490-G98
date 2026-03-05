@@ -22,9 +22,9 @@ namespace Warehouse.DataAcces.Service.Interface
             DateTime? toDate
         );
 
-        Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request);
+        Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId);
 
-        Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request);
+        Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request, long currentUserId);
 
         Task<SupplierResponse> ToggleSupplierStatusAsync(long id, bool isActive);
 

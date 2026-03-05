@@ -1,32 +1,94 @@
+/** Các role hợp lệ – không có default, role không map được = không cho đăng nhập */
+export const VALID_PERMISSION_ROLES = ['ADMIN', 'DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'];
+
 /**
- * Normalize backend role to permission role (ADMIN, MANAGER, WAREHOUSE_KEEPER, SALE_SUPPORT, STAFF)
- * @param {string} originalRole - Role from backend (roleCode or roleName)
- * @returns {string} 'ADMIN' | 'MANAGER' | 'WAREHOUSE_KEEPER' | 'SALE_SUPPORT' | 'STAFF'
+ * Lấy chuỗi role thô từ userInfo (để đưa vào getPermissionRole)
+ * @param {object|null} userInfo - object từ authService.getUser()
+ * @returns {string}
+ */
+export const getRawRoleFromUser = (userInfo) => {
+    if (!userInfo) return '';
+    return (
+        (userInfo.roleId != null ? String(userInfo.roleId) : '') ||
+        (userInfo.RoleId != null ? String(userInfo.RoleId) : '') ||
+        userInfo.roleCode ||
+        userInfo.roleName ||
+        userInfo.role ||
+        userInfo.RoleCode ||
+        userInfo.RoleName ||
+        userInfo.Role ||
+        ''
+    );
+};
+
+/**
+ * Kiểm tra có phải view dành cho Kế toán (ACCOUNTANTS) không
+ * @param {string|null} permissionRole
+ * @returns {boolean}
+ */
+export const isAccountantView = (permissionRole) => permissionRole === 'ACCOUNTANTS';
+
+/**
+ * Kiểm tra role có phải là permission role hợp lệ không
+ * @param {string|null} role
+ * @returns {boolean}
+ */
+export const isPermissionRoleValid = (role) => {
+    return !!role && VALID_PERMISSION_ROLES.includes(role);
+};
+
+/**
+ * Chuẩn hóa role từ backend sang permission role. Không trả default.
+ * @param {string} originalRole - Role từ backend (roleCode hoặc roleName)
+ * @returns {string|null} Một trong 6 role hợp lệ hoặc null nếu không nhận dạng được
  */
 export const getPermissionRole = (originalRole) => {
-    if (!originalRole) return 'STAFF';
+    if (originalRole == null || String(originalRole).trim() === '') return null;
     const str = String(originalRole).trim();
+
+    // Trường hợp backend trả roleId dạng số (1,2,3,...)
+    const numeric = Number(str);
+    if (!Number.isNaN(numeric)) {
+        if (numeric === 6) return 'ADMIN';
+        if (numeric === 1) return 'DIRECTOR';
+        if (numeric === 7) return 'WAREHOUSE_KEEPER';
+        if (numeric === 4) return 'SALE_SUPPORT';
+        if (numeric === 2) return 'SALE_ENGINEER';
+        if (numeric === 3) return 'ACCOUNTANTS';
+    }
+
     const upper = str.toUpperCase();
-    const noDiacritics = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-    if (upper.includes('ADMIN')) return 'ADMIN';
-    if (upper.includes('GIÁM ĐỐC') || upper.includes('DIRECTOR')) return 'ADMIN';
-    // Thủ kho = Warehouse Keeper - home là trang quản lý sản phẩm
-    if (upper.includes('THỦ KHO') || noDiacritics.includes('THU KHO') || upper.includes('WAREHOUSE_KEEPER')) return 'WAREHOUSE_KEEPER';
-    if (upper.includes('MANAGER') || upper.includes('QUẢN LÝ')) return 'MANAGER';
-    // Sale Support - hỗ trợ bán hàng: xem đơn hàng, xem sản phẩm, hồ sơ
-    if (upper.includes('SALE SUPPORT') || upper.includes('SALE_SUPPORT') || noDiacritics.includes('SALE SUPPORT')) return 'SALE_SUPPORT';
-    return 'STAFF';
+
+    // ADMIN: RoleCode thường là "ADMIN" hoặc "Admin"
+    if (upper === 'ADMIN' || upper.includes('ADMIN')) return 'ADMIN';
+
+    // DIRECTOR: "DIRECTOR", "Giám đốc", "GD"
+    if (upper === 'GD') return 'DIRECTOR';
+
+    // WAREHOUSE_KEEPER: "TK", "WH", "WHK", "WK", "WAREHOUSE"...
+    if (upper === 'TK') return 'WAREHOUSE_KEEPER';
+
+    // SALE_SUPPORT: kiểm tra trước SALE_ENGINEER vì "SALE" chung
+    if (upper === 'SP') return 'SALE_SUPPORT';
+
+    // SALE_ENGINEER: "SALE", "SALES", "SALE_ENGINEER"...
+    if (upper === 'SE') return 'SALE_ENGINEER';
+
+    // ACCOUNTANTS: "KT" (Kế toán), "ACCOUNTANTS", "ACCOUNTANT"
+    if (upper === 'KT') return 'ACCOUNTANTS';
+    return null;
 };
 
 /** Nhãn hiển thị cho permission role (dùng trong Sidebar, badge) */
 export const PERMISSION_ROLE_LABELS = {
     ADMIN: 'Admin',
-    MANAGER: 'Quản lý',
-    WAREHOUSE_KEEPER: 'Thủ kho',
+    DIRECTOR: 'Director',
+    WAREHOUSE_KEEPER: 'Warehouse Keeper',
     SALE_SUPPORT: 'Sale Support',
-    STAFF: 'Nhân viên',
+    SALE_ENGINEER: 'Sale Engineer',
+    ACCOUNTANTS: 'Accountants',
 };
 
 export const getPermissionRoleLabel = (permissionRole) => {
-    return PERMISSION_ROLE_LABELS[permissionRole] || permissionRole || 'Nhân viên';
+    return PERMISSION_ROLE_LABELS[permissionRole] ?? (permissionRole || 'Lỗi vai trò');
 };

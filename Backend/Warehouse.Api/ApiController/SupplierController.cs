@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -28,7 +29,13 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var result = await _supplierService.CreateSupplierAsync(request);
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                {
+                    return Unauthorized(new { message = "Không xác định được người dùng." });
+                }
+
+                var result = await _supplierService.CreateSupplierAsync(request, currentUserId);
                 return Ok(result);
             }
             catch (InvalidOperationException ex)
@@ -73,7 +80,13 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var result = await _supplierService.UpdateSupplierAsync(id, request);
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                {
+                    return Unauthorized(new { message = "Không xác định được người dùng." });
+                }
+
+                var result = await _supplierService.UpdateSupplierAsync(id, request, currentUserId);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)

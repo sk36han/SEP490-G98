@@ -23,7 +23,7 @@ namespace Warehouse.Api.ApiController
 		/// GET: /api/admin/users
 		/// </summary>
 		[HttpGet("get-users")]
-		public async Task<IActionResult> GetUsers([FromQuery] UserFilterRequest filter)
+		public async Task<IActionResult> GetUsers([FromQuery] FilterRequest filter)
 		{
 			try
 			{

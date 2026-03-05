@@ -1,11 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.ModelRequest;
@@ -15,15 +17,22 @@ namespace Warehouse.DataAcces.Service
     public class SupplierService :  ISupplierService
     {
         private readonly IGenericRepository<Supplier> _supplierRepository;
-        private readonly Mkiwms5Context _context;
 
-        public SupplierService(IGenericRepository<Supplier> supplierRepository, Mkiwms5Context context)
+        private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
+
+        // Các role sẽ nhận thông báo về supplier
+        private static readonly string[] _notifyRoleCodes = { "ADMIN", "GD", "SALE SP" };
+
+        public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _supplierRepository = supplierRepository;
-            _context = context;
+            _notificationService = notificationService;
+            _auditLogService = auditLogService;
+
         }
 
-        public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request)
+        public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
         {
             // 1️⃣ Check duplicate SupplierCode
             var suppliers = await _supplierRepository.GetAllAsync();
@@ -50,7 +59,26 @@ namespace Warehouse.DataAcces.Service
             // 3️⃣ Save
             await _supplierRepository.CreateAsync(supplier);
 
-            // 4️⃣ Return response
+            // 4️⃣ Gửi thông báo cho Admin, Giám đốc, Sale Support
+            await _notificationService.CreateForRolesAsync(
+                _notifyRoleCodes,
+                "Nhà cung cấp mới",
+                $"Nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode}) đã được tạo.",
+                "SUPPLIER",
+                supplier.SupplierId,
+                excludeUserId: currentUserId
+            );
+
+            // 5️⃣ Ghi audit log
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Create,
+                AuditEntity.Supplier,
+                supplier.SupplierId,
+                $"Tạo nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode})"
+            );
+
+            // 6️⃣ Return response
             return new SupplierResponse
             {
                 SupplierId = supplier.SupplierId,
@@ -154,7 +182,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request)
+        public async Task<SupplierResponse> UpdateSupplierAsync(long id, UpdateSupplierRequest request, long currentUserId)
         {
             // 1️⃣ Check supplier exists
             var supplier = await _supplierRepository.GetByIdAsync(id);
@@ -162,6 +190,19 @@ namespace Warehouse.DataAcces.Service
             {
                 throw new KeyNotFoundException($"Không tìm thấy nhà cung cấp với ID = {id}");
             }
+
+            // Lưu giá trị cũ trước khi update
+            var oldValues = JsonSerializer.Serialize(new
+            {
+                supplier.SupplierName,
+                supplier.TaxCode,
+                supplier.Phone,
+                supplier.Email,
+                supplier.Address,
+                supplier.City,
+                supplier.Ward,
+                supplier.IsActive
+            });
 
             // 2️⃣ Check duplicate Email (if provided and different from current)
             if (!string.IsNullOrWhiteSpace(request.Email))
@@ -191,7 +232,39 @@ namespace Warehouse.DataAcces.Service
             // 4️⃣ Save
             await _supplierRepository.UpdateAsync(supplier);
 
-            // 5️⃣ Return response
+            // 5️⃣ Gửi thông báo cho Admin, Giám đốc, Sale Support
+            await _notificationService.CreateForRolesAsync(
+                _notifyRoleCodes,
+                "Cập nhật nhà cung cấp",
+                $"Nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode}) đã được cập nhật.",
+                "SUPPLIER",
+                supplier.SupplierId,
+                excludeUserId: currentUserId
+            );
+
+            // 6️⃣ Ghi audit log
+            var newValues = JsonSerializer.Serialize(new
+            {
+                supplier.SupplierName,
+                supplier.TaxCode,
+                supplier.Phone,
+                supplier.Email,
+                supplier.Address,
+                supplier.City,
+                supplier.Ward,
+                supplier.IsActive
+            });
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.Supplier,
+                supplier.SupplierId,
+                $"Cập nhật nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode})",
+                oldValues,
+                newValues
+            );
+
+            // 7️⃣ Return response
             return new SupplierResponse
             {
                 SupplierId = supplier.SupplierId,

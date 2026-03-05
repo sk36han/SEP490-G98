@@ -25,7 +25,15 @@
 
 .list-view .list-grid-wrapper,
 .view-detail-view .list-grid-wrapper {
-    min-height: calc(100vh - 220px);
+    min-height: 0; /* flex layout: cho phép co lại, scroll trong TableContainer */
+}
+
+/* Cho phép scroll ngang bảng khi nội dung rộng hơn khung */
+.list-view .MuiTableContainer-root,
+.supplier-view .MuiTableContainer-root {
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: auto;
 }
 
 .list-view .list-filter-card .list-search-input .MuiInputBase-input,

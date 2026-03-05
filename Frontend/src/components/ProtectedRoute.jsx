@@ -1,41 +1,40 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import authService from '../shared/lib/authService';
-import { getPermissionRole } from '../shared/permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../shared/permissions/roleUtils';
 
 /**
- * ProtectedRoute component - Protects routes that require authentication and authorization
- * Redirects to login page if user is not authenticated
- * Redirects to appropriate home if user doesn't have permission for the route
+ * ProtectedRoute - Bảo vệ route theo authentication và authorization
+ * Role không hợp lệ (null) → logout và chuyển về login kèm thông báo lỗi vai trò
  *
- * @param {object} props - Component props
- * @param {React.ReactElement} props.children - Child component to render if authenticated
- * @param {string[]} props.allowedRoles - Array of permission roles: ADMIN, MANAGER, WAREHOUSE_KEEPER, SALE_SUPPORT, STAFF
- * @returns {React.ReactElement} - Child component or redirect
+ * @param {string[]} props.allowedRoles - Mảng role được phép
  */
 const ProtectedRoute = ({ children, allowedRoles = null }) => {
     const location = useLocation();
     const isAuthenticated = authService.isAuthenticated();
     const userInfo = authService.getUser();
-    const rawRole = userInfo?.roleCode || userInfo?.roleName || '';
-    const permissionRole = getPermissionRole(rawRole);
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
-    // Check authentication first
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
 
-    // Check authorization if allowedRoles is specified
+    if (!isPermissionRoleValid(permissionRole)) {
+        authService.logout();
+        return <Navigate to="/login" replace state={{ roleError: true }} />;
+    }
+
     if (allowedRoles && allowedRoles.length > 0) {
-        if (!permissionRole || !allowedRoles.includes(permissionRole)) {
+        if (!allowedRoles.includes(permissionRole)) {
             console.warn(`User with role ${permissionRole} tried to access ${location.pathname} but doesn't have permission`);
 
-            if (permissionRole === 'ADMIN') return <Navigate to="/admin/home" replace />;
+            if (permissionRole === 'ADMIN') return <Navigate to="/admin/users" replace />;
+            if (permissionRole === 'DIRECTOR') return <Navigate to="/home" replace />;
             if (permissionRole === 'WAREHOUSE_KEEPER') return <Navigate to="/products" replace />;
-            if (permissionRole === 'MANAGER') return <Navigate to="/manager/home" replace />;
-            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/sale-support/home" replace />;
-            if (permissionRole === 'STAFF') return <Navigate to="/staff/home" replace />;
-            return <Navigate to="/home" replace />;
+            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/suppliers" replace />;
+            if (permissionRole === 'SALE_ENGINEER') return <Navigate to="/products" replace />;
+            if (permissionRole === 'ACCOUNTANTS') return <Navigate to="/products" replace />;
+            return <Navigate to="/products" replace />;
         }
     }
 

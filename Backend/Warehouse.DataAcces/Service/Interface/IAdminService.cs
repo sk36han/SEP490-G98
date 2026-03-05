@@ -10,7 +10,7 @@ namespace Warehouse.DataAcces.Service.Interface
 {
     public interface IAdminService
     {
-        Task<PagedResult<AdminUserResponse>> GetUserListAsync(UserFilterRequest filter);
+        Task<PagedResult<AdminUserResponse>> GetUserListAsync(FilterRequest filter);
         Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy);
         Task<AdminUserResponse> UpdateUserAsync(long userId, UpdateUserRequest request, long assignedBy);
         Task<AdminUserResponse> ToggleUserStatusAsync(long userId, long currentUserId);

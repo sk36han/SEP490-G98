@@ -2,8 +2,8 @@ import apiClient from './axios';
 
 /**
  * Supplier API – maps to backend SupplierController / SupplierResponse.
- * Backend: GET /api/Supplier (page, pageSize, supplierCode, supplierName, ...)
- * Response: PagedResponse<SupplierResponse> → { Page, PageSize, TotalItems, Items }
+ * Backend trả data trực tiếp (không bọc ApiResponse): PagedResponse hoặc SupplierResponse.
+ * Path: GET list-all, POST create, PUT update/{id}, PATCH change-status/{id}
  */
 
 /**
@@ -31,32 +31,46 @@ export async function getSuppliers(params = {}) {
     const query = new URLSearchParams();
     query.set('page', String(page));
     query.set('pageSize', String(pageSize));
-    if (supplierCode != null && supplierCode.trim() !== '') query.set('supplierCode', supplierCode.trim());
-    if (supplierName != null && supplierName.trim() !== '') query.set('supplierName', supplierName.trim());
-    if (taxCode != null && taxCode.trim() !== '') query.set('taxCode', taxCode.trim());
+    if (supplierCode != null && String(supplierCode).trim() !== '') query.set('supplierCode', String(supplierCode).trim());
+    if (supplierName != null && String(supplierName).trim() !== '') query.set('supplierName', String(supplierName).trim());
+    if (taxCode != null && String(taxCode).trim() !== '') query.set('taxCode', String(taxCode).trim());
     if (isActive === true) query.set('isActive', 'true');
     if (isActive === false) query.set('isActive', 'false');
-    if (fromDate) query.set('fromDate', fromDate);
-    if (toDate) query.set('toDate', toDate);
+    if (fromDate && typeof fromDate === 'string') query.set('fromDate', fromDate);
+    if (toDate && typeof toDate === 'string') query.set('toDate', toDate);
 
-    const response = await apiClient.get(`/Supplier?${query.toString()}`);
-    const data = response.data;
-    const rawItems = data.items ?? data.Items ?? [];
-    // Normalize to camelCase for DataGrid (backend may return PascalCase)
-    const items = rawItems.map((row) => ({
-        supplierId: row.supplierId ?? row.SupplierId,
-        supplierCode: row.supplierCode ?? row.SupplierCode ?? '',
-        supplierName: row.supplierName ?? row.SupplierName ?? '',
-        taxCode: row.taxCode ?? row.TaxCode ?? '',
-        phone: row.phone ?? row.Phone ?? '',
-        email: row.email ?? row.Email ?? '',
-        address: row.address ?? row.Address ?? '',
-        isActive: row.isActive ?? row.IsActive ?? true,
-    }));
+    const response = await apiClient.get(`/Supplier/list-all?${query.toString()}`);
+    const data = response?.data;
+    if (data == null) {
+        return { page: 1, pageSize: pageSize || 20, totalItems: 0, items: [] };
+    }
+    // Backend trả Ok(PagedResponse): ASP.NET Core mặc định camelCase → items, page, totalItems
+    const payload = data.data ?? data.Data ?? data;
+    const rawItems = Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.Items)
+            ? payload.Items
+            : Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data?.Items)
+            ? data.Items
+            : [];
+    const items = rawItems
+        .filter((row) => row != null && typeof row === 'object')
+        .map((row) => ({
+            supplierId: row.supplierId ?? row.SupplierId,
+            supplierCode: row.supplierCode ?? row.SupplierCode ?? '',
+            supplierName: row.supplierName ?? row.SupplierName ?? '',
+            taxCode: row.taxCode ?? row.TaxCode ?? '',
+            phone: row.phone ?? row.Phone ?? '',
+            email: row.email ?? row.Email ?? '',
+            address: row.address ?? row.Address ?? '',
+            isActive: row.isActive ?? row.IsActive ?? true,
+        }));
     return {
-        page: data.page ?? data.Page,
-        pageSize: data.pageSize ?? data.PageSize,
-        totalItems: data.totalItems ?? data.TotalItems ?? 0,
+        page: payload.page ?? payload.Page ?? 1,
+        pageSize: payload.pageSize ?? payload.PageSize ?? pageSize ?? 20,
+        totalItems: payload.totalItems ?? payload.TotalItems ?? 0,
         items,
     };
 }
@@ -88,5 +102,84 @@ export async function getSupplierSuggestions(field, query) {
         return list;
     } catch {
         return [];
+    }
+}
+
+/**
+ * Tạo nhà cung cấp mới
+ * POST /api/Supplier/create – backend trả trực tiếp SupplierResponse (không bọc ApiResponse)
+ */
+export async function createSupplier(data) {
+    try {
+        const response = await apiClient.post('/Supplier/create', {
+            supplierCode: data.supplierCode,
+            supplierName: data.supplierName,
+            taxCode: data.taxCode || null,
+            phone: data.phone || null,
+            email: data.email || null,
+            address: data.address || null,
+        });
+        return response.data;
+    } catch (error) {
+        if (error.response?.status === 400) {
+            throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ.');
+        } else if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.message === 'Network Error') {
+            throw new Error('Không thể kết nối đến server.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tạo nhà cung cấp.');
+        }
+    }
+}
+
+/**
+ * Cập nhật nhà cung cấp
+ * PUT /api/Supplier/update/{id} – backend trả trực tiếp SupplierResponse
+ */
+export async function updateSupplier(id, data) {
+    try {
+        const response = await apiClient.put(`/Supplier/update/${id}`, {
+            supplierName: data.supplierName,
+            taxCode: data.taxCode || null,
+            phone: data.phone || null,
+            email: data.email || null,
+            address: data.address || null,
+            isActive: data.isActive,
+        });
+        return response.data;
+    } catch (error) {
+        if (error.response?.status === 400) {
+            throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ.');
+        } else if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhà cung cấp.');
+        } else if (error.message === 'Network Error') {
+            throw new Error('Không thể kết nối đến server.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi cập nhật nhà cung cấp.');
+        }
+    }
+}
+
+/**
+ * Bật/tắt trạng thái nhà cung cấp
+ * PATCH /api/Supplier/change-status/{id}?isActive= – backend trả trực tiếp SupplierResponse
+ */
+export async function toggleSupplierStatus(id, isActive) {
+    try {
+        const response = await apiClient.patch(`/Supplier/change-status/${id}`, null, {
+            params: { isActive: !!isActive },
+        });
+        return response.data;
+    } catch (error) {
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhà cung cấp.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi đổi trạng thái.');
+        }
     }
 }

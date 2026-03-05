@@ -17,5 +17,7 @@ namespace Warehouse.Entities.ModelResponse
 		public bool IsActive { get; set; }
 		public DateTime CreatedAt { get; set; }
 		public DateTime? LastLoginAt { get; set; }
+		public string? Gender { get; set; }
+		public DateOnly? DOB { get; set; }
 	}
 }
