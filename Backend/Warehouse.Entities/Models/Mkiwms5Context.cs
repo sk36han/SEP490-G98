@@ -781,31 +781,29 @@ public partial class Mkiwms5Context : DbContext
             entity.Property(e => e.UomName).HasMaxLength(100);
         });
 
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.HasKey(e => e.UserId).HasName("PK__Users__1788CC4CA73F28EF");
+		modelBuilder.Entity<User>(entity =>
+		{
+			entity.HasKey(e => e.UserId).HasName("PK__Users__1788CC4CA73F28EF");
 
-            entity.HasIndex(e => e.Username, "UQ__Users__536C85E46A9B2F42").IsUnique();
+			entity.HasIndex(e => e.Username, "UQ__Users__536C85E46A9B2F42").IsUnique();
 
-            entity.HasIndex(e => e.Email, "UQ__Users__A9D1053476FE3E96").IsUnique();
+			entity.HasIndex(e => e.Email, "UQ__Users__A9D1053476FE3E96").IsUnique();
 
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.DOB).HasColumnName("DOB");
-            entity.Property(e => e.Email).HasMaxLength(255);
-            entity.Property(e => e.FullName).HasMaxLength(200);
-            entity.Property(e => e.Gender).HasMaxLength(10);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.PasswordHash)
-                .HasMaxLength(255)
-                .HasDefaultValue("");
-            entity.Property(e => e.Phone).HasMaxLength(30);
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Username).HasMaxLength(100);
-            entity.Property(e => e.Gender).HasMaxLength(10);
-            entity.Property(e => e.DOB);
-        });
+			entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
+			entity.Property(e => e.Dob).HasColumnName("DOB");
+			entity.Property(e => e.Email).HasMaxLength(255);
+			entity.Property(e => e.FullName).HasMaxLength(200);
+			entity.Property(e => e.Gender).HasMaxLength(10);
+			entity.Property(e => e.IsActive).HasDefaultValue(true);
+			entity.Property(e => e.PasswordHash)
+				.HasMaxLength(255)
+				.HasDefaultValue("");
+			entity.Property(e => e.Phone).HasMaxLength(30);
+			entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(sysutcdatetime())");
+			entity.Property(e => e.Username).HasMaxLength(100);
+		});
 
-        modelBuilder.Entity<UserRole>(entity =>
+		modelBuilder.Entity<UserRole>(entity =>
         {
             entity.HasKey(e => e.UserRoleId).HasName("PK__UserRole__3D978A356402515B");
 

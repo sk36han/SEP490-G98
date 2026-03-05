@@ -244,7 +244,7 @@ namespace Warehouse.DataAcces.Service
                     RoleName = (u.UserRoleUser != null && u.UserRoleUser.Role != null)
                                ? u.UserRoleUser.Role.RoleName : "N/A",
                     Gender = u.Gender,
-                    DOB = u.DOB
+                    DOB = u.Dob
                 })
                 .ToListAsync();
 
@@ -273,7 +273,7 @@ namespace Warehouse.DataAcces.Service
                 user?.Email,
                 user?.IsActive,
                 user?.Gender,
-                user?.DOB,
+                user?.Dob,
                 RoleName = user?.UserRoleUser?.Role?.RoleName
             });
 
@@ -414,7 +414,7 @@ namespace Warehouse.DataAcces.Service
                 user.Email,
                 user.IsActive,
                 user.Gender,
-                user.DOB,
+                user.Dob,
                 RoleName = user.UserRoleUser?.Role?.RoleName
             });
             await _auditLogService.LogAsync(
@@ -439,7 +439,7 @@ namespace Warehouse.DataAcces.Service
 				CreatedAt = user.CreatedAt,
 				RoleName = user.UserRoleUser?.Role?.RoleName ?? "N/A",
 				Gender = user.Gender,
-				DOB = user.DOB
+				DOB = user.Dob
 			};
         }
 
@@ -504,7 +504,7 @@ namespace Warehouse.DataAcces.Service
                 RoleName = (user.UserRoleUser != null && user.UserRoleUser.Role != null)
                            ? user.UserRoleUser.Role.RoleName : "N/A",
                 Gender = user.Gender,
-                DOB = user.DOB
+                DOB = user.Dob
             };
         }
 
@@ -543,7 +543,7 @@ namespace Warehouse.DataAcces.Service
                 worksheet.Cell(row, 6).Value = user.UserRoleUser?.Role?.RoleName ?? "N/A";
                 worksheet.Cell(row, 7).Value = user.IsActive ? "Active" : "Inactive";
                 worksheet.Cell(row, 8).Value = user.Gender ?? "N/A";
-                worksheet.Cell(row, 9).Value = user.DOB.HasValue ? user.DOB.Value.ToString("yyyy-MM-dd") : "N/A";
+                worksheet.Cell(row, 9).Value = user.Dob.HasValue ? user.Dob.Value.ToString("yyyy-MM-dd") : "N/A";
                 row++;
             }
 
