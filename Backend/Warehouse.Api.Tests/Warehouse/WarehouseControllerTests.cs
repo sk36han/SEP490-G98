@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
@@ -11,24 +12,42 @@ using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Xunit;
 
-namespace Warehouse.Api.Tests
+namespace Warehouse.Api.Tests.Warehouse
 {
-    public class WarehouseControllerTests
-    {
-        private readonly Mock<IWarehouseService> _warehouseServiceMock = new();
+	public class WarehouseControllerTests
+	{
+		private readonly Mock<IWarehouseService> _warehouseServiceMock = new();
 
-        /// <summary>
-        /// Helper: Tạo WarehouseController
-        /// </summary>
-        private WarehouseController CreateController()
-        {
-            var controller = new WarehouseController(_warehouseServiceMock.Object);
-            controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext()
-            };
-            return controller;
-        }
+		/// <summary>
+		/// Tạo WarehouseController KHÔNG có claim (dùng cho GetWarehouseList, ToggleWarehouseStatus)
+		/// </summary>
+		private WarehouseController CreateController()
+		{
+			var controller = new WarehouseController(_warehouseServiceMock.Object);
+			controller.ControllerContext = new ControllerContext
+			{
+				HttpContext = new DefaultHttpContext()
+			};
+			return controller;
+		}
+
+		/// <summary>
+		/// Tạo WarehouseController CÓ claim userId (dùng cho CreateWarehouse, UpdateWarehouse)
+		/// </summary>
+		private WarehouseController CreateControllerWithUser(long userId = 1)
+		{
+			var controller = new WarehouseController(_warehouseServiceMock.Object);
+			var claims = new List<Claim>
+			{
+				new Claim(ClaimTypes.NameIdentifier, userId.ToString())
+			};
+			var identity = new ClaimsIdentity(claims, "TestAuth");
+			controller.ControllerContext = new ControllerContext
+			{
+				HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+			};
+			return controller;
+		}
 
 		// =========================================================
 		// 1️⃣ GetWarehouseList — 8 test cases
@@ -42,9 +61,9 @@ namespace Warehouse.Api.Tests
 			var controller = CreateController();
 			var filter = new FilterRequest { PageNumber = 1, PageSize = 20 };
 			var warehouses = new List<WarehouseResponse>
-		{
-			new WarehouseResponse { WarehouseId = 1, WarehouseCode = "WH001", WarehouseName = "Kho Hà Nội" }
-		};
+			{
+				new WarehouseResponse { WarehouseId = 1, WarehouseCode = "WH001", WarehouseName = "Kho Hà Nội" }
+			};
 			var expected = new PagedResult<WarehouseResponse>(warehouses, 1, 1, 20);
 
 			_warehouseServiceMock.Setup(x => x.GetWarehouseListAsync(filter)).ReturnsAsync(expected);
@@ -151,7 +170,7 @@ namespace Warehouse.Api.Tests
 			// Arrange — Giả lập SqlException
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.GetWarehouseListAsync(It.IsAny<FilterRequest>()))
-								 .ThrowsAsync(new Exception("SQL Error")); // Controller catch Exception chung
+								  .ThrowsAsync(new Exception("SQL Error"));
 
 			// Act
 			var result = await controller.GetWarehouseList(new FilterRequest());
@@ -170,7 +189,7 @@ namespace Warehouse.Api.Tests
 			// Arrange
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.GetWarehouseListAsync(It.IsAny<FilterRequest>()))
-								 .ThrowsAsync(new NullReferenceException());
+								  .ThrowsAsync(new NullReferenceException());
 
 			// Act
 			var result = await controller.GetWarehouseList(new FilterRequest());
@@ -189,7 +208,7 @@ namespace Warehouse.Api.Tests
 			// Arrange
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.GetWarehouseListAsync(It.IsAny<FilterRequest>()))
-								 .ThrowsAsync(new Exception("General Error"));
+								  .ThrowsAsync(new Exception("General Error"));
 
 			// Act
 			var result = await controller.GetWarehouseList(new FilterRequest());
@@ -201,14 +220,14 @@ namespace Warehouse.Api.Tests
 		#endregion
 
 		// =========================================================
-		// 2️⃣ CreateWarehouse — 12 Test Cases 
+		// 2️⃣ CreateWarehouse — 12 Test Cases
 		// =========================================================
 
 		#region UTCID 01: KHVT + khoTang 1 + 12 tố hữu (Thành công)
 		[Fact]
 		public async Task CreateWarehouse_UTCID01_ReturnsOk_StandardSuccess()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest
 			{
 				WarehouseCode = "KHVT",
@@ -216,7 +235,7 @@ namespace Warehouse.Api.Tests
 				Address = "12 tố hữu",
 				IsActive = true
 			};
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request)).ReturnsAsync(new WarehouseResponse());
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -229,10 +248,10 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID02_ReturnsBadRequest_DuplicateCode()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "MKHH" };
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request))
-								 .ThrowsAsync(new InvalidOperationException("Mã kho đã tồn tại."));
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1))
+								  .ThrowsAsync(new InvalidOperationException("Mã kho đã tồn tại."));
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -245,7 +264,7 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID03_ReturnsBadRequest_InvalidCodeFormat()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("WarehouseCode", "Invalid");
 			var request = new CreateWarehouseRequest { WarehouseCode = "'\"" };
 
@@ -260,9 +279,9 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID04_ReturnsOk_SpecialCharsName()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", WarehouseName = "KHo 12@%$%" };
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request)).ReturnsAsync(new WarehouseResponse());
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -274,9 +293,9 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID05_ReturnsOk_DuplicateName()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT2", WarehouseName = "Kho1" };
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request)).ReturnsAsync(new WarehouseResponse());
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -288,7 +307,7 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID06_ReturnsBadRequest_NameEmpty()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("WarehouseName", "Required");
 			var request = new CreateWarehouseRequest { WarehouseName = " " };
 
@@ -303,9 +322,9 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID07_ReturnsOk_SpecialCharsAddress()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", Address = "124@ tố tấm" };
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request)).ReturnsAsync(new WarehouseResponse());
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -317,9 +336,9 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID08_ReturnsOk_DuplicateAddress()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT3", Address = "Lê quang đao" };
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request)).ReturnsAsync(new WarehouseResponse());
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -331,7 +350,7 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID09_ReturnsBadRequest_AddressEmpty()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("Address", "Required");
 
 			var result = await controller.CreateWarehouse(new CreateWarehouseRequest { Address = "" });
@@ -345,9 +364,9 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID10_ReturnsOk_StatusFalse()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", IsActive = false };
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request)).ReturnsAsync(new WarehouseResponse());
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -359,9 +378,9 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID11_Returns500_SystemError()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", WarehouseName = "khoTang 1", Address = "12 tố hữu" };
-			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request)).ThrowsAsync(new Exception());
+			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ThrowsAsync(new Exception());
 
 			var result = await controller.CreateWarehouse(request);
 
@@ -375,7 +394,7 @@ namespace Warehouse.Api.Tests
 		[Fact]
 		public async Task CreateWarehouse_UTCID12_ReturnsBadRequest_CodeNull()
 		{
-			var controller = CreateController();
+			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("WarehouseCode", "Required");
 
 			var result = await controller.CreateWarehouse(new CreateWarehouseRequest { WarehouseCode = null });
@@ -386,7 +405,7 @@ namespace Warehouse.Api.Tests
 		#endregion
 
 		// =========================================================
-		// 3️⃣ UpdateWarehouse — 8 Test Cases 
+		// 3️⃣ UpdateWarehouse — 8 Test Cases
 		// =========================================================
 
 		#region UTCID 01: UpdateWarehouse — Normal — Thành công (Dữ liệu chuẩn)
@@ -394,7 +413,7 @@ namespace Warehouse.Api.Tests
 		public async Task UpdateWarehouse_UTCID01_ReturnsOk_StandardSuccess()
 		{
 			// Arrange — ID tồn tại (10), Name/Address hợp lệ
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new UpdateWarehouseRequest
 			{
 				WarehouseName = "Kho Hà Nội (Cập nhật)",
@@ -403,7 +422,7 @@ namespace Warehouse.Api.Tests
 			};
 			var expected = new WarehouseResponse { WarehouseId = 10, WarehouseName = "Kho Hà Nội (Cập nhật)" };
 
-			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(10, request)).ReturnsAsync(expected);
+			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(10, request, 1)).ReturnsAsync(expected);
 
 			// Act
 			var result = await controller.UpdateWarehouse(10, request);
@@ -423,11 +442,11 @@ namespace Warehouse.Api.Tests
 		public async Task UpdateWarehouse_UTCID02_ReturnsNotFound_WhenIdNotExist()
 		{
 			// Arrange — ID 9999 không có trong DB
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new UpdateWarehouseRequest { WarehouseName = "Test" };
 
-			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(9999, request))
-								 .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(9999, request, 1))
+								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
 
 			// Act
 			var result = await controller.UpdateWarehouse(9999, request);
@@ -446,11 +465,11 @@ namespace Warehouse.Api.Tests
 		public async Task UpdateWarehouse_UTCID04_ReturnsNotFound_WhenIdIsInvalid()
 		{
 			// Arrange — ID = -10 hoặc 0
-			var controller = CreateController();
-			var request = new UpdateWarehouseRequest { WarehouseName = "KHo 12@%$%" }; // Kết hợp Name ký tự lạ
+			var controller = CreateControllerWithUser(userId: 1);
+			var request = new UpdateWarehouseRequest { WarehouseName = "KHo 12@%$%" };
 
-			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(It.IsInRange(long.MinValue, 0, Moq.Range.Inclusive), It.IsAny<UpdateWarehouseRequest>()))
-								 .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(It.IsInRange(long.MinValue, 0, Moq.Range.Inclusive), It.IsAny<UpdateWarehouseRequest>(), It.IsAny<long>()))
+								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
 
 			// Act
 			var result = await controller.UpdateWarehouse(-10, request);
@@ -465,7 +484,7 @@ namespace Warehouse.Api.Tests
 		public async Task UpdateWarehouse_UTCID05_ReturnsBadRequest_WhenNameEmpty()
 		{
 			// Arrange — Name trống/Null
-			var controller = CreateController();
+			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("WarehouseName", "Required");
 			var request = new UpdateWarehouseRequest { WarehouseName = " " };
 
@@ -476,8 +495,7 @@ namespace Warehouse.Api.Tests
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 
-			// Đảm bảo Service không bao giờ được gọi nếu Model lỗi
-			_warehouseServiceMock.Verify(x => x.UpdateWarehouseAsync(It.IsAny<long>(), It.IsAny<UpdateWarehouseRequest>()), Times.Never);
+			_warehouseServiceMock.Verify(x => x.UpdateWarehouseAsync(It.IsAny<long>(), It.IsAny<UpdateWarehouseRequest>(), It.IsAny<long>()), Times.Never);
 		}
 		#endregion
 
@@ -486,9 +504,9 @@ namespace Warehouse.Api.Tests
 		public async Task UpdateWarehouse_UTCID07_ReturnsOk_WhenAddressHasSpecialChars()
 		{
 			// Arrange — Địa chỉ 124@ tố tấm
-			var controller = CreateController();
+			var controller = CreateControllerWithUser(userId: 1);
 			var request = new UpdateWarehouseRequest { WarehouseName = "Kho chuẩn", Address = "124@ tố tấm", IsActive = true };
-			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(10, request)).ReturnsAsync(new WarehouseResponse());
+			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(10, request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			// Act
 			var result = await controller.UpdateWarehouse(10, request);
@@ -503,9 +521,9 @@ namespace Warehouse.Api.Tests
 		public async Task UpdateWarehouse_SystemError_Returns500()
 		{
 			// Arrange — Dữ liệu chuẩn nhưng DB crash
-			var controller = CreateController();
-			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(It.IsAny<long>(), It.IsAny<UpdateWarehouseRequest>()))
-								 .ThrowsAsync(new Exception("DB Crash"));
+			var controller = CreateControllerWithUser(userId: 1);
+			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(It.IsAny<long>(), It.IsAny<UpdateWarehouseRequest>(), It.IsAny<long>()))
+								  .ThrowsAsync(new Exception("DB Crash"));
 
 			// Act
 			var result = await controller.UpdateWarehouse(10, new UpdateWarehouseRequest { WarehouseName = "Test" });
@@ -516,8 +534,9 @@ namespace Warehouse.Api.Tests
 			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
+
 		// =========================================================
-		// 4️⃣ ToggleWarehouseStatus — 6 Test Cases 
+		// 4️⃣ ToggleWarehouseStatus — 6 Test Cases
 		// =========================================================
 
 		#region UTCID 01: Toggle sang Enable (Normal - Thành công)
@@ -574,7 +593,7 @@ namespace Warehouse.Api.Tests
 			// Arrange: ID 9999 không có trong hệ thống
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.ToggleWarehouseStatusAsync(9999))
-								 .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
 
 			// Act
 			var result = await controller.ToggleWarehouseStatus(9999);
@@ -595,12 +614,12 @@ namespace Warehouse.Api.Tests
 			// Arrange: ID = 0
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.ToggleWarehouseStatusAsync(0))
-								 .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
 
 			// Act
 			var result = await controller.ToggleWarehouseStatus(0);
 
-			// Assert: Về logic code, ID không hợp lệ cũng trả về NotFound do Service không tìm thấy
+			// Assert
 			result.Should().BeOfType<NotFoundObjectResult>();
 		}
 		#endregion
@@ -612,7 +631,7 @@ namespace Warehouse.Api.Tests
 			// Arrange: Giả lập lỗi kết nối Database
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.ToggleWarehouseStatusAsync(It.IsAny<long>()))
-								 .ThrowsAsync(new Exception("Database connection failed"));
+								  .ThrowsAsync(new Exception("Database connection failed"));
 
 			// Act
 			var result = await controller.ToggleWarehouseStatus(10);
@@ -631,7 +650,7 @@ namespace Warehouse.Api.Tests
 			// Arrange
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.ToggleWarehouseStatusAsync(It.IsAny<long>()))
-								 .ReturnsAsync(new WarehouseResponse());
+								  .ReturnsAsync(new WarehouseResponse());
 
 			// Act
 			await controller.ToggleWarehouseStatus(1);
