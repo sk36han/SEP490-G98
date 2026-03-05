@@ -19,7 +19,9 @@ namespace Warehouse.DataAcces.Service
         private readonly IConfiguration _configuration;
         private readonly IAuthService _emailService;
 
-        public AdminService(Mkiwms5Context context, IConfiguration configuration, IAuthService emailService) : base(context)
+
+        public AdminService(Mkiwms5Context context, IConfiguration configuration, IAuthService emailService, INotificationService notificationService, IAuditLogService auditLogService) : base(context)
+
         {
             _configuration = configuration;
             _emailService = emailService;
@@ -206,7 +208,9 @@ namespace Warehouse.DataAcces.Service
                     LastLoginAt = u.LastLoginAt,
                     CreatedAt = u.CreatedAt,
                     RoleName = (u.UserRoleUser != null && u.UserRoleUser.Role != null)
-                               ? u.UserRoleUser.Role.RoleName : "N/A"
+                               ? u.UserRoleUser.Role.RoleName : "N/A",
+                    Gender = u.Gender,
+                    DOB = u.Dob
                 })
                 .ToListAsync();
 
@@ -227,7 +231,19 @@ namespace Warehouse.DataAcces.Service
                 .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.UserId == userId);
 
-			// Update FullName
+            // Lưu giá trị cũ trước khi update
+            var oldValues = JsonSerializer.Serialize(new
+            {
+                user?.FullName,
+                user?.Username,
+                user?.Email,
+                user?.IsActive,
+                user?.Gender,
+                user?.Dob,
+                RoleName = user?.UserRoleUser?.Role?.RoleName
+            });
+
+			// Cập nhật FullName và tự động cập nhật Username
 			if (!string.IsNullOrWhiteSpace(request.FullName))
 			{
 				user.FullName = request.FullName.Trim();
@@ -305,6 +321,36 @@ namespace Warehouse.DataAcces.Service
                 await _context.Entry(user.UserRoleUser).Reference(ur => ur.Role).LoadAsync();
             }
 
+            // Gửi notification cho user bị chỉnh sửa
+            await _notificationService.CreateAsync(
+                user.UserId,
+                "Thông tin tài khoản được cập nhật",
+                "Thông tin tài khoản của bạn đã được quản trị viên cập nhật. Vui lòng kiểm tra lại.",
+                "USER_UPDATED",
+                user.UserId
+            );
+
+            // Ghi audit log
+            var newValues = JsonSerializer.Serialize(new
+            {
+                user.FullName,
+                user.Username,
+                user.Email,
+                user.IsActive,
+                user.Gender,
+                user.Dob,
+                RoleName = user.UserRoleUser?.Role?.RoleName
+            });
+            await _auditLogService.LogAsync(
+                assignedBy,
+                AuditAction.Update,
+                AuditEntity.User,
+                user.UserId,
+                $"Cập nhật tài khoản '{user.Username}'",
+                oldValues,
+                newValues
+            );
+
             return new AdminUserResponse
             {
 				UserId = user.UserId,
@@ -315,7 +361,9 @@ namespace Warehouse.DataAcces.Service
 				IsActive = user.IsActive,
 				LastLoginAt = user.LastLoginAt,
 				CreatedAt = user.CreatedAt,
-				RoleName = user.UserRoleUser?.Role?.RoleName ?? "N/A"
+				RoleName = user.UserRoleUser?.Role?.RoleName ?? "N/A",
+				Gender = user.Gender,
+				DOB = user.Dob
 			};
         }
 
@@ -354,7 +402,9 @@ namespace Warehouse.DataAcces.Service
                 LastLoginAt = user.LastLoginAt,
                 CreatedAt = user.CreatedAt,
                 RoleName = (user.UserRoleUser != null && user.UserRoleUser.Role != null)
-                           ? user.UserRoleUser.Role.RoleName : "N/A"
+                           ? user.UserRoleUser.Role.RoleName : "N/A",
+                Gender = user.Gender,
+                DOB = user.Dob
             };
         }
 
@@ -392,6 +442,8 @@ namespace Warehouse.DataAcces.Service
                 worksheet.Cell(row, 5).Value = user.Phone ?? "N/A";
                 worksheet.Cell(row, 6).Value = user.UserRoleUser?.Role?.RoleName ?? "N/A";
                 worksheet.Cell(row, 7).Value = user.IsActive ? "Active" : "Inactive";
+                worksheet.Cell(row, 8).Value = user.Gender ?? "N/A";
+                worksheet.Cell(row, 9).Value = user.Dob.HasValue ? user.Dob.Value.ToString("yyyy-MM-dd") : "N/A";
                 row++;
             }
 
