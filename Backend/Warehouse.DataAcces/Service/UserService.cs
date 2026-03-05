@@ -1,25 +1,24 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
-using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
-using BCrypt.Net;
 
 namespace Warehouse.DataAcces.Service
 {
     public class UserService : GenericRepository<User>, IUserService
     {
+        private static readonly Regex StrongPasswordRegex = new(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{6,100}$", RegexOptions.Compiled);
+        private static readonly Regex PhoneRegex = new(@"^[0-9+\-\s()]{8,20}$", RegexOptions.Compiled);
 
-        public UserService(Mkiwms4Context context) : base(context)
+        public UserService(Mkiwms5Context context) : base(context)
         {
-
         }
+
         public async Task<UserResponse?> GetUserProfileAsync(long userId)
         {
             var user = await _context.Users
@@ -30,29 +29,40 @@ namespace Warehouse.DataAcces.Service
 
             if (user == null) return null;
 
-            var result = new UserResponse
+            return new UserResponse
             {
                 Email = user.Email,
                 Username = user.Username,
                 FullName = user.FullName,
                 Phone = user.Phone,
                 IsActive = user.IsActive,
-                RoleName = user.UserRoleUser.Role.RoleName,
+                RoleName = user.UserRoleUser?.Role?.RoleName,
                 LastLoginAt = user.LastLoginAt,
             };
-
-            // Bổ sung RoleName từ navigation nếu cần
-            if (user.UserRoleUser?.Role != null)
-            {
-                result.RoleName = user.UserRoleUser.Role.RoleName;
-            }
-
-            return result;
         }
-
 
         public async Task ChangePasswordAsync(long userId, string oldPassword, string newPassword)
         {
+            if (string.IsNullOrWhiteSpace(oldPassword))
+            {
+                throw new InvalidOperationException("Mật khẩu hiện tại là bắt buộc.");
+            }
+
+            if (string.IsNullOrWhiteSpace(newPassword))
+            {
+                throw new InvalidOperationException("Mật khẩu mới là bắt buộc.");
+            }
+
+            if (oldPassword == newPassword)
+            {
+                throw new InvalidOperationException("Mật khẩu mới phải khác mật khẩu hiện tại.");
+            }
+
+            if (!StrongPasswordRegex.IsMatch(newPassword))
+            {
+                throw new InvalidOperationException("Mật khẩu mới phải có ít nhất 1 chữ hoa, 1 chữ thường và 1 ký tự đặc biệt.");
+            }
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (user == null)
             {
@@ -74,6 +84,17 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<UserResponse?> UpdateProfilePhoneAsync(long userId, string phone)
         {
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                throw new InvalidOperationException("Số điện thoại là bắt buộc.");
+            }
+
+            var normalizedPhone = phone.Trim();
+            if (!PhoneRegex.IsMatch(normalizedPhone))
+            {
+                throw new InvalidOperationException("Số điện thoại không hợp lệ.");
+            }
+
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
                 .ThenInclude(ur => ur.Role)
@@ -84,7 +105,7 @@ namespace Warehouse.DataAcces.Service
                 return null;
             }
 
-            user.Phone = phone;
+            user.Phone = normalizedPhone;
             user.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 

@@ -15,13 +15,13 @@ namespace Warehouse.DataAcces.Service
 	public class RoleService : GenericRepository<Role>, IRoleService
 	{
 		private readonly IConfiguration _configuration;
-		public RoleService(Mkiwms4Context context, IConfiguration configuration) : base(context)
+		public RoleService(Mkiwms5Context context, IConfiguration configuration) : base(context)
 		{
 			_configuration = configuration;
 		}
 
 		public async Task<List<RoleResponse>> GetAllRolesAsync()
-		{
+		{                             
 			return await _context.Roles
 				.AsNoTracking()
 				.Select(r => new RoleResponse

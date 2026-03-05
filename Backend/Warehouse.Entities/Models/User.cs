@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace Warehouse.Entities.Models;
@@ -27,7 +27,7 @@ public partial class User
 
     public string? Gender { get; set; }
 
-    public DateOnly? DOB { get; set; }
+    public DateOnly? Dob { get; set; }
 
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 

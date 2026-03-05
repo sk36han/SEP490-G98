@@ -40,7 +40,7 @@ namespace Warehouse.Api.ApiController
             var profile = _mapper.Map<UserResponse>(user);
             return Ok(profile);
         }
-
+        [Authorize]
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
@@ -69,6 +69,8 @@ namespace Warehouse.Api.ApiController
                 return NotFound(new { success = false, message = ex.Message });
             }
         }
+
+        [Authorize]
 
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
