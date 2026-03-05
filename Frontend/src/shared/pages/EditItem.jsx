@@ -150,7 +150,6 @@ const NUMBER_FIELDS = new Set([
   "specId",
   "defaultWarehouseId",
   "purchasePrice",
-  "salePrice",
   "onHandQty",
   "reservedQty",
 ]);
@@ -188,7 +187,6 @@ const EditItem = () => {
     inventoryAccount: "",
     revenueAccount: "",
     purchasePrice: "",
-    salePrice: "",
     onHandQty: "",
     reservedQty: "",
   });
@@ -225,7 +223,6 @@ const EditItem = () => {
       inventoryAccount: item.inventoryAccount ?? "",
       revenueAccount: item.revenueAccount ?? "",
       purchasePrice: item.purchasePrice ?? "",
-      salePrice: item.salePrice ?? "",
       onHandQty: item.onHandQty ?? "",
       reservedQty: item.reservedQty ?? "",
     });
@@ -469,9 +466,6 @@ const EditItem = () => {
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
                 <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Thông tin giá</Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField fullWidth size="small" label="Giá bán" name="salePrice" type="number" value={form.salePrice} onChange={handleChange} InputLabelProps={{ shrink: true }} sx={inputSx} InputProps={{ endAdornment: <InputAdornment position="end">đ</InputAdornment> }} />
-                  </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField fullWidth size="small" label="Giá vốn" name="purchasePrice" type="number" value={form.purchasePrice} onChange={handleChange} InputLabelProps={{ shrink: true }} sx={inputSx} InputProps={{ endAdornment: <InputAdornment position="end">đ</InputAdornment> }} />
                   </Grid>

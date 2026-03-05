@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -24,8 +24,9 @@ import {
     Select,
     MenuItem,
     Chip,
+    CircularProgress,
 } from '@mui/material';
-import { Package, Download, Eye, Plus, Columns, Filter, Edit, Check, X, Power } from 'lucide-react';
+import { Package, Download, Eye, Plus, Columns, Filter, Edit, Check, X, Power, RefreshCw } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import SearchInput from '../components/SearchInput';
@@ -33,21 +34,13 @@ import ItemFilterPopup from '../components/ItemFilterPopup';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
+import { getItemsForDisplay, updateItemStatus } from '../lib/itemService';
 import '../styles/ListView.css';
 
 /*
- * MOCKUP THEO SCHEMA SQL (KHÔNG KẾT NỐI API).
- * Cấu trúc bám bảng: [dbo].[Items], [dbo].[ItemPrices] (PriceType=SALE → salePrice), [dbo].[InventoryOnHand] (OnHandQty → onHandQty).
- * Trường hiển thị cho Kế toán: InventoryAccount, RevenueAccount, Số lượng tồn, Giá nhập (ItemPrices PURCHASE), Giá xuất (ItemPrices SALE).
+ * Kết nối API: GET /Item/display-all (itemService.getItemsForDisplay), PATCH /Item/{id}/status (updateItemStatus).
+ * Cấu trúc bám ItemDisplayResponse: ItemId, ItemCode, ItemName, ItemType, Description, CategoryName, RequiresCo, RequiresCq, IsActive, InventoryAccount, RevenueAccount, CreatedAt, UpdatedAt, PurchasePrice, SalePrice, OnHandQty, ReservedQty, AvailableQty.
  */
-const MOCK_ITEMS = [
-    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', itemType: 'Product', description: 'Điện thoại iPhone 15 Pro Max bản 256GB', categoryId: 1, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 26500000, salePrice: 28500000, onHandQty: 42, reservedQty: 2, createdAt: '2025-02-14T08:30:00', updatedAt: '2025-02-14T08:30:00', categoryName: 'Điện thoại', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP001' },
-    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', itemType: 'Product', description: 'Điện thoại Samsung Galaxy S24 Ultra', categoryId: 1, brandId: 2, baseUomId: 1, packagingSpecId: 1, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 24900000, salePrice: 26900000, onHandQty: 28, reservedQty: 0, createdAt: '2025-02-13T14:20:00', updatedAt: '2025-02-13T14:20:00', categoryName: 'Điện thoại', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP002' },
-    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', itemType: 'Product', description: 'Laptop MacBook Pro 14 inch chip M3', categoryId: 2, brandId: 1, baseUomId: 1, packagingSpecId: 2, requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 39900000, salePrice: 42900000, onHandQty: 15, reservedQty: 1, createdAt: '2025-02-12T09:15:00', updatedAt: '2025-02-12T09:15:00', categoryName: 'Laptop', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP003' },
-    { itemId: 4, itemCode: 'SP004', itemName: 'Tủ lạnh Samsung 234L', itemType: 'Product', description: 'Tủ lạnh Samsung 234 lít', categoryId: 3, brandId: 2, baseUomId: 1, packagingSpecId: 3, requiresCO: true, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 7990000, salePrice: 8990000, onHandQty: 8, reservedQty: 0, createdAt: '2025-02-10T16:45:00', updatedAt: '2025-02-10T16:45:00', categoryName: 'Điện lạnh', brandName: 'Samsung', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP004' },
-    { itemId: 5, itemCode: 'SP005', itemName: 'Tai nghe AirPods Pro 2', itemType: 'Product', description: 'Tai nghe không dây AirPods Pro thế hệ 2', categoryId: 4, brandId: 1, baseUomId: 1, packagingSpecId: 1, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 5190000, salePrice: 5990000, onHandQty: 120, reservedQty: 5, createdAt: '2025-02-14T07:00:00', updatedAt: '2025-02-14T07:00:00', categoryName: 'Phụ kiện', brandName: 'Apple', baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: 'https://placehold.co/64x64/e2e8f0/64748b?text=SP005' },
-    { itemId: 6, itemCode: 'SP006', itemName: 'Cáp sạc USB-C 2m', itemType: 'Product', description: 'Cáp sạc USB-C dài 2 mét', categoryId: 4, brandId: null, baseUomId: 1, packagingSpecId: null, requiresCO: false, requiresCQ: false, isActive: true, defaultWarehouseId: 1, inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 89000, salePrice: 189000, onHandQty: 350, reservedQty: 0, createdAt: '2025-02-11T11:30:00', updatedAt: '2025-02-11T11:30:00', categoryName: 'Phụ kiện', brandName: null, baseUomName: 'Cái', defaultWarehouseName: 'Kho chính', imageUrl: null },
-];
 
 const formatPrice = (value) => {
     if (value == null || value === '') return '-';
@@ -186,7 +179,9 @@ const ViewItemList = () => {
 
     const defaultVisibleIds = BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS;
 
-    const [items, setItems] = useState(() => MOCK_ITEMS);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(7);
     const [searchTerm, setSearchTerm] = useState('');
@@ -194,6 +189,29 @@ const ViewItemList = () => {
     const [filterValues, setFilterValues] = useState({});
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(defaultVisibleIds));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+
+    const fetchItems = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const list = await getItemsForDisplay();
+            setItems(Array.isArray(list) ? list : []);
+        } catch (err) {
+            const msg =
+                err?.response?.data?.message ??
+                err?.response?.data?.detail ??
+                err?.message ??
+                'Không thể tải danh sách vật tư. Kiểm tra backend (api/Item/display-all) và đăng nhập.';
+            setError(msg);
+            setItems([]);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchItems();
+    }, [fetchItems]);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -305,11 +323,18 @@ const ViewItemList = () => {
 
     const handleExport = () => showToast('Chức năng xuất Excel sẽ được backend triển khai', 'success');
 
-    const handleToggleTransactionStatus = (itemRow) => {
-        setItems((prev) =>
-            prev.map((it) => (it.itemId === itemRow.itemId ? { ...it, isActive: !it.isActive } : it))
-        );
-        showToast(itemRow.isActive ? 'Đã tắt trạng thái giao dịch.' : 'Đã bật trạng thái giao dịch.', 'success');
+    const handleToggleTransactionStatus = async (itemRow) => {
+        const newActive = !itemRow.isActive;
+        try {
+            await updateItemStatus(itemRow.itemId, newActive);
+            setItems((prev) =>
+                prev.map((it) => (it.itemId === itemRow.itemId ? { ...it, isActive: newActive } : it))
+            );
+            showToast(newActive ? 'Đã bật trạng thái giao dịch.' : 'Đã tắt trạng thái giao dịch.', 'success');
+        } catch (err) {
+            const msg = err?.response?.data?.message ?? err?.message ?? 'Không thể cập nhật trạng thái.';
+            showToast(msg, 'error');
+        }
     };
 
     const formatDate = (dateStr) => {
@@ -499,6 +524,17 @@ const ViewItemList = () => {
                                     </Button>
                                 </Tooltip>
 
+                                <Tooltip title="Làm mới danh sách">
+                                    <IconButton
+                                        onClick={() => fetchItems()}
+                                        disabled={loading}
+                                        aria-label="Làm mới"
+                                        sx={{ border: 1, borderColor: 'divider' }}
+                                    >
+                                        <RefreshCw size={18} />
+                                    </IconButton>
+                                </Tooltip>
+
                                 {canCreateEdit && (
                                     <Button
                                         className="list-page-btn"
@@ -591,7 +627,41 @@ const ViewItemList = () => {
                             position: 'relative',
                         }}
                     >
-                        {filteredItems.length === 0 ? (
+                        {loading ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    py: 8,
+                                    color: 'text.secondary',
+                                }}
+                            >
+                                <CircularProgress size={40} sx={{ mb: 2 }} />
+                                <Typography variant="body2">Đang tải danh sách vật tư…</Typography>
+                            </Box>
+                        ) : error ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    py: 6,
+                                    color: 'error.main',
+                                    textAlign: 'center',
+                                    px: 2,
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ mb: 2 }}>
+                                    {error}
+                                </Typography>
+                                <Button variant="outlined" size="small" onClick={() => fetchItems()} sx={{ textTransform: 'none' }}>
+                                    Thử lại
+                                </Button>
+                            </Box>
+                        ) : filteredItems.length === 0 ? (
                             <Box
                                 sx={{
                                     display: 'flex',

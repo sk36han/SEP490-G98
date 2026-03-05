@@ -226,7 +226,6 @@ const INITIAL_FORM = {
   inventoryAccount: "",
   revenueAccount: "",
   purchasePrice: "",
-  salePrice: "",
   onHandQty: "",
   reservedQty: "",
 };
@@ -239,7 +238,6 @@ const NUMBER_FIELDS = new Set([
   "specId",
   "defaultWarehouseId",
   "purchasePrice",
-  "salePrice",
   "onHandQty",
   "reservedQty",
 ]);
@@ -259,6 +257,7 @@ const CreateItem = () => {
   const [createUomOpen, setCreateUomOpen] = useState(false);
   const [createPackOpen, setCreatePackOpen] = useState(false);
   const [createSpecOpen, setCreateSpecOpen] = useState(false);
+  const [showPurchasePrice, setShowPurchasePrice] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -640,45 +639,40 @@ const CreateItem = () => {
                   Thông tin giá
                 </Typography>
 
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Giá bán"
-                      name="salePrice"
-                      type="number"
-                      value={form.salePrice}
-                      onChange={handleChange}
-                      InputLabelProps={{ shrink: true }}
-                      sx={inputSx}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">đ</InputAdornment>
-                        ),
-                      }}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showPurchasePrice}
+                      onChange={(e) => setShowPurchasePrice(e.target.checked)}
+                      name="showPurchasePrice"
                     />
-                  </Grid>
+                  }
+                  label="Thêm Giá vốn"
+                  sx={{ mb: showPurchasePrice ? 2 : 0 }}
+                />
 
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Giá vốn"
-                      name="purchasePrice"
-                      type="number"
-                      value={form.purchasePrice}
-                      onChange={handleChange}
-                      InputLabelProps={{ shrink: true }}
-                      sx={inputSx}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">đ</InputAdornment>
-                        ),
-                      }}
-                    />
+                {showPurchasePrice && (
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Giá vốn"
+                        name="purchasePrice"
+                        type="number"
+                        value={form.purchasePrice}
+                        onChange={handleChange}
+                        InputLabelProps={{ shrink: true }}
+                        sx={inputSx}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">đ</InputAdornment>
+                          ),
+                        }}
+                      />
+                    </Grid>
                   </Grid>
-                </Grid>
+                )}
               </Paper>
 
               <Paper
