@@ -389,18 +389,6 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            // Cập nhật Gender nếu có giá trị
-            if (request.Gender != null)
-            {
-                user.Gender = request.Gender;
-            }
-
-            // Cập nhật DOB nếu có giá trị
-            if (request.DOB.HasValue)
-            {
-                user.Dob = request.DOB.Value;
-            }
-
             user.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 

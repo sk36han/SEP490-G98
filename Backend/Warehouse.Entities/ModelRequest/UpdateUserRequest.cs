@@ -7,7 +7,5 @@ namespace Warehouse.Entities.ModelRequest
 		public string? Email { get; set; }
 		public long? RoleId { get; set; }
 		public bool? IsActive { get; set; }
-		public string? Gender { get; set; }
-		public DateOnly? DOB { get; set; }
 	}
 }

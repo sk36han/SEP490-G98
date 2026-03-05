@@ -14,50 +14,50 @@ using Xunit;
 
 namespace Warehouse.Api.Tests.Role
 {
-    public class RoleControllerTests
-    {
-        private readonly Mock<IRoleService> _roleServiceMock = new();
+	public class RoleControllerTests
+	{
+		private readonly Mock<IRoleService> _roleServiceMock = new();
 
-        /// <summary>
-        /// Helper: Tạo RoleController với ClaimsPrincipal có NameIdentifier claim
-        /// Dùng để giả lập user đã đăng nhập với userId cụ thể
-        /// </summary>
-        private RoleController CreateControllerWithUser(long userId = 1)
-        {
-            var controller = new RoleController(_roleServiceMock.Object);
+		/// <summary>
+		/// Helper: Tạo RoleController với ClaimsPrincipal có NameIdentifier claim
+		/// Dùng để giả lập user đã đăng nhập với userId cụ thể
+		/// </summary>
+		private RoleController CreateControllerWithUser(long userId = 1)
+		{
+			var controller = new RoleController(_roleServiceMock.Object);
 
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim(ClaimTypes.Role, "ADMIN")
-            };
-            var identity = new ClaimsIdentity(claims, "TestAuth");
-            var claimsPrincipal = new ClaimsPrincipal(identity);
+			var claims = new List<Claim>
+			{
+				new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+				new Claim(ClaimTypes.Role, "ADMIN")
+			};
+			var identity = new ClaimsIdentity(claims, "TestAuth");
+			var claimsPrincipal = new ClaimsPrincipal(identity);
 
-            controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = claimsPrincipal }
-            };
+			controller.ControllerContext = new ControllerContext
+			{
+				HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+			};
 
-            return controller;
-        }
+			return controller;
+		}
 
-        /// <summary>
-        /// Helper: Tạo RoleController KHÔNG có claim (user chưa xác thực)
-        /// </summary>
-        private RoleController CreateControllerWithoutUser()
-        {
-            var controller = new RoleController(_roleServiceMock.Object);
+		/// <summary>
+		/// Helper: Tạo RoleController KHÔNG có claim (user chưa xác thực)
+		/// </summary>
+		private RoleController CreateControllerWithoutUser()
+		{
+			var controller = new RoleController(_roleServiceMock.Object);
 
-            controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal() }
-            };
+			controller.ControllerContext = new ControllerContext
+			{
+				HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal() }
+			};
 
-            return controller;
+			return controller;
 
-        }
-			public class MockDbException : System.Data.Common.DbException
+		}
+		public class MockDbException : System.Data.Common.DbException
 		{
 			public MockDbException(string message) : base(message) { }
 		}
@@ -166,7 +166,7 @@ namespace Warehouse.Api.Tests.Role
 			_roleServiceMock
 				.Setup(x => x.GetAllRolesAsync())
 				.ThrowsAsync(new InvalidOperationException());
-                
+
 			// Act
 			var result = await controller.GetAllRoles();
 
