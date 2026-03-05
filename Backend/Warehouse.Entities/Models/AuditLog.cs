@@ -19,5 +19,9 @@ public partial class AuditLog
 
     public DateTime CreatedAt { get; set; }
 
+    public string? OldValues { get; set; }
+
+    public string? NewValues { get; set; }
+
     public virtual User ActorUser { get; set; } = null!;
 }
