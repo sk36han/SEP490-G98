@@ -2,14 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Warehouse.Entities.ModelRequest
 {
-    public class UpdateSupplierRequest
+    public class UpdateReceiverRequest
     {
-        [Required(ErrorMessage = "Tên nhà cung cấp không được để trống")]
-        [MaxLength(255, ErrorMessage = "Tên nhà cung cấp tối đa 255 ký tự")]
-        public string SupplierName { get; set; } = null!;
-
-        [MaxLength(50, ErrorMessage = "Mã số thuế tối đa 50 ký tự")]
-        public string? TaxCode { get; set; }
+        [Required(ErrorMessage = "Tên người nhận không được để trống")]
+        [MaxLength(255, ErrorMessage = "Tên người nhận tối đa 255 ký tự")]
+        public string ReceiverName { get; set; } = null!;
 
         [MaxLength(20, ErrorMessage = "Số điện thoại tối đa 20 ký tự")]
         [RegularExpression(@"^[\d\+\-\(\)\s]*$", ErrorMessage = "Số điện thoại không hợp lệ")]
@@ -27,6 +24,9 @@ namespace Warehouse.Entities.ModelRequest
 
         [MaxLength(100, ErrorMessage = "Phường/Xã tối đa 100 ký tự")]
         public string? Ward { get; set; }
+
+        [MaxLength(500, ErrorMessage = "Ghi chú tối đa 500 ký tự")]
+        public string? Notes { get; set; }
 
         public bool IsActive { get; set; }
     }

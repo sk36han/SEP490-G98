@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -8,18 +8,18 @@ namespace Warehouse.Api.ApiController
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class SupplierController : ControllerBase
+    public class ReceiverController : ControllerBase
     {
-        private readonly ISupplierService _supplierService;
+        private readonly IReceiverService _receiverService;
 
-        public SupplierController(ISupplierService supplierService)
+        public ReceiverController(IReceiverService receiverService)
         {
-            _supplierService = supplierService;
+            _receiverService = receiverService;
         }
 
         [HttpPost("create")]
         [Authorize]
-        public async Task<IActionResult> CreateSupplier([FromBody] CreateSupplierRequest request)
+        public async Task<IActionResult> CreateReceiver([FromBody] CreateReceiverRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -28,7 +28,7 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var result = await _supplierService.CreateSupplierAsync(request);
+                var result = await _receiverService.CreateReceiverAsync(request);
                 return Ok(result);
             }
             catch (InvalidOperationException ex)
@@ -38,22 +38,20 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("list-all")]
-        public async Task<IActionResult> GetSuppliers(
+        public async Task<IActionResult> GetReceivers(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
-            [FromQuery] string? supplierCode = null,
-            [FromQuery] string? supplierName = null,
-            [FromQuery] string? taxCode = null,
+            [FromQuery] string? receiverCode = null,
+            [FromQuery] string? receiverName = null,
             [FromQuery] bool? isActive = null,
             [FromQuery] DateTime? fromDate = null,
             [FromQuery] DateTime? toDate = null)
         {
-            var result = await _supplierService.GetSuppliersAsync(
+            var result = await _receiverService.GetReceiversAsync(
                 page,
                 pageSize,
-                supplierCode,
-                supplierName,
-                taxCode,
+                receiverCode,
+                receiverName,
                 isActive,
                 fromDate,
                 toDate
@@ -64,7 +62,7 @@ namespace Warehouse.Api.ApiController
 
         [HttpPut("update/{id}")]
         [Authorize]
-        public async Task<IActionResult> UpdateSupplier(long id, [FromBody] UpdateSupplierRequest request)
+        public async Task<IActionResult> UpdateReceiver(long id, [FromBody] UpdateReceiverRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -73,7 +71,7 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var result = await _supplierService.UpdateSupplierAsync(id, request);
+                var result = await _receiverService.UpdateReceiverAsync(id, request);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)
@@ -88,11 +86,11 @@ namespace Warehouse.Api.ApiController
 
         [HttpPatch("change-status/{id}")]
         [Authorize]
-        public async Task<IActionResult> ToggleSupplierStatus(long id, [FromQuery] bool isActive)
+        public async Task<IActionResult> ToggleReceiverStatus(long id, [FromQuery] bool isActive)
         {
             try
             {
-                var result = await _supplierService.ToggleSupplierStatusAsync(id, isActive);
+                var result = await _receiverService.ToggleReceiverStatusAsync(id, isActive);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)
@@ -106,15 +104,15 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
-        /// Lấy thông tin chi tiết nhà cung cấp (Get Supplier By ID)
+        /// Lấy thông tin chi tiết người nhận (Get Receiver By ID)
         /// </summary>
-        /// <param name="id">ID của nhà cung cấp</param>
-        [HttpGet("get-supplier-by-id/{id}")]
-        public async Task<IActionResult> GetSupplierById(long id)
+        /// <param name="id">ID của người nhận</param>
+        [HttpGet("get-receiver-by-id/{id}")]
+        public async Task<IActionResult> GetReceiverById(long id)
         {
             try
             {
-                var result = await _supplierService.GetSupplierByIdAsync(id);
+                var result = await _receiverService.GetReceiverByIdAsync(id);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)
@@ -124,16 +122,16 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
-        /// Xem lịch sử giao dịch của nhà cung cấp (View Transaction History)
+        /// Xem lịch sử giao dịch của người nhận (View Transaction History)
         /// </summary>
-        /// <param name="id">ID của nhà cung cấp</param>
+        /// <param name="id">ID của người nhận</param>
         /// <param name="page">Số trang</param>
         /// <param name="pageSize">Số lượng item mỗi trang</param>
-        /// <param name="transactionType">Loại giao dịch (PO/GRN)</param>
+        /// <param name="transactionType">Loại giao dịch (RR/GDN)</param>
         /// <param name="status">Trạng thái giao dịch</param>
         /// <param name="fromDate">Từ ngày</param>
         /// <param name="toDate">Đến ngày</param>
-        /// <param name="detailType">Loại chi tiết (PO/GRN)</param>
+        /// <param name="detailType">Loại chi tiết (RR/GDN)</param>
         /// <param name="detailDocId">ID chứng từ chi tiết</param>
         [HttpGet("view-transaction-history/{id}")]
         public async Task<IActionResult> ViewTransactionHistory(
@@ -149,7 +147,7 @@ namespace Warehouse.Api.ApiController
         {
             try
             {
-                var result = await _supplierService.GetSupplierTransactionsAsync(
+                var result = await _receiverService.GetReceiverTransactionsAsync(
                     id, page, pageSize, transactionType, status, fromDate, toDate, detailType, detailDocId);
                 return Ok(result);
             }

@@ -17,15 +17,16 @@ public partial class Receiver
 
     public string? Address { get; set; }
 
+    public string? City { get; set; }
+
+    public string? Ward { get; set; }
+
     public string? Notes { get; set; }
 
     public bool IsActive { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public string? City { get; set; }
-
-    public string? Ward { get; set; }
 
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 }
