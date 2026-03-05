@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.Api.ApiController
 {
@@ -16,7 +17,42 @@ namespace Warehouse.Api.ApiController
             _itemService = itemService;
         }
 
-        [HttpGet("display-all-item")]
+        [HttpPost("create-item")]
+        public async Task<IActionResult> CreateItem([FromBody] CreateItemRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return ValidationProblem(ModelState);
+                }
+
+                var item = await _itemService.CreateItemAsync(request);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Tạo sản phẩm thành công",
+                    data = new
+                    {
+                        item.ItemId,
+                        item.ItemCode,
+                        item.ItemName,
+                        item.IsActive
+                    }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        [HttpGet("display-all")]
         public async Task<IActionResult> GetAllItemsForDisplay()
         {
             var items = await _itemService.GetAllItemsDisplayAsync();

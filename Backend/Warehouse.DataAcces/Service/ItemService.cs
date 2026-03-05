@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
 
@@ -13,6 +14,109 @@ namespace Warehouse.DataAcces.Service
     {
         public ItemService(Mkiwms5Context context) : base(context)
         {
+        }
+
+        public async Task<Item> CreateItemAsync(CreateItemRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            var itemCode = request.ItemCode?.Trim() ?? string.Empty;
+            var itemName = request.ItemName?.Trim() ?? string.Empty;
+
+            var duplicatedCode = _context.Items.Any(i => i.ItemCode == itemCode);
+            if (duplicatedCode)
+            {
+                throw new InvalidOperationException($"ItemCode '{itemCode}' đã tồn tại.");
+            }
+
+            var categoryExists = _context.ItemCategories.Any(c => c.CategoryId == request.CategoryId && c.IsActive);
+            if (!categoryExists)
+            {
+                throw new InvalidOperationException("Category không tồn tại hoặc đã bị vô hiệu hóa.");
+            }
+
+            var uomExists = _context.UnitOfMeasures.Any(u => u.UomId == request.BaseUomId && u.IsActive);
+            if (!uomExists)
+            {
+                throw new InvalidOperationException("Đơn vị tính cơ bản không tồn tại hoặc đã bị vô hiệu hóa.");
+            }
+
+            if (request.BrandId.HasValue)
+            {
+                var brandExists = _context.Brands.Any(b => b.BrandId == request.BrandId.Value && b.IsActive);
+                if (!brandExists)
+                {
+                    throw new InvalidOperationException("Brand không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            if (request.PackagingSpecId.HasValue)
+            {
+                var packagingExists = _context.PackagingSpecs.Any(p => p.PackagingSpecId == request.PackagingSpecId.Value && p.IsActive);
+                if (!packagingExists)
+                {
+                    throw new InvalidOperationException("PackagingSpec không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            if (request.DefaultWarehouseId.HasValue)
+            {
+                var warehouseExists = _context.Warehouses.Any(w => w.WarehouseId == request.DefaultWarehouseId.Value && w.IsActive);
+                if (!warehouseExists)
+                {
+                    throw new InvalidOperationException("DefaultWarehouse không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            var now = DateTime.UtcNow;
+            var entity = new Item
+            {
+                ItemCode = itemCode,
+                ItemName = itemName,
+                ItemType = request.ItemType?.Trim(),
+                Description = request.Description?.Trim(),
+                CategoryId = request.CategoryId,
+                BrandId = request.BrandId,
+                BaseUomId = request.BaseUomId,
+                PackagingSpecId = request.PackagingSpecId,
+                RequiresCo = request.RequiresCo,
+                RequiresCq = request.RequiresCq,
+                IsActive = request.IsActive,
+                DefaultWarehouseId = request.DefaultWarehouseId,
+                InventoryAccount = request.InventoryAccount?.Trim(),
+                RevenueAccount = request.RevenueAccount?.Trim(),
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            await CreateAsync(entity);
+
+            var effectiveFrom = request.PriceEffectiveFrom ?? DateOnly.FromDateTime(now);
+
+            if (request.InitialPurchasePrice.HasValue)
+            {
+                _context.ItemPrices.Add(new ItemPrice
+                {
+                    ItemId = entity.ItemId,
+                    PriceType = "Purchase",
+                    Amount = request.InitialPurchasePrice.Value,
+                    Currency = "VND",
+                    EffectiveFrom = effectiveFrom,
+                    EffectiveTo = null,
+                    IsActive = true,
+                    CreatedAt = now
+                });
+            }
+
+            if (request.InitialPurchasePrice.HasValue)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            return entity;
         }
 
         public async Task<List<ItemDisplayResponse>> GetAllItemsDisplayAsync()
