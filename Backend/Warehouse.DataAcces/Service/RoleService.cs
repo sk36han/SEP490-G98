@@ -21,7 +21,7 @@ namespace Warehouse.DataAcces.Service
 		}
 
 		public async Task<List<RoleResponse>> GetAllRolesAsync()
-		{
+		{                             
 			return await _context.Roles
 				.AsNoTracking()
 				.Select(r => new RoleResponse

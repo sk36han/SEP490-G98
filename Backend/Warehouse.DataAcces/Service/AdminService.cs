@@ -23,7 +23,9 @@ namespace Warehouse.DataAcces.Service
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
 
+
         public AdminService(Mkiwms5Context context, IConfiguration configuration, IAuthService emailService, INotificationService notificationService, IAuditLogService auditLogService) : base(context)
+
         {
             _configuration = configuration;
             _emailService = emailService;

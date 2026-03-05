@@ -67,7 +67,7 @@ namespace Warehouse.Api
             });
 
             // Repositories
-            builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+            builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));            
 
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
