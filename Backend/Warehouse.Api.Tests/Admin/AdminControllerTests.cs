@@ -751,7 +751,7 @@ namespace Warehouse.Api.Tests.Admin
 			// Arrange
 			var controller = CreateControllerWithUser();
 			_adminServiceMock.Setup(x => x.UpdateUserAsync(999, It.IsAny<UpdateUserRequest>(), It.IsAny<long>()))
-							 .ThrowsAsync(new KeyNotFoundException());
+							 .ThrowsAsync(new KeyNotFoundException("Người dùng không tồn tại."));
 
 			// Act
 			var result = await controller.UpdateUser(999, new UpdateUserRequest());
