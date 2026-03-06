@@ -59,7 +59,6 @@ const PO_COLUMNS = [
     { id: 'totalReceivedQuantity', label: 'Số lượng đã nhập', sortable: true, getValue: (row) => row.totalReceivedQuantity ?? 0 },
     { id: 'remainingQuantity', label: 'Số lượng còn lại', sortable: true, getValue: (row) => row.remainingQuantity ?? 0 },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
-    { id: 'actions', label: 'Thao tác', sortable: false, getValue: () => '' },
 ];
 
 /** Mặc định hiển thị tất cả các cột */
@@ -406,11 +405,9 @@ export default function ViewPurchaseOrderList() {
         <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
             <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography variant="h4" component="h1" fontWeight="800" sx={{ color: '#1976d2', whiteSpace: 'nowrap' }}>
-                    Danh sách đơn mua hàng (PO)
+                    Danh sách đơn mua hàng (Purchase Order)
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                    Tra cứu đơn mua: tìm kiếm, lọc theo trạng thái/ngày, sắp xếp và xem chi tiết.
-                </Typography>
+                
             </Box>
 
             <PurchaseOrderFilterPopup open={filterOpen} onClose={() => setFilterOpen(false)} initialValues={filterValues} onApply={handleFilterApply} />
@@ -639,6 +636,31 @@ export default function ViewPurchaseOrderList() {
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
                                                     if (col.id === 'stt') return <TableCell key={col.id} align="left">{col.getValue(row, index, opts)}</TableCell>;
+                                                    if (col.id === 'orderCode') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Box
+                                                                    component="a"
+                                                                    href={`/purchase-orders/${row.purchaseOrderId}`}
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        navigate(`/purchase-orders/${row.purchaseOrderId}`);
+                                                                    }}
+                                                                    sx={{
+                                                                        color: 'primary.main',
+                                                                        textDecoration: 'none',
+                                                                        fontWeight: 600,
+                                                                        cursor: 'pointer',
+                                                                        '&:hover': {
+                                                                            textDecoration: 'underline'
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    {col.getValue(row)}
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
                                                     if (col.id === 'approvalStatus') {
                                                         const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.approvalStatus ?? '' };
                                                         return (
@@ -659,22 +681,6 @@ export default function ViewPurchaseOrderList() {
                                                         return <TableCell key={col.id} align="right" sx={{ fontWeight: 600 }}>{col.getValue(row)}</TableCell>;
                                                     }
                                                     if (col.id === 'createdAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(row[col.id])}</TableCell>;
-                                                    if (col.id === 'actions') {
-                                                        return (
-                                                            <TableCell key={col.id} align="right">
-                                                                <Tooltip title="Xem chi tiết">
-                                                                    <IconButton size="small" onClick={() => navigate(`/purchase-orders/${row.purchaseOrderId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
-                                                                        <Eye size={18} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                                <Tooltip title="Chỉnh sửa">
-                                                                    <IconButton size="small" onClick={() => navigate(`/purchase-orders/edit/${row.purchaseOrderId}`)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
-                                                                        <Edit size={18} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                            </TableCell>
-                                                        );
-                                                    }
                                                     return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
                                                 })}
                                             </TableRow>
