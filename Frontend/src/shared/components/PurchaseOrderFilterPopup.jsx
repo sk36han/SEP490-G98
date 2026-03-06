@@ -10,18 +10,30 @@ import {
 } from '@mui/material';
 import { X } from 'lucide-react';
 
-const PO_STATUS_OPTIONS = [
+const APPROVAL_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
-    { value: 'Draft', label: 'Nháp' },
-    { value: 'Submitted', label: 'Đã gửi' },
+    { value: 'Pending', label: 'Chờ duyệt' },
     { value: 'Approved', label: 'Đã duyệt' },
+    { value: 'Rejected', label: 'Từ chối' },
+];
+
+const RECEIVING_STATUS_OPTIONS = [
+    { value: '', label: 'Tất cả' },
+    { value: 'Pending', label: 'Chờ nhập' },
+    { value: 'Partial', label: 'Nhập một phần' },
+    { value: 'Completed', label: 'Nhập toàn bộ' },
 ];
 
 /**
  * Popup bộ lọc đơn mua (PO) – UI only, tiếng Việt, draggable.
  */
 export default function PurchaseOrderFilterPopup({ open, onClose, initialValues = {}, onApply }) {
-    const [statusOption, setStatusOption] = useState(PO_STATUS_OPTIONS[0]);
+    const [approvalStatusOption, setApprovalStatusOption] = useState(APPROVAL_STATUS_OPTIONS[0]);
+    const [receivingStatusOption, setReceivingStatusOption] = useState(RECEIVING_STATUS_OPTIONS[0]);
+    const [supplier, setSupplier] = useState('');
+    const [warehouse, setWarehouse] = useState('');
+    const [creator, setCreator] = useState('');
+    const [product, setProduct] = useState('');
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const boxRef = useRef(null);
@@ -29,29 +41,52 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
 
     useEffect(() => {
         if (!open) return;
-        const status = initialValues.status ?? '';
-        setStatusOption(
-            PO_STATUS_OPTIONS.find((o) => o.value === status) || PO_STATUS_OPTIONS[0]
+        const approvalStatus = initialValues.approvalStatus ?? '';
+        const receivingStatus = initialValues.receivingStatus ?? '';
+        setApprovalStatusOption(
+            APPROVAL_STATUS_OPTIONS.find((o) => o.value === approvalStatus) || APPROVAL_STATUS_OPTIONS[0]
         );
+        setReceivingStatusOption(
+            RECEIVING_STATUS_OPTIONS.find((o) => o.value === receivingStatus) || RECEIVING_STATUS_OPTIONS[0]
+        );
+        setSupplier(initialValues.supplier ?? '');
+        setWarehouse(initialValues.warehouse ?? '');
+        setCreator(initialValues.creator ?? '');
+        setProduct(initialValues.product ?? '');
         setFromDate(initialValues.fromDate ?? '');
         setToDate(initialValues.toDate ?? '');
-    }, [open, initialValues.status, initialValues.fromDate, initialValues.toDate]);
+    }, [open, initialValues]);
 
     const handleApply = useCallback(() => {
         onApply({
-            status: statusOption.value || undefined,
+            approvalStatus: approvalStatusOption.value || undefined,
+            receivingStatus: receivingStatusOption.value || undefined,
+            supplier: supplier || undefined,
+            warehouse: warehouse || undefined,
+            creator: creator || undefined,
+            product: product || undefined,
             fromDate: fromDate || undefined,
             toDate: toDate || undefined,
         });
         onClose();
-    }, [statusOption, fromDate, toDate, onApply, onClose]);
+    }, [approvalStatusOption, receivingStatusOption, supplier, warehouse, creator, product, fromDate, toDate, onApply, onClose]);
 
     const handleClear = useCallback(() => {
-        setStatusOption(PO_STATUS_OPTIONS[0]);
+        setApprovalStatusOption(APPROVAL_STATUS_OPTIONS[0]);
+        setReceivingStatusOption(RECEIVING_STATUS_OPTIONS[0]);
+        setSupplier('');
+        setWarehouse('');
+        setCreator('');
+        setProduct('');
         setFromDate('');
         setToDate('');
         onApply({
-            status: undefined,
+            approvalStatus: undefined,
+            receivingStatus: undefined,
+            supplier: undefined,
+            warehouse: undefined,
+            creator: undefined,
+            product: undefined,
             fromDate: undefined,
             toDate: undefined,
         });
@@ -92,8 +127,8 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
                 position: 'fixed',
                 left: 280,
                 top: 120,
-                width: 240,
-                maxHeight: 'min(85vh, 380px)',
+                width: 280,
+                maxHeight: 'min(85vh, 600px)',
                 borderRadius: 2,
                 overflow: 'hidden',
                 zIndex: 1300,
@@ -124,12 +159,58 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
             <Box sx={{ p: 1.25, display: 'flex', flexDirection: 'column', gap: 1.5, overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 <Autocomplete
                     size="small"
-                    options={PO_STATUS_OPTIONS}
+                    options={APPROVAL_STATUS_OPTIONS}
                     getOptionLabel={(opt) => opt.label}
-                    value={statusOption}
-                    onChange={(_, v) => setStatusOption(v || PO_STATUS_OPTIONS[0])}
+                    value={approvalStatusOption}
+                    onChange={(_, v) => setApprovalStatusOption(v || APPROVAL_STATUS_OPTIONS[0])}
                     isOptionEqualToValue={(a, b) => a.value === b.value}
-                    renderInput={(params) => <TextField {...params} label="Trạng thái" />}
+                    renderInput={(params) => <TextField {...params} label="Trạng thái duyệt" />}
+                    sx={compactSx}
+                />
+                <Autocomplete
+                    size="small"
+                    options={RECEIVING_STATUS_OPTIONS}
+                    getOptionLabel={(opt) => opt.label}
+                    value={receivingStatusOption}
+                    onChange={(_, v) => setReceivingStatusOption(v || RECEIVING_STATUS_OPTIONS[0])}
+                    isOptionEqualToValue={(a, b) => a.value === b.value}
+                    renderInput={(params) => <TextField {...params} label="Trạng thái nhập hàng" />}
+                    sx={compactSx}
+                />
+                <TextField
+                    size="small"
+                    label="Nhà cung cấp"
+                    value={supplier}
+                    onChange={(e) => setSupplier(e.target.value)}
+                    fullWidth
+                    placeholder="Tìm theo tên NCC..."
+                    sx={compactSx}
+                />
+                <TextField
+                    size="small"
+                    label="Kho/Chi nhánh"
+                    value={warehouse}
+                    onChange={(e) => setWarehouse(e.target.value)}
+                    fullWidth
+                    placeholder="Tìm theo tên kho..."
+                    sx={compactSx}
+                />
+                <TextField
+                    size="small"
+                    label="Nhân viên tạo"
+                    value={creator}
+                    onChange={(e) => setCreator(e.target.value)}
+                    fullWidth
+                    placeholder="Tìm theo tên NV..."
+                    sx={compactSx}
+                />
+                <TextField
+                    size="small"
+                    label="Sản phẩm"
+                    value={product}
+                    onChange={(e) => setProduct(e.target.value)}
+                    fullWidth
+                    placeholder="Tìm theo tên sản phẩm..."
                     sx={compactSx}
                 />
                 <TextField

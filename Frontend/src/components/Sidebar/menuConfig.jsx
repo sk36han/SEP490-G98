@@ -67,7 +67,7 @@ const saleSupportItems = [
         ],
     },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
-    { path: '/purchase-orders', icon: <ShoppingCart size={22} />, label: 'Danh sách đơn mua (PO)' },
+    { path: '/purchase-orders', icon: <ShoppingCart size={22} />, label: 'Quản lý đơn mua (PO)' },
 ];
 
 // Sale Engineer: Vật tư (mục cha), Người nhận hàng

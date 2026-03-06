@@ -127,19 +127,37 @@ const CreateSupplier = () => {
             setSubmitting(true);
             // Combine country code and phone number
             const fullPhone = `${formData.phoneCountryCode}${formData.phone.replace(/^0+/, '')}`;
-            await createSupplier({
+            
+            const payload = {
                 supplierName: formData.supplierName.trim(),
-                taxCode: formData.taxCode.trim() || null,
                 phone: fullPhone,
-                email: formData.email.trim() || null,
-                address: formData.address.trim() || null,
-            });
+                email: formData.email.trim(),
+            };
+
+            // Add optional fields if they have values
+            if (formData.taxCode && formData.taxCode.trim()) {
+                payload.taxCode = formData.taxCode.trim();
+            }
+            if (formData.address && formData.address.trim()) {
+                payload.address = formData.address.trim();
+            }
+            if (formData.city && formData.city.trim()) {
+                payload.city = formData.city.trim();
+            }
+            if (formData.ward && formData.ward.trim()) {
+                payload.ward = formData.ward.trim();
+            }
+
+            console.log('Sending payload to API:', payload);
+            
+            await createSupplier(payload);
             showToast('Tạo nhà cung cấp thành công!', 'success');
             setTimeout(() => {
                 navigate(-1);
             }, 1500);
         } catch (error) {
-            showToast(error.message, 'error');
+            console.error('API Error:', error);
+            showToast(error.message || 'Có lỗi xảy ra khi tạo nhà cung cấp', 'error');
         } finally {
             setSubmitting(false);
         }

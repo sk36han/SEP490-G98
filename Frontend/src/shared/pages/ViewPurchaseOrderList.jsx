@@ -26,7 +26,7 @@ import {
     Chip,
     TableSortLabel,
 } from '@mui/material';
-import { FileText, Filter, Eye, Edit, Columns, Plus } from 'lucide-react';
+import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
@@ -34,38 +34,96 @@ import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const PO_STATUS_STYLE = {
-    Draft: { color: 'text.secondary', borderColor: 'grey.400', label: 'Nháp' },
-    Submitted: { color: 'warning.main', borderColor: 'warning.main', label: 'Đã gửi' },
+const APPROVAL_STATUS_STYLE = {
+    Pending: { color: 'warning.main', borderColor: 'warning.main', label: 'Chờ duyệt' },
     Approved: { color: 'success.main', borderColor: 'success.main', label: 'Đã duyệt' },
+    Rejected: { color: 'error.main', borderColor: 'error.main', label: 'Từ chối' },
+};
+
+const RECEIVING_STATUS_STYLE = {
+    Pending: { color: 'info.main', borderColor: 'info.main', label: 'Chờ nhập' },
+    Partial: { color: 'warning.main', borderColor: 'warning.main', label: 'Nhập một phần' },
+    Completed: { color: 'success.main', borderColor: 'success.main', label: 'Nhập toàn bộ' },
 };
 
 const PO_COLUMNS = [
     { id: 'stt', label: 'STT', sortable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
-    { id: 'orderCode', label: 'PO Code', sortable: true, getValue: (row) => row.orderCode ?? '' },
-    { id: 'status', label: 'Status', sortable: true, getValue: (row) => PO_STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
-    { id: 'currentApprovalStage', label: 'Current Approval Stage', sortable: true, getValue: (row) => row.currentApprovalStage ?? '-' },
-    { id: 'requester', label: 'Requester', sortable: true, getValue: (row) => row.requester ?? '' },
-    { id: 'supplierName', label: 'Supplier', sortable: true, getValue: (row) => row.supplierName ?? '' },
-    { id: 'requestedDate', label: 'Requested Date', sortable: true, getValue: (row) => row.requestedDate ?? '' },
-    { id: 'createdAt', label: 'Created At', sortable: true, getValue: (row) => row.createdAt ?? '' },
-    { id: 'submittedAt', label: 'Submitted At', sortable: true, getValue: (row) => row.submittedAt ?? '-' },
-    { id: 'updatedAt', label: 'Updated At', sortable: true, getValue: (row) => row.updatedAt ?? '-' },
-    { id: 'justification', label: 'Lý do mua', sortable: true, getValue: (row) => row.justification ?? '-' },
+    { id: 'orderCode', label: 'Mã đơn đặt hàng nhập', sortable: true, getValue: (row) => row.orderCode ?? '' },
+    { id: 'warehouseName', label: 'Kho nhận', sortable: true, getValue: (row) => row.warehouseName ?? '' },
+    { id: 'approvalStatus', label: 'Trạng thái duyệt', sortable: true, getValue: (row) => APPROVAL_STATUS_STYLE[row.approvalStatus]?.label ?? row.approvalStatus ?? '' },
+    { id: 'receivingStatus', label: 'Trạng thái nhập hàng', sortable: true, getValue: (row) => RECEIVING_STATUS_STYLE[row.receivingStatus]?.label ?? row.receivingStatus ?? '' },
+    { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, getValue: (row) => row.supplierName ?? '' },
+    { id: 'creator', label: 'Nhân viên tạo', sortable: true, getValue: (row) => row.creator ?? '' },
+    { id: 'responsiblePerson', label: 'Nhân viên phụ trách', sortable: true, getValue: (row) => row.responsiblePerson ?? '' },
+    { id: 'totalOrderedQuantity', label: 'Số lượng đặt', sortable: true, getValue: (row) => row.totalOrderedQuantity ?? 0 },
+    { id: 'totalReceivedQuantity', label: 'Số lượng đã nhập', sortable: true, getValue: (row) => row.totalReceivedQuantity ?? 0 },
+    { id: 'remainingQuantity', label: 'Số lượng còn lại', sortable: true, getValue: (row) => row.remainingQuantity ?? 0 },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
     { id: 'actions', label: 'Thao tác', sortable: false, getValue: () => '' },
 ];
 
-/** Mặc định ẩn: Created At, Submitted At, Updated At (có thể bật lại qua "Chọn cột hiển thị"). */
-const HIDDEN_BY_DEFAULT_PO_COLUMN_IDS = ['createdAt', 'submittedAt', 'updatedAt'];
-const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id).filter((id) => !HIDDEN_BY_DEFAULT_PO_COLUMN_IDS.includes(id));
+/** Mặc định hiển thị tất cả các cột */
+const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 
 /** Mock danh sách đơn mua – đủ cột theo yêu cầu (UI only). */
 const MOCK_PO_LIST = [
-    { purchaseOrderId: 1, orderCode: 'PO-2025-001', status: 'Draft', currentApprovalStage: '-', requester: 'Nguyễn Văn A', supplierName: 'Công ty TNHH ABC', requestedDate: '2025-02-10', createdAt: '2025-02-09T08:00:00', submittedAt: null, updatedAt: '2025-02-09T08:00:00', justification: 'Bổ sung tồn kho quý 1' },
-    { purchaseOrderId: 2, orderCode: 'PO-2025-002', status: 'Submitted', currentApprovalStage: 'Chờ Giám đốc', requester: 'Trần Thị B', supplierName: 'Công ty CP XYZ', requestedDate: '2025-02-12', createdAt: '2025-02-11T09:00:00', submittedAt: '2025-02-12T10:00:00', updatedAt: '2025-02-12T10:00:00', justification: 'Đặt hàng vật tư dự án' },
-    { purchaseOrderId: 3, orderCode: 'PO-2025-003', status: 'Approved', currentApprovalStage: 'Đã duyệt', requester: 'Lê Văn C', supplierName: 'Công ty TNHH ABC', requestedDate: '2025-02-14', createdAt: '2025-02-13T14:00:00', submittedAt: '2025-02-14T08:00:00', updatedAt: '2025-02-14T11:00:00', justification: 'Mua thiết bị văn phòng' },
-    { purchaseOrderId: 4, orderCode: 'PO-2025-004', status: 'Draft', currentApprovalStage: '-', requester: 'Phạm Thị D', supplierName: 'Công ty CP XYZ', requestedDate: '2025-02-15', createdAt: '2025-02-14T16:00:00', submittedAt: null, updatedAt: '2025-02-14T16:00:00', justification: 'Nguyên vật liệu sản xuất' },
+    { 
+        purchaseOrderId: 1, 
+        orderCode: 'PO-2025-001', 
+        warehouseName: 'Kho Hà Nội', 
+        approvalStatus: 'Pending', 
+        receivingStatus: 'Pending', 
+        supplierName: 'Công ty TNHH ABC', 
+        creator: 'Nguyễn Văn A', 
+        responsiblePerson: 'Trần Thị B', 
+        totalOrderedQuantity: 500, 
+        totalReceivedQuantity: 0, 
+        remainingQuantity: 500, 
+        createdAt: '2025-02-09T08:00:00' 
+    },
+    { 
+        purchaseOrderId: 2, 
+        orderCode: 'PO-2025-002', 
+        warehouseName: 'Kho Đà Nẵng', 
+        approvalStatus: 'Approved', 
+        receivingStatus: 'Partial', 
+        supplierName: 'Công ty CP XYZ', 
+        creator: 'Lê Văn C', 
+        responsiblePerson: 'Phạm Thị D', 
+        totalOrderedQuantity: 1000, 
+        totalReceivedQuantity: 350, 
+        remainingQuantity: 650, 
+        createdAt: '2025-02-11T09:00:00' 
+    },
+    { 
+        purchaseOrderId: 3, 
+        orderCode: 'PO-2025-003', 
+        warehouseName: 'Kho Hồ Chí Minh', 
+        approvalStatus: 'Approved', 
+        receivingStatus: 'Completed', 
+        supplierName: 'Công ty TNHH ABC', 
+        creator: 'Nguyễn Văn A', 
+        responsiblePerson: 'Trần Thị B', 
+        totalOrderedQuantity: 300, 
+        totalReceivedQuantity: 300, 
+        remainingQuantity: 0, 
+        createdAt: '2025-02-13T14:00:00' 
+    },
+    { 
+        purchaseOrderId: 4, 
+        orderCode: 'PO-2025-004', 
+        warehouseName: 'Kho Hà Nội', 
+        approvalStatus: 'Rejected', 
+        receivingStatus: 'Pending', 
+        supplierName: 'Công ty CP XYZ', 
+        creator: 'Phạm Thị D', 
+        responsiblePerson: 'Lê Văn C', 
+        totalOrderedQuantity: 750, 
+        totalReceivedQuantity: 0, 
+        remainingQuantity: 750, 
+        createdAt: '2025-02-14T16:00:00' 
+    },
 ];
 
 const formatDate = (dateStr) => {
@@ -92,8 +150,11 @@ export default function ViewPurchaseOrderList() {
     const [pageSize, setPageSize] = useState(20);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [orderBy, setOrderBy] = useState('orderCode');
+    const [orderBy, setOrderBy] = useState(null);
     const [order, setOrder] = useState('asc');
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [columnOrder, setColumnOrder] = useState(PO_COLUMNS.map(c => c.id));
+    const [draggedColumn, setDraggedColumn] = useState(null);
 
     useEffect(() => setList(MOCK_PO_LIST), []);
 
@@ -108,15 +169,55 @@ export default function ViewPurchaseOrderList() {
     const handleSelectAllColumns = (checked) => {
         setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
     };
-    const visibleColumns = PO_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
+    const visibleColumns = PO_COLUMNS
+        .sort((a, b) => columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id))
+        .filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     const handleSortRequest = (columnId) => {
         if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
-        const isAsc = orderBy === columnId && order === 'asc';
-        setOrderBy(columnId);
-        setOrder(isAsc ? 'desc' : 'asc');
+        
+        if (orderBy === columnId) {
+            if (order === 'asc') {
+                setOrder('desc');
+            } else {
+                setOrderBy(null);
+                setOrder('asc');
+            }
+        } else {
+            setOrderBy(columnId);
+            setOrder('asc');
+        }
         setPage(0);
+    };
+
+    const handleDragStart = (e, columnId) => {
+        setDraggedColumn(columnId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e, targetColumnId) => {
+        e.preventDefault();
+        if (!draggedColumn || draggedColumn === targetColumnId) return;
+
+        const newOrder = [...columnOrder];
+        const draggedIndex = newOrder.indexOf(draggedColumn);
+        const targetIndex = newOrder.indexOf(targetColumnId);
+
+        newOrder.splice(draggedIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedColumn);
+
+        setColumnOrder(newOrder);
+        setDraggedColumn(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedColumn(null);
     };
 
     const filteredAndSortedRows = useMemo(() => {
@@ -127,37 +228,57 @@ export default function ViewPurchaseOrderList() {
         if (term) {
             result = result.filter((row) =>
                 normalize(row.orderCode ?? '').includes(term) ||
-                normalize(row.requester ?? '').includes(term) ||
                 normalize(row.supplierName ?? '').includes(term) ||
-                normalize(row.justification ?? '').includes(term) ||
-                normalize(row.currentApprovalStage ?? '').includes(term)
+                normalize(row.creator ?? '').includes(term) ||
+                normalize(row.responsiblePerson ?? '').includes(term) ||
+                normalize(row.warehouseName ?? '').includes(term)
             );
         }
-        if (filterValues.status) {
-            result = result.filter((row) => row.status === filterValues.status);
+        if (filterValues.approvalStatus) {
+            result = result.filter((row) => row.approvalStatus === filterValues.approvalStatus);
+        }
+        if (filterValues.receivingStatus) {
+            result = result.filter((row) => row.receivingStatus === filterValues.receivingStatus);
+        }
+        if (filterValues.supplier) {
+            result = result.filter((row) => normalize(row.supplierName ?? '').includes(normalize(filterValues.supplier)));
+        }
+        if (filterValues.warehouse) {
+            result = result.filter((row) => normalize(row.warehouseName ?? '').includes(normalize(filterValues.warehouse)));
+        }
+        if (filterValues.creator) {
+            result = result.filter((row) => normalize(row.creator ?? '').includes(normalize(filterValues.creator)));
+        }
+        if (filterValues.product) {
+            // TODO: Filter by product when product list is available in PO data
         }
         if (filterValues.fromDate) {
             result = result.filter((row) => {
-                const d = row.requestedDate || row.createdAt;
+                const d = row.createdAt;
                 return d && String(d).slice(0, 10) >= filterValues.fromDate;
             });
         }
         if (filterValues.toDate) {
             result = result.filter((row) => {
-                const d = row.requestedDate || row.createdAt;
+                const d = row.createdAt;
                 return d && String(d).slice(0, 10) <= filterValues.toDate;
             });
         }
 
         result.sort((a, b) => {
+            if (!orderBy) return 0;
+            
             const aVal = a[orderBy];
             const bVal = b[orderBy];
-            const isDate = ['requestedDate', 'createdAt', 'submittedAt', 'updatedAt'].includes(orderBy);
+            const isDate = ['createdAt'].includes(orderBy);
+            const isNumber = ['totalOrderedQuantity', 'totalReceivedQuantity', 'remainingQuantity'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
                 const tA = aVal ? new Date(aVal).getTime() : 0;
                 const tB = bVal ? new Date(bVal).getTime() : 0;
                 cmp = tA - tB;
+            } else if (isNumber) {
+                cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else {
                 const strA = String(aVal ?? '').toLowerCase();
                 const strB = String(bVal ?? '').toLowerCase();
@@ -185,6 +306,29 @@ export default function ViewPurchaseOrderList() {
         setPageSize(Number(e.target.value));
         setPage(0);
     };
+
+    const handleSelectAll = (checked) => {
+        if (checked) {
+            setSelectedIds(new Set(rows.map(row => row.purchaseOrderId)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const handleSelectRow = (id, checked) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (checked) {
+                next.add(id);
+            } else {
+                next.delete(id);
+            }
+            return next;
+        });
+    };
+
+    const isAllSelected = rows.length > 0 && rows.every(row => selectedIds.has(row.purchaseOrderId));
+    const isSomeSelected = rows.some(row => selectedIds.has(row.purchaseOrderId)) && !isAllSelected;
 
     return (
         <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
@@ -223,7 +367,7 @@ export default function ViewPurchaseOrderList() {
                     <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
                         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
                             <SearchInput
-                                placeholder="Tìm theo PO Code, Requester, Supplier, Lý do mua…"
+                                placeholder="Tìm theo mã PO, nhà cung cấp, nhân viên, kho..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 sx={{ flex: '1 1 200px', minWidth: isMobile ? '100%' : 200, maxWidth: isMobile ? '100%' : 480 }}
@@ -269,19 +413,90 @@ export default function ViewPurchaseOrderList() {
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
+                                            <TableCell 
+                                                padding="checkbox" 
+                                                sx={{ fontWeight: 600, bgcolor: 'grey.50', width: 48 }}
+                                            >
+                                                <Checkbox
+                                                    checked={isAllSelected}
+                                                    indeterminate={isSomeSelected}
+                                                    onChange={(e) => handleSelectAll(e.target.checked)}
+                                                    size="small"
+                                                />
+                                            </TableCell>
                                             {visibleColumns.map((col) => (
                                                 <TableCell
                                                     key={col.id}
-                                                    sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }}
+                                                    sx={{ 
+                                                        fontWeight: 600, 
+                                                        bgcolor: draggedColumn === col.id ? 'action.hover' : 'grey.50', 
+                                                        whiteSpace: 'nowrap',
+                                                        opacity: draggedColumn === col.id ? 0.5 : 1,
+                                                        transition: 'all 0.2s'
+                                                    }}
                                                     align={col.id === 'actions' ? 'right' : col.id === 'stt' ? 'left' : 'left'}
+                                                    onDragOver={handleDragOver}
+                                                    onDrop={(e) => handleDrop(e, col.id)}
                                                 >
-                                                    {col.sortable ? (
-                                                        <TableSortLabel active={orderBy === col.id} direction={orderBy === col.id ? order : 'asc'} onClick={() => handleSortRequest(col.id)}>
-                                                            {col.label}
-                                                        </TableSortLabel>
-                                                    ) : (
-                                                        col.label
-                                                    )}
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        {col.id !== 'actions' && col.id !== 'stt' && (
+                                                            <Box
+                                                                draggable
+                                                                onDragStart={(e) => handleDragStart(e, col.id)}
+                                                                onDragEnd={handleDragEnd}
+                                                                sx={{ display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Tooltip title="Kéo để di chuyển cột">
+                                                                    <IconButton 
+                                                                        size="small" 
+                                                                        sx={{ 
+                                                                            p: 0.25, 
+                                                                            cursor: 'grab',
+                                                                            '&:active': { cursor: 'grabbing' },
+                                                                            color: 'text.secondary',
+                                                                            '&:hover': { color: 'primary.main' }
+                                                                        }}
+                                                                    >
+                                                                        <GripVertical size={14} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </Box>
+                                                        )}
+                                                        {col.sortable ? (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
+                                                                <TableSortLabel 
+                                                                    active={orderBy === col.id} 
+                                                                    direction={orderBy === col.id ? order : 'asc'} 
+                                                                    onClick={() => handleSortRequest(col.id)}
+                                                                    sx={{ flex: 1 }}
+                                                                    hideSortIcon={orderBy !== col.id}
+                                                                >
+                                                                    {col.label}
+                                                                </TableSortLabel>
+                                                                {orderBy !== col.id && (
+                                                                    <Tooltip title="Click để sắp xếp">
+                                                                        <Box
+                                                                            onClick={() => handleSortRequest(col.id)}
+                                                                            sx={{ 
+                                                                                display: 'flex', 
+                                                                                cursor: 'pointer',
+                                                                                '&:hover': { opacity: 0.6 }
+                                                                            }}
+                                                                        >
+                                                                            <ArrowUpDown 
+                                                                                size={14} 
+                                                                                style={{ opacity: 0.3 }} 
+                                                                            />
+                                                                        </Box>
+                                                                    </Tooltip>
+                                                                )}
+                                                            </Box>
+                                                        ) : (
+                                                            <Typography variant="inherit" sx={{ flex: 1 }}>
+                                                                {col.label}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
                                                 </TableCell>
                                             ))}
                                         </TableRow>
@@ -289,20 +504,36 @@ export default function ViewPurchaseOrderList() {
                                     <TableBody>
                                         {rows.map((row, index) => (
                                             <TableRow key={row.purchaseOrderId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                <TableCell padding="checkbox">
+                                                    <Checkbox
+                                                        checked={selectedIds.has(row.purchaseOrderId)}
+                                                        onChange={(e) => handleSelectRow(row.purchaseOrderId, e.target.checked)}
+                                                        size="small"
+                                                    />
+                                                </TableCell>
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
                                                     if (col.id === 'stt') return <TableCell key={col.id} align="left">{col.getValue(row, index, opts)}</TableCell>;
-                                                    if (col.id === 'status') {
-                                                        const style = PO_STATUS_STYLE[row.status] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.status ?? '' };
+                                                    if (col.id === 'approvalStatus') {
+                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.approvalStatus ?? '' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Chip label={style.label} size="small" variant="outlined" sx={{ fontWeight: 600, borderRadius: '50px', px: 1.25, bgcolor: 'transparent', color: style.color, border: '1px solid', borderColor: style.borderColor }} />
                                                             </TableCell>
                                                         );
                                                     }
-                                                    if (col.id === 'requestedDate') return <TableCell key={col.id} align="left">{formatDateOnly(row.requestedDate)}</TableCell>;
-                                                    if (col.id === 'createdAt' || col.id === 'submittedAt' || col.id === 'updatedAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(row[col.id])}</TableCell>;
-                                                    if (col.id === 'justification') return <TableCell key={col.id} align="left" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }} title={row.justification}>{row.justification ?? '-'}</TableCell>;
+                                                    if (col.id === 'receivingStatus') {
+                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.receivingStatus ?? '' };
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Chip label={style.label} size="small" variant="outlined" sx={{ fontWeight: 600, borderRadius: '50px', px: 1.25, bgcolor: 'transparent', color: style.color, border: '1px solid', borderColor: style.borderColor }} />
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    if (col.id === 'totalOrderedQuantity' || col.id === 'totalReceivedQuantity' || col.id === 'remainingQuantity') {
+                                                        return <TableCell key={col.id} align="right" sx={{ fontWeight: 600 }}>{col.getValue(row)}</TableCell>;
+                                                    }
+                                                    if (col.id === 'createdAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(row[col.id])}</TableCell>;
                                                     if (col.id === 'actions') {
                                                         return (
                                                             <TableCell key={col.id} align="right">
