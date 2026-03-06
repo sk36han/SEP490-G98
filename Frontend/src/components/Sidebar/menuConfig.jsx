@@ -67,7 +67,17 @@ const saleSupportItems = [
         ],
     },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
-    { path: '/purchase-orders', icon: <ShoppingCart size={22} />, label: 'Quản lý đơn mua (PO)' },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Quản lý đơn mua',
+        sublabel: 'Purchase Order',
+        children: [
+            { path: '/purchase-orders', label: 'Danh sách đơn mua hàng' },
+            { path: '/purchase-orders/create', label: 'Tạo đơn mua hàng' },
+        ],
+    },
 ];
 
 // Sale Engineer: Vật tư (mục cha), Người nhận hàng

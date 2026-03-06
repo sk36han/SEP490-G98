@@ -48,7 +48,9 @@ const MainLayout = ({ children }) => {
                         overflow: 'hidden',
                         display: 'flex',
                         flexDirection: 'column',
-                        p: 3,
+                        pt: 1.5,
+                        px: 3,
+                        pb: 3,
                     }}
                 >
                     <AppHeader />

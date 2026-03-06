@@ -35,15 +35,15 @@ import '../styles/ListView.css';
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const APPROVAL_STATUS_STYLE = {
-    Pending: { color: 'warning.main', borderColor: 'warning.main', label: 'Chờ duyệt' },
-    Approved: { color: 'success.main', borderColor: 'success.main', label: 'Đã duyệt' },
-    Rejected: { color: 'error.main', borderColor: 'error.main', label: 'Từ chối' },
+    Pending: { color: '#ffffff', bgColor: '#d97706', label: 'Chờ duyệt' },
+    Approved: { color: '#ffffff', bgColor: '#059669', label: 'Đã duyệt' },
+    Rejected: { color: '#ffffff', bgColor: '#dc2626', label: 'Từ chối' },
 };
 
 const RECEIVING_STATUS_STYLE = {
-    Pending: { color: 'info.main', borderColor: 'info.main', label: 'Chờ nhập' },
-    Partial: { color: 'warning.main', borderColor: 'warning.main', label: 'Nhập một phần' },
-    Completed: { color: 'success.main', borderColor: 'success.main', label: 'Nhập toàn bộ' },
+    Pending: { color: '#ffffff', bgColor: '#2563eb', label: 'Chờ nhập' },
+    Partial: { color: '#ffffff', bgColor: '#d97706', label: 'Nhập một phần' },
+    Completed: { color: '#ffffff', bgColor: '#059669', label: 'Nhập toàn bộ' },
 };
 
 const PO_COLUMNS = [
@@ -403,11 +403,13 @@ export default function ViewPurchaseOrderList() {
 
     return (
         <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
-            <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
-                <Typography variant="h4" component="h1" fontWeight="800" sx={{ color: '#1976d2', whiteSpace: 'nowrap' }}>
-                    Danh sách đơn mua hàng (Purchase Order)
+            <Box sx={{ flexShrink: 0, mb: 1, mt: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                <Typography variant="h5" component="h1" fontWeight="700" sx={{ color: '#1976d2', lineHeight: 1.3 }}>
+                    Danh sách đơn mua hàng
                 </Typography>
-                
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', mt: 0.25 }}>
+                    Purchase Order
+                </Typography>
             </Box>
 
             <PurchaseOrderFilterPopup open={filterOpen} onClose={() => setFilterOpen(false)} initialValues={filterValues} onApply={handleFilterApply} />
@@ -662,18 +664,72 @@ export default function ViewPurchaseOrderList() {
                                                         );
                                                     }
                                                     if (col.id === 'approvalStatus') {
-                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.approvalStatus ?? '' };
+                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { color: '#ffffff', bgColor: '#6b7280', label: row.approvalStatus ?? '' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
-                                                                <Chip label={style.label} size="small" variant="outlined" sx={{ fontWeight: 600, borderRadius: '50px', px: 1.25, bgcolor: 'transparent', color: style.color, border: '1px solid', borderColor: style.borderColor }} />
+                                                                <Chip 
+                                                                    label={style.label} 
+                                                                    size="small"
+                                                                    sx={{ 
+                                                                        fontWeight: 500, 
+                                                                        fontSize: '0.75rem',
+                                                                        borderRadius: '999px',
+                                                                        minWidth: 100,
+                                                                        height: 'auto',
+                                                                        bgcolor: style.bgColor, 
+                                                                        color: style.color,
+                                                                        border: '1px solid rgba(255,255,255,0.2)',
+                                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
+                                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                        '&:hover': {
+                                                                            transform: 'translateY(-1px)',
+                                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.16), 0 2px 3px rgba(0,0,0,0.12)',
+                                                                        },
+                                                                        '& .MuiChip-label': {
+                                                                            px: 1.5,
+                                                                            py: 0.5,
+                                                                            textAlign: 'left',
+                                                                            display: 'block',
+                                                                            width: '100%',
+                                                                            letterSpacing: '0.01em'
+                                                                        }
+                                                                    }} 
+                                                                />
                                                             </TableCell>
                                                         );
                                                     }
                                                     if (col.id === 'receivingStatus') {
-                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { color: 'text.secondary', borderColor: 'grey.400', label: row.receivingStatus ?? '' };
+                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { color: '#ffffff', bgColor: '#6b7280', label: row.receivingStatus ?? '' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
-                                                                <Chip label={style.label} size="small" variant="outlined" sx={{ fontWeight: 600, borderRadius: '50px', px: 1.25, bgcolor: 'transparent', color: style.color, border: '1px solid', borderColor: style.borderColor }} />
+                                                                <Chip 
+                                                                    label={style.label} 
+                                                                    size="small"
+                                                                    sx={{ 
+                                                                        fontWeight: 500, 
+                                                                        fontSize: '0.75rem',
+                                                                        borderRadius: '999px',
+                                                                        minWidth: 110,
+                                                                        height: 'auto',
+                                                                        bgcolor: style.bgColor, 
+                                                                        color: style.color,
+                                                                        border: '1px solid rgba(255,255,255,0.2)',
+                                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
+                                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                        '&:hover': {
+                                                                            transform: 'translateY(-1px)',
+                                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.16), 0 2px 3px rgba(0,0,0,0.12)',
+                                                                        },
+                                                                        '& .MuiChip-label': {
+                                                                            px: 1.5,
+                                                                            py: 0.5,
+                                                                            textAlign: 'left',
+                                                                            display: 'block',
+                                                                            width: '100%',
+                                                                            letterSpacing: '0.01em'
+                                                                        }
+                                                                    }} 
+                                                                />
                                                             </TableCell>
                                                         );
                                                     }
