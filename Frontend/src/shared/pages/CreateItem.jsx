@@ -29,12 +29,14 @@ import {
   Autocomplete,
   Divider,
 } from "@mui/material";
+import StoreIcon from "@mui/icons-material/Store";
 import { ArrowLeft, ImagePlus, Package, Plus } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
 import CreateUomDialog from "../components/CreateUomDialog";
 import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
+import { createItem as createItemApi } from "../lib/itemService";
 
 /** Đơn vị tính – UnitOfMeasure (BaseUomId) */
 const UOM_OPTIONS = [
@@ -282,13 +284,59 @@ const CreateItem = () => {
     setForm((prev) => ({ ...prev, [name]: nextValue }));
   };
 
-  const handleSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    showToast(
-      "Mock: Lưu thành công. Kết nối API khi backend sẵn sàng.",
-      "success",
-    );
-    timerRef.current = setTimeout(() => navigate("/products"), 1500);
+    const code = (form.itemCode ?? "").trim();
+    const name = (form.itemName ?? "").trim();
+    if (!code) {
+      showToast("Vui lòng nhập mã sản phẩm.", "error");
+      return;
+    }
+    if (!name) {
+      showToast("Vui lòng nhập tên sản phẩm.", "error");
+      return;
+    }
+    const categoryId = form.categoryId !== "" && form.categoryId != null ? Number(form.categoryId) : null;
+    const baseUomId = form.baseUomId !== "" && form.baseUomId != null ? Number(form.baseUomId) : null;
+    if (categoryId == null || Number.isNaN(categoryId)) {
+      showToast("Vui lòng chọn danh mục.", "error");
+      return;
+    }
+    if (baseUomId == null || Number.isNaN(baseUomId)) {
+      showToast("Vui lòng chọn đơn vị tính.", "error");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const payload = {
+        itemCode: code,
+        itemName: name,
+        itemType: form.itemType || null,
+        description: form.description?.trim() || null,
+        categoryId,
+        brandId: form.brandId !== "" && form.brandId != null ? Number(form.brandId) : null,
+        baseUomId,
+        packagingSpecId: form.packagingSpecId !== "" && form.packagingSpecId != null ? Number(form.packagingSpecId) : null,
+        requiresCo: Boolean(form.requiresCO),
+        requiresCq: Boolean(form.requiresCQ),
+        isActive: Boolean(form.isActive),
+        defaultWarehouseId: form.defaultWarehouseId !== "" && form.defaultWarehouseId != null ? Number(form.defaultWarehouseId) : null,
+        inventoryAccount: form.inventoryAccount?.trim() || null,
+        revenueAccount: form.revenueAccount?.trim() || null,
+        initialPurchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
+        priceEffectiveFrom: null,
+      };
+      await createItemApi(payload);
+      showToast("Tạo sản phẩm thành công.", "success");
+      timerRef.current = setTimeout(() => navigate("/products"), 1200);
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Không thể tạo vật tư. Vui lòng thử lại.";
+      showToast(msg, "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -346,10 +394,11 @@ const CreateItem = () => {
               type="submit"
               form="create-item-form"
               variant="contained"
+              disabled={submitting}
               startIcon={<Package size={18} />}
               sx={{ textTransform: "none", borderRadius: 2, fontWeight: 600 }}
             >
-              Thêm sản phẩm
+              {submitting ? "Đang tạo…" : "Thêm sản phẩm"}
             </Button>
           </Stack>
         </Stack>
@@ -895,6 +944,13 @@ const CreateItem = () => {
                     value={String(form.brandId ?? "")}
                     onChange={handleChange}
                     sx={selectInputSx}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <StoreIcon sx={{ color: "action.active", fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    }}
                     SelectProps={{
                       displayEmpty: true,
                       renderValue: (v) =>

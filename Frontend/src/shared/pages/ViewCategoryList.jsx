@@ -158,12 +158,12 @@ const ViewCategoryList = () => {
                                 <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: 'grey.50' }}>
-                                            <TableCell sx={{ fontWeight: 600, width: '6%' }}>STT</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, width: '6%' }} align="center">STT</TableCell>
                                             {showCode && (
                                                 <TableCell sx={{ fontWeight: 600, width: '12%' }}>Mã danh mục</TableCell>
                                             )}
                                             <TableCell sx={{ fontWeight: 600, width: showCode ? '22%' : '30%' }}>Tên</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '14%' }} align="right">Số lượng Item</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, width: '14%' }} align="center">Số lượng Item</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '14%' }}>Ngày tạo</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '14%' }}>Ngày cập nhật</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '12%' }}>Trạng thái</TableCell>
@@ -180,7 +180,7 @@ const ViewCategoryList = () => {
                                         ) : (
                                             paginatedRows.map((c, index) => (
                                                 <TableRow key={c.categoryId} hover>
-                                                    <TableCell>{page * PAGE_SIZE + index + 1}</TableCell>
+                                                    <TableCell align="center">{page * PAGE_SIZE + index + 1}</TableCell>
                                                     {showCode && <TableCell>{c.categoryCode}</TableCell>}
                                                     <TableCell
                                                         sx={{
@@ -192,7 +192,7 @@ const ViewCategoryList = () => {
                                                     >
                                                         {c.categoryName}
                                                     </TableCell>
-                                                    <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                                                    <TableCell align="center" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                                                         {(c.itemCount ?? 0).toLocaleString('vi-VN')}
                                                     </TableCell>
                                                     <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(c.createdAt)}</TableCell>

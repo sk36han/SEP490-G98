@@ -7,6 +7,8 @@ bin/
 obj/
 **/bin/
 **/obj/
+out/
+**/out/
 
 # Visual Studio
 .vs/
@@ -14,44 +16,69 @@ obj/
 *.user
 *.userosscache
 *.sln.docstates
+*.rsuser
 
-# Rider / VSCode
+# Rider / VSCode / Cursor
 .idea/
 .vscode/
 
+# NuGet
+.nuget/
+*.nupkg
+packages/
+
+# Test
+TestResults/
+**/TestResults/
+*.trx
+*.coverage
+
 
 ################################
-# ========== Frontend (React) ==========
+# ========== Frontend (React / Vite) ==========
 ################################
 
-# Node modules
+# Dependencies
 node_modules/
 
 # Build output
 build/
 dist/
+dist-ssr/
+*.tsbuildinfo
 
-# Cache
+# Vite cache (inside node_modules and at project root)
+**/node_modules/.vite/
+.vite/
+
+# Other caches
 .cache/
 .parcel-cache/
 .eslintcache
+.turbo/
 
-# Env files
+# Env files (keep .env.example if you use it)
 .env
 .env.local
+.env.*.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Local overrides
+*.local
 
 
 ################################
 # ========== Logs ==========
 ################################
 
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 
 ################################
@@ -60,6 +87,7 @@ pnpm-debug.log*
 
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 
 ################################
@@ -68,8 +96,12 @@ Thumbs.db
 
 # Coverage
 coverage/
+*.lcov
 
-# Temp files
+# Temp / backup
 *.tmp
 *.temp
 *.log
+*.bak
+*.swp
+*~

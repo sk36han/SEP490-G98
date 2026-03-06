@@ -341,7 +341,7 @@ export default function ViewSupplierList() {
                     onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
                         Chọn cột hiển thị
@@ -357,18 +357,29 @@ export default function ViewSupplierList() {
                             }
                             label="Tất cả"
                         />
-                        {SUPPLIER_COLUMNS.map((col) => (
-                            <FormControlLabel
-                                key={col.id}
-                                control={
-                                    <Checkbox
-                                        checked={visibleColumnIds.has(col.id)}
-                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                    />
-                                }
-                                label={col.label}
-                            />
-                        ))}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {SUPPLIER_COLUMNS.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                        />
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
@@ -431,7 +442,7 @@ export default function ViewSupplierList() {
                                     <TableHead>
                                         <TableRow>
                                             {visibleColumns.map((col) => (
-                                                <TableCell key={col.id} sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }} align={col.id === 'actions' ? 'right' : 'left'}>
+                                                <TableCell key={col.id} sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }} align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}>
                                                     {col.label}
                                                 </TableCell>
                                             ))}
@@ -443,7 +454,7 @@ export default function ViewSupplierList() {
                                                 {visibleColumns.map((col) => {
                                                     if (col.id === 'stt') {
                                                         return (
-                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
+                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 {page * pageSize + index + 1}
                                                             </TableCell>
                                                         );

@@ -111,7 +111,7 @@ const ViewPackagingSpecList = () => {
                                 <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: 'grey.50' }}>
-                                            <TableCell sx={{ fontWeight: 600, width: '8%' }}>STT</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, width: '8%' }} align="center">STT</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '28%' }}>Mã quy cách</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '36%' }}>Tên quy cách</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '18%' }}>Trạng thái</TableCell>
@@ -128,7 +128,7 @@ const ViewPackagingSpecList = () => {
                                         ) : (
                                             paginatedRows.map((p, index) => (
                                                 <TableRow key={p.packagingSpecId} hover>
-                                                    <TableCell>{page * PAGE_SIZE + index + 1}</TableCell>
+                                                    <TableCell align="center">{page * PAGE_SIZE + index + 1}</TableCell>
                                                     <TableCell>{p.specCode}</TableCell>
                                                     <TableCell>{p.specName}</TableCell>
                                                     <TableCell>

@@ -10,6 +10,10 @@ import {
     ClipboardList,
     Warehouse,
 } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSuitcase } from '@fortawesome/free-solid-svg-icons';
+
+const brandIcon = <FontAwesomeIcon icon={faSuitcase} style={{ fontSize: 22 }} />;
 
 // Hồ sơ cá nhân không hiển thị trong sidebar — mở từ dropdown avatar trên header
 const commonItems = [];
@@ -52,7 +56,7 @@ const warehouseKeeperItems = [
             { path: '/specs', label: 'Thông số' },
         ],
     },
-    { path: '/brands', icon: <BoxIcon size={22} />, label: 'Thương hiệu' },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
@@ -71,7 +75,7 @@ const saleSupportItems = [
             { path: '/products', label: 'Danh sách vật tư' },
         ],
     },
-    { path: '/brands', icon: <BoxIcon size={22} />, label: 'Thương hiệu' },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
     { path: '/purchase-orders', icon: <ShoppingCart size={22} />, label: 'Danh sách đơn mua (PO)' },
 ];
@@ -87,7 +91,7 @@ const saleEngineerItems = [
             { path: '/products', label: 'Danh sách vật tư' },
         ],
     },
-    { path: '/brands', icon: <BoxIcon size={22} />, label: 'Thương hiệu' },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
 ];
 
@@ -102,7 +106,7 @@ const accountantItems = [
             { path: '/products', label: 'Danh sách vật tư' },
         ],
     },
-    { path: '/brands', icon: <BoxIcon size={22} />, label: 'Thương hiệu' },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },

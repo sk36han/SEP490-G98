@@ -112,7 +112,7 @@ const ViewSpecList = () => {
                                 <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: 'grey.50' }}>
-                                            <TableCell sx={{ fontWeight: 600, width: '8%' }}>STT</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, width: '8%' }} align="center">STT</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '28%' }}>Mã thông số</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '36%' }}>Tên thông số</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '18%' }}>Trạng thái</TableCell>
@@ -129,7 +129,7 @@ const ViewSpecList = () => {
                                         ) : (
                                             paginatedRows.map((s, index) => (
                                                 <TableRow key={s.specId} hover>
-                                                    <TableCell>{page * PAGE_SIZE + index + 1}</TableCell>
+                                                    <TableCell align="center">{page * PAGE_SIZE + index + 1}</TableCell>
                                                     <TableCell>{s.specCode}</TableCell>
                                                     <TableCell>{s.specName}</TableCell>
                                                     <TableCell>

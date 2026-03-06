@@ -471,7 +471,7 @@ const UserAccountList = () => {
                     onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
                         Chọn cột hiển thị
@@ -487,18 +487,29 @@ const UserAccountList = () => {
                             }
                             label="Tất cả"
                         />
-                        {USER_ACCOUNT_COLUMNS.map((col) => (
-                            <FormControlLabel
-                                key={col.id}
-                                control={
-                                    <Checkbox
-                                        checked={visibleColumnIds.has(col.id)}
-                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                    />
-                                }
-                                label={col.label}
-                            />
-                        ))}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {USER_ACCOUNT_COLUMNS.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                        />
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
@@ -509,7 +520,7 @@ const UserAccountList = () => {
                                 {visibleColumns.map((col) => (
                                     <TableCell
                                         key={col.id}
-                                        align={col.id === 'actions' ? 'right' : 'left'}
+                                        align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}
                                         sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', whiteSpace: 'nowrap' }}
                                     >
                                         {col.label}
@@ -556,7 +567,7 @@ const UserAccountList = () => {
                                         {visibleColumns.map((col) => {
                                             const opts = { pageNumber, pageSize };
                                             if (col.id === 'stt') {
-                                                return <TableCell key={col.id}>{col.getValue(user, index, opts)}</TableCell>;
+                                                return <TableCell key={col.id} align="center">{col.getValue(user, index, opts)}</TableCell>;
                                             }
                                             if (col.id === 'username') {
                                                 return <TableCell key={col.id} sx={{ fontWeight: 500 }}>{user.username}</TableCell>;

@@ -76,10 +76,12 @@ const ITEM_LIST_COLUMNS = [
 ];
 
 const ACCOUNTANT_ONLY_COLUMN_IDS = ['inventoryAccount', 'revenueAccount', 'purchasePrice', 'salePrice'];
-const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemCode', 'itemName', 'itemType', 'description', 'category', 'sellableQty', 'onHandQty', 'isActive', 'actions'];
+const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemCode', 'itemType', 'sellableQty', 'onHandQty', 'actions'];
 const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
-const canCreateOrEditItems = (permissionRole) => permissionRole === 'WAREHOUSE_KEEPER';
+/** Full quyền Item: tất cả role trừ ADMIN và Giám đốc */
+const canCreateOrEditItems = (permissionRole) =>
+    ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(permissionRole);
 const showAccountantColumnsForRole = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
 /** Trọng số cột để chia % độ rộng: STT/Ảnh nhỏ, Tên/Mô tả lớn hơn */
@@ -564,7 +566,7 @@ const ViewItemList = () => {
                     onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
                         Chọn cột hiển thị
@@ -584,19 +586,29 @@ const ViewItemList = () => {
                             }
                             label="Tất cả"
                         />
-
-                        {effectiveItemColumns.map((col) => (
-                            <FormControlLabel
-                                key={col.id}
-                                control={
-                                    <Checkbox
-                                        checked={visibleColumnIds.has(col.id)}
-                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                    />
-                                }
-                                label={col.label}
-                            />
-                        ))}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {effectiveItemColumns.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                        />
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
@@ -714,11 +726,13 @@ const ViewItemList = () => {
                                                     align={
                                                         col.id === 'thumbnail' || col.id === 'requiresCO' || col.id === 'requiresCQ'
                                                             ? 'center'
-                                                            : col.id === 'actions' ||
+                                                            : col.id === 'stt' ||
                                                               col.id === 'salePrice' ||
                                                               col.id === 'purchasePrice' ||
                                                               col.id === 'onHandQty' ||
                                                               col.id === 'sellableQty'
+                                                            ? 'center'
+                                                            : col.id === 'actions'
                                                             ? 'right'
                                                             : 'left'
                                                     }
@@ -737,7 +751,7 @@ const ViewItemList = () => {
 
                                                     if (col.id === 'stt') {
                                                         return (
-                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
                                                                 {col.getValue(item, index, opts)}
                                                             </TableCell>
                                                         );
@@ -855,7 +869,7 @@ const ViewItemList = () => {
 
                                                     if (col.id === 'sellableQty' || col.id === 'onHandQty') {
                                                         return (
-                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
                                                                 {col.getValue(item, index, opts)}
                                                             </TableCell>
                                                         );
@@ -909,7 +923,7 @@ const ViewItemList = () => {
                                                         return (
                                                             <TableCell
                                                                 key={col.id}
-                                                                align="right"
+                                                                align="center"
                                                                 sx={{
                                                                     ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
                                                                     fontWeight: isAccountant ? 600 : 400,
@@ -925,7 +939,7 @@ const ViewItemList = () => {
                                                         return (
                                                             <TableCell
                                                                 key={col.id}
-                                                                align={isNumericCol ? 'right' : 'left'}
+                                                                align={isNumericCol ? 'center' : 'left'}
                                                                 sx={{
                                                                     ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
                                                                     fontWeight:

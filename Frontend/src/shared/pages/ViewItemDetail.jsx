@@ -2,7 +2,7 @@
  * ItemDetail (xem chi tiết) – khác với form EditItem (chỉnh sửa).
  * Đã kiểm duyệt với DB: [dbo].[Items] (toàn bộ cột có thể hiển thị), [dbo].[ItemPrices] (Amount→Giá bán),
  * [dbo].[InventoryOnHand] (OnHandQty, ReservedQty).
- * WAREHOUSE_KEEPER: Thông tin chung + block Thông tin tồn kho. Nút Chỉnh sửa chỉ hiện cho Thủ kho.
+ * Full quyền Item (xem/sửa): WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER, ACCOUNTANTS (trừ ADMIN, Giám đốc). Nút Chỉnh sửa hiện cho các role này.
  * SALE_SUPPORT (SP), SALE_ENGINEER (SE): cũng xem block Thông tin tồn kho (số lượng tồn).
  * ACCOUNTANTS: + block Thông tin kế toán (Tài khoản, Giá bán, Số lượng tồn, Giá trị tồn kho).
  */
@@ -14,6 +14,8 @@ import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 
 const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
+/** Full quyền Item (tạo/sửa): tất cả role trừ ADMIN và Giám đốc. */
+const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(role);
 /** Chỉ Accountant và Director được xem Giá nhập, Giá trung bình kho, Giá xuất kho; role khác chỉ thấy Giá trung bình trong kho. */
 const canSeeFullPrices = (role) => role === 'ACCOUNTANTS' || role === 'DIRECTOR';
 /** SP (SALE_SUPPORT) và SE (SALE_ENGINEER) cũng xem được số lượng tồn (block Thông tin tồn kho). */
@@ -171,6 +173,7 @@ const ViewItemDetail = () => {
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const isAccountant = isAccountantView(permissionRole);
     const isWhKeeper = isWarehouseKeeper(permissionRole);
+    const canEdit = canEditItem(permissionRole);
     const showStockBlock = showStockBlockForRole(permissionRole);
     const showFullPrices = canSeeFullPrices(permissionRole);
     const [item, setItem] = useState(null);
@@ -537,9 +540,9 @@ const ViewItemDetail = () => {
                     </Card>
                 )}
 
-                {/* Nút Chỉnh sửa */}
+                {/* Nút Chỉnh sửa – full quyền Item: Thủ kho, Sale Support, Sale Engineer, Kế toán */}
                 <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1 }}>
-                    {isWhKeeper && (
+                    {canEdit && (
                         <Button variant="contained" startIcon={<Edit3 size={18} />} onClick={() => navigate(`/items/edit/${item.itemId}`)} sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}>
                             Chỉnh sửa
                         </Button>

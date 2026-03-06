@@ -249,13 +249,13 @@ const ViewBrandList = () => {
                                 <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: 'grey.50' }}>
-                                            <TableCell sx={{ fontWeight: 600, width: '5%', maxWidth: '5%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>STT</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, width: '8%', minWidth: 44, overflow: 'visible', whiteSpace: 'nowrap' }} align="center">STT</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Mã Brand</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '20%', maxWidth: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Tên Brand</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '10%', maxWidth: '10%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Số vật tư</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, width: '10%', maxWidth: '10%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} align="center">Số vật tư</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Trạng thái</TableCell>
                                             <TableCell sx={{ fontWeight: 600, width: '14%', maxWidth: '14%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Xem vật tư</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '27%', maxWidth: '27%', overflow: 'visible' }} align="right">Hành động</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, width: '24%', minWidth: 120, overflow: 'visible' }} align="right">Hành động</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -270,7 +270,7 @@ const ViewBrandList = () => {
                                         ) : (
                                             paginatedRows.map((b, index) => (
                                                 <TableRow key={b.brandId} hover>
-                                                    <TableCell sx={{ width: '5%', maxWidth: '5%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page * PAGE_SIZE + index + 1}</TableCell>
+                                                    <TableCell sx={{ width: '8%', minWidth: 44, overflow: 'visible', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }} align="center">{page * PAGE_SIZE + index + 1}</TableCell>
                                                     <TableCell sx={{ width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.brandCode}>{b.brandCode}</TableCell>
                                                     <TableCell
                                                         sx={{
@@ -287,7 +287,7 @@ const ViewBrandList = () => {
                                                     >
                                                         {b.brandName}
                                                     </TableCell>
-                                                    <TableCell sx={{ width: '10%', maxWidth: '10%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                                                    <TableCell sx={{ width: '10%', maxWidth: '10%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }} align="center">
                                                         {b.itemCount ?? 0}
                                                     </TableCell>
                                                     <TableCell sx={{ width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -312,7 +312,7 @@ const ViewBrandList = () => {
                                                             </Button>
                                                         </Tooltip>
                                                     </TableCell>
-                                                    <TableCell align="right" sx={{ width: '27%', maxWidth: '27%', overflow: 'visible' }}>
+                                                    <TableCell align="right" sx={{ width: '24%', minWidth: 120, overflow: 'visible' }}>
                                                         <Tooltip title="Xem chi tiết">
                                                             <IconButton size="small" onClick={() => setDetailBrand(b)} aria-label="Xem chi tiết">
                                                                 <Eye size={18} />

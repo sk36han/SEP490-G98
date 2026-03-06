@@ -48,6 +48,17 @@ function mapItemDisplayRow(row) {
 }
 
 /**
+ * Tạo vật tư mới.
+ * POST /Item/create-item – body CreateItemRequest (camelCase).
+ * @param {Object} payload - itemCode, itemName, itemType?, description?, categoryId, brandId?, baseUomId, packagingSpecId?, requiresCo, requiresCq, isActive, defaultWarehouseId?, inventoryAccount?, revenueAccount?, initialPurchasePrice?, priceEffectiveFrom?
+ * @returns {Promise<{ success, message, data: { itemId, itemCode, itemName, isActive } }>}
+ */
+export async function createItem(payload) {
+    const response = await apiClient.post('/Item/create-item', payload);
+    return response?.data;
+}
+
+/**
  * Cập nhật trạng thái giao dịch (bật/tắt) của vật tư.
  * PATCH /Item/{id}/status?isActive=true|false
  * @param {number|string} itemId
