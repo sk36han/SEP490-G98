@@ -13,7 +13,9 @@ import {
     Calendar,
     Trash2,
     Eye,
-    Package
+    Package,
+    Search,
+    ImageIcon
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -44,6 +46,23 @@ const CreatePurchaseOrder = () => {
     
     const [lines, setLines] = useState([]);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
+    const [showProductSearch, setShowProductSearch] = useState(false);
+    const [searchKeyword, setSearchKeyword] = useState('');
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
+    const [imageErrors, setImageErrors] = useState({});
+
+    // Mock data sản phẩm - sau này sẽ thay bằng API
+    const MOCK_PRODUCTS = [
+        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
+        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
+        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
+        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
+        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
+        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+    ];
 
     const [errors, setErrors] = useState({});
 
@@ -67,17 +86,137 @@ const CreatePurchaseOrder = () => {
         }
     };
 
-    const addLine = () => {
-        const newLine = { 
+    const handleSearchChange = (e) => {
+        const keyword = e.target.value;
+        setSearchKeyword(keyword);
+        
+        if (keyword.trim() === '') {
+            setFilteredProducts([]);
+            return;
+        }
+        
+        // Filter products theo tên hoặc mã SKU
+        const filtered = MOCK_PRODUCTS.filter(product => 
+            product.name.toLowerCase().includes(keyword.toLowerCase()) ||
+            product.sku.toLowerCase().includes(keyword.toLowerCase())
+        );
+        setFilteredProducts(filtered);
+    };
+
+    const handleImageError = (id) => {
+        setImageErrors(prev => ({ ...prev, [id]: true }));
+    };
+
+    const isValidImageUrl = (url) => {
+        if (!url || typeof url !== 'string') return false;
+        // Kiểm tra URL có phải là string và có format hợp lệ
+        try {
+            const urlObj = new URL(url);
+            return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    };
+
+    const handleSelectProduct = (product) => {
+        // Check xem sản phẩm đã tồn tại trong bảng chưa
+        const existingLine = lines.find(line => line.itemId === product.id);
+        
+        if (existingLine) {
+            showToast('Sản phẩm đã có trong danh sách!', 'warning');
+            return;
+        }
+        
+        // Thêm sản phẩm vào bảng
+        const newLine = {
             id: Date.now(),
-            itemId: '', 
-            itemName: '', 
-            orderedQty: 1, 
-            unitPrice: 0,
-            totalPrice: 0,
-            note: '' 
+            itemId: product.id,
+            itemName: product.name,
+            itemImage: product.image,
+            orderedQty: 1,
+            unitPrice: product.unitPrice,
+            totalPrice: product.unitPrice,
+            note: ''
         };
-        setLines((prev) => [...prev, newLine]);
+        
+        setLines(prev => [...prev, newLine]);
+        
+        // Reset search
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setShowProductSearch(false);
+        setSelectedProductIds([]);
+        
+        showToast('Đã thêm sản phẩm vào danh sách', 'success');
+    };
+
+    const toggleProductSelection = (productId) => {
+        setSelectedProductIds(prev => 
+            prev.includes(productId) 
+                ? prev.filter(id => id !== productId)
+                : [...prev, productId]
+        );
+    };
+
+    const addSelectedProducts = () => {
+        if (selectedProductIds.length === 0) {
+            showToast('Vui lòng chọn ít nhất 1 sản phẩm', 'warning');
+            return;
+        }
+
+        const productsToAdd = MOCK_PRODUCTS.filter(p => selectedProductIds.includes(p.id));
+        const newLines = [];
+        let duplicateCount = 0;
+
+        productsToAdd.forEach(product => {
+            const existingLine = lines.find(line => line.itemId === product.id);
+            if (!existingLine) {
+                newLines.push({
+                    id: Date.now() + Math.random(),
+                    itemId: product.id,
+                    itemName: product.name,
+                    itemImage: product.image,
+                    orderedQty: 1,
+                    unitPrice: product.unitPrice,
+                    totalPrice: product.unitPrice,
+                    note: ''
+                });
+            } else {
+                duplicateCount++;
+            }
+        });
+
+        if (newLines.length > 0) {
+            setLines(prev => [...prev, ...newLines]);
+            showToast(`Đã thêm ${newLines.length} sản phẩm vào danh sách`, 'success');
+        }
+
+        if (duplicateCount > 0) {
+            showToast(`${duplicateCount} sản phẩm đã có trong danh sách`, 'warning');
+        }
+
+        // Reset
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setShowProductSearch(false);
+        setSelectedProductIds([]);
+    };
+
+    const openProductSearch = () => {
+        setShowProductSearch(true);
+        setSearchKeyword('');
+        setFilteredProducts([]);
+    };
+
+    const closeProductSearch = () => {
+        setShowProductSearch(false);
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setSelectedProductIds([]);
+    };
+
+    const addLine = () => {
+        openProductSearch();
     };
 
     const updateLine = (index, field, value) => {
@@ -288,6 +427,209 @@ const CreatePurchaseOrder = () => {
                                 <div className="error-message" style={{ marginBottom: '16px' }}>{errors.lines}</div>
                             )}
 
+                            {/* Search Bar với Animation */}
+                            {showProductSearch && (
+                                <div style={{
+                                    marginBottom: '16px',
+                                    animation: 'slideDown 0.3s ease-out',
+                                    position: 'relative'
+                                }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <Search 
+                                            size={20} 
+                                            style={{ 
+                                                position: 'absolute', 
+                                                left: '12px', 
+                                                top: '50%', 
+                                                transform: 'translateY(-50%)',
+                                                color: '#9ca3af',
+                                                zIndex: 1
+                                            }} 
+                                        />
+                                        <input
+                                            type="text"
+                                            value={searchKeyword}
+                                            onChange={handleSearchChange}
+                                            placeholder="Tìm kiếm theo tên hoặc mã SKU..."
+                                            autoFocus
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 44px 12px 44px',
+                                                border: '2px solid #2196F3',
+                                                borderRadius: '10px',
+                                                fontSize: '14px',
+                                                outline: 'none',
+                                                boxSizing: 'border-box',
+                                                boxShadow: '0 0 0 4px rgba(33, 150, 243, 0.1)'
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={closeProductSearch}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '8px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                color: '#6b7280',
+                                                zIndex: 1
+                                            }}
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+
+                                    {/* Dropdown Results */}
+                                    {searchKeyword !== '' && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            marginTop: '4px',
+                                            backgroundColor: 'white',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '10px',
+                                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                            maxHeight: '400px',
+                                            overflowY: 'auto',
+                                            zIndex: 100,
+                                            animation: 'fadeIn 0.2s ease-out'
+                                        }}>
+                                            {filteredProducts.length === 0 ? (
+                                                <div style={{
+                                                    padding: '24px',
+                                                    textAlign: 'center',
+                                                    color: '#9ca3af'
+                                                }}>
+                                                    <Package size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>Không tìm thấy sản phẩm nào</p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {filteredProducts.map((product) => (
+                                                        <div
+                                                            key={product.id}
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                borderBottom: '1px solid #f3f4f6',
+                                                                transition: 'background-color 0.15s',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '12px'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                        >
+                                                            {/* Checkbox */}
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedProductIds.includes(product.id)}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    toggleProductSelection(product.id);
+                                                                }}
+                                                                style={{ 
+                                                                    cursor: 'pointer',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            />
+                                                            
+                                                            {/* Ảnh sản phẩm hoặc Icon mặc định */}
+                                                            {isValidImageUrl(product.image) && !imageErrors[`product-${product.id}`] ? (
+                                                                <img 
+                                                                    src={product.image} 
+                                                                    alt={product.name}
+                                                                    onError={() => handleImageError(`product-${product.id}`)}
+                                                                    style={{
+                                                                        width: '40px',
+                                                                        height: '40px',
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        flexShrink: 0
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div style={{
+                                                                    width: '40px',
+                                                                    height: '40px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid #e5e7eb',
+                                                                    backgroundColor: '#f3f4f6',
+                                                                    flexShrink: 0
+                                                                }}>
+                                                                    <ImageIcon size={20} color="#9ca3af" />
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* Thông tin sản phẩm */}
+                                                            <div 
+                                                                style={{ flex: 1, cursor: 'pointer' }}
+                                                                onClick={() => handleSelectProduct(product)}
+                                                            >
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '4px' }}>
+                                                                    <span style={{ fontSize: '14px', fontWeight: 500, color: '#1f2937' }}>
+                                                                        {product.name}
+                                                                    </span>
+                                                                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#2196F3', marginLeft: '12px' }}>
+                                                                        {formatCurrency(product.unitPrice)}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#6b7280' }}>
+                                                                    <span>Mã: {product.sku}</span>
+                                                                    <span>•</span>
+                                                                    <span>ĐVT: {product.uom}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    
+                                                    {/* Nút thêm sản phẩm đã chọn */}
+                                                    {selectedProductIds.length > 0 && (
+                                                        <div style={{
+                                                            padding: '12px 16px',
+                                                            borderTop: '2px solid #e5e7eb',
+                                                            backgroundColor: '#f9fafb',
+                                                            position: 'sticky',
+                                                            bottom: 0
+                                                        }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={addSelectedProducts}
+                                                                className="btn btn-sm"
+                                                                style={{
+                                                                    width: '100%',
+                                                                    backgroundColor: '#2196F3',
+                                                                    color: 'white',
+                                                                    border: 'none',
+                                                                    fontWeight: 600,
+                                                                    justifyContent: 'center'
+                                                                }}
+                                                            >
+                                                                <Plus size={16} />
+                                                                Thêm {selectedProductIds.length} sản phẩm
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {lines.length === 0 ? (
                                 <div style={{ 
                                     flex: 1, 
@@ -338,23 +680,70 @@ const CreatePurchaseOrder = () => {
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>{index + 1}</td>
                                                     <td>
-                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                            <input
-                                                                type="text"
-                                                                value={line.itemName}
-                                                                onChange={(e) => updateLine(index, 'itemName', e.target.value)}
-                                                                placeholder="Nhập tên sản phẩm"
-                                                                className="form-input"
-                                                                style={{ minWidth: '200px', flex: 1 }}
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                className="btn-icon-only"
-                                                                style={{ color: '#2196F3' }}
-                                                                title="Xem chi tiết sản phẩm"
-                                                            >
-                                                                <Eye size={18} />
-                                                            </button>
+                                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                            {/* Ảnh hoặc Icon sản phẩm */}
+                                                            {isValidImageUrl(line.itemImage) && !imageErrors[`line-${line.id}`] ? (
+                                                                <img 
+                                                                    src={line.itemImage} 
+                                                                    alt={line.itemName}
+                                                                    onError={() => handleImageError(`line-${line.id}`)}
+                                                                    style={{
+                                                                        width: '40px',
+                                                                        height: '40px',
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        flexShrink: 0
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div style={{
+                                                                    width: '40px',
+                                                                    height: '40px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid #e5e7eb',
+                                                                    backgroundColor: '#f3f4f6',
+                                                                    flexShrink: 0
+                                                                }}>
+                                                                    <ImageIcon size={20} color="#9ca3af" />
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* Tên sản phẩm và icon Eye */}
+                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1 }}>
+                                                                <a
+                                                                    href="#"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        console.log('View product detail:', line.itemId);
+                                                                    }}
+                                                                    style={{
+                                                                        color: '#2196F3',
+                                                                        textDecoration: 'none',
+                                                                        fontSize: '14px',
+                                                                        fontWeight: 500,
+                                                                        flex: 1
+                                                                    }}
+                                                                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                                                                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                                                                >
+                                                                    {line.itemName}
+                                                                </a>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn-icon-only"
+                                                                    style={{ color: '#2196F3' }}
+                                                                    title="Xem chi tiết sản phẩm"
+                                                                    onClick={() => {
+                                                                        console.log('View product detail:', line.itemId);
+                                                                    }}
+                                                                >
+                                                                    <Eye size={18} />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td>
