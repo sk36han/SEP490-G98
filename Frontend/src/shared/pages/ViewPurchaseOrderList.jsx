@@ -153,8 +153,24 @@ export default function ViewPurchaseOrderList() {
     const [orderBy, setOrderBy] = useState(null);
     const [order, setOrder] = useState('asc');
     const [selectedIds, setSelectedIds] = useState(new Set());
-    const [columnOrder, setColumnOrder] = useState(PO_COLUMNS.map(c => c.id));
+    const [columnOrder, setColumnOrder] = useState(() => {
+        const saved = localStorage.getItem('poColumnOrder');
+        return saved ? JSON.parse(saved) : PO_COLUMNS.map(c => c.id);
+    });
+    const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
+    const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
+    const [sortConfig, setSortConfig] = useState(() => {
+        const saved = localStorage.getItem('poSortConfig');
+        return saved ? JSON.parse(saved) : { orderBy: null, order: 'asc' };
+    });
+
+    useEffect(() => {
+        if (sortConfig.orderBy) {
+            setOrderBy(sortConfig.orderBy);
+            setOrder(sortConfig.order);
+        }
+    }, []);
 
     useEffect(() => setList(MOCK_PO_LIST), []);
 
@@ -174,21 +190,35 @@ export default function ViewPurchaseOrderList() {
         .filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
+    useEffect(() => {
+        if (columnSelectorOpen) {
+            setTempColumnOrder(columnOrder);
+        }
+    }, [columnSelectorOpen, columnOrder]);
+
     const handleSortRequest = (columnId) => {
         if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
         
+        let newOrder, newOrderBy;
         if (orderBy === columnId) {
             if (order === 'asc') {
-                setOrder('desc');
+                newOrder = 'desc';
+                newOrderBy = columnId;
             } else {
-                setOrderBy(null);
-                setOrder('asc');
+                newOrder = 'asc';
+                newOrderBy = null;
             }
         } else {
-            setOrderBy(columnId);
-            setOrder('asc');
+            newOrderBy = columnId;
+            newOrder = 'asc';
         }
+        
+        setOrderBy(newOrderBy);
+        setOrder(newOrder);
         setPage(0);
+        
+        // Lưu cấu hình sort
+        localStorage.setItem('poSortConfig', JSON.stringify({ orderBy: newOrderBy, order: newOrder }));
     };
 
     const handleDragStart = (e, columnId) => {
@@ -213,11 +243,53 @@ export default function ViewPurchaseOrderList() {
         newOrder.splice(targetIndex, 0, draggedColumn);
 
         setColumnOrder(newOrder);
+        // Lưu cấu hình column order
+        localStorage.setItem('poColumnOrder', JSON.stringify(newOrder));
         setDraggedColumn(null);
     };
 
     const handleDragEnd = () => {
         setDraggedColumn(null);
+    };
+
+    const handlePopupDragStart = (e, columnId) => {
+        setDraggedPopupColumn(columnId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handlePopupDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handlePopupDrop = (e, targetColumnId) => {
+        e.preventDefault();
+        if (!draggedPopupColumn || draggedPopupColumn === targetColumnId) return;
+
+        const newOrder = [...tempColumnOrder];
+        const draggedIndex = newOrder.indexOf(draggedPopupColumn);
+        const targetIndex = newOrder.indexOf(targetColumnId);
+
+        newOrder.splice(draggedIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedPopupColumn);
+
+        setTempColumnOrder(newOrder);
+        setDraggedPopupColumn(null);
+    };
+
+    const handlePopupDragEnd = () => {
+        setDraggedPopupColumn(null);
+    };
+
+    const handleSaveColumnOrder = () => {
+        setColumnOrder(tempColumnOrder);
+        localStorage.setItem('poColumnOrder', JSON.stringify(tempColumnOrder));
+        setColumnSelectorAnchor(null);
+    };
+
+    const handleCancelColumnOrder = () => {
+        setTempColumnOrder(columnOrder);
+        setColumnSelectorAnchor(null);
     };
 
     const filteredAndSortedRows = useMemo(() => {
@@ -333,7 +405,7 @@ export default function ViewPurchaseOrderList() {
     return (
         <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
             <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
-                <Typography variant="h4" component="h1" fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
+                <Typography variant="h4" component="h1" fontWeight="800" sx={{ color: '#1976d2', whiteSpace: 'nowrap' }}>
                     Danh sách đơn mua hàng (PO)
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
@@ -391,14 +463,67 @@ export default function ViewPurchaseOrderList() {
                     </CardContent>
                 </Card>
 
-                <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={() => setColumnSelectorAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 240 } } }}>
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>Chọn cột hiển thị</Typography>
+                <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={handleCancelColumnOrder} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 280 } } }}>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>Chọn cột hiển thị & Sắp xếp</Typography>
                     <FormGroup>
-                        <FormControlLabel control={<Checkbox checked={visibleColumnIds.size === PO_COLUMNS.length} indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PO_COLUMNS.length} onChange={(e) => handleSelectAllColumns(e.target.checked)} />} label="Tất cả" />
-                        {PO_COLUMNS.map((col) => (
-                            <FormControlLabel key={col.id} control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} label={col.label} />
+                        <FormControlLabel control={<Checkbox checked={visibleColumnIds.size === PO_COLUMNS.length} indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PO_COLUMNS.length} onChange={(e) => handleSelectAllColumns(e.target.checked)} />} label="Tất cả" sx={{ mb: 0.5 }} />
+                        {PO_COLUMNS.sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
+                            <Box 
+                                key={col.id} 
+                                sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: 1,
+                                    bgcolor: draggedPopupColumn === col.id ? 'action.hover' : 'transparent',
+                                    opacity: draggedPopupColumn === col.id ? 0.5 : 1,
+                                    transition: 'all 0.2s',
+                                    borderRadius: 1,
+                                    px: 0.5
+                                }}
+                                onDragOver={handlePopupDragOver}
+                                onDrop={(e) => handlePopupDrop(e, col.id)}
+                            >
+                                <Box
+                                    draggable
+                                    onDragStart={(e) => handlePopupDragStart(e, col.id)}
+                                    onDragEnd={handlePopupDragEnd}
+                                    sx={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center',
+                                        cursor: 'grab',
+                                        '&:active': { cursor: 'grabbing' },
+                                        color: 'text.secondary',
+                                        '&:hover': { color: 'primary.main' }
+                                    }}
+                                >
+                                    <GripVertical size={16} />
+                                </Box>
+                                <FormControlLabel 
+                                    control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} 
+                                    label={col.label}
+                                    sx={{ flex: 1, m: 0, py: 0.5 }}
+                                />
+                            </Box>
                         ))}
                     </FormGroup>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                        <Button 
+                            variant="outlined" 
+                            size="small" 
+                            onClick={handleCancelColumnOrder}
+                            sx={{ flex: 1, textTransform: 'none' }}
+                        >
+                            Hủy
+                        </Button>
+                        <Button 
+                            variant="contained" 
+                            size="small" 
+                            onClick={handleSaveColumnOrder}
+                            sx={{ flex: 1, textTransform: 'none' }}
+                        >
+                            Lưu
+                        </Button>
+                    </Box>
                 </Popover>
 
                 <Card className="list-grid-card" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
