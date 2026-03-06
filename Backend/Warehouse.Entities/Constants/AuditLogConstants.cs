@@ -25,5 +25,5 @@ namespace Warehouse.Entities.Constants
 		public const string UnitOfMeasure = "UnitOfMeasure";
 		public const string ItemParameter = "ItemParameter";
 		public const string ItemParameterValue = "ItemParameterValue";
-	}
+		public const string PackagingSpec = "PackagingSpec";	}
 }
