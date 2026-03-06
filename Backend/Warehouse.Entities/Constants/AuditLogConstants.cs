@@ -22,5 +22,6 @@ namespace Warehouse.Entities.Constants
 		public const string Role = "Role";
 		public const string Brand = "Brand";
 		public const string Category = "Category";
+		public const string UnitOfMeasure = "UnitOfMeasure";
 	}
 }
