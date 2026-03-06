@@ -7,6 +7,8 @@
     padding-bottom: 100px;
     animation: fadeIn 0.2s ease-out;
     box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .page-header {
@@ -37,7 +39,7 @@
     border-radius: 12px;
     padding: 10px 20px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: color 0.2s, border-color 0.2s, background-color 0.2s;
 }
@@ -73,8 +75,9 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     border: 1px solid var(--slate-200);
     padding: 24px;
-    margin-bottom: 40px;
+    margin-bottom: 80px;
     position: relative;
+    z-index: 1;
 }
 
 .form-wrapper {
@@ -175,7 +178,7 @@
 
 .toggle-label {
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--slate-700);
 }
 
@@ -237,7 +240,7 @@
 
 .form-label {
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--slate-700);
 }
 
@@ -268,6 +271,13 @@
     transition: all 0.2s;
     outline: none;
     background-color: white;
+    font-family: inherit;
+}
+
+.form-input::placeholder {
+    color: var(--slate-400);
+    font-size: 14px;
+    font-family: inherit;
 }
 
 select.form-input {
@@ -414,6 +424,7 @@ select.form-input:disabled {
     cursor: pointer;
     transition: all 0.2s;
     outline: none;
+    font-family: inherit;
 }
 
 .btn-cancel {
@@ -498,4 +509,116 @@ select.form-input:disabled {
 .btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* Secondary button */
+.btn-secondary {
+    background: white;
+    color: var(--sky-600);
+    border: 1px solid var(--sky-600);
+}
+
+.btn-secondary:hover {
+    background-color: var(--sky-50);
+}
+
+.btn-secondary:focus {
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+}
+
+/* Small button */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+/* Icon-only button */
+.btn-icon-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.btn-icon-only:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.btn-icon-only:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Table styles */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--slate-200);
+}
+
+.product-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    font-size: 13px;
+}
+
+.product-table thead {
+    background: var(--slate-100);
+}
+
+.product-table th {
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 500;
+    color: var(--slate-700);
+    border-bottom: 2px solid var(--slate-200);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.product-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--slate-100);
+    vertical-align: middle;
+}
+
+.product-table tbody tr:hover {
+    background-color: var(--slate-50);
+}
+
+.product-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Input in table */
+.product-table input.form-input {
+    margin: 0;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.product-table input[type="checkbox"] {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .table-container {
+        overflow-x: scroll;
+    }
+    
+    .product-table {
+        min-width: 1000px;
+    }
 }

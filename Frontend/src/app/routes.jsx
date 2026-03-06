@@ -13,7 +13,7 @@ import EditItem from '../shared/pages/EditItem';
 import ViewItemDetail from '../shared/pages/ViewItemDetail';
 import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
-import CreatePO from '../shared/pages/CreatePO';
+import CreatePurchaseOrder from '../shared/pages/CreatePurchaseOrder';
 import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import ViewNotifications from '../shared/pages/ViewNotifications';
@@ -268,7 +268,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
-                        <CreatePO />
+                        <CreatePurchaseOrder />
                     </MainLayout>
                 </ProtectedRoute>
             }
