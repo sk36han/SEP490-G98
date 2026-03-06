@@ -646,7 +646,7 @@ const CreatePurchaseOrder = () => {
                                     <p style={{ fontSize: '14px', margin: 0 }}>Nhấn "Thêm sản phẩm" để bắt đầu</p>
                                 </div>
                             ) : (
-                                <div className="table-container">
+                                <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
                                     <table className="product-table">
                                         <thead>
                                             <tr>

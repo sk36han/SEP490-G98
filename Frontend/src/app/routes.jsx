@@ -14,7 +14,6 @@ import ViewItemDetail from '../shared/pages/ViewItemDetail';
 import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
 import CreatePurchaseOrder from '../shared/pages/CreatePurchaseOrder';
-import EditPO from '../shared/pages/EditPO';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import ViewNotifications from '../shared/pages/ViewNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
@@ -269,16 +268,6 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
                         <CreatePurchaseOrder />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/purchase-orders/edit/:id"
-            element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
-                    <MainLayout>
-                        <EditPO />
                     </MainLayout>
                 </ProtectedRoute>
             }
