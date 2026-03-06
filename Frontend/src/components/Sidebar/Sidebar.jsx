@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import MuiDrawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -12,49 +12,53 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Collapse from '@mui/material/Collapse';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import authService from '../../shared/lib/authService';
 import logo from '../../shared/assets/logo.png';
 import { getMenuItems } from './menuConfig';
-import { getPermissionRole, getPermissionRoleLabel, getRawRoleFromUser } from '../../shared/permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser } from '../../shared/permissions/roleUtils';
 
-const drawerWidth = 240; // Thu nhỏ từ 260
+// ── Design tokens ────────────────────────────────────────────────
+const SIDEBAR_WIDTH_OPEN     = 260;
+const SIDEBAR_WIDTH_CLOSED   = 72;
+const HEADER_H               = 56;
+const ITEM_H                 = 44;   // parent item height
+const SUB_H                  = 38;   // submenu item height
+const ICON_SZ                = 18;   // icon px
+const ICON_STROKE            = 2;    // stroke-width
+const ITEM_PX                = 1.75; // 14px horizontal padding on item button
+const ICON_GAP               = 12;   // px gap between icon and label
+const LIST_PX                = 2;    // 16px outer list padding
+const ITEM_RADIUS            = 10;   // parent pill radius
+const SUB_RADIUS             = 8;    // submenu pill radius
+const ITEM_MB                = 0.5;  // 4px gap between parent items
+const SUB_MB                 = 0.25; // 2px gap between sub items
+const SUB_INDENT             = 20;   // px left indent for submenu
+const GROUP_GAP              = 20;   // px gap between groups (no label)
+const SECTION_LABEL_PB       = 10;   // px below section label
 
 const openedMixin = (theme) => ({
-    width: drawerWidth,
+    width: SIDEBAR_WIDTH_OPEN,
     transition: theme.transitions.create('width', {
-        easing: theme.transitions.easing.easeOut,
-        duration: theme.transitions.duration.enteringScreen,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        duration: 240,
     }),
-    overflowX: 'visible',
+    overflowX: 'hidden',
 });
 
 const closedMixin = (theme) => ({
+    width: SIDEBAR_WIDTH_CLOSED,
     transition: theme.transitions.create('width', {
-        easing: theme.transitions.easing.easeIn,
-        duration: theme.transitions.duration.leavingScreen,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        duration: 240,
     }),
-    overflowX: 'visible',
-    width: `calc(${theme.spacing(7)} + 1px)`,
-    [theme.breakpoints.up('sm')]: {
-        width: `calc(${theme.spacing(9)} + 1px)`, // Wider closed state
-    },
+    overflowX: 'hidden',
 });
-
-const DrawerHeader = styled('div')(({ theme }) => ({
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center', // Centered logo
-    padding: theme.spacing(0, 1),
-    minHeight: 80, // Taller header
-    ...theme.mixins.toolbar,
-}));
 
 const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' })(
     ({ theme, open }) => ({
-        width: drawerWidth,
+        width: SIDEBAR_WIDTH_OPEN,
         flexShrink: 0,
         whiteSpace: 'nowrap',
         boxSizing: 'border-box',
@@ -78,46 +82,53 @@ const isProductsPath = (pathname) =>
 const isPurchaseOrdersPath = (pathname) =>
     pathname === '/purchase-orders' || pathname.startsWith('/purchase-orders/');
 
+const getSectionLabel = (item) => {
+    if (item.id === 'purchase-orders-mgmt' || item.path?.startsWith('/purchase-orders')) {
+        return null;
+    }
+    return 'Danh mục';
+};
+
 const Sidebar = () => {
+    const theme = useTheme();
     const [open, setOpen] = useState(true);
     const [userMgmtCollapsed, setUserMgmtCollapsed] = useState(false);
     const [productsCollapsed, setProductsCollapsed] = useState(false);
     const [purchaseOrdersCollapsed, setPurchaseOrdersCollapsed] = useState(false);
+
     const navigate = useNavigate();
     const location = useLocation();
     const pathname = location.pathname;
 
     const userInfo = authService.getUser();
     const roleFromBackend = getRawRoleFromUser(userInfo);
+    const permissionRole = getPermissionRole(roleFromBackend);
+    const menuItems = getMenuItems(permissionRole);
 
-    const user = {
-        name: String(userInfo?.fullName ?? userInfo?.FullName ?? 'User').slice(0, 100),
-        role: roleFromBackend,
-        permissionRole: getPermissionRole(roleFromBackend),
-        email: userInfo?.email ?? userInfo?.Email ?? '',
-        avatar: userInfo?.avatar
-    };
+    const sectionLabels = useMemo(() => menuItems.map(getSectionLabel), [menuItems]);
 
-    const menuItems = getMenuItems(user.permissionRole);
-
-    // Rời trang quản lý người dùng / vật tư / đơn mua → reset collapsed để lần sau vào lại section sẽ mở
     useEffect(() => {
         if (!isUserMgmtPath(pathname)) {
             const id = setTimeout(() => setUserMgmtCollapsed(false), 0);
             return () => clearTimeout(id);
         }
+        return undefined;
     }, [pathname]);
+
     useEffect(() => {
         if (!isProductsPath(pathname)) {
             const id = setTimeout(() => setProductsCollapsed(false), 0);
             return () => clearTimeout(id);
         }
+        return undefined;
     }, [pathname]);
+
     useEffect(() => {
         if (!isPurchaseOrdersPath(pathname)) {
             const id = setTimeout(() => setPurchaseOrdersCollapsed(false), 0);
             return () => clearTimeout(id);
         }
+        return undefined;
     }, [pathname]);
 
     const isOnUserMgmtPath = () => isUserMgmtPath(pathname);
@@ -126,42 +137,34 @@ const Sidebar = () => {
 
     const isGroupExpanded = (item) => {
         if (!item.id) return false;
-        if (item.id === 'user-mgmt') {
-            return isOnUserMgmtPath() && !userMgmtCollapsed;
-        }
-        if (item.id === 'products-mgmt') {
-            return isOnProductsPath() && !productsCollapsed;
-        }
-        if (item.id === 'purchase-orders-mgmt') {
-            return isOnPurchaseOrdersPath() && !purchaseOrdersCollapsed;
-        }
+        if (item.id === 'user-mgmt') return isOnUserMgmtPath() && !userMgmtCollapsed;
+        if (item.id === 'products-mgmt') return isOnProductsPath() && !productsCollapsed;
+        if (item.id === 'purchase-orders-mgmt') return isOnPurchaseOrdersPath() && !purchaseOrdersCollapsed;
         return false;
-    };
-
-    const handleDrawerOpen = () => {
-        setOpen(true);
-    };
-
-    const handleDrawerClose = () => {
-        setOpen(false);
     };
 
     const handleParentClick = (item) => {
         const onUserMgmt = item.id === 'user-mgmt' && isOnUserMgmtPath();
         const onProducts = item.id === 'products-mgmt' && isOnProductsPath();
         const onPurchaseOrders = item.id === 'purchase-orders-mgmt' && isOnPurchaseOrdersPath();
+
         if (onUserMgmt) {
             setUserMgmtCollapsed((prev) => !prev);
-        } else if (onProducts) {
-            setProductsCollapsed((prev) => !prev);
-        } else if (onPurchaseOrders) {
-            setPurchaseOrdersCollapsed((prev) => !prev);
-        } else {
-            navigate(item.path);
-            setUserMgmtCollapsed(false);
-            setProductsCollapsed(false);
-            setPurchaseOrdersCollapsed(false);
+            return;
         }
+        if (onProducts) {
+            setProductsCollapsed((prev) => !prev);
+            return;
+        }
+        if (onPurchaseOrders) {
+            setPurchaseOrdersCollapsed((prev) => !prev);
+            return;
+        }
+
+        navigate(item.path);
+        setUserMgmtCollapsed(false);
+        setProductsCollapsed(false);
+        setPurchaseOrdersCollapsed(false);
     };
 
     const handleChildClick = (child) => {
@@ -169,16 +172,37 @@ const Sidebar = () => {
     };
 
     const isParentActive = (item) => {
-        if (!item.children) return location.pathname === item.path;
+        if (!item.children) return pathname === item.path;
         if (item.id === 'products-mgmt' && isProductsPath(pathname)) return true;
         if (item.id === 'purchase-orders-mgmt' && isPurchaseOrdersPath(pathname)) return true;
-        return item.children.some((c) => location.pathname === c.path);
+        return item.children.some((c) => pathname === c.path);
     };
 
     const isChildActive = (child) => {
-        if (child.state?.openCreate) return location.pathname === child.path && location.state?.openCreate;
-        return location.pathname === child.path;
+        if (child.state?.openCreate) return pathname === child.path && location.state?.openCreate;
+        return pathname === child.path;
     };
+
+    // Clone icon with consistent size + stroke
+    const icon = (node) =>
+        React.isValidElement(node)
+            ? React.cloneElement(node, { size: ICON_SZ, strokeWidth: ICON_STROKE })
+            : node;
+
+    // ── Color palette — unified gray-black, zero blue ─────────────
+    const ACCENT        = 'rgba(17,24,39,0.88)';   // active text / icon
+    const TXT           = 'rgba(17,24,39,0.68)';   // default label
+    const TXT_HOVER     = 'rgba(17,24,39,0.90)';   // hover label
+    const TXT_MUTED     = 'rgba(17,24,39,0.44)';   // submenu default
+    const TXT_MUTED_HVR = 'rgba(17,24,39,0.74)';   // submenu hover
+    const CAPTION       = 'rgba(17,24,39,0.34)';   // section caption
+    const ICN           = 'rgba(17,24,39,0.50)';   // icon default
+    const DIVIDER_CLR   = 'rgba(17,24,39,0.07)';
+    const HOVER_BG      = 'rgba(17,24,39,0.04)';
+    const SUB_HOVER_BG  = 'rgba(17,24,39,0.04)';
+    const ACTIVE_PILL   = 'rgba(17,24,39,0.08)';   // active pill fill
+    const ACTIVE_BAR    = 'rgba(17,24,39,0.75)';   // 2px bar inside active pill
+    const BTN_CLR       = 'rgba(17,24,39,0.45)';   // toggle icon colour
 
     return (
         <Box sx={{ display: 'flex' }}>
@@ -188,184 +212,256 @@ const Sidebar = () => {
                 open={open}
                 PaperProps={{
                     sx: {
-                        backgroundColor: '#f8fafc',
-                        backdropFilter: 'blur(12px)',
-                        borderRight: '1px solid rgba(0, 0, 0, 0.08)',
-                        boxShadow: '4px 0 20px rgba(0,0,0,0.05)',
-                        overflow: 'visible'
-                    }
+                        background: '#FFFFFF',
+                        borderRight: `1px solid ${DIVIDER_CLR}`,
+                        boxShadow: 'none',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                    },
                 }}
             >
-                <DrawerHeader sx={{ overflow: 'hidden' }}>
-                    {open ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', transition: 'all 0.3s' }}>
-                            <img src={logo} alt="Logo" style={{ height: 40, maxWidth: '100%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }} />
-                        </Box>
-                    ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden' }}>
-                            <img src={logo} alt="Logo" style={{ height: 28, maxWidth: 36, width: 'auto', objectFit: 'contain' }} />
-                        </Box>
-                    )}
-                </DrawerHeader>
-                <Divider sx={{ borderColor: 'rgba(0,0,0,0.06)' }} />
-
-                {/* Toggle Button – hourglass shape (concave-convex) */}
-                <IconButton
-                    onClick={open ? handleDrawerClose : handleDrawerOpen}
+                {/* ── Header ────────────────────────────────────────── */}
+                <Box
                     sx={{
-                        position: 'absolute',
-                        right: -20,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        zIndex: 1202,
-                        backgroundColor: '#f8fafc',
-                        width: 20,
-                        height: 56,
-                        borderRadius: '0 50% 50% 0',
-                        border: '1px solid rgba(0,0,0,0.08)',
-                        borderLeft: 'none',
-                        padding: 0,
+                        height: HEADER_H,
+                        minHeight: HEADER_H,
+                        px: 2,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '2px 0 8px rgba(0,0,0,0.08)',
-                        '&:hover': {
-                            backgroundColor: '#e2e8f0',
-                            width: 24,
-                        },
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        justifyContent: open ? 'space-between' : 'center',
+                        flexShrink: 0,
+                        position: 'relative',
                     }}
-                    size="small"
                 >
-                    {open ? <ChevronLeftIcon sx={{ fontSize: 14, color: 'rgba(0,0,0,0.6)' }} /> : <ChevronRightIcon sx={{ fontSize: 14, color: 'rgba(0,0,0,0.6)' }} />}
-                </IconButton>
+                    {/* Logo */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', overflow: 'hidden', minWidth: 0 }}>
+                        {open
+                            ? <img src={logo} alt="Logo" style={{ height: 26, maxWidth: 118, objectFit: 'contain' }} />
+                            : <img src={logo} alt="Logo" style={{ height: 22, width: 22, objectFit: 'contain' }} />
+                        }
+                    </Box>
 
-                <List sx={{ px: 1.5, py: 2 }}>
-                    {menuItems.map((item) => {
-                        const hasChildren = item.children && item.children.length > 0;
-                        const isExpanded = open && isGroupExpanded(item);
-                        const parentActive = isParentActive(item);
+                    {/* Toggle arrow — same button for both states, no border/bg */}
+                    <Tooltip title={open ? 'Thu gọn' : 'Mở rộng'} placement="right">
+                        <IconButton
+                            onClick={() => setOpen((prev) => !prev)}
+                            size="small"
+                            sx={{
+                                flexShrink: 0,
+                                width: 28,
+                                height: 28,
+                                borderRadius: '50%',
+                                color: BTN_CLR,
+                                bgcolor: 'transparent',
+                                '&:hover': {
+                                    bgcolor: HOVER_BG,
+                                    color: TXT,
+                                },
+                                transition: 'background-color 0.15s, color 0.15s',
+                            }}
+                        >
+                            {open
+                                ? <ChevronLeftIcon sx={{ fontSize: 17 }} />
+                                : <ChevronRightIcon sx={{ fontSize: 17 }} />
+                            }
+                        </IconButton>
+                    </Tooltip>
+                </Box>
 
-                        if (hasChildren) {
-                            return (
-                                <ListItem key={item.id || item.path} disablePadding sx={{ display: 'block', mb: 0.5 }}>
+                <Divider sx={{ borderColor: DIVIDER_CLR }} />
+
+                {/* ── Nav list ───────────────────────────────────────── */}
+                <List
+                    sx={{
+                        px: `${LIST_PX * 8}px`,   // 16px
+                        pt: '12px',
+                        pb: '16px',
+                        flex: 1,
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        '&::-webkit-scrollbar': { width: 0 },
+                    }}
+                >
+                    {menuItems.map((item, index) => {
+                        const hasChildren   = Array.isArray(item.children) && item.children.length > 0;
+                        const parentActive  = isParentActive(item);
+                        const expanded      = open && isGroupExpanded(item);
+                        const hasActiveChild = hasChildren && item.children.some((c) => isChildActive(c));
+
+                        const currentSection  = sectionLabels[index];
+                        const prevSection     = sectionLabels[index - 1];
+                        const showLabel       = open && Boolean(currentSection) && (index === 0 || currentSection !== prevSection);
+                        const isGroupBreak    = index > 0 && prevSection !== null && currentSection === null;
+
+                        // ── Parent state derivations ─────────────────
+                        // Parent with active child: NO background fill — only semibold text
+                        // Parent without children (leaf) that is active: gets full pill
+                        const isLeafActive    = parentActive && !hasChildren;
+                                        const parentBg        = isLeafActive ? ACTIVE_PILL   : 'transparent';
+                                        const parentHoverBg   = isLeafActive ? 'rgba(17,24,39,0.12)' : HOVER_BG;
+                                        const parentTxtColor  = isLeafActive
+                                            ? ACCENT
+                                            : (parentActive && hasActiveChild)
+                                                ? TXT_HOVER
+                                                : TXT;
+                                        const parentIconColor = isLeafActive
+                                            ? ACCENT
+                                            : (parentActive && hasActiveChild) ? TXT : ICN;
+                                        const parentWeight    = (parentActive) ? 600 : 500;
+
+                        return (
+                            <React.Fragment key={item.id || item.path}>
+
+                                {/* Section label — muted caption */}
+                                {showLabel && (
+                                    <Box sx={{ mt: index === 0 ? '10px' : '16px', mb: '6px' }}>
+                                        <Typography
+                                            sx={{
+                                                px: '4px',
+                                                fontSize: '11px',
+                                                lineHeight: 1,
+                                                fontWeight: 600,
+                                                color: CAPTION,
+                                                letterSpacing: '0.08em',
+                                                textTransform: 'uppercase',
+                                                userSelect: 'none',
+                                            }}
+                                        >
+                                            {currentSection}
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {/* ── Parent row ─────────────────────────── */}
+                                <ListItem
+                                    disablePadding
+                                    sx={{ display: 'block', mb: '4px' }}
+                                >
                                     <Tooltip title={!open ? item.label : ''} placement="right" arrow>
                                         <ListItemButton
+                                            onClick={() => (hasChildren ? handleParentClick(item) : navigate(item.path))}
                                             sx={{
-                                                minHeight: 50,
-                                                justifyContent: open ? 'initial' : 'center',
-                                                px: 2.5,
-                                                borderRadius: 3,
-                                                transition: 'all 0.2s ease-in-out',
-                                                position: 'relative',
-                                                overflow: 'hidden',
-                                                ...(parentActive ? {
-                                                    background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-                                                    color: 'white',
-                                                    boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)',
-                                                    '&:hover': {
-                                                        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                                                        boxShadow: '0 6px 16px rgba(14, 165, 233, 0.4)',
-                                                    }
-                                                } : {
-                                                    color: 'text.secondary',
-                                                    '&:hover': {
-                                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                                        color: 'primary.main',
-                                                        transform: 'translateX(4px)'
-                                                    }
-                                                }),
+                                                height: `${ITEM_H}px`,
+                                                px: `${ITEM_PX * 8}px`,
+                                                borderRadius: `${ITEM_RADIUS}px`,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: open ? 'flex-start' : 'center',
+                                                gap: open ? `${ICON_GAP}px` : 0,
+                                                bgcolor: parentBg,
+                                                color: parentTxtColor,
+                                                '&:hover': {
+                                                    bgcolor: parentHoverBg,
+                                                    color: isLeafActive ? ACCENT : TXT_HOVER,
+                                                },
+                                                '&.Mui-focusVisible': { outline: `2px solid rgba(17,24,39,0.20)`, outlineOffset: 2 },
+                                                transition: 'background-color 0.15s, color 0.15s',
                                             }}
-                                            onClick={() => handleParentClick(item)}
-                                            selected={parentActive}
                                         >
-                                            <ListItemIcon
+                                            {/* Icon slot — fixed 18×18 */}
+                                            <Box
                                                 sx={{
-                                                    minWidth: 0,
-                                                    mr: open ? 2 : 'auto',
+                                                    width: `${ICON_SZ}px`,
+                                                    height: `${ICON_SZ}px`,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    color: parentActive ? 'white' : 'inherit',
-                                                    transition: 'color 0.2s'
+                                                    flexShrink: 0,
+                                                    color: parentIconColor,
+                                                    transition: 'color 0.15s',
                                                 }}
                                             >
-                                                {item.icon}
-                                            </ListItemIcon>
-                                            <ListItemText
-                                                primary={item.label}
-                                                secondary={item.sublabel}
-                                                primaryTypographyProps={{
-                                                    fontWeight: parentActive ? 600 : 500,
-                                                    fontSize: '0.875rem'
-                                                }}
-                                                secondaryTypographyProps={{
-                                                    fontSize: '0.7rem',
-                                                    color: parentActive ? 'rgba(255,255,255,0.8)' : 'text.disabled'
-                                                }}
-                                                sx={{ 
-                                                    opacity: open ? 1 : 0,
-                                                    transition: 'opacity 0.3s'
-                                                }}
-                                            />
+                                                {icon(item.icon)}
+                                            </Box>
+
+                                            {/* Label */}
+                                            {open && (
+                                                <Box
+                                                    component="span"
+                                                    sx={{
+                                                        flex: 1,
+                                                        fontSize: '13.5px',
+                                                        lineHeight: '20px',
+                                                        fontWeight: parentWeight,
+                                                        color: 'inherit',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {item.label}
+                                                </Box>
+                                            )}
                                         </ListItemButton>
                                     </Tooltip>
-                                    {open && (
-                                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+
+                                    {/* ── Submenu ──────────────────────────── */}
+                                    {open && hasChildren && (
+                                        <Collapse in={expanded} timeout={200} unmountOnExit>
                                             <List
-                                                component="div"
                                                 disablePadding
                                                 sx={{
-                                                    mt: 0.75,
-                                                    ml: 2,
-                                                    mr: 1,
-                                                    pl: 1,
-                                                    pr: 0.5,
-                                                    py: 1,
-                                                    borderRadius: 1.5,
-                                                    bgcolor: 'rgba(0, 0, 0, 0.02)',
-                                                    borderLeft: '2px solid rgba(14, 165, 233, 0.2)',
+                                                    mt: '8px',
+                                                    mb: '4px',
+                                                    pl: `${SUB_INDENT}px`,
                                                 }}
                                             >
-                                                {item.children.map((child, idx) => {
+                                                {item.children.map((child, ci) => {
                                                     const childActive = isChildActive(child);
                                                     return (
                                                         <ListItem
-                                                            component="div"
-                                                            key={child.path + (child.state?.openCreate ? '-create' : (child.path + idx))}
+                                                            key={child.path + (child.state?.openCreate ? '-create' : `-${ci}`)}
                                                             disablePadding
-                                                            sx={{ mb: 0.5, '&:last-child': { mb: 0 } }}
+                                                            sx={{ display: 'block', mb: `${SUB_MB * 8}px` }}
                                                         >
                                                             <ListItemButton
-                                                                sx={{
-                                                                    borderRadius: 1.5,
-                                                                    py: 0.5,
-                                                                    pl: 1.5,
-                                                                    minHeight: 28,
-                                                                    transition: 'all 0.2s ease',
-                                                                    ...(childActive
-                                                                        ? {
-                                                                            backgroundColor: 'transparent',
-                                                                            color: 'primary.main',
-                                                                            fontWeight: 700,
-                                                                            '&:hover': {
-                                                                                backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                                                                            },
-                                                                        }
-                                                                        : {
-                                                                            color: 'text.secondary',
-                                                                            backgroundColor: 'transparent',
-                                                                            fontWeight: 400,
-                                                                            '&:hover': {
-                                                                                backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                                                                color: 'text.primary',
-                                                                            },
-                                                                        }),
-                                                                }}
                                                                 onClick={() => handleChildClick(child)}
+                                                                sx={{
+                                                                    height: `${SUB_H}px`,
+                                                                    pl: '10px',
+                                                                    pr: '10px',
+                                                                    borderRadius: `${SUB_RADIUS}px`,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '8px',
+                                                    bgcolor: childActive ? ACTIVE_PILL : 'transparent',
+                                                    color: childActive ? ACCENT : TXT_MUTED,
+                                                    '&:hover': {
+                                                        bgcolor: childActive ? 'rgba(17,24,39,0.12)' : SUB_HOVER_BG,
+                                                        color: childActive ? ACCENT : TXT_MUTED_HVR,
+                                                    },
+                                                    '&.Mui-focusVisible': { outline: `2px solid rgba(17,24,39,0.18)`, outlineOffset: 1 },
+                                                                    transition: 'background-color 0.15s, color 0.15s',
+                                                                }}
                                                             >
-                                                                <ListItemText
-                                                                    primary={child.label}
-                                                                    primaryTypographyProps={{ fontSize: '0.75rem' }}
-                                                                />
+                                                                {/* 2px accent bar inside active pill */}
+                                                                {childActive && (
+                                                                    <Box
+                                                                        sx={{
+                                                                            flexShrink: 0,
+                                                                            width: '2px',
+                                                                            height: '14px',
+                                                                            borderRadius: '2px',
+                                                                            bgcolor: ACTIVE_BAR,
+                                                                        }}
+                                                                    />
+                                                                )}
+
+                                                                <Box
+                                                                    component="span"
+                                                                    sx={{
+                                                                        fontSize: '13px',
+                                                                        lineHeight: '18px',
+                                                                        fontWeight: childActive ? 500 : 400,
+                                                                        color: 'inherit',
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                        whiteSpace: 'nowrap',
+                                                                    }}
+                                                                >
+                                                                    {child.label}
+                                                                </Box>
                                                             </ListItemButton>
                                                         </ListItem>
                                                     );
@@ -374,71 +470,7 @@ const Sidebar = () => {
                                         </Collapse>
                                     )}
                                 </ListItem>
-                            );
-                        }
-
-                        return (
-                            <ListItem key={item.path} disablePadding sx={{ display: 'block', mb: 0.5 }}>
-                                <Tooltip title={!open ? item.label : ''} placement="right" arrow>
-                                    <ListItemButton
-                                        sx={{
-                                            minHeight: 50,
-                                            justifyContent: open ? 'initial' : 'center',
-                                            px: 2.5,
-                                            borderRadius: 3,
-                                            transition: 'all 0.2s ease-in-out',
-                                            position: 'relative',
-                                            overflow: 'hidden',
-                                            ...(location.pathname === item.path ? {
-                                                background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-                                                color: 'white',
-                                                boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)',
-                                                '&:hover': {
-                                                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                                                    boxShadow: '0 6px 16px rgba(14, 165, 233, 0.4)',
-                                                }
-                                            } : {
-                                                color: 'text.secondary',
-                                                '&:hover': {
-                                                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                                    color: 'primary.main',
-                                                    transform: 'translateX(4px)'
-                                                }
-                                            }),
-                                        }}
-                                        onClick={() => navigate(item.path)}
-                                        selected={location.pathname === item.path}
-                                    >
-                                        <ListItemIcon
-                                            sx={{
-                                                minWidth: 0,
-                                                mr: open ? 2 : 'auto',
-                                                justifyContent: 'center',
-                                                color: location.pathname === item.path ? 'white' : 'inherit',
-                                                transition: 'color 0.2s'
-                                            }}
-                                        >
-                                            {item.icon}
-                                        </ListItemIcon>
-                                        <ListItemText
-                                            primary={item.label}
-                                            secondary={item.sublabel}
-                                            primaryTypographyProps={{
-                                                fontWeight: location.pathname === item.path ? 600 : 500,
-                                                fontSize: '0.875rem'
-                                            }}
-                                            secondaryTypographyProps={{
-                                                fontSize: '0.7rem',
-                                                color: location.pathname === item.path ? 'rgba(255,255,255,0.8)' : 'text.secondary'
-                                            }}
-                                            sx={{ 
-                                                opacity: open ? 1 : 0,
-                                                transition: 'opacity 0.3s'
-                                            }}
-                                        />
-                                    </ListItemButton>
-                                </Tooltip>
-                            </ListItem>
+                            </React.Fragment>
                         );
                     })}
                 </List>
