@@ -14,7 +14,8 @@ namespace Warehouse.Api.ApiController
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UnitOfMeasureController : ControllerBase
+    [Authorize]
+	public class UnitOfMeasureController : ControllerBase
     {
         private readonly IUnitOfMeasureService _uomService;
 
@@ -108,7 +109,7 @@ namespace Warehouse.Api.ApiController
         /// Cập nhật thông tin đơn vị tính (Chỉ role 1 - Admin)
         /// </summary>
         [HttpPut("{id}")]
-        [Authorize(Roles = "1")]
+       
         public async Task<IActionResult> Update([FromRoute] long id, [FromBody] UpdateUnitOfMeasureRequest request)
         {
             try
@@ -133,7 +134,7 @@ namespace Warehouse.Api.ApiController
         /// Vô hiệu hoá / kích hoạt đơn vị tính (Chỉ role 1 - Admin)
         /// </summary>
         [HttpPatch("{id}/status")]
-        [Authorize(Roles = "1")]
+        
         public async Task<IActionResult> ToggleStatus([FromRoute] long id, [FromQuery] bool isActive)
         {
             try
