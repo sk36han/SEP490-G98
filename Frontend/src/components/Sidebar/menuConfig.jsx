@@ -9,11 +9,10 @@ import {
     Bell,
     ClipboardList,
     Warehouse,
+    Briefcase,
 } from 'lucide-react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSuitcase } from '@fortawesome/free-solid-svg-icons';
 
-const brandIcon = <FontAwesomeIcon icon={faSuitcase} style={{ fontSize: 22 }} />;
+const brandIcon = <Briefcase size={22} />;
 
 // Hồ sơ cá nhân không hiển thị trong sidebar — mở từ dropdown avatar trên header
 const commonItems = [];

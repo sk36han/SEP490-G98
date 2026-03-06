@@ -188,10 +188,10 @@ const Sidebar = () => {
                 open={open}
                 PaperProps={{
                     sx: {
-                        backgroundColor: '#334155',
+                        backgroundColor: '#f8fafc',
                         backdropFilter: 'blur(12px)',
-                        borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-                        boxShadow: '4px 0 20px rgba(0,0,0,0.3)',
+                        borderRight: '1px solid rgba(0, 0, 0, 0.08)',
+                        boxShadow: '4px 0 20px rgba(0,0,0,0.05)',
                         overflow: 'visible'
                     }
                 }}
@@ -207,55 +207,37 @@ const Sidebar = () => {
                         </Box>
                     )}
                 </DrawerHeader>
-                <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                <Divider sx={{ borderColor: 'rgba(0,0,0,0.06)' }} />
 
                 {/* Toggle Button – hourglass shape (concave-convex) */}
                 <IconButton
                     onClick={open ? handleDrawerClose : handleDrawerOpen}
                     sx={{
                         position: 'absolute',
-                        right: -24,
+                        right: -20,
                         top: '50%',
                         transform: 'translateY(-50%)',
-                        zIndex: 1201,
-                        backgroundColor: '#334155',
-                        width: 24,
-                        height: 48,
-                        borderRadius: '0 24px 24px 0',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        zIndex: 1202,
+                        backgroundColor: '#f8fafc',
+                        width: 20,
+                        height: 56,
+                        borderRadius: '0 50% 50% 0',
+                        border: '1px solid rgba(0,0,0,0.08)',
                         borderLeft: 'none',
                         padding: 0,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '2px 0 8px rgba(0,0,0,0.15)',
+                        boxShadow: '2px 0 8px rgba(0,0,0,0.08)',
                         '&:hover': {
-                            backgroundColor: '#475569',
-                            width: 28,
+                            backgroundColor: '#e2e8f0',
+                            width: 24,
                         },
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            left: 0,
-                            top: -12,
-                            width: 1,
-                            height: 12,
-                            background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.1))',
-                        },
-                        '&::after': {
-                            content: '""',
-                            position: 'absolute',
-                            left: 0,
-                            bottom: -12,
-                            width: 1,
-                            height: 12,
-                            background: 'linear-gradient(to top, transparent, rgba(255,255,255,0.1))',
-                        },
                     }}
                     size="small"
                 >
-                    {open ? <ChevronLeftIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.7)' }} /> : <ChevronRightIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.7)' }} />}
+                    {open ? <ChevronLeftIcon sx={{ fontSize: 14, color: 'rgba(0,0,0,0.6)' }} /> : <ChevronRightIcon sx={{ fontSize: 14, color: 'rgba(0,0,0,0.6)' }} />}
                 </IconButton>
 
                 <List sx={{ px: 1.5, py: 2 }}>
@@ -286,10 +268,10 @@ const Sidebar = () => {
                                                         boxShadow: '0 6px 16px rgba(14, 165, 233, 0.4)',
                                                     }
                                                 } : {
-                                                    color: 'rgba(255,255,255,0.7)',
+                                                    color: 'text.secondary',
                                                     '&:hover': {
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                                        color: 'rgba(255,255,255,0.95)',
+                                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                                        color: 'primary.main',
                                                         transform: 'translateX(4px)'
                                                     }
                                                 }),
@@ -317,7 +299,7 @@ const Sidebar = () => {
                                                 }}
                                                 secondaryTypographyProps={{
                                                     fontSize: '0.7rem',
-                                                    color: parentActive ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)'
+                                                    color: parentActive ? 'rgba(255,255,255,0.8)' : 'text.disabled'
                                                 }}
                                                 sx={{ 
                                                     opacity: open ? 1 : 0,
@@ -332,13 +314,15 @@ const Sidebar = () => {
                                                 component="div"
                                                 disablePadding
                                                 sx={{
-                                                    mt: 1,
-                                                    pl: 1.5,
+                                                    mt: 0.75,
+                                                    ml: 2,
+                                                    mr: 1,
+                                                    pl: 1,
                                                     pr: 0.5,
-                                                    py: 1.5,
-                                                    borderRadius: 2,
-                                                    bgcolor: 'rgba(0, 0, 0, 0.3)',
-                                                    borderLeft: '2px solid rgba(14, 165, 233, 0.5)',
+                                                    py: 1,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: 'rgba(0, 0, 0, 0.02)',
+                                                    borderLeft: '2px solid rgba(14, 165, 233, 0.2)',
                                                 }}
                                             >
                                                 {item.children.map((child, idx) => {
@@ -348,30 +332,31 @@ const Sidebar = () => {
                                                             component="div"
                                                             key={child.path + (child.state?.openCreate ? '-create' : (child.path + idx))}
                                                             disablePadding
-                                                            sx={{ mb: 1.25, '&:last-child': { mb: 0 } }}
+                                                            sx={{ mb: 0.5, '&:last-child': { mb: 0 } }}
                                                         >
                                                             <ListItemButton
                                                                 sx={{
-                                                                    borderRadius: 2,
-                                                                    py: 0.75,
-                                                                    pl: 2,
-                                                                    minHeight: 32,
+                                                                    borderRadius: 1.5,
+                                                                    py: 0.5,
+                                                                    pl: 1.5,
+                                                                    minHeight: 28,
                                                                     transition: 'all 0.2s ease',
                                                                     ...(childActive
                                                                         ? {
-                                                                            backgroundColor: 'rgba(14, 165, 233, 0.2)',
-                                                                            color: '#ffffff',
-                                                                            fontWeight: 600,
+                                                                            backgroundColor: 'transparent',
+                                                                            color: 'primary.main',
+                                                                            fontWeight: 700,
                                                                             '&:hover': {
-                                                                                backgroundColor: 'rgba(14, 165, 233, 0.3)',
+                                                                                backgroundColor: 'rgba(0, 0, 0, 0.02)',
                                                                             },
                                                                         }
                                                                         : {
-                                                                            color: 'rgba(255,255,255,0.85)',
+                                                                            color: 'text.secondary',
                                                                             backgroundColor: 'transparent',
+                                                                            fontWeight: 400,
                                                                             '&:hover': {
-                                                                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                                                                color: 'rgba(255,255,255,1)',
+                                                                                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                                                                color: 'text.primary',
                                                                             },
                                                                         }),
                                                                 }}
@@ -379,7 +364,7 @@ const Sidebar = () => {
                                                             >
                                                                 <ListItemText
                                                                     primary={child.label}
-                                                                    primaryTypographyProps={{ fontSize: '0.8125rem' }}
+                                                                    primaryTypographyProps={{ fontSize: '0.75rem' }}
                                                                 />
                                                             </ListItemButton>
                                                         </ListItem>
@@ -413,10 +398,10 @@ const Sidebar = () => {
                                                     boxShadow: '0 6px 16px rgba(14, 165, 233, 0.4)',
                                                 }
                                             } : {
-                                                color: 'rgba(255,255,255,0.7)',
+                                                color: 'text.secondary',
                                                 '&:hover': {
-                                                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                                    color: 'rgba(255,255,255,0.95)',
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                                    color: 'primary.main',
                                                     transform: 'translateX(4px)'
                                                 }
                                             }),
