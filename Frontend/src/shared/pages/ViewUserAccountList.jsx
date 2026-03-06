@@ -49,7 +49,7 @@ const USER_ACCOUNT_COLUMNS = [
     { id: 'actions', label: 'Hành động', getValue: () => '' },
 ];
 const DEFAULT_VISIBLE_USER_COLUMN_IDS = USER_ACCOUNT_COLUMNS.map((c) => c.id);
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
 const UserAccountList = () => {
     const { toast, showToast, clearToast } = useToast();
@@ -60,7 +60,7 @@ const UserAccountList = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [pageNumber, setPageNumber] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(7);
     const [totalCount, setTotalCount] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
@@ -240,6 +240,8 @@ const UserAccountList = () => {
             await adminService.updateUser(editForm.userId, {
                 fullName: editForm.fullName,
                 roleId: editForm.roleId,
+                gender: editForm.gender || undefined,
+                dob: editForm.dob || undefined,
             });
             showToast('Cập nhật thành công!', 'success');
             setShowEditDialog(false);
@@ -267,6 +269,10 @@ const UserAccountList = () => {
 
     const openEditDialog = (user) => {
         const roleId = user.roleId ?? ROLE_NAME_TO_ID[user.roleName] ?? 2;
+        const rawDob = user.dob ?? user.dateOfBirth ?? null;
+        const dobStr = rawDob
+            ? (typeof rawDob === 'string' && rawDob.length >= 10 ? rawDob.substring(0, 10) : new Date(rawDob).toISOString().slice(0, 10))
+            : '';
         setEditForm({
             userId: user.userId,
             fullName: user.fullName ?? '',
@@ -278,6 +284,7 @@ const UserAccountList = () => {
             createdAt: user.createdAt ?? null,
             lastLoginAt: user.lastLoginAt ?? null,
             gender: user.gender ?? '',
+            dob: dobStr,
             citizenId: user.citizenId ?? '',
         });
         setShowEditDialog(true);
@@ -309,16 +316,13 @@ const UserAccountList = () => {
 
     return (
         <Container
-            maxWidth={false}
+            maxWidth="xl"
             sx={{
                 pt: 2,
-                pb: 0,
-                width: '100%',
-                maxWidth: 2304,
+                pb: 2,
+                mx: 'auto',
                 height: '100%',
                 minHeight: 0,
-                minWidth: 0,
-                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
             }}
@@ -467,7 +471,7 @@ const UserAccountList = () => {
                     onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
                         Chọn cột hiển thị
@@ -483,18 +487,29 @@ const UserAccountList = () => {
                             }
                             label="Tất cả"
                         />
-                        {USER_ACCOUNT_COLUMNS.map((col) => (
-                            <FormControlLabel
-                                key={col.id}
-                                control={
-                                    <Checkbox
-                                        checked={visibleColumnIds.has(col.id)}
-                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                    />
-                                }
-                                label={col.label}
-                            />
-                        ))}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {USER_ACCOUNT_COLUMNS.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                        />
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
@@ -505,7 +520,7 @@ const UserAccountList = () => {
                                 {visibleColumns.map((col) => (
                                     <TableCell
                                         key={col.id}
-                                        align={col.id === 'actions' ? 'right' : 'left'}
+                                        align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}
                                         sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', whiteSpace: 'nowrap' }}
                                     >
                                         {col.label}
@@ -552,7 +567,7 @@ const UserAccountList = () => {
                                         {visibleColumns.map((col) => {
                                             const opts = { pageNumber, pageSize };
                                             if (col.id === 'stt') {
-                                                return <TableCell key={col.id}>{col.getValue(user, index, opts)}</TableCell>;
+                                                return <TableCell key={col.id} align="center">{col.getValue(user, index, opts)}</TableCell>;
                                             }
                                             if (col.id === 'username') {
                                                 return <TableCell key={col.id} sx={{ fontWeight: 500 }}>{user.username}</TableCell>;
@@ -686,6 +701,9 @@ const UserAccountList = () => {
                 >
                     Trước
                 </Button>
+                <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, minWidth: 72, textAlign: 'center' }}>
+                    Trang {pageNumber} / {totalPages || 1}
+                </Typography>
                 <Button
                     size="small"
                     variant="outlined"

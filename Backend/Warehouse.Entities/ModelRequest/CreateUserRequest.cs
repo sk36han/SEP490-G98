@@ -21,6 +21,6 @@ namespace Warehouse.Entities.ModelRequest
 		[Required(ErrorMessage = "Role là bắt buộc.")]
 		public long RoleId { get; set; }
 
-		//public string? Username { get; set; }
+		
 	}
 }

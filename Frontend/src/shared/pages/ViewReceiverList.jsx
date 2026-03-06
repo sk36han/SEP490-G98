@@ -31,7 +31,7 @@ import ReceiverFilterPopup from '../components/ReceiverFilterPopup';
 import { getReceivers, toggleReceiverStatus } from '../lib/receiverService';
 import '../styles/SupplierView.css';
 
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
 const RECEIVER_COLUMNS = [
     { id: 'stt', label: 'STT', getValue: () => '' },
@@ -49,7 +49,38 @@ const RECEIVER_COLUMNS = [
     { id: 'actions', label: 'Thao tác', getValue: () => '' },
 ];
 
-const DEFAULT_VISIBLE_COLUMN_IDS = RECEIVER_COLUMNS.map((c) => c.id);
+/** Mặc định chỉ hiển thị: STT, Tên người nhận, Số điện thoại, Địa chỉ, Trạng thái, Ngày tạo, Thao tác */
+const DEFAULT_VISIBLE_COLUMN_IDS = ['stt', 'receiverName', 'phone', 'address', 'isActive', 'createdAt', 'actions'];
+
+const getColumnWeight = (colId) => {
+    switch (colId) {
+        case 'stt': return 0.6;
+        case 'receiverCode': return 1.2;
+        case 'receiverName': return 2;
+        case 'phone': case 'email': return 1.2;
+        case 'ward': case 'province': case 'country': return 1;
+        case 'address': return 1.8;
+        case 'notes': return 1.5;
+        case 'isActive': return 1.2;
+        case 'createdAt': return 1.2;
+        case 'actions': return 1.4;
+        default: return 1;
+    }
+};
+
+const getColumnCellSx = (colId, widthPct) => {
+    const base = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: 'border-box' };
+    if (colId === 'actions') return { ...base, overflow: 'visible' };
+    if (colId === 'isActive') return { ...base, overflow: 'visible', minWidth: 0 };
+    return base;
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
 
 // Giữ để tránh lỗi "MOCK_RECEIVERS is not defined" (dữ liệu thật lấy từ API getReceivers)
 const MOCK_RECEIVERS = [];
@@ -67,7 +98,7 @@ export default function ViewReceiver() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(7);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
 
@@ -81,7 +112,7 @@ export default function ViewReceiver() {
         const toDate = fv.toDate;
         return {
             page: Number(page) + 1 || 1,
-            pageSize: Number(pageSize) || 20,
+            pageSize: Number(pageSize) || 7,
             receiverCode: fv.receiverCode != null ? String(fv.receiverCode) : '',
             receiverName: receiverName || '',
             isActive: fv.isActive ?? null,
@@ -133,6 +164,8 @@ export default function ViewReceiver() {
 
     const visibleColumns = RECEIVER_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
+    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
+    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
     const start = totalRows === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalRows);
@@ -170,7 +203,23 @@ export default function ViewReceiver() {
     };
 
     return (
-        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
+        <Box
+            sx={{
+                height: '100%',
+                minHeight: 0,
+                minWidth: 0,
+                overflow: 'visible',
+                display: 'flex',
+                flexDirection: 'column',
+                pt: 0,
+                pb: 2,
+                width: '100%',
+                maxWidth: '100%',
+                ml: 0,
+                mr: 0,
+                boxSizing: 'border-box',
+            }}
+        >
             <Box
                 sx={{
                     flexShrink: 0,
@@ -213,7 +262,7 @@ export default function ViewReceiver() {
                     flex: 1,
                     minHeight: 0,
                     minWidth: 0,
-                    overflow: 'hidden',
+                    overflow: 'visible',
                     display: 'flex',
                     flexDirection: 'column',
                     width: '100%',
@@ -317,7 +366,7 @@ export default function ViewReceiver() {
                     onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
                         Chọn cột hiển thị
@@ -336,18 +385,29 @@ export default function ViewReceiver() {
                             }
                             label="Tất cả"
                         />
-                        {RECEIVER_COLUMNS.map((col) => (
-                            <FormControlLabel
-                                key={col.id}
-                                control={
-                                    <Checkbox
-                                        checked={visibleColumnIds.has(col.id)}
-                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                    />
-                                }
-                                label={col.label}
-                            />
-                        ))}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {RECEIVER_COLUMNS.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                        />
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
@@ -355,9 +415,9 @@ export default function ViewReceiver() {
                     className="supplier-grid-card"
                     sx={{
                         flex: 1,
-                        minHeight: 0,
+                        minHeight: 400,
                         minWidth: 0,
-                        overflow: 'hidden',
+                        overflow: 'visible',
                         display: 'flex',
                         flexDirection: 'column',
                         borderRadius: 3,
@@ -368,7 +428,7 @@ export default function ViewReceiver() {
                 >
                     <Box
                         className="supplier-grid-wrapper"
-                        sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}
+                        sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', position: 'relative' }}
                     >
                         {loading ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
@@ -422,23 +482,23 @@ export default function ViewReceiver() {
                                     flex: 1,
                                     minHeight: 0,
                                     minWidth: 0,
+                                    width: '100%',
+                                    maxWidth: '100%',
                                     border: '1px solid rgba(0,0,0,0.2)',
                                     borderRadius: 2,
-                                    overflow: 'auto',
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden',
+                                    boxSizing: 'border-box',
                                 }}
                             >
-                                <Table size="small" stickyHeader>
+                                <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow>
                                             {visibleColumns.map((col) => (
                                                 <TableCell
                                                     key={col.id}
-                                                    sx={{
-                                                        fontWeight: 600,
-                                                        bgcolor: 'grey.50',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                    align="left"
+                                                    sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }}
+                                                    align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}
                                                 >
                                                     {col.label}
                                                 </TableCell>
@@ -451,15 +511,15 @@ export default function ViewReceiver() {
                                                 {visibleColumns.map((col) => {
                                                     if (col.id === 'stt') {
                                                         return (
-                                                            <TableCell key={col.id} align="left">
+                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 {page * pageSize + index + 1}
                                                             </TableCell>
                                                         );
                                                     }
                                                     if (col.id === 'isActive') {
                                                         return (
-                                                            <TableCell key={col.id} align="left">
-                                                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
+                                                                <FormControl size="small" sx={{ minWidth: 0, width: '100%', maxWidth: '100%' }}>
                                                                     <Select
                                                                         value={row.isActive ? 'true' : 'false'}
                                                                         onChange={(e) =>
@@ -471,6 +531,7 @@ export default function ViewReceiver() {
                                                                         sx={{
                                                                             fontSize: '0.8125rem',
                                                                             borderRadius: '50px',
+                                                                            width: '100%',
                                                                             '& .MuiSelect-select': {
                                                                                 py: 0.25,
                                                                                 px: 1.5,
@@ -484,9 +545,16 @@ export default function ViewReceiver() {
                                                             </TableCell>
                                                         );
                                                     }
+                                                    if (col.id === 'createdAt') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left" sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontSize: '0.8rem' }} title={row.createdAt ? formatDate(row.createdAt) : ''}>
+                                                                {formatDate(row.createdAt)}
+                                                            </TableCell>
+                                                        );
+                                                    }
                                                     if (col.id === 'actions') {
                                                         return (
-                                                            <TableCell key={col.id} align="right">
+                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 <Tooltip title="Xem">
                                                                     <IconButton
                                                                         size="small"
@@ -507,7 +575,7 @@ export default function ViewReceiver() {
                                                         );
                                                     }
                                                     return (
-                                                        <TableCell key={col.id} align="left">
+                                                        <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(row)}>
                                                             {col.getValue(row)}
                                                         </TableCell>
                                                     );
@@ -525,18 +593,22 @@ export default function ViewReceiver() {
                     sx={{
                         flexShrink: 0,
                         mt: 1,
+                        pt: 1,
+                        pb: 0.5,
                         display: 'flex',
                         flexWrap: 'wrap',
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         gap: 2,
+                        overflow: 'visible',
+                        minHeight: 48,
                     }}
                 >
                     <Typography
                         variant="body2"
                         color="text.secondary"
                         component="span"
-                        sx={{ whiteSpace: 'nowrap' }}
+                        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
                         Số dòng / trang:
                     </Typography>
@@ -557,7 +629,7 @@ export default function ViewReceiver() {
                         variant="body2"
                         color="text.secondary"
                         component="span"
-                        sx={{ whiteSpace: 'nowrap' }}
+                        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
                         {start}–{end} / {totalRows} (Tổng {totalPages} trang)
                     </Typography>
@@ -570,6 +642,9 @@ export default function ViewReceiver() {
                     >
                         Trước
                     </Button>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0 }}>
+                        Trang {page + 1} / {totalPages || 1}
+                    </Typography>
                     <Button
                         size="small"
                         variant="outlined"

@@ -27,5 +27,6 @@ public partial class Receiver
 
     public DateTime CreatedAt { get; set; }
 
+
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 }

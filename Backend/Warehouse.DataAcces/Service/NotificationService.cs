@@ -13,7 +13,7 @@ namespace Warehouse.DataAcces.Service
 {
 	public class NotificationService : GenericRepository<Notification>, INotificationService
 	{
-		public NotificationService(Mkiwms4Context context) : base(context)
+		public NotificationService(Mkiwms5Context context) : base(context)
 		{
 		}
 

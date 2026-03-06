@@ -44,7 +44,24 @@ const USER_ACCOUNT_COLUMNS = [
     { id: 'actions', label: 'Hành động', getValue: () => '' },
 ];
 const DEFAULT_VISIBLE_USER_COLUMN_IDS = USER_ACCOUNT_COLUMNS.map((c) => c.id);
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
+
+const getColumnWeight = (colId) => {
+    switch (colId) {
+        case 'stt': return 0.6;
+        case 'username': return 1.5;
+        case 'email': return 2;
+        case 'fullName': return 2;
+        case 'role': return 1.2;
+        case 'status': return 1.2;
+        case 'actions': return 1.4;
+        default: return 1;
+    }
+};
+const getColumnCellSx = (colId, widthPct) => {
+    const base = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: 'border-box' };
+    return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
+};
 
 const DeactivatedUsersList = () => {
     const { toast, showToast, clearToast } = useToast();
@@ -53,7 +70,7 @@ const DeactivatedUsersList = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [pageNumber, setPageNumber] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(7);
     const [totalCount, setTotalCount] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
@@ -89,6 +106,8 @@ const DeactivatedUsersList = () => {
     };
     const visibleColumns = USER_ACCOUNT_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
+    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
+    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
     const loadUsers = async () => {
         setLoading(true);
@@ -175,6 +194,8 @@ const DeactivatedUsersList = () => {
             await adminService.updateUser(editForm.userId, {
                 fullName: editForm.fullName,
                 roleId: editForm.roleId,
+                gender: editForm.gender || undefined,
+                dob: editForm.dob || undefined,
             });
             showToast('Cập nhật thành công!', 'success');
             setShowEditDialog(false);
@@ -198,6 +219,10 @@ const DeactivatedUsersList = () => {
 
     const openEditDialog = (user) => {
         const roleId = user.roleId ?? ROLE_NAME_TO_ID[user.roleName] ?? 2;
+        const rawDob = user.dob ?? user.dateOfBirth ?? null;
+        const dobStr = rawDob
+            ? (typeof rawDob === 'string' && rawDob.length >= 10 ? rawDob.substring(0, 10) : new Date(rawDob).toISOString().slice(0, 10))
+            : '';
         setEditForm({
             userId: user.userId,
             fullName: user.fullName ?? '',
@@ -209,6 +234,7 @@ const DeactivatedUsersList = () => {
             createdAt: user.createdAt ?? null,
             lastLoginAt: user.lastLoginAt ?? null,
             gender: user.gender ?? '',
+            dob: dobStr,
             citizenId: user.citizenId ?? '',
         });
         setShowEditDialog(true);
@@ -245,13 +271,16 @@ const DeactivatedUsersList = () => {
                 pt: 2,
                 pb: 0,
                 width: '100%',
-                maxWidth: 2304,
+                maxWidth: '100%',
+                ml: 0,
+                mr: 0,
                 height: '100%',
                 minHeight: 0,
                 minWidth: 0,
-                overflow: 'hidden',
+                overflow: 'visible',
                 display: 'flex',
                 flexDirection: 'column',
+                boxSizing: 'border-box',
             }}
         >
             <Box
@@ -383,7 +412,7 @@ const DeactivatedUsersList = () => {
                     onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
                         Chọn cột hiển thị
@@ -399,30 +428,41 @@ const DeactivatedUsersList = () => {
                             }
                             label="Tất cả"
                         />
-                        {USER_ACCOUNT_COLUMNS.map((col) => (
-                            <FormControlLabel
-                                key={col.id}
-                                control={
-                                    <Checkbox
-                                        checked={visibleColumnIds.has(col.id)}
-                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                    />
-                                }
-                                label={col.label}
-                            />
-                        ))}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {USER_ACCOUNT_COLUMNS.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                        />
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
-                <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 2, overflow: 'auto' }}>
-                    <Table stickyHeader>
+                <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', maxWidth: '100%', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 2, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+                    <Table stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
                         <TableHead>
                             <TableRow>
                                 {visibleColumns.map((col) => (
                                     <TableCell
                                         key={col.id}
-                                        align={col.id === 'actions' ? 'right' : 'left'}
-                                        sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', whiteSpace: 'nowrap' }}
+                                        align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}
+                                        sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary' }}
                                     >
                                         {col.label}
                                     </TableCell>
@@ -468,29 +508,29 @@ const DeactivatedUsersList = () => {
                                         {visibleColumns.map((col) => {
                                             const opts = { pageNumber, pageSize };
                                             if (col.id === 'stt') {
-                                                return <TableCell key={col.id}>{col.getValue(user, index, opts)}</TableCell>;
+                                                return <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>{col.getValue(user, index, opts)}</TableCell>;
                                             }
                                             if (col.id === 'username') {
-                                                return <TableCell key={col.id} sx={{ fontWeight: 500 }}>{user.username}</TableCell>;
+                                                return <TableCell key={col.id} sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 500 }} title={user.username}>{user.username}</TableCell>;
                                             }
                                             if (col.id === 'email') {
-                                                return <TableCell key={col.id}>{user.email}</TableCell>;
+                                                return <TableCell key={col.id} sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={user.email}>{user.email}</TableCell>;
                                             }
                                             if (col.id === 'fullName') {
                                                 return (
-                                                    <TableCell key={col.id}>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: 'grey.400', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: 'bold' }}>
+                                                    <TableCell key={col.id} sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={user.fullName}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, overflow: 'hidden' }}>
+                                                            <Box sx={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', bgcolor: 'grey.400', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: 'bold' }}>
                                                                 {(user.fullName || ' ').charAt(0)}
                                                             </Box>
-                                                            {user.fullName}
+                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.fullName}</span>
                                                         </Box>
                                                     </TableCell>
                                                 );
                                             }
                                             if (col.id === 'role') {
                                                 return (
-                                                    <TableCell key={col.id}>
+                                                    <TableCell key={col.id} sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                         <Chip
                                                             label={ROLE_DISPLAY_MAPPING[user.roleName] || user.roleName || 'N/A'}
                                                             size="small"
@@ -503,7 +543,7 @@ const DeactivatedUsersList = () => {
                                             }
                                             if (col.id === 'status') {
                                                 return (
-                                                    <TableCell key={col.id}>
+                                                    <TableCell key={col.id} sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                         <Chip
                                                             label="Vô hiệu"
                                                             size="small"
@@ -523,7 +563,7 @@ const DeactivatedUsersList = () => {
                                             }
                                             if (col.id === 'actions') {
                                                 return (
-                                                    <TableCell key={col.id} align="right">
+                                                    <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                                                             <Tooltip title="Chỉnh sửa">
                                                                 <IconButton size="small" onClick={() => openEditDialog(user)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'primary.lighter' } }}>
@@ -546,7 +586,7 @@ const DeactivatedUsersList = () => {
                                                     </TableCell>
                                                 );
                                             }
-                                            return <TableCell key={col.id}>{col.getValue(user, index, opts)}</TableCell>;
+                                            return <TableCell key={col.id} sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(user, index, opts)}>{col.getValue(user, index, opts)}</TableCell>;
                                         })}
                                     </TableRow>
                                 ))
@@ -592,6 +632,9 @@ const DeactivatedUsersList = () => {
                 >
                     Trước
                 </Button>
+                <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, minWidth: 72, textAlign: 'center' }}>
+                    Trang {pageNumber} / {totalPages || 1}
+                </Typography>
                 <Button
                     size="small"
                     variant="outlined"

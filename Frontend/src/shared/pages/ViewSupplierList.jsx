@@ -32,7 +32,7 @@ import ViewSupplierDetail from '../components/ViewSupplierDetail';
 import EditSupplierPopup from '../components/EditSupplierPopup';
 import '../styles/SupplierView.css';
 
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
 const SUPPLIER_COLUMNS = [
     { id: 'stt', label: 'STT', getValue: () => '' },
@@ -48,6 +48,33 @@ const SUPPLIER_COLUMNS = [
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
 
+const getColumnWeight = (colId) => {
+    switch (colId) {
+        case 'stt': return 0.6;
+        case 'supplierCode': return 1.2;
+        case 'supplierName': return 2.2;
+        case 'taxCode': return 1.2;
+        case 'phone': return 1.2;
+        case 'email': return 1.5;
+        case 'address': return 2;
+        case 'isActive': return 1.2;
+        case 'actions': return 1.4;
+        default: return 1;
+    }
+};
+
+const getColumnCellSx = (colId, widthPct) => {
+    const base = {
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        width: `${widthPct}%`,
+        maxWidth: `${widthPct}%`,
+        boxSizing: 'border-box',
+    };
+    return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
+};
+
 export default function ViewSupplierList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -61,7 +88,7 @@ export default function ViewSupplierList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(7);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
     const [detailOpen, setDetailOpen] = useState(false);
@@ -83,6 +110,8 @@ export default function ViewSupplierList() {
     };
 
     const visibleColumns = SUPPLIER_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
+    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
+    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     const getApiParams = useCallback(() => {
@@ -95,7 +124,7 @@ export default function ViewSupplierList() {
         const toDate = fv.toDate;
         return {
             page: Number(page) + 1 || 1,
-            pageSize: Number(pageSize) || 20,
+            pageSize: Number(pageSize) || 7,
             supplierCode: fv.supplierCode != null ? String(fv.supplierCode) : '',
             supplierName: supplierName || '',
             taxCode: fv.taxCode != null ? String(fv.taxCode) : '',
@@ -155,7 +184,23 @@ export default function ViewSupplierList() {
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
 
     return (
-        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
+        <Box
+            sx={{
+                height: '100%',
+                minHeight: 0,
+                minWidth: 0,
+                overflow: 'visible',
+                display: 'flex',
+                flexDirection: 'column',
+                pt: 0,
+                pb: 2,
+                width: '100%',
+                maxWidth: '100%',
+                ml: 0,
+                mr: 0,
+                boxSizing: 'border-box',
+            }}
+        >
             <ViewSupplierDetail
                 open={detailOpen}
                 onClose={() => {
@@ -203,7 +248,7 @@ export default function ViewSupplierList() {
                     flex: 1,
                     minHeight: 0,
                     minWidth: 0,
-                    overflow: 'hidden',
+                    overflow: 'visible',
                     display: 'flex',
                     flexDirection: 'column',
                     width: '100%',
@@ -296,7 +341,7 @@ export default function ViewSupplierList() {
                     onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
                         Chọn cột hiển thị
@@ -312,18 +357,29 @@ export default function ViewSupplierList() {
                             }
                             label="Tất cả"
                         />
-                        {SUPPLIER_COLUMNS.map((col) => (
-                            <FormControlLabel
-                                key={col.id}
-                                control={
-                                    <Checkbox
-                                        checked={visibleColumnIds.has(col.id)}
-                                        onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                    />
-                                }
-                                label={col.label}
-                            />
-                        ))}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {SUPPLIER_COLUMNS.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                        />
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
@@ -331,9 +387,9 @@ export default function ViewSupplierList() {
                     className="supplier-grid-card"
                     sx={{
                         flex: 1,
-                        minHeight: 0,
+                        minHeight: 400,
                         minWidth: 0,
-                        overflow: 'hidden',
+                        overflow: 'visible',
                         display: 'flex',
                         flexDirection: 'column',
                         borderRadius: 3,
@@ -342,7 +398,7 @@ export default function ViewSupplierList() {
                         p: 1,
                     }}
                 >
-                    <Box className="supplier-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                    <Box className="supplier-grid-wrapper" sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                         {loading ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
                                 <Typography color="text.secondary">Đang tải…</Typography>
@@ -381,12 +437,12 @@ export default function ViewSupplierList() {
                                 <Typography>Chưa có dữ liệu nhà cung cấp</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
-                                <Table size="small" stickyHeader>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', maxWidth: '100%', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+                                <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow>
                                             {visibleColumns.map((col) => (
-                                                <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' ? 'right' : 'left'}>
+                                                <TableCell key={col.id} sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }} align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}>
                                                     {col.label}
                                                 </TableCell>
                                             ))}
@@ -398,14 +454,14 @@ export default function ViewSupplierList() {
                                                 {visibleColumns.map((col) => {
                                                     if (col.id === 'stt') {
                                                         return (
-                                                            <TableCell key={col.id} align="left">
+                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 {page * pageSize + index + 1}
                                                             </TableCell>
                                                         );
                                                     }
                                                     if (col.id === 'actions') {
                                                         return (
-                                                            <TableCell key={col.id} align="right">
+                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 <Tooltip title="Xem">
                                                                     <IconButton
                                                                         size="small"
@@ -433,7 +489,7 @@ export default function ViewSupplierList() {
                                                             </TableCell>
                                                         );
                                                     }
-                                                    return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
+                                                    return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(row)}>{col.getValue(row)}</TableCell>;
                                                 })}
                                             </TableRow>
                                         ))}
@@ -448,14 +504,18 @@ export default function ViewSupplierList() {
                     sx={{
                         flexShrink: 0,
                         mt: 1,
+                        pt: 1,
+                        pb: 0.5,
                         display: 'flex',
                         flexWrap: 'wrap',
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         gap: 2,
+                        overflow: 'visible',
+                        minHeight: 48,
                     }}
                 >
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>Số dòng / trang:</Typography>
                     <FormControl size="small" sx={{ minWidth: 72 }}>
                         <Select
                             value={pageSize}
@@ -467,7 +527,7 @@ export default function ViewSupplierList() {
                             ))}
                         </Select>
                     </FormControl>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                         {start}–{end} / {totalRows} (Tổng {totalPages} trang)
                     </Typography>
                     <Button
@@ -479,6 +539,9 @@ export default function ViewSupplierList() {
                     >
                         Trước
                     </Button>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0 }}>
+                        Trang {page + 1} / {totalPages || 1}
+                    </Typography>
                     <Button
                         size="small"
                         variant="outlined"

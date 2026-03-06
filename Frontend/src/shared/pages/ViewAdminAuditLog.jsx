@@ -111,7 +111,7 @@ const ViewAdminAuditLog = () => {
                 pt: 3,
                 pb: 2,
                 width: '100%',
-                maxWidth: 2304,
+                maxWidth: 1400,
                 minHeight: 560,
                 overflow: 'hidden',
                 display: 'flex',

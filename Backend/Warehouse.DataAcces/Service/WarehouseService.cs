@@ -14,7 +14,7 @@ namespace Warehouse.DataAcces.Service
     {
 		private readonly IConfiguration _configuration;
 		private readonly IAuditLogService _auditLogService;
-		public WarehouseService(Mkiwms4Context context, IConfiguration configuration, IAuditLogService auditLogService) : base(context)
+		public WarehouseService(Mkiwms5Context context, IConfiguration configuration, IAuditLogService auditLogService) : base(context)
 		{
 			_configuration = configuration;
 			_auditLogService = auditLogService;
