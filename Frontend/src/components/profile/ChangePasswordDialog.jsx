@@ -10,6 +10,7 @@ import {
     InputAdornment,
     Box,
     Typography,
+    Stack,
 } from '@mui/material';
 import { Key, Eye, EyeOff, ShieldCheck, X } from 'lucide-react';
 import authService from '../../shared/lib/authService';
@@ -72,118 +73,263 @@ const ChangePasswordDialog = ({ open, onClose, onSuccess }) => {
         <Dialog
             open={open}
             onClose={handleClose}
+            maxWidth="sm"
+            fullWidth
             PaperProps={{
                 sx: {
-                    borderRadius: 3,
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    borderRadius: '14px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                    border: '1px solid rgba(0, 0, 0, 0.06)',
                 },
             }}
         >
             <DialogTitle
                 sx={{
-                    background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
-                    color: 'white',
+                    px: 3,
+                    py: 2.5,
+                    borderBottom: '1px solid',
+                    borderColor: 'rgba(0, 0, 0, 0.06)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    px: 3,
-                    py: 2,
                 }}
             >
-                <Typography variant="h6" component="span" fontWeight="bold">
+                <Typography 
+                    variant="h6" 
+                    sx={{ 
+                        fontWeight: 600,
+                        fontSize: '18px',
+                        color: 'text.primary'
+                    }}
+                >
                     Đổi mật khẩu
                 </Typography>
-                <IconButton onClick={handleClose} size="small" sx={{ color: 'white' }}>
+                <IconButton 
+                    onClick={handleClose} 
+                    size="small"
+                    sx={{
+                        color: 'text.secondary',
+                        '&:hover': {
+                            bgcolor: 'rgba(0, 0, 0, 0.04)',
+                        },
+                    }}
+                >
                     <X size={20} />
                 </IconButton>
             </DialogTitle>
-            <DialogContent sx={{ p: 4, minWidth: 400 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-                    <TextField
-                        fullWidth
-                        label="Mật khẩu hiện tại"
-                        name="oldPassword"
-                        type={showPassword.current ? 'text' : 'password'}
-                        value={passwordData.oldPassword}
-                        onChange={handlePasswordChange}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <Key size={18} className="text-gray-500" />
-                                </InputAdornment>
-                            ),
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <IconButton onClick={() => togglePasswordVisibility('current')} edge="end">
-                                        {showPassword.current ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </IconButton>
-                                </InputAdornment>
-                            ),
-                            sx: { borderRadius: 2 },
-                        }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Mật khẩu mới"
-                        name="newPassword"
-                        type={showPassword.new ? 'text' : 'password'}
-                        value={passwordData.newPassword}
-                        onChange={handlePasswordChange}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <ShieldCheck size={18} className="text-gray-500" />
-                                </InputAdornment>
-                            ),
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <IconButton onClick={() => togglePasswordVisibility('new')} edge="end">
-                                        {showPassword.new ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </IconButton>
-                                </InputAdornment>
-                            ),
-                            sx: { borderRadius: 2 },
-                        }}
-                        helperText="Tối thiểu 6 ký tự"
-                    />
-                    <TextField
-                        fullWidth
-                        label="Xác nhận mật khẩu mới"
-                        name="confirmPassword"
-                        type={showPassword.confirm ? 'text' : 'password'}
-                        value={passwordData.confirmPassword}
-                        onChange={handlePasswordChange}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <ShieldCheck size={18} className="text-gray-500" />
-                                </InputAdornment>
-                            ),
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <IconButton onClick={() => togglePasswordVisibility('confirm')} edge="end">
-                                        {showPassword.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </IconButton>
-                                </InputAdornment>
-                            ),
-                            sx: { borderRadius: 2 },
-                        }}
-                    />
-                </Box>
+
+            <DialogContent sx={{ p: 3, pt: 3 }}>
+                <Stack spacing={3}>
+                    {/* Mật khẩu hiện tại */}
+                    <Box>
+                        <Typography 
+                            variant="body2" 
+                            sx={{ 
+                                fontWeight: 500,
+                                fontSize: '13px',
+                                mb: 1,
+                                color: 'text.primary'
+                            }}
+                        >
+                            Mật khẩu hiện tại
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            name="oldPassword"
+                            type={showPassword.current ? 'text' : 'password'}
+                            value={passwordData.oldPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Nhập mật khẩu hiện tại"
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton 
+                                            onClick={() => togglePasswordVisibility('current')} 
+                                            edge="end"
+                                            size="small"
+                                        >
+                                            {showPassword.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                                sx: {
+                                    height: '40px',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    '& fieldset': {
+                                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: 'rgba(0, 0, 0, 0.2)',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: 'primary.main',
+                                        borderWidth: '1px',
+                                    },
+                                },
+                            }}
+                        />
+                    </Box>
+
+                    {/* Mật khẩu mới */}
+                    <Box>
+                        <Typography 
+                            variant="body2" 
+                            sx={{ 
+                                fontWeight: 500,
+                                fontSize: '13px',
+                                mb: 1,
+                                color: 'text.primary'
+                            }}
+                        >
+                            Mật khẩu mới
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            name="newPassword"
+                            type={showPassword.new ? 'text' : 'password'}
+                            value={passwordData.newPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Nhập mật khẩu mới"
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton 
+                                            onClick={() => togglePasswordVisibility('new')} 
+                                            edge="end"
+                                            size="small"
+                                        >
+                                            {showPassword.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                                sx: {
+                                    height: '40px',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    '& fieldset': {
+                                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: 'rgba(0, 0, 0, 0.2)',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: 'primary.main',
+                                        borderWidth: '1px',
+                                    },
+                                },
+                            }}
+                        />
+                        <Typography 
+                            variant="caption" 
+                            sx={{ 
+                                color: 'text.secondary',
+                                fontSize: '11px',
+                                mt: 0.5,
+                                display: 'block'
+                            }}
+                        >
+                            Tối thiểu 6 ký tự
+                        </Typography>
+                    </Box>
+
+                    {/* Xác nhận mật khẩu */}
+                    <Box>
+                        <Typography 
+                            variant="body2" 
+                            sx={{ 
+                                fontWeight: 500,
+                                fontSize: '13px',
+                                mb: 1,
+                                color: 'text.primary'
+                            }}
+                        >
+                            Xác nhận mật khẩu mới
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            name="confirmPassword"
+                            type={showPassword.confirm ? 'text' : 'password'}
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Nhập lại mật khẩu mới"
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton 
+                                            onClick={() => togglePasswordVisibility('confirm')} 
+                                            edge="end"
+                                            size="small"
+                                        >
+                                            {showPassword.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                                sx: {
+                                    height: '40px',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    '& fieldset': {
+                                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: 'rgba(0, 0, 0, 0.2)',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: 'primary.main',
+                                        borderWidth: '1px',
+                                    },
+                                },
+                            }}
+                        />
+                    </Box>
+                </Stack>
             </DialogContent>
-            <DialogActions sx={{ p: 3, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Button onClick={handleClose} variant="outlined" color="inherit" sx={{ borderRadius: 2 }}>
-                    Hủy bỏ
+
+            <DialogActions 
+                sx={{ 
+                    p: 3, 
+                    pt: 2,
+                    borderTop: '1px solid',
+                    borderColor: 'rgba(0, 0, 0, 0.06)',
+                    gap: 1.5
+                }}
+            >
+                <Button 
+                    onClick={handleClose}
+                    size="small"
+                    sx={{
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '13px',
+                        color: 'text.secondary',
+                        px: 2,
+                        '&:hover': {
+                            bgcolor: 'rgba(0, 0, 0, 0.04)',
+                        },
+                    }}
+                >
+                    Hủy
                 </Button>
                 <Button
                     onClick={handleSubmit}
                     variant="contained"
                     disabled={loading}
+                    size="small"
                     sx={{
-                        px: 4,
-                        borderRadius: 2,
-                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                        boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '13px',
+                        px: 3,
+                        py: 0.75,
+                        borderRadius: '8px',
+                        boxShadow: 'none',
+                        '&:hover': {
+                            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.24)',
+                        },
                     }}
                 >
                     Xác nhận đổi
