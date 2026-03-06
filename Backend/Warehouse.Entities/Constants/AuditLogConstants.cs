@@ -20,5 +20,7 @@ namespace Warehouse.Entities.Constants
 		public const string Receiver = "Receiver";
 		public const string Item = "Item";
 		public const string Role = "Role";
+		public const string Brand = "Brand";
+		public const string Category = "Category";
 	}
 }
