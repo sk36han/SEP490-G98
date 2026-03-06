@@ -145,6 +145,77 @@ namespace Warehouse.DataAcces.Service
             return MapToDisplay(item);
         }
 
+        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            var item = await GetByIdAsync(itemId);
+            if (item == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy sản phẩm với ID = {itemId}");
+            }
+
+            var categoryExists = _context.ItemCategories.Any(c => c.CategoryId == request.CategoryId && c.IsActive);
+            if (!categoryExists)
+            {
+                throw new InvalidOperationException("Category không tồn tại hoặc đã bị vô hiệu hóa.");
+            }
+
+            var uomExists = _context.UnitOfMeasures.Any(u => u.UomId == request.BaseUomId && u.IsActive);
+            if (!uomExists)
+            {
+                throw new InvalidOperationException("Đơn vị tính cơ bản không tồn tại hoặc đã bị vô hiệu hóa.");
+            }
+
+            if (request.BrandId.HasValue)
+            {
+                var brandExists = _context.Brands.Any(b => b.BrandId == request.BrandId.Value && b.IsActive);
+                if (!brandExists)
+                {
+                    throw new InvalidOperationException("Brand không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            if (request.PackagingSpecId.HasValue)
+            {
+                var packagingExists = _context.PackagingSpecs.Any(p => p.PackagingSpecId == request.PackagingSpecId.Value && p.IsActive);
+                if (!packagingExists)
+                {
+                    throw new InvalidOperationException("PackagingSpec không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            if (request.DefaultWarehouseId.HasValue)
+            {
+                var warehouseExists = _context.Warehouses.Any(w => w.WarehouseId == request.DefaultWarehouseId.Value && w.IsActive);
+                if (!warehouseExists)
+                {
+                    throw new InvalidOperationException("DefaultWarehouse không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            item.ItemName = request.ItemName?.Trim() ?? string.Empty;
+            item.ItemType = request.ItemType?.Trim();
+            item.Description = request.Description?.Trim();
+            item.CategoryId = request.CategoryId;
+            item.BrandId = request.BrandId;
+            item.BaseUomId = request.BaseUomId;
+            item.PackagingSpecId = request.PackagingSpecId;
+            item.RequiresCo = request.RequiresCo;
+            item.RequiresCq = request.RequiresCq;
+            item.IsActive = request.IsActive;
+            item.DefaultWarehouseId = request.DefaultWarehouseId;
+            item.InventoryAccount = request.InventoryAccount?.Trim();
+            item.RevenueAccount = request.RevenueAccount?.Trim();
+            item.UpdatedAt = DateTime.UtcNow;
+
+            await UpdateAsync(item);
+            return item;
+        }
+
         public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive)
         {
             var item = await GetByIdAsync(itemId);
