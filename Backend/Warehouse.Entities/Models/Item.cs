@@ -39,6 +39,10 @@ public partial class Item
 
     public DateTime UpdatedAt { get; set; }
 
+    public int? ShelfLifeDays { get; set; }
+
+    public string? ImageUrl { get; set; }
+
     public virtual UnitOfMeasure BaseUom { get; set; } = null!;
 
     public virtual Brand? Brand { get; set; }

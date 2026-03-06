@@ -27,6 +27,10 @@ public partial class PurchaseOrder
 
     public DateTime UpdatedAt { get; set; }
 
+    public DateOnly? ExpectedDeliveryDate { get; set; }
+
+    public string LifecycleStatus { get; set; } = null!;
+
     public virtual ICollection<GoodsReceiptNote> GoodsReceiptNotes { get; set; } = new List<GoodsReceiptNote>();
 
     public virtual ICollection<PurchaseOrderLine> PurchaseOrderLines { get; set; } = new List<PurchaseOrderLine>();
