@@ -117,126 +117,382 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
 
     if (!open) return null;
 
-    const compactSx = { fontSize: '0.8125rem', '& .MuiInputBase-input': { fontSize: '0.8125rem' }, '& .MuiInputLabel-root': { fontSize: '0.8125rem' } };
-
     return (
         <Paper
             ref={boxRef}
-            elevation={8}
+            elevation={0}
             sx={{
                 position: 'fixed',
                 left: 280,
                 top: 120,
-                width: 280,
-                maxHeight: 'min(85vh, 600px)',
-                borderRadius: 2,
+                width: 340,
+                maxHeight: '70vh',
+                borderRadius: '14px',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
                 overflow: 'hidden',
                 zIndex: 1300,
                 display: 'flex',
                 flexDirection: 'column',
+                bgcolor: '#ffffff',
             }}
         >
+            {/* Header */}
             <Box
                 onMouseDown={handleMouseDown}
                 sx={{
                     cursor: 'move',
-                    px: 1,
-                    py: 0.5,
+                    px: 2.5,
+                    py: 2,
                     flexShrink: 0,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    backgroundColor: 'grey.50',
+                    borderBottom: '1px solid #f3f4f6',
                 }}
             >
-                <Typography variant="caption" fontWeight={600} sx={{ fontSize: '0.75rem' }}>Bộ lọc đơn mua</Typography>
-                <IconButton size="small" onClick={onClose} aria-label="Đóng" sx={{ p: 0.25 }}>
-                    <X size={16} />
+                <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
+                    Bộ lọc
+                </Typography>
+                <IconButton 
+                    size="small" 
+                    onClick={onClose} 
+                    aria-label="Đóng"
+                    sx={{ 
+                        p: 0.5,
+                        color: '#6b7280',
+                        '&:hover': { 
+                            bgcolor: '#f3f4f6',
+                            color: '#111827',
+                        },
+                    }}
+                >
+                    <X size={18} />
                 </IconButton>
             </Box>
-            <Box sx={{ p: 1.25, display: 'flex', flexDirection: 'column', gap: 1.5, overflowY: 'auto', flex: 1, minHeight: 0 }}>
-                <Autocomplete
-                    size="small"
-                    options={APPROVAL_STATUS_OPTIONS}
-                    getOptionLabel={(opt) => opt.label}
-                    value={approvalStatusOption}
-                    onChange={(_, v) => setApprovalStatusOption(v || APPROVAL_STATUS_OPTIONS[0])}
-                    isOptionEqualToValue={(a, b) => a.value === b.value}
-                    renderInput={(params) => <TextField {...params} label="Trạng thái duyệt" />}
-                    sx={compactSx}
-                />
-                <Autocomplete
-                    size="small"
-                    options={RECEIVING_STATUS_OPTIONS}
-                    getOptionLabel={(opt) => opt.label}
-                    value={receivingStatusOption}
-                    onChange={(_, v) => setReceivingStatusOption(v || RECEIVING_STATUS_OPTIONS[0])}
-                    isOptionEqualToValue={(a, b) => a.value === b.value}
-                    renderInput={(params) => <TextField {...params} label="Trạng thái nhập hàng" />}
-                    sx={compactSx}
-                />
-                <TextField
-                    size="small"
-                    label="Nhà cung cấp"
-                    value={supplier}
-                    onChange={(e) => setSupplier(e.target.value)}
-                    fullWidth
-                    placeholder="Tìm theo tên NCC..."
-                    sx={compactSx}
-                />
-                <TextField
-                    size="small"
-                    label="Kho/Chi nhánh"
-                    value={warehouse}
-                    onChange={(e) => setWarehouse(e.target.value)}
-                    fullWidth
-                    placeholder="Tìm theo tên kho..."
-                    sx={compactSx}
-                />
-                <TextField
-                    size="small"
-                    label="Nhân viên tạo"
-                    value={creator}
-                    onChange={(e) => setCreator(e.target.value)}
-                    fullWidth
-                    placeholder="Tìm theo tên NV..."
-                    sx={compactSx}
-                />
-                <TextField
-                    size="small"
-                    label="Sản phẩm"
-                    value={product}
-                    onChange={(e) => setProduct(e.target.value)}
-                    fullWidth
-                    placeholder="Tìm theo tên sản phẩm..."
-                    sx={compactSx}
-                />
-                <TextField
-                    size="small"
-                    label="Từ ngày"
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    sx={compactSx}
-                />
-                <TextField
-                    size="small"
-                    label="Đến ngày"
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    sx={compactSx}
-                />
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.25 }}>
-                    <Button size="small" variant="contained" onClick={handleApply} sx={{ flex: 1, textTransform: 'none', fontSize: '0.8125rem', py: 0.5 }}>Áp dụng</Button>
-                    <Button size="small" variant="outlined" onClick={handleClear} sx={{ flex: 1, textTransform: 'none', fontSize: '0.8125rem', py: 0.5 }}>Xóa lọc</Button>
+
+            {/* Body */}
+            <Box sx={{ 
+                p: 2.5, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 2, 
+                overflowY: 'auto', 
+                flex: 1, 
+                minHeight: 0,
+                '&::-webkit-scrollbar': {
+                    width: '6px',
+                },
+                '&::-webkit-scrollbar-track': {
+                    bgcolor: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                    bgcolor: '#d1d5db',
+                    borderRadius: '3px',
+                    '&:hover': {
+                        bgcolor: '#9ca3af',
+                    },
+                },
+            }}>
+                <Box>
+                    <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                        Trạng thái duyệt
+                    </Typography>
+                    <Autocomplete
+                        size="small"
+                        options={APPROVAL_STATUS_OPTIONS}
+                        getOptionLabel={(opt) => opt.label}
+                        value={approvalStatusOption}
+                        onChange={(_, v) => setApprovalStatusOption(v || APPROVAL_STATUS_OPTIONS[0])}
+                        isOptionEqualToValue={(a, b) => a.value === b.value}
+                        renderInput={(params) => (
+                            <TextField 
+                                {...params}
+                                placeholder="Chọn trạng thái"
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 40,
+                                        bgcolor: '#f3f4f6',
+                                        borderRadius: '10px',
+                                        fontSize: '13px',
+                                        '& fieldset': { border: 'none' },
+                                        '&:hover': { bgcolor: '#e5e7eb' },
+                                        '&.Mui-focused': {
+                                            bgcolor: '#ffffff',
+                                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                            '& fieldset': { border: '1px solid #3b82f6' },
+                                        },
+                                    },
+                                    '& .MuiInputBase-input': { fontSize: '13px' },
+                                }}
+                            />
+                        )}
+                    />
                 </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                        Trạng thái nhập hàng
+                    </Typography>
+                    <Autocomplete
+                        size="small"
+                        options={RECEIVING_STATUS_OPTIONS}
+                        getOptionLabel={(opt) => opt.label}
+                        value={receivingStatusOption}
+                        onChange={(_, v) => setReceivingStatusOption(v || RECEIVING_STATUS_OPTIONS[0])}
+                        isOptionEqualToValue={(a, b) => a.value === b.value}
+                        renderInput={(params) => (
+                            <TextField 
+                                {...params}
+                                placeholder="Chọn trạng thái"
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 40,
+                                        bgcolor: '#f3f4f6',
+                                        borderRadius: '10px',
+                                        fontSize: '13px',
+                                        '& fieldset': { border: 'none' },
+                                        '&:hover': { bgcolor: '#e5e7eb' },
+                                        '&.Mui-focused': {
+                                            bgcolor: '#ffffff',
+                                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                            '& fieldset': { border: '1px solid #3b82f6' },
+                                        },
+                                    },
+                                    '& .MuiInputBase-input': { fontSize: '13px' },
+                                }}
+                            />
+                        )}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                        Nhà cung cấp
+                    </Typography>
+                    <TextField
+                        size="small"
+                        value={supplier}
+                        onChange={(e) => setSupplier(e.target.value)}
+                        fullWidth
+                        placeholder="Tìm theo tên nhà cung cấp"
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                height: 40,
+                                bgcolor: '#f3f4f6',
+                                borderRadius: '10px',
+                                fontSize: '13px',
+                                '& fieldset': { border: 'none' },
+                                '&:hover': { bgcolor: '#e5e7eb' },
+                                '&.Mui-focused': {
+                                    bgcolor: '#ffffff',
+                                    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                    '& fieldset': { border: '1px solid #3b82f6' },
+                                },
+                            },
+                            '& .MuiInputBase-input': { fontSize: '13px' },
+                        }}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                        Kho/Chi nhánh
+                    </Typography>
+                    <TextField
+                        size="small"
+                        value={warehouse}
+                        onChange={(e) => setWarehouse(e.target.value)}
+                        fullWidth
+                        placeholder="Tìm theo tên kho"
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                height: 40,
+                                bgcolor: '#f3f4f6',
+                                borderRadius: '10px',
+                                fontSize: '13px',
+                                '& fieldset': { border: 'none' },
+                                '&:hover': { bgcolor: '#e5e7eb' },
+                                '&.Mui-focused': {
+                                    bgcolor: '#ffffff',
+                                    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                    '& fieldset': { border: '1px solid #3b82f6' },
+                                },
+                            },
+                            '& .MuiInputBase-input': { fontSize: '13px' },
+                        }}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                        Nhân viên tạo
+                    </Typography>
+                    <TextField
+                        size="small"
+                        value={creator}
+                        onChange={(e) => setCreator(e.target.value)}
+                        fullWidth
+                        placeholder="Tìm theo tên nhân viên"
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                height: 40,
+                                bgcolor: '#f3f4f6',
+                                borderRadius: '10px',
+                                fontSize: '13px',
+                                '& fieldset': { border: 'none' },
+                                '&:hover': { bgcolor: '#e5e7eb' },
+                                '&.Mui-focused': {
+                                    bgcolor: '#ffffff',
+                                    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                    '& fieldset': { border: '1px solid #3b82f6' },
+                                },
+                            },
+                            '& .MuiInputBase-input': { fontSize: '13px' },
+                        }}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                        Sản phẩm
+                    </Typography>
+                    <TextField
+                        size="small"
+                        value={product}
+                        onChange={(e) => setProduct(e.target.value)}
+                        fullWidth
+                        placeholder="Tìm theo tên sản phẩm"
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                height: 40,
+                                bgcolor: '#f3f4f6',
+                                borderRadius: '10px',
+                                fontSize: '13px',
+                                '& fieldset': { border: 'none' },
+                                '&:hover': { bgcolor: '#e5e7eb' },
+                                '&.Mui-focused': {
+                                    bgcolor: '#ffffff',
+                                    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                    '& fieldset': { border: '1px solid #3b82f6' },
+                                },
+                            },
+                            '& .MuiInputBase-input': { fontSize: '13px' },
+                        }}
+                    />
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                    <Box>
+                        <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                            Từ ngày
+                        </Typography>
+                        <TextField
+                            size="small"
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    height: 40,
+                                    bgcolor: '#f3f4f6',
+                                    borderRadius: '10px',
+                                    fontSize: '13px',
+                                    '& fieldset': { border: 'none' },
+                                    '&:hover': { bgcolor: '#e5e7eb' },
+                                    '&.Mui-focused': {
+                                        bgcolor: '#ffffff',
+                                        boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                        '& fieldset': { border: '1px solid #3b82f6' },
+                                    },
+                                },
+                                '& .MuiInputBase-input': { fontSize: '13px' },
+                            }}
+                        />
+                    </Box>
+                    <Box>
+                        <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                            Đến ngày
+                        </Typography>
+                        <TextField
+                            size="small"
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    height: 40,
+                                    bgcolor: '#f3f4f6',
+                                    borderRadius: '10px',
+                                    fontSize: '13px',
+                                    '& fieldset': { border: 'none' },
+                                    '&:hover': { bgcolor: '#e5e7eb' },
+                                    '&.Mui-focused': {
+                                        bgcolor: '#ffffff',
+                                        boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                        '& fieldset': { border: '1px solid #3b82f6' },
+                                    },
+                                },
+                                '& .MuiInputBase-input': { fontSize: '13px' },
+                            }}
+                        />
+                    </Box>
+                </Box>
+            </Box>
+
+            {/* Footer */}
+            <Box sx={{ 
+                px: 2.5, 
+                py: 2, 
+                display: 'flex', 
+                gap: 1.5, 
+                borderTop: '1px solid #f3f4f6',
+                flexShrink: 0,
+            }}>
+                <Button 
+                    variant="outlined" 
+                    onClick={handleClear} 
+                    sx={{ 
+                        flex: 1, 
+                        textTransform: 'none', 
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        height: 38,
+                        borderRadius: '10px',
+                        borderColor: '#e5e7eb',
+                        color: '#6b7280',
+                        '&:hover': {
+                            borderColor: '#d1d5db',
+                            bgcolor: '#f9fafb',
+                        },
+                    }}
+                >
+                    Xóa lọc
+                </Button>
+                <Button 
+                    variant="contained" 
+                    onClick={handleApply} 
+                    sx={{ 
+                        flex: 1, 
+                        textTransform: 'none', 
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        height: 38,
+                        borderRadius: '10px',
+                        bgcolor: '#3b82f6',
+                        boxShadow: 'none',
+                        '&:hover': {
+                            bgcolor: '#2563eb',
+                            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                        },
+                    }}
+                >
+                    Áp dụng
+                </Button>
             </Box>
         </Paper>
     );

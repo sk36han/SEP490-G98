@@ -25,6 +25,7 @@ import {
     MenuItem,
     Chip,
     TableSortLabel,
+    Paper,
 } from '@mui/material';
 import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
@@ -35,15 +36,39 @@ import '../styles/ListView.css';
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const APPROVAL_STATUS_STYLE = {
-    Pending: { color: '#ffffff', bgColor: '#d97706', label: 'Chờ duyệt' },
-    Approved: { color: '#ffffff', bgColor: '#059669', label: 'Đã duyệt' },
-    Rejected: { color: '#ffffff', bgColor: '#dc2626', label: 'Từ chối' },
+    Pending: { 
+        bgColor: 'rgba(251, 191, 36, 0.2)', 
+        label: 'Chờ duyệt',
+        dot: '•'
+    },
+    Approved: { 
+        bgColor: 'rgba(16, 185, 129, 0.2)', 
+        label: 'Đã duyệt',
+        dot: '•'
+    },
+    Rejected: { 
+        bgColor: 'rgba(239, 68, 68, 0.2)', 
+        label: 'Từ chối',
+        dot: '•'
+    },
 };
 
 const RECEIVING_STATUS_STYLE = {
-    Pending: { color: '#ffffff', bgColor: '#2563eb', label: 'Chờ nhập' },
-    Partial: { color: '#ffffff', bgColor: '#d97706', label: 'Nhập một phần' },
-    Completed: { color: '#ffffff', bgColor: '#059669', label: 'Nhập toàn bộ' },
+    Pending: { 
+        bgColor: 'rgba(59, 130, 246, 0.2)', 
+        label: 'Chờ nhập',
+        dot: '•'
+    },
+    Partial: { 
+        bgColor: 'rgba(251, 191, 36, 0.2)', 
+        label: 'Nhập một phần',
+        dot: '•'
+    },
+    Completed: { 
+        bgColor: 'rgba(16, 185, 129, 0.2)', 
+        label: 'Nhập toàn bộ',
+        dot: '•'
+    },
 };
 
 const PO_COLUMNS = [
@@ -251,6 +276,24 @@ export default function ViewPurchaseOrderList() {
         setDraggedColumn(null);
     };
 
+    // Shared cell styles for perfect alignment
+    const BODY_CELL_SX = {
+        py: 1.75,
+        px: 2,
+        fontSize: '13px',
+        lineHeight: '20px',
+        verticalAlign: 'middle',
+        borderBottom: '1px solid #f3f4f6',
+        color: '#374151',
+    };
+
+    const CHECKBOX_CELL_SX = {
+        ...BODY_CELL_SX,
+        width: 48,
+        minWidth: 48,
+        maxWidth: 48,
+    };
+
     const handlePopupDragStart = (e, columnId) => {
         setDraggedPopupColumn(columnId);
         e.dataTransfer.effectAllowed = 'move';
@@ -402,144 +445,355 @@ export default function ViewPurchaseOrderList() {
     const isSomeSelected = rows.some(row => selectedIds.has(row.purchaseOrderId)) && !isAllSelected;
 
     return (
-        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
-            <Box sx={{ flexShrink: 0, mb: 1, mt: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
-                <Typography variant="h5" component="h1" fontWeight="700" sx={{ color: '#1976d2', lineHeight: 1.3 }}>
+        <Box sx={{ 
+            height: '100%', 
+            minHeight: 0, 
+            minWidth: 0, 
+            overflow: 'hidden', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            bgcolor: '#fafafa',
+        }}>
+            {/* Header Section */}
+            <Box sx={{ 
+                flexShrink: 0, 
+                px: { xs: 2, sm: 2 }, 
+                py: 2.5,
+                bgcolor: '#fafafa',
+            }}>
+                <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
                     Danh sách đơn mua hàng
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', mt: 0.25 }}>
+                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Purchase Order
                 </Typography>
             </Box>
 
             <PurchaseOrderFilterPopup open={filterOpen} onClose={() => setFilterOpen(false)} initialValues={filterValues} onApply={handleFilterApply} />
 
-            <Box
-                className="list-view"
-                sx={{
-                    flex: 1,
-                    minHeight: 0,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    width: '100%',
-                    maxWidth: '100%',
-                    background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
-                    borderRadius: 3,
-                    p: 0.75,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    boxShadow: (t) => t.shadows[1],
-                    boxSizing: 'border-box',
-                }}
-            >
-                <Card className="list-filter-card" sx={{ mb: 1, borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1] }}>
-                    <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
+            {/* Main Content Wrapper with Border */}
+            <Box sx={{ flex: 1, px: { xs: 2, sm: 2 }, pb: 2, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <Paper
+                    className="list-view"
+                    elevation={0}
+                    sx={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '12px',
+                        bgcolor: '#ffffff',
+                    }}
+                >
+                    {/* Toolbar Section */}
+                    <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #f3f4f6' }}>
                         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
                             <SearchInput
                                 placeholder="Tìm theo mã PO, nhà cung cấp, nhân viên, kho..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                sx={{ flex: '1 1 200px', minWidth: isMobile ? '100%' : 200, maxWidth: isMobile ? '100%' : 480 }}
+                                sx={{ 
+                                    flex: '1 1 200px', 
+                                    minWidth: isMobile ? '100%' : 200, 
+                                    maxWidth: isMobile ? '100%' : 480,
+                                    '& .MuiOutlinedInput-root': {
+                                        bgcolor: '#f3f4f6',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '10px',
+                                        fontSize: '13px',
+                                        '& fieldset': {
+                                            border: 'none',
+                                        },
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                        '&.Mui-focused': {
+                                            bgcolor: '#ffffff',
+                                            borderColor: '#3b82f6',
+                                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                        },
+                                        '& input::placeholder': {
+                                            color: '#9ca3af',
+                                            fontSize: '13px',
+                                        },
+                                    },
+                                }}
                             />
                             <Tooltip title="Bộ lọc">
-                                <IconButton color="primary" onClick={() => setFilterOpen(true)} aria-label="Bộ lọc" sx={{ border: 1, borderColor: 'divider' }}>
-                                    <Filter size={20} />
+                                <IconButton 
+                                    color="primary" 
+                                    onClick={() => setFilterOpen(true)} 
+                                    aria-label="Bộ lọc" 
+                                    sx={{ 
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
+                                >
+                                    <Filter size={18} />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Chọn cột hiển thị">
-                                <IconButton color="primary" onClick={(e) => setColumnSelectorAnchor(e.currentTarget)} aria-label="Chọn cột" sx={{ border: 1, borderColor: 'divider' }}>
-                                    <Columns size={20} />
+                                <IconButton 
+                                    color="primary" 
+                                    onClick={(e) => setColumnSelectorAnchor(e.currentTarget)} 
+                                    aria-label="Chọn cột" 
+                                    sx={{ 
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
+                                >
+                                    <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                <Button className="list-page-btn" variant="contained" startIcon={<Plus size={18} />} onClick={() => navigate('/purchase-orders/create')} sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}>
+                                <Button 
+                                    className="list-page-btn" 
+                                    variant="contained" 
+                                    startIcon={<Plus size={18} />} 
+                                    onClick={() => navigate('/purchase-orders/create')} 
+                                    sx={{ 
+                                        fontSize: '13px', 
+                                        fontWeight: 500, 
+                                        textTransform: 'none', 
+                                        borderRadius: '10px', 
+                                        height: 38,
+                                        px: 2.5,
+                                        bgcolor: '#3b82f6',
+                                        boxShadow: '0 1px 2px rgba(59, 130, 246, 0.3)',
+                                        '&:hover': {
+                                            bgcolor: '#2563eb',
+                                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+                                        },
+                                    }}
+                                >
                                     Tạo đơn mua hàng
                                 </Button>
                             </Box>
                         </Box>
-                    </CardContent>
-                </Card>
-
-                <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={handleCancelColumnOrder} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 280 } } }}>
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>Chọn cột hiển thị & Sắp xếp</Typography>
-                    <FormGroup>
-                        <FormControlLabel control={<Checkbox checked={visibleColumnIds.size === PO_COLUMNS.length} indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PO_COLUMNS.length} onChange={(e) => handleSelectAllColumns(e.target.checked)} />} label="Tất cả" sx={{ mb: 0.5 }} />
-                        {PO_COLUMNS.sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
-                            <Box 
-                                key={col.id} 
-                                sx={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: 1,
-                                    bgcolor: draggedPopupColumn === col.id ? 'action.hover' : 'transparent',
-                                    opacity: draggedPopupColumn === col.id ? 0.5 : 1,
-                                    transition: 'all 0.2s',
-                                    borderRadius: 1,
-                                    px: 0.5
-                                }}
-                                onDragOver={handlePopupDragOver}
-                                onDrop={(e) => handlePopupDrop(e, col.id)}
-                            >
-                                <Box
-                                    draggable
-                                    onDragStart={(e) => handlePopupDragStart(e, col.id)}
-                                    onDragEnd={handlePopupDragEnd}
-                                    sx={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center',
-                                        cursor: 'grab',
-                                        '&:active': { cursor: 'grabbing' },
-                                        color: 'text.secondary',
-                                        '&:hover': { color: 'primary.main' }
-                                    }}
-                                >
-                                    <GripVertical size={16} />
-                                </Box>
-                                <FormControlLabel 
-                                    control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} 
-                                    label={col.label}
-                                    sx={{ flex: 1, m: 0, py: 0.5 }}
-                                />
-                            </Box>
-                        ))}
-                    </FormGroup>
-                    <Box sx={{ display: 'flex', gap: 1, mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                        <Button 
-                            variant="outlined" 
-                            size="small" 
-                            onClick={handleCancelColumnOrder}
-                            sx={{ flex: 1, textTransform: 'none' }}
-                        >
-                            Hủy
-                        </Button>
-                        <Button 
-                            variant="contained" 
-                            size="small" 
-                            onClick={handleSaveColumnOrder}
-                            sx={{ flex: 1, textTransform: 'none' }}
-                        >
-                            Lưu
-                        </Button>
                     </Box>
-                </Popover>
 
-                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
-                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                        {rows.length === 0 ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
-                                <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
-                                <Typography>Chưa có dữ liệu đơn mua hàng</Typography>
-                            </Box>
-                        ) : (
-                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
+                    <Popover 
+                        open={columnSelectorOpen} 
+                        anchorEl={columnSelectorAnchor} 
+                        onClose={handleCancelColumnOrder} 
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} 
+                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        slotProps={{ 
+                            paper: { 
+                                elevation: 0,
+                                sx: { 
+                                    mt: 1, 
+                                    width: 340,
+                                    maxHeight: '70vh',
+                                    borderRadius: '14px',
+                                    border: '1px solid rgba(0, 0, 0, 0.08)',
+                                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                } 
+                            } 
+                        }}
+                    >
+                        {/* Header */}
+                        <Box sx={{ 
+                            px: 2.5, 
+                            py: 2, 
+                            borderBottom: '1px solid #f3f4f6',
+                            flexShrink: 0,
+                        }}>
+                            <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
+                                Chọn cột & Sắp xếp
+                            </Typography>
+                        </Box>
+
+                        {/* Body */}
+                        <Box sx={{ 
+                            px: 2.5, 
+                            py: 2, 
+                            flex: 1,
+                            minHeight: 0,
+                            overflowY: 'auto',
+                            '&::-webkit-scrollbar': {
+                                width: '6px',
+                            },
+                            '&::-webkit-scrollbar-track': {
+                                bgcolor: 'transparent',
+                            },
+                            '&::-webkit-scrollbar-thumb': {
+                                bgcolor: '#d1d5db',
+                                borderRadius: '3px',
+                                '&:hover': {
+                                    bgcolor: '#9ca3af',
+                                },
+                            },
+                        }}>
+                            <FormGroup>
+                                <FormControlLabel 
+                                    control={
+                                        <Checkbox 
+                                            checked={visibleColumnIds.size === PO_COLUMNS.length} 
+                                            indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PO_COLUMNS.length} 
+                                            onChange={(e) => handleSelectAllColumns(e.target.checked)}
+                                            sx={{
+                                                color: '#9ca3af',
+                                                '&.Mui-checked': { color: '#3b82f6' },
+                                                '&.MuiCheckbox-indeterminate': { color: '#3b82f6' },
+                                            }}
+                                        />
+                                    } 
+                                    label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
+                                    sx={{ mb: 1, py: 0.5 }} 
+                                />
+                                {PO_COLUMNS.sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
+                                    <Box 
+                                        key={col.id} 
+                                        sx={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: 1,
+                                            bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
+                                            opacity: draggedPopupColumn === col.id ? 0.5 : 1,
+                                            transition: 'all 0.2s',
+                                            borderRadius: '8px',
+                                            px: 0.75,
+                                            py: 0.25,
+                                            '&:hover': {
+                                                bgcolor: '#f9fafb',
+                                            },
+                                        }}
+                                        onDragOver={handlePopupDragOver}
+                                        onDrop={(e) => handlePopupDrop(e, col.id)}
+                                    >
+                                        <Box
+                                            draggable
+                                            onDragStart={(e) => handlePopupDragStart(e, col.id)}
+                                            onDragEnd={handlePopupDragEnd}
+                                            sx={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center',
+                                                cursor: 'grab',
+                                                '&:active': { cursor: 'grabbing' },
+                                                color: '#9ca3af',
+                                                '&:hover': { color: '#6b7280' }
+                                            }}
+                                        >
+                                            <GripVertical size={14} />
+                                        </Box>
+                                        <FormControlLabel 
+                                            control={
+                                                <Checkbox 
+                                                    checked={visibleColumnIds.has(col.id)} 
+                                                    onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                                    sx={{
+                                                        color: '#9ca3af',
+                                                        '&.Mui-checked': { color: '#3b82f6' },
+                                                    }}
+                                                />
+                                            } 
+                                            label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
+                                            sx={{ flex: 1, m: 0, py: 0.5 }}
+                                        />
+                                    </Box>
+                                ))}
+                            </FormGroup>
+                        </Box>
+
+                        {/* Footer */}
+                        <Box sx={{ 
+                            px: 2.5, 
+                            py: 2, 
+                            display: 'flex', 
+                            gap: 1.5, 
+                            borderTop: '1px solid #f3f4f6',
+                            flexShrink: 0,
+                        }}>
+                            <Button 
+                                variant="outlined" 
+                                onClick={handleCancelColumnOrder}
+                                sx={{ 
+                                    flex: 1, 
+                                    textTransform: 'none',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    height: 38,
+                                    borderRadius: '10px',
+                                    borderColor: '#e5e7eb',
+                                    color: '#6b7280',
+                                    '&:hover': {
+                                        borderColor: '#d1d5db',
+                                        bgcolor: '#f9fafb',
+                                    },
+                                }}
+                            >
+                                Hủy
+                            </Button>
+                            <Button 
+                                variant="contained" 
+                                onClick={handleSaveColumnOrder}
+                                sx={{ 
+                                    flex: 1, 
+                                    textTransform: 'none',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    height: 38,
+                                    borderRadius: '10px',
+                                    bgcolor: '#3b82f6',
+                                    boxShadow: 'none',
+                                    '&:hover': {
+                                        bgcolor: '#2563eb',
+                                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                                    },
+                                }}
+                            >
+                                Lưu
+                            </Button>
+                        </Box>
+                    </Popover>
+
+                {/* Table Section */}
+                <Box sx={{ 
+                    flex: 1, 
+                    minHeight: 0, 
+                    overflow: 'hidden', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                }}>
+                    {rows.length === 0 ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, px: 2, color: 'text.secondary' }}>
+                            <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                            <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu đơn mua hàng</Typography>
+                        </Box>
+                    ) : (
+                        <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
                                             <TableCell 
                                                 padding="checkbox" 
-                                                sx={{ fontWeight: 600, bgcolor: 'grey.50', width: 48 }}
+                                                sx={{ 
+                                                    fontWeight: 600, 
+                                                    bgcolor: '#fafafa', 
+                                                    width: 56,
+                                                    minWidth: 56,
+                                                    maxWidth: 56,
+                                                    borderBottom: '2px solid #e5e7eb',
+                                                    fontSize: '12px',
+                                                    px: 2,
+                                                }}
                                             >
                                                 <Checkbox
                                                     checked={isAllSelected}
@@ -553,68 +807,63 @@ export default function ViewPurchaseOrderList() {
                                                     key={col.id}
                                                     sx={{ 
                                                         fontWeight: 600, 
-                                                        bgcolor: draggedColumn === col.id ? 'action.hover' : 'grey.50', 
+                                                        bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa', 
                                                         whiteSpace: 'nowrap',
                                                         opacity: draggedColumn === col.id ? 0.5 : 1,
-                                                        transition: 'all 0.2s'
+                                                        transition: 'all 0.2s',
+                                                        borderBottom: '2px solid #e5e7eb',
+                                                        fontSize: '12px',
+                                                        color: '#6b7280',
+                                                        py: 1.5,
+                                                        px: 2,
                                                     }}
-                                                    align={col.id === 'actions' ? 'right' : col.id === 'stt' ? 'left' : 'left'}
+                                                    align={col.id === 'totalOrderedQuantity' || col.id === 'totalReceivedQuantity' || col.id === 'remainingQuantity' ? 'right' : 'left'}
                                                     onDragOver={handleDragOver}
                                                     onDrop={(e) => handleDrop(e, col.id)}
                                                 >
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                        {col.id !== 'actions' && col.id !== 'stt' && (
+                                                    <Box sx={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: 0.5,
+                                                        '&:hover .drag-icon': {
+                                                            opacity: 0.6,
+                                                        },
+                                                    }}>
+                                                        {col.sortable && (
                                                             <Box
                                                                 draggable
                                                                 onDragStart={(e) => handleDragStart(e, col.id)}
                                                                 onDragEnd={handleDragEnd}
-                                                                sx={{ display: 'flex', alignItems: 'center' }}
+                                                                className="drag-icon"
+                                                                sx={{ 
+                                                                    display: 'flex', 
+                                                                    alignItems: 'center',
+                                                                    cursor: 'grab',
+                                                                    '&:active': { cursor: 'grabbing' },
+                                                                    color: '#9ca3af',
+                                                                    opacity: 0,
+                                                                    transition: 'opacity 0.2s',
+                                                                }}
                                                             >
-                                                                <Tooltip title="Kéo để di chuyển cột">
-                                                                    <IconButton 
-                                                                        size="small" 
-                                                                        sx={{ 
-                                                                            p: 0.25, 
-                                                                            cursor: 'grab',
-                                                                            '&:active': { cursor: 'grabbing' },
-                                                                            color: 'text.secondary',
-                                                                            '&:hover': { color: 'primary.main' }
-                                                                        }}
-                                                                    >
-                                                                        <GripVertical size={14} />
-                                                                    </IconButton>
-                                                                </Tooltip>
+                                                                <GripVertical size={14} />
                                                             </Box>
                                                         )}
                                                         {col.sortable ? (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
-                                                                <TableSortLabel 
-                                                                    active={orderBy === col.id} 
-                                                                    direction={orderBy === col.id ? order : 'asc'} 
-                                                                    onClick={() => handleSortRequest(col.id)}
-                                                                    sx={{ flex: 1 }}
-                                                                    hideSortIcon={orderBy !== col.id}
-                                                                >
-                                                                    {col.label}
-                                                                </TableSortLabel>
-                                                                {orderBy !== col.id && (
-                                                                    <Tooltip title="Click để sắp xếp">
-                                                                        <Box
-                                                                            onClick={() => handleSortRequest(col.id)}
-                                                                            sx={{ 
-                                                                                display: 'flex', 
-                                                                                cursor: 'pointer',
-                                                                                '&:hover': { opacity: 0.6 }
-                                                                            }}
-                                                                        >
-                                                                            <ArrowUpDown 
-                                                                                size={14} 
-                                                                                style={{ opacity: 0.3 }} 
-                                                                            />
-                                                                        </Box>
-                                                                    </Tooltip>
-                                                                )}
-                                                            </Box>
+                                                            <TableSortLabel 
+                                                                active={orderBy === col.id} 
+                                                                direction={orderBy === col.id ? order : 'asc'} 
+                                                                onClick={() => handleSortRequest(col.id)}
+                                                                sx={{ 
+                                                                    flex: 1,
+                                                                    '& .MuiTableSortLabel-icon': {
+                                                                        fontSize: '14px',
+                                                                        opacity: orderBy === col.id ? 1 : 0,
+                                                                    },
+                                                                }}
+                                                                hideSortIcon={false}
+                                                            >
+                                                                {col.label}
+                                                            </TableSortLabel>
                                                         ) : (
                                                             <Typography variant="inherit" sx={{ flex: 1 }}>
                                                                 {col.label}
@@ -627,7 +876,19 @@ export default function ViewPurchaseOrderList() {
                                     </TableHead>
                                     <TableBody>
                                         {rows.map((row, index) => (
-                                            <TableRow key={row.purchaseOrderId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                            <TableRow 
+                                                key={row.purchaseOrderId} 
+                                                hover 
+                                                sx={{ 
+                                                    height: 56,
+                                                    '&:last-child td': { borderBottom: 0 },
+                                                    '&:hover': {
+                                                        bgcolor: '#f9fafb',
+                                                    },
+                                                    '& .MuiTableCell-root': BODY_CELL_SX,
+                                                    '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
+                                                }}
+                                            >
                                                 <TableCell padding="checkbox">
                                                     <Checkbox
                                                         checked={selectedIds.has(row.purchaseOrderId)}
@@ -637,107 +898,170 @@ export default function ViewPurchaseOrderList() {
                                                 </TableCell>
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
-                                                    if (col.id === 'stt') return <TableCell key={col.id} align="left">{col.getValue(row, index, opts)}</TableCell>;
+                                                    
+                                                    // STT column
+                                                    if (col.id === 'stt') {
+                                                        return (
+                                                            <TableCell 
+                                                                key={col.id} 
+                                                                align="center"
+                                                                sx={{ fontVariantNumeric: 'tabular-nums' }}
+                                                            >
+                                                                {col.getValue(row, index, opts)}
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    
+                                                    // Order Code column (link in flex box)
                                                     if (col.id === 'orderCode') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
-                                                                <Box
-                                                                    component="a"
-                                                                    href={`/purchase-orders/${row.purchaseOrderId}`}
-                                                                    onClick={(e) => {
-                                                                        e.preventDefault();
-                                                                        navigate(`/purchase-orders/${row.purchaseOrderId}`);
-                                                                    }}
-                                                                    sx={{
-                                                                        color: 'primary.main',
-                                                                        textDecoration: 'none',
-                                                                        fontWeight: 600,
-                                                                        cursor: 'pointer',
-                                                                        '&:hover': {
-                                                                            textDecoration: 'underline'
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    {col.getValue(row)}
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Box
+                                                                        component="a"
+                                                                        href={`/purchase-orders/${row.purchaseOrderId}`}
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            navigate(`/purchase-orders/${row.purchaseOrderId}`);
+                                                                        }}
+                                                                        sx={{
+                                                                            color: '#3b82f6',
+                                                                            textDecoration: 'none',
+                                                                            fontWeight: 500,
+                                                                            cursor: 'pointer',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap',
+                                                                            '&:hover': {
+                                                                                textDecoration: 'underline',
+                                                                            },
+                                                                        }}
+                                                                        title={col.getValue(row, index, opts)}
+                                                                    >
+                                                                        {col.getValue(row, index, opts)}
+                                                                    </Box>
                                                                 </Box>
                                                             </TableCell>
                                                         );
                                                     }
+                                                    
+                                                    // Approval Status chip (wrapped in flex box)
                                                     if (col.id === 'approvalStatus') {
-                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { color: '#ffffff', bgColor: '#6b7280', label: row.approvalStatus ?? '' };
+                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.approvalStatus ?? '', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
-                                                                <Chip 
-                                                                    label={style.label} 
-                                                                    size="small"
-                                                                    sx={{ 
-                                                                        fontWeight: 500, 
-                                                                        fontSize: '0.75rem',
-                                                                        borderRadius: '999px',
-                                                                        minWidth: 100,
-                                                                        height: 'auto',
-                                                                        bgcolor: style.bgColor, 
-                                                                        color: style.color,
-                                                                        border: '1px solid rgba(255,255,255,0.2)',
-                                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
-                                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                                        '&:hover': {
-                                                                            transform: 'translateY(-1px)',
-                                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.16), 0 2px 3px rgba(0,0,0,0.12)',
-                                                                        },
-                                                                        '& .MuiChip-label': {
-                                                                            px: 1.5,
-                                                                            py: 0.5,
-                                                                            textAlign: 'left',
-                                                                            display: 'block',
-                                                                            width: '100%',
-                                                                            letterSpacing: '0.01em'
-                                                                        }
-                                                                    }} 
-                                                                />
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Chip 
+                                                                        label={`${style.dot} ${style.label}`}
+                                                                        size="small"
+                                                                        sx={{ 
+                                                                            fontWeight: 500, 
+                                                                            fontSize: '12px',
+                                                                            lineHeight: '16px',
+                                                                            borderRadius: '999px',
+                                                                            minWidth: 100,
+                                                                            height: '26px',
+                                                                            bgcolor: style.bgColor, 
+                                                                            color: '#374151',
+                                                                            border: 'none',
+                                                                            boxShadow: 'none',
+                                                                            '& .MuiChip-label': {
+                                                                                px: 1.5,
+                                                                                py: 0,
+                                                                                textAlign: 'left',
+                                                                                display: 'block',
+                                                                                width: '100%',
+                                                                            }
+                                                                        }} 
+                                                                    />
+                                                                </Box>
                                                             </TableCell>
                                                         );
                                                     }
+                                                    
+                                                    // Receiving Status chip (wrapped in flex box)
                                                     if (col.id === 'receivingStatus') {
-                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { color: '#ffffff', bgColor: '#6b7280', label: row.receivingStatus ?? '' };
+                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.receivingStatus ?? '', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
-                                                                <Chip 
-                                                                    label={style.label} 
-                                                                    size="small"
-                                                                    sx={{ 
-                                                                        fontWeight: 500, 
-                                                                        fontSize: '0.75rem',
-                                                                        borderRadius: '999px',
-                                                                        minWidth: 110,
-                                                                        height: 'auto',
-                                                                        bgcolor: style.bgColor, 
-                                                                        color: style.color,
-                                                                        border: '1px solid rgba(255,255,255,0.2)',
-                                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
-                                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                                        '&:hover': {
-                                                                            transform: 'translateY(-1px)',
-                                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.16), 0 2px 3px rgba(0,0,0,0.12)',
-                                                                        },
-                                                                        '& .MuiChip-label': {
-                                                                            px: 1.5,
-                                                                            py: 0.5,
-                                                                            textAlign: 'left',
-                                                                            display: 'block',
-                                                                            width: '100%',
-                                                                            letterSpacing: '0.01em'
-                                                                        }
-                                                                    }} 
-                                                                />
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Chip 
+                                                                        label={`${style.dot} ${style.label}`}
+                                                                        size="small"
+                                                                        sx={{ 
+                                                                            fontWeight: 500, 
+                                                                            fontSize: '12px',
+                                                                            lineHeight: '16px',
+                                                                            borderRadius: '999px',
+                                                                            minWidth: 110,
+                                                                            height: '26px',
+                                                                            bgcolor: style.bgColor, 
+                                                                            color: '#374151',
+                                                                            border: 'none',
+                                                                            boxShadow: 'none',
+                                                                            '& .MuiChip-label': {
+                                                                                px: 1.5,
+                                                                                py: 0,
+                                                                                textAlign: 'left',
+                                                                                display: 'block',
+                                                                                width: '100%',
+                                                                            }
+                                                                        }} 
+                                                                    />
+                                                                </Box>
                                                             </TableCell>
                                                         );
                                                     }
+                                                    
+                                                    // Number columns
                                                     if (col.id === 'totalOrderedQuantity' || col.id === 'totalReceivedQuantity' || col.id === 'remainingQuantity') {
-                                                        return <TableCell key={col.id} align="right" sx={{ fontWeight: 600 }}>{col.getValue(row)}</TableCell>;
+                                                        return (
+                                                            <TableCell 
+                                                                key={col.id} 
+                                                                align="right"
+                                                                sx={{
+                                                                    fontWeight: 500,
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                    pr: 3,
+                                                                }}
+                                                            >
+                                                                {col.getValue(row)}
+                                                            </TableCell>
+                                                        );
                                                     }
-                                                    if (col.id === 'createdAt') return <TableCell key={col.id} align="left" sx={{ fontSize: '0.8rem' }}>{formatDate(row[col.id])}</TableCell>;
-                                                    return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
+                                                    
+                                                    // Date column
+                                                    if (col.id === 'createdAt') {
+                                                        return (
+                                                            <TableCell 
+                                                                key={col.id} 
+                                                                align="left"
+                                                                sx={{
+                                                                    color: '#6b7280',
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                }}
+                                                            >
+                                                                {formatDate(row[col.id])}
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    
+                                                    // Default text columns with ellipsis
+                                                    return (
+                                                        <TableCell 
+                                                            key={col.id} 
+                                                            align="left"
+                                                            sx={{
+                                                                maxWidth: 200,
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                            }}
+                                                            title={col.getValue(row)}
+                                                        >
+                                                            {col.getValue(row)}
+                                                        </TableCell>
+                                                    );
                                                 })}
                                             </TableRow>
                                         ))}
@@ -745,24 +1069,80 @@ export default function ViewPurchaseOrderList() {
                                 </Table>
                             </TableContainer>
                         )}
-                    </Box>
-                </Card>
+                </Box>
 
-                <Box sx={{ flexShrink: 0, mt: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                {/* Pagination Section */}
+                <Box sx={{ 
+                    flexShrink: 0, 
+                    px: 2,
+                    py: 2,
+                    borderTop: '1px solid #f3f4f6',
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    alignItems: 'center', 
+                    justifyContent: 'flex-end', 
+                    gap: 2 
+                }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>Số dòng / trang:</Typography>
                     <FormControl size="small" sx={{ minWidth: 72 }}>
-                        <Select value={pageSize} onChange={handlePageSizeChange} sx={{ height: 32, fontSize: '0.875rem' }}>
+                        <Select 
+                            value={pageSize} 
+                            onChange={handlePageSizeChange} 
+                            sx={{ 
+                                height: 32, 
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 0, 0, 0.1)',
+                                },
+                            }}
+                        >
                             {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                <MenuItem key={n} value={n}>{n}</MenuItem>
+                                <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
                             ))}
                         </Select>
                     </FormControl>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
                         {start}–{end} / {totalCount} (Tổng {totalPages} trang)
                     </Typography>
-                    <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Trước</Button>
-                    <Button size="small" variant="outlined" disabled={end >= totalCount || totalCount === 0} onClick={() => handlePageChange(page + 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Sau</Button>
+                    <Button 
+                        size="small" 
+                        variant="outlined" 
+                        disabled={page <= 0} 
+                        onClick={() => handlePageChange(page - 1)} 
+                        sx={{ 
+                            minWidth: 36, 
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            '&:hover': {
+                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                            },
+                        }}
+                    >
+                        Trước
+                    </Button>
+                    <Button 
+                        size="small" 
+                        variant="outlined" 
+                        disabled={end >= totalCount || totalCount === 0} 
+                        onClick={() => handlePageChange(page + 1)} 
+                        sx={{ 
+                            minWidth: 36, 
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            '&:hover': {
+                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                            },
+                        }}
+                    >
+                        Sau
+                    </Button>
                 </Box>
+                </Paper>
             </Box>
         </Box>
     );
