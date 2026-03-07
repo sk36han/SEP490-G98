@@ -20,7 +20,7 @@ import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
-import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotes';
+import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
