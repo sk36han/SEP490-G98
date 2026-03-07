@@ -571,11 +571,11 @@ export default function ViewPurchaseOrderList() {
                                         borderRadius: '10px', 
                                         height: 38,
                                         px: 2.5,
-                                        bgcolor: '#3b82f6',
-                                        boxShadow: '0 1px 2px rgba(59, 130, 246, 0.3)',
+                                        bgcolor: '#0284c7',
+                                        boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
                                         '&:hover': {
-                                            bgcolor: '#2563eb',
-                                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+                                            bgcolor: '#0369a1',
+                                            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
                                         },
                                     }}
                                 >
@@ -751,11 +751,11 @@ export default function ViewPurchaseOrderList() {
                                     fontWeight: 500,
                                     height: 38,
                                     borderRadius: '10px',
-                                    bgcolor: '#3b82f6',
+                                    bgcolor: '#0284c7',
                                     boxShadow: 'none',
                                     '&:hover': {
-                                        bgcolor: '#2563eb',
-                                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                                        bgcolor: '#0369a1',
+                                        boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
                                     },
                                 }}
                             >

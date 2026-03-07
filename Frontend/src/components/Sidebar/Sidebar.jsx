@@ -189,20 +189,20 @@ const Sidebar = () => {
             ? React.cloneElement(node, { size: ICON_SZ, strokeWidth: ICON_STROKE })
             : node;
 
-    // ── Color palette — unified gray-black, zero blue ─────────────
-    const ACCENT        = 'rgba(17,24,39,0.88)';   // active text / icon
-    const TXT           = 'rgba(17,24,39,0.68)';   // default label
-    const TXT_HOVER     = 'rgba(17,24,39,0.90)';   // hover label
-    const TXT_MUTED     = 'rgba(17,24,39,0.44)';   // submenu default
-    const TXT_MUTED_HVR = 'rgba(17,24,39,0.74)';   // submenu hover
-    const CAPTION       = 'rgba(17,24,39,0.34)';   // section caption
-    const ICN           = 'rgba(17,24,39,0.50)';   // icon default
-    const DIVIDER_CLR   = 'rgba(17,24,39,0.07)';
-    const HOVER_BG      = 'rgba(17,24,39,0.04)';
-    const SUB_HOVER_BG  = 'rgba(17,24,39,0.04)';
-    const ACTIVE_PILL   = 'rgba(17,24,39,0.08)';   // active pill fill
-    const ACTIVE_BAR    = 'rgba(17,24,39,0.75)';   // 2px bar inside active pill
-    const BTN_CLR       = 'rgba(17,24,39,0.45)';   // toggle icon colour
+    // ── Color palette — ocean blue ─────────────────────────────────
+    const ACCENT        = '#0284c7';                       // active text / icon
+    const TXT           = '#4b6a88';                       // default label — ocean blue-gray
+    const TXT_HOVER     = '#1e3a5f';                       // hover label — deep ocean
+    const TXT_MUTED     = 'rgba(75,106,136,0.55)';         // submenu default
+    const TXT_MUTED_HVR = '#4b6a88';                       // submenu hover
+    const CAPTION       = 'rgba(75,106,136,0.55)';         // section caption
+    const ICN           = 'rgba(75,106,136,0.72)';         // icon default — ocean blue-gray
+    const DIVIDER_CLR   = 'rgba(2,132,199,0.10)';          // subtle ocean divider
+    const HOVER_BG      = 'rgba(2,132,199,0.06)';          // hover background — ocean tint
+    const SUB_HOVER_BG  = 'rgba(2,132,199,0.06)';
+    const ACTIVE_PILL   = 'rgba(2,132,199,0.10)';          // active pill fill
+    const ACTIVE_BAR    = '#0284c7';                       // 2px bar inside active pill
+    const BTN_CLR       = 'rgba(75,106,136,0.55)';         // toggle icon colour
 
     return (
         <Box sx={{ display: 'flex' }}>
@@ -299,7 +299,7 @@ const Sidebar = () => {
                         // Parent without children (leaf) that is active: gets full pill
                         const isLeafActive    = parentActive && !hasChildren;
                                         const parentBg        = isLeafActive ? ACTIVE_PILL   : 'transparent';
-                                        const parentHoverBg   = isLeafActive ? 'rgba(17,24,39,0.12)' : HOVER_BG;
+                                        const parentHoverBg   = isLeafActive ? 'rgba(2,132,199,0.16)' : HOVER_BG;
                                         const parentTxtColor  = isLeafActive
                                             ? ACCENT
                                             : (parentActive && hasActiveChild)
@@ -355,7 +355,7 @@ const Sidebar = () => {
                                                     bgcolor: parentHoverBg,
                                                     color: isLeafActive ? ACCENT : TXT_HOVER,
                                                 },
-                                                '&.Mui-focusVisible': { outline: `2px solid rgba(17,24,39,0.20)`, outlineOffset: 2 },
+                                                    '&.Mui-focusVisible': { outline: `2px solid rgba(2,132,199,0.30)`, outlineOffset: 2 },
                                                 transition: 'background-color 0.15s, color 0.15s',
                                             }}
                                         >
@@ -428,10 +428,10 @@ const Sidebar = () => {
                                                     bgcolor: childActive ? ACTIVE_PILL : 'transparent',
                                                     color: childActive ? ACCENT : TXT_MUTED,
                                                     '&:hover': {
-                                                        bgcolor: childActive ? 'rgba(17,24,39,0.12)' : SUB_HOVER_BG,
+                                                        bgcolor: childActive ? 'rgba(2,132,199,0.16)' : SUB_HOVER_BG,
                                                         color: childActive ? ACCENT : TXT_MUTED_HVR,
                                                     },
-                                                    '&.Mui-focusVisible': { outline: `2px solid rgba(17,24,39,0.18)`, outlineOffset: 1 },
+                                                    '&.Mui-focusVisible': { outline: `2px solid rgba(2,132,199,0.28)`, outlineOffset: 1 },
                                                                     transition: 'background-color 0.15s, color 0.15s',
                                                                 }}
                                                             >
