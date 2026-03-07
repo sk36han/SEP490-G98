@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
-    Card,
-    CardContent,
     Button,
     Typography,
     IconButton,
-    Select,
-    MenuItem,
-    FormControl,
     Tooltip,
     useTheme,
     useMediaQuery,
@@ -19,118 +14,253 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    TableSortLabel,
     Popover,
     FormGroup,
     FormControlLabel,
     Checkbox,
+    Paper,
+    Chip,
+    FormControl,
+    Select,
+    MenuItem,
 } from '@mui/material';
-import { Filter, CloudOff, Columns, Eye, Edit, Plus } from 'lucide-react';
+import { Filter, CloudOff, Columns, Plus, GripVertical } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
+import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
 import ViewSupplierDetail from '../components/ViewSupplierDetail';
-import EditSupplierPopup from '../components/EditSupplierPopup';
-import '../styles/SupplierView.css';
+import '../styles/ListView.css';
 
-const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
+// ── LocalStorage keys ──────────────────────────────────────────────────────
+const LS_COL_ORDER  = 'supplierColumnOrder';
+const LS_SORT       = 'supplierSortConfig';
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+const STATUS_STYLE = {
+    true:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Hoạt động', dot: '•' },
+    false: { bgColor: 'rgba(239,68,68,0.15)',   label: 'Ngừng HĐ',  dot: '•' },
+};
 
 const SUPPLIER_COLUMNS = [
-    { id: 'stt', label: 'STT', getValue: () => '' },
-    { id: 'supplierCode', label: 'Mã NCC', getValue: (row) => row.supplierCode ?? '' },
-    { id: 'supplierName', label: 'Tên nhà cung cấp', getValue: (row) => row.supplierName ?? '' },
-    { id: 'taxCode', label: 'Mã số thuế', getValue: (row) => row.taxCode ?? '' },
-    { id: 'phone', label: 'Điện thoại', getValue: (row) => row.phone ?? '' },
-    { id: 'email', label: 'Email', getValue: (row) => row.email ?? '' },
-    { id: 'address', label: 'Địa chỉ', getValue: (row) => row.address ?? '' },
-    { id: 'isActive', label: 'Trạng thái', getValue: (row) => (row.isActive ? 'Hoạt động' : 'Tắt') },
-    { id: 'actions', label: 'Hành động', getValue: () => '' },
+    { id: 'stt',          label: 'STT',              sortable: false },
+    { id: 'supplierCode', label: 'Mã NCC',            sortable: true  },
+    { id: 'supplierName', label: 'Tên nhà cung cấp',  sortable: true  },
+    { id: 'taxCode',      label: 'Mã số thuế',         sortable: false },
+    { id: 'phone',        label: 'Điện thoại',         sortable: false },
+    { id: 'email',        label: 'Email',              sortable: true  },
+    { id: 'city',         label: 'Tỉnh/Thành phố',    sortable: true  },
+    { id: 'district',     label: 'Quận/Huyện',         sortable: false },
+    { id: 'ward',         label: 'Phường/Xã',          sortable: false },
+    { id: 'isActive',     label: 'Trạng thái',         sortable: true  },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
+const SORTABLE_COLUMN_IDS        = SUPPLIER_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 
-const getColumnWeight = (colId) => {
-    switch (colId) {
-        case 'stt': return 0.6;
-        case 'supplierCode': return 1.2;
-        case 'supplierName': return 2.2;
-        case 'taxCode': return 1.2;
-        case 'phone': return 1.2;
-        case 'email': return 1.5;
-        case 'address': return 2;
-        case 'isActive': return 1.2;
-        case 'actions': return 1.4;
-        default: return 1;
-    }
+// ── Shared cell sx (matches ViewPurchaseOrderList exactly) ─────────────────
+const BODY_CELL_SX = {
+    py: 1.75,
+    px: 2,
+    fontSize: '13px',
+    lineHeight: '20px',
+    verticalAlign: 'middle',
+    borderBottom: '1px solid #f3f4f6',
+    color: '#374151',
 };
 
-const getColumnCellSx = (colId, widthPct) => {
-    const base = {
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        width: `${widthPct}%`,
-        maxWidth: `${widthPct}%`,
-        boxSizing: 'border-box',
-    };
-    return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
+const CHECKBOX_CELL_SX = {
+    ...BODY_CELL_SX,
+    width: 56,
+    minWidth: 56,
+    maxWidth: 56,
 };
 
+// ── Component ──────────────────────────────────────────────────────────────
 export default function ViewSupplierList() {
-    const theme = useTheme();
+    const theme    = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterOpen, setFilterOpen] = useState(false);
-    const [filterValues, setFilterValues] = useState({});
-    const [rows, setRows] = useState([]);
+    // Data / loading
+    const [rows, setRows]           = useState([]);
     const [totalRows, setTotalRows] = useState(0);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(7);
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
-    const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [detailOpen, setDetailOpen] = useState(false);
-    const [detailSupplier, setDetailSupplier] = useState(null);
-    const [editOpen, setEditOpen] = useState(false);
-    const [editSupplier, setEditSupplier] = useState(null);
+    const [loading, setLoading]     = useState(true);
+    const [error, setError]         = useState(null);
 
-    const handleColumnVisibilityChange = (columnId, checked) => {
-        setVisibleColumnIds((prev) => {
+    // Pagination
+    const [page, setPage]         = useState(0);
+    const [pageSize, setPageSize] = useState(10);
+
+    // Search & filter
+    const [searchTerm, setSearchTerm]     = useState('');
+    const [filterOpen, setFilterOpen]     = useState(false);
+    const [filterValues, setFilterValues] = useState({});
+    const activeFilterCount = useMemo(
+        () => Object.values(filterValues).filter((v) => v !== undefined && v !== null && v !== '').length,
+        [filterValues],
+    );
+
+    // Sorting — 3-state: asc → desc → null (reset)
+    const [orderBy, setOrderBy] = useState(() => {
+        try { const s = JSON.parse(localStorage.getItem(LS_SORT)); return s?.orderBy || null; } catch { return null; }
+    });
+    const [order, setOrder] = useState(() => {
+        try { const s = JSON.parse(localStorage.getItem(LS_SORT)); return s?.order || 'asc'; } catch { return 'asc'; }
+    });
+
+    // Row selection
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
+    // Column visibility + order
+    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
+    const [columnOrder, setColumnOrder]   = useState(() => {
+        try {
+            const allIds   = SUPPLIER_COLUMNS.map((c) => c.id);
+            const saved    = JSON.parse(localStorage.getItem(LS_COL_ORDER));
+            if (Array.isArray(saved) && saved.length > 0) {
+                const validIds = new Set(allIds);
+                const filtered = saved.filter((id) => validIds.has(id));
+                // append any new columns that weren't in the saved order yet
+                const missing  = allIds.filter((id) => !filtered.includes(id));
+                return [...filtered, ...missing];
+            }
+            return allIds;
+        } catch { return SUPPLIER_COLUMNS.map((c) => c.id); }
+    });
+    const [tempColumnOrder, setTempColumnOrder]       = useState(columnOrder);
+    const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+
+    // Drag (table header columns)
+    const [draggedColumn, setDraggedColumn]           = useState(null);
+    // Drag within popup
+    const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
+
+    // Detail popup
+    const [detailOpen, setDetailOpen]         = useState(false);
+    const [detailSupplier, setDetailSupplier] = useState(null);
+
+    const columnSelectorOpen = Boolean(columnSelectorAnchor);
+
+    // When popup opens, sync tempColumnOrder
+    useEffect(() => {
+        if (columnSelectorOpen) setTempColumnOrder(columnOrder);
+    }, [columnSelectorOpen, columnOrder]);
+
+    // Visible columns in current order
+    const visibleColumns = useMemo(
+        () => columnOrder
+            .map((id) => SUPPLIER_COLUMNS.find((c) => c.id === id))
+            .filter((c) => c && visibleColumnIds.has(c.id)),
+        [columnOrder, visibleColumnIds],
+    );
+
+    // ── Drag — table header ───────────────────────────────────────
+    // Use dataTransfer as the reliable source of truth (React state may be stale at drop time)
+    const handleDragStart = (e, colId) => {
+        setDraggedColumn(colId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', colId);
+    };
+    const handleDragEnd  = () => setDraggedColumn(null);
+    const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+    const handleDrop     = (e, targetId) => {
+        e.preventDefault();
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedColumn;
+        if (!sourceId || sourceId === targetId) { setDraggedColumn(null); return; }
+        const arr = [...columnOrder];
+        const from = arr.indexOf(sourceId);
+        const to   = arr.indexOf(targetId);
+        if (from === -1 || to === -1) { setDraggedColumn(null); return; }
+        arr.splice(from, 1);
+        arr.splice(to, 0, sourceId);
+        setColumnOrder(arr);
+        localStorage.setItem(LS_COL_ORDER, JSON.stringify(arr));
+        setDraggedColumn(null);
+    };
+
+    // ── Drag — column selector popup ─────────────────────────────
+    const handlePopupDragStart = (e, colId) => {
+        setDraggedPopupColumn(colId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', colId);
+    };
+    const handlePopupDragEnd   = () => setDraggedPopupColumn(null);
+    const handlePopupDragOver  = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+    const handlePopupDrop      = (e, targetId) => {
+        e.preventDefault();
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedPopupColumn;
+        if (!sourceId || sourceId === targetId) { setDraggedPopupColumn(null); return; }
+        const arr = [...tempColumnOrder];
+        const from = arr.indexOf(sourceId);
+        const to   = arr.indexOf(targetId);
+        if (from === -1 || to === -1) { setDraggedPopupColumn(null); return; }
+        arr.splice(from, 1);
+        arr.splice(to, 0, sourceId);
+        setTempColumnOrder(arr);
+        setDraggedPopupColumn(null);
+    };
+
+    const handleSaveColumnOrder = () => {
+        setColumnOrder(tempColumnOrder);
+        localStorage.setItem(LS_COL_ORDER, JSON.stringify(tempColumnOrder));
+        setColumnSelectorAnchor(null);
+    };
+    const handleCancelColumnOrder = () => {
+        setTempColumnOrder(columnOrder);
+        setColumnSelectorAnchor(null);
+    };
+
+    // ── Sort — 3 states ───────────────────────────────────────────
+    const handleSortRequest = (colId) => {
+        if (!SORTABLE_COLUMN_IDS.includes(colId)) return;
+        let newOrderBy, newOrder;
+        if (orderBy === colId) {
+            if (order === 'asc') { newOrderBy = colId;  newOrder = 'desc'; }
+            else                 { newOrderBy = null;   newOrder = 'asc';  }
+        } else {
+            newOrderBy = colId; newOrder = 'asc';
+        }
+        setOrderBy(newOrderBy);
+        setOrder(newOrder);
+        setPage(0);
+        localStorage.setItem(LS_SORT, JSON.stringify({ orderBy: newOrderBy, order: newOrder }));
+    };
+
+    // ── Row selection ─────────────────────────────────────────────
+    const handleSelectAll = (checked) => {
+        setSelectedIds(checked ? new Set(rows.map((r) => r.supplierId)) : new Set());
+    };
+    const handleSelectRow = (id, checked) => {
+        setSelectedIds((prev) => {
             const next = new Set(prev);
-            if (checked) next.add(columnId);
-            else next.delete(columnId);
+            checked ? next.add(id) : next.delete(id);
             return next;
         });
     };
+    const isAllSelected  = rows.length > 0 && rows.every((r) => selectedIds.has(r.supplierId));
+    const isSomeSelected = rows.some((r) => selectedIds.has(r.supplierId)) && !isAllSelected;
 
-    const handleSelectAllColumns = (checked) => {
-        setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
-    };
-
-    const visibleColumns = SUPPLIER_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
-    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
-    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
-    const columnSelectorOpen = Boolean(columnSelectorAnchor);
-
+    // ── API fetch ─────────────────────────────────────────────────
     const getApiParams = useCallback(() => {
         const fv = filterValues || {};
+        const normalize = (s) => (s ? removeDiacritics(String(s).toLowerCase()) : '');
         const supplierName =
-            fv.supplierName !== undefined && String(fv.supplierName).trim() !== ''
-                ? String(fv.supplierName).trim()
-                : String(searchTerm ?? '').trim();
-        const fromDate = fv.fromDate;
-        const toDate = fv.toDate;
+            fv.supplierName?.trim()
+                ? fv.supplierName.trim()
+                : searchTerm.trim();
         return {
-            page: Number(page) + 1 || 1,
-            pageSize: Number(pageSize) || 7,
-            supplierCode: fv.supplierCode != null ? String(fv.supplierCode) : '',
+            page:         page + 1,
+            pageSize,
+            supplierCode: fv.supplierCode?.trim() || '',
             supplierName: supplierName || '',
-            taxCode: fv.taxCode != null ? String(fv.taxCode) : '',
-            isActive: fv.isActive ?? null,
-            fromDate: typeof fromDate === 'string' ? fromDate : null,
-            toDate: typeof toDate === 'string' ? toDate : null,
+            taxCode:      fv.taxCode?.trim()      || '',
+            isActive:     fv.isActive   ?? null,
+            fromDate:     fv.fromDate   || null,
+            toDate:       fv.toDate     || null,
         };
     }, [page, pageSize, searchTerm, filterValues]);
 
@@ -144,12 +274,8 @@ export default function ViewSupplierList() {
         } catch (err) {
             const status = err?.response?.status;
             let msg = err?.response?.data?.message ?? err?.message;
-            if (status === 404) {
-                msg =
-                    'API Supplier trả 404. Kiểm tra backend (localhost:5141) đang chạy và có Controller Supplier với route GET api/Supplier/list-all.';
-            } else if (!msg || typeof msg !== 'string') {
-                msg = 'Không thể kết nối đến server. Kiểm tra backend và CORS.';
-            }
+            if (status === 404)                   msg = 'API trả 404. Kiểm tra backend đang chạy.';
+            else if (!msg || typeof msg !== 'string') msg = 'Không thể kết nối đến server.';
             setError(msg);
             setRows([]);
             setTotalRows(0);
@@ -158,338 +284,501 @@ export default function ViewSupplierList() {
         }
     }, [getApiParams]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [searchTerm, filterValues]);
 
-    const handleSearch = () => {
-        setPage(0);
-    };
+    // Client-side sort on current page data
+    const sortedRows = useMemo(() => {
+        if (!orderBy) return rows;
+        return [...rows].sort((a, b) => {
+            const aVal = a[orderBy];
+            const bVal = b[orderBy];
+            let cmp = 0;
+            if (typeof aVal === 'boolean') {
+                cmp = (aVal === bVal) ? 0 : aVal ? -1 : 1;
+            } else {
+                const strA = String(aVal ?? '').toLowerCase();
+                const strB = String(bVal ?? '').toLowerCase();
+                cmp = strA.localeCompare(strB, 'vi');
+            }
+            return order === 'asc' ? cmp : -cmp;
+        });
+    }, [rows, orderBy, order]);
 
-    const handleFilterApply = (values) => {
-        setFilterValues(values);
-        setPage(0);
-    };
+    const handleFilterApply = (values) => { setFilterValues(values); setPage(0); };
+    const handlePageSizeChange = (e) => { setPageSize(Number(e.target.value)); setPage(0); };
 
-    const handlePageChange = (newPage) => setPage(newPage);
-    const handlePageSizeChange = (e) => {
-        setPageSize(Number(e.target.value));
-        setPage(0);
-    };
-
-    const showOverlayError = error && !loading;
-    const showEmpty = !loading && !error && rows.length === 0;
-    const start = totalRows === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalRows);
+    const start      = totalRows === 0 ? 0 : page * pageSize + 1;
+    const end        = Math.min((page + 1) * pageSize, totalRows);
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
+    const showEmpty  = !loading && !error && rows.length === 0;
 
+    // ── Render ────────────────────────────────────────────────────
     return (
-        <Box
-            sx={{
-                height: '100%',
-                minHeight: 0,
-                minWidth: 0,
-                overflow: 'visible',
-                display: 'flex',
-                flexDirection: 'column',
-                pt: 0,
-                pb: 2,
-                width: '100%',
-                maxWidth: '100%',
-                ml: 0,
-                mr: 0,
-                boxSizing: 'border-box',
-            }}
-        >
+        <Box sx={{
+            height: '100%', minHeight: 0, minWidth: 0,
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            bgcolor: '#fafafa',
+        }}>
+            {/* Popups */}
             <ViewSupplierDetail
                 open={detailOpen}
-                onClose={() => {
-                    setDetailOpen(false);
-                    setDetailSupplier(null);
-                }}
+                onClose={() => { setDetailOpen(false); setDetailSupplier(null); }}
                 supplier={detailSupplier}
             />
-            <EditSupplierPopup
-                open={editOpen}
-                onClose={() => {
-                    setEditOpen(false);
-                    setEditSupplier(null);
-                }}
-                supplier={editSupplier}
-                onSave={fetchData}
+            <SupplierFilterPopup
+                open={filterOpen}
+                onClose={() => setFilterOpen(false)}
+                initialValues={filterValues}
+                onApply={handleFilterApply}
             />
 
-            <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
-                <Typography
-                    variant="h4"
-                    component="h1"
-                    gutterBottom
-                    fontWeight="800"
-                    sx={{
-                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                        backgroundClip: 'text',
-                        textFillColor: 'transparent',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)',
-                        whiteSpace: 'nowrap',
-                    }}
-                >
-                    Quản lý nhà cung cấp
+            {/* Page Header */}
+            <Box sx={{ flexShrink: 0, px: { xs: 2, sm: 2 }, py: 2.5, bgcolor: '#fafafa' }}>
+                <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
+                    Danh sách nhà cung cấp
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                    Tra cứu và quản lý thông tin nhà cung cấp.
+                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
+                    Suppliers
                 </Typography>
             </Box>
 
-            <Box
-                className="supplier-view"
-                sx={{
-                    flex: 1,
-                    minHeight: 0,
-                    minWidth: 0,
-                    overflow: 'visible',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    width: '100%',
-                    maxWidth: '100%',
-                    background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
-                    borderRadius: 3,
-                    p: 0.75,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    boxShadow: (t) => t.shadows[1],
-                    boxSizing: 'border-box',
-                }}
-            >
-                <SupplierFilterPopup
-                    open={filterOpen}
-                    onClose={() => setFilterOpen(false)}
-                    initialValues={filterValues}
-                    onApply={handleFilterApply}
-                />
-
-                <Card
-                    className="supplier-filter-card"
+            {/* Main Content Wrapper */}
+            <Box sx={{ flex: 1, px: { xs: 2, sm: 2 }, pb: 2, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <Paper
+                    className="list-view"
+                    elevation={0}
                     sx={{
-                        mb: 1,
-                        borderRadius: 3,
-                        border: '1px solid rgba(0,0,0,0.12)',
-                        boxShadow: (t) => t.shadows[1],
+                        flex: 1, minHeight: 0, overflow: 'hidden',
+                        display: 'flex', flexDirection: 'column',
+                        border: '1px solid #e5e7eb', borderRadius: '12px', bgcolor: '#ffffff',
                     }}
                 >
-                    <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                flexDirection: isMobile ? 'column' : 'row',
-                                gap: 1.5,
-                                alignItems: isMobile ? 'stretch' : 'center',
-                                flexWrap: 'wrap',
-                            }}
-                        >
+                    {/* ── Toolbar ── */}
+                    <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #f3f4f6' }}>
+                        <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
                             <SearchInput
-                                placeholder="Tìm kiếm theo mã NCC, tên nhà cung cấp…"
+                                placeholder="Tìm theo mã NCC, tên nhà cung cấp, mã số thuế…"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 sx={{
                                     flex: '1 1 200px',
                                     minWidth: isMobile ? '100%' : 200,
                                     maxWidth: isMobile ? '100%' : 480,
+                                    '& .MuiOutlinedInput-root': {
+                                        bgcolor: '#f3f4f6',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '10px',
+                                        fontSize: '13px',
+                                        '& fieldset': { border: 'none' },
+                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
+                                        '&.Mui-focused': {
+                                            bgcolor: '#ffffff',
+                                            borderColor: '#0284c7',
+                                            boxShadow: '0 0 0 3px rgba(2,132,199,0.10)',
+                                        },
+                                        '& input::placeholder': { color: '#9ca3af', fontSize: '13px' },
+                                    },
                                 }}
                             />
+
                             <Tooltip title="Bộ lọc">
                                 <IconButton
                                     color="primary"
                                     onClick={() => setFilterOpen(true)}
                                     aria-label="Bộ lọc"
-                                    sx={{ border: 1, borderColor: 'divider' }}
+                                    sx={{
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        position: 'relative',
+                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
+                                    }}
                                 >
-                                    <Filter size={20} />
+                                    <Filter size={18} />
+                                    {activeFilterCount > 0 && (
+                                        <Box sx={{
+                                            position: 'absolute', top: 4, right: 4,
+                                            width: 8, height: 8, borderRadius: '50%',
+                                            bgcolor: '#0284c7',
+                                        }} />
+                                    )}
                                 </IconButton>
                             </Tooltip>
+
                             <Tooltip title="Chọn cột hiển thị">
                                 <IconButton
                                     color="primary"
                                     onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
                                     aria-label="Chọn cột"
-                                    sx={{ border: 1, borderColor: 'divider' }}
+                                    sx={{
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
+                                    }}
                                 >
-                                    <Columns size={20} />
+                                    <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
+
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                 <Button
                                     className="list-page-btn"
                                     variant="contained"
                                     startIcon={<Plus size={18} />}
                                     onClick={() => navigate('/suppliers/create')}
-                                    sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}
+                                    sx={{
+                                        fontSize: '13px', fontWeight: 500,
+                                        textTransform: 'none', borderRadius: '10px',
+                                        height: 38, px: 2.5,
+                                        bgcolor: '#0284c7',
+                                        boxShadow: '0 1px 2px rgba(2,132,199,0.25)',
+                                        '&:hover': {
+                                            bgcolor: '#0369a1',
+                                            boxShadow: '0 4px 12px rgba(2,132,199,0.30)',
+                                        },
+                                    }}
                                 >
                                     Thêm nhà cung cấp
                                 </Button>
                             </Box>
-                            
                         </Box>
-                    </CardContent>
-                </Card>
+                    </Box>
 
-                <Popover
-                    open={columnSelectorOpen}
-                    anchorEl={columnSelectorAnchor}
-                    onClose={() => setColumnSelectorAnchor(null)}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
-                >
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
-                        Chọn cột hiển thị
-                    </Typography>
-                    <FormGroup>
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={visibleColumnIds.size === SUPPLIER_COLUMNS.length}
-                                    indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < SUPPLIER_COLUMNS.length}
-                                    onChange={(e) => handleSelectAllColumns(e.target.checked)}
-                                />
-                            }
-                            label="Tất cả"
-                        />
-                        <Box
-                            sx={{
-                                display: 'grid',
-                                gridTemplateRows: 'repeat(5, auto)',
-                                gridAutoFlow: 'column',
-                                gap: '2px 20px',
-                                alignContent: 'start',
-                                mt: 0.5,
-                            }}
-                        >
-                            {SUPPLIER_COLUMNS.map((col) => (
+                    {/* ── Column Selector Popover ── */}
+                    <Popover
+                        open={columnSelectorOpen}
+                        anchorEl={columnSelectorAnchor}
+                        onClose={handleCancelColumnOrder}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        slotProps={{
+                            paper: {
+                                elevation: 0,
+                                sx: {
+                                    mt: 1, width: 340, maxHeight: '70vh',
+                                    borderRadius: '14px',
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
+                                    overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                                },
+                            },
+                        }}
+                    >
+                        {/* Header */}
+                        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
+                            <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
+                                Chọn cột & Sắp xếp
+                            </Typography>
+                        </Box>
+
+                        {/* Body */}
+                        <Box sx={{
+                            px: 2.5, py: 2, flex: 1, minHeight: 0, overflowY: 'auto',
+                            '&::-webkit-scrollbar': { width: '6px' },
+                            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+                            '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px', '&:hover': { bgcolor: '#9ca3af' } },
+                        }}>
+                            <FormGroup>
                                 <FormControlLabel
-                                    key={col.id}
                                     control={
                                         <Checkbox
-                                            checked={visibleColumnIds.has(col.id)}
-                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                            checked={visibleColumnIds.size === SUPPLIER_COLUMNS.length}
+                                            indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < SUPPLIER_COLUMNS.length}
+                                            onChange={(e) => setVisibleColumnIds(e.target.checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set())}
+                                            sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#0284c7' }, '&.MuiCheckbox-indeterminate': { color: '#0284c7' } }}
                                         />
                                     }
-                                    label={col.label}
+                                    label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
+                                    sx={{ mb: 1, py: 0.5 }}
                                 />
-                            ))}
+                                {SUPPLIER_COLUMNS
+                                    .slice()
+                                    .sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id))
+                                    .map((col) => (
+                                        <Box
+                                            key={col.id}
+                                            sx={{
+                                                display: 'flex', alignItems: 'center', gap: 1,
+                                                bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
+                                                opacity: draggedPopupColumn === col.id ? 0.5 : 1,
+                                                transition: 'all 0.2s',
+                                                borderRadius: '8px', px: 0.75, py: 0.25,
+                                                '&:hover': { bgcolor: '#f9fafb' },
+                                            }}
+                                            onDragOver={handlePopupDragOver}
+                                            onDrop={(e) => handlePopupDrop(e, col.id)}
+                                        >
+                                            <Box
+                                                draggable
+                                                onDragStart={(e) => handlePopupDragStart(e, col.id)}
+                                                onDragEnd={handlePopupDragEnd}
+                                                sx={{
+                                                    display: 'flex', alignItems: 'center',
+                                                    cursor: 'grab', '&:active': { cursor: 'grabbing' },
+                                                    color: '#9ca3af', '&:hover': { color: '#6b7280' },
+                                                }}
+                                            >
+                                                <GripVertical size={14} />
+                                            </Box>
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={visibleColumnIds.has(col.id)}
+                                                        onChange={(e) => {
+                                                            setVisibleColumnIds((prev) => {
+                                                                const next = new Set(prev);
+                                                                e.target.checked ? next.add(col.id) : next.delete(col.id);
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#0284c7' } }}
+                                                    />
+                                                }
+                                                label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
+                                                sx={{ flex: 1, m: 0, py: 0.5 }}
+                                            />
+                                        </Box>
+                                    ))
+                                }
+                            </FormGroup>
                         </Box>
-                    </FormGroup>
-                </Popover>
 
-                <Card
-                    className="supplier-grid-card"
-                    sx={{
-                        flex: 1,
-                        minHeight: 400,
-                        minWidth: 0,
-                        overflow: 'visible',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderRadius: 3,
-                        border: '1px solid rgba(0,0,0,0.12)',
-                        boxShadow: (t) => t.shadows[1],
-                        p: 1,
-                    }}
-                >
-                    <Box className="supplier-grid-wrapper" sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                        {loading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                                <Typography color="text.secondary">Đang tải…</Typography>
-                            </Box>
-                        ) : showOverlayError ? (
-                            <Box
-                                className="supplier-grid-error-overlay"
+                        {/* Footer */}
+                        <Box sx={{ px: 2.5, py: 2, display: 'flex', gap: 1.5, borderTop: '1px solid #f3f4f6', flexShrink: 0 }}>
+                            <Button
+                                variant="outlined"
+                                onClick={handleCancelColumnOrder}
                                 sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    minHeight: 200,
-                                    backgroundColor: 'rgba(255,255,255,0.95)',
-                                    gap: 1.5,
+                                    flex: 1, textTransform: 'none',
+                                    fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px',
+                                    borderColor: '#e5e7eb', color: '#6b7280',
+                                    '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
                                 }}
                             >
-                                <CloudOff size={40} style={{ color: theme.palette.text.secondary }} />
-                                <Typography variant="subtitle1" fontWeight={600} color="text.primary">
-                                    Không thể kết nối đến máy chủ
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    Vui lòng thử lại sau
-                                </Typography>
+                                Hủy
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={handleSaveColumnOrder}
+                                sx={{
+                                    flex: 1, textTransform: 'none',
+                                    fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px',
+                                    bgcolor: '#0284c7', boxShadow: 'none',
+                                    '&:hover': { bgcolor: '#0369a1', boxShadow: '0 2px 8px rgba(2,132,199,0.25)' },
+                                }}
+                            >
+                                Lưu
+                            </Button>
+                        </Box>
+                    </Popover>
+
+                    {/* ── Table / State area ── */}
+                    <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        {loading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, py: 8 }}>
+                                <Typography sx={{ fontSize: '14px', color: '#9ca3af' }}>Đang tải…</Typography>
+                            </Box>
+                        ) : error ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 1.5 }}>
+                                <CloudOff size={40} style={{ color: '#d1d5db' }} />
+                                <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Không thể kết nối đến máy chủ</Typography>
+                                <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>{error}</Typography>
                                 <Button
-                                    size="small"
-                                    variant="outlined"
-                                    onClick={() => fetchData()}
-                                    sx={{ mt: 0.5, textTransform: 'none' }}
+                                    size="small" variant="outlined" onClick={fetchData}
+                                    sx={{
+                                        mt: 0.5, fontSize: '13px', textTransform: 'none',
+                                        borderRadius: '8px', borderColor: 'rgba(2,132,199,0.30)',
+                                        color: '#0284c7', '&:hover': { bgcolor: 'rgba(2,132,199,0.06)' },
+                                    }}
                                 >
                                     Thử lại
                                 </Button>
                             </Box>
                         ) : showEmpty ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
-                                <Typography>Chưa có dữ liệu nhà cung cấp</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 1, color: 'text.secondary' }}>
+                                <CloudOff size={48} style={{ marginBottom: 8, opacity: 0.35 }} />
+                                <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu nhà cung cấp</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', maxWidth: '100%', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
-                                <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                                <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
+                                            {/* Checkbox */}
+                                            <TableCell
+                                                padding="checkbox"
+                                                sx={{
+                                                    fontWeight: 600, bgcolor: '#fafafa',
+                                                    width: 56, minWidth: 56, maxWidth: 56,
+                                                    borderBottom: '2px solid #e5e7eb',
+                                                    fontSize: '12px', px: 2,
+                                                }}
+                                            >
+                                                <Checkbox
+                                                    checked={isAllSelected}
+                                                    indeterminate={isSomeSelected}
+                                                    onChange={(e) => handleSelectAll(e.target.checked)}
+                                                    size="small"
+                                                />
+                                            </TableCell>
+
                                             {visibleColumns.map((col) => (
-                                                <TableCell key={col.id} sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }} align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}>
-                                                    {col.label}
+                                                <TableCell
+                                                    key={col.id}
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa',
+                                                        whiteSpace: 'nowrap',
+                                                        opacity: draggedColumn === col.id ? 0.5 : 1,
+                                                        transition: 'all 0.2s',
+                                                        borderBottom: '2px solid #e5e7eb',
+                                                        fontSize: '12px', color: '#6b7280',
+                                                        py: 1.5, px: 2,
+                                                    }}
+                                                    align={col.id === 'stt' ? 'center' : 'left'}
+                                                    onDragOver={handleDragOver}
+                                                    onDrop={(e) => handleDrop(e, col.id)}
+                                                >
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, '&:hover .drag-icon': { opacity: 0.6 } }}>
+                                                        <Box
+                                                            draggable
+                                                            onDragStart={(e) => handleDragStart(e, col.id)}
+                                                            onDragEnd={handleDragEnd}
+                                                            className="drag-icon"
+                                                            sx={{
+                                                                display: 'flex', alignItems: 'center',
+                                                                cursor: 'grab', '&:active': { cursor: 'grabbing' },
+                                                                color: '#9ca3af', opacity: 0, transition: 'opacity 0.2s',
+                                                            }}
+                                                        >
+                                                            <GripVertical size={14} />
+                                                        </Box>
+                                                        {col.sortable ? (
+                                                            <TableSortLabel
+                                                                active={orderBy === col.id}
+                                                                direction={orderBy === col.id ? order : 'asc'}
+                                                                onClick={() => handleSortRequest(col.id)}
+                                                                sx={{
+                                                                    flex: 1,
+                                                                    '& .MuiTableSortLabel-icon': {
+                                                                        fontSize: '14px',
+                                                                        opacity: orderBy === col.id ? 1 : 0,
+                                                                    },
+                                                                }}
+                                                                hideSortIcon={false}
+                                                            >
+                                                                {col.label}
+                                                            </TableSortLabel>
+                                                        ) : (
+                                                            <Typography variant="inherit" sx={{ flex: 1 }}>
+                                                                {col.label}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
                                                 </TableCell>
                                             ))}
                                         </TableRow>
                                     </TableHead>
+
                                     <TableBody>
-                                        {rows.map((row, index) => (
-                                            <TableRow key={row.supplierId} hover>
+                                        {sortedRows.map((row, index) => (
+                                            <TableRow
+                                                key={row.supplierId}
+                                                hover
+                                                sx={{
+                                                    height: 56,
+                                                    '&:last-child td': { borderBottom: 0 },
+                                                    '&:hover': { bgcolor: '#f9fafb' },
+                                                    '& .MuiTableCell-root': BODY_CELL_SX,
+                                                    '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
+                                                }}
+                                            >
+                                                <TableCell padding="checkbox">
+                                                    <Checkbox
+                                                        checked={selectedIds.has(row.supplierId)}
+                                                        onChange={(e) => handleSelectRow(row.supplierId, e.target.checked)}
+                                                        size="small"
+                                                    />
+                                                </TableCell>
+
                                                 {visibleColumns.map((col) => {
+                                                    // STT
                                                     if (col.id === 'stt') {
                                                         return (
-                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
+                                                            <TableCell key={col.id} align="center" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                                                                 {page * pageSize + index + 1}
                                                             </TableCell>
                                                         );
                                                     }
-                                                    if (col.id === 'actions') {
+
+                                                    // Supplier name — simple blue link (same color as orderCode in ViewPO)
+                                                    if (col.id === 'supplierName') {
                                                         return (
-                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
-                                                                <Tooltip title="Xem">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        onClick={() => {
-                                                                            setDetailSupplier(row);
-                                                                            setDetailOpen(true);
+                                                            <TableCell key={col.id} align="left">
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Box
+                                                                        component="a"
+                                                                        href="#"
+                                                                        onClick={(e) => { e.preventDefault(); setDetailSupplier(row); setDetailOpen(true); }}
+                                                                        sx={{
+                                                                            color: '#3b82f6',
+                                                                            textDecoration: 'none',
+                                                                            cursor: 'pointer',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap',
+                                                                            '&:hover': { textDecoration: 'underline' },
                                                                         }}
-                                                                        aria-label="Xem"
+                                                                        title={row.supplierName ?? ''}
                                                                     >
-                                                                        <Eye size={18} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                                <Tooltip title="Sửa">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        onClick={() => {
-                                                                            setEditSupplier(row);
-                                                                            setEditOpen(true);
-                                                                        }}
-                                                                        aria-label="Sửa"
-                                                                    >
-                                                                        <Edit size={18} />
-                                                                    </IconButton>
-                                                                </Tooltip>
+                                                                        {row.supplierName ?? ''}
+                                                                    </Box>
+                                                                </Box>
                                                             </TableCell>
                                                         );
                                                     }
-                                                    return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(row)}>{col.getValue(row)}</TableCell>;
+
+                                                    // Status chip
+                                                    if (col.id === 'isActive') {
+                                                        const style = STATUS_STYLE[String(row.isActive)] ?? { bgColor: 'rgba(107,114,128,0.15)', label: '-', dot: '•' };
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Chip
+                                                                        label={`${style.dot} ${style.label}`}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            fontWeight: 500,
+                                                                            fontSize: '12px',
+                                                                            lineHeight: '16px',
+                                                                            borderRadius: '999px',
+                                                                            minWidth: 90,
+                                                                            height: '26px',
+                                                                            bgcolor: style.bgColor,
+                                                                            color: '#374151',
+                                                                            border: 'none',
+                                                                            boxShadow: 'none',
+                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
+                                                                        }}
+                                                                    />
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    // Default text columns
+                                                    return (
+                                                        <TableCell
+                                                            key={col.id}
+                                                            align="left"
+                                                            sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                            title={String(row[col.id] ?? '')}
+                                                        >
+                                                            {String(row[col.id] ?? '')}
+                                                        </TableCell>
+                                                    );
                                                 })}
                                             </TableRow>
                                         ))}
@@ -498,60 +787,61 @@ export default function ViewSupplierList() {
                             </TableContainer>
                         )}
                     </Box>
-                </Card>
 
-                <Box
-                    sx={{
-                        flexShrink: 0,
-                        mt: 1,
-                        pt: 1,
-                        pb: 0.5,
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
+                    {/* ── Pagination ── */}
+                    <Box sx={{
+                        flexShrink: 0, px: 2, py: 2,
+                        borderTop: '1px solid #f3f4f6',
+                        display: 'flex', flexWrap: 'wrap',
+                        alignItems: 'center', justifyContent: 'flex-end',
                         gap: 2,
-                        overflow: 'visible',
-                        minHeight: 48,
-                    }}
-                >
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>Số dòng / trang:</Typography>
-                    <FormControl size="small" sx={{ minWidth: 72 }}>
-                        <Select
-                            value={pageSize}
-                            onChange={handlePageSizeChange}
-                            sx={{ height: 32, fontSize: '0.875rem' }}
+                    }}>
+                        <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                            Số dòng / trang:
+                        </Typography>
+                        <FormControl size="small" sx={{ minWidth: 72 }}>
+                            <Select
+                                value={pageSize}
+                                onChange={handlePageSizeChange}
+                                sx={{
+                                    height: 32, fontSize: '13px', borderRadius: '8px',
+                                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' },
+                                }}
+                            >
+                                {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                            {start}–{end} / {totalRows} (Tổng {totalPages} trang)
+                        </Typography>
+                        <Button
+                            size="small" variant="outlined"
+                            disabled={page <= 0}
+                            onClick={() => setPage((p) => Math.max(0, p - 1))}
+                            sx={{
+                                minWidth: 36, textTransform: 'none', fontSize: '13px',
+                                borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)',
+                                '&:hover': { borderColor: 'rgba(0,0,0,0.2)' },
+                            }}
                         >
-                            {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                <MenuItem key={n} value={n}>{n}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        {start}–{end} / {totalRows} (Tổng {totalPages} trang)
-                    </Typography>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={page <= 0}
-                        onClick={() => handlePageChange(page - 1)}
-                        sx={{ minWidth: 36, textTransform: 'none' }}
-                    >
-                        Trước
-                    </Button>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0 }}>
-                        Trang {page + 1} / {totalPages || 1}
-                    </Typography>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={end >= totalRows || totalRows === 0}
-                        onClick={() => handlePageChange(page + 1)}
-                        sx={{ minWidth: 36, textTransform: 'none' }}
-                    >
-                        Sau
-                    </Button>
-                </Box>
+                            Trước
+                        </Button>
+                        <Button
+                            size="small" variant="outlined"
+                            disabled={end >= totalRows || totalRows === 0}
+                            onClick={() => setPage((p) => p + 1)}
+                            sx={{
+                                minWidth: 36, textTransform: 'none', fontSize: '13px',
+                                borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)',
+                                '&:hover': { borderColor: 'rgba(0,0,0,0.2)' },
+                            }}
+                        >
+                            Sau
+                        </Button>
+                    </Box>
+                </Paper>
             </Box>
         </Box>
     );

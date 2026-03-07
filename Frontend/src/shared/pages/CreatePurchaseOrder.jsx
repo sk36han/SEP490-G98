@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Tooltip from '@mui/material/Tooltip';
 import {
     ArrowLeft,
     Plus,
@@ -332,6 +333,24 @@ const CreatePurchaseOrder = () => {
         navigate(-1);
     };
 
+    // Điều kiện cho phép Gửi duyệt
+    const canSubmit = useMemo(() => {
+        return (
+            Boolean(formData.supplierId) &&
+            Boolean(formData.warehouseId) &&
+            lines.length > 0 &&
+            !submitting
+        );
+    }, [formData.supplierId, formData.warehouseId, lines, submitting]);
+
+    const submitTooltip = !formData.supplierId
+        ? 'Vui lòng chọn nhà cung cấp'
+        : !formData.warehouseId
+        ? 'Vui lòng chọn kho nhận'
+        : lines.length === 0
+        ? 'Vui lòng thêm ít nhất 1 sản phẩm'
+        : '';
+
     return (
         <div className="create-supplier-page">
             {/* Header */}
@@ -342,38 +361,57 @@ const CreatePurchaseOrder = () => {
                         <span>Quay lại</span>
                     </button>
                 </div>
-                <div className="page-header-actions">
-                    <button type="button" onClick={handleCancel} className="btn btn-cancel" disabled={submitting}>
-                        <X size={16} className="btn-icon" />
-                        Hủy
-                    </button>
+                <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Hủy — ghost */}
                     <button
                         type="button"
-                        className="btn btn-secondary"
+                        onClick={handleCancel}
+                        className="btn btn-cancel"
+                        disabled={submitting}
+                    >
+                        <X size={15} />
+                        Hủy
+                    </button>
+
+                    {/* Lưu nháp — muted ocean outline */}
+                    <button
+                        type="button"
+                        className="btn btn-draft"
                         disabled={submitting}
                         onClick={handleSaveDraft}
                     >
-                        <Save size={16} className="btn-icon" />
+                        <Save size={15} />
                         Lưu nháp
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={submitting}
-                        onClick={handleSubmitForApproval}
+
+                    {/* Gửi duyệt — primary with tooltip when disabled */}
+                    <Tooltip
+                        title={!canSubmit && !submitting ? submitTooltip : ''}
+                        arrow
+                        placement="top"
                     >
-                        {submitting ? (
-                            <>
-                                <Loader size={16} className="btn-icon spinner" />
-                                Đang xử lý...
-                            </>
-                        ) : (
-                            <>
-                                <Send size={16} className="btn-icon" />
-                                Gửi duyệt
-                            </>
-                        )}
-                    </button>
+                        <span style={{ display: 'inline-flex' }}>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={!canSubmit}
+                                onClick={handleSubmitForApproval}
+                                style={!canSubmit ? { pointerEvents: 'none' } : {}}
+                            >
+                                {submitting ? (
+                                    <>
+                                        <Loader size={15} className="spinner" />
+                                        Đang xử lý...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send size={15} />
+                                        Gửi duyệt
+                                    </>
+                                )}
+                            </button>
+                        </span>
+                    </Tooltip>
                 </div>
             </div>
 

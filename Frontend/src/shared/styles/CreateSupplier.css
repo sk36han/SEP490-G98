@@ -429,60 +429,63 @@ select.form-input:disabled {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 7px 16px;
-    border-radius: 8px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 10px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
     outline: none;
     font-family: inherit;
-    line-height: 1.4;
+    white-space: nowrap;
 }
 
+/* Hủy — ghost: no border, text only */
 .btn-cancel {
-    background: #ffffff;
-    color: rgba(17, 24, 39, 0.55);
-    border: 1px solid rgba(17, 24, 39, 0.10);
+    background: transparent;
+    color: rgba(75, 106, 136, 0.75);
+    border: none;
+    padding: 0 12px;
 }
 
-.btn-cancel:hover {
-    background-color: rgba(17, 24, 39, 0.04);
-    border-color: rgba(17, 24, 39, 0.15);
-    color: rgba(17, 24, 39, 0.75);
+.btn-cancel:hover:not(:disabled) {
+    background-color: rgba(2, 132, 199, 0.06);
+    color: #4b6a88;
 }
 
 .btn-cancel:focus {
-    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
 
+/* Lưu nháp — muted ocean outline */
 .btn-draft {
     background: #ffffff;
-    color: rgba(17, 24, 39, 0.55);
-    border: 1px solid rgba(17, 24, 39, 0.10);
+    color: #0284c7;
+    border: 1px solid rgba(2, 132, 199, 0.30);
 }
 
-.btn-draft:hover {
-    background-color: rgba(17, 24, 39, 0.04);
-    border-color: rgba(17, 24, 39, 0.15);
-    color: rgba(17, 24, 39, 0.75);
+.btn-draft:hover:not(:disabled) {
+    background-color: rgba(2, 132, 199, 0.05);
+    border-color: #0284c7;
 }
 
 .btn-draft:focus {
-    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
 }
 
-/* Primary action — ocean blue */
+/* Gửi duyệt — primary ocean blue */
 .btn-primary {
     background-color: #0284c7;
     color: #ffffff;
     border: none;
-    box-shadow: none;
-    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(2, 132, 199, 0.25);
+    border-radius: 10px;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     background-color: #0369a1;
+    box-shadow: 0 3px 8px rgba(2, 132, 199, 0.30);
 }
 
 .btn-primary:focus {
@@ -536,19 +539,28 @@ select.form-input:disabled {
 
 /* Disabled button styles */
 .btn:disabled {
-    opacity: 0.6;
+    opacity: 0.45;
     cursor: not-allowed;
+    pointer-events: none;
 }
 
-/* Secondary button — ocean outline (Lưu nháp) */
+/* Keep pointer-events on the wrapper span for tooltip to work */
+.btn-primary-wrapper {
+    display: inline-flex;
+}
+.btn-primary-wrapper .btn:disabled {
+    pointer-events: none;
+}
+
+/* btn-secondary = alias of btn-draft */
 .btn-secondary {
     background: #ffffff;
     color: #0284c7;
-    border: 1px solid rgba(2, 132, 199, 0.35);
+    border: 1px solid rgba(2, 132, 199, 0.30);
 }
 
-.btn-secondary:hover {
-    background-color: rgba(2, 132, 199, 0.06);
+.btn-secondary:hover:not(:disabled) {
+    background-color: rgba(2, 132, 199, 0.05);
     border-color: #0284c7;
 }
 

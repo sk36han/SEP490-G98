@@ -465,7 +465,7 @@ export default function ViewPurchaseOrderList() {
                     Danh sách đơn mua hàng
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
-                    Purchase Order
+                    Purchase Orders
                 </Typography>
             </Box>
 

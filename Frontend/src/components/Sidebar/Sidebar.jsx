@@ -82,6 +82,9 @@ const isProductsPath = (pathname) =>
 const isPurchaseOrdersPath = (pathname) =>
     pathname === '/purchase-orders' || pathname.startsWith('/purchase-orders/');
 
+const isSuppliersPath = (pathname) =>
+    pathname === '/suppliers' || pathname.startsWith('/suppliers/');
+
 const getSectionLabel = (item) => {
     if (item.id === 'purchase-orders-mgmt' || item.path?.startsWith('/purchase-orders')) {
         return null;
@@ -95,6 +98,7 @@ const Sidebar = () => {
     const [userMgmtCollapsed, setUserMgmtCollapsed] = useState(false);
     const [productsCollapsed, setProductsCollapsed] = useState(false);
     const [purchaseOrdersCollapsed, setPurchaseOrdersCollapsed] = useState(false);
+    const [suppliersCollapsed, setSuppliersCollapsed] = useState(false);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -131,40 +135,44 @@ const Sidebar = () => {
         return undefined;
     }, [pathname]);
 
+    useEffect(() => {
+        if (!isSuppliersPath(pathname)) {
+            const id = setTimeout(() => setSuppliersCollapsed(false), 0);
+            return () => clearTimeout(id);
+        }
+        return undefined;
+    }, [pathname]);
+
     const isOnUserMgmtPath = () => isUserMgmtPath(pathname);
     const isOnProductsPath = () => isProductsPath(pathname);
     const isOnPurchaseOrdersPath = () => isPurchaseOrdersPath(pathname);
+    const isOnSuppliersPath = () => isSuppliersPath(pathname);
 
     const isGroupExpanded = (item) => {
         if (!item.id) return false;
         if (item.id === 'user-mgmt') return isOnUserMgmtPath() && !userMgmtCollapsed;
         if (item.id === 'products-mgmt') return isOnProductsPath() && !productsCollapsed;
         if (item.id === 'purchase-orders-mgmt') return isOnPurchaseOrdersPath() && !purchaseOrdersCollapsed;
+        if (item.id === 'suppliers-mgmt') return isOnSuppliersPath() && !suppliersCollapsed;
         return false;
     };
 
     const handleParentClick = (item) => {
-        const onUserMgmt = item.id === 'user-mgmt' && isOnUserMgmtPath();
-        const onProducts = item.id === 'products-mgmt' && isOnProductsPath();
+        const onUserMgmt      = item.id === 'user-mgmt'            && isOnUserMgmtPath();
+        const onProducts      = item.id === 'products-mgmt'        && isOnProductsPath();
         const onPurchaseOrders = item.id === 'purchase-orders-mgmt' && isOnPurchaseOrdersPath();
+        const onSuppliers     = item.id === 'suppliers-mgmt'       && isOnSuppliersPath();
 
-        if (onUserMgmt) {
-            setUserMgmtCollapsed((prev) => !prev);
-            return;
-        }
-        if (onProducts) {
-            setProductsCollapsed((prev) => !prev);
-            return;
-        }
-        if (onPurchaseOrders) {
-            setPurchaseOrdersCollapsed((prev) => !prev);
-            return;
-        }
+        if (onUserMgmt)       { setUserMgmtCollapsed((p) => !p);      return; }
+        if (onProducts)       { setProductsCollapsed((p) => !p);       return; }
+        if (onPurchaseOrders) { setPurchaseOrdersCollapsed((p) => !p); return; }
+        if (onSuppliers)      { setSuppliersCollapsed((p) => !p);      return; }
 
         navigate(item.path);
         setUserMgmtCollapsed(false);
         setProductsCollapsed(false);
         setPurchaseOrdersCollapsed(false);
+        setSuppliersCollapsed(false);
     };
 
     const handleChildClick = (child) => {
@@ -173,8 +181,9 @@ const Sidebar = () => {
 
     const isParentActive = (item) => {
         if (!item.children) return pathname === item.path;
-        if (item.id === 'products-mgmt' && isProductsPath(pathname)) return true;
+        if (item.id === 'products-mgmt'        && isProductsPath(pathname))       return true;
         if (item.id === 'purchase-orders-mgmt' && isPurchaseOrdersPath(pathname)) return true;
+        if (item.id === 'suppliers-mgmt'       && isSuppliersPath(pathname))      return true;
         return item.children.some((c) => pathname === c.path);
     };
 
@@ -425,10 +434,10 @@ const Sidebar = () => {
                                                                     display: 'flex',
                                                                     alignItems: 'center',
                                                                     gap: '8px',
-                                                    bgcolor: childActive ? ACTIVE_PILL : 'transparent',
+                                                    bgcolor: 'transparent',
                                                     color: childActive ? ACCENT : TXT_MUTED,
                                                     '&:hover': {
-                                                        bgcolor: childActive ? 'rgba(2,132,199,0.16)' : SUB_HOVER_BG,
+                                                        bgcolor: SUB_HOVER_BG,
                                                         color: childActive ? ACCENT : TXT_MUTED_HVR,
                                                     },
                                                     '&.Mui-focusVisible': { outline: `2px solid rgba(2,132,199,0.28)`, outlineOffset: 1 },

@@ -75,7 +75,16 @@ const saleSupportItems = [
         ],
     },
     { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
-    { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
+    {
+        id: 'suppliers-mgmt',
+        path: '/suppliers',
+        icon: <Truck size={22} />,
+        label: 'Quản lý nhà cung cấp',
+        children: [
+            { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
+            { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
+        ],
+    },
     {
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
