@@ -137,4 +137,18 @@ public class PackagingSpecControllerTests
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(new { code = 200, message = "Xoá quy cách đóng gói thành công." });
     }
+
+    [Fact]
+    public async Task TogglePackagingSpecStatus_ShouldReturnOk_WhenSuccessful()
+    {
+        var controller = new PackagingSpecController(_packagingSpecServiceMock.Object);
+        SetupUserClaims(controller);
+        var expected = new PackagingSpecResponse { PackagingSpecId = 1, IsActive = false };
+
+        _packagingSpecServiceMock.Setup(x => x.TogglePackagingSpecStatusAsync(1, false, It.IsAny<long>())).ReturnsAsync(expected);
+
+        var result = await controller.TogglePackagingSpecStatus(1, false);
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(new { code = 200, message = "Cập nhật trạng thái quy cách đóng gói thành công.", data = expected });
+    }
 }

@@ -4,7 +4,7 @@ using System.Security.Claims;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 
-namespace Warehouse.Api.Controllers
+namespace Warehouse.Api.ApiController
 {
     [Authorize]
     [Route("api/packagingspecs")]
@@ -80,19 +80,21 @@ namespace Warehouse.Api.Controllers
             catch (Exception ex) { return StatusCode(500, new { code = 500, message = "Lỗi hệ thống.", details = ex.Message }); }
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePackagingSpec(long id)
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> TogglePackagingSpecStatus(long id, [FromBody] bool isActive)
         {
             try
             {
                 var userId = GetCurrentUserId();
-                await _packagingSpecService.DeletePackagingSpecAsync(id, userId);
-                return Ok(new { code = 200, message = "Xoá quy cách đóng gói thành công." });
+                var result = await _packagingSpecService.TogglePackagingSpecStatusAsync(id, isActive, userId);
+                return Ok(new { code = 200, message = "Cập nhật trạng thái quy cách đóng gói thành công.", data = result });
             }
             catch (KeyNotFoundException ex) { return NotFound(new { code = 404, message = ex.Message }); }
             catch (ArgumentException ex) { return BadRequest(new { code = 400, message = ex.Message }); }
             catch (InvalidOperationException ex) { return Conflict(new { code = 409, message = ex.Message }); }
             catch (Exception ex) { return StatusCode(500, new { code = 500, message = "Lỗi hệ thống.", details = ex.Message }); }
         }
+
+       
     }
 }

@@ -116,29 +116,6 @@ namespace Warehouse.Api.ApiController
             }
         }
 
-        /// <summary>
-        /// Xóa giá trị thông số kỹ thuật
-        /// </summary>
-        [HttpDelete("delete-item-parameter-value/{id}")]
-        public async Task<IActionResult> DeleteItemParameterValue(long id)
-        {
-            try
-            {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
-                    return Unauthorized(new { message = "Không xác định được người dùng." });
-
-                var result = await _itemParameterValueService.DeleteItemParameterValueAsync(id, currentUserId);
-                return Ok(result);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-        }
+        
     }
 }

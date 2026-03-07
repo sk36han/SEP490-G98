@@ -156,9 +156,9 @@ namespace Warehouse.DataAcces.Service
         }
 
         // =====================================================================
-        // DELETE
+        // TOGGLE STATUS
         // =====================================================================
-        public async Task<bool> DeletePackagingSpecAsync(long specId, long currentUserId)
+        public async Task<PackagingSpecResponse> TogglePackagingSpecStatusAsync(long specId, bool isActive, long currentUserId)
         {
             ValidateSpecId(specId);
             ValidateUserId(currentUserId);
@@ -167,24 +167,28 @@ namespace Warehouse.DataAcces.Service
             if (spec == null)
                 throw new KeyNotFoundException($"Không tìm thấy quy cách đóng gói với ID = {specId}.");
 
-            var items = await _itemRepository.GetAllAsync();
-            if (items.Any(i => i.PackagingSpecId == specId))
-                throw new InvalidOperationException($"Không thể xoá quy cách đóng gói '{spec.SpecName}' vì đang được sử dụng trong hệ thống.");
-
-            var result = await _packagingSpecRepository.DeleteAsync(specId);
-            if (result)
+            if (spec.IsActive == isActive)
             {
-                await _auditLogService.LogAsync(
-                    currentUserId,
-                    AuditAction.Delete,
-                    AuditEntity.PackagingSpec,
-                    specId,
-                    $"Xoá quy cách đóng gói '{spec.SpecName}' (mã: {spec.SpecCode})"
-                );
+                var statusText = isActive ? "đang hoạt động" : "đã bị vô hiệu hóa";
+                throw new InvalidOperationException($"Quy cách đóng gói '{spec.SpecName}' hiện tại {statusText}. Không cần thay đổi.");
             }
 
-            return result;
+            spec.IsActive = isActive;
+            await _packagingSpecRepository.UpdateAsync(spec);
+
+            var statusLabel = isActive ? "kích hoạt" : "vô hiệu hóa";
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.PackagingSpec,
+                spec.PackagingSpecId,
+                $"Đã {statusLabel} quy cách đóng gói '{spec.SpecName}' (mã: {spec.SpecCode})"
+            );
+
+            return ToResponse(spec);
         }
+
+       
 
         // =====================================================================
         // PRIVATE VALIDATORS
