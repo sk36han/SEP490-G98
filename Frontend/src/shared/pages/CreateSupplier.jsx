@@ -221,33 +221,33 @@ const CreateSupplier = () => {
                         </div>
                         <div className="form-grid">
                             {/* Tên nhà cung cấp */}
-                            <div className="form-field span-2">
-                                <label htmlFor="supplierName" className="form-label">
-                                    Tên nhà cung cấp <span className="required-mark">*</span>
-                                </label>
-                                <div className="input-wrapper">
-                                    <Building2 className="input-icon" size={16} />
-                                    <input
-                                        id="supplierName"
-                                        type="text"
-                                        name="supplierName"
-                                        value={formData.supplierName}
-                                        onChange={handleChange}
-                                        placeholder="Nhập tên nhà cung cấp"
-                                        className={`form-input ${errors.supplierName ? 'error' : ''}`}
-                                        autoComplete="off"
-                                    />
-                                </div>
-                                {errors.supplierName && (
-                                    <span className="error-message" role="alert">{errors.supplierName}</span>
-                                )}
+                        <div className="form-field span-2">
+                            <label htmlFor="supplierName" className="form-label">
+                                Tên nhà cung cấp <span className="required-mark">*</span>
+                            </label>
+                            <div className="input-wrapper">
+                                <Building2 className="input-icon" size={16} />
+                                <input
+                                    id="supplierName"
+                                    type="text"
+                                    name="supplierName"
+                                    value={formData.supplierName}
+                                    onChange={handleChange}
+                                    placeholder="Nhập tên nhà cung cấp"
+                                    className={`form-input ${errors.supplierName ? 'error' : ''}`}
+                                    autoComplete="off"
+                                />
                             </div>
+                            {errors.supplierName && (
+                                <span className="error-message" role="alert">{errors.supplierName}</span>
+                            )}
+                        </div>
 
                             {/* Số điện thoại */}
-                            <div className="form-field">
+                        <div className="form-field">
                                 <label htmlFor="phone" className="form-label">
                                     Số điện thoại <span className="required-mark">*</span>
-                                </label>
+                            </label>
                                 <div className="phone-input-wrapper">
                                     <select
                                         name="phoneCountryCode"
@@ -496,12 +496,12 @@ const CreateSupplier = () => {
                                     </select>
                                     <div className="phone-input-container">
                                         <Phone className="phone-icon" size={16} />
-                                        <input
+                                <input
                                             id="phone"
                                             type="tel"
                                             name="phone"
                                             value={formData.phone}
-                                            onChange={handleChange}
+                                    onChange={handleChange}
                                             placeholder={
                                                 formData.phoneCountryCode === '+84' 
                                                     ? '912345678' 
@@ -509,56 +509,56 @@ const CreateSupplier = () => {
                                             }
                                             className={`phone-number-input ${errors.phone ? 'error' : ''}`}
                                             autoComplete="tel"
-                                        />
-                                    </div>
+                                />
+                            </div>
                                 </div>
                                 {errors.phone && (
                                     <span className="error-message" role="alert">{errors.phone}</span>
-                                )}
-                            </div>
+                            )}
+                        </div>
 
-                            {/* Email */}
-                            <div className="form-field">
-                                <label htmlFor="email" className="form-label">
-                                    Email <span className="required-mark">*</span>
-                                </label>
-                                <div className="input-wrapper">
-                                    <Mail className="input-icon" size={16} />
-                                    <input
-                                        id="email"
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        placeholder="example@company.com"
-                                        className={`form-input ${errors.email ? 'error' : ''}`}
-                                        autoComplete="email"
-                                    />
-                                </div>
-                                {errors.email && (
-                                    <span className="error-message" role="alert">{errors.email}</span>
-                                )}
+                        {/* Email */}
+                        <div className="form-field">
+                            <label htmlFor="email" className="form-label">
+                                Email <span className="required-mark">*</span>
+                            </label>
+                            <div className="input-wrapper">
+                                <Mail className="input-icon" size={16} />
+                                <input
+                                    id="email"
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    placeholder="example@company.com"
+                                    className={`form-input ${errors.email ? 'error' : ''}`}
+                                    autoComplete="email"
+                                />
                             </div>
+                            {errors.email && (
+                                <span className="error-message" role="alert">{errors.email}</span>
+                            )}
+                        </div>
 
                             {/* Mã số thuế */}
-                            <div className="form-field">
-                                <label htmlFor="taxCode" className="form-label">Mã số thuế</label>
-                                <div className="input-wrapper">
-                                    <FileText className="input-icon" size={16} />
-                                    <input
-                                        id="taxCode"
-                                        type="text"
-                                        name="taxCode"
-                                        value={formData.taxCode}
-                                        onChange={handleChange}
-                                        placeholder="Nhập mã số thuế"
-                                        className="form-input"
-                                        autoComplete="off"
-                                    />
+                        <div className="form-field">
+                            <label htmlFor="taxCode" className="form-label">Mã số thuế</label>
+                            <div className="input-wrapper">
+                                <FileText className="input-icon" size={16} />
+                                <input
+                                    id="taxCode"
+                                    type="text"
+                                    name="taxCode"
+                                    value={formData.taxCode}
+                                    onChange={handleChange}
+                                    placeholder="Nhập mã số thuế"
+                                    className="form-input"
+                                    autoComplete="off"
+                                />
                                 </div>
                             </div>
+                            </div>
                         </div>
-                    </div>
 
                     {/* Card 2: Địa chỉ */}
                     <div className="info-section">
@@ -569,8 +569,8 @@ const CreateSupplier = () => {
                             {/* Dòng 1: Quốc gia + Toggle */}
                             <div className="form-field">
                                 <label htmlFor="country" className="form-label">Quốc gia</label>
-                                <div className="input-wrapper">
-                                    <Globe className="input-icon" size={16} />
+                            <div className="input-wrapper">
+                                <Globe className="input-icon" size={16} />
                                     <select
                                         id="country"
                                         name="country"
@@ -586,7 +586,7 @@ const CreateSupplier = () => {
                             {/* Toggle: Địa chỉ mới theo sát nhập */}
                             <div className="form-field span-2">
                                 <label className="toggle-container">
-                                    <input
+                                <input
                                         type="checkbox"
                                         checked={useNewAddress}
                                         onChange={(e) => setUseNewAddress(e.target.checked)}
@@ -606,8 +606,8 @@ const CreateSupplier = () => {
                                         id="city"
                                         name="city"
                                         value={formData.city}
-                                        onChange={handleChange}
-                                        className="form-input"
+                                    onChange={handleChange}
+                                    className="form-input"
                                     >
                                         <option value="">Chọn tỉnh/thành phố</option>
                                         <option value="Hà Nội">Hà Nội</option>
@@ -653,12 +653,12 @@ const CreateSupplier = () => {
                                         placeholder="Nhập phường/xã"
                                         className="form-input"
                                         autoComplete="off"
-                                    />
-                                </div>
+                                />
                             </div>
+                        </div>
 
                             {/* Dòng 3: Địa chỉ cụ thể */}
-                            <div className="form-field span-3">
+                        <div className="form-field span-3">
                                 <label htmlFor="address" className="form-label">Địa chỉ cụ thể</label>
                                 <div className="input-wrapper">
                                     <MapPin className="input-icon" size={16} />
@@ -667,7 +667,7 @@ const CreateSupplier = () => {
                                         type="text"
                                         name="address"
                                         value={formData.address}
-                                        onChange={handleChange}
+                                onChange={handleChange}
                                         placeholder="Nhập địa chỉ cụ thể"
                                         className={`form-input ${errors.address ? 'error' : ''}`}
                                         autoComplete="street-address"
@@ -676,9 +676,9 @@ const CreateSupplier = () => {
                                 {errors.address && (
                                     <span className="error-message" role="alert">{errors.address}</span>
                                 )}
-                            </div>
                         </div>
                     </div>
+                </div>
                 </form>
             </div>
 

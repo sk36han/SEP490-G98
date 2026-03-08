@@ -113,7 +113,7 @@ const saleEngineerItems = [
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
 ];
 
-// Kế toán: Vật tư (mục cha), Yêu cầu nhập/xuất hàng, Báo cáo
+// Kế toán: Vật tư (mục cha), Quản lý đơn mua, Yêu cầu nhập/xuất hàng, Báo cáo
 const accountantItems = [
     {
         id: 'products-mgmt',
@@ -125,6 +125,17 @@ const accountantItems = [
         ],
     },
     { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Quản lý đơn mua',
+        children: [
+            { path: '/purchase-orders', label: 'Tất cả' },
+            { path: '/purchase-orders', label: 'Chờ duyệt', state: { approvalStatus: 'Pending' } },
+            { path: '/purchase-orders', label: 'Đã duyệt', state: { approvalStatus: 'Approved' } },
+        ],
+    },
     { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },

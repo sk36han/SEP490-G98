@@ -89,6 +89,9 @@ const getSectionLabel = (item) => {
     if (item.id === 'purchase-orders-mgmt' || item.path?.startsWith('/purchase-orders')) {
         return null;
     }
+    if (item.path === '/good-receipt-notes' || item.path === '/good-delivery-notes') {
+        return null;
+    }
     return 'Danh mục';
 };
 
@@ -158,10 +161,10 @@ const Sidebar = () => {
     };
 
     const handleParentClick = (item) => {
-        const onUserMgmt      = item.id === 'user-mgmt'            && isOnUserMgmtPath();
-        const onProducts      = item.id === 'products-mgmt'        && isOnProductsPath();
+        const onUserMgmt       = item.id === 'user-mgmt'            && isOnUserMgmtPath();
+        const onProducts       = item.id === 'products-mgmt'        && isOnProductsPath();
         const onPurchaseOrders = item.id === 'purchase-orders-mgmt' && isOnPurchaseOrdersPath();
-        const onSuppliers     = item.id === 'suppliers-mgmt'       && isOnSuppliersPath();
+        const onSuppliers      = item.id === 'suppliers-mgmt'       && isOnSuppliersPath();
 
         if (onUserMgmt)       { setUserMgmtCollapsed((p) => !p);      return; }
         if (onProducts)       { setProductsCollapsed((p) => !p);       return; }
@@ -188,8 +191,13 @@ const Sidebar = () => {
     };
 
     const isChildActive = (child) => {
-        if (child.state?.openCreate) return pathname === child.path && location.state?.openCreate;
-        return pathname === child.path;
+        if (pathname !== child.path) return false;
+        if (child.state?.openCreate) return !!location.state?.openCreate;
+        // Quản lý đơn mua: Tất cả / Chờ duyệt / Đã duyệt theo approvalStatus
+        if (child.state?.approvalStatus != null) {
+            return location.state?.approvalStatus === child.state.approvalStatus;
+        }
+        return !location.state?.approvalStatus; // "Tất cả" active khi không có filter
     };
 
     // Clone icon with consistent size + stroke

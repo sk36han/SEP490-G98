@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    Switch,
+    TextField,
+    Collapse,
+    Box,
+} from '@mui/material';
+import {
     ArrowLeft,
     Building2,
     MapPin,
@@ -20,16 +31,25 @@ import {
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/CreateSupplier.css';
+
+const MAX_REASON_LENGTH = 250;
 
 const ViewPurchaseOrderDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const [loading, setLoading] = useState(true);
     const [imageErrors, setImageErrors] = useState({});
     const [isEditing, setIsEditing] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [confirmDialogType, setConfirmDialogType] = useState('approve'); // 'approve' | 'reject'
+    const [includeReason, setIncludeReason] = useState(false);
+    const [reasonText, setReasonText] = useState('');
 
     const MAX_JUSTIFICATION_LENGTH = 250;
 
@@ -43,7 +63,10 @@ const ViewPurchaseOrderDetail = () => {
         responsiblePersonName: 'Trần Thị B',
         expectedReceiptDate: '2025-03-15',
         justification: 'Đặt hàng bổ sung tồn kho cho quý 1/2025',
+        discountType: 'percent', // 'percent' | 'amount'
         discount: 5,
+        discountAmountFixed: 0,
+        additionalCosts: [], // [{ id, name, amount }]
         approvalStatus: 'Approved', // Pending, Approved, Rejected
         receivingStatus: 'Partial', // Pending, Partial, Completed
         createdAt: '2025-03-01',
@@ -249,8 +272,11 @@ const ViewPurchaseOrderDetail = () => {
     const totalQuantity = orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
     const totalReceivedQty = orderData.lines.reduce((sum, line) => sum + (Number(line.receivedQty) || 0), 0);
     const subtotal = orderData.lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
-    const discountAmount = (subtotal * (Number(orderData.discount) || 0)) / 100;
-    const grandTotal = subtotal - discountAmount;
+    const discountAmount = orderData.discountType === 'amount'
+        ? (Number(orderData.discountAmountFixed) || 0)
+        : (subtotal * (Number(orderData.discount) || 0)) / 100;
+    const totalAdditionalCosts = (orderData.additionalCosts || []).reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const grandTotal = subtotal - discountAmount + totalAdditionalCosts;
 
     const getApprovalStatusStyle = (status) => {
         const styles = {
@@ -287,6 +313,36 @@ const ViewPurchaseOrderDetail = () => {
         }));
     };
 
+    const setDiscountType = (type) => {
+        setOrderData(prev => ({ ...prev, discountType: type }));
+    };
+
+    const addAdditionalCost = () => {
+        setOrderData(prev => ({
+            ...prev,
+            additionalCosts: [
+                ...(prev.additionalCosts || []),
+                { id: Date.now(), name: '', amount: 0 }
+            ]
+        }));
+    };
+
+    const removeAdditionalCost = (id) => {
+        setOrderData(prev => ({
+            ...prev,
+            additionalCosts: (prev.additionalCosts || []).filter(c => c.id !== id)
+        }));
+    };
+
+    const updateAdditionalCost = (id, field, value) => {
+        setOrderData(prev => ({
+            ...prev,
+            additionalCosts: (prev.additionalCosts || []).map(c =>
+                c.id === id ? { ...c, [field]: field === 'amount' ? (Number(value) || 0) : value } : c
+            )
+        }));
+    };
+
     const updateLine = (index, field, value) => {
         setOrderData(prev => ({
             ...prev,
@@ -303,7 +359,38 @@ const ViewPurchaseOrderDetail = () => {
         }));
     };
 
+    const validateOrderSummary = () => {
+        if (orderData.discountType === 'percent') {
+            const v = Number(orderData.discount);
+            if (isNaN(v) || v < 0 || v > 100) {
+                showToast('Chiết khấu (%) phải từ 0 đến 100.', 'error');
+                return false;
+            }
+        } else {
+            const v = Number(orderData.discountAmountFixed);
+            if (isNaN(v) || v < 0) {
+                showToast('Chiết khấu (số tiền) phải lớn hơn hoặc bằng 0.', 'error');
+                return false;
+            }
+        }
+        const costs = orderData.additionalCosts || [];
+        for (let i = 0; i < costs.length; i++) {
+            const amount = Number(costs[i].amount) || 0;
+            const name = (costs[i].name || '').trim();
+            if (amount > 0 && !name) {
+                showToast(`Dòng chi phí thứ ${i + 1}: nhập tên chi phí khi có số tiền.`, 'error');
+                return false;
+            }
+            if (amount < 0) {
+                showToast(`Dòng chi phí thứ ${i + 1}: số tiền phải lớn hơn hoặc bằng 0.`, 'error');
+                return false;
+            }
+        }
+        return true;
+    };
+
     const handleSave = async () => {
+        if (!validateOrderSummary()) return;
         try {
             setSubmitting(true);
             // Mock API call
@@ -324,6 +411,46 @@ const ViewPurchaseOrderDetail = () => {
         setTimeout(() => setLoading(false), 500);
     };
 
+    const openConfirmDialog = (type) => {
+        setConfirmDialogType(type);
+        setIncludeReason(false);
+        setReasonText('');
+        setConfirmDialogOpen(true);
+    };
+    const closeConfirmDialog = () => {
+        if (submitting) return;
+        setConfirmDialogOpen(false);
+        setIncludeReason(false);
+        setReasonText('');
+    };
+    const handleReasonChange = (e) => {
+        setReasonText(e.target.value.slice(0, MAX_REASON_LENGTH));
+    };
+    const canConfirmAction = !submitting;
+
+    const handleConfirmAction = async () => {
+        if (!canConfirmAction) return;
+        try {
+            setSubmitting(true);
+            await new Promise((r) => setTimeout(r, 600));
+            const reason = includeReason ? reasonText.trim() : '';
+            const isApprove = confirmDialogType === 'approve';
+            setOrderData((prev) => ({
+                ...prev,
+                approvalStatus: isApprove ? 'Approved' : 'Rejected',
+            }));
+            showToast(isApprove ? 'Đã duyệt đơn mua hàng.' : 'Đã hủy đơn mua hàng.', 'success');
+            closeConfirmDialog();
+        } catch (e) {
+            showToast(e?.message || 'Có lỗi xảy ra', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleApprove = () => openConfirmDialog('approve');
+    const handleReject = () => openConfirmDialog('reject');
+
     if (loading) {
         return (
             <div className="create-supplier-page">
@@ -336,6 +463,219 @@ const ViewPurchaseOrderDetail = () => {
 
     return (
         <div className="create-supplier-page">
+            {/* Popup xác nhận Duyệt đơn / Hủy đơn */}
+            <Dialog
+                open={confirmDialogOpen}
+                onClose={closeConfirmDialog}
+                fullWidth
+                maxWidth="sm"
+                disableEscapeKeyDown={submitting}
+                PaperProps={{
+                    sx: {
+                        width: '100%',
+                        maxWidth: '620px',
+                        borderRadius: '16px',
+                        border: '1px solid #e5e7eb',
+                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                        overflow: 'hidden',
+                        m: 2,
+                    },
+                }}
+            >
+                <DialogTitle
+                    sx={{
+                        px: 3,
+                        pt: 2.25,
+                        pb: 1.75,
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color: '#111827',
+                        borderBottom: '1px solid #eef2f7',
+                    }}
+                >
+                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận hủy đơn'}
+                </DialogTitle>
+
+                <DialogContent
+                    sx={{
+                        px: 3,
+                        pt: 3.5,
+                        pb: 2.5,
+                    }}
+                >
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                            mb: includeReason ? 1.5 : 0,
+                            pl: 0.5,
+                        }}
+                    >
+                        <Switch
+                            checked={includeReason}
+                            onChange={(e) => setIncludeReason(e.target.checked)}
+                            size="small"
+                            sx={{
+                                mr: 1,
+                                width: 40,
+                                height: 24,
+                                p: 0,
+                                display: 'flex',
+                                '& .MuiSwitch-switchBase': {
+                                    p: '3px',
+                                    '&.Mui-checked': {
+                                        transform: 'translateX(16px)',
+                                        color: '#ffffff',
+                                        '& + .MuiSwitch-track': {
+                                            backgroundColor: '#0ea5e9',
+                                            opacity: 1,
+                                        },
+                                    },
+                                },
+                                '& .MuiSwitch-thumb': {
+                                    width: 18,
+                                    height: 18,
+                                    boxShadow: 'none',
+                                },
+                                '& .MuiSwitch-track': {
+                                    borderRadius: 12,
+                                    backgroundColor: '#cfefff',
+                                    opacity: 1,
+                                },
+                            }}
+                        />
+
+                        <Box
+                            component="span"
+                            sx={{
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                color: '#374151',
+                                userSelect: 'none',
+                            }}
+                        >
+                            Kèm lý do
+                        </Box>
+                    </Box>
+
+                    <Collapse in={includeReason} timeout={200}>
+                        <Box>
+                            <TextField
+                                fullWidth
+                                multiline
+                                minRows={3}
+                                maxRows={5}
+                                value={reasonText}
+                                onChange={handleReasonChange}
+                                placeholder="Nhập lý do (tùy chọn)"
+                                variant="outlined"
+                                inputProps={{ maxLength: MAX_REASON_LENGTH }}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        alignItems: 'flex-start',
+                                        backgroundColor: '#f3f4f6',
+                                        borderRadius: '12px',
+                                        '& fieldset': {
+                                            border: '1px solid transparent',
+                                        },
+                                        '&:hover fieldset': {
+                                            border: '1px solid transparent',
+                                        },
+                                        '&.Mui-focused fieldset': {
+                                            border: '1px solid #d1d5db',
+                                        },
+                                        '& textarea': {
+                                            padding: '16px 18px !important',
+                                            fontSize: '14px',
+                                            lineHeight: 1.5,
+                                            color: '#111827',
+                                        },
+                                    },
+                                    '& .MuiInputBase-input::placeholder': {
+                                        color: '#9ca3af',
+                                        opacity: 1,
+                                    },
+                                }}
+                            />
+
+                            <Box
+                                sx={{
+                                    mt: 0.75,
+                                    textAlign: 'right',
+                                    fontSize: '12px',
+                                    color: '#6b7280',
+                                    lineHeight: 1,
+                                }}
+                            >
+                                {reasonText.length}/{MAX_REASON_LENGTH}
+                            </Box>
+                        </Box>
+                    </Collapse>
+                </DialogContent>
+
+                <DialogActions
+                    sx={{
+                        px: 3,
+                        py: 2,
+                        gap: 1.5,
+                        justifyContent: 'flex-end',
+                        borderTop: '1px solid #eef2f7',
+                    }}
+                >
+                    <Button
+                        onClick={closeConfirmDialog}
+                        disabled={submitting}
+                        disableRipple
+                        sx={{
+                            minWidth: '72px',
+                            height: 40,
+                            px: 1,
+                            borderRadius: '10px',
+                            textTransform: 'none',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: '#6b7280',
+                            backgroundColor: 'transparent',
+                            boxShadow: 'none',
+                            '&:hover': {
+                                backgroundColor: 'transparent',
+                                color: '#4b5563',
+                                boxShadow: 'none',
+                            },
+                        }}
+                    >
+                        Hủy
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleConfirmAction}
+                        disabled={!canConfirmAction}
+                        sx={{
+                            minWidth: '110px',
+                            height: 40,
+                            px: 2,
+                            borderRadius: '12px',
+                            textTransform: 'none',
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            backgroundColor: confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
+                            boxShadow: 'none',
+                            '&:hover': {
+                                backgroundColor: confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
+                                boxShadow: 'none',
+                            },
+                            '&:disabled': {
+                                backgroundColor: '#bae6fd',
+                                color: '#ffffff',
+                            },
+                        }}
+                    >
+                        {submitting ? 'Đang xử lý...' : 'Xác nhận'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
@@ -346,14 +686,38 @@ const ViewPurchaseOrderDetail = () => {
                 </div>
                 <div className="page-header-actions">
                     {!isEditing ? (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => setIsEditing(true)}
-                        >
-                            <Edit size={16} className="btn-icon" />
-                            Chỉnh sửa
-                        </button>
+                        <>
+                            {permissionRole === 'ACCOUNTANTS' && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="btn btn-cancel"
+                                        disabled={submitting}
+                                        onClick={handleReject}
+                                    >
+                                        <XCircle size={16} className="btn-icon" />
+                                        Hủy đơn
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        disabled={submitting}
+                                        onClick={handleApprove}
+                                    >
+                                        <CheckCircle size={16} className="btn-icon" />
+                                        Duyệt đơn
+                                    </button>
+                                </>
+                            )}
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => setIsEditing(true)}
+                            >
+                                <Edit size={16} className="btn-icon" />
+                                Chỉnh sửa
+                            </button>
+                        </>
                     ) : (
                         <>
                             <button
@@ -772,26 +1136,128 @@ const ViewPurchaseOrderDetail = () => {
                                     </div>
 
                                     <div className="form-field">
-                                        <label className="form-label">Chiết khấu (%)</label>
+                                        <label className="form-label">Chiết khấu</label>
                                         {isEditing ? (
-                                            <input
-                                                type="number"
-                                                name="discount"
-                                                value={orderData.discount}
-                                                onChange={handleChange}
-                                                min="0"
-                                                max="100"
-                                                className="form-input"
-                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <button
+                                                        type="button"
+                                                        className={`btn btn-sm ${orderData.discountType === 'amount' ? 'btn-primary' : 'btn-card-text'}`}
+                                                        onClick={() => setDiscountType('amount')}
+                                                    >
+                                                        Số tiền
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`btn btn-sm ${orderData.discountType === 'percent' ? 'btn-primary' : 'btn-card-text'}`}
+                                                        onClick={() => setDiscountType('percent')}
+                                                    >
+                                                        %
+                                                    </button>
+                                                </div>
+                                                {orderData.discountType === 'percent' ? (
+                                                    <input
+                                                        type="number"
+                                                        name="discount"
+                                                        value={orderData.discount}
+                                                        onChange={handleChange}
+                                                        min="0"
+                                                        max="100"
+                                                        className="form-input"
+                                                        placeholder="0–100"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="number"
+                                                        name="discountAmountFixed"
+                                                        value={orderData.discountAmountFixed || ''}
+                                                        onChange={handleChange}
+                                                        min="0"
+                                                        className="form-input"
+                                                        placeholder="Nhập số tiền (VND)"
+                                                    />
+                                                )}
+                                            </div>
                                         ) : (
                                             <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
-                                                {orderData.discount}%
+                                                {orderData.discountType === 'percent'
+                                                    ? `${orderData.discount}%`
+                                                    : formatCurrency(Number(orderData.discountAmountFixed) || 0)}
                                             </div>
                                         )}
                                     </div>
 
                                     <div className="form-field span-2">
+                                        <label className="form-label">Chi phí</label>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {(orderData.additionalCosts || []).map((cost) => (
+                                                <div key={cost.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={cost.name}
+                                                        onChange={(e) => updateAdditionalCost(cost.id, 'name', e.target.value)}
+                                                        placeholder="Tên"
+                                                        className="form-input"
+                                                        style={{ flex: '1 1 140px', minWidth: 0, maxWidth: '220px' }}
+                                                        readOnly={!isEditing}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        value={cost.amount || ''}
+                                                        onChange={(e) => updateAdditionalCost(cost.id, 'amount', e.target.value)}
+                                                        placeholder="Số tiền"
+                                                        className="form-input"
+                                                        style={{ width: '260px' }}
+                                                        min="0"
+                                                        readOnly={!isEditing}
+                                                    />
+                                                    {isEditing && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-sm btn-cancel"
+                                                            onClick={() => removeAdditionalCost(cost.id)}
+                                                            style={{ color: '#ef4444' }}
+                                                        >
+                                                            Xóa
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {isEditing && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-card-text"
+                                                    onClick={addAdditionalCost}
+                                                    style={{ alignSelf: 'flex-start' }}
+                                                >
+                                                    + Thêm chi phí
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="form-field span-2">
+                                        <div style={{ fontSize: '13px', color: '#666' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
+                                                <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
+                                            </div>
+                                            {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).map((c) => (
+                                                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                                                    <span>{c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:</span>
+                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(Number(c.amount) || 0)}</span>
+                                                </div>
+                                            ))}
+                                            {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).length > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
+                                                    <span>Chi phí:</span>
+                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
                                         <div style={{ 
+                                            marginTop: '16px',
                                             padding: '20px', 
                                             backgroundColor: '#e3f2fd', 
                                             borderRadius: '12px', 
@@ -806,13 +1272,6 @@ const ViewPurchaseOrderDetail = () => {
                                             <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>
                                                 {formatCurrency(grandTotal)}
                                             </span>
-                                        </div>
-                                        
-                                        <div style={{ marginTop: '12px', fontSize: '13px', color: '#666' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>Chiết khấu:</span>
-                                                <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>

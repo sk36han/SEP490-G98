@@ -319,11 +319,11 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase order mockup: chỉ Sale Support */}
+        {/* Purchase order: Sale Support, Kế toán (Quản lý đơn mua trong Yêu Cầu) */}
         <Route
             path="/purchase-orders"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewPurchaseOrderList />
                     </MainLayout>
@@ -333,7 +333,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/create"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreatePurchaseOrder />
                     </MainLayout>
@@ -343,7 +343,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/:id"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewPurchaseOrderDetail />
                     </MainLayout>

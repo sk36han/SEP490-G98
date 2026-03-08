@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Box,
     Card,
@@ -29,6 +29,8 @@ import {
 } from '@mui/material';
 import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import '../styles/ListView.css';
@@ -165,6 +167,8 @@ export default function ViewPurchaseOrderList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+    const location = useLocation();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
 
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -188,6 +192,14 @@ export default function ViewPurchaseOrderList() {
         const saved = localStorage.getItem('poSortConfig');
         return saved ? JSON.parse(saved) : { orderBy: null, order: 'asc' };
     });
+
+    // Áp dụng filter từ sidebar (Tất cả / Chờ duyệt / Đã duyệt)
+    useEffect(() => {
+        const status = location.state?.approvalStatus;
+        if (status !== undefined) {
+            setFilterValues((prev) => ({ ...prev, approvalStatus: status || undefined }));
+        }
+    }, [location.state?.approvalStatus]);
 
     useEffect(() => {
         if (sortConfig.orderBy) {
@@ -558,30 +570,32 @@ export default function ViewPurchaseOrderList() {
                                     <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
-                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                <Button 
-                                    className="list-page-btn" 
-                                    variant="contained" 
-                                    startIcon={<Plus size={18} />} 
-                                    onClick={() => navigate('/purchase-orders/create')} 
-                                    sx={{ 
-                                        fontSize: '13px', 
-                                        fontWeight: 500, 
-                                        textTransform: 'none', 
-                                        borderRadius: '10px', 
-                                        height: 38,
-                                        px: 2.5,
-                                        bgcolor: '#0284c7',
-                                        boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
-                                        '&:hover': {
-                                            bgcolor: '#0369a1',
-                                            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
-                                        },
-                                    }}
-                                >
-                                    Tạo đơn mua hàng
-                                </Button>
-                            </Box>
+                            {permissionRole !== 'ACCOUNTANTS' && (
+                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
+                                    <Button 
+                                        className="list-page-btn" 
+                                        variant="contained" 
+                                        startIcon={<Plus size={18} />} 
+                                        onClick={() => navigate('/purchase-orders/create')} 
+                                        sx={{ 
+                                            fontSize: '13px', 
+                                            fontWeight: 500, 
+                                            textTransform: 'none', 
+                                            borderRadius: '10px', 
+                                            height: 38,
+                                            px: 2.5,
+                                            bgcolor: '#0284c7',
+                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                            '&:hover': {
+                                                bgcolor: '#0369a1',
+                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                            },
+                                        }}
+                                    >
+                                        Tạo đơn mua hàng
+                                    </Button>
+                                </Box>
+                            )}
                         </Box>
                     </Box>
 
