@@ -59,7 +59,16 @@ const warehouseKeeperItems = [
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    {
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: <FileText size={22} />,
+        label: 'Quản lý phiếu nhập kho',
+        children: [
+            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
+            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+        ],
+    },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
@@ -136,7 +145,16 @@ const accountantItems = [
             { path: '/purchase-orders', label: 'Đã duyệt', state: { approvalStatus: 'Approved' } },
         ],
     },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    {
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: <FileText size={22} />,
+        label: 'Quản lý phiếu nhập kho',
+        children: [
+            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
+            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+        ],
+    },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
 ];

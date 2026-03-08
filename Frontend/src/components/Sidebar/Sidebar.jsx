@@ -85,11 +85,17 @@ const isPurchaseOrdersPath = (pathname) =>
 const isSuppliersPath = (pathname) =>
     pathname === '/suppliers' || pathname.startsWith('/suppliers/');
 
+const isGoodReceiptNotesPath = (pathname) =>
+    pathname === '/good-receipt-notes' || pathname.startsWith('/good-receipt-notes/');
+
 const getSectionLabel = (item) => {
     if (item.id === 'purchase-orders-mgmt' || item.path?.startsWith('/purchase-orders')) {
         return null;
     }
-    if (item.path === '/good-receipt-notes' || item.path === '/good-delivery-notes') {
+    if (item.id === 'good-receipt-notes-mgmt' || item.path?.startsWith('/good-receipt-notes')) {
+        return null;
+    }
+    if (item.path === '/good-delivery-notes') {
         return null;
     }
     return 'Danh mục';
@@ -101,6 +107,7 @@ const Sidebar = () => {
     const [userMgmtCollapsed, setUserMgmtCollapsed] = useState(false);
     const [productsCollapsed, setProductsCollapsed] = useState(false);
     const [purchaseOrdersCollapsed, setPurchaseOrdersCollapsed] = useState(false);
+    const [goodReceiptNotesCollapsed, setGoodReceiptNotesCollapsed] = useState(false);
     const [suppliersCollapsed, setSuppliersCollapsed] = useState(false);
 
     const navigate = useNavigate();
@@ -139,6 +146,14 @@ const Sidebar = () => {
     }, [pathname]);
 
     useEffect(() => {
+        if (!isGoodReceiptNotesPath(pathname)) {
+            const id = setTimeout(() => setGoodReceiptNotesCollapsed(false), 0);
+            return () => clearTimeout(id);
+        }
+        return undefined;
+    }, [pathname]);
+
+    useEffect(() => {
         if (!isSuppliersPath(pathname)) {
             const id = setTimeout(() => setSuppliersCollapsed(false), 0);
             return () => clearTimeout(id);
@@ -149,6 +164,7 @@ const Sidebar = () => {
     const isOnUserMgmtPath = () => isUserMgmtPath(pathname);
     const isOnProductsPath = () => isProductsPath(pathname);
     const isOnPurchaseOrdersPath = () => isPurchaseOrdersPath(pathname);
+    const isOnGoodReceiptNotesPath = () => isGoodReceiptNotesPath(pathname);
     const isOnSuppliersPath = () => isSuppliersPath(pathname);
 
     const isGroupExpanded = (item) => {
@@ -156,6 +172,7 @@ const Sidebar = () => {
         if (item.id === 'user-mgmt') return isOnUserMgmtPath() && !userMgmtCollapsed;
         if (item.id === 'products-mgmt') return isOnProductsPath() && !productsCollapsed;
         if (item.id === 'purchase-orders-mgmt') return isOnPurchaseOrdersPath() && !purchaseOrdersCollapsed;
+        if (item.id === 'good-receipt-notes-mgmt') return isOnGoodReceiptNotesPath() && !goodReceiptNotesCollapsed;
         if (item.id === 'suppliers-mgmt') return isOnSuppliersPath() && !suppliersCollapsed;
         return false;
     };
@@ -163,18 +180,21 @@ const Sidebar = () => {
     const handleParentClick = (item) => {
         const onUserMgmt       = item.id === 'user-mgmt'            && isOnUserMgmtPath();
         const onProducts       = item.id === 'products-mgmt'        && isOnProductsPath();
-        const onPurchaseOrders = item.id === 'purchase-orders-mgmt' && isOnPurchaseOrdersPath();
-        const onSuppliers      = item.id === 'suppliers-mgmt'       && isOnSuppliersPath();
+        const onPurchaseOrders     = item.id === 'purchase-orders-mgmt'     && isOnPurchaseOrdersPath();
+        const onGoodReceiptNotes   = item.id === 'good-receipt-notes-mgmt'   && isOnGoodReceiptNotesPath();
+        const onSuppliers          = item.id === 'suppliers-mgmt'            && isOnSuppliersPath();
 
-        if (onUserMgmt)       { setUserMgmtCollapsed((p) => !p);      return; }
-        if (onProducts)       { setProductsCollapsed((p) => !p);       return; }
-        if (onPurchaseOrders) { setPurchaseOrdersCollapsed((p) => !p); return; }
-        if (onSuppliers)      { setSuppliersCollapsed((p) => !p);      return; }
+        if (onUserMgmt)           { setUserMgmtCollapsed((p) => !p);           return; }
+        if (onProducts)           { setProductsCollapsed((p) => !p);           return; }
+        if (onPurchaseOrders)     { setPurchaseOrdersCollapsed((p) => !p);     return; }
+        if (onGoodReceiptNotes)    { setGoodReceiptNotesCollapsed((p) => !p);   return; }
+        if (onSuppliers)          { setSuppliersCollapsed((p) => !p);          return; }
 
         navigate(item.path);
         setUserMgmtCollapsed(false);
         setProductsCollapsed(false);
         setPurchaseOrdersCollapsed(false);
+        setGoodReceiptNotesCollapsed(false);
         setSuppliersCollapsed(false);
     };
 
@@ -184,9 +204,10 @@ const Sidebar = () => {
 
     const isParentActive = (item) => {
         if (!item.children) return pathname === item.path;
-        if (item.id === 'products-mgmt'        && isProductsPath(pathname))       return true;
-        if (item.id === 'purchase-orders-mgmt' && isPurchaseOrdersPath(pathname)) return true;
-        if (item.id === 'suppliers-mgmt'       && isSuppliersPath(pathname))      return true;
+        if (item.id === 'products-mgmt'         && isProductsPath(pathname))        return true;
+        if (item.id === 'purchase-orders-mgmt' && isPurchaseOrdersPath(pathname))  return true;
+        if (item.id === 'good-receipt-notes-mgmt' && isGoodReceiptNotesPath(pathname)) return true;
+        if (item.id === 'suppliers-mgmt'       && isSuppliersPath(pathname))       return true;
         return item.children.some((c) => pathname === c.path);
     };
 
