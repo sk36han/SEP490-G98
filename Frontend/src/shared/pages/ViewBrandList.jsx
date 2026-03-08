@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -23,23 +23,33 @@ import {
     Tooltip,
     useTheme,
     useMediaQuery,
+    CircularProgress,
+    Alert,
+    FormControlLabel,
+    Checkbox,
+    Popover,
+    FormControl,
+    Select,
+    MenuItem,
 } from '@mui/material';
-import { Plus, Edit3, RefreshCw, Eye, Package } from 'lucide-react';
+import { Plus, Edit3, RefreshCw, Eye, Package, Filter } from 'lucide-react';
 import '../styles/ListView.css';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
-import { removeDiacritics } from '../utils/stringUtils';
+import { getBrandList, createBrand, updateBrand, toggleBrandStatus } from '../lib/brandService';
 
-const INITIAL_BRANDS = [
-    { brandId: 1, brandCode: 'APPLE', brandName: 'Apple', isActive: true, itemCount: 5 },
-    { brandId: 2, brandCode: 'SAMSUNG', brandName: 'Samsung', isActive: true, itemCount: 3 },
-    { brandId: 3, brandCode: 'OTHER', brandName: 'Khác', isActive: true, itemCount: 2 },
-];
+const emptyBrand = { brandId: null, brandName: '', isActive: true };
 
-const emptyBrand = { brandId: null, brandCode: '', brandName: '', isActive: true };
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
-const PAGE_SIZE = 7;
+/** Hiển thị "mã" từ tên (backend không có brandCode). */
+const getBrandCodeDisplay = (b) =>
+    (b.brandName || '')
+        .trim()
+        .replace(/\s+/g, '_')
+        .toUpperCase()
+        .slice(0, 12) || '–';
 
 const ViewBrandList = () => {
     const navigate = useNavigate();
@@ -50,28 +60,47 @@ const ViewBrandList = () => {
 
     const canManageBrand =
         permissionRole === 'WAREHOUSE_KEEPER' || permissionRole === 'ACCOUNTANTS';
-    const [rows, setRows] = useState(INITIAL_BRANDS);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showOnlyActive, setShowOnlyActive] = useState(false);
+    const [filterAnchor, setFilterAnchor] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editing, setEditing] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [form, setForm] = useState(emptyBrand);
     const [detailBrand, setDetailBrand] = useState(null);
 
-    const filteredRows = useMemo(() => {
-        if (!searchTerm.trim()) return rows;
-        const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
-        const term = normalize(searchTerm.trim());
-        return rows.filter(
-            (b) =>
-                normalize(b.brandCode).includes(term) ||
-                normalize(b.brandName).includes(term),
-        );
-    }, [rows, searchTerm]);
+    const currentPage = page + 1;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-    const totalCount = filteredRows.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-    const paginatedRows = filteredRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const fetchList = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await getBrandList({
+                page: currentPage,
+                pageSize,
+                brandName: searchTerm.trim() || undefined,
+                isActive: showOnlyActive ? true : undefined,
+            });
+            setRows(result.items ?? []);
+            setTotalItems(result.totalItems ?? 0);
+        } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách thương hiệu.');
+            setRows([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentPage, pageSize, searchTerm, showOnlyActive]);
+
+    useEffect(() => {
+        fetchList();
+    }, [fetchList]);
 
     const handleOpenCreate = () => {
         setEditing(false);
@@ -81,7 +110,7 @@ const ViewBrandList = () => {
 
     const handleOpenEdit = (brand) => {
         setEditing(true);
-        setForm(brand);
+        setForm({ brandId: brand.brandId, brandName: brand.brandName ?? '', isActive: brand.isActive ?? true });
         setDialogOpen(true);
     };
 
@@ -91,52 +120,43 @@ const ViewBrandList = () => {
     };
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!form.brandCode.trim() || !form.brandName.trim()) {
-            // eslint-disable-next-line no-alert
-            alert('Vui lòng nhập đầy đủ Mã Brand và Tên Brand.');
+        const name = (form.brandName || '').trim();
+        if (!name || name.length < 2) {
             return;
         }
-
-        if (editing) {
-            setRows((prev) =>
-                prev.map((b) =>
-                    b.brandId === form.brandId
-                        ? { ...b, brandCode: form.brandCode.trim(), brandName: form.brandName.trim() }
-                        : b,
-                ),
-            );
-        } else {
-            const nextId = rows.length > 0 ? Math.max(...rows.map((b) => b.brandId)) + 1 : 1;
-            setRows((prev) => [
-                ...prev,
-                {
-                    brandId: nextId,
-                    brandCode: form.brandCode.trim(),
-                    brandName: form.brandName.trim(),
-                    isActive: true,
-                    itemCount: 0,
-                },
-            ]);
+        setSubmitting(true);
+        try {
+            if (editing) {
+                await updateBrand(form.brandId, { brandName: name, isActive: form.isActive });
+            } else {
+                await createBrand({ brandName: name });
+            }
+            handleCloseDialog();
+            fetchList();
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra.';
+            setError(msg);
+        } finally {
+            setSubmitting(false);
         }
-        handleCloseDialog();
     };
 
-    const handleToggleStatus = (brandId) => {
+    const handleToggleStatus = async (brand) => {
         if (!canManageBrand) return;
-        setRows((prev) =>
-            prev.map((b) => (b.brandId === brandId ? { ...b, isActive: !b.isActive } : b)),
-        );
-    };
-
-    const handleResetMock = () => {
-        if (!canManageBrand) return;
-        setRows(INITIAL_BRANDS);
+        try {
+            await toggleBrandStatus(brand.brandId, !brand.isActive);
+            setRows((prev) =>
+                prev.map((b) => (b.brandId === brand.brandId ? { ...b, isActive: !b.isActive } : b)),
+            );
+        } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Không đổi được trạng thái.');
+        }
     };
 
     const handleViewItemsByBrand = (brand) => {
@@ -215,6 +235,14 @@ const ViewBrandList = () => {
                                 onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
                                 sx={{ flex: '1 1 240px', minWidth: isMobile ? '100%' : 240, maxWidth: isMobile ? '100%' : 520 }}
                             />
+                            <IconButton
+                                size="small"
+                                onClick={(e) => setFilterAnchor(e.currentTarget)}
+                                title="Bộ lọc"
+                                sx={{ border: 1, borderColor: 'divider' }}
+                            >
+                                <Filter size={18} />
+                            </IconButton>
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto', flexWrap: 'wrap' }}>
                                 {canManageBrand && (
                                     <Button
@@ -227,122 +255,128 @@ const ViewBrandList = () => {
                                         Thêm Brand
                                     </Button>
                                 )}
-                                {canManageBrand && (
-                                    <IconButton
-                                        size="small"
-                                        onClick={handleResetMock}
-                                        sx={{ flexShrink: 0 }}
-                                        title="Khôi phục dữ liệu mẫu"
-                                    >
-                                        <RefreshCw size={18} />
-                                    </IconButton>
-                                )}
+                                <IconButton size="small" onClick={fetchList} sx={{ flexShrink: 0 }} title="Làm mới">
+                                    <RefreshCw size={18} />
+                                </IconButton>
                             </Box>
                         </Box>
                     </CardContent>
                 </Card>
 
+                {error && (
+                    <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 1 }}>
+                        {error}
+                    </Alert>
+                )}
+
                 <Card className="list-grid-card" sx={{ flex: 1, minHeight: 400, minWidth: 0, overflow: 'visible', borderRadius: 3, border: '1px solid rgba(0,0,0,0.06)', boxShadow: (t) => t.shadows[0], display: 'flex', flexDirection: 'column' }}>
                     <CardContent sx={{ p: 0, '&:last-child': { pb: 0 }, flex: 1, display: 'flex', flexDirection: 'column' }}>
                         <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column' }}>
-                            <TableContainer sx={{ flex: 1, width: '100%', maxWidth: '100%', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
-                                <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: 'grey.50' }}>
-                                            <TableCell sx={{ fontWeight: 600, width: '8%', minWidth: 44, overflow: 'visible', whiteSpace: 'nowrap' }} align="center">STT</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Mã Brand</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '20%', maxWidth: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Tên Brand</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '10%', maxWidth: '10%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} align="center">Số vật tư</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Trạng thái</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '14%', maxWidth: '14%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Xem vật tư</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, width: '24%', minWidth: 120, overflow: 'visible' }} align="right">Hành động</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {paginatedRows.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                                                    {rows.length === 0
-                                                        ? 'Chưa có Brand nào. Nhấn "Thêm Brand" để tạo mới.'
-                                                        : 'Không tìm thấy brand nào phù hợp.'}
-                                                </TableCell>
+                            {loading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 280 }}>
+                                    <CircularProgress />
+                                </Box>
+                            ) : (
+                                <TableContainer sx={{ flex: 1, width: '100%', maxWidth: '100%', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+                                    <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
+                                        <TableHead>
+                                            <TableRow sx={{ bgcolor: 'grey.50' }}>
+                                                <TableCell sx={{ fontWeight: 600, width: 52, minWidth: 52, maxWidth: 52 }} align="center">STT</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, width: '32%', minWidth: 160, px: 1.25 }}>Tên Brand</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, width: '12%', minWidth: 80, px: 1.25 }} align="center">Số vật tư</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, width: '14%', minWidth: 100, px: 1.25 }}>Trạng thái</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, width: '16%', minWidth: 100, px: 1.25 }}>Xem vật tư</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, width: '18%', minWidth: 120, px: 1.25 }} align="right">Hành động</TableCell>
                                             </TableRow>
-                                        ) : (
-                                            paginatedRows.map((b, index) => (
-                                                <TableRow key={b.brandId} hover>
-                                                    <TableCell sx={{ width: '8%', minWidth: 44, overflow: 'visible', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }} align="center">{page * PAGE_SIZE + index + 1}</TableCell>
-                                                    <TableCell sx={{ width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.brandCode}>{b.brandCode}</TableCell>
-                                                    <TableCell
-                                                        sx={{
-                                                            width: '20%',
-                                                            maxWidth: '20%',
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis',
-                                                            whiteSpace: 'nowrap',
-                                                            cursor: 'pointer',
-                                                            color: 'primary.main',
-                                                            '&:hover': { textDecoration: 'underline' },
-                                                        }}
-                                                        onClick={() => handleViewItemsByBrand(b)}
-                                                    >
-                                                        {b.brandName}
-                                                    </TableCell>
-                                                    <TableCell sx={{ width: '10%', maxWidth: '10%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }} align="center">
-                                                        {b.itemCount ?? 0}
-                                                    </TableCell>
-                                                    <TableCell sx={{ width: '12%', maxWidth: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        <Chip
-                                                            label={b.isActive ? 'Hoạt động' : 'Tắt'}
-                                                            size="small"
-                                                            color={b.isActive ? 'success' : 'default'}
-                                                            onClick={() => canManageBrand && handleToggleStatus(b.brandId)}
-                                                            sx={{ cursor: canManageBrand ? 'pointer' : 'default', borderRadius: 1.5 }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell sx={{ width: '14%', maxWidth: '14%', overflow: 'visible' }} align="left">
-                                                        <Tooltip title="Xem danh sách vật tư thuộc brand">
-                                                            <Button
-                                                                size="small"
-                                                                variant="outlined"
-                                                                startIcon={<Package size={14} />}
-                                                                onClick={() => handleViewItemsByBrand(b)}
-                                                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25, px: 1 }}
-                                                            >
-                                                                Xem vật tư
-                                                            </Button>
-                                                        </Tooltip>
-                                                    </TableCell>
-                                                    <TableCell align="right" sx={{ width: '24%', minWidth: 120, overflow: 'visible' }}>
-                                                        <Tooltip title="Xem chi tiết">
-                                                            <IconButton size="small" onClick={() => setDetailBrand(b)} aria-label="Xem chi tiết">
-                                                                <Eye size={18} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        {canManageBrand && (
-                                                            <Tooltip title="Chỉnh sửa">
-                                                                <IconButton size="small" onClick={() => handleOpenEdit(b)} aria-label="Chỉnh sửa">
-                                                                    <Edit3 size={18} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        )}
+                                        </TableHead>
+                                        <TableBody>
+                                            {rows.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                                                        {error ? 'Có lỗi khi tải dữ liệu.' : 'Chưa có Brand nào. Nhấn "Thêm Brand" để tạo mới.'}
                                                     </TableCell>
                                                 </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                                            ) : (
+                                                rows.map((b, index) => (
+                                                    <TableRow key={b.brandId} hover>
+                                                        <TableCell align="center" sx={{ width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums' }}>{(currentPage - 1) * pageSize + index + 1}</TableCell>
+                                                        <TableCell sx={{ px: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.brandName}</TableCell>
+                                                        <TableCell align="center" sx={{ fontVariantNumeric: 'tabular-nums', px: 1.25 }}>0</TableCell>
+                                                        <TableCell sx={{ px: 1.25 }}>
+                                                            <Chip
+                                                                label={b.isActive ? 'Hoạt động' : 'Tắt'}
+                                                                size="small"
+                                                                color={b.isActive ? 'success' : 'default'}
+                                                                onClick={() => canManageBrand && handleToggleStatus(b)}
+                                                                sx={{ cursor: canManageBrand ? 'pointer' : 'default', borderRadius: 1.5 }}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell sx={{ px: 1.25 }}>
+                                                            <Tooltip title="Xem danh sách vật tư thuộc brand">
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    startIcon={<Package size={14} />}
+                                                                    onClick={() => handleViewItemsByBrand(b)}
+                                                                    sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25, px: 1 }}
+                                                                >
+                                                                    Xem vật tư
+                                                                </Button>
+                                                            </Tooltip>
+                                                        </TableCell>
+                                                        <TableCell align="right" sx={{ px: 1.25 }}>
+                                                            <Tooltip title="Xem chi tiết">
+                                                                <IconButton size="small" onClick={() => setDetailBrand(b)} aria-label="Xem chi tiết">
+                                                                    <Eye size={18} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                            {canManageBrand && (
+                                                                <Tooltip title="Chỉnh sửa">
+                                                                    <IconButton size="small" onClick={() => handleOpenEdit(b)} aria-label="Chỉnh sửa">
+                                                                        <Edit3 size={18} />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
                         </Box>
                     </CardContent>
                 </Card>
 
-                {totalCount > PAGE_SIZE && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1.5, py: 1.5, flexShrink: 0 }}>
+                {!loading && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2, py: 1.5, flexShrink: 0 }}>
+                        <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                        <FormControl size="small" sx={{ minWidth: 72 }}>
+                            <Select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }} sx={{ height: 32, fontSize: '0.875rem' }}>
+                                {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                    <MenuItem key={n} value={n}>{n}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>
+                            {(totalItems === 0 ? 0 : page * pageSize + 1)}–{Math.min((page + 1) * pageSize, totalItems)} / {totalItems} (Tổng {totalPages} trang)
+                        </Typography>
                         <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => setPage((p) => p - 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Trước</Button>
-                        <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, minWidth: 72, textAlign: 'center' }}>Trang {page + 1} / {totalPages}</Typography>
-                        <Button size="small" variant="outlined" disabled={page >= totalPages - 1 || totalCount === 0} onClick={() => setPage((p) => p + 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Sau</Button>
+                        <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, minWidth: 72, textAlign: 'center' }}>Trang {totalPages > 0 ? currentPage : 0} / {totalPages || 1}</Typography>
+                        <Button size="small" variant="outlined" disabled={page >= totalPages - 1 || totalItems === 0} onClick={() => setPage((p) => p + 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Sau</Button>
                     </Box>
                 )}
+
+                <Popover open={Boolean(filterAnchor)} anchorEl={filterAnchor} onClose={() => setFilterAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }} transformOrigin={{ vertical: 'top', horizontal: 'left' }}>
+                    <Box sx={{ p: 1.5 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Bộ lọc</Typography>
+                        <FormControlLabel
+                            control={<Checkbox size="small" checked={showOnlyActive} onChange={(e) => { setShowOnlyActive(e.target.checked); setPage(0); }} />}
+                            label="Chỉ hiển thị đang hoạt động"
+                        />
+                    </Box>
+                </Popover>
             </Box>
 
             {/* Dialog chi tiết Brand */}
@@ -362,8 +396,8 @@ const ViewBrandList = () => {
                     {detailBrand && (
                         <Stack spacing={2}>
                             <Box>
-                                <Typography variant="caption" color="text.secondary">Mã Brand</Typography>
-                                <Typography variant="body1" fontWeight={600}>{detailBrand.brandCode}</Typography>
+                                <Typography variant="caption" color="text.secondary">Mã hiển thị</Typography>
+                                <Typography variant="body1" fontWeight={600}>{getBrandCodeDisplay(detailBrand)}</Typography>
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Tên Brand</Typography>
@@ -383,7 +417,7 @@ const ViewBrandList = () => {
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Số vật tư thuộc brand</Typography>
                                 <Typography variant="body1" fontWeight={600} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                                    {detailBrand.itemCount ?? 0} vật tư
+                                    0 vật tư
                                 </Typography>
                             </Box>
                         </Stack>
@@ -423,35 +457,30 @@ const ViewBrandList = () => {
                     <DialogContent dividers>
                         <Stack spacing={2}>
                             <TextField
-                                label="Mã Brand"
-                                name="brandCode"
-                                value={form.brandCode}
-                                onChange={handleChange}
-                                size="small"
-                                fullWidth
-                                required
-                            />
-                            <TextField
-                                label="Tên Brand"
+                                label="Tên thương hiệu"
                                 name="brandName"
                                 value={form.brandName}
                                 onChange={handleChange}
                                 size="small"
                                 fullWidth
                                 required
+                                placeholder="VD: Apple, Samsung"
+                                helperText="Từ 2 đến 255 ký tự"
                             />
+                            {editing && (
+                                <FormControlLabel
+                                    control={<Checkbox name="isActive" checked={form.isActive} onChange={handleChange} />}
+                                    label="Đang hoạt động"
+                                />
+                            )}
                         </Stack>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={handleCloseDialog} sx={{ textTransform: 'none' }}>
+                        <Button onClick={handleCloseDialog} sx={{ textTransform: 'none' }} disabled={submitting}>
                             Hủy
                         </Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
-                            sx={{ textTransform: 'none', fontWeight: 600 }}
-                        >
-                            Lưu
+                        <Button type="submit" variant="contained" sx={{ textTransform: 'none', fontWeight: 600 }} disabled={submitting}>
+                            {submitting ? 'Đang lưu…' : 'Lưu'}
                         </Button>
                     </DialogActions>
                 </form>

@@ -63,7 +63,9 @@ const getColumnWeight = (colId) => {
     }
 };
 
+const STT_COLUMN_SX = { width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' };
 const getColumnCellSx = (colId, widthPct) => {
+    if (colId === 'stt') return STT_COLUMN_SX;
     const base = {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -452,9 +454,9 @@ export default function ViewSupplierList() {
                                         {rows.map((row, index) => (
                                             <TableRow key={row.supplierId} hover>
                                                 {visibleColumns.map((col) => {
-                                                    if (col.id === 'stt') {
-                                                        return (
-                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
+if (col.id === 'stt') {
+                                                            return (
+                                                                <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 {page * pageSize + index + 1}
                                                             </TableCell>
                                                         );

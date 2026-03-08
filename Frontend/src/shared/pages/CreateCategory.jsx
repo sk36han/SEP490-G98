@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, ImagePlus, Save } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
+import { createCategory } from "../lib/categoryService";
 
 const INITIAL_FORM = {
   categoryCode: "",
@@ -33,26 +34,36 @@ const CreateCategory = () => {
   const navigate = useNavigate();
   const { toast, showToast, clearToast } = useToast();
   const timerRef = useRef(null);
-  const [form, setForm] = useState({ ...INITIAL_FORM });
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    let nextValue;
-    if (type === "checkbox") {
-      nextValue = checked;
-    } else {
-      nextValue = value;
-    }
-    setForm((prev) => ({ ...prev, [name]: nextValue }));
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    showToast(
-      "Mock: Lưu danh mục thành công. Kết nối API khi backend sẵn sàng.",
-      "success",
-    );
-    timerRef.current = setTimeout(() => navigate("/categories"), 1200);
+    const code = (form.categoryCode || "").trim();
+    const name = (form.categoryName || "").trim();
+    if (!code || code.length < 2) {
+      showToast("Mã danh mục phải có ít nhất 2 ký tự.", "error");
+      return;
+    }
+    if (!name || name.length < 2) {
+      showToast("Tên danh mục phải có ít nhất 2 ký tự.", "error");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createCategory({ categoryCode: code, categoryName: name, parentId: null });
+      showToast("Tạo danh mục thành công.", "success");
+      timerRef.current = setTimeout(() => navigate("/categories"), 1000);
+    } catch (err) {
+      showToast(err?.response?.data?.message || err?.message || "Không tạo được danh mục.", "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -105,10 +116,11 @@ const CreateCategory = () => {
               type="submit"
               form="create-category-form"
               variant="contained"
+              disabled={submitting}
               startIcon={<Save size={18} />}
               sx={{ textTransform: "none", borderRadius: 2, fontWeight: 600 }}
             >
-              Thêm danh mục
+              {submitting ? "Đang lưu…" : "Thêm danh mục"}
             </Button>
           </Stack>
         </Stack>

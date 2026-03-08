@@ -76,7 +76,7 @@ const ITEM_LIST_COLUMNS = [
 ];
 
 const ACCOUNTANT_ONLY_COLUMN_IDS = ['inventoryAccount', 'revenueAccount', 'purchasePrice', 'salePrice'];
-const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemCode', 'itemType', 'sellableQty', 'onHandQty', 'actions'];
+const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemName', 'itemType', 'sellableQty', 'onHandQty', 'actions'];
 const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
 /** Full quyền Item: tất cả role trừ ADMIN và Giám đốc */
@@ -125,8 +125,10 @@ const getColumnWeight = (colId) => {
     }
 };
 
+const STT_COLUMN_SX = { width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' };
 /** Sx cho ô cột: vừa khung (widthPct từ component), không tràn, ellipsis khi dài */
 const getColumnCellSx = (colId, isAccountant, widthPct) => {
+    if (colId === 'stt') return STT_COLUMN_SX;
     const accountantCol = ACCOUNTANT_ONLY_COLUMN_IDS.includes(colId);
 
     const base = {
@@ -235,13 +237,20 @@ const ViewItemList = () => {
 
     useEffect(() => {
         const brandNameFromState = location.state?.brandName;
+        const categoryNameFromState = location.state?.categoryName;
         if (brandNameFromState) {
             queueMicrotask(() => {
                 setSearchTerm(String(brandNameFromState));
                 setPage(0);
             });
         }
-    }, [location.state?.brandName]);
+        if (categoryNameFromState) {
+            queueMicrotask(() => {
+                setFilterValues((prev) => ({ ...prev, categoryName: String(categoryNameFromState) }));
+                setPage(0);
+            });
+        }
+    }, [location.state?.brandName, location.state?.categoryName]);
 
     const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
 
@@ -726,8 +735,9 @@ const ViewItemList = () => {
                                                     align={
                                                         col.id === 'thumbnail' || col.id === 'requiresCO' || col.id === 'requiresCQ'
                                                             ? 'center'
-                                                            : col.id === 'stt' ||
-                                                              col.id === 'salePrice' ||
+                                                            : col.id === 'stt'
+                                                            ? 'center'
+                                                            : col.id === 'salePrice' ||
                                                               col.id === 'purchasePrice' ||
                                                               col.id === 'onHandQty' ||
                                                               col.id === 'sellableQty'
@@ -762,7 +772,7 @@ const ViewItemList = () => {
                                                             <TableCell
                                                                 key={col.id}
                                                                 align="center"
-                                                                sx={{ ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)), py: 0.75, verticalAlign: 'middle' }}
+                                                                sx={{ ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)), py: 0.75, px: 2, verticalAlign: 'middle' }}
                                                             >
                                                                 <Box
                                                                     sx={{
@@ -815,7 +825,7 @@ const ViewItemList = () => {
 
                                                     if (col.id === 'itemCode') {
                                                         return (
-                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                            <TableCell key={col.id} align="left" sx={{ ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)), px: 1.25 }}>
                                                                 {item.itemCode}
                                                             </TableCell>
                                                         );
@@ -845,6 +855,7 @@ const ViewItemList = () => {
                                                                 sx={{
                                                                     ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
                                                                     whiteSpace: 'nowrap',
+                                                                    px: 1.25,
                                                                 }}
                                                                 title={item.itemName ?? '-'}
                                                             >

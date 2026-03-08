@@ -76,7 +76,9 @@ const getColumnWeight = (colId) => {
     }
 };
 
+const STT_COLUMN_SX = { width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' };
 const getColumnCellSx = (colId, widthPct) => {
+    if (colId === 'stt') return STT_COLUMN_SX;
     const base = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: 'border-box' };
     return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
 };
@@ -314,7 +316,7 @@ export default function ViewPurchaseOrderList() {
                                                 <TableCell
                                                     key={col.id}
                                                     sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }}
-                                                    align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}
+                                                    align={col.id === 'stt' ? 'left' : col.id === 'actions' ? 'right' : 'left'}
                                                 >
                                                     {col.sortable ? (
                                                         <TableSortLabel active={orderBy === col.id} direction={orderBy === col.id ? order : 'asc'} onClick={() => handleSortRequest(col.id)}>

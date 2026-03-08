@@ -4,7 +4,7 @@
  * PackagingSpecId, RequiresCo, RequiresCq, IsActive, DefaultWarehouseId, InventoryAccount, RevenueAccount.
  * Không nhập: ItemId (PK), CreatedAt, UpdatedAt (system).
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -37,45 +37,12 @@ import CreateUomDialog from "../components/CreateUomDialog";
 import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
 import { createItem as createItemApi } from "../lib/itemService";
-
-/** Đơn vị tính – UnitOfMeasure (BaseUomId) */
-const UOM_OPTIONS = [
-  { id: 1, code: "CAI", name: "Cái" },
-  { id: 2, code: "HOP", name: "Hộp" },
-  { id: 3, code: "KG", name: "kg" },
-  { id: 4, code: "G", name: "g" },
-  { id: 5, code: "THUNG", name: "Thùng" },
-];
-
-/** Quy cách đóng gói – PackagingSpec */
-const PACKAGING_OPTIONS = [
-  { id: 1, name: "Hộp" },
-  { id: 2, name: "Thùng" },
-  { id: 3, name: "Túi" },
-  { id: 4, name: "Khác" },
-];
-
-/** Danh mục – ItemCategory (map với ItemCategories.CategoryId, CategoryCode, CategoryName) */
-const CATEGORY_OPTIONS = [
-  { id: 1, code: "DT", name: "Điện thoại" },
-  { id: 2, code: "LT", name: "Laptop" },
-  { id: 3, code: "DL", name: "Điện lạnh" },
-  { id: 4, code: "PK", name: "Phụ kiện" },
-];
-
-/** Nhãn hiệu – Brand */
-const BRAND_OPTIONS = [
-  { id: 1, name: "Apple" },
-  { id: 2, name: "Samsung" },
-  { id: 3, name: "Khác" },
-];
-
-/** Kho – Warehouse (DefaultWarehouseId) */
-const WAREHOUSE_OPTIONS = [
-  { id: 1, name: "Kho chính" },
-  { id: 2, name: "Kho phụ" },
-  { id: 3, name: "Kho lạnh" },
-];
+import { getUomList } from "../lib/uomService";
+import { getPackagingSpecList } from "../lib/packagingSpecService";
+import { getCategoryList } from "../lib/categoryService";
+import { getBrandList } from "../lib/brandService";
+import { getItemParameterList } from "../lib/itemParameterService";
+import { getWarehouseList } from "../lib/warehouseService";
 
 /** Tài khoản kho – InventoryAccount (mã TK kế toán hàng tồn) */
 const INVENTORY_ACCOUNT_OPTIONS = [
@@ -89,14 +56,6 @@ const REVENUE_ACCOUNT_OPTIONS = [
   { code: "5111", label: "5111 - Doanh thu bán hàng" },
   { code: "5112", label: "5112 - Doanh thu bán thành phẩm" },
   { code: "5113", label: "5113 - Doanh thu cung cấp dịch vụ" },
-];
-
-/** Thông số sản phẩm – Spec (cấu trúc giống ViewSpecList) */
-const SPEC_OPTIONS = [
-  { specId: 1, specCode: "MICROONG_01", specName: "microong" },
-  { specId: 2, specCode: "MICROONG_02", specName: "microong" },
-  { specId: 3, specCode: "MICROONG_03", specName: "microong" },
-  { specId: 4, specCode: "MICROONG_04", specName: "microong" },
 ];
 
 const CREATE_UOM_OPTION = {
@@ -250,11 +209,12 @@ const CreateItem = () => {
   const [form, setForm] = useState({ ...INITIAL_FORM });
   const timerRef = useRef(null);
 
-  const [uomOptions, setUomOptions] = useState([...UOM_OPTIONS]);
-  const [packagingOptions, setPackagingOptions] = useState([
-    ...PACKAGING_OPTIONS,
-  ]);
-  const [specOptions, setSpecOptions] = useState([...SPEC_OPTIONS]);
+  const [uomOptions, setUomOptions] = useState([]);
+  const [packagingOptions, setPackagingOptions] = useState([]);
+  const [specOptions, setSpecOptions] = useState([]);
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [brandOptions, setBrandOptions] = useState([]);
+  const [warehouseOptions, setWarehouseOptions] = useState([]);
 
   const [createUomOpen, setCreateUomOpen] = useState(false);
   const [createPackOpen, setCreatePackOpen] = useState(false);
@@ -266,6 +226,74 @@ const CreateItem = () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
+
+  // Backend UOM, Category, Brand, ItemParameter giới hạn pageSize tối đa 100
+  const PAGE_SIZE = 100;
+
+  const loadOptions = useCallback(async () => {
+    try {
+      // Không truyền isActive để lấy toàn bộ bản ghi (backend trả đủ cả active/inactive)
+      const [uomRes, packList, catRes, brandRes, specRes, warehouseRes] = await Promise.all([
+        getUomList({ page: 1, pageSize: PAGE_SIZE }),
+        getPackagingSpecList(),
+        getCategoryList({ page: 1, pageSize: PAGE_SIZE }),
+        getBrandList({ page: 1, pageSize: PAGE_SIZE }),
+        getItemParameterList({ page: 1, pageSize: PAGE_SIZE }),
+        getWarehouseList({ pageNumber: 1, pageSize: 100 }),
+      ]);
+      const uomItems = Array.isArray(uomRes?.items) ? uomRes.items : (Array.isArray(uomRes) ? uomRes : []);
+      setUomOptions(
+        uomItems.map((u) => ({
+          id: u.uomId ?? u.UomId,
+          code: u.uomCode ?? u.UomCode ?? "",
+          name: u.uomName ?? u.UomName ?? "",
+        }))
+      );
+      const packArr = Array.isArray(packList) ? packList : [];
+      setPackagingOptions(
+        packArr.map((p) => ({
+          id: p.packagingSpecId ?? p.PackagingSpecId,
+          name: p.specName ?? p.SpecName ?? "",
+        }))
+      );
+      const catItems = Array.isArray(catRes?.items) ? catRes.items : (Array.isArray(catRes) ? catRes : []);
+      setCategoryOptions(
+        catItems.map((c) => ({
+          id: c.categoryId ?? c.CategoryId,
+          code: c.categoryCode ?? c.CategoryCode ?? "",
+          name: c.categoryName ?? c.CategoryName ?? "",
+        }))
+      );
+      const brandItems = Array.isArray(brandRes?.items) ? brandRes.items : (Array.isArray(brandRes) ? brandRes : []);
+      setBrandOptions(
+        brandItems.map((b) => ({
+          id: b.brandId ?? b.BrandId,
+          name: b.brandName ?? b.BrandName ?? "",
+        }))
+      );
+      const specItems = Array.isArray(specRes?.items) ? specRes.items : (Array.isArray(specRes) ? specRes : []);
+      setSpecOptions(
+        specItems.map((s) => ({
+          specId: s.paramId ?? s.ParamId,
+          specCode: s.paramCode ?? s.ParamCode ?? "",
+          specName: s.paramName ?? s.ParamName ?? "",
+        }))
+      );
+      const whItems = Array.isArray(warehouseRes?.items) ? warehouseRes.items : (Array.isArray(warehouseRes) ? warehouseRes : []);
+      const whList = (Array.isArray(whItems) ? whItems : []).map((w) => ({
+        id: w?.warehouseId ?? w?.WarehouseId,
+        name: (w?.warehouseName ?? w?.WarehouseName) ?? "",
+        code: w?.warehouseCode ?? w?.WarehouseCode ?? "",
+      })).filter((w) => w.id != null && w.id !== "");
+      setWarehouseOptions(whList);
+    } catch {
+      // Options stay empty on error
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOptions();
+  }, [loadOptions]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -348,9 +376,10 @@ const CreateItem = () => {
     navigate("/products");
   };
 
+  const warehouseList = Array.isArray(warehouseOptions) ? warehouseOptions : [];
   const defaultWarehouseName =
-    WAREHOUSE_OPTIONS.find(
-      (w) => String(w.id) === String(form.defaultWarehouseId),
+    warehouseList.find(
+      (w) => String(w?.id) === String(form.defaultWarehouseId),
     )?.name ?? "";
 
   return (
@@ -478,6 +507,21 @@ const CreateItem = () => {
                           (o) => String(o.id) === String(form.baseUomId),
                         ) ?? null
                       }
+                      onOpen={async () => {
+                        try {
+                          const res = await getUomList({ page: 1, pageSize: PAGE_SIZE });
+                          const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+                          setUomOptions(
+                            items.map((u) => ({
+                              id: u.uomId ?? u.UomId,
+                              code: u.uomCode ?? u.UomCode ?? "",
+                              name: u.uomName ?? u.UomName ?? "",
+                            }))
+                          );
+                        } catch {
+                          // keep current options
+                        }
+                      }}
                       onChange={(e, newValue) => {
                         if (newValue && newValue.id === "CREATE_UOM") {
                           setCreateUomOpen(true);
@@ -550,6 +594,20 @@ const CreateItem = () => {
                               String(o.id) === String(form.packagingSpecId),
                           ) ?? null
                         }
+                        onOpen={async () => {
+                          try {
+                            const list = await getPackagingSpecList();
+                            const arr = Array.isArray(list) ? list : [];
+                            setPackagingOptions(
+                              arr.map((p) => ({
+                                id: p.packagingSpecId ?? p.PackagingSpecId,
+                                name: p.specName ?? p.SpecName ?? "",
+                              }))
+                            );
+                          } catch {
+                            // keep current options
+                          }
+                        }}
                         onChange={(e, newValue) => {
                           if (newValue && newValue.id === "CREATE_PACK") {
                             setCreatePackOpen(true);
@@ -608,6 +666,21 @@ const CreateItem = () => {
                             (o) => String(o.specId) === String(form.specId),
                           ) ?? null
                         }
+                        onOpen={async () => {
+                          try {
+                            const res = await getItemParameterList({ page: 1, pageSize: PAGE_SIZE });
+                            const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+                            setSpecOptions(
+                              items.map((s) => ({
+                                specId: s.paramId ?? s.ParamId,
+                                specCode: s.paramCode ?? s.ParamCode ?? "",
+                                specName: s.paramName ?? s.ParamName ?? "",
+                              }))
+                            );
+                          } catch {
+                            // keep current options
+                          }
+                        }}
                         onChange={(e, newValue) => {
                           if (newValue && newValue.specId === "CREATE_SPEC") {
                             setCreateSpecOpen(true);
@@ -751,17 +824,31 @@ const CreateItem = () => {
                     renderValue: (v) =>
                       v === ""
                         ? "Chọn kho"
-                        : WAREHOUSE_OPTIONS.find(
-                            (o) => String(o.id) === String(v),
+                        : warehouseList.find(
+                            (o) => String(o?.id) === String(v),
                           )?.name ?? "Chọn kho",
                     MenuProps: { PaperProps: { sx: { borderRadius: 2 } } },
+                    onOpen: async () => {
+                      try {
+                        const res = await getWarehouseList({ pageNumber: 1, pageSize: 100 });
+                        const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+                        const list = (Array.isArray(items) ? items : []).map((w) => ({
+                          id: w?.warehouseId ?? w?.WarehouseId,
+                          name: (w?.warehouseName ?? w?.WarehouseName) ?? "",
+                          code: (w?.warehouseCode ?? w?.WarehouseCode) ?? "",
+                        })).filter((w) => w.id != null && w.id !== "");
+                        setWarehouseOptions(list);
+                      } catch {
+                        // keep current options
+                      }
+                    },
                   }}
                   InputLabelProps={{ shrink: true }}
                 >
                   <MenuItem value="">Chọn kho</MenuItem>
-                  {WAREHOUSE_OPTIONS.map((opt) => (
-                    <MenuItem key={opt.id} value={String(opt.id)}>
-                      {opt.name}
+                  {warehouseList.map((opt, idx) => (
+                    <MenuItem key={opt?.id ?? `wh-${idx}`} value={String(opt?.id ?? "")}>
+                      {opt?.name ?? ""}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -915,7 +1002,7 @@ const CreateItem = () => {
                       displayEmpty: true,
                       renderValue: (v) => {
                         if (v === "") return "\u00A0";
-                        const found = CATEGORY_OPTIONS.find(
+                        const found = categoryOptions.find(
                           (o) => String(o.id) === String(v),
                         );
                         if (!found) return "\u00A0";
@@ -924,11 +1011,26 @@ const CreateItem = () => {
                           : found.name;
                       },
                       MenuProps: selectMenuProps,
+                      onOpen: async () => {
+                        try {
+                          const res = await getCategoryList({ page: 1, pageSize: PAGE_SIZE });
+                          const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+                          setCategoryOptions(
+                            items.map((c) => ({
+                              id: c.categoryId ?? c.CategoryId,
+                              code: c.categoryCode ?? c.CategoryCode ?? "",
+                              name: c.categoryName ?? c.CategoryName ?? "",
+                            }))
+                          );
+                        } catch {
+                          // keep current options
+                        }
+                      },
                     }}
                     InputLabelProps={{ shrink: true }}
                   >
                     <MenuItem value="">Chọn danh mục</MenuItem>
-                    {CATEGORY_OPTIONS.map((o) => (
+                    {categoryOptions.map((o) => (
                       <MenuItem key={o.id} value={String(o.id)}>
                         {o.code ? `${o.code} - ${o.name}` : o.name}
                       </MenuItem>
@@ -956,36 +1058,33 @@ const CreateItem = () => {
                       renderValue: (v) =>
                         v === ""
                           ? "\u00A0"
-                          : BRAND_OPTIONS.find(
+                          : brandOptions.find(
                               (o) => String(o.id) === String(v),
                             )?.name ?? "\u00A0",
                       MenuProps: selectMenuProps,
+                      onOpen: async () => {
+                        try {
+                          const res = await getBrandList({ page: 1, pageSize: PAGE_SIZE });
+                          const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+                          setBrandOptions(
+                            items.map((b) => ({
+                              id: b.brandId ?? b.BrandId,
+                              name: b.brandName ?? b.BrandName ?? "",
+                            }))
+                          );
+                        } catch {
+                          // keep current options
+                        }
+                      },
                     }}
                     InputLabelProps={{ shrink: true }}
                   >
                     <MenuItem value="">Chọn nhãn hiệu</MenuItem>
-                    {BRAND_OPTIONS.map((o) => (
+                    {brandOptions.map((o) => (
                       <MenuItem key={o.id} value={String(o.id)}>
                         {o.name}
                       </MenuItem>
                     ))}
-                  </TextField>
-
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    label="Loại sản phẩm"
-                    name="itemType"
-                    value={form.itemType}
-                    onChange={handleChange}
-                    sx={selectInputSx}
-                    SelectProps={{ MenuProps: selectMenuProps }}
-                    InputLabelProps={{ shrink: true }}
-                  >
-                    <MenuItem value="Product">Product</MenuItem>
-                    <MenuItem value="Material">Material</MenuItem>
-                    <MenuItem value="Service">Service</MenuItem>
                   </TextField>
                 </Stack>
               </Paper>

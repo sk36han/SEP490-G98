@@ -52,6 +52,7 @@ const warehouseKeeperItems = [
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
             { path: '/categories', label: 'Danh mục sản phẩm' },
+            { path: '/uom', label: 'Đơn vị tính' },
             { path: '/packaging-spec', label: 'Quy cách' },
             { path: '/specs', label: 'Thông số' },
         ],
@@ -73,6 +74,7 @@ const saleSupportItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/uom', label: 'Đơn vị tính' },
         ],
     },
     { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
@@ -89,6 +91,7 @@ const saleEngineerItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/uom', label: 'Đơn vị tính' },
         ],
     },
     { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
@@ -104,6 +107,7 @@ const accountantItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/uom', label: 'Đơn vị tính' },
         ],
     },
     { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },

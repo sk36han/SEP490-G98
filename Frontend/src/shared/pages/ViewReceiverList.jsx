@@ -68,7 +68,9 @@ const getColumnWeight = (colId) => {
     }
 };
 
+const STT_COLUMN_SX = { width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' };
 const getColumnCellSx = (colId, widthPct) => {
+    if (colId === 'stt') return STT_COLUMN_SX;
     const base = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: 'border-box' };
     if (colId === 'actions') return { ...base, overflow: 'visible' };
     if (colId === 'isActive') return { ...base, overflow: 'visible', minWidth: 0 };

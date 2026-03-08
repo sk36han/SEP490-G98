@@ -31,6 +31,7 @@ import EditCategory from '../shared/pages/EditCategory';
 import ViewPackagingSpecList from '../shared/pages/ViewPackagingSpecList';
 import ViewSpecList from '../shared/pages/ViewSpecList';
 import ViewBrandList from '../shared/pages/ViewBrandList';
+import ViewUomList from '../shared/pages/ViewUomList';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -238,7 +239,18 @@ const AppRoutes = () => (
             }
         />
         <Route path="/item-masters" element={<Navigate to="/categories" replace />} />
-        <Route path="/uom" element={<Navigate to="/categories" replace />} />
+        <Route
+            path="/uom"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'SALE_SUPPORT', 'SALE_ENGINEER']}>
+                    <MainLayout>
+                        <ViewUomList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route path="/uom/create" element={<Navigate to="/uom" replace />} />
+        <Route path="/uom/edit/:id" element={<Navigate to="/uom" replace />} />
         <Route
             path="/brands"
             element={

@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   Checkbox,
+  CircularProgress,
   Container,
   FormControlLabel,
   Grid,
@@ -20,37 +21,7 @@ import {
 import { ArrowLeft, ImagePlus, Save } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
-
-const MOCK_CATEGORIES = [
-  {
-    categoryId: 1,
-    categoryCode: "DT",
-    categoryName: "Điện thoại",
-    description: "",
-    isActive: true,
-  },
-  {
-    categoryId: 2,
-    categoryCode: "LT",
-    categoryName: "Laptop",
-    description: "",
-    isActive: true,
-  },
-  {
-    categoryId: 3,
-    categoryCode: "DL",
-    categoryName: "Điện lạnh",
-    description: "",
-    isActive: true,
-  },
-  {
-    categoryId: 4,
-    categoryCode: "PK",
-    categoryName: "Phụ kiện",
-    description: "",
-    isActive: true,
-  },
-];
+import { getCategoryById, updateCategory } from "../lib/categoryService";
 
 const EditCategory = () => {
   const { id } = useParams();
@@ -58,7 +29,9 @@ const EditCategory = () => {
   const { toast, showToast, clearToast } = useToast();
   const timerRef = useRef(null);
 
+  const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     categoryCode: "",
     categoryName: "",
@@ -68,49 +41,66 @@ const EditCategory = () => {
   });
 
   useEffect(() => {
-    const found = MOCK_CATEGORIES.find(
-      (c) => String(c.categoryId) === String(id),
-    );
-    if (!found) {
+    let cancelled = false;
+    if (!id) {
+      setLoading(false);
       setNotFound(true);
-      return;
+      return () => {};
     }
-    setNotFound(false);
-    setForm({
-      categoryCode: found.categoryCode ?? "",
-      categoryName: found.categoryName ?? "",
-      description: found.description ?? "",
-      isActive: found.isActive ?? true,
-      assignManually: true,
-    });
+    (async () => {
+      try {
+        const data = await getCategoryById(id);
+        if (!cancelled && data) {
+          setForm({
+            categoryCode: data.categoryCode ?? "",
+            categoryName: data.categoryName ?? "",
+            description: "",
+            isActive: data.isActive ?? true,
+            assignManually: true,
+          });
+          setNotFound(false);
+        } else if (!cancelled) setNotFound(true);
+      } catch (err) {
+        if (!cancelled) {
+          setNotFound(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [id]);
 
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    let nextValue;
-    if (type === "checkbox") {
-      nextValue = checked;
-    } else {
-      nextValue = value;
-    }
-    setForm((prev) => ({ ...prev, [name]: nextValue }));
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (notFound) return;
-    showToast(
-      "Mock: Cập nhật danh mục thành công. Kết nối API khi backend sẵn sàng.",
-      "success",
-    );
-    timerRef.current = setTimeout(() => navigate("/categories"), 1200);
+    if (notFound || !id) return;
+    const code = (form.categoryCode || "").trim();
+    const name = (form.categoryName || "").trim();
+    if (!code || code.length < 2) {
+      showToast("Mã danh mục phải có ít nhất 2 ký tự.", "error");
+      return;
+    }
+    if (!name || name.length < 2) {
+      showToast("Tên danh mục phải có ít nhất 2 ký tự.", "error");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await updateCategory(id, { categoryCode: code, categoryName: name, parentId: null, isActive: form.isActive });
+      showToast("Cập nhật danh mục thành công.", "success");
+      timerRef.current = setTimeout(() => navigate("/categories"), 1000);
+    } catch (err) {
+      showToast(err?.response?.data?.message || err?.message || "Không cập nhật được danh mục.", "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -120,6 +110,14 @@ const EditCategory = () => {
   const handleCancel = () => {
     navigate("/categories");
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 320 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   if (notFound) {
     return (
@@ -197,10 +195,11 @@ const EditCategory = () => {
               type="submit"
               form="edit-category-form"
               variant="contained"
+              disabled={submitting}
               startIcon={<Save size={18} />}
               sx={{ textTransform: "none", borderRadius: 2, fontWeight: 600 }}
             >
-              Lưu
+              {submitting ? "Đang lưu…" : "Lưu"}
             </Button>
           </Stack>
         </Stack>

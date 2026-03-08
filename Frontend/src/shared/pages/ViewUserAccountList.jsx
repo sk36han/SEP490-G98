@@ -521,7 +521,13 @@ const UserAccountList = () => {
                                     <TableCell
                                         key={col.id}
                                         align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}
-                                        sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', whiteSpace: 'nowrap' }}
+                                        sx={{
+                                            fontWeight: 'bold',
+                                            bgcolor: 'grey.50',
+                                            color: 'text.secondary',
+                                            whiteSpace: 'nowrap',
+                                            ...(col.id === 'stt' ? { width: 52, minWidth: 52, maxWidth: 52 } : {}),
+                                        }}
                                     >
                                         {col.label}
                                     </TableCell>
@@ -567,7 +573,11 @@ const UserAccountList = () => {
                                         {visibleColumns.map((col) => {
                                             const opts = { pageNumber, pageSize };
                                             if (col.id === 'stt') {
-                                                return <TableCell key={col.id} align="center">{col.getValue(user, index, opts)}</TableCell>;
+                                                return (
+                                                    <TableCell key={col.id} align="center" sx={{ width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums' }}>
+                                                        {col.getValue(user, index, opts)}
+                                                    </TableCell>
+                                                );
                                             }
                                             if (col.id === 'username') {
                                                 return <TableCell key={col.id} sx={{ fontWeight: 500 }}>{user.username}</TableCell>;
