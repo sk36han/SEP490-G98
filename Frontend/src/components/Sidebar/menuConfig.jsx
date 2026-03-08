@@ -9,11 +9,10 @@ import {
     Bell,
     ClipboardList,
     Warehouse,
+    Briefcase,
 } from 'lucide-react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSuitcase } from '@fortawesome/free-solid-svg-icons';
 
-const brandIcon = <FontAwesomeIcon icon={faSuitcase} style={{ fontSize: 22 }} />;
+const brandIcon = <Briefcase size={22} />;
 
 // Hồ sơ cá nhân không hiển thị trong sidebar — mở từ dropdown avatar trên header
 const commonItems = [];
@@ -78,8 +77,27 @@ const saleSupportItems = [
         ],
     },
     { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
-    { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
-    { path: '/purchase-orders', icon: <ShoppingCart size={22} />, label: 'Danh sách đơn mua (PO)' },
+    {
+        id: 'suppliers-mgmt',
+        path: '/suppliers',
+        icon: <Truck size={22} />,
+        label: 'Quản lý nhà cung cấp',
+        children: [
+            { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
+            { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
+        ],
+    },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Quản lý đơn mua',
+        sublabel: 'Purchase Order',
+        children: [
+            { path: '/purchase-orders', label: 'Danh sách đơn mua hàng' },
+            { path: '/purchase-orders/create', label: 'Tạo đơn mua hàng' },
+        ],
+    },
 ];
 
 // Sale Engineer: Vật tư (mục cha), Brand, Người nhận hàng

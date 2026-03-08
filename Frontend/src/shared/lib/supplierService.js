@@ -111,18 +111,32 @@ export async function getSupplierSuggestions(field, query) {
  */
 export async function createSupplier(data) {
     try {
-        const response = await apiClient.post('/Supplier/create', {
-            supplierCode: data.supplierCode,
+        const payload = {
             supplierName: data.supplierName,
             taxCode: data.taxCode || null,
             phone: data.phone || null,
             email: data.email || null,
             address: data.address || null,
-        });
+        };
+        
+        // Don't send supplierCode, let backend generate it
+        console.log('Supplier API payload:', payload);
+        
+        const response = await apiClient.post('/Supplier/create', payload);
         return response.data;
     } catch (error) {
+        console.error('Supplier API error response:', error.response?.data);
         if (error.response?.status === 400) {
-            throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ.');
+            const errorMsg = error.response?.data?.message || error.response?.data?.title || 'Dữ liệu không hợp lệ.';
+            const errors = error.response?.data?.errors;
+            if (errors) {
+                console.error('Validation errors:', errors);
+                const errorDetails = Object.entries(errors)
+                    .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+                    .join('; ');
+                throw new Error(`${errorMsg}\n${errorDetails}`);
+            }
+            throw new Error(errorMsg);
         } else if (error.response?.status === 401) {
             throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
         } else if (error.message === 'Network Error') {
