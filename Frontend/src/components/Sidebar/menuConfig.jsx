@@ -140,9 +140,7 @@ const accountantItems = [
         icon: <ShoppingCart size={22} />,
         label: 'Quản lý đơn mua',
         children: [
-            { path: '/purchase-orders', label: 'Tất cả' },
-            { path: '/purchase-orders', label: 'Chờ duyệt', state: { approvalStatus: 'Pending' } },
-            { path: '/purchase-orders', label: 'Đã duyệt', state: { approvalStatus: 'Approved' } },
+            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
         ],
     },
     {
