@@ -60,7 +60,16 @@ const warehouseKeeperItems = [
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    {
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: <FileText size={22} />,
+        label: 'Quản lý phiếu nhập kho',
+        children: [
+            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
+            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+        ],
+    },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
@@ -116,7 +125,7 @@ const saleEngineerItems = [
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
 ];
 
-// Kế toán: Vật tư (mục cha), Yêu cầu nhập/xuất hàng, Báo cáo
+// Kế toán: Vật tư (mục cha), Quản lý đơn mua, Yêu cầu nhập/xuất hàng, Báo cáo
 const accountantItems = [
     {
         id: 'products-mgmt',
@@ -129,7 +138,25 @@ const accountantItems = [
         ],
     },
     { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Quản lý đơn mua',
+        children: [
+            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
+        ],
+    },
+    {
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: <FileText size={22} />,
+        label: 'Quản lý phiếu nhập kho',
+        children: [
+            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
+            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+        ],
+    },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
 ];

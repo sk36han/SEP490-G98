@@ -21,6 +21,7 @@ import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
+import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
@@ -300,6 +301,16 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
+        <Route
+            path="/good-receipt-notes/create"
+            element={
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <CreateGoodReceiptNote />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
         {/* Yêu cầu xuất hàng (GDN) – Kế toán, Thủ kho */}
         <Route
             path="/good-delivery-notes"
@@ -331,11 +342,11 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase order mockup: chỉ Sale Support */}
+        {/* Purchase order: Sale Support, Kế toán (Quản lý đơn mua trong Yêu Cầu) */}
         <Route
             path="/purchase-orders"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewPurchaseOrderList />
                     </MainLayout>
@@ -345,7 +356,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/create"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreatePurchaseOrder />
                     </MainLayout>
@@ -355,7 +366,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/:id"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewPurchaseOrderDetail />
                     </MainLayout>

@@ -574,6 +574,18 @@ select.form-input:disabled {
     font-size: 12px;
 }
 
+/* Nút dùng màu chữ card (slate-700) thay vì xanh */
+.btn-card-text {
+    background: #ffffff;
+    color: var(--slate-700, #374151);
+    border: 1px solid var(--slate-200, #e5e7eb);
+}
+.btn-card-text:hover:not(:disabled) {
+    background-color: #f9fafb;
+    border-color: #d1d5db;
+    color: var(--slate-700, #374151);
+}
+
 /* Icon-only button */
 .btn-icon-only {
     display: inline-flex;

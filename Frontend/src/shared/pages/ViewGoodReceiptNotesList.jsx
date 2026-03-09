@@ -576,11 +576,21 @@ export default function ViewGoodReceiptNotes() {
 
                                                     if (NUMBER_COLUMN_IDS.includes(col.id)) {
                                                         const val = col.getValue(row);
-                                                        const display = CURRENCY_COLUMN_IDS.includes(col.id)
+                                                        const isCurrency = CURRENCY_COLUMN_IDS.includes(col.id);
+                                                        const display = isCurrency
                                                             ? Number(val).toLocaleString('vi-VN') + ' ₫'
                                                             : val;
                                                         return (
-                                                            <TableCell key={col.id} align="right" sx={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums', pr: 3, color: '#374151' }}>
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="right"
+                                                                sx={{
+                                                                    fontWeight: isCurrency ? 600 : 500,
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                    pr: 3,
+                                                                    color: '#374151',
+                                                                }}
+                                                            >
                                                                 {display}
                                                             </TableCell>
                                                         );

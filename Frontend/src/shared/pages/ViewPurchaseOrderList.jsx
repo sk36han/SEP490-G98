@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Box,
     Card,
@@ -29,6 +29,8 @@ import {
 } from '@mui/material';
 import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import '../styles/ListView.css';
@@ -80,9 +82,8 @@ const PO_COLUMNS = [
     { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, getValue: (row) => row.supplierName ?? '' },
     { id: 'creator', label: 'Nhân viên tạo', sortable: true, getValue: (row) => row.creator ?? '' },
     { id: 'responsiblePerson', label: 'Nhân viên phụ trách', sortable: true, getValue: (row) => row.responsiblePerson ?? '' },
-    { id: 'totalOrderedQuantity', label: 'Số lượng đặt', sortable: true, getValue: (row) => row.totalOrderedQuantity ?? 0 },
-    { id: 'totalReceivedQuantity', label: 'Số lượng đã nhập', sortable: true, getValue: (row) => row.totalReceivedQuantity ?? 0 },
-    { id: 'remainingQuantity', label: 'Số lượng còn lại', sortable: true, getValue: (row) => row.remainingQuantity ?? 0 },
+    { id: 'totalReceivedQuantity', label: 'Số lượng nhập', sortable: true, getValue: (row) => row.totalReceivedQuantity ?? 0 },
+    { id: 'orderValue', label: 'Giá trị đơn', sortable: true, getValue: (row) => row.orderValue ?? 0 },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
 ];
 
@@ -101,9 +102,8 @@ const MOCK_PO_LIST = [
         supplierName: 'Công ty TNHH ABC', 
         creator: 'Nguyễn Văn A', 
         responsiblePerson: 'Trần Thị B', 
-        totalOrderedQuantity: 500, 
-        totalReceivedQuantity: 0, 
-        remainingQuantity: 500, 
+        totalReceivedQuantity: 0,
+        orderValue: 125000000, 
         createdAt: '2025-02-09T08:00:00' 
     },
     { 
@@ -115,9 +115,8 @@ const MOCK_PO_LIST = [
         supplierName: 'Công ty CP XYZ', 
         creator: 'Lê Văn C', 
         responsiblePerson: 'Phạm Thị D', 
-        totalOrderedQuantity: 1000, 
-        totalReceivedQuantity: 350, 
-        remainingQuantity: 650, 
+        totalReceivedQuantity: 350,
+        orderValue: 98000000, 
         createdAt: '2025-02-11T09:00:00' 
     },
     { 
@@ -129,9 +128,8 @@ const MOCK_PO_LIST = [
         supplierName: 'Công ty TNHH ABC', 
         creator: 'Nguyễn Văn A', 
         responsiblePerson: 'Trần Thị B', 
-        totalOrderedQuantity: 300, 
-        totalReceivedQuantity: 300, 
-        remainingQuantity: 0, 
+        totalReceivedQuantity: 300,
+        orderValue: 45000000, 
         createdAt: '2025-02-13T14:00:00' 
     },
     { 
@@ -143,9 +141,8 @@ const MOCK_PO_LIST = [
         supplierName: 'Công ty CP XYZ', 
         creator: 'Phạm Thị D', 
         responsiblePerson: 'Lê Văn C', 
-        totalOrderedQuantity: 750, 
-        totalReceivedQuantity: 0, 
-        remainingQuantity: 750, 
+        totalReceivedQuantity: 0,
+        orderValue: 30500000, 
         createdAt: '2025-02-14T16:00:00' 
     },
 ];
@@ -154,6 +151,10 @@ const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
     return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 };
 
 const formatDateOnly = (dateStr) => {
@@ -165,6 +166,8 @@ export default function ViewPurchaseOrderList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+    const location = useLocation();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
 
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -189,6 +192,14 @@ export default function ViewPurchaseOrderList() {
         return saved ? JSON.parse(saved) : { orderBy: null, order: 'asc' };
     });
 
+    // Áp dụng filter từ sidebar (Tất cả / Chờ duyệt / Đã duyệt)
+    useEffect(() => {
+        const status = location.state?.approvalStatus;
+        if (status !== undefined) {
+            setFilterValues((prev) => ({ ...prev, approvalStatus: status || undefined }));
+        }
+    }, [location.state?.approvalStatus]);
+
     useEffect(() => {
         if (sortConfig.orderBy) {
             setOrderBy(sortConfig.orderBy);
@@ -210,8 +221,13 @@ export default function ViewPurchaseOrderList() {
         setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
     };
     const visibleColumns = PO_COLUMNS
-        .sort((a, b) => columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id))
-        .filter((col) => visibleColumnIds.has(col.id));
+        .filter((col) => visibleColumnIds.has(col.id))
+        .sort((a, b) => {
+            // Giữ cột STT cố định bên trái, không bị drag reorder
+            if (a.id === 'stt' && b.id !== 'stt') return -1;
+            if (b.id === 'stt' && a.id !== 'stt') return 1;
+            return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
+        });
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     useEffect(() => {
@@ -385,7 +401,7 @@ export default function ViewPurchaseOrderList() {
             const aVal = a[orderBy];
             const bVal = b[orderBy];
             const isDate = ['createdAt'].includes(orderBy);
-            const isNumber = ['totalOrderedQuantity', 'totalReceivedQuantity', 'remainingQuantity'].includes(orderBy);
+            const isNumber = ['orderValue', 'totalReceivedQuantity'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
                 const tA = aVal ? new Date(aVal).getTime() : 0;
@@ -558,30 +574,32 @@ export default function ViewPurchaseOrderList() {
                                     <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
-                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                <Button 
-                                    className="list-page-btn" 
-                                    variant="contained" 
-                                    startIcon={<Plus size={18} />} 
-                                    onClick={() => navigate('/purchase-orders/create')} 
-                                    sx={{ 
-                                        fontSize: '13px', 
-                                        fontWeight: 500, 
-                                        textTransform: 'none', 
-                                        borderRadius: '10px', 
-                                        height: 38,
-                                        px: 2.5,
-                                        bgcolor: '#0284c7',
-                                        boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
-                                        '&:hover': {
-                                            bgcolor: '#0369a1',
-                                            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
-                                        },
-                                    }}
-                                >
-                                    Tạo đơn mua hàng
-                                </Button>
-                            </Box>
+                            {permissionRole !== 'ACCOUNTANTS' && (
+                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
+                                    <Button 
+                                        className="list-page-btn" 
+                                        variant="contained" 
+                                        startIcon={<Plus size={18} />} 
+                                        onClick={() => navigate('/purchase-orders/create')} 
+                                        sx={{ 
+                                            fontSize: '13px', 
+                                            fontWeight: 500, 
+                                            textTransform: 'none', 
+                                            borderRadius: '10px', 
+                                            height: 38,
+                                            px: 2.5,
+                                            bgcolor: '#0284c7',
+                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                            '&:hover': {
+                                                bgcolor: '#0369a1',
+                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                            },
+                                        }}
+                                    >
+                                        Tạo đơn mua hàng
+                                    </Button>
+                                </Box>
+                            )}
                         </Box>
                     </Box>
 
@@ -817,7 +835,7 @@ export default function ViewPurchaseOrderList() {
                                                         py: 1.5,
                                                         px: 2,
                                                     }}
-                                                    align={col.id === 'totalOrderedQuantity' || col.id === 'totalReceivedQuantity' || col.id === 'remainingQuantity' ? 'right' : 'left'}
+                                                    align={col.id === 'orderValue' || col.id === 'totalReceivedQuantity' ? 'right' : 'left'}
                                                     onDragOver={handleDragOver}
                                                     onDrop={(e) => handleDrop(e, col.id)}
                                                 >
@@ -1013,8 +1031,8 @@ export default function ViewPurchaseOrderList() {
                                                         );
                                                     }
                                                     
-                                                    // Number columns
-                                                    if (col.id === 'totalOrderedQuantity' || col.id === 'totalReceivedQuantity' || col.id === 'remainingQuantity') {
+                                                    // Số lượng nhập (number)
+                                                    if (col.id === 'totalReceivedQuantity') {
                                                         return (
                                                             <TableCell 
                                                                 key={col.id} 
@@ -1026,6 +1044,23 @@ export default function ViewPurchaseOrderList() {
                                                                 }}
                                                             >
                                                                 {col.getValue(row)}
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                    
+                                                    // Giá trị đơn (number + currency)
+                                                    if (col.id === 'orderValue') {
+                                                        return (
+                                                            <TableCell 
+                                                                key={col.id} 
+                                                                align="right"
+                                                                sx={{
+                                                                    fontWeight: 600,
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                    pr: 3,
+                                                                }}
+                                                            >
+                                                                {formatCurrency(col.getValue(row))}
                                                             </TableCell>
                                                         );
                                                     }
