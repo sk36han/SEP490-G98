@@ -9,6 +9,7 @@ namespace Warehouse.Api.ApiController
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ApprovalsController : ControllerBase
     {
         private readonly IApprovalService _approvalService;
