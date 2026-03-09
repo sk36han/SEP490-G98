@@ -20,7 +20,6 @@ namespace Warehouse.DataAcces.Service
         private readonly IGenericRepository<Item> _itemRepository;
         private readonly IAuditLogService _auditLogService;
 
-        private static readonly Regex _specCodeRegex = new Regex(@"^[A-Za-z0-9_\-]+$", RegexOptions.Compiled);
         private static readonly Regex _specNameRegex = new Regex(@"^[\p{L}\p{N}\s\-\.\&/]+$", RegexOptions.Compiled);
 
         public PackagingSpecService(
@@ -42,22 +41,16 @@ namespace Warehouse.DataAcces.Service
                 throw new ArgumentNullException(nameof(request), "Dữ liệu yêu cầu không được để trống.");
 
             ValidateUserId(currentUserId);
-            ValidateSpecCode(request.SpecCode);
             ValidateSpecName(request.SpecName);
 
-            var specCode = request.SpecCode.Trim();
             var specName = request.SpecName.Trim();
 
             var all = await _packagingSpecRepository.GetAllAsync();
-            if (all.Any(s => s.SpecCode.Trim().Equals(specCode, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException($"Mã quy cách đóng gói '{specCode}' đã tồn tại.");
-
             if (all.Any(s => s.SpecName.Trim().Equals(specName, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException($"Tên quy cách đóng gói '{specName}' đã tồn tại.");
 
             var spec = new PackagingSpec
             {
-                SpecCode = specCode,
                 SpecName = specName,
                 Description = request.Description?.Trim(),
                 IsActive = true
@@ -70,7 +63,7 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Create,
                 AuditEntity.PackagingSpec,
                 spec.PackagingSpecId,
-                $"Tạo quy cách đóng gói '{spec.SpecName}' (mã: {spec.SpecCode})"
+                $"Tạo quy cách đóng gói '{spec.SpecName}'"
             );
 
             return ToResponse(spec);
@@ -147,7 +140,7 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Update,
                 AuditEntity.PackagingSpec,
                 spec.PackagingSpecId,
-                $"Cập nhật quy cách đóng gói '{spec.SpecName}' (mã: {spec.SpecCode})",
+                $"Cập nhật quy cách đóng gói '{spec.SpecName}'",
                 oldValues,
                 newValues
             );
@@ -182,13 +175,11 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Update,
                 AuditEntity.PackagingSpec,
                 spec.PackagingSpecId,
-                $"Đã {statusLabel} quy cách đóng gói '{spec.SpecName}' (mã: {spec.SpecCode})"
+                $"Đã {statusLabel} quy cách đóng gói '{spec.SpecName}'"
             );
 
             return ToResponse(spec);
         }
-
-       
 
         // =====================================================================
         // PRIVATE VALIDATORS
@@ -203,21 +194,6 @@ namespace Warehouse.DataAcces.Service
         {
             if (userId <= 0)
                 throw new ArgumentException("ID người dùng không hợp lệ.");
-        }
-
-        private static void ValidateSpecCode(string? code)
-        {
-            if (string.IsNullOrWhiteSpace(code))
-                throw new ArgumentException("Mã quy cách đóng gói không được để trống.");
-
-            var trimmed = code.Trim();
-            if (trimmed.Length < 2)
-                throw new ArgumentException("Mã quy cách đóng gói phải có ít nhất 2 ký tự.");
-            if (trimmed.Length > 50)
-                throw new ArgumentException("Mã quy cách đóng gói không được vượt quá 50 ký tự.");
-
-            if (!_specCodeRegex.IsMatch(trimmed))
-                throw new ArgumentException("Mã quy cách đóng gói chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
         }
 
         private static void ValidateSpecName(string? name)
@@ -241,7 +217,6 @@ namespace Warehouse.DataAcces.Service
         private static PackagingSpecResponse ToResponse(PackagingSpec s) => new PackagingSpecResponse
         {
             PackagingSpecId = s.PackagingSpecId,
-            SpecCode = s.SpecCode,
             SpecName = s.SpecName,
             Description = s.Description,
             IsActive = s.IsActive

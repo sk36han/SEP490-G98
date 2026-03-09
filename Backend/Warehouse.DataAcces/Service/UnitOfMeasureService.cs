@@ -22,10 +22,6 @@ namespace Warehouse.DataAcces.Service
 		private static readonly Regex _uomNameRegex =
 			new Regex(@"^[\p{L}\p{N}\s\-\.\&/]+$", RegexOptions.Compiled);
 
-		// Chỉ cho phép chữ cái, chữ số, gạch dưới và gạch ngang
-		private static readonly Regex _uomCodeRegex =
-			new Regex(@"^[A-Za-z0-9_\-]+$", RegexOptions.Compiled);
-
 		public UnitOfMeasureService(
 			IGenericRepository<UnitOfMeasure> uomRepository,
 			IAuditLogService auditLogService)
@@ -43,22 +39,17 @@ namespace Warehouse.DataAcces.Service
 				throw new ArgumentNullException(nameof(request), "Dữ liệu yêu cầu không được để trống.");
 
 			ValidateUserId(currentUserId);
-			ValidateUomCode(request.UomCode);
 			ValidateUomName(request.UomName);
 
-			var uomCode = request.UomCode.Trim();
 			var uomName = request.UomName.Trim();
 
 			var all = await _uomRepository.GetAllAsync();
-			if (all.Any(u => u.UomCode.Trim().Equals(uomCode, StringComparison.OrdinalIgnoreCase)))
-				throw new InvalidOperationException($"Mã đơn vị tính '{uomCode}' đã tồn tại.");
 
 			if (all.Any(u => u.UomName.Trim().Equals(uomName, StringComparison.OrdinalIgnoreCase)))
 				throw new InvalidOperationException($"Tên đơn vị tính '{uomName}' đã tồn tại.");
 
 			var unitOfMeasure = new UnitOfMeasure
 			{
-				UomCode = uomCode,
 				UomName = uomName,
 				IsActive = true
 			};
@@ -70,7 +61,7 @@ namespace Warehouse.DataAcces.Service
 				AuditAction.Create,
 				AuditEntity.UnitOfMeasure,
 				unitOfMeasure.UomId,
-				$"Tạo đơn vị tính '{unitOfMeasure.UomName}' (mã: {unitOfMeasure.UomCode})"
+				$"Tạo đơn vị tính '{unitOfMeasure.UomName}'"
 			);
 
 			return ToResponse(unitOfMeasure);
@@ -100,8 +91,7 @@ namespace Warehouse.DataAcces.Service
 			{
 				var trimKeyword = keyword.Trim();
 				query = query.Where(u =>
-					u.UomName.Contains(trimKeyword, StringComparison.OrdinalIgnoreCase) ||
-					u.UomCode.Contains(trimKeyword, StringComparison.OrdinalIgnoreCase));
+					u.UomName.Contains(trimKeyword, StringComparison.OrdinalIgnoreCase));
 			}
 
 			if (isActive.HasValue)
@@ -110,7 +100,7 @@ namespace Warehouse.DataAcces.Service
 			var totalItems = query.Count();
 
 			var items = query
-				.OrderBy(u => u.UomCode)
+				.OrderBy(u => u.UomName)
 				.Skip((page - 1) * pageSize)
 				.Take(pageSize)
 				.Select(u => ToResponse(u))
@@ -151,10 +141,8 @@ namespace Warehouse.DataAcces.Service
 				throw new ArgumentNullException(nameof(request), "Dữ liệu yêu cầu không được để trống.");
 
 			ValidateUserId(currentUserId);
-			ValidateUomCode(request.UomCode);
 			ValidateUomName(request.UomName);
 
-			var uomCode = request.UomCode.Trim();
 			var uomName = request.UomName.Trim();
 
 			var all = await _uomRepository.GetAllAsync();
@@ -164,18 +152,13 @@ namespace Warehouse.DataAcces.Service
 
 			var oldValues = JsonSerializer.Serialize(new
 			{
-				unitOfMeasure.UomCode,
 				unitOfMeasure.UomName,
 				unitOfMeasure.IsActive
 			});
 
-			if (all.Any(u => u.UomId != id && u.UomCode.Trim().Equals(uomCode, StringComparison.OrdinalIgnoreCase)))
-				throw new InvalidOperationException($"Mã đơn vị tính '{uomCode}' đã tồn tại.");
-
 			if (all.Any(u => u.UomId != id && u.UomName.Trim().Equals(uomName, StringComparison.OrdinalIgnoreCase)))
 				throw new InvalidOperationException($"Tên đơn vị tính '{uomName}' đã tồn tại.");
 
-			unitOfMeasure.UomCode = uomCode;
 			unitOfMeasure.UomName = uomName;
 			unitOfMeasure.IsActive = request.IsActive;
 
@@ -183,7 +166,6 @@ namespace Warehouse.DataAcces.Service
 
 			var newValues = JsonSerializer.Serialize(new
 			{
-				unitOfMeasure.UomCode,
 				unitOfMeasure.UomName,
 				unitOfMeasure.IsActive
 			});
@@ -193,7 +175,7 @@ namespace Warehouse.DataAcces.Service
 				AuditAction.Update,
 				AuditEntity.UnitOfMeasure,
 				unitOfMeasure.UomId,
-				$"Cập nhật đơn vị tính '{unitOfMeasure.UomName}' (mã: {unitOfMeasure.UomCode})",
+				$"Cập nhật đơn vị tính '{unitOfMeasure.UomName}'",
 				oldValues,
 				newValues
 			);
@@ -229,7 +211,7 @@ namespace Warehouse.DataAcces.Service
 				AuditAction.Update,
 				AuditEntity.UnitOfMeasure,
 				unitOfMeasure.UomId,
-				$"Đã {statusLabel} đơn vị tính '{unitOfMeasure.UomName}' (mã: {unitOfMeasure.UomCode})"
+				$"Đã {statusLabel} đơn vị tính '{unitOfMeasure.UomName}'"
 			);
 
 			return ToResponse(unitOfMeasure);
@@ -248,23 +230,6 @@ namespace Warehouse.DataAcces.Service
 		{
 			if (userId <= 0)
 				throw new ArgumentException("ID người dùng không hợp lệ.");
-		}
-
-		private static void ValidateUomCode(string? uomCode)
-		{
-			if (string.IsNullOrWhiteSpace(uomCode))
-				throw new ArgumentException("Mã đơn vị tính không được để trống.");
-
-			var trimmed = uomCode.Trim();
-
-			if (trimmed.Length < 2)
-				throw new ArgumentException("Mã đơn vị tính phải có ít nhất 2 ký tự.");
-
-			if (trimmed.Length > 50)
-				throw new ArgumentException("Mã đơn vị tính không được vượt quá 50 ký tự.");
-
-			if (!_uomCodeRegex.IsMatch(trimmed))
-				throw new ArgumentException("Mã đơn vị tính chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 		}
 
 		private static void ValidateUomName(string? uomName)
@@ -290,7 +255,6 @@ namespace Warehouse.DataAcces.Service
 		private static UnitOfMeasureResponse ToResponse(UnitOfMeasure u) => new UnitOfMeasureResponse
 		{
 			UomId = u.UomId,
-			UomCode = u.UomCode,
 			UomName = u.UomName,
 			IsActive = u.IsActive
 		};
