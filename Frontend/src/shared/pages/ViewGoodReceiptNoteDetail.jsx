@@ -12,8 +12,14 @@ import {
     CheckCircle,
     XCircle,
     Clock,
+    X,
+    Edit,
+    Save,
+    Loader,
 } from 'lucide-react';
 import { Chip } from '@mui/material';
+import Toast from '../../components/Toast/Toast';
+import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
 
 const formatCurrency = (value) =>
@@ -37,8 +43,11 @@ const RECEIVING_STATUS_STYLE = {
 const ViewGoodReceiptNoteDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
+    const { toast, showToast, clearToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [imageErrors, setImageErrors] = useState({});
+    const [isEditing, setIsEditing] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
     // Mock data – sau này sẽ thay bằng API theo id
     const [grnData, setGrnData] = useState(null);
@@ -59,6 +68,12 @@ const ViewGoodReceiptNoteDetail = () => {
                 status: 'Approved',
                 receivingStatus: 'Completed',
                 note: 'Phiếu nhập kho cho đơn mua PO-2025-001, đã kiểm tra số lượng và chất lượng.',
+                discountType: 'percent',
+                discount: 5,
+                discountAmountFixed: 0,
+                additionalCosts: [
+                    { id: 1, name: 'Phí vận chuyển', amount: 2000000 },
+                ],
                 lines: [
                     {
                         id: 1,
@@ -212,7 +227,68 @@ const ViewGoodReceiptNoteDetail = () => {
         setImageErrors((prev) => ({ ...prev, [id]: true }));
     };
 
+    const updateLine = (index, field, value) => {
+        setGrnData((prev) => {
+            if (!prev) return prev;
+            const nextLines = prev.lines.map((line, i) =>
+                i === index ? { ...line, [field]: value } : line
+            );
+            return { ...prev, lines: nextLines };
+        });
+    };
+
     const handleBack = () => navigate(-1);
+
+    const handleToggleEdit = () => {
+        setIsEditing((prev) => !prev);
+    };
+
+    const setDiscountType = (type) => {
+        setGrnData((prev) => (prev ? { ...prev, discountType: type } : prev));
+    };
+
+    const addAdditionalCost = () => {
+        setGrnData((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      additionalCosts: [
+                          ...(prev.additionalCosts || []),
+                          { id: Date.now(), name: '', amount: 0 },
+                      ],
+                  }
+                : prev
+        );
+    };
+
+    const removeAdditionalCost = (id) => {
+        setGrnData((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      additionalCosts: (prev.additionalCosts || []).filter((c) => c.id !== id),
+                  }
+                : prev
+        );
+    };
+
+    const updateAdditionalCost = (id, field, value) => {
+        setGrnData((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      additionalCosts: (prev.additionalCosts || []).map((c) =>
+                          c.id === id
+                              ? {
+                                    ...c,
+                                    [field]: field === 'amount' ? Number(value) || 0 : value,
+                                }
+                              : c
+                      ),
+                  }
+                : prev
+        );
+    };
 
     if (loading || !grnData) {
         return (
@@ -240,13 +316,19 @@ const ViewGoodReceiptNoteDetail = () => {
         (sum, line) => sum + (Number(line.receivedQty) || 0),
         0
     );
-    const orderValue = grnData.lines.reduce(
+    const subtotal = grnData.lines.reduce(
         (sum, line) => sum + (Number(line.receivedQty) || 0) * 1000000,
         0
     );
-    const discountAmount = 0;
-    const additionalCostTotal = 0;
-    const grandTotal = orderValue - discountAmount + additionalCostTotal;
+    const discountAmount =
+        grnData.discountType === 'amount'
+            ? Number(grnData.discountAmountFixed) || 0
+            : (subtotal * (Number(grnData.discount) || 0)) / 100;
+    const totalAdditionalCosts = (grnData.additionalCosts || []).reduce(
+        (sum, c) => sum + (Number(c.amount) || 0),
+        0
+    );
+    const grandTotal = subtotal - discountAmount + totalAdditionalCosts;
 
     const statusStyle = STATUS_STYLE[grnData.status] ?? {
         bgColor: 'rgba(107,114,128,0.15)',
@@ -269,6 +351,82 @@ const ViewGoodReceiptNoteDetail = () => {
                         <ArrowLeft size={20} />
                         <span>Quay lại</span>
                     </button>
+                </div>
+                <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {!isEditing ? (
+                        <>
+                            <button
+                                type="button"
+                                className="btn btn-cancel"
+                                disabled={submitting}
+                                onClick={() => {
+                                    // mock: hủy đơn nhập kho
+                                    showToast('Mock: Hủy phiếu nhập kho.', 'info');
+                                }}
+                            >
+                                <X size={15} />
+                                Hủy đơn
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={submitting}
+                                onClick={() => {
+                                    // mock: duyệt đơn nhập kho
+                                    showToast('Mock: Duyệt phiếu nhập kho.', 'success');
+                                }}
+                            >
+                                <CheckCircle size={16} className="btn-icon" />
+                                Duyệt đơn
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={handleToggleEdit}
+                                disabled={submitting}
+                            >
+                                <Edit size={16} className="btn-icon" />
+                                Chỉnh sửa
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                type="button"
+                                onClick={handleToggleEdit}
+                                className="btn btn-cancel"
+                                disabled={submitting}
+                            >
+                                <X size={16} className="btn-icon" />
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={submitting}
+                                onClick={() => {
+                                    setSubmitting(true);
+                                    setTimeout(() => {
+                                        showToast('Mock: Lưu chỉnh sửa phiếu nhập kho.', 'success');
+                                        setSubmitting(false);
+                                        setIsEditing(false);
+                                    }, 600);
+                                }}
+                            >
+                                {submitting ? (
+                                    <>
+                                        <Loader size={16} className="btn-icon spinner" />
+                                        Đang lưu...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={16} className="btn-icon" />
+                                        Lưu thay đổi
+                                    </>
+                                )}
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -463,10 +621,44 @@ const ViewGoodReceiptNoteDetail = () => {
                                                         {line.uom || '—'}
                                                     </td>
                                                     <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                        {Number(line.orderedQty) || 0}
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                value={line.orderedQty}
+                                                                min="0"
+                                                                onChange={(e) =>
+                                                                    updateLine(
+                                                                        index,
+                                                                        'orderedQty',
+                                                                        Number(e.target.value)
+                                                                    )
+                                                                }
+                                                                className="form-input"
+                                                                style={{ textAlign: 'right', width: '100%' }}
+                                                            />
+                                                        ) : (
+                                                            Number(line.orderedQty) || 0
+                                                        )}
                                                     </td>
                                                     <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                        {Number(line.receivedQty) || 0}
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                value={line.receivedQty}
+                                                                min="0"
+                                                                onChange={(e) =>
+                                                                    updateLine(
+                                                                        index,
+                                                                        'receivedQty',
+                                                                        Number(e.target.value)
+                                                                    )
+                                                                }
+                                                                className="form-input"
+                                                                style={{ textAlign: 'right', width: '100%' }}
+                                                            />
+                                                        ) : (
+                                                            Number(line.receivedQty) || 0
+                                                        )}
                                                     </td>
                                                     <td
                                                         style={{ textAlign: 'center', verticalAlign: 'middle' }}
@@ -502,7 +694,18 @@ const ViewGoodReceiptNoteDetail = () => {
                                                             }}
                                                         />
                                                     </td>
-                                                    <td>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="text"
+                                                            value={line.note || ''}
+                                                            onChange={(e) =>
+                                                                updateLine(index, 'note', e.target.value)
+                                                            }
+                                                            className="form-input"
+                                                            placeholder="Nhập ghi chú"
+                                                        />
+                                                    ) : (
                                                         <div
                                                             style={{
                                                                 fontSize: 13,
@@ -513,7 +716,8 @@ const ViewGoodReceiptNoteDetail = () => {
                                                         >
                                                             {line.note || '—'}
                                                         </div>
-                                                    </td>
+                                                    )}
+                                                </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -648,96 +852,376 @@ const ViewGoodReceiptNoteDetail = () => {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Tổng hợp đơn hàng</h2>
                                 </div>
-                                <div className="form-grid">
-                                    <div className="form-field">
-                                        <label className="form-label">Tổng số lượng đặt</label>
-                                        <div
-                                            style={{
-                                                padding: '10px',
-                                                backgroundColor: '#f5f5f5',
-                                                borderRadius: 8,
-                                                fontWeight: 600,
-                                                fontVariantNumeric: 'tabular-nums',
-                                            }}
-                                        >
-                                            {totalQuantityOrdered} sản phẩm
-                                        </div>
-                                    </div>
-                                    <div className="form-field">
-                                        <label className="form-label">Tạm tính</label>
-                                        <div
-                                            style={{
-                                                padding: '10px',
-                                                backgroundColor: '#f5f5f5',
-                                                borderRadius: 8,
-                                                fontWeight: 600,
-                                                fontVariantNumeric: 'tabular-nums',
-                                            }}
-                                        >
-                                            {formatCurrency(orderValue)}
-                                        </div>
-                                    </div>
-                                    <div className="form-field span-2">
-                                        {/* Phần text Chiết khấu + Chi phí giống Create/ViewPO (không có ô input, chỉ hiển thị) */}
-                                        <label className="form-label">Chi phí</label>
-                                        <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
-                                                <span style={{ color: '#ef4444' }}>
-                                                    - {formatCurrency(discountAmount)}
-                                                </span>
-                                            </div>
-                                            {additionalCostTotal > 0 && (
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        marginTop: 6,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    <span>Chi phí:</span>
-                                                    <span style={{ color: '#10b981' }}>
-                                                        + {formatCurrency(additionalCostTotal)}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                marginTop: 16,
-                                                padding: '20px',
-                                                backgroundColor: '#e3f2fd',
-                                                borderRadius: 12,
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                borderLeft: '4px solid #2196F3',
-                                            }}
-                                        >
-                                            <span
+                                {isEditing ? (
+                                    <div className="form-grid">
+                                        <div className="form-field">
+                                            <label className="form-label">Tổng số lượng đặt</label>
+                                            <div
                                                 style={{
-                                                    fontSize: 18,
-                                                    fontWeight: 700,
-                                                    color: '#2196F3',
-                                                }}
-                                            >
-                                                Tổng giá trị đơn:
-                                            </span>
-                                            <span
-                                                style={{
-                                                    fontSize: 22,
-                                                    fontWeight: 700,
-                                                    color: '#2196F3',
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: 8,
+                                                    fontWeight: 600,
                                                     fontVariantNumeric: 'tabular-nums',
                                                 }}
                                             >
-                                                {formatCurrency(grandTotal)}
-                                            </span>
+                                                {totalQuantityOrdered} sản phẩm
+                                            </div>
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="form-label">Tạm tính</label>
+                                            <div
+                                                style={{
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: 8,
+                                                    fontWeight: 600,
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                }}
+                                            >
+                                                {formatCurrency(subtotal)}
+                                            </div>
+                                        </div>
+                                        <div
+                                            style={{
+                                                gridColumn: '1 / -1',
+                                                display: 'grid',
+                                                gridTemplateColumns: '1fr 1fr',
+                                                gap: '24px',
+                                                alignItems: 'start',
+                                            }}
+                                        >
+                                            <div className="form-field">
+                                                <label className="form-label">Chiết khấu</label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                        <button
+                                                            type="button"
+                                                            className={`btn btn-sm ${
+                                                                grnData.discountType === 'amount'
+                                                                    ? 'btn-primary'
+                                                                    : 'btn-card-text'
+                                                            }`}
+                                                            onClick={() => setDiscountType('amount')}
+                                                        >
+                                                            Số tiền
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={`btn btn-sm ${
+                                                                grnData.discountType === 'percent'
+                                                                    ? 'btn-primary'
+                                                                    : 'btn-card-text'
+                                                            }`}
+                                                            onClick={() => setDiscountType('percent')}
+                                                        >
+                                                            %
+                                                        </button>
+                                                    </div>
+                                                    {grnData.discountType === 'percent' ? (
+                                                        <input
+                                                            type="number"
+                                                            name="discount"
+                                                            value={grnData.discount}
+                                                            onChange={(e) =>
+                                                                setGrnData((prev) =>
+                                                                    prev
+                                                                        ? {
+                                                                              ...prev,
+                                                                              discount: Number(e.target.value) || 0,
+                                                                          }
+                                                                        : prev
+                                                                )
+                                                            }
+                                                            min="0"
+                                                            max="100"
+                                                            className="form-input"
+                                                            placeholder="0–100"
+                                                        />
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            name="discountAmountFixed"
+                                                            value={grnData.discountAmountFixed || ''}
+                                                            onChange={(e) =>
+                                                                setGrnData((prev) =>
+                                                                    prev
+                                                                        ? {
+                                                                              ...prev,
+                                                                              discountAmountFixed:
+                                                                                  Number(e.target.value) || 0,
+                                                                          }
+                                                                        : prev
+                                                                )
+                                                            }
+                                                            min="0"
+                                                            className="form-input"
+                                                            placeholder="Nhập số tiền (VND)"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="form-field">
+                                                <label className="form-label">Chi phí</label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    {(grnData.additionalCosts || []).map((cost) => (
+                                                        <div
+                                                            key={cost.id}
+                                                            style={{
+                                                                display: 'flex',
+                                                                gap: '8px',
+                                                                alignItems: 'center',
+                                                                flexWrap: 'wrap',
+                                                            }}
+                                                        >
+                                                            <input
+                                                                type="text"
+                                                                value={cost.name}
+                                                                onChange={(e) =>
+                                                                    updateAdditionalCost(
+                                                                        cost.id,
+                                                                        'name',
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                placeholder="Tên"
+                                                                className="form-input"
+                                                                style={{ flex: '1 1 100px', minWidth: 0 }}
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                value={cost.amount || ''}
+                                                                onChange={(e) =>
+                                                                    updateAdditionalCost(
+                                                                        cost.id,
+                                                                        'amount',
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                placeholder="Số tiền"
+                                                                className="form-input"
+                                                                style={{ width: '120px' }}
+                                                                min="0"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-cancel"
+                                                                onClick={() => removeAdditionalCost(cost.id)}
+                                                                style={{ color: '#ef4444' }}
+                                                            >
+                                                                Xóa
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-card-text"
+                                                        onClick={addAdditionalCost}
+                                                        style={{ alignSelf: 'flex-start' }}
+                                                    >
+                                                        + Thêm chi phí
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="form-field span-2" style={{ gridColumn: '1 / -1' }}>
+                                            <div style={{ fontSize: 13, color: '#666' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
+                                                    <span style={{ color: '#ef4444' }}>
+                                                        - {formatCurrency(discountAmount)}
+                                                    </span>
+                                                </div>
+                                                {(grnData.additionalCosts || [])
+                                                    .filter((c) => (Number(c.amount) || 0) > 0)
+                                                    .map((c) => (
+                                                        <div
+                                                            key={c.id}
+                                                            style={{
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                marginTop: 6,
+                                                            }}
+                                                        >
+                                                            <span>
+                                                                {c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:
+                                                            </span>
+                                                            <span style={{ color: '#10b981' }}>
+                                                                + {formatCurrency(Number(c.amount) || 0)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                {(grnData.additionalCosts || []).filter(
+                                                    (c) => (Number(c.amount) || 0) > 0
+                                                ).length > 0 && (
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            marginTop: 6,
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        <span>Chi phí:</span>
+                                                        <span style={{ color: '#10b981' }}>
+                                                            + {formatCurrency(totalAdditionalCosts)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div
+                                                style={{
+                                                    marginTop: 16,
+                                                    padding: '20px',
+                                                    backgroundColor: '#e3f2fd',
+                                                    borderRadius: 12,
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: '4px solid #2196F3',
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        fontSize: 18,
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                    }}
+                                                >
+                                                    Tổng giá trị đơn:
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        fontSize: 22,
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                        fontVariantNumeric: 'tabular-nums',
+                                                    }}
+                                                >
+                                                    {formatCurrency(grandTotal)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="form-grid">
+                                        <div className="form-field">
+                                            <label className="form-label">Tổng số lượng đặt</label>
+                                            <div
+                                                style={{
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: 8,
+                                                    fontWeight: 600,
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                }}
+                                            >
+                                                {totalQuantityOrdered} sản phẩm
+                                            </div>
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="form-label">Tạm tính</label>
+                                            <div
+                                                style={{
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: 8,
+                                                    fontWeight: 600,
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                }}
+                                            >
+                                                {formatCurrency(subtotal)}
+                                            </div>
+                                        </div>
+
+                                        {/* Chi phí: chỉ liệt kê từng dòng chi phí con */}
+                                        <div className="form-field span-2">
+                                            <label className="form-label">Chi phí</label>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                                                {(grnData.additionalCosts || [])
+                                                    .filter((c) => (Number(c.amount) || 0) > 0)
+                                                    .map((c) => (
+                                                        <div
+                                                            key={c.id}
+                                                            style={{
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                fontSize: 13,
+                                                            }}
+                                                        >
+                                                            <span>
+                                                                {c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:
+                                                            </span>
+                                                            <span style={{ color: '#10b981', fontWeight: 500 }}>
+                                                                + {formatCurrency(Number(c.amount) || 0)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Khối tóm tắt Chiết khấu + Chi phí tổng và Tổng giá trị đơn */}
+                                        <div className="form-field span-2">
+                                            <div style={{ fontSize: 13, color: '#666' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
+                                                    <span style={{ color: '#ef4444' }}>
+                                                        - {formatCurrency(discountAmount)}
+                                                    </span>
+                                                </div>
+                                                {totalAdditionalCosts > 0 && (
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            marginTop: 6,
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        <span>Chi phí:</span>
+                                                        <span style={{ color: '#10b981' }}>
+                                                            + {formatCurrency(totalAdditionalCosts)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div
+                                                style={{
+                                                    marginTop: 16,
+                                                    padding: '20px',
+                                                    backgroundColor: '#e3f2fd',
+                                                    borderRadius: 12,
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: '4px solid #2196F3',
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        fontSize: 18,
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                    }}
+                                                >
+                                                    Tổng giá trị đơn:
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        fontSize: 22,
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                        fontVariantNumeric: 'tabular-nums',
+                                                    }}
+                                                >
+                                                    {formatCurrency(grandTotal)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -753,6 +1237,7 @@ const ViewGoodReceiptNoteDetail = () => {
                     </div>
                 </div>
             </div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>
     );
 };
