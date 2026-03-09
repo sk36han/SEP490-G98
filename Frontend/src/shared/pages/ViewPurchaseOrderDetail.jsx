@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Dialog,
@@ -27,7 +27,10 @@ import {
     FileText,
     Save,
     X,
-    Loader
+    Loader,
+    Plus,
+    Trash2,
+    Search,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -50,6 +53,11 @@ const ViewPurchaseOrderDetail = () => {
     const [confirmDialogType, setConfirmDialogType] = useState('approve'); // 'approve' | 'reject'
     const [includeReason, setIncludeReason] = useState(false);
     const [reasonText, setReasonText] = useState('');
+    const [selectedLineIds, setSelectedLineIds] = useState([]);
+    const [showProductSearch, setShowProductSearch] = useState(false);
+    const [searchKeyword, setSearchKeyword] = useState('');
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     const MAX_JUSTIFICATION_LENGTH = 250;
 
@@ -58,6 +66,13 @@ const ViewPurchaseOrderDetail = () => {
         purchaseOrderId: 1,
         orderCode: 'PO-2025-001',
         supplierName: 'Công ty TNHH ABC',
+        supplierPhone: '0901 234 567',
+        supplierEmail: 'ncc.abc@example.com',
+        supplierTaxCode: '0101234567',
+        supplierAddressStreet: 'Số 1 Đường A',
+        supplierAddressWard: 'Phường 1',
+        supplierAddressDistrict: 'Quận 1',
+        supplierAddressProvince: 'TP. Hồ Chí Minh',
         warehouseName: 'Kho Hà Nội',
         creatorName: 'Nguyễn Văn A',
         responsiblePersonName: 'Trần Thị B',
@@ -80,6 +95,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 5,
                 unitPrice: 25000000,
                 totalPrice: 250000000,
+                hasCO: false,
+                hasCQ: false,
                 note: 'Cần giao trước ngày 15/3'
             },
             {
@@ -91,6 +108,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 20,
                 unitPrice: 5000000,
                 totalPrice: 100000000,
+                hasCO: false,
+                hasCQ: false,
                 note: ''
             },
             {
@@ -102,6 +121,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 0,
                 unitPrice: 2000000,
                 totalPrice: 30000000,
+                hasCO: false,
+                hasCQ: false,
                 note: 'Ưu tiên giao sớm'
             },
             {
@@ -113,6 +134,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 15,
                 unitPrice: 1500000,
                 totalPrice: 37500000,
+                hasCO: false,
+                hasCQ: false,
                 note: ''
             },
             {
@@ -124,6 +147,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 12,
                 unitPrice: 7000000,
                 totalPrice: 84000000,
+                hasCO: false,
+                hasCQ: false,
                 note: 'Đã nhập đủ'
             },
             {
@@ -135,6 +160,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 10,
                 unitPrice: 1800000,
                 totalPrice: 54000000,
+                hasCO: false,
+                hasCQ: false,
                 note: 'Còn thiếu 20 cái'
             },
             {
@@ -146,6 +173,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 0,
                 unitPrice: 500000,
                 totalPrice: 20000000,
+                hasCO: false,
+                hasCQ: false,
                 note: 'Chưa nhập'
             },
             {
@@ -157,6 +186,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 18,
                 unitPrice: 800000,
                 totalPrice: 14400000,
+                hasCO: false,
+                hasCQ: false,
                 note: ''
             },
             {
@@ -168,6 +199,8 @@ const ViewPurchaseOrderDetail = () => {
                 receivedQty: 25,
                 unitPrice: 2500000,
                 totalPrice: 125000000,
+                hasCO: false,
+                hasCQ: false,
                 note: 'Nhập từng đợt'
             },
             {
@@ -298,6 +331,77 @@ const ViewPurchaseOrderDetail = () => {
     const approvalStyle = getApprovalStatusStyle(orderData.approvalStatus);
     const receivingStyle = getReceivingStatusStyle(orderData.receivingStatus);
 
+    // Mock search-select data (giống CreatePurchaseOrder)
+    const MOCK_SUPPLIERS = [
+        {
+            id: 'SUP-001',
+            name: 'Nhà cung cấp A',
+            phone: '0901 234 567',
+            email: 'ncc.a@example.com',
+            taxCode: '0101234567',
+            address: {
+                street: 'Số 1 Đường A',
+                ward: 'Phường 1',
+                district: 'Quận 1',
+                province: 'TP. Hồ Chí Minh',
+            },
+        },
+        {
+            id: 'SUP-002',
+            name: 'Nhà cung cấp B',
+            phone: '0908 765 432',
+            email: 'ncc.b@example.com',
+            taxCode: '0312345678',
+            address: {
+                street: 'Số 99 Đường B',
+                ward: 'Phường Bến Nghé',
+                district: 'Quận 1',
+                province: 'TP. Hồ Chí Minh',
+            },
+        },
+    ];
+
+    const MOCK_EMPLOYEES = [
+        { id: 'EMP-001', name: 'Nguyễn Văn A' },
+        { id: 'EMP-002', name: 'Trần Thị B' },
+    ];
+
+    const MOCK_WAREHOUSES = [
+        { id: 'WH-001', name: 'Kho Hà Nội' },
+        { id: 'WH-002', name: 'Kho Hồ Chí Minh' },
+    ];
+
+    const [supplierQuery, setSupplierQuery] = useState('');
+    const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+    const [employeeQuery, setEmployeeQuery] = useState('');
+    const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
+    const [warehouseQuery, setWarehouseQuery] = useState('');
+    const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
+
+    const filteredSuppliers = useMemo(() => {
+        const q = supplierQuery.trim().toLowerCase();
+        if (!q) return MOCK_SUPPLIERS;
+        return MOCK_SUPPLIERS.filter(
+            (s) => s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q)
+        );
+    }, [supplierQuery]);
+
+    const filteredEmployees = useMemo(() => {
+        const q = employeeQuery.trim().toLowerCase();
+        if (!q) return MOCK_EMPLOYEES;
+        return MOCK_EMPLOYEES.filter(
+            (e) => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q)
+        );
+    }, [employeeQuery]);
+
+    const filteredWarehouses = useMemo(() => {
+        const q = warehouseQuery.trim().toLowerCase();
+        if (!q) return MOCK_WAREHOUSES;
+        return MOCK_WAREHOUSES.filter(
+            (w) => w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q)
+        );
+    }, [warehouseQuery]);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         
@@ -310,6 +414,181 @@ const ViewPurchaseOrderDetail = () => {
             ...prev,
             [name]: value
         }));
+    };
+
+    // Mock danh sách sản phẩm dùng cho search-select khi thêm dòng (giống CreatePurchaseOrder)
+    const MOCK_PRODUCTS = [
+        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
+        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
+        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
+        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
+        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
+        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+    ];
+
+    const handleSearchChange = (e) => {
+        const keyword = e.target.value;
+        setSearchKeyword(keyword);
+
+        if (keyword.trim() === '') {
+            setFilteredProducts([]);
+            return;
+        }
+
+        const filtered = MOCK_PRODUCTS.filter(
+            (product) =>
+                product.name.toLowerCase().includes(keyword.toLowerCase()) ||
+                product.sku.toLowerCase().includes(keyword.toLowerCase())
+        );
+        setFilteredProducts(filtered);
+    };
+
+    const handleSelectProduct = (product) => {
+        setOrderData((prev) => {
+            const existing = prev.lines.find((l) => l.itemId === product.id);
+            if (existing) {
+                showToast('Sản phẩm đã có trong danh sách!', 'warning');
+                return prev;
+            }
+
+            const newLine = {
+                id: Date.now(),
+                itemId: product.id,
+                itemName: product.name,
+                itemImage: product.image,
+                uom: product.uom ?? '',
+                orderedQty: 1,
+                unitPrice: product.unitPrice,
+                totalPrice: product.unitPrice,
+                hasCO: false,
+                hasCQ: false,
+                note: '',
+            };
+
+            return {
+                ...prev,
+                lines: [...prev.lines, newLine],
+            };
+        });
+
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setShowProductSearch(false);
+        setSelectedProductIds([]);
+        showToast('Đã thêm sản phẩm vào danh sách', 'success');
+    };
+
+    const toggleProductSelection = (productId) => {
+        setSelectedProductIds((prev) =>
+            prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+        );
+    };
+
+    const addSelectedProducts = () => {
+        if (selectedProductIds.length === 0) {
+            showToast('Vui lòng chọn ít nhất 1 sản phẩm', 'warning');
+            return;
+        }
+
+        const productsToAdd = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id));
+
+        setOrderData((prev) => {
+            const newLines = [];
+            let duplicateCount = 0;
+
+            productsToAdd.forEach((product) => {
+                const existingLine = prev.lines.find((l) => l.itemId === product.id);
+                if (!existingLine) {
+                    newLines.push({
+                        id: Date.now() + Math.random(),
+                        itemId: product.id,
+                        itemName: product.name,
+                        itemImage: product.image,
+                        uom: product.uom ?? '',
+                        orderedQty: 1,
+                        unitPrice: product.unitPrice,
+                        totalPrice: product.unitPrice,
+                        hasCO: false,
+                        hasCQ: false,
+                        note: '',
+                    });
+                } else {
+                    duplicateCount++;
+                }
+            });
+
+            if (duplicateCount > 0) {
+                showToast(`${duplicateCount} sản phẩm đã có trong danh sách`, 'warning');
+            }
+
+            if (!newLines.length) return prev;
+
+            showToast(`Đã thêm ${newLines.length} sản phẩm vào danh sách`, 'success');
+
+            return {
+                ...prev,
+                lines: [...prev.lines, ...newLines],
+            };
+        });
+
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setShowProductSearch(false);
+        setSelectedProductIds([]);
+    };
+
+    const openProductSearch = () => {
+        setShowProductSearch(true);
+        setSearchKeyword('');
+        setFilteredProducts([]);
+    };
+
+    const closeProductSearch = () => {
+        setShowProductSearch(false);
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setSelectedProductIds([]);
+    };
+
+    const addLine = () => {
+        openProductSearch();
+    };
+
+    const removeLine = (index) => {
+        setOrderData((prev) => ({
+            ...prev,
+            lines: prev.lines.filter((_, i) => i !== index),
+        }));
+        setSelectedLineIds((prev) => {
+            const target = orderData.lines[index]?.id;
+            return target ? prev.filter((id) => id !== target) : prev;
+        });
+    };
+
+    const toggleLineSelection = (lineId) => {
+        setSelectedLineIds((prev) =>
+            prev.includes(lineId) ? prev.filter((id) => id !== lineId) : [...prev, lineId]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (!orderData.lines?.length) return;
+        if (selectedLineIds.length === orderData.lines.length) {
+            setSelectedLineIds([]);
+        } else {
+            setSelectedLineIds(orderData.lines.map((l) => l.id));
+        }
+    };
+
+    const removeSelectedLines = () => {
+        if (!selectedLineIds.length) return;
+        setOrderData((prev) => ({
+            ...prev,
+            lines: prev.lines.filter((l) => !selectedLineIds.includes(l.id)),
+        }));
+        setSelectedLineIds([]);
     };
 
     const setDiscountType = (type) => {
@@ -758,7 +1037,7 @@ const ViewPurchaseOrderDetail = () => {
                     <div className="form-card-intro">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                             <div>
-                                <h1 className="page-title">Chi tiết đơn mua hàng</h1>
+                                <h1 className="page-title">Chi tiết đơn mua</h1>
                                 <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
                                     Mã đơn: <span style={{ fontWeight: 600, color: '#2196F3' }}>{orderData.orderCode}</span>
                                 </p>
@@ -800,31 +1079,333 @@ const ViewPurchaseOrderDetail = () => {
                         </div>
                     </div>
 
-                    {/* Layout 2 cột: Chi tiết sản phẩm (trái) + Thông tin chung (phải) */}
+                    {/* Layout 2 cột: Chi tiết sản phẩm (trái) + (Thông tin chung + Lịch sử) (phải) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
                         {/* 1. Chi tiết sản phẩm (Trái) */}
                         <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết sản phẩm</h2>
+                                {isEditing && (
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {selectedLineIds.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={removeSelectedLines}
+                                                className="btn btn-sm"
+                                                style={{
+                                                    fontWeight: 600,
+                                                    backgroundColor: '#ef4444',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                }}
+                                            >
+                                                <Trash2 size={16} />
+                                                Xóa ({selectedLineIds.length})
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={addLine}
+                                            className="btn btn-sm"
+                                            style={{ fontSize: '14px', fontWeight: 600 }}
+                                        >
+                                            <Plus size={16} />
+                                            Thêm sản phẩm
+                                        </button>
+                                    </div>
+                                )}
                             </div>
+
+                            {isEditing && showProductSearch && (
+                                <div
+                                    style={{
+                                        marginTop: 12,
+                                        marginBottom: 12,
+                                        animation: 'slideDown 0.3s ease-out',
+                                        position: 'relative',
+                                    }}
+                                >
+                                    <div style={{ position: 'relative' }}>
+                                        <Search
+                                            size={20}
+                                            style={{
+                                                position: 'absolute',
+                                                left: '12px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                color: '#9ca3af',
+                                                zIndex: 1,
+                                            }}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={searchKeyword}
+                                            onChange={handleSearchChange}
+                                            placeholder="Tìm kiếm theo tên hoặc mã SKU..."
+                                            autoFocus
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 44px 12px 44px',
+                                                border: '2px solid #2196F3',
+                                                borderRadius: '10px',
+                                                fontSize: '14px',
+                                                outline: 'none',
+                                                boxSizing: 'border-box',
+                                                boxShadow: '0 0 0 4px rgba(33, 150, 243, 0.1)',
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={closeProductSearch}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '8px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                color: '#6b7280',
+                                                zIndex: 1,
+                                            }}
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    {searchKeyword !== '' && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                marginTop: '4px',
+                                                backgroundColor: 'white',
+                                                border: '1px solid #e5e7eb',
+                                                borderRadius: '10px',
+                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                                maxHeight: '400px',
+                                                overflowY: 'auto',
+                                                zIndex: 100,
+                                                animation: 'fadeIn 0.2s ease-out',
+                                            }}
+                                        >
+                                            {filteredProducts.length === 0 ? (
+                                                <div
+                                                    style={{
+                                                        padding: '24px',
+                                                        textAlign: 'center',
+                                                        color: '#9ca3af',
+                                                    }}
+                                                >
+                                                    <Package
+                                                        size={32}
+                                                        style={{ margin: '0 auto 8px', opacity: 0.5 }}
+                                                    />
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>
+                                                        Không tìm thấy sản phẩm nào
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {filteredProducts.map((product) => (
+                                                        <div
+                                                            key={product.id}
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                borderBottom: '1px solid #f3f4f6',
+                                                                transition: 'background-color 0.15s',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '12px',
+                                                            }}
+                                                            onMouseEnter={(e) =>
+                                                                (e.currentTarget.style.backgroundColor =
+                                                                    '#f9fafb')
+                                                            }
+                                                            onMouseLeave={(e) =>
+                                                                (e.currentTarget.style.backgroundColor =
+                                                                    'transparent')
+                                                            }
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedProductIds.includes(
+                                                                    product.id
+                                                                )}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    toggleProductSelection(product.id);
+                                                                }}
+                                                                style={{
+                                                                    cursor: 'pointer',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            />
+                                                            {isValidImageUrl(product.image) &&
+                                                            !imageErrors[`product-${product.id}`] ? (
+                                                                <img
+                                                                    src={product.image}
+                                                                    alt={product.name}
+                                                                    onError={() =>
+                                                                        handleImageError(
+                                                                            `product-${product.id}`
+                                                                        )
+                                                                    }
+                                                                    style={{
+                                                                        width: '40px',
+                                                                        height: '40px',
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    style={{
+                                                                        width: '40px',
+                                                                        height: '40px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        backgroundColor: '#f3f4f6',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                >
+                                                                    <ImageIcon size={20} color="#9ca3af" />
+                                                                </div>
+                                                            )}
+                                                            <div
+                                                                style={{ flex: 1, cursor: 'pointer' }}
+                                                                onClick={() => handleSelectProduct(product)}
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        justifyContent: 'space-between',
+                                                                        alignItems: 'start',
+                                                                        marginBottom: '4px',
+                                                                    }}
+                                                                >
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: '14px',
+                                                                            fontWeight: 500,
+                                                                            color: '#1f2937',
+                                                                        }}
+                                                                    >
+                                                                        {product.name}
+                                                                    </span>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: '14px',
+                                                                            fontWeight: 600,
+                                                                            color: '#2196F3',
+                                                                            marginLeft: '12px',
+                                                                        }}
+                                                                    >
+                                                                        {formatCurrency(product.unitPrice)}
+                                                                    </span>
+                                                                </div>
+                                                                <div
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        gap: '12px',
+                                                                        fontSize: '12px',
+                                                                        color: '#6b7280',
+                                                                    }}
+                                                                >
+                                                                    <span>Mã: {product.sku}</span>
+                                                                    <span>•</span>
+                                                                    <span>ĐVT: {product.uom}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {selectedProductIds.length > 0 && (
+                                                        <div
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                borderTop: '2px solid #e5e7eb',
+                                                                backgroundColor: '#f9fafb',
+                                                                position: 'sticky',
+                                                                bottom: 0,
+                                                            }}
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={addSelectedProducts}
+                                                                className="btn btn-sm"
+                                                                style={{
+                                                                    width: '100%',
+                                                                    backgroundColor: '#2196F3',
+                                                                    color: 'white',
+                                                                    border: 'none',
+                                                                    fontWeight: 600,
+                                                                    justifyContent: 'center',
+                                                                }}
+                                                            >
+                                                                <Plus size={16} />
+                                                                Thêm {selectedProductIds.length} sản phẩm
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="table-container" style={{ flex: 1, overflowY: 'auto', maxHeight: '500px' }}>
                                 <table className="product-table">
                                     <thead>
                                         <tr>
+                                            {isEditing && (
+                                                <th style={{ width: '40px' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={
+                                                            orderData.lines.length > 0 &&
+                                                            selectedLineIds.length === orderData.lines.length
+                                                        }
+                                                        onChange={toggleSelectAll}
+                                                        style={{ cursor: 'pointer' }}
+                                                    />
+                                                </th>
+                                            )}
                                             <th style={{ width: '40px' }}>STT</th>
                                             <th>Sản phẩm</th>
-                                            <th style={{ width: '80px', textAlign: 'center' }}>ĐVT</th>
                                             <th style={{ width: '100px' }}>SL đặt</th>
                                             <th style={{ width: '120px' }}>Đơn giá</th>
                                             <th style={{ width: '140px' }}>Thành tiền</th>
-                                            <th style={{ width: '180px' }}>Ghi chú</th>
+                                            <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ xuất xứ (CO)">CO</th>
+                                            <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ chất lượng (CQ)">CQ</th>
+                                            <th style={{ width: '60px' }}></th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {orderData.lines.map((line, index) => {
                                             return (
                                                 <tr key={line.id}>
+                                                    {isEditing && (
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedLineIds.includes(line.id)}
+                                                                onChange={() => toggleLineSelection(line.id)}
+                                                                style={{ cursor: 'pointer' }}
+                                                            />
+                                                        </td>
+                                                    )}
                                                     <td style={{ textAlign: 'center' }}>{index + 1}</td>
                                                     <td>
                                                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -859,49 +1440,39 @@ const ViewPurchaseOrderDetail = () => {
                                                                 </div>
                                                             )}
                                                             
-                                                            {/* Tên sản phẩm và icon Eye */}
-                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1 }}>
-                                                                <a
-                                                                    href="#"
-                                                                    onClick={(e) => {
-                                                                        e.preventDefault();
-                                                                        console.log('View product detail:', line.itemId);
-                                                                    }}
+                                                            {/* Tên sản phẩm + ĐVT */}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                    <a
+                                                                        href="#"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            console.log('View product detail:', line.itemId);
+                                                                        }}
+                                                                        style={{
+                                                                            color: '#2196F3',
+                                                                            textDecoration: 'none',
+                                                                            fontSize: '14px',
+                                                                            fontWeight: 500,
+                                                                            flex: 1
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                                                                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                                                                    >
+                                                                        {line.itemName || (isEditing ? 'Nhập tên sản phẩm' : '')}
+                                                                    </a>
+                                                                </div>
+                                                                <div
                                                                     style={{
-                                                                        color: '#2196F3',
-                                                                        textDecoration: 'none',
-                                                                        fontSize: '14px',
-                                                                        fontWeight: 500,
-                                                                        flex: 1
-                                                                    }}
-                                                                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                                                                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                                                                >
-                                                                    {line.itemName}
-                                                                </a>
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn-icon-only"
-                                                                    style={{ color: '#2196F3' }}
-                                                                    title="Xem chi tiết sản phẩm"
-                                                                    onClick={() => {
-                                                                        console.log('View product detail:', line.itemId);
+                                                                        fontSize: 12,
+                                                                        color: '#6b7280',
+                                                                        fontWeight: 600,
                                                                     }}
                                                                 >
-                                                                    <Eye size={18} />
-                                                                </button>
+                                                                    ĐVT: {line.uom || '—'}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </td>
-                                                    <td
-                                                        style={{
-                                                            textAlign: 'center',
-                                                            verticalAlign: 'middle',
-                                                            fontSize: 14,
-                                                            color: '#374151',
-                                                        }}
-                                                    >
-                                                        {line.uom || '—'}
                                                     </td>
                                                     <td style={{ textAlign: 'right', fontWeight: 600 }}>
                                                         {isEditing ? (
@@ -934,19 +1505,77 @@ const ViewPurchaseOrderDetail = () => {
                                                     <td style={{ textAlign: 'right', fontWeight: 600, color: '#2196F3' }}>
                                                         {formatCurrency(line.totalPrice)}
                                                     </td>
-                                                    <td style={{ fontSize: '13px', color: '#6b7280' }}>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="text"
-                                                                value={line.note}
-                                                                onChange={(e) => updateLine(index, 'note', e.target.value)}
-                                                                placeholder="Nhập ghi chú"
-                                                                className="form-input"
-                                                                style={{ width: '100%' }}
-                                                            />
-                                                        ) : (
-                                                            line.note || '-'
-                                                        )}
+                                                    <td
+                                                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                                                        title="Chứng chỉ xuất xứ (CO)"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!line.hasCO}
+                                                            readOnly
+                                                            disabled
+                                                            style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                cursor: 'default',
+                                                                margin: 0,
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td
+                                                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                                                        title="Chứng chỉ chất lượng (CQ)"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!line.hasCQ}
+                                                            readOnly
+                                                            disabled
+                                                            style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                cursor: 'default',
+                                                                margin: 0,
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            textAlign: 'center',
+                                                            verticalAlign: 'middle',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: 8,
+                                                            }}
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                className="btn-icon-only"
+                                                                style={{ color: '#2196F3' }}
+                                                                title="Xem chi tiết sản phẩm"
+                                                                onClick={() => {
+                                                                    console.log('View product detail:', line.itemId);
+                                                                }}
+                                                            >
+                                                                <Eye size={18} />
+                                                            </button>
+                                                            {isEditing && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn-icon-only"
+                                                                    style={{ color: '#ef4444' }}
+                                                                    onClick={() => removeLine(index)}
+                                                                    title="Xóa dòng"
+                                                                >
+                                                                    <Trash2 size={18} />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -956,13 +1585,14 @@ const ViewPurchaseOrderDetail = () => {
                             </div>
                         </div>
 
-                        {/* 2. Nhân viên (Phải) */}
+                        {/* 2. Thông tin chung (Phải) */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thông tin chung</h2>
-                            </div>
-                            
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Thông tin chung</h2>
+                                </div>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 {/* Nhân viên tạo */}
                                 <div className="form-field">
                                     <label className="form-label">Nhân viên tạo</label>
@@ -978,38 +1608,183 @@ const ViewPurchaseOrderDetail = () => {
                                     </div>
                                 </div>
 
-                                {/* Nhân viên phụ trách */}
+                                {/* Nhân viên phụ trách - search select khi Edit */}
                                 <div className="form-field">
                                     <label className="form-label">Nhân viên phụ trách</label>
-                                    <div className="input-wrapper">
+                                    <div className="input-wrapper" style={{ position: 'relative' }}>
                                         <User className="input-icon" size={16} />
                                         <input
                                             type="text"
                                             name="responsiblePersonName"
-                                            value={orderData.responsiblePersonName || ''}
-                                            onChange={handleChange}
+                                            value={
+                                                isEditing
+                                                    ? employeeQuery || orderData.responsiblePersonName || ''
+                                                    : orderData.responsiblePersonName || ''
+                                            }
+                                            onChange={(e) => {
+                                                if (!isEditing) return;
+                                                setEmployeeQuery(e.target.value);
+                                                setEmployeeDropdownOpen(true);
+                                            }}
+                                            onFocus={() => {
+                                                if (isEditing) setEmployeeDropdownOpen(true);
+                                            }}
                                             readOnly={!isEditing}
                                             className="form-input"
                                             style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
-                                            placeholder={isEditing ? "Chọn nhân viên phụ trách" : "-"}
+                                            placeholder={isEditing ? 'Tìm hoặc chọn nhân viên' : '-'}
+                                            autoComplete="off"
                                         />
+                                        {isEditing && employeeDropdownOpen && (
+                                            <ul
+                                                className="form-input"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '100%',
+                                                    left: 0,
+                                                    right: 0,
+                                                    marginTop: '4px',
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    listStyle: 'none',
+                                                    padding: '8px 0',
+                                                    zIndex: 10,
+                                                    backgroundColor: '#fff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                }}
+                                            >
+                                                {filteredEmployees.length === 0 ? (
+                                                    <li
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            color: '#6b7280',
+                                                            fontSize: '14px',
+                                                        }}
+                                                    >
+                                                        Không có nhân viên phù hợp
+                                                    </li>
+                                                ) : (
+                                                    filteredEmployees.map((emp) => (
+                                                        <li
+                                                            key={emp.id}
+                                                            onClick={() => {
+                                                                setOrderData((prev) => ({
+                                                                    ...prev,
+                                                                    responsiblePersonName: emp.name,
+                                                                }));
+                                                                setEmployeeQuery(emp.name);
+                                                                setEmployeeDropdownOpen(false);
+                                                            }}
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '14px',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {emp.name} ({emp.id})
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* Kho nhận */}
+                                {/* Kho nhận - search select khi Edit */}
                                 <div className="form-field">
                                     <label className="form-label">Kho nhận</label>
-                                    <div className="input-wrapper">
+                                    <div className="input-wrapper" style={{ position: 'relative' }}>
                                         <MapPin className="input-icon" size={16} />
                                         <input
                                             type="text"
                                             name="warehouseName"
-                                            value={orderData.warehouseName}
-                                            onChange={handleChange}
+                                            value={
+                                                isEditing
+                                                    ? warehouseQuery || orderData.warehouseName || ''
+                                                    : orderData.warehouseName || ''
+                                            }
+                                            onChange={(e) => {
+                                                if (!isEditing) return;
+                                                setWarehouseQuery(e.target.value);
+                                                setWarehouseDropdownOpen(true);
+                                            }}
+                                            onFocus={() => {
+                                                if (isEditing) setWarehouseDropdownOpen(true);
+                                            }}
                                             readOnly={!isEditing}
                                             className="form-input"
                                             style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
+                                            placeholder={isEditing ? 'Tìm hoặc chọn kho nhận' : '-'}
+                                            autoComplete="off"
                                         />
+                                        {isEditing && warehouseDropdownOpen && (
+                                            <ul
+                                                className="form-input"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '100%',
+                                                    left: 0,
+                                                    right: 0,
+                                                    marginTop: '4px',
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    listStyle: 'none',
+                                                    padding: '8px 0',
+                                                    zIndex: 10,
+                                                    backgroundColor: '#fff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                }}
+                                            >
+                                                {filteredWarehouses.length === 0 ? (
+                                                    <li
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            color: '#6b7280',
+                                                            fontSize: '14px',
+                                                        }}
+                                                    >
+                                                        Không có kho phù hợp
+                                                    </li>
+                                                ) : (
+                                                    filteredWarehouses.map((wh) => (
+                                                        <li
+                                                            key={wh.id}
+                                                            onClick={() => {
+                                                                setOrderData((prev) => ({
+                                                                    ...prev,
+                                                                    warehouseName: wh.name,
+                                                                }));
+                                                                setWarehouseQuery(wh.name);
+                                                                setWarehouseDropdownOpen(false);
+                                                            }}
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '14px',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {wh.name} ({wh.id})
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1046,32 +1821,267 @@ const ViewPurchaseOrderDetail = () => {
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </div>
 
-                    {/* Layout 2 cột: (Nhà cung cấp + Ghi chú + Tổng hợp) (trái), Lịch sử (phải) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        {/* Cột trái: Nhà cung cấp + Ghi chú + Tổng hợp */}
+                    {/* Layout 2 cột: Nhà cung cấp + Ghi chú + Tổng hợp (trái) + Lịch sử đơn đặt hàng nhập (phải) */}
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 350px',
+                            gap: '24px',
+                            alignItems: 'start',
+                        }}
+                    >
+                        {/* Bên trái: Nhà cung cấp + Ghi chú + Tổng hợp */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* 3. Nhà cung cấp */}
+                            {/* 3. Nhà cung cấp - search-select khi Edit + chi tiết NCC */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
                                 </div>
                                 <div className="form-field">
                                     <label className="form-label">Nhà cung cấp</label>
-                                    <div className="input-wrapper">
+                                    <div className="input-wrapper" style={{ position: 'relative' }}>
                                         <Building2 className="input-icon" size={16} />
                                         <input
                                             type="text"
                                             name="supplierName"
-                                            value={orderData.supplierName}
-                                            onChange={handleChange}
+                                            value={
+                                                isEditing
+                                                    ? supplierQuery || orderData.supplierName || ''
+                                                    : orderData.supplierName || ''
+                                            }
+                                            onChange={(e) => {
+                                                if (!isEditing) return;
+                                                setSupplierQuery(e.target.value);
+                                                setSupplierDropdownOpen(true);
+                                            }}
+                                            onFocus={() => {
+                                                if (isEditing) setSupplierDropdownOpen(true);
+                                            }}
                                             readOnly={!isEditing}
                                             className="form-input"
                                             style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
+                                            placeholder={isEditing ? 'Tìm hoặc chọn nhà cung cấp' : '-'}
+                                            autoComplete="off"
                                         />
+                                        {isEditing && supplierDropdownOpen && (
+                                            <ul
+                                                className="form-input"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '100%',
+                                                    left: 0,
+                                                    right: 0,
+                                                    marginTop: '4px',
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    listStyle: 'none',
+                                                    padding: '8px 0',
+                                                    zIndex: 10,
+                                                    backgroundColor: '#fff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                }}
+                                            >
+                                                {filteredSuppliers.length === 0 ? (
+                                                    <li
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            color: '#6b7280',
+                                                            fontSize: '14px',
+                                                        }}
+                                                    >
+                                                        Không có nhà cung cấp phù hợp
+                                                    </li>
+                                                ) : (
+                                                    filteredSuppliers.map((sup) => (
+                                                        <li
+                                                            key={sup.id}
+                                                            onClick={() => {
+                                                                setOrderData((prev) => ({
+                                                                    ...prev,
+                                                                    supplierName: sup.name,
+                                                                    supplierPhone: sup.phone,
+                                                                    supplierEmail: sup.email,
+                                                                    supplierTaxCode: sup.taxCode,
+                                                                    supplierAddressStreet: sup.address?.street || '',
+                                                                    supplierAddressWard: sup.address?.ward || '',
+                                                                    supplierAddressDistrict: sup.address?.district || '',
+                                                                    supplierAddressProvince: sup.address?.province || '',
+                                                                }));
+                                                                setSupplierQuery(sup.name);
+                                                                setSupplierDropdownOpen(false);
+                                                            }}
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '14px',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {sup.name} ({sup.id})
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
                                     </div>
                                 </div>
+
+                                {/* Chi tiết nhà cung cấp (read-only, mock) */}
+                                {orderData.supplierName && (
+                                    <div
+                                        style={{
+                                            marginTop: '16px',
+                                            padding: '12px 14px',
+                                            borderRadius: '10px',
+                                            backgroundColor: '#f9fafb',
+                                            border: '1px solid #e5e7eb',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 6,
+                                            fontSize: 13,
+                                            color: '#374151',
+                                        }}
+                                    >
+                                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>
+                                            Chi tiết nhà cung cấp
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>Tên NCC: </span>
+                                            <span>{orderData.supplierName || '-'}</span>
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>SĐT: </span>
+                                            <span>{orderData.supplierPhone || '-'}</span>
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>Email: </span>
+                                            <span>{orderData.supplierEmail || '-'}</span>
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>Mã số thuế: </span>
+                                            <span>{orderData.supplierTaxCode || '-'}</span>
+                                        </div>
+                                        <div
+                                            style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                                                gap: 8,
+                                                marginTop: 4,
+                                            }}
+                                        >
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Tỉnh/Thành phố
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {orderData.supplierAddressProvince || '—'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Quận/Huyện
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {orderData.supplierAddressDistrict || '—'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Phường/Xã
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {orderData.supplierAddressWard || '—'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Địa chỉ cụ thể
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {orderData.supplierAddressStreet || '—'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* 4. Ghi chú */}
@@ -1092,14 +2102,19 @@ const ViewPurchaseOrderDetail = () => {
                                         style={{ resize: 'vertical', backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
                                     />
                                     {isEditing && (
-                                        <div style={{ 
-                                            display: 'flex', 
-                                            justifyContent: 'flex-end', 
-                                            fontSize: '12px', 
-                                            color: orderData.justification.length >= MAX_JUSTIFICATION_LENGTH ? '#ef4444' : '#6b7280',
-                                            marginTop: '4px',
-                                            fontWeight: 500
-                                        }}>
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                justifyContent: 'flex-end',
+                                                fontSize: '12px',
+                                                color:
+                                                    orderData.justification.length >= MAX_JUSTIFICATION_LENGTH
+                                                        ? '#ef4444'
+                                                        : '#6b7280',
+                                                marginTop: '4px',
+                                                fontWeight: 500,
+                                            }}
+                                        >
                                             {orderData.justification.length}/{MAX_JUSTIFICATION_LENGTH} ký tự
                                         </div>
                                     )}
@@ -1112,38 +2127,68 @@ const ViewPurchaseOrderDetail = () => {
                                     <h2 className="section-title">Tổng hợp đơn hàng</h2>
                                 </div>
                                 
+                                {/* Khi chỉnh sửa: dùng lại UI Tổng hợp đơn hàng giống CreatePurchaseOrder (không có Chi phí) */}
                                 {isEditing ? (
-                                    /* Khi chỉnh sửa: dùng đúng UI Tổng hợp đơn hàng của CreatePurchaseOrder */
                                     <div className="form-grid">
                                         <div className="form-field">
                                             <label className="form-label">Tổng số lượng đặt</label>
-                                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
+                                            <div
+                                                style={{
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 600,
+                                                }}
+                                            >
                                                 {totalQuantity} sản phẩm
                                             </div>
                                         </div>
 
                                         <div className="form-field">
                                             <label className="form-label">Tạm tính</label>
-                                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
+                                            <div
+                                                style={{
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 600,
+                                                }}
+                                            >
                                                 {formatCurrency(subtotal)}
                                             </div>
                                         </div>
 
-                                        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'start' }}>
+                                        <div
+                                            style={{
+                                                gridColumn: '1 / -1',
+                                                display: 'grid',
+                                                gridTemplateColumns: '1fr 1fr',
+                                                gap: '24px',
+                                                alignItems: 'start',
+                                            }}
+                                        >
                                             <div className="form-field">
                                                 <label className="form-label">Chiết khấu</label>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                                         <button
                                                             type="button"
-                                                            className={`btn btn-sm ${orderData.discountType === 'amount' ? 'btn-primary' : 'btn-card-text'}`}
+                                                            className={`btn btn-sm ${
+                                                                orderData.discountType === 'amount'
+                                                                    ? 'btn-primary'
+                                                                    : 'btn-card-text'
+                                                            }`}
                                                             onClick={() => setDiscountType('amount')}
                                                         >
                                                             Số tiền
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className={`btn btn-sm ${orderData.discountType === 'percent' ? 'btn-primary' : 'btn-card-text'}`}
+                                                            className={`btn btn-sm ${
+                                                                orderData.discountType === 'percent'
+                                                                    ? 'btn-primary'
+                                                                    : 'btn-card-text'
+                                                            }`}
                                                             onClick={() => setDiscountType('percent')}
                                                         >
                                                             %
@@ -1173,118 +2218,79 @@ const ViewPurchaseOrderDetail = () => {
                                                     )}
                                                 </div>
                                             </div>
-
-                                            <div className="form-field">
-                                                <label className="form-label">Chi phí</label>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {(orderData.additionalCosts || []).map((cost) => (
-                                                        <div key={cost.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                            <input
-                                                                type="text"
-                                                                value={cost.name}
-                                                                onChange={(e) => updateAdditionalCost(cost.id, 'name', e.target.value)}
-                                                                placeholder="Tên"
-                                                                className="form-input"
-                                                                style={{ flex: '1 1 100px', minWidth: 0 }}
-                                                            />
-                                                            <input
-                                                                type="number"
-                                                                value={cost.amount || ''}
-                                                                onChange={(e) => updateAdditionalCost(cost.id, 'amount', e.target.value)}
-                                                                placeholder="Số tiền"
-                                                                className="form-input"
-                                                                style={{ width: '120px' }}
-                                                                min="0"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-cancel"
-                                                                onClick={() => removeAdditionalCost(cost.id)}
-                                                                style={{ color: '#ef4444' }}
-                                                            >
-                                                                Xóa
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-sm btn-card-text"
-                                                        onClick={addAdditionalCost}
-                                                        style={{ alignSelf: 'flex-start' }}
-                                                    >
-                                                        + Thêm chi phí
-                                                    </button>
-                                                </div>
-                                            </div>
                                         </div>
 
                                         <div className="form-field span-2" style={{ gridColumn: '1 / -1' }}>
                                             <div style={{ fontSize: '13px', color: '#666' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
-                                                    <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
+                                                    <span style={{ color: '#ef4444' }}>
+                                                        - {formatCurrency(discountAmount)}
+                                                    </span>
                                                 </div>
-                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).map((c) => (
-                                                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                                                        <span>{c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:</span>
-                                                        <span style={{ color: '#10b981' }}>+ {formatCurrency(Number(c.amount) || 0)}</span>
-                                                    </div>
-                                                ))}
-                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).length > 0 && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
-                                                        <span>Chi phí:</span>
-                                                        <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
-                                                    </div>
-                                                )}
                                             </div>
 
-                                            <div style={{ 
-                                                marginTop: '16px',
-                                                padding: '20px', 
-                                                backgroundColor: '#e3f2fd', 
-                                                borderRadius: '12px', 
-                                                display: 'flex', 
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                borderLeft: '4px solid #2196F3'
-                                            }}>
-                                                <span style={{ fontSize: '18px', fontWeight: 700, color: '#2196F3' }}>
+                                            <div
+                                                style={{
+                                                    marginTop: '16px',
+                                                    padding: '20px',
+                                                    backgroundColor: '#e3f2fd',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: '4px solid #2196F3',
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        fontSize: '18px',
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                    }}
+                                                >
                                                     Tổng giá trị đơn:
                                                 </span>
-                                                <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>
+                                                <span
+                                                    style={{
+                                                        fontSize: '24px',
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                    }}
+                                                >
                                                     {formatCurrency(grandTotal)}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
                                 ) : (
-                                    /* Khi chỉ xem: layout đơn giản, không có input/bút chọn loại chiết khấu */
+                                    // Khi chỉ xem: layout đơn giản, không có Chi phí
                                     <div className="form-grid">
                                         <div className="form-field">
                                             <label className="form-label">Tổng số lượng đặt</label>
-                                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
+                                            <div
+                                                style={{
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 600,
+                                                }}
+                                            >
                                                 {totalQuantity} sản phẩm
                                             </div>
                                         </div>
 
                                         <div className="form-field">
                                             <label className="form-label">Tạm tính</label>
-                                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
+                                            <div
+                                                style={{
+                                                    padding: '10px',
+                                                    backgroundColor: '#f5f5f5',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 600,
+                                                }}
+                                            >
                                                 {formatCurrency(subtotal)}
-                                            </div>
-                                        </div>
-
-                                        <div className="form-field span-2">
-                                            <label className="form-label">Chi phí</label>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).map((c) => (
-                                                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                        <span>{c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:</span>
-                                                        <span style={{ color: '#10b981', fontWeight: 500 }}>
-                                                            + {formatCurrency(Number(c.amount) || 0)}
-                                                        </span>
-                                                    </div>
-                                                ))}
                                             </div>
                                         </div>
 
@@ -1292,30 +2298,40 @@ const ViewPurchaseOrderDetail = () => {
                                             <div style={{ fontSize: '13px', color: '#666' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
-                                                    <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
+                                                    <span style={{ color: '#ef4444' }}>
+                                                        - {formatCurrency(discountAmount)}
+                                                    </span>
                                                 </div>
-                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).length > 0 && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
-                                                        <span>Chi phí:</span>
-                                                        <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
-                                                    </div>
-                                                )}
                                             </div>
 
-                                            <div style={{ 
-                                                marginTop: '16px',
-                                                padding: '20px', 
-                                                backgroundColor: '#e3f2fd', 
-                                                borderRadius: '12px', 
-                                                display: 'flex', 
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                borderLeft: '4px solid #2196F3'
-                                            }}>
-                                                <span style={{ fontSize: '18px', fontWeight: 700, color: '#2196F3' }}>
+                                            <div
+                                                style={{
+                                                    marginTop: '16px',
+                                                    padding: '20px',
+                                                    backgroundColor: '#e3f2fd',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: '4px solid #2196F3',
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        fontSize: '18px',
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                    }}
+                                                >
                                                     Tổng giá trị đơn:
                                                 </span>
-                                                <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>
+                                                <span
+                                                    style={{
+                                                        fontSize: '24px',
+                                                        fontWeight: 700,
+                                                        color: '#2196F3',
+                                                    }}
+                                                >
                                                     {formatCurrency(grandTotal)}
                                                 </span>
                                             </div>
@@ -1325,44 +2341,83 @@ const ViewPurchaseOrderDetail = () => {
                             </div>
                         </div>
 
-                        {/* Cột phải: Lịch sử đơn đặt hàng nhập */}
+                        {/* Bên phải: Lịch sử đơn đặt hàng nhập */}
                         <div className="info-section" style={{ margin: 0 }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Lịch sử đơn đặt hàng nhập</h2>
                             </div>
                             
-                            <div style={{ padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                            <div
+                                style={{
+                                    padding: '16px',
+                                    backgroundColor: '#f9fafb',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e5e7eb',
+                                }}
+                            >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {orderData.history.map((item, index) => (
-                                        <div key={index} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                            <div style={{ 
-                                                width: '10px', 
-                                                height: '10px', 
-                                                borderRadius: '50%', 
-                                                backgroundColor: index === 0 ? '#2196F3' : '#9ca3af',
-                                                marginTop: '6px',
-                                                flexShrink: 0
-                                            }}></div>
-                                            <div style={{ 
-                                                flex: 1, 
-                                                borderLeft: index < orderData.history.length - 1 ? '2px solid #e5e7eb' : 'none',
-                                                paddingLeft: '16px', 
-                                                paddingBottom: index < orderData.history.length - 1 ? '12px' : '0'
-                                            }}>
-                                                <div style={{ 
-                                                    display: 'flex', 
-                                                    justifyContent: 'space-between', 
-                                                    marginBottom: '8px',
-                                                    flexWrap: 'wrap',
-                                                    gap: '8px'
-                                                }}>
-                                                    <span style={{ fontSize: '13px', color: '#6b7280' }}>{item.time}</span>
-                                                    <span style={{ fontSize: '13px', color: '#6b7280' }}>{item.phone}</span>
-                                                    <span style={{ fontSize: '13px', color: '#2196F3', fontWeight: 600 }}>
-                                                        {item.action}
+                                        <div
+                                            key={index}
+                                            style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: '10px',
+                                                    height: '10px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: index === 0 ? '#2196F3' : '#9ca3af',
+                                                    marginTop: '6px',
+                                                    flexShrink: 0,
+                                                }}
+                                            ></div>
+                                            <div
+                                                style={{
+                                                    flex: 1,
+                                                    borderLeft:
+                                                        index < orderData.history.length - 1
+                                                            ? '2px solid #e5e7eb'
+                                                            : 'none',
+                                                    paddingLeft: '16px',
+                                                    paddingBottom:
+                                                        index < orderData.history.length - 1 ? '12px' : '0',
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        marginBottom: '4px',
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            fontSize: '13px',
+                                                            fontWeight: 600,
+                                                            color: '#111827',
+                                                        }}
+                                                    >
+                                                        {item.time}
+                                                    </span>
+                                                    <span style={{ fontSize: '13px', color: '#6b7280' }}>
+                                                        {item.phone}
                                                     </span>
                                                 </div>
-                                                <div style={{ fontSize: '13px', color: '#6b7280' }}>{item.date}</div>
+                                                <div
+                                                    style={{
+                                                        fontSize: '13px',
+                                                        fontWeight: 500,
+                                                        color: '#2563eb',
+                                                        marginBottom: '2px',
+                                                        cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    {item.title}
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                    {item.date}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}

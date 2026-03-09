@@ -1257,7 +1257,7 @@ const CreateGoodReceiptNote = () => {
                                             ))}
                                             {(formData.additionalCosts || []).filter((c) => (Number(c.amount) || 0) > 0).length > 0 && (
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
-                                                    <span>Chi phí:</span>
+                                                    <span>Tổng chi phí:</span>
                                                     <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
                                                 </div>
                                             )}

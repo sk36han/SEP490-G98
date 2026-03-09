@@ -16,6 +16,9 @@ import {
     Edit,
     Save,
     Loader,
+    Plus,
+    Search,
+    Trash2,
 } from 'lucide-react';
 import { Chip } from '@mui/material';
 import Toast from '../../components/Toast/Toast';
@@ -48,6 +51,12 @@ const ViewGoodReceiptNoteDetail = () => {
     const [imageErrors, setImageErrors] = useState({});
     const [isEditing, setIsEditing] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [selectedLineIds, setSelectedLineIds] = useState([]);
+    const [showProductSearch, setShowProductSearch] = useState(false);
+    const [searchKeyword, setSearchKeyword] = useState('');
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
+    const [errors, setErrors] = useState({});
 
     // Mock data – sau này sẽ thay bằng API theo id
     const [grnData, setGrnData] = useState(null);
@@ -82,6 +91,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 10,
                         receivedQty: 10,
+                        unitPrice: 25000000,
                         hasCO: true,
                         hasCQ: true,
                         note: 'Hàng nguyên seal, đủ phụ kiện.',
@@ -93,6 +103,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 5,
                         receivedQty: 5,
+                        unitPrice: 5000000,
                         hasCO: false,
                         hasCQ: true,
                         note: '',
@@ -104,6 +115,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 15,
                         receivedQty: 14,
+                        unitPrice: 2000000,
                         hasCO: true,
                         hasCQ: false,
                         note: 'Thiếu 1 cái, nhà cung cấp sẽ giao bù.',
@@ -115,6 +127,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 8,
                         receivedQty: 8,
+                        unitPrice: 1500000,
                         hasCO: true,
                         hasCQ: true,
                         note: '',
@@ -126,6 +139,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 6,
                         receivedQty: 6,
+                        unitPrice: 7000000,
                         hasCO: false,
                         hasCQ: true,
                         note: 'Đã test chất lượng OK.',
@@ -137,6 +151,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 12,
                         receivedQty: 10,
+                        unitPrice: 1500000,
                         hasCO: true,
                         hasCQ: false,
                         note: 'Còn thiếu 2 cái sẽ nhập đợt sau.',
@@ -148,6 +163,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 20,
                         receivedQty: 10,
+                        unitPrice: 1800000,
                         hasCO: true,
                         hasCQ: true,
                         note: 'Nhập từng đợt theo kế hoạch.',
@@ -159,6 +175,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Thanh',
                         orderedQty: 24,
                         receivedQty: 24,
+                        unitPrice: 1200000,
                         hasCO: false,
                         hasCQ: true,
                         note: '',
@@ -170,6 +187,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 18,
                         receivedQty: 18,
+                        unitPrice: 900000,
                         hasCO: true,
                         hasCQ: false,
                         note: '',
@@ -181,6 +199,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 10,
                         receivedQty: 5,
+                        unitPrice: 2500000,
                         hasCO: false,
                         hasCQ: false,
                         note: 'Đã nhận 1/2 số lượng.',
@@ -192,6 +211,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Sợi',
                         orderedQty: 50,
                         receivedQty: 50,
+                        unitPrice: 300000,
                         hasCO: false,
                         hasCQ: false,
                         note: '',
@@ -203,6 +223,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         uom: 'Cái',
                         orderedQty: 30,
                         receivedQty: 20,
+                        unitPrice: 800000,
                         hasCO: true,
                         hasCQ: false,
                         note: 'Thiếu 10 cái, NCC cam kết giao bù.',
@@ -227,6 +248,18 @@ const ViewGoodReceiptNoteDetail = () => {
         setImageErrors((prev) => ({ ...prev, [id]: true }));
     };
 
+    // Mock danh sách sản phẩm – đồng bộ UI/UX với trang tạo mới
+    const MOCK_PRODUCTS = [
+        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
+        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
+        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
+        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
+        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
+        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
+    ];
+
     const updateLine = (index, field, value) => {
         setGrnData((prev) => {
             if (!prev) return prev;
@@ -235,6 +268,151 @@ const ViewGoodReceiptNoteDetail = () => {
             );
             return { ...prev, lines: nextLines };
         });
+    };
+
+    const handleSearchChange = (e) => {
+        const keyword = e.target.value;
+        setSearchKeyword(keyword);
+        if (keyword.trim() === '') {
+            setFilteredProducts([]);
+            return;
+        }
+        const filtered = MOCK_PRODUCTS.filter(
+            (product) =>
+                product.name.toLowerCase().includes(keyword.toLowerCase()) ||
+                product.sku.toLowerCase().includes(keyword.toLowerCase())
+        );
+        setFilteredProducts(filtered);
+    };
+
+    const handleSelectProduct = (product) => {
+        setGrnData((prev) => {
+            if (!prev) return prev;
+
+            const newLine = {
+                id: Date.now(),
+                itemId: product.id,
+                itemName: product.name,
+                itemImage: product.image,
+                uom: product.uom ?? '',
+                orderedQty: 1,
+                receivedQty: 1,
+                hasCO: false,
+                hasCQ: false,
+                note: '',
+            };
+
+            return {
+                ...prev,
+                lines: [...prev.lines, newLine],
+            };
+        });
+
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setShowProductSearch(false);
+        setSelectedProductIds([]);
+        showToast('Đã thêm sản phẩm vào danh sách', 'success');
+    };
+
+    const toggleProductSelection = (productId) => {
+        setSelectedProductIds((prev) =>
+            prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+        );
+    };
+
+    const addSelectedProducts = () => {
+        if (selectedProductIds.length === 0) {
+            showToast('Vui lòng chọn ít nhất 1 sản phẩm', 'warning');
+            return;
+        }
+
+        const productsToAdd = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id));
+
+        setGrnData((prev) => {
+            if (!prev) return prev;
+
+            const newLines = productsToAdd.map((product) => ({
+                id: Date.now() + Math.random(),
+                itemId: product.id,
+                itemName: product.name,
+                itemImage: product.image,
+                uom: product.uom ?? '',
+                orderedQty: 1,
+                receivedQty: 1,
+                hasCO: false,
+                hasCQ: false,
+                note: '',
+            }));
+
+            return {
+                ...prev,
+                lines: [...prev.lines, ...newLines],
+            };
+        });
+
+        showToast(`Đã thêm ${productsToAdd.length} sản phẩm vào danh sách`, 'success');
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setShowProductSearch(false);
+        setSelectedProductIds([]);
+    };
+
+    const openProductSearch = () => {
+        setShowProductSearch(true);
+        setSearchKeyword('');
+        setFilteredProducts([]);
+    };
+
+    const closeProductSearch = () => {
+        setShowProductSearch(false);
+        setSearchKeyword('');
+        setFilteredProducts([]);
+        setSelectedProductIds([]);
+    };
+
+    const addLine = () => {
+        openProductSearch();
+    };
+
+    const removeLine = (index) => {
+        setGrnData((prev) => {
+            if (!prev) return prev;
+            const targetId = prev.lines[index]?.id;
+            const nextLines = prev.lines.filter((_, i) => i !== index);
+            setSelectedLineIds((prevSelected) =>
+                targetId ? prevSelected.filter((id) => id !== targetId) : prevSelected
+            );
+            return { ...prev, lines: nextLines };
+        });
+    };
+
+    const removeSelectedLines = () => {
+        if (!selectedLineIds.length) return;
+        setGrnData((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      lines: prev.lines.filter((line) => !selectedLineIds.includes(line.id)),
+                  }
+                : prev
+        );
+        setSelectedLineIds([]);
+    };
+
+    const toggleLineSelection = (lineId) => {
+        setSelectedLineIds((prev) =>
+            prev.includes(lineId) ? prev.filter((id) => id !== lineId) : [...prev, lineId]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (!grnData?.lines?.length) return;
+        if (selectedLineIds.length === grnData.lines.length) {
+            setSelectedLineIds([]);
+        } else {
+            setSelectedLineIds(grnData.lines.map((line) => line.id));
+        }
     };
 
     const handleBack = () => navigate(-1);
@@ -317,7 +495,8 @@ const ViewGoodReceiptNoteDetail = () => {
         0
     );
     const subtotal = grnData.lines.reduce(
-        (sum, line) => sum + (Number(line.receivedQty) || 0) * 1000000,
+        (sum, line) =>
+            sum + (Number(line.receivedQty) || 0) * (Number(line.unitPrice) || 0),
         0
     );
     const discountAmount =
@@ -498,37 +677,372 @@ const ViewGoodReceiptNoteDetail = () => {
                         <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
+                                {isEditing && (
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {selectedLineIds.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={removeSelectedLines}
+                                                className="btn btn-sm"
+                                                style={{
+                                                    fontWeight: 600,
+                                                    backgroundColor: '#ef4444',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                }}
+                                            >
+                                                <Trash2 size={16} />
+                                                Xóa ({selectedLineIds.length})
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={addLine}
+                                            className="btn btn-sm"
+                                            style={{ fontSize: '14px', fontWeight: 600 }}
+                                        >
+                                            <Plus size={16} />
+                                            Thêm sản phẩm
+                                        </button>
+                                    </div>
+                                )}
                             </div>
+
+                            {errors.lines && (
+                                <div className="error-message" style={{ marginBottom: '16px' }}>
+                                    {errors.lines}
+                                </div>
+                            )}
+
+                            {isEditing && showProductSearch && (
+                                <div
+                                    style={{
+                                        marginBottom: '16px',
+                                        animation: 'slideDown 0.3s ease-out',
+                                        position: 'relative',
+                                    }}
+                                >
+                                    <div style={{ position: 'relative' }}>
+                                        <Search
+                                            size={20}
+                                            style={{
+                                                position: 'absolute',
+                                                left: '12px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                color: '#9ca3af',
+                                                zIndex: 1,
+                                            }}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={searchKeyword}
+                                            onChange={handleSearchChange}
+                                            placeholder="Tìm kiếm theo tên hoặc mã SKU..."
+                                            autoFocus
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 44px 12px 44px',
+                                                border: '2px solid #2196F3',
+                                                borderRadius: '10px',
+                                                fontSize: '14px',
+                                                outline: 'none',
+                                                boxSizing: 'border-box',
+                                                boxShadow: '0 0 0 4px rgba(33, 150, 243, 0.1)',
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={closeProductSearch}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '8px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                color: '#6b7280',
+                                                zIndex: 1,
+                                            }}
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    {searchKeyword !== '' && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                marginTop: '4px',
+                                                backgroundColor: 'white',
+                                                border: '1px solid #e5e7eb',
+                                                borderRadius: '10px',
+                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                                maxHeight: '400px',
+                                                overflowY: 'auto',
+                                                zIndex: 100,
+                                                animation: 'fadeIn 0.2s ease-out',
+                                            }}
+                                        >
+                                            {filteredProducts.length === 0 ? (
+                                                <div
+                                                    style={{
+                                                        padding: '24px',
+                                                        textAlign: 'center',
+                                                        color: '#9ca3af',
+                                                    }}
+                                                >
+                                                    <Package
+                                                        size={32}
+                                                        style={{ margin: '0 auto 8px', opacity: 0.5 }}
+                                                    />
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>
+                                                        Không tìm thấy sản phẩm nào
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {filteredProducts.map((product) => (
+                                                        <div
+                                                            key={product.id}
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                borderBottom: '1px solid #f3f4f6',
+                                                                transition: 'background-color 0.15s',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '12px',
+                                                            }}
+                                                            onMouseEnter={(e) =>
+                                                                (e.currentTarget.style.backgroundColor =
+                                                                    '#f9fafb')
+                                                            }
+                                                            onMouseLeave={(e) =>
+                                                                (e.currentTarget.style.backgroundColor =
+                                                                    'transparent')
+                                                            }
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedProductIds.includes(
+                                                                    product.id
+                                                                )}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    toggleProductSelection(product.id);
+                                                                }}
+                                                                style={{
+                                                                    cursor: 'pointer',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            />
+                                                            {isValidImageUrl(product.image) &&
+                                                            !imageErrors[`product-${product.id}`] ? (
+                                                                <img
+                                                                    src={product.image}
+                                                                    alt={product.name}
+                                                                    onError={() =>
+                                                                        handleImageError(
+                                                                            `product-${product.id}`
+                                                                        )
+                                                                    }
+                                                                    style={{
+                                                                        width: '40px',
+                                                                        height: '40px',
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    style={{
+                                                                        width: '40px',
+                                                                        height: '40px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        backgroundColor: '#f3f4f6',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                >
+                                                                    <ImageIcon size={20} color="#9ca3af" />
+                                                                </div>
+                                                            )}
+                                                            <div
+                                                                style={{ flex: 1, cursor: 'pointer' }}
+                                                                onClick={() =>
+                                                                    handleSelectProduct(product)
+                                                                }
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        justifyContent: 'space-between',
+                                                                        alignItems: 'start',
+                                                                        marginBottom: '4px',
+                                                                    }}
+                                                                >
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: '14px',
+                                                                            fontWeight: 500,
+                                                                            color: '#1f2937',
+                                                                        }}
+                                                                    >
+                                                                        {product.name}
+                                                                    </span>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: '14px',
+                                                                            fontWeight: 600,
+                                                                            color: '#2196F3',
+                                                                            marginLeft: '12px',
+                                                                        }}
+                                                                    >
+                                                                        {formatCurrency(
+                                                                            product.unitPrice
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                                <div
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        gap: '12px',
+                                                                        fontSize: '12px',
+                                                                        color: '#6b7280',
+                                                                    }}
+                                                                >
+                                                                    <span>Mã: {product.sku}</span>
+                                                                    <span>•</span>
+                                                                    <span>ĐVT: {product.uom}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {selectedProductIds.length > 0 && (
+                                                        <div
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                borderTop: '2px solid #e5e7eb',
+                                                                backgroundColor: '#f9fafb',
+                                                                position: 'sticky',
+                                                                bottom: 0,
+                                                            }}
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={addSelectedProducts}
+                                                                className="btn btn-sm"
+                                                                style={{
+                                                                    width: '100%',
+                                                                    backgroundColor: '#2196F3',
+                                                                    color: 'white',
+                                                                    border: 'none',
+                                                                    fontWeight: 600,
+                                                                    justifyContent: 'center',
+                                                                }}
+                                                            >
+                                                                <Plus size={16} />
+                                                                Thêm {selectedProductIds.length} sản phẩm
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {grnData.lines.length === 0 ? (
                                 <div
                                     style={{
-                                        padding: '24px 12px',
+                                        padding: isEditing ? '60px 20px' : '24px 12px',
                                         textAlign: 'center',
                                         color: '#6b7280',
-                                        fontSize: 14,
+                                        fontSize: isEditing ? 16 : 14,
                                     }}
                                 >
-                                    Chưa có sản phẩm nào trong phiếu nhập kho.
+                                    {isEditing ? (
+                                        <>
+                                            <Package size={64} strokeWidth={1.5} />
+                                            <p
+                                                style={{
+                                                    fontSize: '16px',
+                                                    fontWeight: 500,
+                                                    margin: '8px 0 0',
+                                                }}
+                                            >
+                                                Chưa có sản phẩm nào
+                                            </p>
+                                            <p style={{ fontSize: '14px', margin: 0 }}>
+                                                Nhấn &quot;Thêm sản phẩm&quot; để bắt đầu
+                                            </p>
+                                        </>
+                                    ) : (
+                                        'Chưa có sản phẩm nào trong phiếu nhập kho.'
+                                    )}
                                 </div>
                             ) : (
-                                <div className="table-container" style={{ flex: 1, maxHeight: '500px', overflowY: 'auto' }}>
+                                <div
+                                    className="table-container"
+                                    style={{ flex: 1, maxHeight: '500px', overflowY: 'auto' }}
+                                >
                                     <table className="product-table">
                                         <thead>
                                             <tr>
+                                                {isEditing && (
+                                                    <th style={{ width: '40px' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={
+                                                                grnData.lines.length > 0 &&
+                                                                selectedLineIds.length ===
+                                                                    grnData.lines.length
+                                                            }
+                                                            onChange={toggleSelectAll}
+                                                            style={{ cursor: 'pointer' }}
+                                                        />
+                                                    </th>
+                                                )}
                                                 <th style={{ width: '40px' }}>STT</th>
                                                 <th>Sản phẩm</th>
-                                                <th style={{ width: '80px', textAlign: 'center' }}>ĐVT</th>
                                                 <th style={{ width: '110px' }}>SL đặt</th>
                                                 <th style={{ width: '110px' }}>SL nhập</th>
+                                                <th style={{ width: '130px' }}>Đơn giá</th>
+                                                <th style={{ width: '150px' }}>Thành tiền</th>
                                                 <th style={{ width: '80px', textAlign: 'center' }}>CO</th>
                                                 <th style={{ width: '80px', textAlign: 'center' }}>CQ</th>
-                                                <th style={{ width: '200px' }}>Ghi chú</th>
+                                                {isEditing && <th style={{ width: '60px' }}></th>}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {grnData.lines.map((line, index) => (
                                                 <tr key={line.id}>
+                                                    {isEditing && (
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedLineIds.includes(line.id)}
+                                                                onChange={() =>
+                                                                    toggleLineSelection(line.id)
+                                                                }
+                                                                style={{ cursor: 'pointer' }}
+                                                            />
+                                                        </td>
+                                                    )}
                                                     <td style={{ textAlign: 'center' }}>{index + 1}</td>
                                                     <td>
                                                         <div
@@ -538,89 +1052,109 @@ const ViewGoodReceiptNoteDetail = () => {
                                                                 alignItems: 'center',
                                                             }}
                                                         >
-                                                        {isValidImageUrl(line.itemImage) && !imageErrors[`line-${line.id}`] ? (
-                                                            <img
-                                                                src={line.itemImage}
-                                                                alt={line.itemName}
-                                                                onError={() => handleImageError(`line-${line.id}`)}
-                                                                style={{
-                                                                    width: 40,
-                                                                    height: 40,
-                                                                    objectFit: 'cover',
-                                                                    borderRadius: 6,
-                                                                    border: '1px solid #e5e7eb',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            />
-                                                        ) : (
+                                                            {isValidImageUrl(line.itemImage) &&
+                                                            !imageErrors[`line-${line.id}`] ? (
+                                                                <img
+                                                                    src={line.itemImage}
+                                                                    alt={line.itemName}
+                                                                    onError={() =>
+                                                                        handleImageError(
+                                                                            `line-${line.id}`
+                                                                        )
+                                                                    }
+                                                                    style={{
+                                                                        width: 40,
+                                                                        height: 40,
+                                                                        objectFit: 'cover',
+                                                                        borderRadius: 6,
+                                                                        border: '1px solid #e5e7eb',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    style={{
+                                                                        width: 40,
+                                                                        height: 40,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        borderRadius: 6,
+                                                                        border: '1px solid #e5e7eb',
+                                                                        backgroundColor: '#f3f4f6',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                >
+                                                                    <ImageIcon size={20} color="#9ca3af" />
+                                                                </div>
+                                                            )}
                                                             <div
                                                                 style={{
-                                                                    width: 40,
-                                                                    height: 40,
                                                                     display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    borderRadius: 6,
-                                                                    border: '1px solid #e5e7eb',
-                                                                    backgroundColor: '#f3f4f6',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            >
-                                                                <ImageIcon size={20} color="#9ca3af" />
-                                                            </div>
-                                                        )}
-                                                        <div
-                                                            style={{
-                                                                display: 'flex',
-                                                                gap: 8,
-                                                                alignItems: 'center',
-                                                                flex: 1,
-                                                            }}
-                                                        >
-                                                            <a
-                                                                href="#"
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    // TODO: mở chi tiết sản phẩm khi có trang riêng
-                                                                }}
-                                                                style={{
-                                                                    color: '#2196F3',
-                                                                    textDecoration: 'none',
-                                                                    fontSize: 14,
-                                                                    fontWeight: 500,
+                                                                    flexDirection: 'column',
+                                                                    gap: 2,
                                                                     flex: 1,
                                                                 }}
-                                                                onMouseEnter={(e) => {
-                                                                    e.target.style.textDecoration = 'underline';
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.target.style.textDecoration = 'none';
-                                                                }}
                                                             >
-                                                                {line.itemName}
-                                                            </a>
-                                                            <button
-                                                                type="button"
-                                                                className="btn-icon-only"
-                                                                style={{ color: '#2196F3' }}
-                                                                title="Xem chi tiết sản phẩm"
-                                                            >
-                                                                <Eye size={18} />
-                                                            </button>
-                                                        </div>
+                                                                <div
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        gap: 8,
+                                                                        alignItems: 'center',
+                                                                    }}
+                                                                >
+                                                                    <a
+                                                                        href="#"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            // TODO: mở chi tiết sản phẩm khi có trang riêng
+                                                                        }}
+                                                                        style={{
+                                                                            color: '#2196F3',
+                                                                            textDecoration: 'none',
+                                                                            fontSize: 14,
+                                                                            fontWeight: 500,
+                                                                            flex: 1,
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            e.target.style.textDecoration =
+                                                                                'underline';
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            e.target.style.textDecoration =
+                                                                                'none';
+                                                                        }}
+                                                                    >
+                                                                        {line.itemName}
+                                                                    </a>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn-icon-only"
+                                                                        style={{ color: '#2196F3' }}
+                                                                        title="Xem chi tiết sản phẩm"
+                                                                    >
+                                                                        <Eye size={18} />
+                                                                    </button>
+                                                                </div>
+                                            <div
+                                                style={{
+                                                    fontSize: 12,
+                                                    color: '#6b7280',
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                ĐVT: {line.uom || '—'}
+                                            </div>
+                                                            </div>
                                                         </div>
                                                     </td>
+                                                    {/* SL đặt, SL nhập, Đơn giá, Thành tiền */}
                                                     <td
                                                         style={{
-                                                            textAlign: 'center',
-                                                            verticalAlign: 'middle',
-                                                            fontSize: 14,
-                                                            color: '#374151',
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
                                                         }}
                                                     >
-                                                        {line.uom || '—'}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                                                         {isEditing ? (
                                                             <input
                                                                 type="number"
@@ -634,13 +1168,22 @@ const ViewGoodReceiptNoteDetail = () => {
                                                                     )
                                                                 }
                                                                 className="form-input"
-                                                                style={{ textAlign: 'right', width: '100%' }}
+                                                                style={{
+                                                                    textAlign: 'right',
+                                                                    width: '100%',
+                                                                }}
                                                             />
                                                         ) : (
                                                             Number(line.orderedQty) || 0
                                                         )}
                                                     </td>
-                                                    <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                    <td
+                                                        style={{
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
                                                         {isEditing ? (
                                                             <input
                                                                 type="number"
@@ -654,14 +1197,63 @@ const ViewGoodReceiptNoteDetail = () => {
                                                                     )
                                                                 }
                                                                 className="form-input"
-                                                                style={{ textAlign: 'right', width: '100%' }}
+                                                                style={{
+                                                                    textAlign: 'right',
+                                                                    width: '100%',
+                                                                }}
                                                             />
                                                         ) : (
                                                             Number(line.receivedQty) || 0
                                                         )}
                                                     </td>
                                                     <td
-                                                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                                                        style={{
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                        }}
+                                                    >
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                value={line.unitPrice || ''}
+                                                                min="0"
+                                                                onChange={(e) =>
+                                                                    updateLine(
+                                                                        index,
+                                                                        'unitPrice',
+                                                                        Number(e.target.value)
+                                                                    )
+                                                                }
+                                                                className="form-input"
+                                                                style={{
+                                                                    textAlign: 'right',
+                                                                    width: '100%',
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            formatCurrency(
+                                                                Number(line.unitPrice) || 0
+                                                            )
+                                                        )}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 600,
+                                                            color: '#2196F3',
+                                                        }}
+                                                    >
+                                                        {formatCurrency(
+                                                            (Number(line.unitPrice) || 0) *
+                                                                (Number(line.receivedQty) || 0)
+                                                        )}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            textAlign: 'center',
+                                                            verticalAlign: 'middle',
+                                                        }}
                                                         title="Chứng chỉ xuất xứ (CO)"
                                                     >
                                                         <input
@@ -678,7 +1270,10 @@ const ViewGoodReceiptNoteDetail = () => {
                                                         />
                                                     </td>
                                                     <td
-                                                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                                                        style={{
+                                                            textAlign: 'center',
+                                                            verticalAlign: 'middle',
+                                                        }}
                                                         title="Chứng chỉ chất lượng (CQ)"
                                                     >
                                                         <input
@@ -694,30 +1289,18 @@ const ViewGoodReceiptNoteDetail = () => {
                                                             }}
                                                         />
                                                     </td>
-                                                <td>
-                                                    {isEditing ? (
-                                                        <input
-                                                            type="text"
-                                                            value={line.note || ''}
-                                                            onChange={(e) =>
-                                                                updateLine(index, 'note', e.target.value)
-                                                            }
-                                                            className="form-input"
-                                                            placeholder="Nhập ghi chú"
-                                                        />
-                                                    ) : (
-                                                        <div
-                                                            style={{
-                                                                fontSize: 13,
-                                                                color: '#4b5563',
-                                                                whiteSpace: 'pre-wrap',
-                                                                wordBreak: 'break-word',
-                                                            }}
-                                                        >
-                                                            {line.note || '—'}
-                                                        </div>
+                                                    {isEditing && (
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeLine(index)}
+                                                                className="btn-icon-only"
+                                                                style={{ color: '#ef4444' }}
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        </td>
                                                     )}
-                                                </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1062,7 +1645,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                                             fontWeight: 600,
                                                         }}
                                                     >
-                                                        <span>Chi phí:</span>
+                                                        <span>Tổng chi phí:</span>
                                                         <span style={{ color: '#10b981' }}>
                                                             + {formatCurrency(totalAdditionalCosts)}
                                                         </span>
@@ -1179,7 +1762,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                                             fontWeight: 600,
                                                         }}
                                                     >
-                                                        <span>Chi phí:</span>
+                                                        <span>Tổng chi phí:</span>
                                                         <span style={{ color: '#10b981' }}>
                                                             + {formatCurrency(totalAdditionalCosts)}
                                                         </span>

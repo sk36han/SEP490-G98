@@ -32,6 +32,13 @@ const CreatePurchaseOrder = () => {
     const [formData, setFormData] = useState({
         supplierId: '',
         supplierName: '',
+        supplierPhone: '',
+        supplierEmail: '',
+        supplierTaxCode: '',
+        supplierAddressStreet: '',
+        supplierAddressWard: '',
+        supplierAddressDistrict: '',
+        supplierAddressProvince: '',
         warehouseId: '',
         warehouseName: '',
         creatorId: currentUser?.userId || '',
@@ -69,6 +76,71 @@ const CreatePurchaseOrder = () => {
     ];
 
     const [errors, setErrors] = useState({});
+
+    // Mock tạm data cho search-select
+    const MOCK_SUPPLIERS = [
+        {
+            id: 'SUP-001',
+            name: 'Nhà cung cấp A',
+            phone: '0901 234 567',
+            email: 'ncc.a@example.com',
+            taxCode: '0101234567',
+            address: {
+                street: 'Số 1 Đường A',
+                ward: 'Phường 1',
+                district: 'Quận 1',
+                province: 'TP. Hồ Chí Minh',
+            },
+        },
+        {
+            id: 'SUP-002',
+            name: 'Nhà cung cấp B',
+            phone: '0908 765 432',
+            email: 'ncc.b@example.com',
+            taxCode: '0312345678',
+            address: {
+                street: 'Số 99 Đường B',
+                ward: 'Phường Bến Nghé',
+                district: 'Quận 1',
+                province: 'TP. Hồ Chí Minh',
+            },
+        },
+    ];
+
+    const MOCK_EMPLOYEES = [
+        { id: 'EMP-001', name: 'Nguyễn Văn A' },
+        { id: 'EMP-002', name: 'Trần Thị B' },
+    ];
+
+    const MOCK_WAREHOUSES = [
+        { id: 'WH-001', name: 'Kho Hà Nội' },
+        { id: 'WH-002', name: 'Kho Hồ Chí Minh' },
+    ];
+
+    const [supplierQuery, setSupplierQuery] = useState('');
+    const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+    const [employeeQuery, setEmployeeQuery] = useState('');
+    const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
+    const [warehouseQuery, setWarehouseQuery] = useState('');
+    const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
+
+    const filteredSuppliers = useMemo(() => {
+        const q = supplierQuery.trim().toLowerCase();
+        if (!q) return MOCK_SUPPLIERS;
+        return MOCK_SUPPLIERS.filter((s) => s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
+    }, [supplierQuery]);
+
+    const filteredEmployees = useMemo(() => {
+        const q = employeeQuery.trim().toLowerCase();
+        if (!q) return MOCK_EMPLOYEES;
+        return MOCK_EMPLOYEES.filter((e) => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q));
+    }, [employeeQuery]);
+
+    const filteredWarehouses = useMemo(() => {
+        const q = warehouseQuery.trim().toLowerCase();
+        if (!q) return MOCK_WAREHOUSES;
+        return MOCK_WAREHOUSES.filter((w) => w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q));
+    }, [warehouseQuery]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -170,6 +242,8 @@ const CreatePurchaseOrder = () => {
             orderedQty: 1,
             unitPrice: product.unitPrice,
             totalPrice: product.unitPrice,
+            hasCO: false,
+            hasCQ: false,
             note: ''
         };
         
@@ -213,6 +287,8 @@ const CreatePurchaseOrder = () => {
                     orderedQty: 1,
                     unitPrice: product.unitPrice,
                     totalPrice: product.unitPrice,
+                    hasCO: false,
+                    hasCQ: false,
                     note: ''
                 });
             } else {
@@ -482,7 +558,7 @@ const CreatePurchaseOrder = () => {
                 <form id="create-po-form" className="form-wrapper">
                     {/* Intro */}
                     <div className="form-card-intro">
-                        <h1 className="page-title">Tạo đơn mua hàng (Purchase Order)</h1>
+                        <h1 className="page-title">Tạo đơn mua hàng</h1>
                         <p className="form-card-required-note">
                             Các trường đánh dấu <span className="required-mark">*</span> là bắt buộc
                         </p>
@@ -493,7 +569,7 @@ const CreatePurchaseOrder = () => {
                         {/* 1. Chi tiết sản phẩm (Trái) */}
                         <div className="info-section" style={{ margin: 0, minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
-                                <h2 className="section-title">Chi tiết sản phẩm</h2>
+                                <h2 className="section-title">Chi tiết vật tư</h2>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     {selectedLineIds.length > 0 && (
                                         <button 
@@ -518,7 +594,7 @@ const CreatePurchaseOrder = () => {
                                         style={{ fontSize: '14px', fontWeight: 600 }}
                                     >
                                         <Plus size={16} />
-                                        Thêm sản phẩm
+                                        Thêm vật tư
                                     </button>
                                 </div>
                             </div>
@@ -550,7 +626,7 @@ const CreatePurchaseOrder = () => {
                                             type="text"
                                             value={searchKeyword}
                                             onChange={handleSearchChange}
-                                            placeholder="Tìm kiếm theo tên hoặc mã SKU..."
+                                            placeholder="Tìm kiếm theo tên vật tư..."
                                             autoFocus
                                             style={{
                                                 width: '100%',
@@ -609,7 +685,7 @@ const CreatePurchaseOrder = () => {
                                                     color: '#9ca3af'
                                                 }}>
                                                     <Package size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-                                                    <p style={{ margin: 0, fontSize: '13px' }}>Không tìm thấy sản phẩm nào</p>
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>Không tìm thấy vật tư nào</p>
                                                 </div>
                                             ) : (
                                                 <>
@@ -719,7 +795,7 @@ const CreatePurchaseOrder = () => {
                                                                 }}
                                                             >
                                                                 <Plus size={16} />
-                                                                Thêm {selectedProductIds.length} sản phẩm
+                                                                Thêm {selectedProductIds.length} vật tư
                                                             </button>
                                                         </div>
                                                     )}
@@ -742,8 +818,8 @@ const CreatePurchaseOrder = () => {
                                     color: '#9ca3af'
                                 }}>
                                     <Package size={64} strokeWidth={1.5} />
-                                    <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có sản phẩm nào</p>
-                                    <p style={{ fontSize: '14px', margin: 0 }}>Nhấn "Thêm sản phẩm" để bắt đầu</p>
+                                    <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư nào</p>
+                                    <p style={{ fontSize: '14px', margin: 0 }}>Nhấn "Thêm vật tư" để bắt đầu</p>
                                 </div>
                             ) : (
                                 <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
@@ -758,12 +834,13 @@ const CreatePurchaseOrder = () => {
                                                         style={{ cursor: 'pointer' }}
                                                     />
                                                 </th>
-                                                <th style={{ width: '40px' }}>STT</th>
-                                                <th>Sản phẩm *</th>
-                                                <th style={{ width: '100px' }}>SL đặt *</th>
-                                                <th style={{ width: '120px' }}>Đơn giá</th>
-                                                <th style={{ width: '140px' }}>Thành tiền</th>
-                                                <th style={{ width: '180px' }}>Ghi chú</th>
+                                                <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
+                                                <th style={{ textAlign: 'left' }}>Tên vật tư *</th>
+                                                <th style={{ width: '100px', textAlign: 'right' }}>SL đặt *</th>
+                                                <th style={{ width: '120px', textAlign: 'center' }}>Đơn giá</th>
+                                                <th style={{ width: '140px', textAlign: 'center' }}>Thành tiền</th>
+                                                <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ xuất xứ (CO)">CO</th>
+                                                <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ chất lượng (CQ)">CQ</th>
                                                 <th style={{ width: '60px' }}></th>
                                             </tr>
                                         </thead>
@@ -853,7 +930,7 @@ const CreatePurchaseOrder = () => {
                                                             onChange={(e) => updateLine(index, 'orderedQty', Number(e.target.value))}
                                                             min="1"
                                                             className="form-input"
-                                                            style={{ textAlign: 'right' }}
+                                                            style={{ textAlign: 'center' }}
                                                         />
                                                     </td>
                                                     <td>
@@ -863,31 +940,66 @@ const CreatePurchaseOrder = () => {
                                                             onChange={(e) => updateLine(index, 'unitPrice', Number(e.target.value))}
                                                             min="0"
                                                             className="form-input"
-                                                            style={{ textAlign: 'right' }}
+                                                            style={{ textAlign: 'center' }}
                                                             placeholder="0"
                                                         />
                                                     </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#2196F3' }}>
+                                                    <td style={{ textAlign: 'center', fontWeight: 600, color: '#2196F3' }}>
                                                         {formatCurrency(line.totalPrice)}
                                                     </td>
-                                                    <td>
+                                                    <td style={{ textAlign: 'center', verticalAlign: 'middle' }} title="Chứng chỉ xuất xứ (CO)">
                                                         <input
-                                                            type="text"
-                                                            value={line.note}
-                                                            onChange={(e) => updateLine(index, 'note', e.target.value)}
-                                                            placeholder="Nhập ghi chú"
-                                                            className="form-input"
+                                                            type="checkbox"
+                                                            checked={!!line.hasCO}
+                                                            readOnly
+                                                            disabled
+                                                            style={{ width: 18, height: 18, cursor: 'default', margin: 0 }}
                                                         />
                                                     </td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeLine(index)}
-                                                            className="btn-icon-only"
-                                                            style={{ color: '#ef4444' }}
+                                                    <td style={{ textAlign: 'center', verticalAlign: 'middle' }} title="Chứng chỉ chất lượng (CQ)">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!line.hasCQ}
+                                                            readOnly
+                                                            disabled
+                                                            style={{ width: 18, height: 18, cursor: 'default', margin: 0 }}
+                                                        />
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            textAlign: 'center',
+                                                            verticalAlign: 'middle',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: 8,
+                                                            }}
                                                         >
-                                                            <Trash2 size={18} />
-                                                        </button>
+                                                            <button
+                                                                type="button"
+                                                                className="btn-icon-only"
+                                                                style={{ color: '#2196F3' }}
+                                                                title="Xem chi tiết sản phẩm"
+                                                                onClick={() => {
+                                                                    console.log('View product detail:', line.itemId);
+                                                                }}
+                                                            >
+                                                                <Eye size={18} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeLine(index)}
+                                                                className="btn-icon-only"
+                                                                style={{ color: '#ef4444' }}
+                                                                title="Xóa dòng"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -924,41 +1036,179 @@ const CreatePurchaseOrder = () => {
                                    
                                 </div>
 
-                                {/* Nhân viên phụ trách */}
+                                {/* Nhân viên phụ trách - search select mock */}
                                 <div className="form-field">
                                     <label htmlFor="responsiblePersonName" className="form-label">
                                         Nhân viên phụ trách
                                     </label>
-                                    <div className="input-wrapper">
+                                    <div className="input-wrapper" style={{ position: 'relative' }}>
                                         <User className="input-icon" size={16} />
                                         <input
                                             id="responsiblePersonName"
                                             type="text"
                                             name="responsiblePersonName"
-                                            value={formData.responsiblePersonName}
-                                            onChange={handleChange}
-                                            placeholder="Chọn nhân viên phụ trách"
+                                            value={employeeQuery || formData.responsiblePersonName}
+                                            onChange={(e) => {
+                                                setEmployeeQuery(e.target.value);
+                                                setEmployeeDropdownOpen(true);
+                                            }}
+                                            onFocus={() => setEmployeeDropdownOpen(true)}
+                                            placeholder="Tìm hoặc chọn nhân viên"
                                             className="form-input"
+                                            autoComplete="off"
                                         />
+                                        {employeeDropdownOpen && (
+                                            <ul
+                                                className="form-input"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '100%',
+                                                    left: 0,
+                                                    right: 0,
+                                                    marginTop: '4px',
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    listStyle: 'none',
+                                                    padding: '8px 0',
+                                                    zIndex: 10,
+                                                    backgroundColor: '#fff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                }}
+                                            >
+                                                {filteredEmployees.length === 0 ? (
+                                                    <li
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            color: '#6b7280',
+                                                            fontSize: '14px',
+                                                        }}
+                                                    >
+                                                        Không có nhân viên phù hợp
+                                                    </li>
+                                                ) : (
+                                                    filteredEmployees.map((emp) => (
+                                                        <li
+                                                            key={emp.id}
+                                                            onClick={() => {
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    responsiblePersonId: emp.id,
+                                                                    responsiblePersonName: emp.name,
+                                                                }));
+                                                                setEmployeeQuery(emp.name);
+                                                                setEmployeeDropdownOpen(false);
+                                                            }}
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '14px',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {emp.name} ({emp.id})
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* Kho nhận */}
+                                {/* Kho nhận - search select mock */}
                                 <div className="form-field">
                                     <label htmlFor="warehouseName" className="form-label">
                                         Kho nhận <span className="required-mark">*</span>
                                     </label>
-                                    <div className="input-wrapper">
+                                    <div className="input-wrapper" style={{ position: 'relative' }}>
                                         <MapPin className="input-icon" size={16} />
                                         <input
                                             id="warehouseName"
                                             type="text"
                                             name="warehouseName"
-                                            value={formData.warehouseName}
-                                            onChange={handleChange}
-                                            placeholder="Chọn kho nhận"
+                                            value={warehouseQuery || formData.warehouseName}
+                                            onChange={(e) => {
+                                                setWarehouseQuery(e.target.value);
+                                                setWarehouseDropdownOpen(true);
+                                            }}
+                                            onFocus={() => setWarehouseDropdownOpen(true)}
+                                            placeholder="Tìm hoặc chọn kho nhận"
                                             className={`form-input ${errors.warehouseName ? 'error' : ''}`}
+                                            autoComplete="off"
                                         />
+                                        {warehouseDropdownOpen && (
+                                            <ul
+                                                className="form-input"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '100%',
+                                                    left: 0,
+                                                    right: 0,
+                                                    marginTop: '4px',
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    listStyle: 'none',
+                                                    padding: '8px 0',
+                                                    zIndex: 10,
+                                                    backgroundColor: '#fff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                }}
+                                            >
+                                                {filteredWarehouses.length === 0 ? (
+                                                    <li
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            color: '#6b7280',
+                                                            fontSize: '14px',
+                                                        }}
+                                                    >
+                                                        Không có kho phù hợp
+                                                    </li>
+                                                ) : (
+                                                    filteredWarehouses.map((wh) => (
+                                                        <li
+                                                            key={wh.id}
+                                                            onClick={() => {
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    warehouseId: wh.id,
+                                                                    warehouseName: wh.name,
+                                                                }));
+                                                                setWarehouseQuery(wh.name);
+                                                                setWarehouseDropdownOpen(false);
+                                                                if (errors.warehouseName) {
+                                                                    setErrors((prev) => ({
+                                                                        ...prev,
+                                                                        warehouseName: '',
+                                                                    }));
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '14px',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {wh.name} ({wh.id})
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
                                     </div>
                                     {errors.warehouseName && (
                                         <span className="error-message">{errors.warehouseName}</span>
@@ -989,7 +1239,7 @@ const CreatePurchaseOrder = () => {
                     {/* Layout 2 cột: Nhà cung cấp + Ghi chú + Tổng hợp (trái, cùng chiều ngang với Chi tiết sản phẩm) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* 3. Nhà cung cấp */}
+                            {/* 3. Nhà cung cấp - search select mock + chi tiết NCC */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
@@ -998,22 +1248,248 @@ const CreatePurchaseOrder = () => {
                                     <label htmlFor="supplierName" className="form-label">
                                         Nhà cung cấp <span className="required-mark">*</span>
                                     </label>
-                                    <div className="input-wrapper">
+                                    <div className="input-wrapper" style={{ position: 'relative' }}>
                                         <Building2 className="input-icon" size={16} />
                                         <input
                                             id="supplierName"
                                             type="text"
                                             name="supplierName"
-                                            value={formData.supplierName}
-                                            onChange={handleChange}
-                                            placeholder="Chọn nhà cung cấp"
+                                            value={supplierQuery || formData.supplierName}
+                                            onChange={(e) => {
+                                                setSupplierQuery(e.target.value);
+                                                setSupplierDropdownOpen(true);
+                                            }}
+                                            onFocus={() => setSupplierDropdownOpen(true)}
+                                            placeholder="Tìm hoặc chọn nhà cung cấp"
                                             className={`form-input ${errors.supplierName ? 'error' : ''}`}
+                                            autoComplete="off"
                                         />
+                                        {supplierDropdownOpen && (
+                                            <ul
+                                                className="form-input"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '100%',
+                                                    left: 0,
+                                                    right: 0,
+                                                    marginTop: '4px',
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    listStyle: 'none',
+                                                    padding: '8px 0',
+                                                    zIndex: 10,
+                                                    backgroundColor: '#fff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                }}
+                                            >
+                                                {filteredSuppliers.length === 0 ? (
+                                                    <li
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            color: '#6b7280',
+                                                            fontSize: '14px',
+                                                        }}
+                                                    >
+                                                        Không có nhà cung cấp phù hợp
+                                                    </li>
+                                                ) : (
+                                                    filteredSuppliers.map((sup) => (
+                                                        <li
+                                                            key={sup.id}
+                                                            onClick={() => {
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    supplierId: sup.id,
+                                                                    supplierName: sup.name,
+                                                                    supplierPhone: sup.phone,
+                                                                    supplierEmail: sup.email,
+                                                                    supplierTaxCode: sup.taxCode,
+                                                                    supplierAddressStreet: sup.address?.street || '',
+                                                                    supplierAddressWard: sup.address?.ward || '',
+                                                                    supplierAddressDistrict: sup.address?.district || '',
+                                                                    supplierAddressProvince: sup.address?.province || '',
+                                                                }));
+                                                                setSupplierQuery(sup.name);
+                                                                setSupplierDropdownOpen(false);
+                                                                if (errors.supplierName) {
+                                                                    setErrors((prev) => ({
+                                                                        ...prev,
+                                                                        supplierName: '',
+                                                                    }));
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '14px',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {sup.name} ({sup.id})
+                                                        </li>
+                                                    ))
+                                                )}
+                                            </ul>
+                                        )}
                                     </div>
                                     {errors.supplierName && (
                                         <span className="error-message">{errors.supplierName}</span>
                                     )}
                                 </div>
+
+                                {/* Chi tiết nhà cung cấp (mock) */}
+                                {formData.supplierId && (
+                                    <div
+                                        style={{
+                                            marginTop: '16px',
+                                            padding: '12px 14px',
+                                            borderRadius: '10px',
+                                            backgroundColor: '#f9fafb',
+                                            border: '1px solid #e5e7eb',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 6,
+                                            fontSize: 13,
+                                            color: '#374151',
+                                        }}
+                                    >
+                                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>
+                                            Chi tiết nhà cung cấp
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>Tên NCC: </span>
+                                            <span>{formData.supplierName || '-'}</span>
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>SĐT: </span>
+                                            <span>{formData.supplierPhone || '-'}</span>
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>Email: </span>
+                                            <span>{formData.supplierEmail || '-'}</span>
+                                        </div>
+                                        <div>
+                                            <span style={{ fontWeight: 500 }}>Mã số thuế: </span>
+                                            <span>{formData.supplierTaxCode || '-'}</span>
+                                        </div>
+                                        <div
+                                            style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                                                gap: 8,
+                                                marginTop: 4,
+                                            }}
+                                        >
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Tỉnh/Thành phố
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {formData.supplierAddressProvince || '—'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Quận/Huyện
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {formData.supplierAddressDistrict || '—'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Phường/Xã
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {formData.supplierAddressWard || '—'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        color: '#6b7280',
+                                                        marginBottom: 2,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Địa chỉ cụ thể
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: '#f9fafb',
+                                                        minHeight: 32,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    {formData.supplierAddressStreet || '—'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* 4. Ghi chú */}
@@ -1097,7 +1573,7 @@ const CreatePurchaseOrder = () => {
                                                         onChange={handleChange}
                                                         min="0"
                                                         max="100"
-                                                        className="form-input"
+                                                        className={`form-input ${errors.discount ? 'error' : ''}`}
                                                         placeholder="0–100"
                                                     />
                                                 ) : (
@@ -1107,52 +1583,16 @@ const CreatePurchaseOrder = () => {
                                                         value={formData.discountAmountFixed || ''}
                                                         onChange={handleChange}
                                                         min="0"
-                                                        className="form-input"
+                                                        className={`form-input ${errors.discountAmountFixed ? 'error' : ''}`}
                                                         placeholder="Nhập số tiền (VND)"
                                                     />
                                                 )}
-                                            </div>
-                                        </div>
-                                        <div className="form-field">
-                                            <label className="form-label">Chi phí</label>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                {(formData.additionalCosts || []).map((cost) => (
-                                                    <div key={cost.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                        <input
-                                                            type="text"
-                                                            value={cost.name}
-                                                            onChange={(e) => updateAdditionalCost(cost.id, 'name', e.target.value)}
-                                                            placeholder="Tên"
-                                                            className="form-input"
-                                                            style={{ flex: '1 1 100px', minWidth: 0 }}
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            value={cost.amount || ''}
-                                                            onChange={(e) => updateAdditionalCost(cost.id, 'amount', e.target.value)}
-                                                            placeholder="Số tiền"
-                                                            className="form-input"
-                                                            style={{ width: '120px' }}
-                                                            min="0"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm btn-cancel"
-                                                            onClick={() => removeAdditionalCost(cost.id)}
-                                                            style={{ color: '#ef4444' }}
-                                                        >
-                                                            Xóa
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-card-text"
-                                                    onClick={addAdditionalCost}
-                                                    style={{ alignSelf: 'flex-start' }}
-                                                >
-                                                    + Thêm chi phí
-                                                </button>
+                                                {errors.discount && (
+                                                    <span className="error-message">{errors.discount}</span>
+                                                )}
+                                                {errors.discountAmountFixed && (
+                                                    <span className="error-message">{errors.discountAmountFixed}</span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1163,18 +1603,6 @@ const CreatePurchaseOrder = () => {
                                                 <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
                                                 <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
                                             </div>
-                                            {(formData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).map((c) => (
-                                                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                                                    <span>{c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:</span>
-                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(Number(c.amount) || 0)}</span>
-                                                </div>
-                                            ))}
-                                            {(formData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).length > 0 && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
-                                                    <span>Chi phí:</span>
-                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
-                                                </div>
-                                            )}
                                         </div>
 
                                         <div style={{ 

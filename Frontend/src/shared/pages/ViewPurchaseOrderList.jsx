@@ -478,7 +478,7 @@ export default function ViewPurchaseOrderList() {
                 bgcolor: '#fafafa',
             }}>
                 <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
-                    Danh sách đơn mua hàng
+                    Danh sách đơn mua
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Purchase Orders
