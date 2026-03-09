@@ -1385,10 +1385,12 @@ const ViewPurchaseOrderDetail = () => {
                                             <th style={{ width: '40px' }}>STT</th>
                                             <th>Sản phẩm</th>
                                             <th style={{ width: '100px' }}>SL đặt</th>
+                                            <th style={{ width: '110px' }}>SL đã nhận</th>
                                             <th style={{ width: '120px' }}>Đơn giá</th>
                                             <th style={{ width: '140px' }}>Thành tiền</th>
                                             <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ xuất xứ (CO)">CO</th>
                                             <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ chất lượng (CQ)">CQ</th>
+                                            <th style={{ width: '120px', textAlign: 'center' }}>Trạng thái</th>
                                             <th style={{ width: '60px' }}></th>
                                         </tr>
                                     </thead>
@@ -1488,6 +1490,10 @@ const ViewPurchaseOrderDetail = () => {
                                                             line.orderedQty
                                                         )}
                                                     </td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#2196F3' }}>
+                                                        {/* SL đã nhận – mock hiển thị, không chỉnh sửa tại đây */}
+                                                        {Number(line.receivedQty) || 0}
+                                                    </td>
                                                     <td style={{ textAlign: 'right' }}>
                                                         {isEditing ? (
                                                             <input
@@ -1538,6 +1544,20 @@ const ViewPurchaseOrderDetail = () => {
                                                                 margin: 0,
                                                             }}
                                                         />
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            textAlign: 'center',
+                                                            verticalAlign: 'middle',
+                                                            fontSize: 12,
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        {Number(line.receivedQty) >= Number(line.orderedQty) ? (
+                                                            <span style={{ color: '#16a34a' }}>Đã nhận đủ</span>
+                                                        ) : (
+                                                            <span style={{ color: '#dc2626' }}>Chưa nhận đủ</span>
+                                                        )}
                                                     </td>
                                                     <td
                                                         style={{

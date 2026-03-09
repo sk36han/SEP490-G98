@@ -351,43 +351,26 @@ const ViewItemList = () => {
                 height: '100%',
                 minHeight: 0,
                 minWidth: 0,
-                overflow: 'visible',
+                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                pt: 0,
-                pb: 2,
-                width: '100%',
-                maxWidth: '100%',
-                ml: 0,
-                mr: 0,
-                boxSizing: 'border-box',
+                bgcolor: '#fafafa',
             }}
         >
             <Box
                 sx={{
                     flexShrink: 0,
-                    mb: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    textAlign: 'left',
+                    px: { xs: 2, sm: 2 },
+                    py: 2.5,
+                    bgcolor: '#fafafa',
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Typography
-                        variant="h4"
+                        variant="h5"
                         component="h1"
-                        fontWeight="800"
-                        sx={{
-                            background: isAccountant
-                                ? 'linear-gradient(45deg, #2E7D32 20%, #66BB6A 90%)'
-                                : 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                            backgroundClip: 'text',
-                            textFillColor: 'transparent',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            whiteSpace: 'nowrap',
-                        }}
+                        fontWeight="600"
+                        sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
                     >
                         Danh sách vật tư
                     </Typography>
@@ -398,23 +381,20 @@ const ViewItemList = () => {
                             size="small"
                             sx={{
                                 fontWeight: 600,
-                                bgcolor: 'success.light',
-                                color: 'success.dark',
-                                border: '1px solid',
-                                borderColor: 'success.main',
+                                bgcolor: 'success.50',
+                                color: 'success.main',
+                                borderRadius: '999px',
+                                height: 22,
                             }}
                         />
                     )}
                 </Box>
 
                 <Typography
-                    variant="body1"
-                    color="text.secondary"
-                    sx={{ maxWidth: 600, wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                    variant="body2"
+                    sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}
                 >
-                    {isAccountant
-                        ? 'Xem danh sách vật tư và giá bán. Tìm kiếm, lọc và xuất Excel để báo cáo.'
-                        : 'Xem và quản lý tất cả vật tư/sản phẩm. Tìm kiếm theo mã, tên, loại, mô tả, danh mục, thương hiệu.'}
+                    {isAccountant ? 'Item list • Accountant view' : 'Item list'}
                 </Typography>
             </Box>
 
@@ -431,30 +411,46 @@ const ViewItemList = () => {
                     flex: 1,
                     minHeight: 0,
                     minWidth: 0,
-                    overflow: 'visible',
+                    overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
                     width: '100%',
                     maxWidth: '100%',
-                    background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
-                    borderRadius: 3,
-                    p: 0.75,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    boxShadow: (t) => t.shadows[1],
+                    px: { xs: 2, sm: 2 },
+                    pb: 2,
                     boxSizing: 'border-box',
                 }}
             >
+                {/* Khung bao quanh giống Paper ở ViewPurchaseOrderList */}
+                <Box
+                    sx={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '12px',
+                        bgcolor: '#ffffff',
+                    }}
+                >
                 <Card
                     className="list-filter-card"
                     sx={{
-                        mb: 1,
-                        borderRadius: 3,
-                        border: '1px solid rgba(0,0,0,0.12)',
-                        boxShadow: (t) => t.shadows[1],
+                        mb: 0,
+                        borderRadius: '12px 12px 0 0',
+                        border: 'none',
+                        borderBottom: '1px solid #f3f4f6',
+                        boxShadow: 'none',
                     }}
                 >
-                    <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
+                    <CardContent
+                        sx={{
+                            '&.MuiCardContent-root:last-child': { pb: 1.5 },
+                            pt: 2,
+                            px: 2,
+                        }}
+                    >
                         <Box
                             sx={{
                                 display: 'flex',
@@ -469,9 +465,31 @@ const ViewItemList = () => {
                                 value={searchTerm}
                                 onChange={handleSearchTermChange}
                                 sx={{
-                                    flex: '1 1 240px',
-                                    minWidth: isMobile ? '100%' : 240,
-                                    maxWidth: isMobile ? '100%' : 520,
+                                    flex: '1 1 200px',
+                                    minWidth: isMobile ? '100%' : 200,
+                                    maxWidth: isMobile ? '100%' : 480,
+                                    '& .MuiOutlinedInput-root': {
+                                        bgcolor: '#f3f4f6',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '10px',
+                                        fontSize: '13px',
+                                        '& fieldset': {
+                                            border: 'none',
+                                        },
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                        '&.Mui-focused': {
+                                            bgcolor: '#ffffff',
+                                            borderColor: '#3b82f6',
+                                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                        },
+                                        '& input::placeholder': {
+                                            color: '#9ca3af',
+                                            fontSize: '13px',
+                                        },
+                                    },
                                 }}
                             />
 
@@ -480,7 +498,15 @@ const ViewItemList = () => {
                                     color="primary"
                                     onClick={() => setFilterOpen(true)}
                                     aria-label="Bộ lọc"
-                                    sx={{ border: 1, borderColor: 'divider' }}
+                                    sx={{
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
                                 >
                                     <Filter size={20} />
                                 </IconButton>
@@ -491,7 +517,15 @@ const ViewItemList = () => {
                                     color="primary"
                                     onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
                                     aria-label="Chọn cột"
-                                    sx={{ border: 1, borderColor: 'divider' }}
+                                    sx={{
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
                                 >
                                     <Columns size={20} />
                                 </IconButton>
@@ -515,11 +549,11 @@ const ViewItemList = () => {
                                         onClick={handleExport}
                                         sx={{
                                             fontSize: 13,
-                                            fontWeight: 600,
+                                            fontWeight: 500,
                                             textTransform: 'none',
-                                            borderRadius: 2,
-                                            minHeight: 36,
-                                            px: 2,
+                                            borderRadius: 10,
+                                            minHeight: 38,
+                                            px: 2.5,
                                         }}
                                     >
                                         Xuất Excel
@@ -531,7 +565,15 @@ const ViewItemList = () => {
                                         onClick={() => fetchItems()}
                                         disabled={loading}
                                         aria-label="Làm mới"
-                                        sx={{ border: 1, borderColor: 'divider' }}
+                                        sx={{
+                                            border: '1px solid #e5e7eb',
+                                            bgcolor: '#ffffff',
+                                            borderRadius: '10px',
+                                            '&:hover': {
+                                                bgcolor: '#f9fafb',
+                                                borderColor: '#d1d5db',
+                                            },
+                                        }}
                                     >
                                         <RefreshCw size={18} />
                                     </IconButton>
@@ -545,11 +587,17 @@ const ViewItemList = () => {
                                         onClick={() => navigate('/items/create')}
                                         sx={{
                                             fontSize: 13,
-                                            fontWeight: 600,
+                                            fontWeight: 500,
                                             textTransform: 'none',
-                                            borderRadius: 2,
-                                            minHeight: 36,
-                                            px: 2,
+                                            borderRadius: 10,
+                                            minHeight: 38,
+                                            px: 2.5,
+                                            bgcolor: '#0284c7',
+                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                            '&:hover': {
+                                                bgcolor: '#0369a1',
+                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                            },
                                         }}
                                     >
                                         Tạo thêm vật tư
@@ -616,24 +664,24 @@ const ViewItemList = () => {
                     className="list-grid-card"
                     sx={{
                         flex: 1,
-                        minHeight: 400,
+                        minHeight: 0,
                         minWidth: 0,
-                        overflow: 'visible',
+                        overflow: 'hidden',
                         display: 'flex',
                         flexDirection: 'column',
-                        borderRadius: 3,
-                        border: '1px solid rgba(0,0,0,0.12)',
-                        boxShadow: (t) => t.shadows[1],
-                        p: 1,
+                        borderRadius: 0,
+                        border: 'none',
+                        boxShadow: 'none',
+                        p: 0,
                     }}
                 >
                     <Box
                         className="list-grid-wrapper"
                         sx={{
                             flex: 1,
-                            minHeight: 360,
+                            minHeight: 0,
                             minWidth: 0,
-                            overflow: 'visible',
+                            overflow: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',
                             position: 'relative',
@@ -681,6 +729,7 @@ const ViewItemList = () => {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     py: 6,
+                                    px: 2,
                                     color: 'text.secondary',
                                 }}
                             >
@@ -695,10 +744,7 @@ const ViewItemList = () => {
                                     minWidth: 0,
                                     width: '100%',
                                     maxWidth: '100%',
-                                    border: '1px solid rgba(0,0,0,0.2)',
-                                    borderRadius: 2,
-                                    overflowY: 'auto',
-                                    overflowX: 'hidden',
+                                    overflow: 'auto',
                                     boxSizing: 'border-box',
                                 }}
                             >
@@ -718,10 +764,12 @@ const ViewItemList = () => {
                                                     sx={{
                                                         ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
                                                         fontWeight: 600,
+                                                        fontSize: '12px',
+                                                        borderBottom: '2px solid #e5e7eb',
                                                         bgcolor:
                                                             isAccountant && ACCOUNTANT_ONLY_COLUMN_IDS.includes(col.id)
                                                                 ? 'success.50'
-                                                                : 'grey.50',
+                                                                : '#fafafa',
                                                     }}
                                                     align={
                                                         col.id === 'thumbnail' || col.id === 'requiresCO' || col.id === 'requiresCQ'
@@ -751,7 +799,14 @@ const ViewItemList = () => {
 
                                                     if (col.id === 'stt') {
                                                         return (
-                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="center"
+                                                                sx={{
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                }}
+                                                            >
                                                                 {col.getValue(item, index, opts)}
                                                             </TableCell>
                                                         );
@@ -861,7 +916,11 @@ const ViewItemList = () => {
                                                                     size="small"
                                                                     color={item.isActive ? 'success' : 'default'}
                                                                     variant="filled"
-                                                                    sx={{ borderRadius: 1.5 }}
+                                                                    sx={{
+                                                                        borderRadius: '999px',
+                                                                        fontSize: '12px',
+                                                                        height: 24,
+                                                                    }}
                                                                 />
                                                             </TableCell>
                                                         );
@@ -869,7 +928,14 @@ const ViewItemList = () => {
 
                                                     if (col.id === 'sellableQty' || col.id === 'onHandQty') {
                                                         return (
-                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="center"
+                                                                sx={{
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                }}
+                                                            >
                                                                 {col.getValue(item, index, opts)}
                                                             </TableCell>
                                                         );
@@ -1034,31 +1100,40 @@ const ViewItemList = () => {
                 <Box
                     sx={{
                         flexShrink: 0,
-                        mt: 1,
-                        pt: 1,
-                        pb: 0.5,
+                        px: 2,
+                        py: 2,
+                        borderTop: '1px solid #f3f4f6',
                         display: 'flex',
                         flexWrap: 'wrap',
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         gap: 2,
-                        overflow: 'visible',
-                        minHeight: 48,
                     }}
                 >
                     <Typography
                         variant="body2"
                         color="text.secondary"
                         component="span"
-                        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                        sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
                     >
                         Số dòng / trang:
                     </Typography>
 
                     <FormControl size="small" sx={{ minWidth: 72 }}>
-                        <Select value={pageSize} onChange={handlePageSizeChange} sx={{ height: 32, fontSize: '0.875rem' }}>
+                        <Select
+                            value={pageSize}
+                            onChange={handlePageSizeChange}
+                            sx={{
+                                height: 32,
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 0, 0, 0.1)',
+                                },
+                            }}
+                        >
                             {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                <MenuItem key={n} value={n}>
+                                <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>
                                     {n}
                                 </MenuItem>
                             ))}
@@ -1069,7 +1144,7 @@ const ViewItemList = () => {
                         variant="body2"
                         color="text.secondary"
                         component="span"
-                        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                        sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
                     >
                         {start}–{end} / {totalCount} (Tổng {totalPages} trang)
                     </Typography>
@@ -1079,7 +1154,16 @@ const ViewItemList = () => {
                         variant="outlined"
                         disabled={page <= 0}
                         onClick={() => handlePageChange(page - 1)}
-                        sx={{ minWidth: 36, textTransform: 'none' }}
+                        sx={{
+                            minWidth: 36,
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            '&:hover': {
+                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                            },
+                        }}
                     >
                         Trước
                     </Button>
@@ -1088,7 +1172,7 @@ const ViewItemList = () => {
                         variant="body2"
                         color="text.secondary"
                         component="span"
-                        sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0 }}
+                        sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0, fontSize: '13px' }}
                     >
                         Trang {page + 1} / {totalPages || 1}
                     </Typography>
@@ -1098,13 +1182,22 @@ const ViewItemList = () => {
                         variant="outlined"
                         disabled={end >= totalCount || totalCount === 0}
                         onClick={() => handlePageChange(page + 1)}
-                        sx={{ minWidth: 36, textTransform: 'none' }}
+                        sx={{
+                            minWidth: 36,
+                            textTransform: 'none',
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            '&:hover': {
+                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                            },
+                        }}
                     >
                         Sau
                     </Button>
                 </Box>
-
                 {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+                </Box>
             </Box>
         </Box>
     );
