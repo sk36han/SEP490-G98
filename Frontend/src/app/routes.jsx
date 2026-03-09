@@ -21,6 +21,7 @@ import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
+import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
@@ -297,6 +298,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewGoodReceiptNotes />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/good-receipt-notes/:id"
+            element={
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewGoodReceiptNoteDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
