@@ -76,8 +76,18 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
 const isUserMgmtPath = (pathname) =>
     pathname === '/admin/users' || pathname.startsWith('/admin/users/');
 
+// Tất cả path thuộc mục "Vật tư" (products-mgmt) để menu xổ ra đúng và giữ expanded khi đang ở trang con
 const isProductsPath = (pathname) =>
-    pathname === '/products' || pathname.startsWith('/items/');
+    pathname === '/products' ||
+    pathname.startsWith('/items/') ||
+    pathname === '/categories' ||
+    pathname.startsWith('/categories/') ||
+    pathname === '/uom' ||
+    pathname.startsWith('/uom/') ||
+    pathname === '/packaging-spec' ||
+    pathname.startsWith('/packaging-spec/') ||
+    pathname === '/specs' ||
+    pathname.startsWith('/specs/');
 
 const isPurchaseOrdersPath = (pathname) =>
     pathname === '/purchase-orders' || pathname.startsWith('/purchase-orders/');

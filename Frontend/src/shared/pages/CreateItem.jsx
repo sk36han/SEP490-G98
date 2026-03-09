@@ -36,6 +36,7 @@ import { useToast } from "../hooks/useToast";
 import CreateUomDialog from "../components/CreateUomDialog";
 import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
+import CreateBrandDialog from "../components/CreateBrandDialog";
 import { createItem as createItemApi } from "../lib/itemService";
 import { getUomList } from "../lib/uomService";
 import { getPackagingSpecList } from "../lib/packagingSpecService";
@@ -73,6 +74,11 @@ const CREATE_SPEC_OPTION = {
   specId: "CREATE_SPEC",
   specCode: "",
   specName: "Tạo mới thông số sản phẩm",
+};
+
+const CREATE_BRAND_OPTION = {
+  id: "CREATE_BRAND",
+  name: "Tạo mới nhãn hiệu",
 };
 
 function CreateOptionContent({ label }) {
@@ -219,6 +225,7 @@ const CreateItem = () => {
   const [createUomOpen, setCreateUomOpen] = useState(false);
   const [createPackOpen, setCreatePackOpen] = useState(false);
   const [createSpecOpen, setCreateSpecOpen] = useState(false);
+  const [createBrandOpen, setCreateBrandOpen] = useState(false);
   const [showPurchasePrice, setShowPurchasePrice] = useState(false);
 
   useEffect(() => {
@@ -1037,55 +1044,85 @@ const CreateItem = () => {
                     ))}
                   </TextField>
 
-                  <TextField
-                    select
-                    fullWidth
+                  <Autocomplete
                     size="small"
-                    label="Nhãn hiệu"
-                    name="brandId"
-                    value={String(form.brandId ?? "")}
-                    onChange={handleChange}
-                    sx={selectInputSx}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <StoreIcon sx={{ color: "action.active", fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
+                    fullWidth
+                    options={[CREATE_BRAND_OPTION, ...brandOptions]}
+                    getOptionLabel={(opt) => (opt && opt.name) || ""}
+                    value={
+                      brandOptions.find(
+                        (o) => String(o.id) === String(form.brandId),
+                      ) ?? null
+                    }
+                    onOpen={async () => {
+                      try {
+                        const res = await getBrandList({ page: 1, pageSize: PAGE_SIZE });
+                        const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+                        setBrandOptions(
+                          items.map((b) => ({
+                            id: b.brandId ?? b.BrandId,
+                            name: b.brandName ?? b.BrandName ?? "",
+                          }))
+                        );
+                      } catch {
+                        // keep current options
+                      }
                     }}
-                    SelectProps={{
-                      displayEmpty: true,
-                      renderValue: (v) =>
-                        v === ""
-                          ? "\u00A0"
-                          : brandOptions.find(
-                              (o) => String(o.id) === String(v),
-                            )?.name ?? "\u00A0",
-                      MenuProps: selectMenuProps,
-                      onOpen: async () => {
-                        try {
-                          const res = await getBrandList({ page: 1, pageSize: PAGE_SIZE });
-                          const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
-                          setBrandOptions(
-                            items.map((b) => ({
-                              id: b.brandId ?? b.BrandId,
-                              name: b.brandName ?? b.BrandName ?? "",
-                            }))
-                          );
-                        } catch {
-                          // keep current options
-                        }
-                      },
+                    onChange={(e, newValue) => {
+                      if (newValue && newValue.id === "CREATE_BRAND") {
+                        setCreateBrandOpen(true);
+                        return;
+                      }
+                      setForm((prev) => ({
+                        ...prev,
+                        brandId: newValue?.id ?? "",
+                      }));
                     }}
-                    InputLabelProps={{ shrink: true }}
-                  >
-                    <MenuItem value="">Chọn nhãn hiệu</MenuItem>
-                    {brandOptions.map((o) => (
-                      <MenuItem key={o.id} value={String(o.id)}>
-                        {o.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    isOptionEqualToValue={(opt, val) =>
+                      String(opt?.id) === String(val?.id)
+                    }
+                    ListboxProps={{ sx: autocompleteListboxSx }}
+                    renderOption={(props, option) => {
+                      if (option && option.id === "CREATE_BRAND") {
+                        return (
+                          <Box
+                            component="li"
+                            {...props}
+                            key={option.id}
+                            sx={{ display: "block", py: 1 }}
+                          >
+                            <CreateOptionContent label={option.name} />
+                            <Divider sx={{ mt: 1 }} />
+                          </Box>
+                        );
+                      }
+                      return (
+                        <Box component="li" {...props} key={option.id}>
+                          {option.name}
+                        </Box>
+                      );
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Nhãn hiệu"
+                        InputLabelProps={{ shrink: true }}
+                        sx={autocompleteFieldSx}
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <StoreIcon sx={{ color: "action.active", fontSize: 20 }} />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                    sx={autocompleteRootSx}
+                  />
                 </Stack>
               </Paper>
 
@@ -1219,6 +1256,7 @@ const CreateItem = () => {
             ]);
             setForm((prev) => ({ ...prev, baseUomId: newUom.id }));
             setCreateUomOpen(false);
+            showToast("Tạo đơn vị tính thành công.", "success");
           }}
         />
 
@@ -1235,6 +1273,7 @@ const CreateItem = () => {
             ]);
             setForm((prev) => ({ ...prev, packagingSpecId: newItem.id }));
             setCreatePackOpen(false);
+            showToast("Tạo quy cách đóng gói thành công.", "success");
           }}
         />
 
@@ -1252,6 +1291,21 @@ const CreateItem = () => {
             ]);
             setForm((prev) => ({ ...prev, specId: newItem.specId }));
             setCreateSpecOpen(false);
+            showToast("Tạo thông số sản phẩm thành công.", "success");
+          }}
+        />
+
+        <CreateBrandDialog
+          open={createBrandOpen}
+          onClose={() => setCreateBrandOpen(false)}
+          onSubmit={(newBrand) => {
+            setBrandOptions((prev) => [
+              ...prev,
+              { id: newBrand.id, name: newBrand.name },
+            ]);
+            setForm((prev) => ({ ...prev, brandId: newBrand.id }));
+            setCreateBrandOpen(false);
+            showToast("Tạo nhãn hiệu thành công.", "success");
           }}
         />
 
