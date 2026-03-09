@@ -270,7 +270,6 @@ const ViewPurchaseOrderDetail = () => {
     };
 
     const totalQuantity = orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
-    const totalReceivedQty = orderData.lines.reduce((sum, line) => sum + (Number(line.receivedQty) || 0), 0);
     const subtotal = orderData.lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
     const discountAmount = orderData.discountType === 'amount'
         ? (Number(orderData.discountAmountFixed) || 0)
@@ -801,12 +800,12 @@ const ViewPurchaseOrderDetail = () => {
                         </div>
                     </div>
 
-                    {/* Layout 2 cột: Chi tiết sản phẩm (trái) + Nhân viên (phải) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'stretch' }}>
+                    {/* Layout 2 cột: Chi tiết sản phẩm (trái) + Thông tin chung (phải) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
                         {/* 1. Chi tiết sản phẩm (Trái) */}
                         <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
-                                <h2 className="section-title">Chi tiết sản phẩm (PO Lines)</h2>
+                                <h2 className="section-title">Chi tiết sản phẩm</h2>
                             </div>
 
                             <div className="table-container" style={{ flex: 1, overflowY: 'auto', maxHeight: '500px' }}>
@@ -815,9 +814,8 @@ const ViewPurchaseOrderDetail = () => {
                                         <tr>
                                             <th style={{ width: '40px' }}>STT</th>
                                             <th>Sản phẩm</th>
+                                            <th style={{ width: '80px', textAlign: 'center' }}>ĐVT</th>
                                             <th style={{ width: '100px' }}>SL đặt</th>
-                                            <th style={{ width: '100px' }}>SL đã nhập</th>
-                                            <th style={{ width: '100px' }}>SL còn lại</th>
                                             <th style={{ width: '120px' }}>Đơn giá</th>
                                             <th style={{ width: '140px' }}>Thành tiền</th>
                                             <th style={{ width: '180px' }}>Ghi chú</th>
@@ -825,7 +823,6 @@ const ViewPurchaseOrderDetail = () => {
                                     </thead>
                                     <tbody>
                                         {orderData.lines.map((line, index) => {
-                                            const remainingQty = line.orderedQty - line.receivedQty;
                                             return (
                                                 <tr key={line.id}>
                                                     <td style={{ textAlign: 'center' }}>{index + 1}</td>
@@ -896,6 +893,16 @@ const ViewPurchaseOrderDetail = () => {
                                                             </div>
                                                         </div>
                                                     </td>
+                                                    <td
+                                                        style={{
+                                                            textAlign: 'center',
+                                                            verticalAlign: 'middle',
+                                                            fontSize: 14,
+                                                            color: '#374151',
+                                                        }}
+                                                    >
+                                                        {line.uom || '—'}
+                                                    </td>
                                                     <td style={{ textAlign: 'right', fontWeight: 600 }}>
                                                         {isEditing ? (
                                                             <input
@@ -909,14 +916,6 @@ const ViewPurchaseOrderDetail = () => {
                                                         ) : (
                                                             line.orderedQty
                                                         )}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#10b981' }}>{line.receivedQty}</td>
-                                                    <td style={{ 
-                                                        textAlign: 'right', 
-                                                        fontWeight: 600,
-                                                        color: remainingQty > 0 ? '#f59e0b' : '#6b7280'
-                                                    }}>
-                                                        {remainingQty}
                                                     </td>
                                                     <td style={{ textAlign: 'right' }}>
                                                         {isEditing ? (
@@ -960,7 +959,7 @@ const ViewPurchaseOrderDetail = () => {
                         {/* 2. Nhân viên (Phải) */}
                         <div className="info-section" style={{ margin: 0 }}>
                             <div className="section-header-with-toggle">
-                                <h2 className="section-title">Nhân viên</h2>
+                                <h2 className="section-title">Thông tin chung</h2>
                             </div>
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1016,7 +1015,7 @@ const ViewPurchaseOrderDetail = () => {
 
                                 {/* Ngày dự kiến nhập */}
                                 <div className="form-field">
-                                    <label className="form-label">Ngày dự kiến nhập</label>
+                                    <label className="form-label">Ngày nhập dự kiến</label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
                                         <input
@@ -1113,168 +1112,216 @@ const ViewPurchaseOrderDetail = () => {
                                     <h2 className="section-title">Tổng hợp đơn hàng</h2>
                                 </div>
                                 
-                                <div className="form-grid">
-                                    <div className="form-field">
-                                        <label className="form-label">Tổng số lượng đặt</label>
-                                        <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
-                                            {totalQuantity} sản phẩm
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Tổng số lượng đã nhập</label>
-                                        <div style={{ padding: '10px', backgroundColor: '#d1fae5', borderRadius: '8px', fontWeight: 600, color: '#10b981' }}>
-                                            {totalReceivedQty} sản phẩm
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Tạm tính</label>
-                                        <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
-                                            {formatCurrency(subtotal)}
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Chiết khấu</label>
-                                        {isEditing ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                    <button
-                                                        type="button"
-                                                        className={`btn btn-sm ${orderData.discountType === 'amount' ? 'btn-primary' : 'btn-card-text'}`}
-                                                        onClick={() => setDiscountType('amount')}
-                                                    >
-                                                        Số tiền
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={`btn btn-sm ${orderData.discountType === 'percent' ? 'btn-primary' : 'btn-card-text'}`}
-                                                        onClick={() => setDiscountType('percent')}
-                                                    >
-                                                        %
-                                                    </button>
-                                                </div>
-                                                {orderData.discountType === 'percent' ? (
-                                                    <input
-                                                        type="number"
-                                                        name="discount"
-                                                        value={orderData.discount}
-                                                        onChange={handleChange}
-                                                        min="0"
-                                                        max="100"
-                                                        className="form-input"
-                                                        placeholder="0–100"
-                                                    />
-                                                ) : (
-                                                    <input
-                                                        type="number"
-                                                        name="discountAmountFixed"
-                                                        value={orderData.discountAmountFixed || ''}
-                                                        onChange={handleChange}
-                                                        min="0"
-                                                        className="form-input"
-                                                        placeholder="Nhập số tiền (VND)"
-                                                    />
-                                                )}
-                                            </div>
-                                        ) : (
+                                {isEditing ? (
+                                    /* Khi chỉnh sửa: dùng đúng UI Tổng hợp đơn hàng của CreatePurchaseOrder */
+                                    <div className="form-grid">
+                                        <div className="form-field">
+                                            <label className="form-label">Tổng số lượng đặt</label>
                                             <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
-                                                {orderData.discountType === 'percent'
-                                                    ? `${orderData.discount}%`
-                                                    : formatCurrency(Number(orderData.discountAmountFixed) || 0)}
+                                                {totalQuantity} sản phẩm
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
 
-                                    <div className="form-field span-2">
-                                        <label className="form-label">Chi phí</label>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            {(orderData.additionalCosts || []).map((cost) => (
-                                                <div key={cost.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                    <input
-                                                        type="text"
-                                                        value={cost.name}
-                                                        onChange={(e) => updateAdditionalCost(cost.id, 'name', e.target.value)}
-                                                        placeholder="Tên"
-                                                        className="form-input"
-                                                        style={{ flex: '1 1 140px', minWidth: 0, maxWidth: '220px' }}
-                                                        readOnly={!isEditing}
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        value={cost.amount || ''}
-                                                        onChange={(e) => updateAdditionalCost(cost.id, 'amount', e.target.value)}
-                                                        placeholder="Số tiền"
-                                                        className="form-input"
-                                                        style={{ width: '260px' }}
-                                                        min="0"
-                                                        readOnly={!isEditing}
-                                                    />
-                                                    {isEditing && (
+                                        <div className="form-field">
+                                            <label className="form-label">Tạm tính</label>
+                                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
+                                                {formatCurrency(subtotal)}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'start' }}>
+                                            <div className="form-field">
+                                                <label className="form-label">Chiết khấu</label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                                         <button
                                                             type="button"
-                                                            className="btn btn-sm btn-cancel"
-                                                            onClick={() => removeAdditionalCost(cost.id)}
-                                                            style={{ color: '#ef4444' }}
+                                                            className={`btn btn-sm ${orderData.discountType === 'amount' ? 'btn-primary' : 'btn-card-text'}`}
+                                                            onClick={() => setDiscountType('amount')}
                                                         >
-                                                            Xóa
+                                                            Số tiền
                                                         </button>
+                                                        <button
+                                                            type="button"
+                                                            className={`btn btn-sm ${orderData.discountType === 'percent' ? 'btn-primary' : 'btn-card-text'}`}
+                                                            onClick={() => setDiscountType('percent')}
+                                                        >
+                                                            %
+                                                        </button>
+                                                    </div>
+                                                    {orderData.discountType === 'percent' ? (
+                                                        <input
+                                                            type="number"
+                                                            name="discount"
+                                                            value={orderData.discount}
+                                                            onChange={handleChange}
+                                                            min="0"
+                                                            max="100"
+                                                            className="form-input"
+                                                            placeholder="0–100"
+                                                        />
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            name="discountAmountFixed"
+                                                            value={orderData.discountAmountFixed || ''}
+                                                            onChange={handleChange}
+                                                            min="0"
+                                                            className="form-input"
+                                                            placeholder="Nhập số tiền (VND)"
+                                                        />
                                                     )}
                                                 </div>
-                                            ))}
-                                            {isEditing && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-card-text"
-                                                    onClick={addAdditionalCost}
-                                                    style={{ alignSelf: 'flex-start' }}
-                                                >
-                                                    + Thêm chi phí
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field span-2">
-                                        <div style={{ fontSize: '13px', color: '#666' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
-                                                <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
                                             </div>
-                                            {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).map((c) => (
-                                                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                                                    <span>{c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:</span>
-                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(Number(c.amount) || 0)}</span>
+
+                                            <div className="form-field">
+                                                <label className="form-label">Chi phí</label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    {(orderData.additionalCosts || []).map((cost) => (
+                                                        <div key={cost.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                            <input
+                                                                type="text"
+                                                                value={cost.name}
+                                                                onChange={(e) => updateAdditionalCost(cost.id, 'name', e.target.value)}
+                                                                placeholder="Tên"
+                                                                className="form-input"
+                                                                style={{ flex: '1 1 100px', minWidth: 0 }}
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                value={cost.amount || ''}
+                                                                onChange={(e) => updateAdditionalCost(cost.id, 'amount', e.target.value)}
+                                                                placeholder="Số tiền"
+                                                                className="form-input"
+                                                                style={{ width: '120px' }}
+                                                                min="0"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-cancel"
+                                                                onClick={() => removeAdditionalCost(cost.id)}
+                                                                style={{ color: '#ef4444' }}
+                                                            >
+                                                                Xóa
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-card-text"
+                                                        onClick={addAdditionalCost}
+                                                        style={{ alignSelf: 'flex-start' }}
+                                                    >
+                                                        + Thêm chi phí
+                                                    </button>
                                                 </div>
-                                            ))}
-                                            {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).length > 0 && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
-                                                    <span>Chi phí:</span>
-                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
-                                                </div>
-                                            )}
+                                            </div>
                                         </div>
 
-                                        <div style={{ 
-                                            marginTop: '16px',
-                                            padding: '20px', 
-                                            backgroundColor: '#e3f2fd', 
-                                            borderRadius: '12px', 
-                                            display: 'flex', 
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            borderLeft: '4px solid #2196F3'
-                                        }}>
-                                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#2196F3' }}>
-                                                Tổng giá trị đơn:
-                                            </span>
-                                            <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>
-                                                {formatCurrency(grandTotal)}
-                                            </span>
+                                        <div className="form-field span-2" style={{ gridColumn: '1 / -1' }}>
+                                            <div style={{ fontSize: '13px', color: '#666' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
+                                                    <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
+                                                </div>
+                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).map((c) => (
+                                                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                                                        <span>{c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:</span>
+                                                        <span style={{ color: '#10b981' }}>+ {formatCurrency(Number(c.amount) || 0)}</span>
+                                                    </div>
+                                                ))}
+                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).length > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
+                                                        <span>Chi phí:</span>
+                                                        <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div style={{ 
+                                                marginTop: '16px',
+                                                padding: '20px', 
+                                                backgroundColor: '#e3f2fd', 
+                                                borderRadius: '12px', 
+                                                display: 'flex', 
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                borderLeft: '4px solid #2196F3'
+                                            }}>
+                                                <span style={{ fontSize: '18px', fontWeight: 700, color: '#2196F3' }}>
+                                                    Tổng giá trị đơn:
+                                                </span>
+                                                <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>
+                                                    {formatCurrency(grandTotal)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    /* Khi chỉ xem: layout đơn giản, không có input/bút chọn loại chiết khấu */
+                                    <div className="form-grid">
+                                        <div className="form-field">
+                                            <label className="form-label">Tổng số lượng đặt</label>
+                                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
+                                                {totalQuantity} sản phẩm
+                                            </div>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="form-label">Tạm tính</label>
+                                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
+                                                {formatCurrency(subtotal)}
+                                            </div>
+                                        </div>
+
+                                        <div className="form-field span-2">
+                                            <label className="form-label">Chi phí</label>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).map((c) => (
+                                                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                        <span>{c.name && c.name.trim() ? c.name.trim() : 'Chi phí'}:</span>
+                                                        <span style={{ color: '#10b981', fontWeight: 500 }}>
+                                                            + {formatCurrency(Number(c.amount) || 0)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="form-field span-2">
+                                            <div style={{ fontSize: '13px', color: '#666' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
+                                                    <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
+                                                </div>
+                                                {(orderData.additionalCosts || []).filter(c => (Number(c.amount) || 0) > 0).length > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
+                                                        <span>Chi phí:</span>
+                                                        <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div style={{ 
+                                                marginTop: '16px',
+                                                padding: '20px', 
+                                                backgroundColor: '#e3f2fd', 
+                                                borderRadius: '12px', 
+                                                display: 'flex', 
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                borderLeft: '4px solid #2196F3'
+                                            }}>
+                                                <span style={{ fontSize: '18px', fontWeight: 700, color: '#2196F3' }}>
+                                                    Tổng giá trị đơn:
+                                                </span>
+                                                <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>
+                                                    {formatCurrency(grandTotal)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
