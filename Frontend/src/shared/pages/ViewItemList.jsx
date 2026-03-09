@@ -77,7 +77,7 @@ const ITEM_LIST_COLUMNS = [
 
 const ACCOUNTANT_ONLY_COLUMN_IDS = ['inventoryAccount', 'revenueAccount', 'purchasePrice', 'salePrice'];
 const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemCode', 'itemType', 'sellableQty', 'onHandQty', 'actions'];
-const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 /** Full quyền Item: tất cả role trừ ADMIN và Giám đốc */
 const canCreateOrEditItems = (permissionRole) =>
@@ -155,7 +155,7 @@ const getColumnCellSx = (colId, isAccountant, widthPct) => {
             return { ...base, fontVariantNumeric: 'tabular-nums' };
         case 'createdAt':
         case 'updatedAt':
-            return { ...base, fontSize: '0.8rem' };
+            return { ...base, fontSize: '0.8rem', whiteSpace: 'pre-line' };
         case 'actions':
             return { ...base, overflow: 'visible' };
         default:
@@ -185,7 +185,7 @@ const ViewItemList = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(7);
+    const [pageSize, setPageSize] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
@@ -342,7 +342,11 @@ const ViewItemList = () => {
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
         const d = new Date(dateStr);
-        return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        return (
+            d.toLocaleDateString('vi-VN') +
+            '\n' +
+            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        );
     };
 
     return (
@@ -374,27 +378,13 @@ const ViewItemList = () => {
                     >
                         Danh sách vật tư
                     </Typography>
-
-                    {isAccountant && (
-                        <Chip
-                            label="Kế toán"
-                            size="small"
-                            sx={{
-                                fontWeight: 600,
-                                bgcolor: 'success.50',
-                                color: 'success.main',
-                                borderRadius: '999px',
-                                height: 22,
-                            }}
-                        />
-                    )}
                 </Box>
 
                 <Typography
                     variant="body2"
                     sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}
                 >
-                    {isAccountant ? 'Item list • Accountant view' : 'Item list'}
+                    {isAccountant ? 'Items' : 'Item list'}
                 </Typography>
             </Box>
 
@@ -540,11 +530,11 @@ const ViewItemList = () => {
                                     flexWrap: 'wrap',
                                 }}
                             >
-                                <Tooltip title={isAccountant ? 'Xuất Excel để báo cáo (Kế toán)' : 'Xuất danh sách vật tư ra Excel'}>
+                                <Tooltip title="Xuất danh sách vật tư ra Excel">
                                     <Button
                                         className="list-page-btn"
-                                        variant={isAccountant ? 'contained' : 'outlined'}
-                                        color={isAccountant ? 'success' : 'primary'}
+                                        variant="outlined"
+                                        color="primary"
                                         startIcon={<Download size={18} />}
                                         onClick={handleExport}
                                         sx={{
@@ -558,25 +548,6 @@ const ViewItemList = () => {
                                     >
                                         Xuất Excel
                                     </Button>
-                                </Tooltip>
-
-                                <Tooltip title="Làm mới danh sách">
-                                    <IconButton
-                                        onClick={() => fetchItems()}
-                                        disabled={loading}
-                                        aria-label="Làm mới"
-                                        sx={{
-                                            border: '1px solid #e5e7eb',
-                                            bgcolor: '#ffffff',
-                                            borderRadius: '10px',
-                                            '&:hover': {
-                                                bgcolor: '#f9fafb',
-                                                borderColor: '#d1d5db',
-                                            },
-                                        }}
-                                    >
-                                        <RefreshCw size={18} />
-                                    </IconButton>
                                 </Tooltip>
 
                                 {canCreateEdit && (
@@ -1167,15 +1138,6 @@ const ViewItemList = () => {
                     >
                         Trước
                     </Button>
-
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        component="span"
-                        sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0, fontSize: '13px' }}
-                    >
-                        Trang {page + 1} / {totalPages || 1}
-                    </Typography>
 
                     <Button
                         size="small"

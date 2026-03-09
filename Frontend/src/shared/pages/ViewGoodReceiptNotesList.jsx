@@ -66,7 +66,6 @@ const GRN_COLUMNS = [
     { id: 'warehouseName',    label: 'Kho nhập',         sortable: true,  getValue: (row) => row.warehouseName  ?? '' },
     { id: 'supplierName',     label: 'Nhà cung cấp',     sortable: true,  getValue: (row) => row.supplierName   ?? '' },
     { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
-    { id: 'receivingStatus',  label: 'Trạng thái nhập',  sortable: true,  getValue: (row) => RECEIVING_STATUS_STYLE[row.receivingStatus]?.label ?? row.receivingStatus ?? '' },
     { id: 'actualQtyTotal',   label: 'Số lượng nhập',    sortable: true,  getValue: (row) => row.actualQtyTotal ?? 0 },
     { id: 'totalValue',       label: 'Giá trị đơn',      sortable: true,  getValue: (row) => row.totalValue     ?? 0 },
     { id: 'createdByName',    label: 'Nhân viên tạo',    sortable: true,  getValue: (row) => row.createdByName  ?? '' },
@@ -128,7 +127,11 @@ const formatDate = (dateStr) => {
 const formatDateTime = (dateStr) => {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return (
+        d.toLocaleDateString('vi-VN') +
+        '\n' +
+        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    );
 };
 
 // ── Shared cell sx (matches ViewPurchaseOrderList) ────────────────────────────
@@ -304,7 +307,7 @@ export default function ViewGoodReceiptNotes() {
         if (filterValues.warehouse)  result = result.filter((r) => norm(r.warehouseName).includes(norm(filterValues.warehouse)));
         if (filterValues.supplier)   result = result.filter((r) => norm(r.supplierName).includes(norm(filterValues.supplier)));
         if (filterValues.createdBy)  result = result.filter((r) => norm(r.createdByName).includes(norm(filterValues.createdBy)));
-        if (filterValues.receivingStatus) result = result.filter((r) => r.receivingStatus === filterValues.receivingStatus);
+        // if (filterValues.receivingStatus) result = result.filter((r) => r.receivingStatus === filterValues.receivingStatus);
         if (filterValues.fromDate)   result = result.filter((r) => r.receiptDate && r.receiptDate >= filterValues.fromDate);
         if (filterValues.toDate)     result = result.filter((r) => r.receiptDate && r.receiptDate <= filterValues.toDate);
 
@@ -598,29 +601,18 @@ export default function ViewGoodReceiptNotes() {
 
                                                     if (DATE_COLUMN_IDS.includes(col.id)) {
                                                         return (
-                                                            <TableCell key={col.id} align="left" sx={{ color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>
-                                                                {col.id === 'createdAt' ? formatDateTime(row.createdAt) : formatDate(row.receiptDate)}
-                                                            </TableCell>
-                                                        );
-                                                    }
-
-                                                    if (col.id === 'receivingStatus') {
-                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { bgColor: 'rgba(107,114,128,0.15)', label: row.receivingStatus ?? '-', dot: '•' };
-                                                        return (
-                                                            <TableCell key={col.id} align="left">
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip
-                                                                        label={`${style.dot} ${style.label}`}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            fontWeight: 500, fontSize: '12px', lineHeight: '16px',
-                                                                            borderRadius: '999px', minWidth: 110, height: '26px',
-                                                                            bgcolor: style.bgColor, color: '#374151',
-                                                                            border: 'none', boxShadow: 'none',
-                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-                                                                        }}
-                                                                    />
-                                                                </Box>
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{
+                                                                    color: '#6b7280',
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                    whiteSpace: col.id === 'createdAt' ? 'pre-line' : 'nowrap',
+                                                                }}
+                                                            >
+                                                                {col.id === 'createdAt'
+                                                                    ? formatDateTime(row.createdAt)
+                                                                    : formatDate(row.receiptDate)}
                                                             </TableCell>
                                                         );
                                                     }
