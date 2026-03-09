@@ -511,7 +511,7 @@ const CreateGoodReceiptNote = () => {
                                 ) : (
                                     <>
                                         <Send size={15} />
-                                        Duyệt & xác nhận nhập
+                                        Tạo & duyệt đơn
                                     </>
                                 )}
                             </button>
