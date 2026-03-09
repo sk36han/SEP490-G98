@@ -1,21 +1,29 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Warehouse.Entities.ModelRequest
 {
     public class CreatePurchaseOrderRequest
     {
-        public long? SupplierId { get; set; }
-        public DateOnly? RequestedDate { get; set; }
-        public DateOnly? ExpectedDeliveryDate { get; set; }
-        public string? Justification { get; set; }
-        public long? ResponsibleUserId { get; set; }
-        public long? WarehouseId { get; set; }
+        [Required]
+        public long SupplierId { get; set; }
 
-        [Range(0, double.MaxValue, ErrorMessage = "Triết khấu phải >= 0.")]
+        [Required]
+        public long WarehouseId { get; set; }
+
+        public long? ResponsibleUserId { get; set; }
+
+        public DateOnly? ExpectedDeliveryDate { get; set; }
+
+        [MaxLength(1000)]
+        public string? Justification { get; set; }
+
+        [Range(0, double.MaxValue)]
         public decimal? DiscountAmount { get; set; }
 
-        [MinLength(1, ErrorMessage = "Đơn hàng phải có ít nhất một mặt hàng.")]
-        public List<CreatePurchaseOrderLineRequest> OrderLines { get; set; } = new();
+        [Required]
+        [MinLength(1)]
+        public List<CreatePurchaseOrderLineRequest> Lines { get; set; } = new();
     }
 
     public class CreatePurchaseOrderLineRequest
@@ -23,18 +31,13 @@ namespace Warehouse.Entities.ModelRequest
         [Required]
         public long ItemId { get; set; }
 
-        [Range(0.01, double.MaxValue, ErrorMessage = "Số lượng phải lớn hơn 0.")]
+        [Range(typeof(decimal), "0.001", "999999999999999999")]
         public decimal OrderedQty { get; set; }
 
-        [Required]
-        public long UomId { get; set; }
+        [Range(typeof(decimal), "0", "999999999999999999")]
+        public decimal UnitPrice { get; set; }
 
-        [Range(0, double.MaxValue, ErrorMessage = "Đơn giá phải >= 0.")]
-        public decimal? UnitPrice { get; set; }
-
-        [MaxLength(10)]
-        public string? Currency { get; set; }
-
+        [MaxLength(500)]
         public string? Note { get; set; }
     }
 }
