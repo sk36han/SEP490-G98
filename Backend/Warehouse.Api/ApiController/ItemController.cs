@@ -82,6 +82,23 @@ namespace Warehouse.Api.ApiController
             });
         }
 
+        [HttpGet("detail/{id:long}")]
+        public async Task<IActionResult> GetItemDetailById(long id, [FromQuery] int historyPage = 1, [FromQuery] int historyPageSize = 20)
+        {
+            var item = await _itemService.GetItemDetailByIdAsync(id, historyPage, historyPageSize);
+            if (item == null)
+            {
+                return NotFound(new { success = false, message = "Không tìm thấy sản phẩm." });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = "Lấy chi tiết sản phẩm thành công",
+                data = item
+            });
+        }
+
         [HttpPut("{id:long}")]
         public async Task<IActionResult> UpdateItem(long id, [FromBody] UpdateItemRequest request)
         {
