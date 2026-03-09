@@ -17,6 +17,8 @@ public partial class Warehouse
 
     public DateTime CreatedAt { get; set; }
 
+    public string? District { get; set; }
+
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
 
     public virtual ICollection<GoodsReceiptNote> GoodsReceiptNotes { get; set; } = new List<GoodsReceiptNote>();

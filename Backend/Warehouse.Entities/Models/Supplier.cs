@@ -27,6 +27,8 @@ public partial class Supplier
 
     public string? Ward { get; set; }
 
+    public string? District { get; set; }
+
     public virtual ICollection<GoodsReceiptNote> GoodsReceiptNotes { get; set; } = new List<GoodsReceiptNote>();
 
     public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();

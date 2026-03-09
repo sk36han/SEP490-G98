@@ -27,5 +27,7 @@ public partial class Receiver
 
     public string? Ward { get; set; }
 
+    public string? District { get; set; }
+
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 }

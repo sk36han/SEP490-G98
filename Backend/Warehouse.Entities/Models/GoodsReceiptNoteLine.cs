@@ -29,5 +29,7 @@ public partial class GoodsReceiptNoteLine
 
     public virtual PurchaseOrderLine? PurchaseOrderLine { get; set; }
 
+    public virtual ICollection<PurchaseReturnNoteLine> PurchaseReturnNoteLines { get; set; } = new List<PurchaseReturnNoteLine>();
+
     public virtual UnitOfMeasure Uom { get; set; } = null!;
 }

@@ -49,6 +49,10 @@ public partial class User
 
     public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
 
+    public virtual ICollection<PurchaseReturnNote> PurchaseReturnNoteApprovedByNavigations { get; set; } = new List<PurchaseReturnNote>();
+
+    public virtual ICollection<PurchaseReturnNote> PurchaseReturnNoteCreatedByNavigations { get; set; } = new List<PurchaseReturnNote>();
+
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 
     public virtual ICollection<StocktakeSession> StocktakeSessions { get; set; } = new List<StocktakeSession>();
