@@ -12,9 +12,15 @@ namespace Warehouse.Entities.ModelResponse
         public string ItemName { get; set; } = null!;
         
         public decimal OrderedQty { get; set; }
+        public decimal ReceivedQty { get; set; }
+        public string LineStatus { get; set; } = null!;
         
         public long UomId { get; set; }
         public string UomName { get; set; } = null!;
+
+        public decimal? UnitPrice { get; set; }
+        public string? Currency { get; set; }
+        public decimal? LineTotal { get; set; }
         
         public string? Note { get; set; }
     }

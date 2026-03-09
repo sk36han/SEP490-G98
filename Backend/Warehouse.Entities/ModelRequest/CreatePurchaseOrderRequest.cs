@@ -4,20 +4,15 @@ namespace Warehouse.Entities.ModelRequest
 {
     public class CreatePurchaseOrderRequest
     {
-        [Required(ErrorMessage = "Mã đơn hàng (Pocode) là bắt buộc.")]
-        [MaxLength(50)]
-        public string Pocode { get; set; } = null!;
-
         public long? SupplierId { get; set; }
-
         public DateOnly? RequestedDate { get; set; }
-
+        public DateOnly? ExpectedDeliveryDate { get; set; }
         public string? Justification { get; set; }
+        public long? ResponsibleUserId { get; set; }
+        public long? WarehouseId { get; set; }
 
-        [Required(ErrorMessage = "Trạng thái là bắt buộc.")]
-        public string Status { get; set; } = "DRAFT";
-
-        public int CurrentStageNo { get; set; } = 1;
+        [Range(0, double.MaxValue, ErrorMessage = "Triết khấu phải >= 0.")]
+        public decimal? DiscountAmount { get; set; }
 
         [MinLength(1, ErrorMessage = "Đơn hàng phải có ít nhất một mặt hàng.")]
         public List<CreatePurchaseOrderLineRequest> OrderLines { get; set; } = new();
@@ -33,6 +28,12 @@ namespace Warehouse.Entities.ModelRequest
 
         [Required]
         public long UomId { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "Đơn giá phải >= 0.")]
+        public decimal? UnitPrice { get; set; }
+
+        [MaxLength(10)]
+        public string? Currency { get; set; }
 
         public string? Note { get; set; }
     }

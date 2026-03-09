@@ -15,14 +15,11 @@ namespace Warehouse.DataAcces.Service.Interface
             string? status,
             DateTime? fromDate,
             DateTime? toDate,
-            string? requestedByName
-        );
+            string? requestedByName);
 
         Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id);
 
         Task<PurchaseOrderDetailResponse> CreatePurchaseOrderAsync(long requestedByUserId, CreatePurchaseOrderRequest request);
-
-        Task<PurchaseOrderDetailResponse?> UpdatePurchaseOrderAsync(long id, UpdatePurchaseOrderRequest request);
 
         Task<bool> CancelPurchaseOrderAsync(long id);
     }

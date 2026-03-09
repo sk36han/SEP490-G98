@@ -4,6 +4,6 @@ namespace Warehouse.Entities.ModelResponse
 {
     public class PurchaseOrderDetailResponse : PurchaseOrderResponse
     {
-        public List<PurchaseOrderLineResponse> PurchaseOrderLines { get; set; } = new List<PurchaseOrderLineResponse>();
+        public List<PurchaseOrderLineResponse> PurchaseOrderLines { get; set; } = new();
     }
 }

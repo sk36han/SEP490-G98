@@ -39,6 +39,8 @@ public partial class PurchaseOrder
 
     public long? ResponsibleUserId { get; set; }
 
+    public long? WarehouseId { get; set; }
+
     public virtual ICollection<GoodsReceiptNote> GoodsReceiptNotes { get; set; } = new List<GoodsReceiptNote>();
 
     public virtual ICollection<PurchaseOrderLine> PurchaseOrderLines { get; set; } = new List<PurchaseOrderLine>();
@@ -48,4 +50,6 @@ public partial class PurchaseOrder
     public virtual User? ResponsibleUser { get; set; }
 
     public virtual Supplier? Supplier { get; set; }
+
+    public virtual Warehouse? Warehouse { get; set; }
 }
