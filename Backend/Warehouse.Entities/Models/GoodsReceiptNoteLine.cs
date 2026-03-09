@@ -19,11 +19,15 @@ public partial class GoodsReceiptNoteLine
 
     public bool RequiresCocq { get; set; }
 
+    public long? PurchaseOrderLineId { get; set; }
+
     public virtual ICollection<Certificate> Certificates { get; set; } = new List<Certificate>();
 
     public virtual GoodsReceiptNote Grn { get; set; } = null!;
 
     public virtual Item Item { get; set; } = null!;
+
+    public virtual PurchaseOrderLine? PurchaseOrderLine { get; set; }
 
     public virtual UnitOfMeasure Uom { get; set; } = null!;
 }

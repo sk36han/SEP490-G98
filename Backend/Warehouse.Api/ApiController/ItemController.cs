@@ -82,6 +82,45 @@ namespace Warehouse.Api.ApiController
             });
         }
 
+        [HttpPut("{id:long}")]
+        public async Task<IActionResult> UpdateItem(long id, [FromBody] UpdateItemRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return ValidationProblem(ModelState);
+                }
+
+                var item = await _itemService.UpdateItemAsync(id, request);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Cập nhật sản phẩm thành công",
+                    data = new
+                    {
+                        item.ItemId,
+                        item.ItemCode,
+                        item.ItemName,
+                        item.IsActive
+                    }
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { success = false, message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
         [HttpPatch("{id:long}/status")]
         public async Task<IActionResult> UpdateItemStatus(long id, [FromQuery] bool isActive)
         {
