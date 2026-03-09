@@ -47,7 +47,9 @@ public partial class User
 
     public virtual ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
 
-    public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
+    public virtual ICollection<PurchaseOrder> PurchaseOrderRequestedByNavigations { get; set; } = new List<PurchaseOrder>();
+
+    public virtual ICollection<PurchaseOrder> PurchaseOrderResponsibleUsers { get; set; } = new List<PurchaseOrder>();
 
     public virtual ICollection<PurchaseReturnNote> PurchaseReturnNoteApprovedByNavigations { get; set; } = new List<PurchaseReturnNote>();
 

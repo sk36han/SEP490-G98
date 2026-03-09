@@ -31,6 +31,10 @@ public partial class GoodsReceiptNote
 
     public decimal ShippingFee { get; set; }
 
+    public bool IsPaid { get; set; }
+
+    public string? PaymentMethod { get; set; }
+
     public virtual User CreatedByNavigation { get; set; } = null!;
 
     public virtual ICollection<GoodsReceiptNoteLine> GoodsReceiptNoteLines { get; set; } = new List<GoodsReceiptNoteLine>();
