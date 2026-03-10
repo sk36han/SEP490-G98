@@ -162,35 +162,7 @@ namespace Warehouse.DataAcces.Service
 			return await GetResponseAsync(id);
 		}
 
-		// =====================================================================
-		// DELETE
-		// =====================================================================
-		public async Task<object> DeleteItemParameterValueAsync(long id, long currentUserId)
-		{
-			ValidateId(id, "ID giá trị thông số");
-			ValidateUserId(currentUserId);
-
-			var itemParamValue = await _itemParameterValueRepository.GetByIdAsync(id);
-			if (itemParamValue == null)
-				throw new KeyNotFoundException($"Không tìm thấy giá trị thông số với ID = {id}.");
-
-			// Try to get more info for logging before deleting
-			var param = await _itemParameterRepository.GetByIdAsync(itemParamValue.ParamId);
-			var paramName = param?.ParamName ?? itemParamValue.ParamId.ToString();
-			var itemId = itemParamValue.ItemId;
-
-			await _itemParameterValueRepository.DeleteAsync(id);
-
-			await _auditLogService.LogAsync(
-				currentUserId,
-				AuditAction.Delete,
-				AuditEntity.ItemParameterValue,
-				id,
-				$"Xóa giá trị thông số '{paramName}' của mặt hàng ID {itemId}"
-			);
-
-			return new { message = "Xóa thành công", id = id };
-		}
+		
 
 		// =====================================================================
 		// PRIVATE VALIDATORS

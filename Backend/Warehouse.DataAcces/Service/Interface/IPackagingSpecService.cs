@@ -9,6 +9,7 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<PackagingSpecResponse> GetPackagingSpecByIdAsync(long specId);
         Task<PackagingSpecResponse> CreatePackagingSpecAsync(CreatePackagingSpecRequest request, long currentUserId);
         Task<PackagingSpecResponse> UpdatePackagingSpecAsync(long specId, UpdatePackagingSpecRequest request, long currentUserId);
-        Task<bool> DeletePackagingSpecAsync(long specId, long currentUserId);
+        Task<PackagingSpecResponse> TogglePackagingSpecStatusAsync(long specId, bool isActive, long currentUserId);
+      
     }
 }

@@ -25,4 +25,11 @@
     <ProjectReference Include="..\Warehouse.Api\Warehouse.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Approvals\" />
+    <Folder Include="ItemParameterValue\" />
+    <Folder Include="ItemParameter\" />
+    <Folder Include="PackagingSpec\" />
+  </ItemGroup>
+
 </Project>

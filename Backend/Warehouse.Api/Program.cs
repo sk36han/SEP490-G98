@@ -92,6 +92,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IItemParameterService, ItemParameterService>();
             builder.Services.AddScoped<IItemParameterValueService, ItemParameterValueService>();
             builder.Services.AddScoped<IPackagingSpecService, PackagingSpecService>();
+            builder.Services.AddScoped<IApprovalService, ApprovalService>();
 
 
 			// JWT Authentication

@@ -23,8 +23,6 @@ namespace Warehouse.DataAcces.Service.Interface
 
 		Task CreateForRolesAsync(IEnumerable<string> roleCodes, string title, string message, string? refType = null, long? refId = null, long? excludeUserId = null, string? type = null, byte severity = 0, DateTime? expiresAt = null);
 
-		Task SoftDeleteAsync(long notificationId, long userId);
-
-		Task SoftDeleteAllAsync(long userId);
+		
 	}
 }

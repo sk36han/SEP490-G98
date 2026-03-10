@@ -8,6 +8,6 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<object> GetItemParameterValuesByItemIdAsync(long itemId);
         Task<object> GetItemParameterValueByIdAsync(long id);
         Task<object> UpdateItemParameterValueAsync(long id, UpdateItemParameterValueRequest request, long currentUserId);
-        Task<object> DeleteItemParameterValueAsync(long id, long currentUserId);
+       
     }
 }
