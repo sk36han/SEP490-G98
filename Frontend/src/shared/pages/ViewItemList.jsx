@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Box,
+    Card,
+    CardContent,
     Button,
     Typography,
     IconButton,
@@ -22,22 +24,9 @@ import {
     Select,
     MenuItem,
     Chip,
-    Paper,
+    CircularProgress,
 } from '@mui/material';
-import {
-    Package,
-    Download,
-    Eye,
-    Plus,
-    Columns,
-    Filter,
-    Edit,
-    Check,
-    X,
-    Power,
-    RefreshCw,
-    GripVertical,
-} from 'lucide-react';
+import { Package, Download, Eye, Plus, Columns, Filter, Edit, Check, X, Power, RefreshCw } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import SearchInput from '../components/SearchInput';
@@ -74,8 +63,8 @@ const ITEM_LIST_COLUMNS = [
     { id: 'category', label: 'Category', getValue: (row) => row.categoryName ?? '-' },
     { id: 'inventoryAccount', label: 'Tài khoản kho', getValue: (row) => row.inventoryAccount ?? '-' },
     { id: 'revenueAccount', label: 'Tài khoản doanh thu', getValue: (row) => row.revenueAccount ?? '-' },
-    { id: 'sellableQty', label: 'Có thể bán', getValue: (row) => getSellableQty(row).toLocaleString('vi-VN') },
-    { id: 'onHandQty', label: 'Tồn kho', getValue: (row) => (row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-') },
+    { id: 'sellableQty', label: 'Số lượng có thể bán', getValue: (row) => getSellableQty(row).toLocaleString('vi-VN') },
+    { id: 'onHandQty', label: 'Số lượng tồn kho', getValue: (row) => (row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-') },
     { id: 'purchasePrice', label: 'Giá nhập', getValue: (row) => formatPrice(row.purchasePrice) },
     { id: 'salePrice', label: 'Giá xuất', getValue: (row) => formatPrice(row.salePrice) },
     { id: 'createdAt', label: 'Được tạo vào', getValue: (row) => row.createdAt ?? '' },
@@ -87,126 +76,65 @@ const ITEM_LIST_COLUMNS = [
 ];
 
 const ACCOUNTANT_ONLY_COLUMN_IDS = ['inventoryAccount', 'revenueAccount', 'purchasePrice', 'salePrice'];
-const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemName', 'itemType', 'sellableQty', 'onHandQty', 'actions'];
-const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
-const LS_COL_ORDER = 'itemColumnOrder';
+const BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS = ['stt', 'thumbnail', 'itemCode', 'itemType', 'sellableQty', 'onHandQty', 'actions'];
+const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const COLUMN_BORDER = '1px solid #e5e7eb';
-
-const SELECTION_COL_WIDTH = 56;
-const STT_COL_WIDTH = 60;
-const THUMBNAIL_COL_WIDTH = 120;
-const ACTIONS_COL_WIDTH = 136;
-
-const FIXED_COLUMN_WIDTHS = {
-    stt: STT_COL_WIDTH,
-    thumbnail: THUMBNAIL_COL_WIDTH,
-    actions: ACTIONS_COL_WIDTH,
-};
-
-const BODY_CELL_SX = {
-    py: 1.25,
-    px: 2,
-    fontSize: '13px',
-    lineHeight: '20px',
-    verticalAlign: 'middle',
-    borderBottom: '1px solid #f3f4f6',
-    color: '#374151',
-    boxSizing: 'border-box',
-};
-
-const CHECKBOX_CELL_SX = {
-    ...BODY_CELL_SX,
-    width: SELECTION_COL_WIDTH,
-    minWidth: SELECTION_COL_WIDTH,
-    maxWidth: SELECTION_COL_WIDTH,
-    px: 1.5,
-};
-
-const STT_COLUMN_SX = {
-    width: STT_COL_WIDTH,
-    minWidth: STT_COL_WIDTH,
-    maxWidth: STT_COL_WIDTH,
-    fontVariantNumeric: 'tabular-nums',
-    boxSizing: 'border-box',
-};
-
+/** Full quyền Item: tất cả role trừ ADMIN và Giám đốc */
 const canCreateOrEditItems = (permissionRole) =>
     ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(permissionRole);
-
 const showAccountantColumnsForRole = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
+/** Trọng số cột để chia % độ rộng: STT/Ảnh nhỏ, Tên/Mô tả lớn hơn */
 const getColumnWeight = (colId) => {
     switch (colId) {
+        case 'stt':
+            return 0.6;
+        case 'thumbnail':
+            return 1;
         case 'itemCode':
-            return 1.3;
+            return 1.2;
         case 'itemName':
-            return 3.5;
+            return 2.2;
         case 'itemType':
-            return 1.8;
+            return 1;
         case 'description':
-            return 2.4;
+            return 2;
         case 'category':
-            return 1.4;
+            return 1.2;
         case 'inventoryAccount':
         case 'revenueAccount':
-            return 1.4;
+            return 1.2;
         case 'sellableQty':
         case 'onHandQty':
-            return 1.1;
+            return 1.2;
         case 'purchasePrice':
         case 'salePrice':
-            return 1.7;
+            return 1.2;
         case 'createdAt':
         case 'updatedAt':
-            return 1.7;
+            return 1.2;
         case 'requiresCO':
         case 'requiresCQ':
-            return 1;
+            return 0.8;
         case 'isActive':
-            return 1.8;
+            return 1.4;
+        case 'actions':
+            return 1.4;
         default:
             return 1;
     }
 };
 
-// Chỉ căn giữa cho cột số và cột đặc biệt (stt, ảnh, Có/Không). Cột text căn trái.
-const getColumnAlign = (colId) => {
-    if (colId === 'actions') return 'right';
-    if (
-        [
-            'stt',
-            'thumbnail',
-            'requiresCO',
-            'requiresCQ',
-            'sellableQty',
-            'onHandQty',
-            'purchasePrice',
-            'salePrice',
-        ].includes(colId)
-    ) {
-        return 'center';
-    }
-    return 'left';
-};
-
-const getHeaderJustifyContent = (colId) => {
-    if (colId === 'actions') return 'center'; // Tên cột "Thao tác" nằm giữa cột
-    const align = getColumnAlign(colId);
-    if (align === 'center') return 'center';
-    if (align === 'right') return 'flex-end';
-    return 'flex-start';
-};
-
-const getColumnCellSx = (colId, isAccountant) => {
-    if (colId === 'stt') return STT_COLUMN_SX;
-
+/** Sx cho ô cột: vừa khung (widthPct từ component), không tràn, ellipsis khi dài */
+const getColumnCellSx = (colId, isAccountant, widthPct) => {
     const accountantCol = ACCOUNTANT_ONLY_COLUMN_IDS.includes(colId);
 
     const base = {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
+        width: `${widthPct}%`,
+        maxWidth: `${widthPct}%`,
         boxSizing: 'border-box',
         ...(accountantCol && isAccountant
             ? {
@@ -220,8 +148,6 @@ const getColumnCellSx = (colId, isAccountant) => {
     switch (colId) {
         case 'itemCode':
             return { ...base, fontWeight: 600 };
-        case 'itemName':
-            return { ...base, fontWeight: 500 };
         case 'sellableQty':
         case 'onHandQty':
         case 'purchasePrice':
@@ -229,7 +155,7 @@ const getColumnCellSx = (colId, isAccountant) => {
             return { ...base, fontVariantNumeric: 'tabular-nums' };
         case 'createdAt':
         case 'updatedAt':
-            return { ...base, fontSize: '0.8rem' };
+            return { ...base, fontSize: '0.8rem', whiteSpace: 'pre-line' };
         case 'actions':
             return { ...base, overflow: 'visible' };
         default:
@@ -259,35 +185,12 @@ const ViewItemList = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(7);
+    const [pageSize, setPageSize] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
-    const activeFilterCount = useMemo(
-        () => Object.values(filterValues || {}).filter((v) => v !== undefined && v !== null && v !== '').length,
-        [filterValues],
-    );
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(defaultVisibleIds));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [selectedIds, setSelectedIds] = useState(new Set());
-    const [columnOrder, setColumnOrder] = useState(() => {
-        try {
-            const allIds = ITEM_LIST_COLUMNS.map((c) => c.id);
-            const saved = JSON.parse(localStorage.getItem(LS_COL_ORDER));
-            if (Array.isArray(saved) && saved.length > 0) {
-                const validIds = new Set(allIds);
-                const filtered = saved.filter((id) => validIds.has(id));
-                const missing = allIds.filter((id) => !filtered.includes(id));
-                return [...filtered, ...missing];
-            }
-            return allIds;
-        } catch {
-            return ITEM_LIST_COLUMNS.map((c) => c.id);
-        }
-    });
-    const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
-    const [draggedColumn, setDraggedColumn] = useState(null);
-    const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
@@ -312,11 +215,6 @@ const ViewItemList = () => {
         fetchItems();
     }, [fetchItems]);
 
-    useEffect(() => {
-        setPage(0);
-        setSelectedIds(new Set());
-    }, [searchTerm, filterValues]);
-
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
             const next = new Set(prev);
@@ -330,41 +228,20 @@ const ViewItemList = () => {
         setVisibleColumnIds(checked ? new Set(effectiveItemColumns.map((c) => c.id)) : new Set());
     };
 
-    const visibleColumns = useMemo(
-        () =>
-            columnOrder
-                .map((id) => effectiveItemColumns.find((c) => c.id === id))
-                .filter((c) => c && visibleColumnIds.has(c.id)),
-        [columnOrder, effectiveItemColumns, visibleColumnIds]
-    );
-
-    const flexVisibleColumns = useMemo(
-        () => visibleColumns.filter((col) => !FIXED_COLUMN_WIDTHS[col.id]),
-        [visibleColumns]
-    );
-
-    const totalFlexWeight = useMemo(
-        () => flexVisibleColumns.reduce((sum, col) => sum + getColumnWeight(col.id), 0),
-        [flexVisibleColumns]
-    );
-
-    const getColumnWidthStyle = useCallback(
-        (colId) => {
-            if (FIXED_COLUMN_WIDTHS[colId]) {
-                return { width: `${FIXED_COLUMN_WIDTHS[colId]}px` };
-            }
-
-            const pct = totalFlexWeight > 0 ? (getColumnWeight(colId) / totalFlexWeight) * 100 : 0;
-            return { width: `${pct}%` };
-        },
-        [totalFlexWeight]
-    );
-
+    const visibleColumns = effectiveItemColumns.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
+    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
+    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
     useEffect(() => {
-        if (columnSelectorOpen) setTempColumnOrder(columnOrder);
-    }, [columnSelectorOpen, columnOrder]);
+        const brandNameFromState = location.state?.brandName;
+        if (brandNameFromState) {
+            queueMicrotask(() => {
+                setSearchTerm(String(brandNameFromState));
+                setPage(0);
+            });
+        }
+    }, [location.state?.brandName]);
 
     const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
 
@@ -425,124 +302,6 @@ const ViewItemList = () => {
         return { filteredItems: result.slice(start, start + pageSize), totalCount: total };
     }, [items, searchTerm, filterValues, page, pageSize]);
 
-    const handleSelectAll = (checked) => {
-        setSelectedIds(checked ? new Set(filteredItems.map((it) => it.itemId)) : new Set());
-    };
-
-    const handleSelectRow = (id, checked) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            checked ? next.add(id) : next.delete(id);
-            return next;
-        });
-    };
-
-    const isAllSelected = filteredItems.length > 0 && filteredItems.every((it) => selectedIds.has(it.itemId));
-    const isSomeSelected = filteredItems.some((it) => selectedIds.has(it.itemId)) && !isAllSelected;
-
-    const handleDragStart = (e, colId) => {
-        setDraggedColumn(colId);
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', colId);
-    };
-
-    const handleDragEnd = () => setDraggedColumn(null);
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-    };
-
-    const handleDrop = (e, targetId) => {
-        e.preventDefault();
-        const sourceId = e.dataTransfer.getData('text/plain') || draggedColumn;
-        if (!sourceId || sourceId === targetId) {
-            setDraggedColumn(null);
-            return;
-        }
-
-        const arr = [...columnOrder];
-        const from = arr.indexOf(sourceId);
-        const to = arr.indexOf(targetId);
-
-        if (from === -1 || to === -1) {
-            setDraggedColumn(null);
-            return;
-        }
-
-        arr.splice(from, 1);
-        arr.splice(to, 0, sourceId);
-        setColumnOrder(arr);
-        localStorage.setItem(LS_COL_ORDER, JSON.stringify(arr));
-        setDraggedColumn(null);
-    };
-
-    const handlePopupDragStart = (e, colId) => {
-        setDraggedPopupColumn(colId);
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', colId);
-    };
-
-    const handlePopupDragEnd = () => setDraggedPopupColumn(null);
-
-    const handlePopupDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-    };
-
-    const handlePopupDrop = (e, targetId) => {
-        e.preventDefault();
-        const sourceId = e.dataTransfer.getData('text/plain') || draggedPopupColumn;
-        if (!sourceId || sourceId === targetId) {
-            setDraggedPopupColumn(null);
-            return;
-        }
-
-        const arr = [...tempColumnOrder];
-        const from = arr.indexOf(sourceId);
-        const to = arr.indexOf(targetId);
-
-        if (from === -1 || to === -1) {
-            setDraggedPopupColumn(null);
-            return;
-        }
-
-        arr.splice(from, 1);
-        arr.splice(to, 0, sourceId);
-        setTempColumnOrder(arr);
-        setDraggedPopupColumn(null);
-    };
-
-    const handleSaveColumnOrder = () => {
-        setColumnOrder(tempColumnOrder);
-        localStorage.setItem(LS_COL_ORDER, JSON.stringify(tempColumnOrder));
-        setColumnSelectorAnchor(null);
-    };
-
-    const handleCancelColumnOrder = () => {
-        setTempColumnOrder(columnOrder);
-        setColumnSelectorAnchor(null);
-    };
-
-    useEffect(() => {
-        const brandNameFromState = location.state?.brandName;
-        const categoryNameFromState = location.state?.categoryName;
-
-        if (brandNameFromState) {
-            queueMicrotask(() => {
-                setSearchTerm(String(brandNameFromState));
-                setPage(0);
-            });
-        }
-
-        if (categoryNameFromState) {
-            queueMicrotask(() => {
-                setFilterValues((prev) => ({ ...prev, categoryName: String(categoryNameFromState) }));
-                setPage(0);
-            });
-        }
-    }, [location.state?.brandName, location.state?.categoryName]);
-
     const handleSearchTermChange = (e) => {
         setSearchTerm(e.target.value);
         setPage(0);
@@ -583,7 +342,11 @@ const ViewItemList = () => {
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
         const d = new Date(dateStr);
-        return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        return (
+            d.toLocaleDateString('vi-VN') +
+            '\n' +
+            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        );
     };
 
     return (
@@ -592,70 +355,36 @@ const ViewItemList = () => {
                 height: '100%',
                 minHeight: 0,
                 minWidth: 0,
-                overflow: 'visible',
+                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                pt: 0,
-                pb: 2,
-                width: '100%',
-                maxWidth: '100%',
-                ml: 0,
-                mr: 0,
-                boxSizing: 'border-box',
+                bgcolor: '#fafafa',
             }}
         >
             <Box
                 sx={{
                     flexShrink: 0,
-                    mb: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    textAlign: 'left',
+                    px: { xs: 2, sm: 2 },
+                    py: 2.5,
+                    bgcolor: '#fafafa',
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Typography
-                        variant="h4"
+                        variant="h5"
                         component="h1"
-                        fontWeight="800"
-                        sx={{
-                            background: isAccountant
-                                ? 'linear-gradient(45deg, #2E7D32 20%, #66BB6A 90%)'
-                                : 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                            backgroundClip: 'text',
-                            textFillColor: 'transparent',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            whiteSpace: 'nowrap',
-                        }}
+                        fontWeight="600"
+                        sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
                     >
                         Danh sách vật tư
                     </Typography>
-
-                    {isAccountant && (
-                        <Chip
-                            label="Kế toán"
-                            size="small"
-                            sx={{
-                                fontWeight: 600,
-                                bgcolor: 'success.light',
-                                color: 'success.dark',
-                                border: '1px solid',
-                                borderColor: 'success.main',
-                            }}
-                        />
-                    )}
                 </Box>
 
                 <Typography
-                    variant="body1"
-                    color="text.secondary"
-                    sx={{ maxWidth: 600, wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                    variant="body2"
+                    sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}
                 >
-                    {isAccountant
-                        ? 'Xem danh sách vật tư và giá bán. Tìm kiếm, lọc và xuất Excel để báo cáo.'
-                        : 'Xem và quản lý tất cả vật tư/sản phẩm. Tìm kiếm theo mã, tên, loại, mô tả, danh mục, thương hiệu.'}
+                    {isAccountant ? 'Items' : 'Item list'}
                 </Typography>
             </Box>
 
@@ -666,773 +395,629 @@ const ViewItemList = () => {
                 onApply={handleFilterApply}
             />
 
-            <Paper
+            <Box
                 className="list-view"
-                elevation={0}
                 sx={{
                     flex: 1,
                     minHeight: 0,
+                    minWidth: 0,
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '12px',
-                    bgcolor: '#ffffff',
+                    width: '100%',
+                    maxWidth: '100%',
+                    px: { xs: 2, sm: 2 },
+                    pb: 2,
+                    boxSizing: 'border-box',
                 }}
             >
-                <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #f3f4f6' }}>
-                    <Box
+                {/* Khung bao quanh giống Paper ở ViewPurchaseOrderList */}
+                <Box
+                    sx={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '12px',
+                        bgcolor: '#ffffff',
+                    }}
+                >
+                <Card
+                    className="list-filter-card"
+                    sx={{
+                        mb: 0,
+                        borderRadius: '12px 12px 0 0',
+                        border: 'none',
+                        borderBottom: '1px solid #f3f4f6',
+                        boxShadow: 'none',
+                    }}
+                >
+                    <CardContent
                         sx={{
-                            display: 'flex',
-                            flexDirection: isMobile ? 'column' : 'row',
-                            gap: 1.5,
-                            alignItems: isMobile ? 'stretch' : 'center',
-                            flexWrap: 'wrap',
+                            '&.MuiCardContent-root:last-child': { pb: 1.5 },
+                            pt: 2,
+                            px: 2,
                         }}
                     >
-                        <SearchInput
-                            placeholder="Tìm kiếm theo mã, tên, loại, mô tả, danh mục, thương hiệu…"
-                            value={searchTerm}
-                            onChange={handleSearchTermChange}
-                            sx={{
-                                flex: '1 1 200px',
-                                minWidth: isMobile ? '100%' : 200,
-                                maxWidth: isMobile ? '100%' : 480,
-                                '& .MuiOutlinedInput-root': {
-                                    bgcolor: '#f3f4f6',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '10px',
-                                    fontSize: '13px',
-                                    '& fieldset': { border: 'none' },
-                                    '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                    '&.Mui-focused': {
-                                        bgcolor: '#ffffff',
-                                        borderColor: '#0284c7',
-                                        boxShadow: '0 0 0 3px rgba(2,132,199,0.10)',
-                                    },
-                                    '& input::placeholder': { color: '#9ca3af', fontSize: '13px' },
-                                },
-                            }}
-                        />
-
-                        <Tooltip title="Bộ lọc">
-                            <IconButton
-                                color="primary"
-                                onClick={() => setFilterOpen(true)}
-                                aria-label="Bộ lọc"
-                                sx={{
-                                    border: '1px solid #e5e7eb',
-                                    bgcolor: '#ffffff',
-                                    borderRadius: '10px',
-                                    position: 'relative',
-                                    '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                }}
-                            >
-                                <Filter size={18} />
-                                {activeFilterCount > 0 && (
-                                    <Box
-                                        sx={{
-                                            position: 'absolute',
-                                            top: 4,
-                                            right: 4,
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: '50%',
-                                            bgcolor: '#0284c7',
-                                        }}
-                                    />
-                                )}
-                            </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title="Chọn cột hiển thị">
-                            <IconButton
-                                color="primary"
-                                onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
-                                aria-label="Chọn cột"
-                                sx={{
-                                    border: '1px solid #e5e7eb',
-                                    bgcolor: '#ffffff',
-                                    borderRadius: '10px',
-                                    '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                }}
-                            >
-                                <Columns size={18} />
-                            </IconButton>
-                        </Tooltip>
-
                         <Box
                             sx={{
                                 display: 'flex',
+                                flexDirection: isMobile ? 'column' : 'row',
                                 gap: 1.5,
-                                alignItems: 'center',
-                                ml: isMobile ? 0 : 'auto',
+                                alignItems: isMobile ? 'stretch' : 'center',
                                 flexWrap: 'wrap',
                             }}
                         >
-                            <Tooltip title={isAccountant ? 'Xuất Excel để báo cáo (Kế toán)' : 'Xuất danh sách vật tư ra Excel'}>
-                                <Button
-                                    variant={isAccountant ? 'contained' : 'outlined'}
-                                    color={isAccountant ? 'success' : 'primary'}
-                                    startIcon={<Download size={18} />}
-                                    onClick={handleExport}
-                                    sx={{
-                                        fontSize: '13px',
-                                        fontWeight: 500,
-                                        textTransform: 'none',
+                            <SearchInput
+                                placeholder="Tìm kiếm theo mã, tên, loại, mô tả, danh mục, thương hiệu…"
+                                value={searchTerm}
+                                onChange={handleSearchTermChange}
+                                sx={{
+                                    flex: '1 1 200px',
+                                    minWidth: isMobile ? '100%' : 200,
+                                    maxWidth: isMobile ? '100%' : 480,
+                                    '& .MuiOutlinedInput-root': {
+                                        bgcolor: '#f3f4f6',
+                                        border: '1px solid #e5e7eb',
                                         borderRadius: '10px',
-                                        height: 38,
-                                        px: 2.5,
-                                        borderColor: isAccountant ? undefined : '#e5e7eb',
-                                        '&:hover': { bgcolor: isAccountant ? undefined : '#f9fafb' },
-                                    }}
-                                >
-                                    Xuất Excel
-                                </Button>
-                            </Tooltip>
+                                        fontSize: '13px',
+                                        '& fieldset': {
+                                            border: 'none',
+                                        },
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                        '&.Mui-focused': {
+                                            bgcolor: '#ffffff',
+                                            borderColor: '#3b82f6',
+                                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                        },
+                                        '& input::placeholder': {
+                                            color: '#9ca3af',
+                                            fontSize: '13px',
+                                        },
+                                    },
+                                }}
+                            />
 
-                            <Tooltip title="Làm mới danh sách">
+                            <Tooltip title="Bộ lọc">
                                 <IconButton
-                                    onClick={() => fetchItems()}
-                                    disabled={loading}
-                                    aria-label="Làm mới"
+                                    color="primary"
+                                    onClick={() => setFilterOpen(true)}
+                                    aria-label="Bộ lọc"
                                     sx={{
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
                                         borderRadius: '10px',
-                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                    }}
-                                >
-                                    <RefreshCw size={18} />
-                                </IconButton>
-                            </Tooltip>
-
-                            {canCreateEdit && (
-                                <Button
-                                    variant="contained"
-                                    startIcon={<Plus size={18} />}
-                                    onClick={() => navigate('/items/create')}
-                                    sx={{
-                                        fontSize: '13px',
-                                        fontWeight: 500,
-                                        textTransform: 'none',
-                                        borderRadius: '10px',
-                                        height: 38,
-                                        px: 2.5,
-                                        bgcolor: '#0284c7',
-                                        boxShadow: '0 1px 2px rgba(2,132,199,0.25)',
                                         '&:hover': {
-                                            bgcolor: '#0369a1',
-                                            boxShadow: '0 4px 12px rgba(2,132,199,0.30)',
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
                                         },
                                     }}
                                 >
-                                    Tạo thêm vật tư
-                                </Button>
-                            )}
+                                    <Filter size={20} />
+                                </IconButton>
+                            </Tooltip>
+
+                            <Tooltip title="Chọn cột hiển thị">
+                                <IconButton
+                                    color="primary"
+                                    onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
+                                    aria-label="Chọn cột"
+                                    sx={{
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
+                                >
+                                    <Columns size={20} />
+                                </IconButton>
+                            </Tooltip>
+
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    gap: 1.5,
+                                    alignItems: 'center',
+                                    ml: isMobile ? 0 : 'auto',
+                                    flexWrap: 'wrap',
+                                }}
+                            >
+                                <Tooltip title="Xuất danh sách vật tư ra Excel">
+                                    <Button
+                                        className="list-page-btn"
+                                        variant="outlined"
+                                        color="primary"
+                                        startIcon={<Download size={18} />}
+                                        onClick={handleExport}
+                                        sx={{
+                                            fontSize: 13,
+                                            fontWeight: 500,
+                                            textTransform: 'none',
+                                            borderRadius: 10,
+                                            minHeight: 38,
+                                            px: 2.5,
+                                        }}
+                                    >
+                                        Xuất Excel
+                                    </Button>
+                                </Tooltip>
+
+                                {canCreateEdit && (
+                                    <Button
+                                        className="list-page-btn"
+                                        variant="contained"
+                                        startIcon={<Plus size={18} />}
+                                        onClick={() => navigate('/items/create')}
+                                        sx={{
+                                            fontSize: 13,
+                                            fontWeight: 500,
+                                            textTransform: 'none',
+                                            borderRadius: 10,
+                                            minHeight: 38,
+                                            px: 2.5,
+                                            bgcolor: '#0284c7',
+                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                            '&:hover': {
+                                                bgcolor: '#0369a1',
+                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                            },
+                                        }}
+                                    >
+                                        Tạo thêm vật tư
+                                    </Button>
+                                )}
+                            </Box>
                         </Box>
-                    </Box>
-                </Box>
+                    </CardContent>
+                </Card>
 
                 <Popover
                     open={columnSelectorOpen}
                     anchorEl={columnSelectorAnchor}
-                    onClose={handleCancelColumnOrder}
+                    onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{
-                        paper: {
-                            elevation: 0,
-                            sx: {
-                                mt: 1,
-                                width: 340,
-                                maxHeight: '70vh',
-                                borderRadius: '14px',
-                                border: '1px solid rgba(0,0,0,0.08)',
-                                boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
-                                overflow: 'hidden',
-                                display: 'flex',
-                                flexDirection: 'column',
-                            },
-                        },
-                    }}
+                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
                 >
-                    <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
-                        <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
-                            Chọn cột & Sắp xếp
-                        </Typography>
-                    </Box>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
+                        Chọn cột hiển thị
+                    </Typography>
 
-                    <Box
-                        sx={{
-                            px: 2.5,
-                            py: 2,
-                            flex: 1,
-                            minHeight: 0,
-                            overflowY: 'auto',
-                            '&::-webkit-scrollbar': { width: '6px' },
-                            '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px' },
-                        }}
-                    >
-                        <FormGroup>
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        checked={effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))}
-                                        indeterminate={
-                                            visibleColumnIds.size > 0 &&
-                                            !effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))
-                                        }
-                                        onChange={(e) => handleSelectAllItemColumns(e.target.checked)}
-                                        sx={{
-                                            color: '#9ca3af',
-                                            '&.Mui-checked': { color: '#0284c7' },
-                                            '&.MuiCheckbox-indeterminate': { color: '#0284c7' },
-                                        }}
-                                    />
-                                }
-                                label={
-                                    <Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
-                                        Tất cả
-                                    </Typography>
-                                }
-                                sx={{ mb: 1, py: 0.5 }}
-                            />
-
-                            {effectiveItemColumns
-                                .slice()
-                                .sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id))
-                                .map((col) => (
-                                    <Box
-                                        key={col.id}
-                                        sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 1,
-                                            bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
-                                            opacity: draggedPopupColumn === col.id ? 0.5 : 1,
-                                            borderRadius: '8px',
-                                            px: 0.75,
-                                            py: 0.25,
-                                            '&:hover': { bgcolor: '#f9fafb' },
-                                        }}
-                                        onDragOver={handlePopupDragOver}
-                                        onDrop={(e) => handlePopupDrop(e, col.id)}
-                                    >
-                                        <Box
-                                            draggable
-                                            onDragStart={(e) => handlePopupDragStart(e, col.id)}
-                                            onDragEnd={handlePopupDragEnd}
-                                            sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                cursor: 'grab',
-                                                '&:active': { cursor: 'grabbing' },
-                                                color: '#9ca3af',
-                                                '&:hover': { color: '#6b7280' },
-                                            }}
-                                        >
-                                            <GripVertical size={14} />
-                                        </Box>
-
-                                        <FormControlLabel
-                                            control={
-                                                <Checkbox
-                                                    checked={visibleColumnIds.has(col.id)}
-                                                    onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                                    sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#0284c7' } }}
-                                                />
-                                            }
-                                            label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
-                                            sx={{ flex: 1, m: 0, py: 0.5 }}
+                    <FormGroup>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))}
+                                    indeterminate={
+                                        visibleColumnIds.size > 0 &&
+                                        !effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))
+                                    }
+                                    onChange={(e) => handleSelectAllItemColumns(e.target.checked)}
+                                />
+                            }
+                            label="Tất cả"
+                        />
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateRows: 'repeat(5, auto)',
+                                gridAutoFlow: 'column',
+                                gap: '2px 20px',
+                                alignContent: 'start',
+                                mt: 0.5,
+                            }}
+                        >
+                            {effectiveItemColumns.map((col) => (
+                                <FormControlLabel
+                                    key={col.id}
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.has(col.id)}
+                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
                                         />
-                                    </Box>
-                                ))}
-                        </FormGroup>
-                    </Box>
-
-                    <Box
-                        sx={{
-                            px: 2.5,
-                            py: 2,
-                            display: 'flex',
-                            gap: 1.5,
-                            borderTop: '1px solid #f3f4f6',
-                            flexShrink: 0,
-                        }}
-                    >
-                        <Button
-                            variant="outlined"
-                            onClick={handleCancelColumnOrder}
-                            sx={{
-                                flex: 1,
-                                textTransform: 'none',
-                                fontSize: '13px',
-                                fontWeight: 500,
-                                height: 38,
-                                borderRadius: '10px',
-                                borderColor: '#e5e7eb',
-                                color: '#6b7280',
-                                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                            }}
-                        >
-                            Hủy
-                        </Button>
-
-                        <Button
-                            variant="contained"
-                            onClick={handleSaveColumnOrder}
-                            sx={{
-                                flex: 1,
-                                textTransform: 'none',
-                                fontSize: '13px',
-                                fontWeight: 500,
-                                height: 38,
-                                borderRadius: '10px',
-                                bgcolor: '#0284c7',
-                                boxShadow: 'none',
-                                '&:hover': { bgcolor: '#0369a1', boxShadow: '0 2px 8px rgba(2,132,199,0.25)' },
-                            }}
-                        >
-                            Lưu
-                        </Button>
-                    </Box>
+                                    }
+                                    label={col.label}
+                                />
+                            ))}
+                        </Box>
+                    </FormGroup>
                 </Popover>
 
-                <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    {loading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, py: 8 }}>
-                            <Typography sx={{ fontSize: '14px', color: '#9ca3af' }}>Đang tải…</Typography>
-                        </Box>
-                    ) : error ? (
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flex: 1,
-                                gap: 1.5,
-                            }}
-                        >
-                            <Package size={40} style={{ color: '#d1d5db' }} />
-                            <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>
-                                Không thể tải danh sách vật tư
-                            </Typography>
-                            <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>{error}</Typography>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={fetchItems}
+                <Card
+                    className="list-grid-card"
+                    sx={{
+                        flex: 1,
+                        minHeight: 0,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: 0,
+                        border: 'none',
+                        boxShadow: 'none',
+                        p: 0,
+                    }}
+                >
+                    <Box
+                        className="list-grid-wrapper"
+                        sx={{
+                            flex: 1,
+                            minHeight: 0,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            position: 'relative',
+                        }}
+                    >
+                        {loading ? (
+                            <Box
                                 sx={{
-                                    mt: 0.5,
-                                    fontSize: '13px',
-                                    textTransform: 'none',
-                                    borderRadius: '8px',
-                                    borderColor: 'rgba(2,132,199,0.30)',
-                                    color: '#0284c7',
-                                    '&:hover': { bgcolor: 'rgba(2,132,199,0.06)' },
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    py: 8,
+                                    color: 'text.secondary',
                                 }}
                             >
-                                Thử lại
-                            </Button>
-                        </Box>
-                    ) : filteredItems.length === 0 ? (
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flex: 1,
-                                gap: 1,
-                                color: 'text.secondary',
-                            }}
-                        >
-                            <Package size={48} style={{ marginBottom: 8, opacity: 0.35 }} />
-                            <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu vật tư</Typography>
-                        </Box>
-                    ) : (
-                        <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                            <Table size="small" stickyHeader sx={{ width: '100%', minWidth: 1080, tableLayout: 'fixed' }}>
-                                <colgroup>
-                                    <col style={{ width: `${SELECTION_COL_WIDTH}px` }} />
-                                    {visibleColumns.map((col) => (
-                                        <col key={col.id} style={getColumnWidthStyle(col.id)} />
-                                    ))}
-                                </colgroup>
-
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell
-                                            padding="checkbox"
-                                            sx={{
-                                                fontWeight: 600,
-                                                bgcolor: '#fafafa',
-                                                width: SELECTION_COL_WIDTH,
-                                                minWidth: SELECTION_COL_WIDTH,
-                                                maxWidth: SELECTION_COL_WIDTH,
-                                                borderBottom: '2px solid #e5e7eb',
-                                                fontSize: '12px',
-                                                px: 1.5,
-                                            }}
-                                        >
-                                            <Checkbox
-                                                checked={isAllSelected}
-                                                indeterminate={isSomeSelected}
-                                                onChange={(e) => handleSelectAll(e.target.checked)}
-                                                size="small"
-                                            />
-                                        </TableCell>
-
-                                        {visibleColumns.map((col) => {
-                                            const align = getColumnAlign(col.id);
-
-                                            return (
+                                <CircularProgress size={40} sx={{ mb: 2 }} />
+                                <Typography variant="body2">Đang tải danh sách vật tư…</Typography>
+                            </Box>
+                        ) : error ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    py: 6,
+                                    color: 'error.main',
+                                    textAlign: 'center',
+                                    px: 2,
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ mb: 2 }}>
+                                    {error}
+                                </Typography>
+                                <Button variant="outlined" size="small" onClick={() => fetchItems()} sx={{ textTransform: 'none' }}>
+                                    Thử lại
+                                </Button>
+                            </Box>
+                        ) : filteredItems.length === 0 ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    py: 6,
+                                    px: 2,
+                                    color: 'text.secondary',
+                                }}
+                            >
+                                <Package size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                                <Typography>Chưa có dữ liệu vật tư</Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer
+                                sx={{
+                                    flex: 1,
+                                    minHeight: 0,
+                                    minWidth: 0,
+                                    width: '100%',
+                                    maxWidth: '100%',
+                                    overflow: 'auto',
+                                    boxSizing: 'border-box',
+                                }}
+                            >
+                                <Table
+                                    size="small"
+                                    stickyHeader
+                                    sx={{
+                                        width: '100%',
+                                        tableLayout: 'fixed',
+                                    }}
+                                >
+                                    <TableHead>
+                                        <TableRow>
+                                            {visibleColumns.map((col) => (
                                                 <TableCell
                                                     key={col.id}
-                                                    align={align}
                                                     sx={{
+                                                        ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
                                                         fontWeight: 600,
-                                                        bgcolor: draggedColumn === col.id ? '#f3f4f6' : '#fafafa',
-                                                        opacity: draggedColumn === col.id ? 0.5 : 1,
-                                                        transition: 'all 0.2s',
-                                                        borderBottom: '2px solid #e5e7eb',
                                                         fontSize: '12px',
-                                                        color: '#6b7280',
-                                                        py: 1.5,
-                                                        px: 2,
+                                                        borderBottom: '2px solid #e5e7eb',
+                                                        bgcolor:
+                                                            isAccountant && ACCOUNTANT_ONLY_COLUMN_IDS.includes(col.id)
+                                                                ? 'success.50'
+                                                                : '#fafafa',
                                                     }}
-                                                    onDragOver={handleDragOver}
-                                                    onDrop={(e) => handleDrop(e, col.id)}
+                                                    align={
+                                                        col.id === 'thumbnail' || col.id === 'requiresCO' || col.id === 'requiresCQ'
+                                                            ? 'center'
+                                                            : col.id === 'stt' ||
+                                                              col.id === 'salePrice' ||
+                                                              col.id === 'purchasePrice' ||
+                                                              col.id === 'onHandQty' ||
+                                                              col.id === 'sellableQty'
+                                                            ? 'center'
+                                                            : col.id === 'actions'
+                                                            ? 'right'
+                                                            : 'left'
+                                                    }
                                                 >
-                                                    <Box
-                                                        sx={{
-                                                            position: 'relative',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: getHeaderJustifyContent(col.id),
-                                                            width: '100%',
-                                                            minHeight: 20,
-                                                            '&:hover .drag-icon': { opacity: 0.6 },
-                                                        }}
-                                                    >
-                                                        <Box
-                                                            draggable
-                                                            onDragStart={(e) => handleDragStart(e, col.id)}
-                                                            onDragEnd={handleDragEnd}
-                                                            className="drag-icon"
-                                                            sx={{
-                                                                position: 'absolute',
-                                                                left: 0,
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                cursor: 'grab',
-                                                                '&:active': { cursor: 'grabbing' },
-                                                                color: '#9ca3af',
-                                                                opacity: 0,
-                                                                transition: 'opacity 0.2s',
-                                                            }}
-                                                        >
-                                                            <GripVertical size={14} />
-                                                        </Box>
-
-                                                        <Typography
-                                                            variant="inherit"
-                                                            sx={{
-                                                                flex: align === 'left' ? 1 : 'unset',
-                                                                textAlign: align,
-                                                            }}
-                                                        >
-                                                            {col.label}
-                                                        </Typography>
-                                                    </Box>
+                                                    {col.label}
                                                 </TableCell>
-                                            );
-                                        })}
-                                    </TableRow>
-                                </TableHead>
+                                            ))}
+                                        </TableRow>
+                                    </TableHead>
 
-                                <TableBody>
-                                    {filteredItems.map((item, index) => (
-                                        <TableRow
-                                            key={item.itemId}
-                                            hover
-                                            sx={{
-                                                '&:last-child td': { borderBottom: 0 },
-                                                '&:hover': { bgcolor: '#f9fafb' },
-                                                '& .MuiTableCell-root': BODY_CELL_SX,
-                                                '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
-                                            }}
-                                        >
-                                            <TableCell padding="checkbox">
-                                                <Checkbox
-                                                    checked={selectedIds.has(item.itemId)}
-                                                    onChange={(e) => handleSelectRow(item.itemId, e.target.checked)}
-                                                    size="small"
-                                                />
-                                            </TableCell>
+                                    <TableBody>
+                                        {filteredItems.map((item, index) => (
+                                            <TableRow key={item.itemId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                {visibleColumns.map((col) => {
+                                                    const opts = { pageNumber: page + 1, pageSize };
 
-                                            {visibleColumns.map((col) => {
-                                                const opts = { pageNumber: page + 1, pageSize };
-
-                                                if (col.id === 'stt') {
-                                                    return (
-                                                        <TableCell key={col.id} align="center" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                                                            {col.getValue(item, index, opts)}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'thumbnail') {
-                                                    return (
-                                                        <TableCell
-                                                            key={col.id}
-                                                            align="center"
-                                                            sx={{
-                                                                ...getColumnCellSx(col.id, isAccountant),
-                                                                py: 1,
-                                                                px: 2,
-                                                                verticalAlign: 'middle',
-                                                            }}
-                                                        >
-                                                            <Box
+                                                    if (col.id === 'stt') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="center"
                                                                 sx={{
-                                                                    width: 56,
-                                                                    height: 56,
-                                                                    borderRadius: 1.5,
-                                                                    overflow: 'hidden',
-                                                                    bgcolor: 'grey.100',
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    border: '1px solid',
-                                                                    borderColor: 'divider',
-                                                                    position: 'relative',
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    fontVariantNumeric: 'tabular-nums',
                                                                 }}
+                                                            >
+                                                                {col.getValue(item, index, opts)}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'thumbnail') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="center"
+                                                                sx={{ ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)), py: 0.75, verticalAlign: 'middle' }}
                                                             >
                                                                 <Box
                                                                     sx={{
-                                                                        position: 'absolute',
-                                                                        inset: 0,
-                                                                        display: 'flex',
+                                                                        width: 48,
+                                                                        height: 48,
+                                                                        borderRadius: 1.5,
+                                                                        overflow: 'hidden',
+                                                                        bgcolor: 'grey.100',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        border: '1px solid',
+                                                                        borderColor: 'divider',
+                                                                        position: 'relative',
+                                                                    }}
+                                                                >
+                                                                    <Box
+                                                                        sx={{
+                                                                            position: 'absolute',
+                                                                            inset: 0,
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                        }}
+                                                                    >
+                                                                        <Package size={22} style={{ color: '#9e9e9e' }} />
+                                                                    </Box>
+
+                                                                    {item.imageUrl && item.imageUrl.trim() && (
+                                                                        <img
+                                                                            src={item.imageUrl}
+                                                                            alt=""
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                height: '100%',
+                                                                                objectFit: 'cover',
+                                                                                position: 'relative',
+                                                                                zIndex: 1,
+                                                                            }}
+                                                                            loading="lazy"
+                                                                            onError={(e) => {
+                                                                                e.target.style.display = 'none';
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'itemCode') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                                {item.itemCode}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'description') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                                title={item.description ?? '-'}
+                                                            >
+                                                                {item.description ?? '-'}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'itemName') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                                title={item.itemName ?? '-'}
+                                                            >
+                                                                {item.itemName ?? '-'}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'isActive') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                                <Chip
+                                                                    label={item.isActive ? 'Đang giao dịch' : 'Tạm dừng'}
+                                                                    size="small"
+                                                                    color={item.isActive ? 'success' : 'default'}
+                                                                    variant="filled"
+                                                                    sx={{
+                                                                        borderRadius: '999px',
+                                                                        fontSize: '12px',
+                                                                        height: 24,
+                                                                    }}
+                                                                />
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'sellableQty' || col.id === 'onHandQty') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="center"
+                                                                sx={{
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                }}
+                                                            >
+                                                                {col.getValue(item, index, opts)}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'createdAt') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                                {formatDate(item.createdAt)}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'updatedAt') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                                {formatDate(item.updatedAt)}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    if (col.id === 'requiresCO' || col.id === 'requiresCQ') {
+                                                        const value = col.id === 'requiresCO' ? item.requiresCO : item.requiresCQ;
+                                                        return (
+                                                            <TableCell key={col.id} align="center" sx={{ ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)), py: 0.5 }}>
+                                                                <Box
+                                                                    sx={{
+                                                                        width: 28,
+                                                                        height: 28,
+                                                                        borderRadius: 1,
+                                                                        border: '1px solid',
+                                                                        borderColor: 'divider',
+                                                                        bgcolor: 'background.paper',
+                                                                        color: value ? 'grey.700' : 'grey.500',
+                                                                        display: 'inline-flex',
                                                                         alignItems: 'center',
                                                                         justifyContent: 'center',
                                                                     }}
                                                                 >
-                                                                    <Package size={28} style={{ color: '#9e9e9e' }} />
+                                                                    {value ? (
+                                                                        <Check size={18} strokeWidth={2.5} style={{ color: 'inherit' }} />
+                                                                    ) : (
+                                                                        <X size={18} strokeWidth={2.5} style={{ color: 'inherit' }} />
+                                                                    )}
                                                                 </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
 
-                                                                {item.imageUrl && item.imageUrl.trim() && (
-                                                                    <img
-                                                                        src={item.imageUrl}
-                                                                        alt=""
-                                                                        style={{
-                                                                            width: '100%',
-                                                                            height: '100%',
-                                                                            objectFit: 'cover',
-                                                                            position: 'relative',
-                                                                            zIndex: 1,
-                                                                        }}
-                                                                        loading="lazy"
-                                                                        onError={(e) => {
-                                                                            e.target.style.display = 'none';
-                                                                        }}
-                                                                    />
-                                                                )}
-                                                            </Box>
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'itemCode') {
-                                                    return (
-                                                        <TableCell key={col.id} align="left" sx={{ ...getColumnCellSx(col.id, isAccountant), px: 1.5 }}>
-                                                            {item.itemCode ?? '-'}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'description') {
-                                                    return (
-                                                        <TableCell
-                                                            key={col.id}
-                                                            align="left"
-                                                            sx={getColumnCellSx(col.id, isAccountant)}
-                                                            title={item.description ?? '-'}
-                                                        >
-                                                            {item.description ?? '-'}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'itemName') {
-                                                    return (
-                                                        <TableCell
-                                                            key={col.id}
-                                                            align="left"
-                                                            sx={{
-                                                                ...getColumnCellSx(col.id, isAccountant),
-                                                                px: 2,
-                                                                minWidth: 0,
-                                                            }}
-                                                            title={item.itemName ?? '-'}
-                                                        >
-                                                            {item.itemName ?? '-'}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'itemType') {
-                                                    return (
-                                                        <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant)}>
-                                                            {item.itemType ?? '-'}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'isActive') {
-                                                    return (
-                                                        <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant)}>
-                                                            <Chip
-                                                                label={item.isActive ? 'Đang giao dịch' : 'Tạm dừng'}
-                                                                size="small"
-                                                                color={item.isActive ? 'success' : 'default'}
-                                                                variant="filled"
-                                                                sx={{ borderRadius: 1.5 }}
-                                                            />
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'sellableQty' || col.id === 'onHandQty') {
-                                                    return (
-                                                        <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, isAccountant)}>
-                                                            {col.getValue(item, index, opts)}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'createdAt') {
-                                                    return (
-                                                        <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant)}>
-                                                            {formatDate(item.createdAt)}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'updatedAt') {
-                                                    return (
-                                                        <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant)}>
-                                                            {formatDate(item.updatedAt)}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'requiresCO' || col.id === 'requiresCQ') {
-                                                    const value = col.id === 'requiresCO' ? item.requiresCO : item.requiresCQ;
-                                                    return (
-                                                        <TableCell
-                                                            key={col.id}
-                                                            align="center"
-                                                            sx={{ ...getColumnCellSx(col.id, isAccountant), py: 0.75 }}
-                                                        >
-                                                            <Box
+                                                    if (col.id === 'salePrice') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="center"
                                                                 sx={{
-                                                                    width: 28,
-                                                                    height: 28,
-                                                                    borderRadius: 1,
-                                                                    border: '1px solid',
-                                                                    borderColor: 'divider',
-                                                                    bgcolor: 'background.paper',
-                                                                    color: value ? 'grey.700' : 'grey.500',
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    fontWeight: isAccountant ? 600 : 400,
                                                                 }}
                                                             >
-                                                                {value ? (
-                                                                    <Check size={18} strokeWidth={2.5} style={{ color: 'inherit' }} />
-                                                                ) : (
-                                                                    <X size={18} strokeWidth={2.5} style={{ color: 'inherit' }} />
-                                                                )}
-                                                            </Box>
-                                                        </TableCell>
-                                                    );
-                                                }
+                                                                {formatPrice(item.salePrice)}
+                                                            </TableCell>
+                                                        );
+                                                    }
 
-                                                if (col.id === 'salePrice') {
-                                                    return (
-                                                        <TableCell
-                                                            key={col.id}
-                                                            align="center"
-                                                            sx={{
-                                                                ...getColumnCellSx(col.id, isAccountant),
-                                                                fontWeight: isAccountant ? 600 : 400,
-                                                            }}
-                                                        >
-                                                            {formatPrice(item.salePrice)}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (ACCOUNTANT_ONLY_COLUMN_IDS.includes(col.id)) {
-                                                    const isNumericCol = col.id === 'purchasePrice' || col.id === 'salePrice';
-                                                    return (
-                                                        <TableCell
-                                                            key={col.id}
-                                                            align={isNumericCol ? 'center' : 'left'}
-                                                            sx={{
-                                                                ...getColumnCellSx(col.id, isAccountant),
-                                                                fontWeight:
-                                                                    col.id === 'purchasePrice' || col.id === 'salePrice'
-                                                                        ? isAccountant
-                                                                            ? 600
-                                                                            : 400
-                                                                        : 400,
-                                                            }}
-                                                        >
-                                                            {col.getValue(item, index, { pageNumber: page + 1, pageSize })}
-                                                        </TableCell>
-                                                    );
-                                                }
-
-                                                if (col.id === 'actions') {
-                                                    return (
-                                                        <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, isAccountant)}>
-                                                            <Box
+                                                    if (ACCOUNTANT_ONLY_COLUMN_IDS.includes(col.id)) {
+                                                        const isNumericCol = col.id === 'purchasePrice' || col.id === 'salePrice';
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align={isNumericCol ? 'center' : 'left'}
                                                                 sx={{
-                                                                    display: 'inline-flex',
-                                                                    width: '100%',
-                                                                    justifyContent: 'flex-end',
-                                                                    alignItems: 'center',
-                                                                    gap: 0.5,
+                                                                    ...getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id)),
+                                                                    fontWeight:
+                                                                        col.id === 'purchasePrice' || col.id === 'salePrice'
+                                                                            ? isAccountant
+                                                                                ? 600
+                                                                                : 400
+                                                                            : 400,
                                                                 }}
                                                             >
-                                                                <Tooltip title="Xem chi tiết">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        onClick={() => navigate(`/items/${item.itemId}`)}
-                                                                        sx={{
-                                                                            p: 0.5,
-                                                                            color: 'text.secondary',
-                                                                            '&:hover': {
-                                                                                color: 'primary.main',
-                                                                                bgcolor: 'rgba(2,132,199,0.08)',
-                                                                            },
-                                                                        }}
-                                                                    >
-                                                                        <Eye size={18} />
-                                                                    </IconButton>
-                                                                </Tooltip>
+                                                                {col.getValue(item, index, { pageNumber: page + 1, pageSize })}
+                                                            </TableCell>
+                                                        );
+                                                    }
 
-                                                                {canCreateEdit && (
+                                                    if (col.id === 'actions') {
+                                                        return (
+                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}>
+                                                                    <Tooltip title="Xem chi tiết">
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => navigate(`/items/${item.itemId}`)}
+                                                                            sx={{
+                                                                                color: 'text.secondary',
+                                                                                '&:hover': {
+                                                                                    color: 'primary.main',
+                                                                                    bgcolor: 'primary.lighter',
+                                                                                },
+                                                                            }}
+                                                                        >
+                                                                            <Eye size={18} />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+
+                                                                    {canCreateEdit && (
                                                                     <Tooltip title={item.isActive ? 'Tắt trạng thái giao dịch' : 'Bật trạng thái giao dịch'}>
                                                                         <IconButton
                                                                             size="small"
                                                                             onClick={() => handleToggleTransactionStatus(item)}
                                                                             sx={{
-                                                                                p: 0.5,
                                                                                 color: item.isActive ? 'success.main' : 'text.disabled',
                                                                                 '&:hover': {
                                                                                     color: item.isActive ? 'error.main' : 'success.main',
@@ -1444,49 +1029,44 @@ const ViewItemList = () => {
                                                                             <Power size={18} />
                                                                         </IconButton>
                                                                     </Tooltip>
-                                                                )}
+                                                                    )}
 
-                                                                {canCreateEdit && (
-                                                                    <Tooltip title="Chỉnh sửa">
-                                                                        <IconButton
-                                                                            size="small"
-                                                                            onClick={() => navigate(`/items/edit/${item.itemId}`)}
-                                                                            sx={{
-                                                                                p: 0.5,
-                                                                                color: 'text.secondary',
-                                                                                '&:hover': {
-                                                                                    color: 'primary.main',
-                                                                                    bgcolor: 'rgba(2,132,199,0.08)',
-                                                                                },
-                                                                            }}
-                                                                        >
-                                                                            <Edit size={18} />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                )}
-                                                            </Box>
+                                                                    {canCreateEdit && (
+                                                                        <Tooltip title="Chỉnh sửa">
+                                                                            <IconButton
+                                                                                size="small"
+                                                                                onClick={() => navigate(`/items/edit/${item.itemId}`)}
+                                                                                sx={{
+                                                                                    color: 'text.secondary',
+                                                                                    '&:hover': {
+                                                                                        color: 'primary.main',
+                                                                                        bgcolor: 'primary.lighter',
+                                                                                    },
+                                                                                }}
+                                                                            >
+                                                                                <Edit size={18} />
+                                                                            </IconButton>
+                                                                        </Tooltip>
+                                                                    )}
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, isAccountant, getColWidthPct(col.id))}>
+                                                            {col.getValue(item, index, opts)}
                                                         </TableCell>
                                                     );
-                                                }
-
-                                                return (
-                                                    <TableCell
-                                                        key={col.id}
-                                                        align="left"
-                                                        sx={getColumnCellSx(col.id, isAccountant)}
-                                                        title={String(col.getValue(item, index, opts) ?? '')}
-                                                    >
-                                                        {col.getValue(item, index, opts)}
-                                                    </TableCell>
-                                                );
-                                            })}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </Box>
+                                                })}
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Box>
+                </Card>
 
                 <Box
                     sx={{
@@ -1518,7 +1098,9 @@ const ViewItemList = () => {
                                 height: 32,
                                 fontSize: '13px',
                                 borderRadius: '8px',
-                                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 0, 0, 0.1)',
+                                },
                             }}
                         >
                             {ROWS_PER_PAGE_OPTIONS.map((n) => (
@@ -1548,8 +1130,10 @@ const ViewItemList = () => {
                             textTransform: 'none',
                             fontSize: '13px',
                             borderRadius: '8px',
-                            borderColor: 'rgba(0,0,0,0.1)',
-                            '&:hover': { borderColor: 'rgba(0,0,0,0.2)' },
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            '&:hover': {
+                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                            },
                         }}
                     >
                         Trước
@@ -1565,16 +1149,18 @@ const ViewItemList = () => {
                             textTransform: 'none',
                             fontSize: '13px',
                             borderRadius: '8px',
-                            borderColor: 'rgba(0,0,0,0.1)',
-                            '&:hover': { borderColor: 'rgba(0,0,0,0.2)' },
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            '&:hover': {
+                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                            },
                         }}
                     >
                         Sau
                     </Button>
                 </Box>
-            </Paper>
-
-            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+                {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+                </Box>
+            </Box>
         </Box>
     );
 };
