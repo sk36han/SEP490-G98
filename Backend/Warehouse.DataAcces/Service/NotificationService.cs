@@ -170,32 +170,6 @@ namespace Warehouse.DataAcces.Service
 			await _context.SaveChangesAsync();
 		}
 
-		public async Task SoftDeleteAsync(long notificationId, long userId)
-		{
-			var noti = await _context.Notifications
-				.FirstOrDefaultAsync(x => x.NotificationId == notificationId && x.UserId == userId && !x.IsDeleted);
-
-			if (noti == null)
-			{
-				throw new KeyNotFoundException("Không tìm thấy thông báo.");
-			}
-
-			noti.IsDeleted = true;
-			await _context.SaveChangesAsync();
-		}
-
-		public async Task SoftDeleteAllAsync(long userId)
-		{
-			var notifications = await _context.Notifications
-				.Where(x => x.UserId == userId && !x.IsDeleted)
-				.ToListAsync();
-
-			foreach (var item in notifications)
-			{
-				item.IsDeleted = true;
-			}
-
-			await _context.SaveChangesAsync();
-		}
+	
 	}
 }

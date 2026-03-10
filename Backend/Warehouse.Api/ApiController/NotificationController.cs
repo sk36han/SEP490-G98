@@ -119,56 +119,5 @@ namespace Warehouse.Api.ApiController
 			}
 		}
 
-		/// <summary>
-		/// Xoá mềm 1 thông báo
-		/// DELETE: /api/notification/{id}
-		/// </summary>
-		[HttpDelete("{id}")]
-		public async Task<IActionResult> Delete(long id)
-		{
-			try
-			{
-				var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
-				{
-					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
-				}
-
-				await _notificationService.SoftDeleteAsync(id, userId);
-				return Ok(ApiResponse<object>.SuccessResponse(true, "Xoá thông báo thành công."));
-			}
-			catch (KeyNotFoundException ex)
-			{
-				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
-			}
-			catch (Exception)
-			{
-				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
-			}
-		}
-
-		/// <summary>
-		/// Xoá mềm tất cả thông báo
-		/// DELETE: /api/notification/delete-all
-		/// </summary>
-		[HttpDelete("delete-all")]
-		public async Task<IActionResult> DeleteAll()
-		{
-			try
-			{
-				var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
-				{
-					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
-				}
-
-				await _notificationService.SoftDeleteAllAsync(userId);
-				return Ok(ApiResponse<object>.SuccessResponse(true, "Xoá tất cả thông báo thành công."));
-			}
-			catch (Exception)
-			{
-				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
-			}
-		}
 	}
 }

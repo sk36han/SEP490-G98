@@ -11,7 +11,7 @@ namespace Warehouse.Entities.Constants
 		public const string Login = "LOGIN";
 	}
 
-	public static class AuditEntity
+		public static class AuditEntity
 	{
 		public const string User = "User";
 		public const string Supplier = "Supplier";
@@ -20,5 +20,10 @@ namespace Warehouse.Entities.Constants
 		public const string Receiver = "Receiver";
 		public const string Item = "Item";
 		public const string Role = "Role";
-	}
+		public const string Brand = "Brand";
+		public const string Category = "Category";
+		public const string UnitOfMeasure = "UnitOfMeasure";
+		public const string ItemParameter = "ItemParameter";
+		public const string ItemParameterValue = "ItemParameterValue";
+		public const string PackagingSpec = "PackagingSpec";	}
 }
