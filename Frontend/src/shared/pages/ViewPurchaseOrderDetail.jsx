@@ -31,6 +31,7 @@ import {
     Plus,
     Trash2,
     Search,
+    Phone,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -1082,7 +1083,8 @@ const ViewPurchaseOrderDetail = () => {
                     {/* Layout 2 cột: Chi tiết sản phẩm (trái) + (Thông tin chung + Lịch sử) (phải) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
                         {/* 1. Chi tiết sản phẩm (Trái) */}
-                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết sản phẩm</h2>
                                 {isEditing && (
@@ -1605,6 +1607,148 @@ const ViewPurchaseOrderDetail = () => {
                             </div>
                         </div>
 
+                        {/* Nhà cung cấp */}
+                        <div className="info-section" style={{ margin: 0 }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Nhà cung cấp</h2>
+                            </div>
+                            <div className="form-field">
+                                <label className="form-label">Nhà cung cấp</label>
+                                <div className="input-wrapper" style={{ position: 'relative' }}>
+                                    <Building2 className="input-icon" size={16} />
+                                    <input
+                                        type="text"
+                                        name="supplierName"
+                                        value={
+                                            isEditing
+                                                ? supplierQuery || orderData.supplierName || ''
+                                                : orderData.supplierName || ''
+                                        }
+                                        onChange={(e) => {
+                                            if (!isEditing) return;
+                                            setSupplierQuery(e.target.value);
+                                            setSupplierDropdownOpen(true);
+                                        }}
+                                        onFocus={() => {
+                                            if (isEditing) setSupplierDropdownOpen(true);
+                                        }}
+                                        readOnly={!isEditing}
+                                        className="form-input"
+                                        style={{ backgroundColor: isEditing ? 'white' : '#f5f5f5' }}
+                                        placeholder={isEditing ? 'Tìm hoặc chọn nhà cung cấp' : '-'}
+                                        autoComplete="off"
+                                    />
+                                    {isEditing && supplierDropdownOpen && (
+                                        <ul
+                                            className="form-input"
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                marginTop: '4px',
+                                                maxHeight: '220px',
+                                                overflowY: 'auto',
+                                                listStyle: 'none',
+                                                padding: '8px 0',
+                                                zIndex: 10,
+                                                backgroundColor: '#fff',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '8px',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                            }}
+                                        >
+                                            {filteredSuppliers.length === 0 ? (
+                                                <li
+                                                    style={{
+                                                        padding: '8px 12px',
+                                                        color: '#6b7280',
+                                                        fontSize: '14px',
+                                                    }}
+                                                >
+                                                    Không có nhà cung cấp phù hợp
+                                                </li>
+                                            ) : (
+                                                filteredSuppliers.map((supplier) => (
+                                                    <li
+                                                        key={supplier.id}
+                                                        onClick={() => {
+                                                            setOrderData((prev) => ({
+                                                                ...prev,
+                                                                supplierName: supplier.name,
+                                                                supplierId: supplier.id,
+                                                            }));
+                                                            setSupplierQuery(supplier.name);
+                                                            setSupplierDropdownOpen(false);
+                                                        }}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '14px',
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                                        }}
+                                                    >
+                                                        {supplier.name} ({supplier.id})
+                                                    </li>
+                                                ))
+                                            )}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Mã số thuế */}
+                            <div className="form-field">
+                                <label className="form-label">Mã số thuế</label>
+                                <div className="input-wrapper">
+                                    <FileText className="input-icon" size={16} />
+                                    <input
+                                        type="text"
+                                        value={orderData.supplierTaxCode || '-'}
+                                        readOnly
+                                        className="form-input"
+                                        style={{ backgroundColor: '#f5f5f5' }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Số điện thoại */}
+                            <div className="form-field">
+                                <label className="form-label">Số điện thoại</label>
+                                <div className="input-wrapper">
+                                    <Phone className="input-icon" size={16} />
+                                    <input
+                                        type="text"
+                                        value={orderData.supplierPhone || '-'}
+                                        readOnly
+                                        className="form-input"
+                                        style={{ backgroundColor: '#f5f5f5' }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Địa chỉ */}
+                            <div className="form-field">
+                                <label className="form-label">Địa chỉ</label>
+                                <div className="input-wrapper">
+                                    <MapPin className="input-icon" size={16} />
+                                    <input
+                                        type="text"
+                                        value={orderData.supplierAddress || '-'}
+                                        readOnly
+                                        className="form-input"
+                                        style={{ backgroundColor: '#f5f5f5' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+
                         {/* 2. Thông tin chung (Phải) */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div className="info-section" style={{ margin: 0 }}>
@@ -1841,10 +1985,94 @@ const ViewPurchaseOrderDetail = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Lịch sử đơn đặt hàng nhập */}
+                        <div className="info-section" style={{ margin: 0 }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Lịch sử đơn đặt hàng nhập</h2>
+                            </div>
+                            
+                            <div
+                                style={{
+                                    padding: '16px',
+                                    backgroundColor: '#f9fafb',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e5e7eb',
+                                }}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {orderData.history.map((item, index) => (
+                                        <div
+                                            key={index}
+                                            style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: '10px',
+                                                    height: '10px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: index === 0 ? '#2196F3' : '#9ca3af',
+                                                    marginTop: '6px',
+                                                    flexShrink: 0,
+                                                }}
+                                            ></div>
+                                            <div
+                                                style={{
+                                                    flex: 1,
+                                                    borderLeft:
+                                                        index < orderData.history.length - 1
+                                                            ? '2px solid #e5e7eb'
+                                                            : 'none',
+                                                    paddingLeft: '16px',
+                                                    paddingBottom:
+                                                        index < orderData.history.length - 1 ? '12px' : '0',
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        marginBottom: '4px',
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            fontSize: '13px',
+                                                            fontWeight: 600,
+                                                            color: '#111827',
+                                                        }}
+                                                    >
+                                                        {item.time}
+                                                    </span>
+                                                    <span style={{ fontSize: '13px', color: '#6b7280' }}>
+                                                        {item.phone}
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        fontSize: '13px',
+                                                        fontWeight: 500,
+                                                        color: '#2563eb',
+                                                        marginBottom: '2px',
+                                                        cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    {item.title}
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                    {item.date}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                         </div>
                     </div>
 
-                    {/* Layout 2 cột: Nhà cung cấp + Ghi chú + Tổng hợp (trái) + Lịch sử đơn đặt hàng nhập (phải) */}
+                    {/* Layout 2 cột: Nhà cung cấp + Ghi chú + Tổng hợp */}
                     <div
                         style={{
                             display: 'grid',
@@ -2358,90 +2586,6 @@ const ViewPurchaseOrderDetail = () => {
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                        </div>
-
-                        {/* Bên phải: Lịch sử đơn đặt hàng nhập */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Lịch sử đơn đặt hàng nhập</h2>
-                            </div>
-                            
-                            <div
-                                style={{
-                                    padding: '16px',
-                                    backgroundColor: '#f9fafb',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e5e7eb',
-                                }}
-                            >
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {orderData.history.map((item, index) => (
-                                        <div
-                                            key={index}
-                                            style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
-                                        >
-                                            <div
-                                                style={{
-                                                    width: '10px',
-                                                    height: '10px',
-                                                    borderRadius: '50%',
-                                                    backgroundColor: index === 0 ? '#2196F3' : '#9ca3af',
-                                                    marginTop: '6px',
-                                                    flexShrink: 0,
-                                                }}
-                                            ></div>
-                                            <div
-                                                style={{
-                                                    flex: 1,
-                                                    borderLeft:
-                                                        index < orderData.history.length - 1
-                                                            ? '2px solid #e5e7eb'
-                                                            : 'none',
-                                                    paddingLeft: '16px',
-                                                    paddingBottom:
-                                                        index < orderData.history.length - 1 ? '12px' : '0',
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        alignItems: 'center',
-                                                        marginBottom: '4px',
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            fontSize: '13px',
-                                                            fontWeight: 600,
-                                                            color: '#111827',
-                                                        }}
-                                                    >
-                                                        {item.time}
-                                                    </span>
-                                                    <span style={{ fontSize: '13px', color: '#6b7280' }}>
-                                                        {item.phone}
-                                                    </span>
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        fontSize: '13px',
-                                                        fontWeight: 500,
-                                                        color: '#2563eb',
-                                                        marginBottom: '2px',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                >
-                                                    {item.title}
-                                                </div>
-                                                <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                                    {item.date}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </div>
                     </div>
