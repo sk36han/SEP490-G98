@@ -53,6 +53,7 @@ namespace Warehouse.DataAcces.Service
 				Address = request.Address,
 				City = request.City,
 				Ward = request.Ward,
+				District = request.District,
 				IsActive = true,
 				CreatedAt = DateTime.UtcNow
 			};
@@ -91,6 +92,7 @@ namespace Warehouse.DataAcces.Service
 				Address = supplier.Address,
 				City = supplier.City,
 				Ward = supplier.Ward,
+				District = supplier.District,
 				IsActive = supplier.IsActive
 			};
 		}
@@ -169,6 +171,7 @@ namespace Warehouse.DataAcces.Service
 					Address = s.Address,
 					City = s.City,
 					Ward = s.Ward,
+					District = s.District,
 					IsActive = s.IsActive
 				})
 				.ToList();
@@ -202,6 +205,7 @@ namespace Warehouse.DataAcces.Service
 				supplier.Address,
 				supplier.City,
 				supplier.Ward,
+				supplier.District,
 				supplier.IsActive
 			});
 
@@ -228,6 +232,7 @@ namespace Warehouse.DataAcces.Service
 			supplier.Address = request.Address;
 			supplier.City = request.City;
 			supplier.Ward = request.Ward;
+			supplier.District = request.District;
 			supplier.IsActive = request.IsActive;
 
 			// 4️⃣ Save
@@ -253,6 +258,7 @@ namespace Warehouse.DataAcces.Service
 				supplier.Address,
 				supplier.City,
 				supplier.Ward,
+				supplier.District,
 				supplier.IsActive
 			});
 			await _auditLogService.LogAsync(
@@ -277,6 +283,7 @@ namespace Warehouse.DataAcces.Service
 				Address = supplier.Address,
 				City = supplier.City,
 				Ward = supplier.Ward,
+				District = supplier.District,
 				IsActive = supplier.IsActive
 			};
 		}
@@ -316,6 +323,7 @@ namespace Warehouse.DataAcces.Service
 				Address = supplier.Address,
 				City = supplier.City,
 				Ward = supplier.Ward,
+				District = supplier.District,
 				IsActive = supplier.IsActive
 			};
 		}
@@ -338,6 +346,7 @@ namespace Warehouse.DataAcces.Service
 				Address = supplier.Address,
 				City = supplier.City,
 				Ward = supplier.Ward,
+				District = supplier.District,
 				IsActive = supplier.IsActive
 			};
 		}
