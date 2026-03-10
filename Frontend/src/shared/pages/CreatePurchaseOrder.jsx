@@ -21,6 +21,10 @@ import {
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
+import { getSuppliers } from '../lib/supplierService';
+import { getWarehouseList } from '../lib/warehouseService';
+import { getItemsForDisplay } from '../lib/itemService';
+import { createPurchaseOrder } from '../lib/purchaseOrderService';
 import '../styles/CreateSupplier.css';
 
 const CreatePurchaseOrder = () => {
@@ -63,58 +67,16 @@ const CreatePurchaseOrder = () => {
     const [selectedProductIds, setSelectedProductIds] = useState([]);
     const [imageErrors, setImageErrors] = useState({});
 
-    // Mock data sản phẩm - sau này sẽ thay bằng API
-    const MOCK_PRODUCTS = [
-        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
-        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
-        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
-        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
-        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
-        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-    ];
+    // Data từ API
+    const [suppliers, setSuppliers] = useState([]);
+    const [warehouses, setWarehouses] = useState([]);
+    const [products, setProducts] = useState([]);
 
     const [errors, setErrors] = useState({});
-
-    // Mock tạm data cho search-select
-    const MOCK_SUPPLIERS = [
-        {
-            id: 'SUP-001',
-            name: 'Nhà cung cấp A',
-            phone: '0901 234 567',
-            email: 'ncc.a@example.com',
-            taxCode: '0101234567',
-            address: {
-                street: 'Số 1 Đường A',
-                ward: 'Phường 1',
-                district: 'Quận 1',
-                province: 'TP. Hồ Chí Minh',
-            },
-        },
-        {
-            id: 'SUP-002',
-            name: 'Nhà cung cấp B',
-            phone: '0908 765 432',
-            email: 'ncc.b@example.com',
-            taxCode: '0312345678',
-            address: {
-                street: 'Số 99 Đường B',
-                ward: 'Phường Bến Nghé',
-                district: 'Quận 1',
-                province: 'TP. Hồ Chí Minh',
-            },
-        },
-    ];
 
     const MOCK_EMPLOYEES = [
         { id: 'EMP-001', name: 'Nguyễn Văn A' },
         { id: 'EMP-002', name: 'Trần Thị B' },
-    ];
-
-    const MOCK_WAREHOUSES = [
-        { id: 'WH-001', name: 'Kho Hà Nội' },
-        { id: 'WH-002', name: 'Kho Hồ Chí Minh' },
     ];
 
     const [supplierQuery, setSupplierQuery] = useState('');
@@ -124,11 +86,61 @@ const CreatePurchaseOrder = () => {
     const [warehouseQuery, setWarehouseQuery] = useState('');
     const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
 
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                // Suppliers
+                const supRes = await getSuppliers({ page: 1, pageSize: 100 });
+                const supItems = Array.isArray(supRes?.items) ? supRes.items : [];
+                const mappedSuppliers = supItems.map((s) => ({
+                    id: s.supplierId,
+                    name: s.supplierName ?? '',
+                    phone: s.phone ?? '',
+                    email: s.email ?? '',
+                    taxCode: s.taxCode ?? '',
+                    addressText: s.address ?? '',
+                    city: s.city ?? '',
+                    ward: s.ward ?? '',
+                }));
+
+                // Warehouses
+                const whRes = await getWarehouseList({ pageNumber: 1, pageSize: 100 });
+                const mappedWarehouses = (Array.isArray(whRes?.items) ? whRes.items : []).map((w) => ({
+                    id: w.warehouseId,
+                    name: w.warehouseName ?? '',
+                }));
+
+                // Items for search
+                const itemList = await getItemsForDisplay();
+                const mappedProducts = (Array.isArray(itemList) ? itemList : [])
+                    .filter(Boolean)
+                    .map((it) => ({
+                        id: it.itemId,
+                        name: it.itemName ?? '',
+                        sku: it.itemCode ?? '',
+                        unitPrice: Number(it.purchasePrice ?? 0),
+                        uom: '',
+                        image: null,
+                    }));
+
+                if (!mounted) return;
+                setSuppliers(mappedSuppliers);
+                setWarehouses(mappedWarehouses);
+                setProducts(mappedProducts);
+            } catch (err) {
+                if (!mounted) return;
+                showToast(err?.message || 'Không thể tải dữ liệu (nhà cung cấp/kho/vật tư).', 'error');
+            }
+        })();
+        return () => { mounted = false; };
+    }, [showToast]);
+
     const filteredSuppliers = useMemo(() => {
         const q = supplierQuery.trim().toLowerCase();
-        if (!q) return MOCK_SUPPLIERS;
-        return MOCK_SUPPLIERS.filter((s) => s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
-    }, [supplierQuery]);
+        if (!q) return suppliers;
+        return suppliers.filter((s) => (s.name || '').toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q));
+    }, [supplierQuery, suppliers]);
 
     const filteredEmployees = useMemo(() => {
         const q = employeeQuery.trim().toLowerCase();
@@ -138,9 +150,9 @@ const CreatePurchaseOrder = () => {
 
     const filteredWarehouses = useMemo(() => {
         const q = warehouseQuery.trim().toLowerCase();
-        if (!q) return MOCK_WAREHOUSES;
-        return MOCK_WAREHOUSES.filter((w) => w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q));
-    }, [warehouseQuery]);
+        if (!q) return warehouses;
+        return warehouses.filter((w) => (w.name || '').toLowerCase().includes(q) || String(w.id).toLowerCase().includes(q));
+    }, [warehouseQuery, warehouses]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -202,9 +214,9 @@ const CreatePurchaseOrder = () => {
         }
         
         // Filter products theo tên hoặc mã SKU
-        const filtered = MOCK_PRODUCTS.filter(product => 
-            product.name.toLowerCase().includes(keyword.toLowerCase()) ||
-            product.sku.toLowerCase().includes(keyword.toLowerCase())
+        const filtered = products.filter(product => 
+            (product.name || '').toLowerCase().includes(keyword.toLowerCase()) ||
+            (product.sku || '').toLowerCase().includes(keyword.toLowerCase())
         );
         setFilteredProducts(filtered);
     };
@@ -272,7 +284,7 @@ const CreatePurchaseOrder = () => {
             return;
         }
 
-        const productsToAdd = MOCK_PRODUCTS.filter(p => selectedProductIds.includes(p.id));
+        const productsToAdd = products.filter(p => selectedProductIds.includes(p.id));
         const newLines = [];
         let duplicateCount = 0;
 
@@ -439,10 +451,31 @@ const CreatePurchaseOrder = () => {
 
         try {
             setSubmitting(true);
-            showToast('Mock: Lưu nháp đơn mua hàng thành công.', 'success');
+            const supplierId = Number(formData.supplierId);
+            const warehouseId = Number(formData.warehouseId);
+            const responsibleUserId = formData.responsiblePersonId !== '' && !Number.isNaN(Number(formData.responsiblePersonId))
+                ? Number(formData.responsiblePersonId)
+                : null;
+            const payload = {
+                supplierId,
+                warehouseId,
+                responsibleUserId,
+                expectedDeliveryDate: formData.expectedReceiptDate ? String(formData.expectedReceiptDate) : null,
+                justification: (formData.justification || '').trim() || null,
+                discountAmount: Number(discountAmount) || 0,
+                lines: lines.map((l) => ({
+                    itemId: Number(l.itemId),
+                    orderedQty: Number(l.orderedQty) || 0,
+                    unitPrice: Number(l.unitPrice) || 0,
+                    note: (l.note || '').trim() || null,
+                })),
+            };
+            const res = await createPurchaseOrder(payload);
+            showToast(`Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`, 'success');
             setTimeout(() => navigate('/purchase-orders'), 1500);
         } catch (error) {
-            showToast(error.message || 'Có lỗi xảy ra', 'error');
+            const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
+            showToast(msg, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -458,10 +491,31 @@ const CreatePurchaseOrder = () => {
 
         try {
             setSubmitting(true);
-            showToast('Mock: Gửi duyệt đơn mua hàng thành công.', 'success');
+            const supplierId = Number(formData.supplierId);
+            const warehouseId = Number(formData.warehouseId);
+            const responsibleUserId = formData.responsiblePersonId !== '' && !Number.isNaN(Number(formData.responsiblePersonId))
+                ? Number(formData.responsiblePersonId)
+                : null;
+            const payload = {
+                supplierId,
+                warehouseId,
+                responsibleUserId,
+                expectedDeliveryDate: formData.expectedReceiptDate ? String(formData.expectedReceiptDate) : null,
+                justification: (formData.justification || '').trim() || null,
+                discountAmount: Number(discountAmount) || 0,
+                lines: lines.map((l) => ({
+                    itemId: Number(l.itemId),
+                    orderedQty: Number(l.orderedQty) || 0,
+                    unitPrice: Number(l.unitPrice) || 0,
+                    note: (l.note || '').trim() || null,
+                })),
+            };
+            const res = await createPurchaseOrder(payload);
+            showToast(`Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`, 'success');
             setTimeout(() => navigate('/purchase-orders'), 1500);
         } catch (error) {
-            showToast(error.message || 'Có lỗi xảy ra', 'error');
+            const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
+            showToast(msg, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -1295,7 +1349,7 @@ const CreatePurchaseOrder = () => {
                                                         Không có nhà cung cấp phù hợp
                                                     </li>
                                                 ) : (
-                                                    filteredSuppliers.map((sup) => (
+            filteredSuppliers.map((sup) => (
                                                         <li
                                                             key={sup.id}
                                                             onClick={() => {
@@ -1306,10 +1360,11 @@ const CreatePurchaseOrder = () => {
                                                                     supplierPhone: sup.phone,
                                                                     supplierEmail: sup.email,
                                                                     supplierTaxCode: sup.taxCode,
-                                                                    supplierAddressStreet: sup.address?.street || '',
-                                                                    supplierAddressWard: sup.address?.ward || '',
-                                                                    supplierAddressDistrict: sup.address?.district || '',
-                                                                    supplierAddressProvince: sup.address?.province || '',
+                            // Map theo dữ liệu thật từ API: Address + City + Ward
+                            supplierAddressStreet: sup.addressText || '',
+                            supplierAddressWard: sup.ward || '',
+                            supplierAddressDistrict: '',
+                            supplierAddressProvince: sup.city || '',
                                                                 }));
                                                                 setSupplierQuery(sup.name);
                                                                 setSupplierDropdownOpen(false);

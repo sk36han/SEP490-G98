@@ -65,6 +65,8 @@ export async function getSuppliers(params = {}) {
             phone: row.phone ?? row.Phone ?? '',
             email: row.email ?? row.Email ?? '',
             address: row.address ?? row.Address ?? '',
+            city: row.city ?? row.City ?? '',
+            ward: row.ward ?? row.Ward ?? '',
             isActive: row.isActive ?? row.IsActive ?? true,
         }));
     return {
