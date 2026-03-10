@@ -74,8 +74,8 @@ const ITEM_LIST_COLUMNS = [
     { id: 'category', label: 'Category', getValue: (row) => row.categoryName ?? '-' },
     { id: 'inventoryAccount', label: 'Tài khoản kho', getValue: (row) => row.inventoryAccount ?? '-' },
     { id: 'revenueAccount', label: 'Tài khoản doanh thu', getValue: (row) => row.revenueAccount ?? '-' },
-    { id: 'sellableQty', label: 'Số lượng có thể bán', getValue: (row) => getSellableQty(row).toLocaleString('vi-VN') },
-    { id: 'onHandQty', label: 'Số lượng tồn kho', getValue: (row) => (row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-') },
+    { id: 'sellableQty', label: 'Có thể bán', getValue: (row) => getSellableQty(row).toLocaleString('vi-VN') },
+    { id: 'onHandQty', label: 'Tồn kho', getValue: (row) => (row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-') },
     { id: 'purchasePrice', label: 'Giá nhập', getValue: (row) => formatPrice(row.purchasePrice) },
     { id: 'salePrice', label: 'Giá xuất', getValue: (row) => formatPrice(row.salePrice) },
     { id: 'createdAt', label: 'Được tạo vào', getValue: (row) => row.createdAt ?? '' },
@@ -111,7 +111,6 @@ const BODY_CELL_SX = {
     lineHeight: '20px',
     verticalAlign: 'middle',
     borderBottom: '1px solid #f3f4f6',
-    borderRight: COLUMN_BORDER,
     color: '#374151',
     boxSizing: 'border-box',
 };
@@ -154,7 +153,7 @@ const getColumnWeight = (colId) => {
             return 1.4;
         case 'sellableQty':
         case 'onHandQty':
-            return 0.65;
+            return 1.1;
         case 'purchasePrice':
         case 'salePrice':
             return 1.7;
@@ -1074,7 +1073,6 @@ const ViewItemList = () => {
                                                 minWidth: SELECTION_COL_WIDTH,
                                                 maxWidth: SELECTION_COL_WIDTH,
                                                 borderBottom: '2px solid #e5e7eb',
-                                                borderRight: COLUMN_BORDER,
                                                 fontSize: '12px',
                                                 px: 1.5,
                                             }}
@@ -1097,11 +1095,9 @@ const ViewItemList = () => {
                                                     sx={{
                                                         fontWeight: 600,
                                                         bgcolor: draggedColumn === col.id ? '#f3f4f6' : '#fafafa',
-                                                        whiteSpace: 'nowrap',
                                                         opacity: draggedColumn === col.id ? 0.5 : 1,
                                                         transition: 'all 0.2s',
                                                         borderBottom: '2px solid #e5e7eb',
-                                                        borderRight: COLUMN_BORDER,
                                                         fontSize: '12px',
                                                         color: '#6b7280',
                                                         py: 1.5,

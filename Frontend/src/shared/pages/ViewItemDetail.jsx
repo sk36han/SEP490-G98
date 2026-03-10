@@ -397,7 +397,7 @@ const ViewItemDetail = () => {
                 <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1] }}>
                     <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
                         <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-                            <Typography variant="subtitle1" fontWeight="700">Tổng quan tồn kho ({itemWarehouses.length} kho)</Typography>
+                            <Typography variant="subtitle1" fontWeight="700">Số lượng sản phẩm trong kho</Typography>
                             <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap">
                                 <Typography variant="body2" color="text.secondary">Kích thước</Typography>
                                 <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>Tất cả</Typography>
