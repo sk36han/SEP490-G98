@@ -1,3 +1,4 @@
+using System;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,40 @@ namespace Warehouse.Api.ApiController
         public PurchaseOrderController(IPurchaseOrderService purchaseOrderService)
         {
             _purchaseOrderService = purchaseOrderService;
+        }
+
+        [HttpGet("list")]
+        public async Task<IActionResult> GetPurchaseOrders(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            try
+            {
+                var result = await _purchaseOrderService.GetPurchaseOrdersAsync(page, pageSize);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        [HttpGet("detail/{id:long}")]
+        public async Task<IActionResult> GetPurchaseOrderDetail(long id)
+        {
+            try
+            {
+                var result = await _purchaseOrderService.GetPurchaseOrderByIdAsync(id);
+                if (result == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy đơn mua hàng." });
+                }
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
         }
 
         [HttpPost("create")]

@@ -28,6 +28,7 @@ namespace Warehouse.Entities.ModelResponse
         public decimal TotalAmount { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal NetAmount { get; set; }
+        public decimal TotalOrderedQty { get; set; } // Tổng số lượng đặt
 
         public DateTime CreatedAt { get; set; }
         public DateTime? SubmittedAt { get; set; }
@@ -50,5 +51,7 @@ namespace Warehouse.Entities.ModelResponse
         public string Currency { get; set; } = "VND";
         public string LineStatus { get; set; } = string.Empty;
         public string? Note { get; set; }
+        public bool RequiresCo { get; set; } // Yêu cầu CO
+        public bool RequiresCq { get; set; } // Yêu cầu CQ
     }
 }
