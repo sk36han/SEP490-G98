@@ -11,6 +11,8 @@ namespace Warehouse.Entities.ModelResponse
         public decimal TotalAmount { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal NetAmount { get; set; }
+        public decimal TotalReceivedQty { get; set; } // Tổng số lượng đã nhận từ các PO lines
+
         public long? SupplierId { get; set; }
         public string? SupplierName { get; set; }
         public long? WarehouseId { get; set; }
@@ -19,5 +21,7 @@ namespace Warehouse.Entities.ModelResponse
         public string? RequestedByName { get; set; }
         public long? ResponsibleUserId { get; set; }
         public string? ResponsibleUserName { get; set; }
+
+        public DateTime CreatedAt { get; set; }
     }
 }

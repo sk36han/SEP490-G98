@@ -18,22 +18,121 @@ namespace Warehouse.DataAcces.Service
             _context = context;
         }
 
-        public Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
+        public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
             int page,
-            int pageSize,
-            string? poCode,
-            string? supplierName,
-            string? status,
-            DateTime? fromDate,
-            DateTime? toDate,
-            string? requestedByName)
+            int pageSize)
         {
-            throw new NotImplementedException();
+            if (page <= 0) page = 1;
+            if (pageSize <= 0) pageSize = 20;
+
+            var query = _context.PurchaseOrders
+                .Include(po => po.Supplier)
+                .Include(po => po.Warehouse)
+                .Include(po => po.RequestedByNavigation)
+                .Include(po => po.ResponsibleUser)
+                .Include(po => po.PurchaseOrderLines)
+                .AsQueryable();
+
+            var totalItems = query.Count();
+
+            var items = await query
+                .OrderByDescending(po => po.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(po => new PurchaseOrderResponse
+                {
+                    PurchaseOrderId = po.PurchaseOrderId,
+                    POCode = po.Pocode,
+                    Status = po.Status,
+                    LifecycleStatus = po.LifecycleStatus,
+                    RequestedDate = po.RequestedDate,
+                    ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                    TotalAmount = po.TotalAmount,
+                    DiscountAmount = po.DiscountAmount,
+                    NetAmount = po.NetAmount ?? 0,
+                    TotalReceivedQty = po.PurchaseOrderLines.Sum(line => line.ReceivedQty),
+                    SupplierId = po.SupplierId,
+                    SupplierName = po.Supplier != null ? po.Supplier.SupplierName : null,
+                    WarehouseId = po.WarehouseId,
+                    WarehouseName = po.Warehouse != null ? po.Warehouse.WarehouseName : null,
+                    RequestedBy = po.RequestedBy,
+                    RequestedByName = po.RequestedByNavigation != null ? po.RequestedByNavigation.FullName : null,
+                    ResponsibleUserId = po.ResponsibleUserId,
+                    ResponsibleUserName = po.ResponsibleUser != null ? po.ResponsibleUser.FullName : null,
+                    CreatedAt = po.CreatedAt
+                })
+                .ToListAsync();
+
+            return new PagedResponse<PurchaseOrderResponse>
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                Items = items
+            };
         }
 
-        public Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id)
+        public async Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id)
         {
-            throw new NotImplementedException();
+            var po = await _context.PurchaseOrders
+                .Include(po => po.Supplier)
+                .Include(po => po.Warehouse)
+                .Include(po => po.RequestedByNavigation)
+                .Include(po => po.ResponsibleUser)
+                .Include(po => po.PurchaseOrderLines)
+                    .ThenInclude(line => line.Item)
+                .FirstOrDefaultAsync(po => po.PurchaseOrderId == id);
+
+            if (po == null)
+            {
+                return null;
+            }
+
+            var totalOrderedQty = po.PurchaseOrderLines.Sum(line => line.OrderedQty);
+
+            return new PurchaseOrderDetailResponse
+            {
+                PurchaseOrderId = po.PurchaseOrderId,
+                POCode = po.Pocode,
+                Status = po.Status,
+                LifecycleStatus = po.LifecycleStatus,
+                CurrentStageNo = po.CurrentStageNo,
+                RequestedBy = po.RequestedBy,
+                RequestedByName = po.RequestedByNavigation?.FullName,
+                ResponsibleUserId = po.ResponsibleUserId,
+                ResponsibleUserName = po.ResponsibleUser?.FullName,
+                SupplierId = po.SupplierId,
+                SupplierName = po.Supplier?.SupplierName,
+                WarehouseId = po.WarehouseId,
+                WarehouseName = po.Warehouse?.WarehouseName,
+                RequestedDate = po.RequestedDate,
+                ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                Justification = po.Justification,
+                TotalAmount = po.TotalAmount,
+                DiscountAmount = po.DiscountAmount,
+                NetAmount = po.NetAmount ?? 0,
+                TotalOrderedQty = totalOrderedQty,
+                CreatedAt = po.CreatedAt,
+                SubmittedAt = po.SubmittedAt,
+                UpdatedAt = po.UpdatedAt,
+                Lines = po.PurchaseOrderLines.Select(line => new PurchaseOrderLineResponse
+                {
+                    PurchaseOrderLineId = line.PurchaseOrderLineId,
+                    ItemId = line.ItemId,
+                    ItemCode = line.Item?.ItemCode,
+                    ItemName = line.Item?.ItemName,
+                    UomId = line.UomId,
+                    OrderedQty = line.OrderedQty,
+                    ReceivedQty = line.ReceivedQty,
+                    UnitPrice = line.UnitPrice ?? 0,
+                    LineTotal = line.LineTotal ?? 0,
+                    Currency = line.Currency ?? "VND",
+                    LineStatus = line.LineStatus,
+                    Note = line.Note,
+                    RequiresCo = line.Item?.RequiresCo ?? false,
+                    RequiresCq = line.Item?.RequiresCq ?? false
+                }).ToList()
+            };
         }
 
         public async Task<PurchaseOrderDetailResponse> CreatePurchaseOrderAsync(long requestedByUserId, CreatePurchaseOrderRequest request)
@@ -169,6 +268,19 @@ namespace Warehouse.DataAcces.Service
             _context.PurchaseOrders.Add(po);
             await _context.SaveChangesAsync();
 
+            // Ghi audit log khi tạo PO
+            var auditLog = new AuditLog
+            {
+                ActorUserId = requestedByUserId,
+                Action = "CREATE",
+                EntityType = "PurchaseOrder",
+                EntityId = po.PurchaseOrderId,
+                Detail = $"Tạo đơn mua hàng {po.Pocode}",
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return new PurchaseOrderDetailResponse
             {
                 PurchaseOrderId = po.PurchaseOrderId,
@@ -237,5 +349,7 @@ namespace Warehouse.DataAcces.Service
 
             return $"PO{maxNumber + 1}";
         }
+
+       
     }
 }
