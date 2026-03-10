@@ -28,6 +28,9 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(100, ErrorMessage = "Phường/Xã tối đa 100 ký tự")]
         public string? Ward { get; set; }
 
+        [MaxLength(100, ErrorMessage = "Quận/Huyện tối đa 100 ký tự")]
+        public string? District { get; set; }
+
         public bool IsActive { get; set; }
     }
 }
