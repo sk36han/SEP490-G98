@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -143,6 +144,196 @@ namespace Warehouse.DataAcces.Service
             }
 
             return MapToDisplay(item);
+        }
+
+        public async Task<ItemDetailResponse?> GetItemDetailByIdAsync(long itemId, int historyPage = 1, int historyPageSize = 20)
+        {
+            if (historyPage <= 0) historyPage = 1;
+            if (historyPageSize <= 0) historyPageSize = 20;
+
+            var item = await _context.Items
+                .Where(i => i.ItemId == itemId)
+                .Select(i => new
+                {
+                    i.ItemId,
+                    i.ItemCode,
+                    i.ItemName,
+                    i.ItemType,
+                    i.Description,
+                    i.RequiresCo,
+                    i.RequiresCq,
+                    i.IsActive,
+                    i.CreatedAt,
+                    i.UpdatedAt,
+                    i.ImageUrl,
+                    CategoryName = i.Category != null ? i.Category.CategoryName : null,
+                    BrandName = i.Brand != null ? i.Brand.BrandName : null,
+                    BaseUomName = i.BaseUom.UomName,
+                    PackagingSpecName = i.PackagingSpec != null ? i.PackagingSpec.SpecName : null,
+                    i.DefaultWarehouseId
+                })
+                .FirstOrDefaultAsync();
+
+            if (item == null)
+            {
+                return null;
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var purchasePrice = _context.ItemPrices
+                .Where(p => p.ItemId == itemId
+                    && p.IsActive
+                    && p.PriceType == "Purchase"
+                    && p.EffectiveFrom <= today
+                    && (p.EffectiveTo == null || p.EffectiveTo >= today))
+                .OrderByDescending(p => p.EffectiveFrom)
+                .ThenByDescending(p => p.CreatedAt)
+                .Select(p => (decimal?)p.Amount)
+                .FirstOrDefault();
+
+            var salePrice = _context.ItemPrices
+                .Where(p => p.ItemId == itemId
+                    && p.IsActive
+                    && p.PriceType == "Sale"
+                    && p.EffectiveFrom <= today
+                    && (p.EffectiveTo == null || p.EffectiveTo >= today))
+                .OrderByDescending(p => p.EffectiveFrom)
+                .ThenByDescending(p => p.CreatedAt)
+                .Select(p => (decimal?)p.Amount)
+                .FirstOrDefault();
+
+            var variants = _context.InventoryOnHands
+                .Where(ioh => ioh.ItemId == itemId)
+                .Select(ioh => new ItemWarehouseVariantResponse
+                {
+                    WarehouseId = ioh.WarehouseId,
+                    WarehouseName = ioh.Warehouse.WarehouseName,
+                    Sku = item.ItemCode,
+                    VariantName = item.ItemName,
+                    OnHandQty = ioh.OnHandQty,
+                    ReservedQty = ioh.ReservedQty,
+                    AvailableQty = ioh.OnHandQty - ioh.ReservedQty,
+                    PreOrderQty = 0,
+                    IsDefaultWarehouse = item.DefaultWarehouseId.HasValue && ioh.WarehouseId == item.DefaultWarehouseId.Value
+                })
+                .OrderByDescending(x => x.IsDefaultWarehouse)
+                .ThenBy(x => x.WarehouseName)
+                .ToList();
+
+            var history = _context.InventoryTransactionLines
+                .Where(l => l.ItemId == itemId)
+                .OrderByDescending(l => l.InventoryTxn.TxnDate)
+                .Skip((historyPage - 1) * historyPageSize)
+                .Take(historyPageSize)
+                .Select(l => new ItemInventoryHistoryResponse
+                {
+                    DocNo = l.InventoryTxn.ReferenceType + "-" + l.InventoryTxn.ReferenceId,
+                    MovementSign = l.QtyChange >= 0 ? "+" : "-",
+                    Qty = Math.Abs(l.QtyChange),
+                    TransactionAt = l.InventoryTxn.TxnDate,
+                    ActorName = l.InventoryTxn.PostedByNavigation != null ? l.InventoryTxn.PostedByNavigation.FullName : null,
+                    Note = l.Note,
+                    SourceType = l.InventoryTxn.ReferenceType
+                })
+                .ToList();
+
+            return new ItemDetailResponse
+            {
+                ProductInfo = new ItemProductInfoResponse
+                {
+                    ItemId = item.ItemId,
+                    ItemCode = item.ItemCode,
+                    ItemName = item.ItemName,
+                    ItemType = item.ItemType,
+                    Description = item.Description,
+                    CategoryName = item.CategoryName,
+                    BrandName = item.BrandName,
+                    BaseUomName = item.BaseUomName,
+                    PackagingSpecName = item.PackagingSpecName,
+                    RequiresCo = item.RequiresCo,
+                    RequiresCq = item.RequiresCq,
+                    IsActive = item.IsActive,
+                    CreatedAt = item.CreatedAt,
+                    UpdatedAt = item.UpdatedAt,
+                    ImageUrl = item.ImageUrl,
+                    PurchasePrice = purchasePrice,
+                    SalePrice = salePrice
+                },
+                VariantsByWarehouse = variants,
+                InventoryHistory = history
+            };
+        }
+
+        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            var item = await GetByIdAsync(itemId);
+            if (item == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy sản phẩm với ID = {itemId}");
+            }
+
+            var categoryExists = _context.ItemCategories.Any(c => c.CategoryId == request.CategoryId && c.IsActive);
+            if (!categoryExists)
+            {
+                throw new InvalidOperationException("Category không tồn tại hoặc đã bị vô hiệu hóa.");
+            }
+
+            var uomExists = _context.UnitOfMeasures.Any(u => u.UomId == request.BaseUomId && u.IsActive);
+            if (!uomExists)
+            {
+                throw new InvalidOperationException("Đơn vị tính cơ bản không tồn tại hoặc đã bị vô hiệu hóa.");
+            }
+
+            if (request.BrandId.HasValue)
+            {
+                var brandExists = _context.Brands.Any(b => b.BrandId == request.BrandId.Value && b.IsActive);
+                if (!brandExists)
+                {
+                    throw new InvalidOperationException("Brand không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            if (request.PackagingSpecId.HasValue)
+            {
+                var packagingExists = _context.PackagingSpecs.Any(p => p.PackagingSpecId == request.PackagingSpecId.Value && p.IsActive);
+                if (!packagingExists)
+                {
+                    throw new InvalidOperationException("PackagingSpec không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            if (request.DefaultWarehouseId.HasValue)
+            {
+                var warehouseExists = _context.Warehouses.Any(w => w.WarehouseId == request.DefaultWarehouseId.Value && w.IsActive);
+                if (!warehouseExists)
+                {
+                    throw new InvalidOperationException("DefaultWarehouse không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+            }
+
+            item.ItemName = request.ItemName?.Trim() ?? string.Empty;
+            item.ItemType = request.ItemType?.Trim();
+            item.Description = request.Description?.Trim();
+            item.CategoryId = request.CategoryId;
+            item.BrandId = request.BrandId;
+            item.BaseUomId = request.BaseUomId;
+            item.PackagingSpecId = request.PackagingSpecId;
+            item.RequiresCo = request.RequiresCo;
+            item.RequiresCq = request.RequiresCq;
+            item.IsActive = request.IsActive;
+            item.DefaultWarehouseId = request.DefaultWarehouseId;
+            item.InventoryAccount = request.InventoryAccount?.Trim();
+            item.RevenueAccount = request.RevenueAccount?.Trim();
+            item.UpdatedAt = DateTime.UtcNow;
+
+            await UpdateAsync(item);
+            return item;
         }
 
         public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive)
