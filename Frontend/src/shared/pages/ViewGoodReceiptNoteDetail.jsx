@@ -673,8 +673,9 @@ const ViewGoodReceiptNoteDetail = () => {
                             alignItems: 'flex-start',
                         }}
                     >
-                        {/* Trái: Chi tiết sản phẩm nhập */}
-                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+                        {/* Trái: Chi tiết sản phẩm nhập + Nhà cung cấp */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
                                 {isEditing && (
@@ -1383,6 +1384,17 @@ const ViewGoodReceiptNoteDetail = () => {
                                 {/* Trạng thái đã hiển thị trên header, không lặp lại tại đây */}
                             </div>
                         </div>
+
+                        {/* Lịch sử phiếu nhập */}
+                        <div className="info-section" style={{ margin: 0 }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Lịch sử phiếu nhập</h2>
+                            </div>
+                            <div style={{ fontSize: 13, color: '#6b7280' }}>
+                                Chức năng lịch sử phiếu nhập sẽ được bổ sung sau.
+                            </div>
+                        </div>
+                        </div>
                     </div>
 
                     <div
@@ -1808,14 +1820,8 @@ const ViewGoodReceiptNoteDetail = () => {
                             </div>
                         </div>
 
-                        {/* Cột phải: placeholder lịch sử phiếu nhập (cho đồng nhất layout) */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Lịch sử phiếu nhập</h2>
-                            </div>
-                            <div style={{ fontSize: 13, color: '#6b7280' }}>
-                                Chức năng lịch sử phiếu nhập sẽ được bổ sung sau.
-                            </div>
+                        {/* Cột phải: placeholder để giữ layout đồng nhất */}
+                        <div style={{ margin: 0 }}>
                         </div>
                     </div>
                 </div>
