@@ -150,7 +150,7 @@ namespace Warehouse.DataAcces.Service
                     UomId = item.BaseUomId,
                     Note = line.Note,
                     ReceivedQty = 0,
-                    LineStatus = "Open", // PendingReceipt
+                    LineStatus = "PendingRcv", // PendingReceipt
                     UnitPrice = line.UnitPrice,
                     Currency = "VND",
                     LineTotal = lineTotal

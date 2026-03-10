@@ -405,6 +405,7 @@ namespace Warehouse.DataAcces.Service
 
             return new ItemDisplayResponse
             {
+                ItemId = itemId,
                 ItemCode = item.ItemCode,
                 ItemName = item.ItemName,
                 ItemType = item.ItemType,
