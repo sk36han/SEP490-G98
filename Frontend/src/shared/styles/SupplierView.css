@@ -1,12 +1,12 @@
 /* Scoped styles – Supplier View / List page only. Do not affect other pages. */
 
-.supplier-view {
-    font-family: var(--font-family-base, 'Inter', sans-serif);
-    box-sizing: border-box;
-    margin: 12px;
-    width: calc(100% - 24px);
-    max-width: calc(100% - 24px);
-}
+ .supplier-view {
+     font-family: var(--font-family-base, 'Inter', sans-serif);
+     box-sizing: border-box;
+     margin: 12px;
+     width: calc(100% - 24px);
+     max-width: calc(100% - 24px);
+ }
 
 /* Giới hạn max-width vừa phải (1200–1280), có khoảng thở với nền (chỉ Supplier View) */
 .content-container:has(.supplier-view) {

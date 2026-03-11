@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Container,
     Paper,
@@ -16,37 +16,11 @@ import {
     Select,
     MenuItem,
     TablePagination,
+    CircularProgress,
+    Alert,
 } from '@mui/material';
 import { ClipboardList } from 'lucide-react';
-
-/**
- * Cấu trúc đúng theo bảng [dbo].[AuditLogs] trong DB.
- * Phần Detail: không lưu/hiển thị ID hệ thống, dùng username (hoặc mã/tên) thay thế.
- */
-const MOCK_AUDIT_LOGS = [
-    { auditLogId: 1, actorUserId: 101, action: 'CREATE', entityType: 'User', entityId: 205, detail: 'Tạo tài khoản: username=ketoan1, email=ketoan1@company.com', createdAt: '2025-02-23T08:15:00Z' },
-    { auditLogId: 2, actorUserId: 102, action: 'UPDATE', entityType: 'Item', entityId: 12, detail: 'Cập nhật số lượng tồn, kho chính', createdAt: '2025-02-23T09:22:00Z' },
-    { auditLogId: 3, actorUserId: 103, action: 'CREATE', entityType: 'Supplier', entityId: 8, detail: 'Thêm nhà cung cấp: Công ty TNHH ABC', createdAt: '2025-02-23T10:05:00Z' },
-    { auditLogId: 4, actorUserId: 101, action: 'STATUS_CHANGE', entityType: 'User', entityId: 203, detail: 'Vô hiệu hóa tài khoản: username=truongnv', createdAt: '2025-02-23T10:30:00Z' },
-    { auditLogId: 5, actorUserId: 102, action: 'CREATE', entityType: 'GRN', entityId: 4, detail: 'Tạo phiếu nhập kho GRN-2025-004', createdAt: '2025-02-23T11:00:00Z' },
-    { auditLogId: 6, actorUserId: 104, action: 'UPDATE', entityType: 'PO', entityId: 2, detail: 'Duyệt đơn mua hàng PO-2025-002', createdAt: '2025-02-23T11:45:00Z' },
-    { auditLogId: 7, actorUserId: 102, action: 'CREATE', entityType: 'GDN', entityId: 3, detail: 'Tạo phiếu xuất kho GDN-2025-003', createdAt: '2025-02-23T13:20:00Z' },
-    { auditLogId: 8, actorUserId: 103, action: 'UPDATE', entityType: 'Supplier', entityId: 5, detail: 'Cập nhật SĐT và địa chỉ nhà cung cấp: Công ty XYZ', createdAt: '2025-02-23T14:10:00Z' },
-    { auditLogId: 9, actorUserId: 101, action: 'CREATE', entityType: 'User', entityId: 206, detail: 'Tạo tài khoản: username=hoangse, fullName=Hoàng Sale Engineer', createdAt: '2025-02-22T16:00:00Z' },
-    { auditLogId: 10, actorUserId: 102, action: 'UPDATE', entityType: 'Warehouse', entityId: 1, detail: 'Cập nhật địa chỉ kho chính', createdAt: '2025-02-22T15:30:00Z' },
-];
-
-/**
- * Mock bảng Users + Roles (DB đã có): dùng để hiển thị tên/role khi show audit.
- * Backend thật sẽ JOIN AuditLogs với Users và UserRoles/Roles, trả thêm ActorName, ActorRole.
- */
-const MOCK_ACTORS_BY_USER_ID = {
-    101: { fullName: 'Nguyễn Văn Admin', roleName: 'Admin' },
-    102: { fullName: 'Trần Thủ Kho', roleName: 'Warehouse Keeper' },
-    103: { fullName: 'Lê Sale Support', roleName: 'Sale Support' },
-    104: { fullName: 'Phạm Kế Toán', roleName: 'Accountants' },
-};
-const getActorDisplay = (actorUserId) => MOCK_ACTORS_BY_USER_ID[actorUserId] || { fullName: `User #${actorUserId}`, roleName: '—' };
+import auditLogService from '../lib/auditLogService';
 
 const ENTITY_TYPE_OPTIONS = [
     { value: '', label: 'Tất cả loại' },
@@ -54,22 +28,24 @@ const ENTITY_TYPE_OPTIONS = [
     { value: 'Supplier', label: 'Supplier' },
     { value: 'Item', label: 'Item' },
     { value: 'Warehouse', label: 'Warehouse' },
-    { value: 'GRN', label: 'Phiếu nhập (GRN)' },
-    { value: 'GDN', label: 'Phiếu xuất (GDN)' },
-    { value: 'PO', label: 'Đơn mua hàng (PO)' },
+    { value: 'PurchaseOrder', label: 'Đơn mua hàng (PO)' },
+    { value: 'Receiver', label: 'Receiver' },
+    { value: 'Role', label: 'Role' },
 ];
 
 const ACTION_OPTIONS = [
     { value: '', label: 'Tất cả hành động' },
     { value: 'CREATE', label: 'Tạo mới' },
     { value: 'UPDATE', label: 'Cập nhật' },
-    { value: 'STATUS_CHANGE', label: 'Đổi trạng thái' },
+    { value: 'DELETE', label: 'Xóa' },
+    { value: 'LOGIN', label: 'Đăng nhập' },
 ];
 
 const actionColor = (action) => {
     if (action === 'CREATE') return 'success';
     if (action === 'UPDATE') return 'info';
-    if (action === 'STATUS_CHANGE') return 'warning';
+    if (action === 'DELETE') return 'error';
+    if (action === 'LOGIN') return 'primary';
     return 'default';
 };
 
@@ -79,25 +55,54 @@ const formatDateTime = (iso) => {
     return d.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
 };
 
-const AdminAuditLog = () => {
+const ViewAdminAuditLog = () => {
     const [filterEntityType, setFilterEntityType] = useState('');
     const [filterAction, setFilterAction] = useState('');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [rows, setRows] = useState([]);
+    const [totalItems, setTotalItems] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const filteredRows = useMemo(() => {
-        let list = [...MOCK_AUDIT_LOGS];
-        if (filterEntityType) list = list.filter((r) => r.entityType === filterEntityType);
-        if (filterAction) list = list.filter((r) => r.action === filterAction);
-        return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }, [filterEntityType, filterAction]);
+    const fetchAuditLogs = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await auditLogService.getAuditLogs({
+                entityType: filterEntityType || undefined,
+                action: filterAction || undefined,
+                pageNumber: page + 1,
+                pageSize: rowsPerPage,
+            });
+            setRows(result.items ?? []);
+            setTotalItems(result.totalItems ?? 0);
+        } catch (err) {
+            setError(err?.message ?? 'Không thể tải audit log.');
+            setRows([]);
+            setTotalItems(0);
+        } finally {
+            setLoading(false);
+        }
+    }, [filterEntityType, filterAction, page, rowsPerPage]);
 
-    const pagedRows = useMemo(() => {
-        const start = page * rowsPerPage;
-        return filteredRows.slice(start, start + rowsPerPage);
-    }, [filteredRows, page, rowsPerPage]);
+    useEffect(() => {
+        fetchAuditLogs();
+    }, [fetchAuditLogs]);
 
-    const totalCount = filteredRows.length;
+    const handlePageChange = (_, newPage) => setPage(newPage);
+    const handleRowsPerPageChange = (e) => {
+        setRowsPerPage(Number(e.target.value));
+        setPage(0);
+    };
+    const handleFilterEntityType = (e) => {
+        setFilterEntityType(e.target.value);
+        setPage(0);
+    };
+    const handleFilterAction = (e) => {
+        setFilterAction(e.target.value);
+        setPage(0);
+    };
 
     return (
         <Container
@@ -105,9 +110,8 @@ const AdminAuditLog = () => {
             sx={{
                 pt: 3,
                 pb: 2,
-                mt: -3,
                 width: '100%',
-                maxWidth: 2304,
+                maxWidth: 1400,
                 minHeight: 560,
                 overflow: 'hidden',
                 display: 'flex',
@@ -134,7 +138,7 @@ const AdminAuditLog = () => {
                     Audit Log hệ thống
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    Nhật ký thao tác tạo mới, cập nhật và đổi trạng thái — chỉ Admin xem toàn bộ.
+                    Nhật ký thao tác từ API — chỉ Admin xem toàn bộ.
                 </Typography>
             </Box>
 
@@ -161,11 +165,7 @@ const AdminAuditLog = () => {
                     </Box>
                     <FormControl size="small" sx={{ minWidth: 180 }}>
                         <InputLabel>Loại đối tượng</InputLabel>
-                        <Select
-                            value={filterEntityType}
-                            onChange={(e) => { setFilterEntityType(e.target.value); setPage(0); }}
-                            label="Loại đối tượng"
-                        >
+                        <Select value={filterEntityType} onChange={handleFilterEntityType} label="Loại đối tượng">
                             {ENTITY_TYPE_OPTIONS.map((opt) => (
                                 <MenuItem key={opt.value || 'all'} value={opt.value}>{opt.label}</MenuItem>
                             ))}
@@ -173,11 +173,7 @@ const AdminAuditLog = () => {
                     </FormControl>
                     <FormControl size="small" sx={{ minWidth: 160 }}>
                         <InputLabel>Hành động</InputLabel>
-                        <Select
-                            value={filterAction}
-                            onChange={(e) => { setFilterAction(e.target.value); setPage(0); }}
-                            label="Hành động"
-                        >
+                        <Select value={filterAction} onChange={handleFilterAction} label="Hành động">
                             {ACTION_OPTIONS.map((opt) => (
                                 <MenuItem key={opt.value || 'all'} value={opt.value}>{opt.label}</MenuItem>
                             ))}
@@ -185,62 +181,81 @@ const AdminAuditLog = () => {
                     </FormControl>
                 </Box>
 
-                <TableContainer sx={{ flex: 1, minHeight: 320, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 2, overflow: 'auto' }}>
-                    <Table stickyHeader size="small">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 56 }}>STT</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', minWidth: 140 }}>Thời gian</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', minWidth: 160 }}>Người thực hiện</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 120 }}>Hành động</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 120 }}>Loại đối tượng</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 90 }}>Entity ID</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary' }}>Chi tiết</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {pagedRows.length === 0 ? (
+                {error && (
+                    <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
+
+                <TableContainer sx={{ flex: 1, minHeight: 320, minWidth: 0, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 2, overflow: 'auto' }}>
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Table stickyHeader size="small">
+                            <TableHead>
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                                        Không có bản ghi nào phù hợp.
-                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 56 }}>STT</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', minWidth: 140 }}>Thời gian</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', minWidth: 160 }}>Người thực hiện</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 120 }}>Hành động</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 120 }}>Loại đối tượng</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary', width: 90 }}>Entity ID</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', bgcolor: 'grey.50', color: 'text.secondary' }}>Chi tiết</TableCell>
                                 </TableRow>
-                            ) : (
-                                pagedRows.map((row, index) => {
-                                    const actor = getActorDisplay(row.actorUserId);
-                                    return (
-                                    <TableRow key={row.auditLogId} hover sx={{ '&:last-child td': { border: 0 } }}>
-                                        <TableCell>{(page * rowsPerPage) + index + 1}</TableCell>
-                                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(row.createdAt)}</TableCell>
-                                        <TableCell>
-                                            <Box>
-                                                <Typography variant="body2" fontWeight={600}>{actor.fullName}</Typography>
-                                                <Typography variant="caption" color="text.secondary">{actor.roleName}</Typography>
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip label={row.action} size="small" color={actionColor(row.action)} variant="filled" sx={{ fontWeight: 600 }} />
-                                        </TableCell>
-                                        <TableCell>{row.entityType}</TableCell>
-                                        <TableCell>{row.entityId ?? '—'}</TableCell>
-                                        <TableCell sx={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.detail}>
-                                            {row.detail ?? '—'}
+                            </TableHead>
+                            <TableBody>
+                                {rows.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                                            {error ? 'Lỗi tải dữ liệu.' : 'Không có bản ghi nào phù hợp.'}
                                         </TableCell>
                                     </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    rows.map((row, index) => (
+                                        <TableRow key={row.auditLogId ?? row.AuditLogId ?? index} hover sx={{ '&:last-child td': { border: 0 } }}>
+                                            <TableCell>{(page * rowsPerPage) + index + 1}</TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                {formatDateTime(row.createdAt ?? row.CreatedAt)}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight={600}>
+                                                    {row.actorFullName ?? row.ActorFullName ?? `User #${row.actorUserId ?? row.ActorUserId}`}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={row.action ?? row.Action}
+                                                    size="small"
+                                                    color={actionColor(row.action ?? row.Action)}
+                                                    variant="filled"
+                                                    sx={{ fontWeight: 600 }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>{row.entityType ?? row.EntityType ?? '—'}</TableCell>
+                                            <TableCell>{row.entityId ?? row.EntityId ?? '—'}</TableCell>
+                                            <TableCell
+                                                sx={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                title={row.detail ?? row.Detail}
+                                            >
+                                                {row.detail ?? row.Detail ?? '—'}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    )}
                 </TableContainer>
 
                 <TablePagination
                     component="div"
-                    count={totalCount}
+                    count={totalItems}
                     page={page}
-                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onPageChange={handlePageChange}
                     rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0); }}
+                    onRowsPerPageChange={handleRowsPerPageChange}
                     rowsPerPageOptions={[5, 10, 25, 50]}
                     labelRowsPerPage="Số dòng / trang:"
                     labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
@@ -251,4 +266,4 @@ const AdminAuditLog = () => {
     );
 };
 
-export default AdminAuditLog;
+export default ViewAdminAuditLog;

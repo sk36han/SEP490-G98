@@ -97,7 +97,7 @@ const CreateUserDialog = ({
       >
         <Typography
           variant="h6"
-          component="div"
+          component="span"
           sx={{
             fontFamily: "'Be Vietnam Pro', sans-serif",
             fontWeight: 700,

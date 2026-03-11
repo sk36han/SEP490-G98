@@ -12,9 +12,7 @@
 .main-content {
     flex: 1;
     /* Takes remaining width */
-    height: 100vh;
-    overflow-y: auto;
-    /* Scroll inside main content, keep sidebar sticky */
+    /* Để nội dung tự quyết định chiều cao và cho trình duyệt scroll toàn trang */
     position: relative;
     transition: margin-left 0.3s ease;
     /* Ensure smooth transition if margin is used */

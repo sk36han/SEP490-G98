@@ -208,16 +208,25 @@ const authService = {
     },
 
     /**
-     * Update user profile (backend hiện chỉ hỗ trợ cập nhật Phone)
-     * @param {string} phone - Số điện thoại
+     * Update user profile. Backend hiện chỉ bắt buộc Phone; gửi thêm gender, dob để sẵn sàng khi backend hỗ trợ.
+     * @param {string|{ phone: string, gender?: string, dob?: string }} payload - Số điện thoại hoặc object { phone, gender?, dob? } (dob format yyyy-MM-dd)
      * @returns {Promise<object>}
      */
-    async updateProfile(phone) {
+    async updateProfile(payload) {
+        const body = typeof payload === 'string'
+            ? { phone: payload }
+            : {
+                phone: payload?.phone ?? '',
+                ...(payload?.gender != null && payload.gender !== '' && { gender: payload.gender }),
+                ...(payload?.dob != null && payload.dob !== '' && { dob: payload.dob }),
+            };
         try {
-            const response = await apiClient.put('/User/profile', { phone });
+            const response = await apiClient.put('/User/profile', body);
             const currentUser = this.getUser();
             if (currentUser) {
-                currentUser.phone = phone;
+                currentUser.phone = body.phone;
+                if (body.gender != null) currentUser.gender = body.gender;
+                if (body.dob != null) currentUser.dob = body.dob;
                 localStorage.setItem('userInfo', JSON.stringify(currentUser));
             }
             return response.data;
