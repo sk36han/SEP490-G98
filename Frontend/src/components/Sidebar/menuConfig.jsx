@@ -54,9 +54,9 @@ const warehouseKeeperItems = [
             { path: '/uom', label: 'Đơn vị tính' },
             { path: '/packaging-spec', label: 'Quy cách' },
             { path: '/specs', label: 'Thông số' },
+            { path: '/brands', label: 'Thương hiệu' },
         ],
     },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
@@ -83,9 +83,9 @@ const saleSupportItems = [
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
             { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/brands', label: 'Thương hiệu' },
         ],
     },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     {
         id: 'suppliers-mgmt',
         path: '/suppliers',
@@ -119,9 +119,9 @@ const saleEngineerItems = [
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
             { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/brands', label: 'Thương hiệu' },
         ],
     },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
 ];
 
@@ -135,9 +135,9 @@ const accountantItems = [
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
             { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/brands', label: 'Thương hiệu' },
         ],
     },
-    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     {
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',

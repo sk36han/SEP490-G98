@@ -57,8 +57,8 @@ const ITEM_LIST_COLUMNS = [
     { id: 'category', label: 'Danh mục', sortable: true, getValue: (row) => row.categoryName ?? '-' },
     { id: 'brand', label: 'Thương hiệu', sortable: true, getValue: (row) => row.brandName ?? '-' },
     { id: 'unit', label: 'Đơn vị tính', sortable: true, getValue: (row) => row.unitName ?? '-' },
-    { id: 'availableQty', label: 'Số lượng có thể bán', sortable: true, getValue: (row) => (row.availableQty != null ? Number(row.availableQty).toLocaleString('vi-VN') : '-') },
-    { id: 'onHandQty', label: 'Số lượng tồn kho', sortable: true, getValue: (row) => (row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-') },
+    { id: 'availableQty', label: 'Có thể bán', sortable: true, getValue: (row) => (row.availableQty != null ? Number(row.availableQty).toLocaleString('vi-VN') : '-') },
+    { id: 'onHandQty', label: 'Tồn kho', sortable: true, getValue: (row) => (row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-') },
     { id: 'purchasePrice', label: 'Giá nhập', sortable: true, getValue: (row) => formatPrice(row.purchasePrice) },
     { id: 'salePrice', label: 'Giá xuất', sortable: true, getValue: (row) => formatPrice(row.salePrice) },
     { id: 'isActive', label: 'Trạng thái giao dịch', sortable: true, getValue: (row) => (row.isActive ? 'Đang giao dịch' : 'Tạm dừng') },
@@ -76,7 +76,7 @@ const getTableColumnWidth = (colId) => {
         case 'stt':
             return 56;
         case 'itemCode':
-            return 190;
+            return 230;
         case 'itemName':
             return 220;
         case 'itemType':
@@ -1124,8 +1124,8 @@ const ViewItemList = () => {
                                                         {col.id === 'itemCode' && (
                                                             <Box
                                                                 sx={{
-                                                                    width: 36,
-                                                                    height: 36,
+                                                                    width: 48,
+                                                                    height: 48,
                                                                     flexShrink: 0,
                                                                 }}
                                                             />
@@ -1241,11 +1241,19 @@ const ViewItemList = () => {
                                                                 ...bodyCellBaseSx,
                                                             }}
                                                         >
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                                                            <Box
+                                                                sx={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 1.5,
+                                                                    minWidth: 0,
+                                                                    minHeight: 48,
+                                                                }}
+                                                            >
                                                                 <Box
                                                                     sx={{
-                                                                        width: 36,
-                                                                        height: 36,
+                                                                        width: 48,
+                                                                        height: 48,
                                                                         borderRadius: 1.5,
                                                                         overflow: 'hidden',
                                                                         bgcolor: 'grey.100',
@@ -1267,9 +1275,9 @@ const ViewItemList = () => {
                                                                             justifyContent: 'center',
                                                                         }}
                                                                     >
-                                                                        <Package size={16} style={{ color: '#9e9e9e' }} />
+                                                                        <Package size={20} style={{ color: '#9e9e9e' }} />
                                                                     </Box>
-                        
+                                                
                                                                     {item.imageUrl && item.imageUrl.trim() && (
                                                                         <img
                                                                             src={item.imageUrl}
@@ -1288,26 +1296,38 @@ const ViewItemList = () => {
                                                                         />
                                                                     )}
                                                                 </Box>
-                        
-                                                                <Typography
-                                                                    onClick={() => navigate(`/items/${item.itemId}`)}
+                                                
+                                                                <Box
                                                                     sx={{
-                                                                        color: '#3b82f6',
-                                                                        textDecoration: 'none',
-                                                                        fontWeight: 500,
-                                                                        cursor: 'pointer',
-                                                                        overflow: 'hidden',
-                                                                        textOverflow: 'ellipsis',
-                                                                        whiteSpace: 'nowrap',
-                                                                        fontSize: '13px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        minHeight: 48,
                                                                         minWidth: 0,
-                                                                        '&:hover': {
-                                                                            textDecoration: 'underline',
-                                                                        },
+                                                                        flex: 1,
                                                                     }}
                                                                 >
-                                                                    {item.itemCode}
-                                                                </Typography>
+                                                                    <Typography
+                                                                        onClick={() => navigate(`/items/${item.itemId}`)}
+                                                                        sx={{
+                                                                            color: '#3b82f6',
+                                                                            textDecoration: 'none',
+                                                                            fontWeight: 500,
+                                                                            cursor: 'pointer',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap',
+                                                                            fontSize: '13px',
+                                                                            lineHeight: 1.2,
+                                                                            display: 'block',
+                                                                            minWidth: 0,
+                                                                            '&:hover': {
+                                                                                textDecoration: 'underline',
+                                                                            },
+                                                                        }}
+                                                                    >
+                                                                        {item.itemCode}
+                                                                    </Typography>
+                                                                </Box>
                                                             </Box>
                                                         </TableCell>
                                                     );
