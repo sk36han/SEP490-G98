@@ -9,13 +9,7 @@ namespace Warehouse.DataAcces.Service.Interface
     {
         Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
             int page,
-            int pageSize,
-            string? poCode,
-            string? supplierName,
-            string? status,
-            DateTime? fromDate,
-            DateTime? toDate,
-            string? requestedByName);
+            int pageSize);
 
         Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id);
 

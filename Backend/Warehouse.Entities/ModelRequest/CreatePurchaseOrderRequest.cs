@@ -21,6 +21,10 @@ namespace Warehouse.Entities.ModelRequest
         [Range(0, double.MaxValue)]
         public decimal? DiscountAmount { get; set; }
 
+        // Status: DRAFT, PENDING_DIR, v.v. Nếu null sẽ dùng mặc định từ DB
+        [MaxLength(30)]
+        public string? Status { get; set; }
+
         [Required]
         [MinLength(1)]
         public List<CreatePurchaseOrderLineRequest> Lines { get; set; } = new();
