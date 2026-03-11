@@ -6,13 +6,19 @@ import axios from 'axios';
  * Ví dụ v2: baseURL: 'https://provinces.open-api.vn/api/v2'
  */
 const BASE_URL = 'https://provinces.open-api.vn/api';
+const BASE_URL_V2 = 'https://provinces.open-api.vn/api/v2';
 const provinceClient = axios.create({
     baseURL: BASE_URL,
+    timeout: 15000,
+});
+const provinceClientV2 = axios.create({
+    baseURL: BASE_URL_V2,
     timeout: 15000,
 });
 
 /** Cache chi tiết tỉnh (code -> { districts, ... }) để không gọi lại khi đổi tỉnh rồi chọn lại */
 const provinceDetailCache = new Map();
+const provinceDetailCacheV2 = new Map();
 
 /**
  * Lấy danh sách tỉnh/thành phố (chỉ tên + code). Nhẹ, load nhanh.
@@ -40,6 +46,36 @@ export async function getProvinceWithWards(provinceCode) {
     const data = res.data;
     if (data) {
         provinceDetailCache.set(key, data);
+    }
+    return data;
+}
+
+/**
+ * Lấy danh sách tỉnh/thành phố từ API v2 (dữ liệu sau sáp nhập 2025/2026).
+ * @returns {Promise<Array<{ code: number, name: string }>>}
+ */
+export async function getProvincesV2() {
+    const res = await provinceClientV2.get('/?depth=1');
+    return res.data || [];
+}
+
+/**
+ * Lấy chi tiết một tỉnh từ API v2 kèm wards trực tiếp (không qua district).
+ * Dùng cho địa chỉ sau sáp nhập.
+ * @param {number|string} provinceCode
+ * @returns {Promise<{ code, name, wards: Array<{ code, name }> }>}
+ */
+export async function getProvinceWardsDirectV2(provinceCode) {
+    const key = String(provinceCode);
+    if (provinceDetailCacheV2.has(key)) {
+        return provinceDetailCacheV2.get(key);
+    }
+    const res = await provinceClientV2.get(`/p/${provinceCode}`, {
+        params: { depth: 2 },
+    });
+    const data = res.data;
+    if (data) {
+        provinceDetailCacheV2.set(key, data);
     }
     return data;
 }

@@ -26,7 +26,7 @@ import {
     Chip,
     CircularProgress,
 } from '@mui/material';
-import { Package, Download, Eye, Plus, Columns, Filter, Edit, Check, X, Power, RefreshCw } from 'lucide-react';
+import { Package, Download, Eye, Plus, Columns, Filter, Edit, Check, X, Power, RefreshCw, GripVertical } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import SearchInput from '../components/SearchInput';
@@ -191,6 +191,13 @@ const ViewItemList = () => {
     const [filterValues, setFilterValues] = useState({});
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(defaultVisibleIds));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+    const [columnOrder, setColumnOrder] = useState(() => {
+        const saved = localStorage.getItem('itemColumnOrder');
+        return saved ? JSON.parse(saved) : ITEM_LIST_COLUMNS.map(c => c.id);
+    });
+    const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
+    const [draggedColumn, setDraggedColumn] = useState(null);
+    const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
@@ -228,8 +235,92 @@ const ViewItemList = () => {
         setVisibleColumnIds(checked ? new Set(effectiveItemColumns.map((c) => c.id)) : new Set());
     };
 
-    const visibleColumns = effectiveItemColumns.filter((col) => visibleColumnIds.has(col.id));
+    // Drag and drop handlers
+    const handleDragStart = (e, columnId) => {
+        setDraggedColumn(columnId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e, targetColumnId) => {
+        e.preventDefault();
+        if (!draggedColumn || draggedColumn === targetColumnId) return;
+
+        const newOrder = [...columnOrder];
+        const draggedIndex = newOrder.indexOf(draggedColumn);
+        const targetIndex = newOrder.indexOf(targetColumnId);
+
+        newOrder.splice(draggedIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedColumn);
+
+        setColumnOrder(newOrder);
+        localStorage.setItem('itemColumnOrder', JSON.stringify(newOrder));
+        setDraggedColumn(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedColumn(null);
+    };
+
+    // Popup drag and drop handlers
+    const handlePopupDragStart = (e, columnId) => {
+        setDraggedPopupColumn(columnId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handlePopupDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handlePopupDrop = (e, targetColumnId) => {
+        e.preventDefault();
+        if (!draggedPopupColumn || draggedPopupColumn === targetColumnId) return;
+
+        const newOrder = [...tempColumnOrder];
+        const draggedIndex = newOrder.indexOf(draggedPopupColumn);
+        const targetIndex = newOrder.indexOf(targetColumnId);
+
+        newOrder.splice(draggedIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedPopupColumn);
+
+        setTempColumnOrder(newOrder);
+        setDraggedPopupColumn(null);
+    };
+
+    const handlePopupDragEnd = () => {
+        setDraggedPopupColumn(null);
+    };
+
+    const handleSaveColumnOrder = () => {
+        setColumnOrder(tempColumnOrder);
+        localStorage.setItem('itemColumnOrder', JSON.stringify(tempColumnOrder));
+        setColumnSelectorAnchor(null);
+    };
+
+    const handleCancelColumnOrder = () => {
+        setTempColumnOrder(columnOrder);
+        setColumnSelectorAnchor(null);
+    };
+
+    const visibleColumns = effectiveItemColumns.filter((col) => visibleColumnIds.has(col.id))
+        .sort((a, b) => {
+            // Keep STT column fixed on the left
+            if (a.id === 'stt' && b.id !== 'stt') return -1;
+            if (b.id === 'stt' && a.id !== 'stt') return 1;
+            return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
+        });
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
+    
+    useEffect(() => {
+        if (columnSelectorOpen) {
+            setTempColumnOrder(columnOrder);
+        }
+    }, [columnSelectorOpen, columnOrder]);
     const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
     const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
@@ -582,53 +673,143 @@ const ViewItemList = () => {
                 <Popover
                     open={columnSelectorOpen}
                     anchorEl={columnSelectorAnchor}
-                    onClose={() => setColumnSelectorAnchor(null)}
+                    onClose={handleCancelColumnOrder}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
+                    slotProps={{ 
+                        paper: { 
+                            elevation: 0,
+                            sx: { 
+                                mt: 1, 
+                                width: 340,
+                                maxHeight: '70vh',
+                                borderRadius: '14px',
+                                border: '1px solid rgba(0, 0, 0, 0.08)',
+                                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                            } 
+                        } 
+                    }}
                 >
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
-                        Chọn cột hiển thị
-                    </Typography>
-
-                    <FormGroup>
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))}
-                                    indeterminate={
-                                        visibleColumnIds.size > 0 &&
-                                        !effectiveItemColumns.every((c) => visibleColumnIds.has(c.id))
-                                    }
-                                    onChange={(e) => handleSelectAllItemColumns(e.target.checked)}
-                                />
-                            }
-                            label="Tất cả"
-                        />
-                        <Box
-                            sx={{
-                                display: 'grid',
-                                gridTemplateRows: 'repeat(5, auto)',
-                                gridAutoFlow: 'column',
-                                gap: '2px 20px',
-                                alignContent: 'start',
-                                mt: 0.5,
+                    {/* Header */}
+                    <Box sx={{ 
+                        px: 2.5, 
+                        py: 2, 
+                        borderBottom: '1px solid #f3f4f6',
+                        flexShrink: 0,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                    }}>
+                        <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
+                            Chọn cột & Sắp xếp
+                        </Typography>
+                        <Button 
+                            size="small" 
+                            onClick={handleSaveColumnOrder}
+                            sx={{ 
+                                textTransform: 'none', 
+                                fontSize: '13px',
+                                fontWeight: 500,
                             }}
                         >
-                            {effectiveItemColumns.map((col) => (
-                                <FormControlLabel
-                                    key={col.id}
-                                    control={
-                                        <Checkbox
-                                            checked={visibleColumnIds.has(col.id)}
-                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                        />
-                                    }
-                                    label={col.label}
-                                />
+                            Lưu
+                        </Button>
+                    </Box>
+
+                    {/* Body */}
+                    <Box sx={{ 
+                        px: 2.5, 
+                        py: 2, 
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: 'auto',
+                        '&::-webkit-scrollbar': {
+                            width: '6px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                            bgcolor: 'transparent',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                            bgcolor: '#d1d5db',
+                            borderRadius: '3px',
+                            '&:hover': {
+                                bgcolor: '#9ca3af',
+                            },
+                        },
+                    }}>
+                        <FormGroup>
+                            <FormControlLabel 
+                                control={
+                                    <Checkbox 
+                                        checked={visibleColumnIds.size === effectiveItemColumns.length} 
+                                        indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < effectiveItemColumns.length} 
+                                        onChange={(e) => handleSelectAllItemColumns(e.target.checked)}
+                                        sx={{
+                                            color: '#9ca3af',
+                                            '&.Mui-checked': { color: '#3b82f6' },
+                                            '&.MuiCheckbox-indeterminate': { color: '#3b82f6' },
+                                        }}
+                                    />
+                                } 
+                                label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
+                                sx={{ mb: 1, py: 0.5 }} 
+                            />
+                            {effectiveItemColumns.sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
+                                <Box 
+                                    key={col.id} 
+                                    sx={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: 1,
+                                        bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
+                                        opacity: draggedPopupColumn === col.id ? 0.5 : 1,
+                                        transition: 'all 0.2s',
+                                        borderRadius: '8px',
+                                        px: 0.75,
+                                        py: 0.25,
+                                        cursor: 'grab',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                        },
+                                    }}
+                                    draggable
+                                    onDragStart={(e) => handlePopupDragStart(e, col.id)}
+                                    onDragOver={handlePopupDragOver}
+                                    onDrop={(e) => handlePopupDrop(e, col.id)}
+                                    onDragEnd={handlePopupDragEnd}
+                                >
+                                    <Box
+                                        sx={{
+                                            cursor: 'grab',
+                                            color: '#9ca3af',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            '&:hover': { color: '#6b7280' },
+                                        }}
+                                    >
+                                        <GripVertical size={14} />
+                                    </Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={visibleColumnIds.has(col.id)}
+                                                onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                                sx={{
+                                                    color: '#9ca3af',
+                                                    '&.Mui-checked': { color: '#3b82f6' },
+                                                }}
+                                            />
+                                        }
+                                        label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
+                                        sx={{ m: 0 }}
+                                    />
+                                </Box>
                             ))}
-                        </Box>
-                    </FormGroup>
+                        </FormGroup>
+                    </Box>
                 </Popover>
 
                 <Card
