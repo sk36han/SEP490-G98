@@ -79,3 +79,55 @@ export async function getProvinceWardsDirectV2(provinceCode) {
     }
     return data;
 }
+
+/**
+ * Lấy danh sách quận/huyện theo mã tỉnh.
+ * @param {number|string} provinceCode
+ * @returns {Promise<Array<{ code: number, name: string }>>}
+ */
+export async function getDistricts(provinceCode) {
+    if (!provinceCode) return [];
+    const res = await provinceClient.get(`/p/${provinceCode}`, {
+        params: { depth: 1 },
+    });
+    return res.data?.districts || [];
+}
+
+/**
+ * Lấy danh sách phường/xã theo mã quận/huyện.
+ * @param {number|string} districtCode
+ * @returns {Promise<Array<{ code: number, name: string }>>}
+ */
+export async function getWards(districtCode) {
+    if (!districtCode) return [];
+    const res = await provinceClient.get(`/d/${districtCode}`, {
+        params: { depth: 1 },
+    });
+    return res.data?.wards || [];
+}
+
+/**
+ * Lấy danh sách quận/huyện từ API v2.
+ * @param {number|string} provinceCode
+ * @returns {Promise<Array<{ code: number, name: string }>>}
+ */
+export async function getDistrictsV2(provinceCode) {
+    if (!provinceCode) return [];
+    const res = await provinceClientV2.get(`/p/${provinceCode}`, {
+        params: { depth: 1 },
+    });
+    return res.data?.districts || [];
+}
+
+/**
+ * Lấy danh sách phường/xã từ API v2.
+ * @param {number|string} districtCode
+ * @returns {Promise<Array<{ code: number, name: string }>>}
+ */
+export async function getWardsV2(districtCode) {
+    if (!districtCode) return [];
+    const res = await provinceClientV2.get(`/d/${districtCode}`, {
+        params: { depth: 1 },
+    });
+    return res.data?.wards || [];
+}

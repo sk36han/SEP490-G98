@@ -30,7 +30,6 @@ import { getSuppliers } from '../lib/supplierService';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
-import ViewSupplierDetail from '../components/ViewSupplierDetail';
 import '../styles/ListView.css';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
@@ -56,6 +55,7 @@ const SUPPLIER_COLUMNS = [
     { id: 'district',     label: 'Quận/Huyện',         sortable: false },
     { id: 'ward',         label: 'Phường/Xã',          sortable: false },
     { id: 'isActive',     label: 'Trạng thái',         sortable: true  },
+    { id: 'createdDate',  label: 'Ngày tạo',           sortable: true  },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
@@ -138,10 +138,6 @@ export default function ViewSupplierList() {
     const [draggedColumn, setDraggedColumn]           = useState(null);
     // Drag within popup
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
-
-    // Detail popup
-    const [detailOpen, setDetailOpen]         = useState(false);
-    const [detailSupplier, setDetailSupplier] = useState(null);
 
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
@@ -247,7 +243,6 @@ export default function ViewSupplierList() {
     // ── API fetch ─────────────────────────────────────────────────
     const getApiParams = useCallback(() => {
         const fv = filterValues || {};
-        const normalize = (s) => (s ? removeDiacritics(String(s).toLowerCase()) : '');
         const supplierName =
             fv.supplierName?.trim()
                 ? fv.supplierName.trim()
@@ -261,6 +256,9 @@ export default function ViewSupplierList() {
             isActive:     fv.isActive   ?? null,
             fromDate:     fv.fromDate   || null,
             toDate:       fv.toDate     || null,
+            provinceCode: fv.provinceCode || '',
+            districtCode: fv.districtCode || '',
+            wardCode:     fv.wardCode     || '',
         };
     }, [page, pageSize, searchTerm, filterValues]);
 
@@ -321,11 +319,6 @@ export default function ViewSupplierList() {
             bgcolor: '#fafafa',
         }}>
             {/* Popups */}
-            <ViewSupplierDetail
-                open={detailOpen}
-                onClose={() => { setDetailOpen(false); setDetailSupplier(null); }}
-                supplier={detailSupplier}
-            />
             <SupplierFilterPopup
                 open={filterOpen}
                 onClose={() => setFilterOpen(false)}
@@ -713,15 +706,15 @@ export default function ViewSupplierList() {
                                                         );
                                                     }
 
-                                                    // Supplier name — simple blue link (same color as orderCode in ViewPO)
-                                                    if (col.id === 'supplierName') {
+                                                    // Supplier code — clickable link to detail
+                                                    if (col.id === 'supplierCode') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
                                                                         href="#"
-                                                                        onClick={(e) => { e.preventDefault(); setDetailSupplier(row); setDetailOpen(true); }}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/suppliers/${row.supplierId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6',
                                                                             textDecoration: 'none',
@@ -730,6 +723,27 @@ export default function ViewSupplierList() {
                                                                             textOverflow: 'ellipsis',
                                                                             whiteSpace: 'nowrap',
                                                                             '&:hover': { textDecoration: 'underline' },
+                                                                        }}
+                                                                        title={row.supplierCode ?? ''}
+                                                                    >
+                                                                        {row.supplierCode ?? ''}
+                                                                    </Box>
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    // Supplier name — plain text
+                                                    if (col.id === 'supplierName') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Box
+                                                                        sx={{
+                                                                            color: '#374151',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap',
                                                                         }}
                                                                         title={row.supplierName ?? ''}
                                                                     >
@@ -769,6 +783,24 @@ export default function ViewSupplierList() {
                                                     }
 
                                                     // Default text columns
+                                                    // Format createdDate if present
+                                                    if (col.id === 'createdDate') {
+                                                        const dateValue = row.createdDate;
+                                                        const displayValue = dateValue
+                                                            ? new Date(dateValue).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                                            : '';
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                title={displayValue}
+                                                            >
+                                                                {displayValue}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
                                                     return (
                                                         <TableCell
                                                             key={col.id}

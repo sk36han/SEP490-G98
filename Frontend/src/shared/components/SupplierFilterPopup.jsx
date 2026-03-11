@@ -8,133 +8,226 @@ import {
     IconButton,
     Autocomplete,
 } from '@mui/material';
-import { X, Filter } from 'lucide-react';
-import { getSupplierSuggestions } from '../lib/supplierService';
-
-// ── Design tokens (matching PurchaseOrderFilterPopup) ──────────────────────
-const TRANG_THAI_OPTIONS = [
-    { value: '',      label: 'Tất cả'    },
-    { value: 'true',  label: 'Hoạt động' },
-    { value: 'false', label: 'Ngừng HĐ'  },
-];
-
-const DEBOUNCE_MS = 300;
-
-const INPUT_SX = {
-    '& .MuiOutlinedInput-root': {
-        bgcolor: '#f3f4f6',
-        borderRadius: '9px',
-        fontSize: '13px',
-        '& fieldset': { border: 'none' },
-        '&:hover': { bgcolor: '#e5e7eb' },
-        '&.Mui-focused': {
-            bgcolor: '#ffffff',
-            boxShadow: '0 0 0 3px rgba(2,132,199,0.10)',
-            '& fieldset': { border: '1px solid #0284c7' },
-        },
-    },
-    '& .MuiInputBase-input': { fontSize: '13px' },
-};
-
-const LABEL_SX = { fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 };
+import { X } from 'lucide-react';
+import { getProvinces, getProvinceWithWards } from '../lib/locationService';
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function SupplierFilterPopup({ open, onClose, initialValues = {}, onApply }) {
-    const [supplierCode, setSupplierCode]         = useState('');
-    const [supplierName, setSupplierName]         = useState('');
-    const [taxCode, setTaxCode]                   = useState('');
-    const [trangThaiOption, setTrangThaiOption]   = useState(TRANG_THAI_OPTIONS[0]);
-    const [fromDate, setFromDate]                 = useState('');
-    const [toDate, setToDate]                     = useState('');
-    const [codeOptions, setCodeOptions]           = useState([]);
-    const [nameOptions, setNameOptions]           = useState([]);
-    const [taxOptions, setTaxOptions]             = useState([]);
+    const [trangThaiOption, setTrangThaiOption] = useState({ value: '', label: 'Tất cả' });
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
 
-    const boxRef      = useRef(null);
-    const dragRef     = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
-    const debounceRef = useRef(null);
+    // Address filter state - use province detail approach like CreateSupplier
+    const [provinces, setProvinces] = useState([]);
+    const [provinceDetail, setProvinceDetail] = useState(null);
+    const [provinceOption, setProvinceOption] = useState(null);
+    const [districtOption, setDistrictOption] = useState(null);
+    const [wardOption, setWardOption] = useState(null);
+    const [loadingProvinces, setLoadingProvinces] = useState(false);
+    const [loadingDistricts, setLoadingDistricts] = useState(false);
 
-    // Sync from parent
+    const boxRef = useRef(null);
+    const dragRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
+
+    const TRANG_THAI_OPTIONS = [
+        { value: '', label: 'Tất cả' },
+        { value: 'true', label: 'Hoạt động' },
+        { value: 'false', label: 'Ngừng Hoạt Động' },
+    ];
+
+    // Computed options from province detail - same as CreateSupplier
+    const districtOptions = provinceDetail?.districts || [];
+    const selectedDistrict = districtOptions.find(d => districtOption && String(d.code) === String(districtOption.code));
+    const wardOptions = selectedDistrict?.wards || [];
+
+    // Custom dropdown paper style - fix scrollbar issue
+    const dropdownPaperSx = {
+        borderRadius: '10px',
+        mt: 1,
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08)',
+        border: '1px solid rgba(0, 0, 0, 0.08)',
+        overflow: 'hidden',
+        '& .MuiAutocomplete-listbox': {
+            fontSize: '13px',
+            fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robonto, sans-serif",
+            padding: '4px 0',
+            maxHeight: '240px',
+        },
+        '& .MuiAutocomplete-option': {
+            fontSize: '13px',
+            fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robonto, sans-serif",
+            padding: '8px 12px',
+            '&:hover': {
+                bgcolor: '#f3f4f6',
+            },
+            '&[aria-selected="true"]': {
+                bgcolor: '#e0f2fe',
+            },
+        },
+    };
+
+    const inputSx = {
+        '& .MuiOutlinedInput-root': {
+            height: 40,
+            bgcolor: '#f3f4f6',
+            borderRadius: '10px',
+            fontSize: '13px',
+            '& fieldset': { border: 'none' },
+            '&:hover': { bgcolor: '#e5e7eb' },
+            '&.Mui-focused': {
+                bgcolor: '#ffffff',
+                boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                '& fieldset': { border: '1px solid #3b82f6' },
+            },
+        },
+        '& .MuiInputBase-input': { fontSize: '13px' },
+    };
+
+    const labelSx = { fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 };
+
+    // Load provinces when popup opens - use getProvinceWithWards like CreateSupplier
     useEffect(() => {
         if (!open) return;
-        setSupplierCode(initialValues.supplierCode ?? '');
-        setSupplierName(initialValues.supplierName ?? '');
-        setTaxCode(initialValues.taxCode ?? '');
-        const isActive = initialValues.isActive;
-        setTrangThaiOption(
-            isActive === true  ? TRANG_THAI_OPTIONS[1]
-          : isActive === false ? TRANG_THAI_OPTIONS[2]
-          : TRANG_THAI_OPTIONS[0],
-        );
-        setFromDate(initialValues.fromDate ?? '');
-        setToDate(initialValues.toDate ?? '');
-    }, [open, initialValues.supplierCode, initialValues.supplierName,
-        initialValues.taxCode, initialValues.isActive,
-        initialValues.fromDate, initialValues.toDate]);
 
-    // Autocomplete suggestions
-    const loadSuggestions = useCallback((field, inputValue) => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        if (!inputValue?.trim()) {
-            if (field === 'supplierCode') setCodeOptions([]);
-            if (field === 'supplierName') setNameOptions([]);
-            if (field === 'taxCode')      setTaxOptions([]);
+        // Reset all states
+        setProvinceOption(null);
+        setDistrictOption(null);
+        setWardOption(null);
+        setProvinceDetail(null);
+        setTrangThaiOption({ value: '', label: 'Tất cả' });
+        setFromDate('');
+        setToDate('');
+
+        let cancelled = false;
+        setLoadingProvinces(true);
+        getProvinces()
+            .then(list => {
+                if (cancelled) return;
+                setProvinces(list || []);
+
+                // If there's initial provinceCode, load the cascade
+                if (initialValues.provinceCode) {
+                    const province = list?.find(p => String(p.code) === String(initialValues.provinceCode));
+                    if (province) {
+                        setProvinceOption(province);
+                        return getProvinceWithWards(province.code);
+                    }
+                }
+                return null;
+            })
+            .then(detail => {
+                if (cancelled) return;
+                if (detail) {
+                    setProvinceDetail(detail);
+                    // Find and set district
+                    if (initialValues.districtCode && detail.districts) {
+                        const district = detail.districts.find(d => String(d.code) === String(initialValues.districtCode));
+                        if (district) {
+                            setDistrictOption(district);
+                            // Find and set ward
+                            if (initialValues.wardCode && district.wards) {
+                                const ward = district.wards.find(w => String(w.code) === String(initialValues.wardCode));
+                                if (ward) setWardOption(ward);
+                            }
+                        }
+                    }
+                }
+                // Set other initial values
+                if (initialValues.isActive === true) {
+                    setTrangThaiOption({ value: 'true', label: 'Hoạt động' });
+                } else if (initialValues.isActive === false) {
+                    setTrangThaiOption({ value: 'false', label: 'Ngừng HĐ' });
+                }
+                setFromDate(initialValues.fromDate ?? '');
+                setToDate(initialValues.toDate ?? '');
+            })
+            .catch(err => console.error('Failed to load location data', err))
+            .finally(() => {
+                if (!cancelled) setLoadingProvinces(false);
+            });
+
+        return () => { cancelled = true; };
+    }, [open, initialValues.provinceCode, initialValues.districtCode, initialValues.wardCode]);
+
+    // Fetch province detail when province changes - use getProvinceWithWards
+    useEffect(() => {
+        if (!provinceOption) {
+            setProvinceDetail(null);
+            setDistrictOption(null);
+            setWardOption(null);
             return;
         }
-        debounceRef.current = setTimeout(async () => {
-            const list = await getSupplierSuggestions(field, inputValue);
-            if (field === 'supplierCode') setCodeOptions(list);
-            if (field === 'supplierName') setNameOptions(list);
-            if (field === 'taxCode')      setTaxOptions(list);
-        }, DEBOUNCE_MS);
-    }, []);
+
+        let cancelled = false;
+        setLoadingDistricts(true);
+        getProvinceWithWards(provinceOption.code)
+            .then(detail => {
+                if (!cancelled && detail) {
+                    setProvinceDetail(detail);
+                }
+            })
+            .catch(err => {
+                if (!cancelled) {
+                    console.error('Failed to load districts/wards', err);
+                    setProvinceDetail(null);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingDistricts(false);
+            });
+
+        // Reset district and ward when province changes
+        setDistrictOption(null);
+        setWardOption(null);
+
+        return () => { cancelled = true; };
+    }, [provinceOption]);
 
     // Drag logic
     const handleMouseDown = useCallback((e) => {
         if (!boxRef.current) return;
         const rect = boxRef.current.getBoundingClientRect();
         dragRef.current = { x: rect.left, y: rect.top, startX: e.clientX, startY: e.clientY };
-        const onMove = (ev) => {
+        const onMouseMove = (ev) => {
             const dx = ev.clientX - dragRef.current.startX;
             const dy = ev.clientY - dragRef.current.startY;
-            dragRef.current.x    += dx;
-            dragRef.current.y    += dy;
+            dragRef.current.x += dx;
+            dragRef.current.y += dy;
             dragRef.current.startX = ev.clientX;
             dragRef.current.startY = ev.clientY;
-            if (boxRef.current) {
-                boxRef.current.style.left = `${dragRef.current.x}px`;
-                boxRef.current.style.top  = `${dragRef.current.y}px`;
-            }
+            boxRef.current.style.left = `${dragRef.current.x}px`;
+            boxRef.current.style.top = `${dragRef.current.y}px`;
         };
-        const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
         };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
     }, []);
 
     const handleApply = useCallback(() => {
         const isActive = trangThaiOption.value === '' ? null : trangThaiOption.value === 'true';
         onApply({
-            supplierCode: supplierCode.trim() || undefined,
-            supplierName: supplierName.trim() || undefined,
-            taxCode:      taxCode.trim()      || undefined,
             isActive,
             fromDate: fromDate || undefined,
-            toDate:   toDate   || undefined,
+            toDate: toDate || undefined,
+            provinceCode: provinceOption?.code ? String(provinceOption.code) : undefined,
+            districtCode: districtOption?.code ? String(districtOption.code) : undefined,
+            wardCode: wardOption?.code ? String(wardOption.code) : undefined,
         });
         onClose();
-    }, [supplierCode, supplierName, taxCode, trangThaiOption, fromDate, toDate, onApply, onClose]);
+    }, [trangThaiOption, fromDate, toDate, provinceOption, districtOption, wardOption, onApply, onClose]);
 
     const handleClear = useCallback(() => {
-        setSupplierCode('');
-        setSupplierName('');
-        setTaxCode('');
-        setTrangThaiOption(TRANG_THAI_OPTIONS[0]);
+        setTrangThaiOption({ value: '', label: 'Tất cả' });
         setFromDate('');
         setToDate('');
-        onApply({ supplierCode: undefined, supplierName: undefined, taxCode: undefined, isActive: null, fromDate: undefined, toDate: undefined });
+        setProvinceOption(null);
+        setDistrictOption(null);
+        setWardOption(null);
+        setProvinceDetail(null);
+        onApply({ isActive: null, fromDate: undefined, toDate: undefined, provinceCode: undefined, districtCode: undefined, wardCode: undefined });
         onClose();
     }, [onApply, onClose]);
 
@@ -148,15 +241,14 @@ export default function SupplierFilterPopup({ open, onClose, initialValues = {},
                 position: 'fixed',
                 left: 300,
                 top: 110,
-                width: 340,
-                maxHeight: 'min(85vh, 520px)',
-                borderRadius: '14px',
-                border: '1px solid rgba(17,24,39,0.08)',
-                boxShadow: '0 8px 32px rgba(17,24,39,0.12)',
-                zIndex: 1400,
+                width: 320,
+                borderRadius: '12px',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+                overflow: 'hidden',
+                zIndex: 1300,
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'hidden',
                 bgcolor: '#ffffff',
             }}
         >
@@ -165,103 +257,192 @@ export default function SupplierFilterPopup({ open, onClose, initialValues = {},
                 onMouseDown={handleMouseDown}
                 sx={{
                     cursor: 'move',
-                    px: 2, py: 1.5,
+                    px: 2.5,
+                    py: 2,
                     flexShrink: 0,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    borderBottom: '1px solid rgba(17,24,39,0.07)',
-                    userSelect: 'none',
+                    borderBottom: '1px solid #f3f4f6',
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Filter size={14} style={{ color: '#0284c7' }} />
-                    <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'rgba(17,24,39,0.88)' }}>
-                        Bộ lọc nhà cung cấp
-                    </Typography>
-                </Box>
-                <IconButton size="small" onClick={onClose} sx={{ width: 26, height: 26, color: '#9ca3af', '&:hover': { color: '#374151', bgcolor: 'rgba(17,24,39,0.05)' } }}>
-                    <X size={15} />
+                <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
+                    Bộ lọc
+                </Typography>
+                <IconButton
+                    size="small"
+                    onClick={onClose}
+                    aria-label="Đóng"
+                    sx={{
+                        p: 0.5,
+                        color: '#6b7280',
+                        '&:hover': {
+                            bgcolor: '#f3f4f6',
+                            color: '#111827',
+                        },
+                    }}
+                >
+                    <X size={18} />
                 </IconButton>
             </Box>
 
             {/* Body */}
             <Box sx={{
-                flex: 1, minHeight: 0, overflowY: 'auto', p: 2,
-                display: 'flex', flexDirection: 'column', gap: 2,
-                '&::-webkit-scrollbar': { width: 4 },
-                '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(17,24,39,0.12)', borderRadius: 2 },
+                p: 2.5,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                overflowY: 'auto',
+                flex: 1,
+                minHeight: 0,
+                '&::-webkit-scrollbar': { width: '6px' },
+                '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+                '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px' },
             }}>
-                {/* Mã NCC */}
+                {/* Tỉnh/Thành phố */}
                 <Box>
-                    <Typography variant="body2" sx={LABEL_SX}>Mã NCC</Typography>
+                    <Typography variant="body2" sx={labelSx}>Tỉnh/Thành phố</Typography>
                     <Autocomplete
-                        freeSolo size="small"
-                        options={codeOptions}
-                        value={supplierCode}
-                        onInputChange={(_, v) => { setSupplierCode(v); loadSuggestions('supplierCode', v); }}
-                        onChange={(_, v) => setSupplierCode(typeof v === 'string' ? v : v ?? '')}
-                        renderInput={(params) => <TextField {...params} placeholder="VD: NCC-001" sx={INPUT_SX} />}
+                        size="small"
+                        options={provinces}
+                        getOptionLabel={(o) => o.name || ''}
+                        value={provinceOption}
+                        onChange={(_, v) => {
+                            setProvinceOption(v);
+                            setDistrictOption(null);
+                            setWardOption(null);
+                            setProvinceDetail(null);
+                        }}
+                        loading={loadingProvinces}
+                        isOptionEqualToValue={(a, b) => a.code === b.code}
+                        PaperComponent={(props) => (
+                            <Paper {...props} sx={dropdownPaperSx} />
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Chọn tỉnh/thành"
+                                sx={inputSx}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingProvinces ? params.InputProps.endAdornment : null}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
                     />
                 </Box>
 
-                {/* Tên nhà cung cấp */}
+                {/* Quận/Huyện */}
                 <Box>
-                    <Typography variant="body2" sx={LABEL_SX}>Tên nhà cung cấp</Typography>
+                    <Typography variant="body2" sx={labelSx}>Quận/Huyện</Typography>
                     <Autocomplete
-                        freeSolo size="small"
-                        options={nameOptions}
-                        value={supplierName}
-                        onInputChange={(_, v) => { setSupplierName(v); loadSuggestions('supplierName', v); }}
-                        onChange={(_, v) => setSupplierName(typeof v === 'string' ? v : v ?? '')}
-                        renderInput={(params) => <TextField {...params} placeholder="Tìm theo tên" sx={INPUT_SX} />}
+                        size="small"
+                        options={districtOptions}
+                        getOptionLabel={(o) => o.name || ''}
+                        value={districtOption}
+                        onChange={(_, v) => {
+                            setDistrictOption(v);
+                            setWardOption(null);
+                        }}
+                        disabled={!provinceOption}
+                        loading={loadingDistricts}
+                        isOptionEqualToValue={(a, b) => a.code === b.code}
+                        PaperComponent={(props) => (
+                            <Paper {...props} sx={dropdownPaperSx} />
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Chọn quận/huyện"
+                                sx={inputSx}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingDistricts ? params.InputProps.endAdornment : null}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
                     />
                 </Box>
 
-                {/* Mã số thuế */}
+                {/* Phường/Xã */}
                 <Box>
-                    <Typography variant="body2" sx={LABEL_SX}>Mã số thuế</Typography>
+                    <Typography variant="body2" sx={labelSx}>Phường/Xã</Typography>
                     <Autocomplete
-                        freeSolo size="small"
-                        options={taxOptions}
-                        value={taxCode}
-                        onInputChange={(_, v) => { setTaxCode(v); loadSuggestions('taxCode', v); }}
-                        onChange={(_, v) => setTaxCode(typeof v === 'string' ? v : v ?? '')}
-                        renderInput={(params) => <TextField {...params} placeholder="VD: 0123456789" sx={INPUT_SX} />}
+                        size="small"
+                        options={wardOptions}
+                        getOptionLabel={(o) => o.name || ''}
+                        value={wardOption}
+                        onChange={(_, v) => setWardOption(v)}
+                        disabled={!districtOption}
+                        loading={false}
+                        isOptionEqualToValue={(a, b) => a.code === b.code}
+                        PaperComponent={(props) => (
+                            <Paper {...props} sx={dropdownPaperSx} />
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Chọn phường/xã"
+                                sx={inputSx}
+                            />
+                        )}
                     />
                 </Box>
 
                 {/* Trạng thái */}
                 <Box>
-                    <Typography variant="body2" sx={LABEL_SX}>Trạng thái</Typography>
+                    <Typography variant="body2" sx={labelSx}>Trạng thái</Typography>
                     <Autocomplete
                         size="small"
                         options={TRANG_THAI_OPTIONS}
-                        getOptionLabel={(o) => o.label}
+                        getOptionLabel={(opt) => opt.label}
                         value={trangThaiOption}
                         onChange={(_, v) => setTrangThaiOption(v || TRANG_THAI_OPTIONS[0])}
                         isOptionEqualToValue={(a, b) => a.value === b.value}
-                        renderInput={(params) => <TextField {...params} placeholder="Chọn trạng thái" sx={INPUT_SX} />}
+                        PaperComponent={(props) => (
+                            <Paper {...props} sx={dropdownPaperSx} />
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Chọn trạng thái"
+                                sx={inputSx}
+                            />
+                        )}
                     />
                 </Box>
 
                 {/* Ngày tạo */}
                 <Box>
-                    <Typography variant="body2" sx={LABEL_SX}>Ngày tạo</Typography>
+                    <Typography variant="body2" sx={labelSx}>Ngày tạo</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <TextField
-                            size="small" type="date" value={fromDate}
+                            size="small"
+                            type="date"
+                            value={fromDate}
                             onChange={(e) => setFromDate(e.target.value)}
                             InputLabelProps={{ shrink: true }}
                             placeholder="Từ ngày"
-                            fullWidth sx={INPUT_SX}
+                            fullWidth
+                            sx={inputSx}
                         />
                         <TextField
-                            size="small" type="date" value={toDate}
+                            size="small"
+                            type="date"
+                            value={toDate}
                             onChange={(e) => setToDate(e.target.value)}
                             InputLabelProps={{ shrink: true }}
                             placeholder="Đến ngày"
-                            fullWidth sx={INPUT_SX}
+                            fullWidth
+                            sx={inputSx}
                         />
                     </Box>
                 </Box>
@@ -269,31 +450,47 @@ export default function SupplierFilterPopup({ open, onClose, initialValues = {},
 
             {/* Footer */}
             <Box sx={{
-                flexShrink: 0, px: 2, py: 1.5,
-                borderTop: '1px solid rgba(17,24,39,0.07)',
-                display: 'flex', gap: 1,
+                px: 2.5,
+                py: 2,
+                borderTop: '1px solid #f3f4f6',
+                display: 'flex',
+                gap: 1,
             }}>
                 <Button
-                    fullWidth size="small"
+                    fullWidth
+                    size="small"
                     onClick={handleClear}
                     sx={{
-                        fontSize: '13px', fontWeight: 500, textTransform: 'none',
-                        height: 34, borderRadius: '8px',
-                        border: '1px solid rgba(17,24,39,0.12)',
-                        color: 'rgba(17,24,39,0.55)',
-                        '&:hover': { bgcolor: 'rgba(17,24,39,0.04)', borderColor: 'rgba(17,24,39,0.18)' },
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        textTransform: 'none',
+                        height: 36,
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        color: '#374151',
+                        '&:hover': {
+                            bgcolor: '#f3f4f6',
+                            borderColor: '#9ca3af',
+                        },
                     }}
                 >
                     Xóa lọc
                 </Button>
                 <Button
-                    fullWidth size="small"
+                    fullWidth
+                    size="small"
                     onClick={handleApply}
                     sx={{
-                        fontSize: '13px', fontWeight: 600, textTransform: 'none',
-                        height: 34, borderRadius: '8px',
-                        bgcolor: '#0284c7', color: '#ffffff',
-                        '&:hover': { bgcolor: '#0369a1' },
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        textTransform: 'none',
+                        height: 36,
+                        borderRadius: '8px',
+                        bgcolor: '#3b82f6',
+                        color: '#ffffff',
+                        '&:hover': {
+                            bgcolor: '#2563eb',
+                        },
                     }}
                 >
                     Áp dụng
