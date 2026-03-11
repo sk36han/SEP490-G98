@@ -56,12 +56,17 @@ const ITEM_LIST_COLUMNS = [
     { id: 'itemType', label: 'Dạng vật tư', sortable: true, getValue: (row) => row.itemType ?? '-' },
     { id: 'category', label: 'Danh mục', sortable: true, getValue: (row) => row.categoryName ?? '-' },
     { id: 'brand', label: 'Thương hiệu', sortable: true, getValue: (row) => row.brandName ?? '-' },
-    { id: 'unit', label: 'Đơn vị tính', sortable: true, getValue: (row) => row.unitName ?? '-' },
+    { id: 'baseUom', label: 'Đơn vị tính', sortable: true, getValue: (row) => row.baseUomName ?? '-' },
+    { id: 'packagingSpec', label: 'Quy cách đóng gói', sortable: true, getValue: (row) => row.packagingSpecName ?? '-' },
+    { id: 'spec', label: 'Thông số', sortable: true, getValue: (row) => row.specName ?? '-' },
+    { id: 'requiresCO', label: 'CO', sortable: true, getValue: (row) => row.requiresCO ? 'Có' : 'Không' },
+    { id: 'requiresCQ', label: 'CQ', sortable: true, getValue: (row) => row.requiresCQ ? 'Có' : 'Không' },
     { id: 'availableQty', label: 'Có thể bán', sortable: true, getValue: (row) => (row.availableQty != null ? Number(row.availableQty).toLocaleString('vi-VN') : '-') },
     { id: 'onHandQty', label: 'Tồn kho', sortable: true, getValue: (row) => (row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-') },
     { id: 'purchasePrice', label: 'Giá nhập', sortable: true, getValue: (row) => formatPrice(row.purchasePrice) },
     { id: 'salePrice', label: 'Giá xuất', sortable: true, getValue: (row) => formatPrice(row.salePrice) },
-    { id: 'isActive', label: 'Trạng thái giao dịch', sortable: true, getValue: (row) => (row.isActive ? 'Đang giao dịch' : 'Tạm dừng') },
+    { id: 'isActive', label: 'Trạng thái', sortable: true, getValue: (row) => (row.isActive ? 'Đang giao dịch' : 'Tạm dừng') },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : '-' },
 ];
 
 const ACCOUNTANT_ONLY_COLUMN_IDS = ['purchasePrice', 'salePrice'];
@@ -85,8 +90,15 @@ const getTableColumnWidth = (colId) => {
             return 180;
         case 'brand':
             return 160;
-        case 'unit':
+        case 'baseUom':
             return 120;
+        case 'packagingSpec':
+            return 160;
+        case 'spec':
+            return 140;
+        case 'requiresCO':
+        case 'requiresCQ':
+            return 80;
         case 'availableQty':
         case 'onHandQty':
             return 150;
@@ -95,13 +107,15 @@ const getTableColumnWidth = (colId) => {
             return 150;
         case 'isActive':
             return 180;
+        case 'createdAt':
+            return 120;
         default:
             return 160;
     }
 };
 
 const isCenterAlignedColumn = (colId) =>
-    ['stt', 'salePrice', 'purchasePrice', 'onHandQty', 'availableQty'].includes(colId);
+    ['stt', 'salePrice', 'purchasePrice', 'onHandQty', 'availableQty', 'requiresCO', 'requiresCQ'].includes(colId);
 
 const headCellBaseSx = {
     fontWeight: 600,
@@ -162,8 +176,15 @@ const getColumnWeight = (colId) => {
             return 1.2;
         case 'brand':
             return 1.2;
-        case 'unit':
+        case 'baseUom':
             return 1;
+        case 'packagingSpec':
+            return 1.2;
+        case 'spec':
+            return 1;
+        case 'requiresCO':
+        case 'requiresCQ':
+            return 0.6;
         case 'availableQty':
         case 'onHandQty':
             return 1.4;
@@ -172,6 +193,8 @@ const getColumnWeight = (colId) => {
             return 1.2;
         case 'isActive':
             return 1.4;
+        case 'createdAt':
+            return 1;
         default:
             return 1;
     }
@@ -1386,6 +1409,30 @@ const ViewItemList = () => {
                                                                     }}
                                                                 />
                                                             </Box>
+                                                        </TableCell>
+                                                    );
+                                                }
+
+                                                if (col.id === 'requiresCO' || col.id === 'requiresCQ') {
+                                                    const value = col.id === 'requiresCO' ? item.requiresCO : item.requiresCQ;
+                                                    return (
+                                                        <TableCell
+                                                            key={col.id}
+                                                            align="center"
+                                                            sx={{
+                                                                ...bodyCellBaseSx,
+                                                            }}
+                                                        >
+                                                            <Checkbox
+                                                                checked={value === true}
+                                                                disabled
+                                                                size="small"
+                                                                sx={{
+                                                                    color: '#9ca3af',
+                                                                    '&.Mui-checked': { color: '#3b82f6' },
+                                                                    '&.Mui-disabled': { color: '#9ca3af', opacity: 0.5 },
+                                                                }}
+                                                            />
                                                         </TableCell>
                                                     );
                                                 }
