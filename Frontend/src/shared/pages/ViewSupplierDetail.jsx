@@ -18,7 +18,7 @@ import {
     AlertCircle,
     Edit,
 } from 'lucide-react';
-import SingleDateCalendar from '../components/DateRangePicker';
+import MonthPickerCalendar from '../components/DateRangePicker';
 import '../styles/CreateSupplier.css';
 
 // Mock data for testing
@@ -170,84 +170,87 @@ export default function ViewSupplierDetail() {
                                     <h2 className="section-title">Thống kê đơn hàng</h2>
                                 </div>
                                 {/* Calendar for month selection */}
-                                <Box sx={{ mb: 1.5, mt: 1 }}>
-                                    <Typography sx={{ fontSize: '12px', color: '#6b7280', mb: 0.5, fontWeight: 500 }}>
-                                        Chọn tháng
-                                    </Typography>
-                                    <SingleDateCalendar
-                                        value={dateFrom}
-                                        onChange={handleMonthChange}
-                                        sx={{ maxWidth: 280 }}
-                                    />
-                                </Box>
+                                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                                    {/* Left: Calendar */}
+                                    <Box sx={{ width: '40%', minWidth: 200 }}>
+                                        <Typography sx={{ fontSize: '12px', color: '#6b7280', mb: 0.5, fontWeight: 500 }}>
+                                            Chọn tháng
+                                        </Typography>
+                                        <MonthPickerCalendar
+                                            value={dateFrom}
+                                            onChange={handleMonthChange}
+                                        />
+                                    </Box>
 
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    {/* Đơn nhập đã tạo */}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#f0f9ff', borderRadius: 1.5 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Package size={18} color="#0284c7" />
-                                            <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                Đơn nhập đã tạo
-                                            </Typography>
+                                    {/* Right: Stats */}
+                                    <Box sx={{ width: '60%', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                        {/* Đơn nhập đã tạo */}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#f0f9ff', borderRadius: 1.5 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                <Package size={18} color="#0284c7" />
+                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
+                                                    Đơn nhập đã tạo
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ textAlign: 'right' }}>
+                                                <Typography sx={{ fontWeight: 700, color: '#0284c7', fontSize: '14px' }}>
+                                                    {stats.createdGRNs} đơn
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '12px', color: '#0284c7' }}>
+                                                    {formatCurrency(stats.createdGRNsAmount)}
+                                                </Typography>
+                                            </Box>
                                         </Box>
-                                        <Box sx={{ textAlign: 'right' }}>
-                                            <Typography sx={{ fontWeight: 700, color: '#0284c7', fontSize: '14px' }}>
-                                                {stats.createdGRNs} đơn
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#0284c7' }}>
-                                                {formatCurrency(stats.createdGRNsAmount)}
-                                            </Typography>
+                                        {/* Đơn nhập chưa thanh toán */}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#fef3c7', borderRadius: 1.5 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                <AlertCircle size={18} color="#d97706" />
+                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
+                                                    Đơn nhập chưa thanh toán
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ textAlign: 'right' }}>
+                                                <Typography sx={{ fontWeight: 700, color: '#d97706', fontSize: '14px' }}>
+                                                    {stats.pendingPaymentGRNs} đơn
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '12px', color: '#d97706' }}>
+                                                    {formatCurrency(stats.pendingPaymentGRNsAmount)}
+                                                </Typography>
+                                            </Box>
                                         </Box>
-                                    </Box>
-                                    {/* Đơn nhập chưa thanh toán */}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#fef3c7', borderRadius: 1.5 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <AlertCircle size={18} color="#d97706" />
-                                            <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                Đơn nhập chưa thanh toán
-                                            </Typography>
+                                        {/* Đơn trả đã tạo */}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1.5 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                <Truck size={18} color="#16a34a" />
+                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
+                                                    Đơn trả đã tạo
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ textAlign: 'right' }}>
+                                                <Typography sx={{ fontWeight: 700, color: '#16a34a', fontSize: '14px' }}>
+                                                    {stats.createdReturnOrders} đơn
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '12px', color: '#16a34a' }}>
+                                                    {formatCurrency(stats.createdReturnOrdersAmount)}
+                                                </Typography>
+                                            </Box>
                                         </Box>
-                                        <Box sx={{ textAlign: 'right' }}>
-                                            <Typography sx={{ fontWeight: 700, color: '#d97706', fontSize: '14px' }}>
-                                                {stats.pendingPaymentGRNs} đơn
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#d97706' }}>
-                                                {formatCurrency(stats.pendingPaymentGRNsAmount)}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                    {/* Đơn trả đã tạo */}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1.5 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Truck size={18} color="#16a34a" />
-                                            <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                Đơn trả đã tạo
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ textAlign: 'right' }}>
-                                            <Typography sx={{ fontWeight: 700, color: '#16a34a', fontSize: '14px' }}>
-                                                {stats.createdReturnOrders} đơn
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#16a34a' }}>
-                                                {formatCurrency(stats.createdReturnOrdersAmount)}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                    {/* Đơn trả chưa nhận hoàn tiền */}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#fef2f2', borderRadius: 1.5 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <AlertCircle size={18} color="#dc2626" />
-                                            <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                Đơn trả chưa nhận hoàn tiền
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ textAlign: 'right' }}>
-                                            <Typography sx={{ fontWeight: 700, color: '#dc2626', fontSize: '14px' }}>
-                                                {stats.pendingRefundReturnOrders} đơn
-                                            </Typography>
-                                            <Typography sx={{ fontSize: '12px', color: '#dc2626' }}>
-                                                {formatCurrency(stats.pendingRefundReturnOrdersAmount)}
-                                            </Typography>
+                                        {/* Đơn trả chưa nhận hoàn tiền */}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#fef2f2', borderRadius: 1.5 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                <AlertCircle size={18} color="#dc2626" />
+                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
+                                                    Đơn trả chưa nhận hoàn tiền
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ textAlign: 'right' }}>
+                                                <Typography sx={{ fontWeight: 700, color: '#dc2626', fontSize: '14px' }}>
+                                                    {stats.pendingRefundReturnOrders} đơn
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '12px', color: '#dc2626' }}>
+                                                    {formatCurrency(stats.pendingRefundReturnOrdersAmount)}
+                                                </Typography>
+                                            </Box>
                                         </Box>
                                     </Box>
                                 </Box>

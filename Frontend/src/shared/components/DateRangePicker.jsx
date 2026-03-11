@@ -52,8 +52,8 @@ export default function MonthPickerCalendar({ value, onChange, sx }) {
 
     const calendarPaperSx = {
         width: '100%',
-        minWidth: 260,
-        maxWidth: 280,
+        minWidth: 320,
+        maxWidth: 360,
         borderRadius: '10px',
         bgcolor: '#ffffff',
         border: '1px solid rgba(0, 0, 0, 0.06)',
@@ -133,20 +133,20 @@ export default function MonthPickerCalendar({ value, onChange, sx }) {
                         sx={{
                             width: '100%',
                             margin: 0,
-                            maxHeight: 260,
+                            maxHeight: 300,
                             '& .MuiDateCalendar-root': {
                                 width: '100%',
                                 margin: 0,
-                                maxHeight: 260,
+                                maxHeight: 300,
                             },
                             '& .MuiPickersCalendarHeader-root': {
                                 display: 'none',
                             },
                             '& .MuiDayCalendar-header': {
-                                marginBottom: '2px',
+                                marginBottom: '4px',
                             },
                             '& .MuiDayCalendar-weekDayLabel': {
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 500,
                                 color: '#6b7280',
                                 fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -155,8 +155,8 @@ export default function MonthPickerCalendar({ value, onChange, sx }) {
                                 fontSize: '13px',
                                 fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                 color: '#374151',
-                                width: 32,
-                                height: 32,
+                                width: 40,
+                                height: 40,
                                 margin: '2px 0',
                                 '&:hover': {
                                     bgcolor: '#f3f4f6',
