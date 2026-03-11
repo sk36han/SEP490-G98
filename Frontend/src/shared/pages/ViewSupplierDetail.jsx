@@ -18,7 +18,8 @@ import {
     AlertCircle,
     Edit,
 } from 'lucide-react';
-import MonthPickerCalendar from '../components/DateRangePicker';
+import MonthPickerCalendar, { SingleDatePicker, DateRangePicker } from '../components/DateRangePicker';
+import DateRangeFilter from '../components/DateRangeFilter';
 import '../styles/CreateSupplier.css';
 
 // Mock data for testing
@@ -86,13 +87,15 @@ export default function ViewSupplierDetail() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
-    // Handle month selection from MonthPickerCalendar
-    const handleMonthChange = (dateInfo) => {
-        if (dateInfo) {
-            setDateFrom(dateInfo.from);
-            setDateTo(dateInfo.to);
-        }
+    // Handle custom date range change
+    const handleDateFromChange = (date) => {
+        setDateFrom(date || '');
+    };
+
+    const handleDateToChange = (date) => {
+        setDateTo(date || '');
     };
 
     useEffect(() => {
@@ -169,16 +172,19 @@ export default function ViewSupplierDetail() {
                                 <div className="section-header-with-toggle" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <h2 className="section-title">Thống kê đơn hàng</h2>
                                 </div>
-                                {/* Calendar for month selection */}
-                                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                                    {/* Left: Calendar */}
-                                    <Box sx={{ width: '40%', minWidth: 200 }}>
+                                {/* Date range filter */}
+                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                                    {/* Left: Date Range Filter */}
+                                    <Box sx={{ width: '40%', minWidth: 220 }}>
                                         <Typography sx={{ fontSize: '12px', color: '#6b7280', mb: 0.5, fontWeight: 500 }}>
-                                            Chọn tháng
+                                            Chọn thời gian
                                         </Typography>
-                                        <MonthPickerCalendar
-                                            value={dateFrom}
-                                            onChange={handleMonthChange}
+                                        <DateRangeFilter
+                                            fromDate={dateFrom}
+                                            toDate={dateTo}
+                                            onFromDateChange={handleDateFromChange}
+                                            onToDateChange={handleDateToChange}
+                                            disableFuture
                                         />
                                     </Box>
 

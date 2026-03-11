@@ -18,7 +18,8 @@ dayjs.locale('vi');
  * @param {function} onChange - Callback returns { from: 'YYYY-MM-01', to: 'YYYY-MM-DD' } for the selected month
  * @param {object} sx - Additional styles
  */
-export default function MonthPickerCalendar({ value, onChange, sx }) {
+export default function MonthPickerCalendar({ value, onChange, sx, disableFuture = false }) {
+    const today = dayjs();
     const [currentMonth, setCurrentMonth] = useState(dayjs(value || new Date()));
     const [selectedDate, setSelectedDate] = useState(value ? dayjs(value) : null);
 
@@ -35,10 +36,21 @@ export default function MonthPickerCalendar({ value, onChange, sx }) {
     };
 
     const handleNextMonth = () => {
+        // Don't allow going to future months if disableFuture is true
+        if (disableFuture && currentMonth.isSame(today, 'month')) {
+            return;
+        }
+        if (disableFuture && currentMonth.isAfter(today, 'month')) {
+            return;
+        }
         setCurrentMonth(currentMonth.add(1, 'month'));
     };
 
     const handleDateClick = (date) => {
+        // Don't allow selecting future dates if disableFuture is true
+        if (disableFuture && date.isAfter(today, 'day')) {
+            return;
+        }
         setSelectedDate(date);
         // Return month range
         const monthStart = date.startOf('month');
@@ -125,6 +137,7 @@ export default function MonthPickerCalendar({ value, onChange, sx }) {
                         onChange={handleDateClick}
                         showDaysOutsideCurrentMonth
                         fixedWeekNumber={6}
+                        disableFuture={disableFuture}
                         slotProps={{
                             leftArrowButton: { sx: { display: 'none' } },
                             rightArrowButton: { sx: { display: 'none' } },
@@ -171,6 +184,12 @@ export default function MonthPickerCalendar({ value, onChange, sx }) {
                                 },
                                 '&.Mui-disabled': {
                                     color: '#d1d5db',
+                                },
+                                '&[data-day*="future"]': {
+                                    color: '#d1d5db',
+                                    '&:hover': {
+                                        bgcolor: 'transparent',
+                                    },
                                 },
                                 '&.MuiPickersDay-today': {
                                     border: '1px solid #0284c7',
@@ -366,6 +385,8 @@ export function DateRangePicker({
                         },
                     }}
                     format="DD/MM/YYYY"
+                    disableFuture={disableFuture}
+                    disablePast={disablePast}
                 />
                 <DatePicker
                     label={toLabel}
@@ -381,6 +402,8 @@ export function DateRangePicker({
                         },
                     }}
                     format="DD/MM/YYYY"
+                    disableFuture={disableFuture}
+                    disablePast={disablePast}
                 />
             </Box>
         </LocalizationProvider>
