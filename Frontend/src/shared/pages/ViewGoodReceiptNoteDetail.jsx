@@ -28,6 +28,7 @@ import {
     Plus,
     Search,
     Trash2,
+    RotateCcw,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -687,6 +688,18 @@ const ViewGoodReceiptNoteDetail = () => {
                                 <X size={15} />
                                 Hủy đơn
                             </button>
+                            {(grnData?.status === 'Approved' || grnData?.status === 'Posted') && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => navigate(`/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
+                                    disabled={submitting}
+                                    style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
+                                >
+                                    <RotateCcw size={16} className="btn-icon" />
+                                    Trả hàng
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 className="btn btn-primary"
