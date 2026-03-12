@@ -764,7 +764,11 @@ const ViewItemList = () => {
 
                                     <TableBody>
                                         {filteredItems.map((item, index) => (
-                                            <TableRow key={item.itemId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                            <TableRow
+                                                key={item.itemId != null ? `${item.itemId}-${index}` : `row-${index}`}
+                                                hover
+                                                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                                            >
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
 

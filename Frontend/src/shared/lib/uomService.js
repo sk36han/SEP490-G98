@@ -32,9 +32,9 @@ export async function getUomList(params = {}) {
     const response = await apiClient.get('/UnitOfMeasure', {
         params: { page, pageSize, keyword: keyword || undefined, isActive },
     });
-    // Backend returns Ok(new { success, message, data = result }) → list in response.data.data
+    // Backend returns ApiResponse<PagedResult<UomResponse>> → body.data / body.Data = PagedResult
     const body = response?.data ?? {};
-    const paged = body.data ?? body;
+    const paged = body.data ?? body.Data ?? body;
     const rawList = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? []);
     const items = (Array.isArray(rawList) ? rawList : []).map(mapUomRow).filter(Boolean);
     return {

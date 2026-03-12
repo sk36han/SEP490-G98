@@ -20,6 +20,7 @@ import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
@@ -192,7 +193,7 @@ const AppRoutes = () => (
         <Route
             path="/categories"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewCategoryList />
                     </MainLayout>
@@ -202,7 +203,7 @@ const AppRoutes = () => (
         <Route
             path="/categories/create"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateCategory />
                     </MainLayout>
@@ -212,7 +213,7 @@ const AppRoutes = () => (
         <Route
             path="/categories/edit/:id"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <EditCategory />
                     </MainLayout>
@@ -222,7 +223,7 @@ const AppRoutes = () => (
         <Route
             path="/packaging-spec"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewPackagingSpecList />
                     </MainLayout>
@@ -232,7 +233,7 @@ const AppRoutes = () => (
         <Route
             path="/specs"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewSpecList />
                     </MainLayout>
@@ -280,13 +281,23 @@ const AppRoutes = () => (
                 </MainLayout>
             }
         />
-        {/* Quản lý kho – Director, Thủ kho */}
+        {/* Quản lý kho – Director, Thủ kho, Sale Support, Sale Engineer, Kế toán */}
         <Route
             path="/inventory"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewWarehouseList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/create"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <CreateWarehouse />
                     </MainLayout>
                 </ProtectedRoute>
             }

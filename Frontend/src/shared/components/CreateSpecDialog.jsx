@@ -1,5 +1,6 @@
 /*
  * Popup tạo/sửa Thông số (Item Parameter). editRow set = chế độ sửa.
+ * Mã thông số được tự động sinh từ tên.
  */
 import React, { useState, useEffect } from 'react';
 import {
@@ -9,37 +10,43 @@ import {
     DialogActions,
     Button,
     TextField,
-    MenuItem,
     FormControlLabel,
     Checkbox,
 } from '@mui/material';
+
+/** Chuyển chuỗi thành dạng code: bỏ dấu, thay space thành _, viết hoa */
+const toCode = (str) => {
+    if (!str) return '';
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // bỏ dấu tiếng Việt
+        .replace(/\s+/g, '_')              // space -> _
+        .replace(/[^a-zA-Z0-9_]/g, '')    // chỉ giữ a-z, A-Z, 0-9, _
+        .toUpperCase()
+        .slice(0, 50);                     // giới hạn 50 ký tự
+};
 
 const inputSx = {
     '& .MuiOutlinedInput-root': { borderRadius: 2, '& fieldset': { borderColor: 'divider' } },
     '& .MuiInputLabel-root': { overflow: 'visible' },
 };
 
-const DATA_TYPES = ['string', 'number', 'boolean', 'date', 'datetime'];
-
 export default function CreateSpecDialog({ open, onClose, onSubmit, editRow = null }) {
     const isEdit = Boolean(editRow);
-    const [paramCode, setParamCode] = useState('');
     const [paramName, setParamName] = useState('');
-    const [dataType, setDataType] = useState('string');
     const [isActive, setIsActive] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+
+    // Tự động sinh mã từ tên
+    const paramCode = toCode(paramName);
 
     useEffect(() => {
         if (open) {
             if (editRow) {
-                setParamCode(editRow.paramCode ?? '');
                 setParamName(editRow.paramName ?? '');
-                setDataType(editRow.dataType ?? 'string');
                 setIsActive(editRow.isActive ?? true);
             } else {
-                setParamCode('');
                 setParamName('');
-                setDataType('string');
                 setIsActive(true);
             }
             setSubmitting(false);
@@ -48,19 +55,17 @@ export default function CreateSpecDialog({ open, onClose, onSubmit, editRow = nu
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const code = (paramCode || '').trim();
         const name = (paramName || '').trim();
         if (!name) return;
-        if (!isEdit && !code) return;
         setSubmitting(true);
         try {
             await Promise.resolve(onSubmit({
                 paramId: editRow?.paramId,
-                paramCode: code,
+                paramCode: paramCode || toCode(name), // đảm bảo có code
                 paramName: name,
-                dataType: dataType || 'string',
+                dataType: 'string',
                 isActive: isEdit ? isActive : true,
-                specCode: code,
+                specCode: paramCode || toCode(name),
                 specName: name,
                 isEdit,
             }));
@@ -79,19 +84,6 @@ export default function CreateSpecDialog({ open, onClose, onSubmit, editRow = nu
                     <TextField
                         fullWidth
                         size="small"
-                        label="Mã thông số"
-                        value={paramCode}
-                        onChange={(e) => setParamCode(e.target.value)}
-                        required={!isEdit}
-                        placeholder="VD: MICROONG_01"
-                        sx={{ ...inputSx, mb: 2 }}
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={isEdit ? { readOnly: true } : {}}
-                        helperText={isEdit ? 'Mã không đổi khi chỉnh sửa' : undefined}
-                    />
-                    <TextField
-                        fullWidth
-                        size="small"
                         label="Tên thông số"
                         value={paramName}
                         onChange={(e) => setParamName(e.target.value)}
@@ -100,21 +92,17 @@ export default function CreateSpecDialog({ open, onClose, onSubmit, editRow = nu
                         sx={{ ...inputSx, mb: 2 }}
                         InputLabelProps={{ shrink: true }}
                     />
+                    {/* Mã thông số được tự động sinh, hiển thị để tham khảo */}
                     <TextField
-                        select
                         fullWidth
                         size="small"
-                        label="Kiểu dữ liệu"
-                        value={dataType}
-                        onChange={(e) => setDataType(e.target.value)}
-                        required
+                        label="Mã thông số (tự động)"
+                        value={paramCode}
+                        InputProps={{ readOnly: true }}
                         sx={{ ...inputSx, mb: 2 }}
                         InputLabelProps={{ shrink: true }}
-                    >
-                        {DATA_TYPES.map((t) => (
-                            <MenuItem key={t} value={t}>{t}</MenuItem>
-                        ))}
-                    </TextField>
+                        helperText="Mã được tự động tạo từ tên thông số"
+                    />
                     {isEdit && (
                         <FormControlLabel
                             control={<Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />}

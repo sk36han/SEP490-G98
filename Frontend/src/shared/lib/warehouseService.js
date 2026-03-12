@@ -46,3 +46,18 @@ export async function getWarehouseList(params = {}) {
 
 /** Alias cho ViewWarehouseList và các nơi dùng tên getWarehouses */
 export const getWarehouses = getWarehouseList;
+
+/**
+ * Tạo kho mới.
+ * POST /Warehouse/create-warehouse
+ * @param {{ warehouseCode: string, warehouseName: string, address?: string, isActive?: boolean }} data
+ * @returns {Promise<any>}
+ */
+export async function createWarehouse(data) {
+    try {
+        const response = await apiClient.post('/Warehouse/create-warehouse', data);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error;
+    }
+}

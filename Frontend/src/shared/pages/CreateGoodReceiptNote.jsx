@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Tooltip from '@mui/material/Tooltip';
 import Dialog from '@mui/material/Dialog';
@@ -24,6 +24,7 @@ import {
     Eye,
     Building2,
 } from 'lucide-react';
+import { getAllPurchaseOrdersForSelection, getPurchaseOrderDetail } from '../lib/purchaseOrderService';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
@@ -63,16 +64,143 @@ const CreateGoodReceiptNote = () => {
     const [errors, setErrors] = useState({});
     const [poDropdownOpen, setPoDropdownOpen] = useState(false);
     const [confirmImportPoOpen, setConfirmImportPoOpen] = useState(false);
+    const [selectedPODetails, setSelectedPODetails] = useState(null);
+    const [poImportLoading, setPoImportLoading] = useState(false);
     const poDropdownRef = useRef(null);
 
-    // Mock danh sách mã PO (sẽ thay bằng API lấy từ DB sau)
-    const MOCK_PO_CODES = ['PO-2024-001', 'PO-2024-002', 'PO-2024-003', 'PO-2024-004', 'PO-2024-005', 'PO-2024-006', 'PO-2024-007'];
+    // State và effect để load danh sách PO từ API
+    const [poList, setPoList] = useState([]);
+    const [poListLoading, setPoListLoading] = useState(true);
+    const [poListError, setPoListError] = useState(null);
 
+    // Load danh sách PO từ API
+    useEffect(() => {
+        const fetchPOList = async () => {
+            setPoListLoading(true);
+            setPoListError(null);
+            try {
+                const items = await getAllPurchaseOrdersForSelection('Approved');
+                // Map dữ liệu từ API
+                const mappedPOs = items.map(po => ({
+                    poCode: po.poCode ?? po.PoCode ?? '',
+                    supplierName: po.supplierName ?? po.SupplierName ?? '',
+                    warehouseName: po.warehouseName ?? po.WarehouseName ?? '',
+                    status: po.status ?? po.Status ?? '',
+                    requestedDate: po.requestedDate ?? po.RequestedDate ?? '',
+                    expectedDeliveryDate: po.expectedDeliveryDate ?? po.ExpectedDeliveryDate ?? '',
+                    supplierId: po.supplierId ?? po.SupplierId ?? null,
+                    warehouseId: po.warehouseId ?? po.WarehouseId ?? null,
+                    poId: po.purchaseOrderId ?? po.PurchaseOrderId ?? null,
+                    // Lines sẽ được lấy chi tiết khi chọn PO
+                    lines: po.lines ?? po.Lines ?? [],
+                }));
+                setPoList(mappedPOs);
+            } catch (err) {
+                console.error('Lỗi load PO list:', err);
+                setPoListError(err?.message || 'Không tải được danh sách đơn mua');
+            } finally {
+                setPoListLoading(false);
+            }
+        };
+        fetchPOList();
+    }, []);
+
+    // Tìm PO theo mã
+    const getPOByCode = useCallback((code) => {
+        return poList.find(po => po.poCode === code);
+    }, [poList]);
+
+    // Lọc PO theo từ khóa
     const filteredPoCodes = useMemo(() => {
         const q = (formData.purchaseOrderCode || '').trim().toLowerCase();
-        if (!q) return MOCK_PO_CODES;
-        return MOCK_PO_CODES.filter((code) => code.toLowerCase().includes(q));
-    }, [formData.purchaseOrderCode]);
+        if (!q) return poList.map(po => po.poCode);
+        return poList.filter(po => 
+            po.poCode.toLowerCase().includes(q) || 
+            po.supplierName.toLowerCase().includes(q)
+        ).map(po => po.poCode);
+    }, [formData.purchaseOrderCode, poList]);
+
+    // Handler khi xác nhận nhập từ PO
+    const handleConfirmImportPO = async () => {
+        if (!formData.purchaseOrderCode) return;
+        
+        const po = getPOByCode(formData.purchaseOrderCode);
+        if (!po) {
+            showToast('Không tìm thấy đơn mua hàng!', 'error');
+            setConfirmImportPoOpen(false);
+            return;
+        }
+        
+        setPoImportLoading(true);
+        
+        try {
+            // Gọi API lấy chi tiết PO nếu chưa có lines
+            let poDetail = po;
+            if (!po.lines || po.lines.length === 0) {
+                const detail = await getPurchaseOrderDetail(po.poId);
+                if (detail) {
+                    poDetail = {
+                        ...po,
+                        lines: detail.lines ?? detail.Lines ?? [],
+                    };
+                }
+            }
+            
+            setSelectedPODetails(poDetail);
+            setConfirmImportPoOpen(false);
+            
+            // Fill form data từ PO
+            setFormData(prev => ({
+                ...prev,
+                supplierId: poDetail.supplierId ?? prev.supplierId,
+                supplierName: poDetail.supplierName,
+                warehouseId: poDetail.warehouseId ?? prev.warehouseId,
+                warehouseName: poDetail.warehouseName,
+            }));
+            
+            // Fill lines từ PO (chỉ những item chưa nhập đủ)
+            const poLines = (poDetail.lines ?? [])
+                .filter(line => (line.receivedQty ?? 0) < (line.orderedQty ?? 0))
+                .map(line => ({
+                    id: Date.now() + Math.random(),
+                    itemId: line.itemId ?? line.ItemId,
+                    itemName: line.itemName ?? line.ItemName ?? '',
+                    itemSku: line.sku ?? line.Sku ?? '',
+                    uom: line.uom ?? line.Uom ?? '',
+                    orderedQty: line.orderedQty ?? line.OrderedQty ?? 0,
+                    remainingQty: (line.orderedQty ?? 0) - (line.receivedQty ?? 0),
+                    receivedQty: (line.orderedQty ?? 0) - (line.receivedQty ?? 0), // Mặc định nhập đủ số còn lại
+                    unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
+                    totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * ((line.orderedQty ?? 0) - (line.receivedQty ?? 0)),
+                    note: '',
+                    hasCO: false,
+                    hasCQ: false,
+                }));
+            
+            setLines(prev => {
+                // Merge với lines hiện tại, tránh trùng item
+                const existingItemIds = new Set(prev.map(l => l.itemId));
+                const newLines = poLines.filter(l => !existingItemIds.has(l.itemId));
+                return [...prev, ...newLines];
+            });
+            
+            showToast(`Đã nhập ${poLines.length} sản phẩm từ ${poDetail.poCode}`, 'success');
+        } catch (err) {
+            console.error('Lỗi khi import từ PO:', err);
+            showToast(err?.message || 'Lỗi khi nhập từ đơn mua', 'error');
+        } finally {
+            setPoImportLoading(false);
+        }
+    };
+
+    // Xóa PO đã chọn
+    const handleClearSelectedPO = () => {
+        setSelectedPODetails(null);
+        setFormData(prev => ({
+            ...prev,
+            purchaseOrderCode: '',
+        }));
+    };
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -249,7 +377,15 @@ const CreateGoodReceiptNote = () => {
 
     const updateLine = (index, field, value) => {
         setLines((prev) =>
-            prev.map((line, i) => (i !== index ? line : { ...line, [field]: value }))
+            prev.map((line, i) => {
+                if (i !== index) return line;
+                const updatedLine = { ...line, [field]: value };
+                // Tự động tính totalPrice khi receivedQty hoặc unitPrice thay đổi
+                if (field === 'receivedQty' || field === 'unitPrice') {
+                    updatedLine.totalPrice = (Number(updatedLine.receivedQty) || 0) * (Number(updatedLine.unitPrice) || 0);
+                }
+                return updatedLine;
+            })
         );
     };
 
@@ -443,10 +579,9 @@ const CreateGoodReceiptNote = () => {
                     <Button
                         variant="contained"
                         disableRipple
-                        onClick={() => {
-                            setConfirmImportPoOpen(false);
-                            // TODO: gọi API lấy chi tiết PO và fill lines
-                            showToast('Chức năng nhập từ đơn mua đang phát triển.', 'info');
+                        disabled={poImportLoading}
+                        onClick={async () => {
+                            await handleConfirmImportPO();
                         }}
                         sx={{
                             minWidth: '88px',
@@ -461,9 +596,19 @@ const CreateGoodReceiptNote = () => {
                                 backgroundColor: '#0369a1',
                                 boxShadow: '0 3px 8px rgba(2, 132, 199, 0.3)',
                             },
+                            '&:disabled': {
+                                backgroundColor: '#94a3b8',
+                            },
                         }}
                     >
-                        Xác nhận
+                        {poImportLoading ? (
+                            <>
+                                <Loader size={15} className="spinner" style={{ marginRight: '6px' }} />
+                                Đang xử lý...
+                            </>
+                        ) : (
+                            'Xác nhận'
+                        )}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -852,6 +997,11 @@ const CreateGoodReceiptNote = () => {
                                                                 >
                                                                     {line.itemName}
                                                                 </a>
+                                                                {line.itemSku && (
+                                                                    <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>
+                                                                        {line.itemSku}
+                                                                    </span>
+                                                                )}
                                                                 <button
                                                                     type="button"
                                                                     className="btn-icon-only"
@@ -1038,33 +1188,50 @@ const CreateGoodReceiptNote = () => {
                                                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                                                 }}
                                             >
-                                                {filteredPoCodes.length === 0 ? (
+                                                {poListLoading ? (
+                                                    <li style={{ padding: '8px 12px', color: '#6b7280', fontSize: '14px', textAlign: 'center' }}>
+                                                        <Loader size={16} style={{ animation: 'spin 1s linear infinite', marginRight: '8px' }} />
+                                                        Đang tải...
+                                                    </li>
+                                                ) : poListError ? (
+                                                    <li style={{ padding: '8px 12px', color: '#ef4444', fontSize: '14px' }}>
+                                                        {poListError}
+                                                    </li>
+                                                ) : filteredPoCodes.length === 0 ? (
                                                     <li style={{ padding: '8px 12px', color: '#6b7280', fontSize: '14px' }}>
                                                         Không có mã phù hợp
                                                     </li>
                                                 ) : (
-                                                    filteredPoCodes.map((code) => (
-                                                        <li
-                                                            key={code}
-                                                            onClick={() => {
-                                                                setFormData((prev) => ({ ...prev, purchaseOrderCode: code }));
-                                                                setPoDropdownOpen(false);
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {code}
-                                                        </li>
-                                                    ))
+                                                    filteredPoCodes.map((code) => {
+                                                        const po = getPOByCode(code);
+                                                        return (
+                                                            <li
+                                                                key={code}
+                                                                onClick={() => {
+                                                                    setFormData((prev) => ({ ...prev, purchaseOrderCode: code }));
+                                                                    setPoDropdownOpen(false);
+                                                                }}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '14px',
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                                }}
+                                                            >
+                                                                <div style={{ fontWeight: 500, color: '#1f2937' }}>{code}</div>
+                                                                {po && (
+                                                                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                                                                        {po.supplierName} • {po.warehouseName}
+                                                                    </div>
+                                                                )}
+                                                            </li>
+                                                        );
+                                                    })
                                                 )}
                                             </ul>
                                         )}
@@ -1078,6 +1245,71 @@ const CreateGoodReceiptNote = () => {
                                         >
                                             Nhập từ mã đơn mua
                                         </button>
+                                    )}
+                                    
+                                    {/* Hiển thị thông tin PO đã chọn */}
+                                    {selectedPODetails !== null && selectedPODetails !== undefined && selectedPODetails.poCode && (
+                                        <div 
+                                            style={{ 
+                                                marginTop: '12px', 
+                                                padding: '12px', 
+                                                backgroundColor: '#f0f9ff', 
+                                                borderRadius: '8px',
+                                                border: '1px solid #bae6fd'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#0369a1' }}>
+                                                        {selectedPODetails.poCode}
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        {selectedPODDetail.supplierName}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearSelectedPO}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        padding: '4px',
+                                                        color: '#64748b',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                    title="Xóa"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Kho: </span>
+                                                    <span style={{ fontWeight: 500, color: '#1e293b' }}>{selectedPODetails.warehouseName}</span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Ngày đặt: </span>
+                                                    <span style={{ fontWeight: 500, color: '#1e293b' }}>{selectedPODetails.requestedDate}</span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Trạng thái: </span>
+                                                    <span style={{ 
+                                                        fontWeight: 500, 
+                                                        color: selectedPODetails.status === 'Approved' ? '#10b981' : 
+                                                               selectedPODetails.status === 'Pending' ? '#f59e0b' : '#ef4444' 
+                                                    }}>
+                                                        {selectedPODetails.status === 'Approved' ? 'Đã duyệt' : 
+                                                         selectedPODetails.status === 'Pending' ? 'Chờ duyệt' : 'Từ chối'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Sản phẩm: </span>
+                                                    <span style={{ fontWeight: 500, color: '#1e293b' }}>{selectedPODetails.lines.length} items</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                                 <div className="form-field">

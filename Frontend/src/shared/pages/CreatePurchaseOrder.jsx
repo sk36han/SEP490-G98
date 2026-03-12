@@ -25,6 +25,7 @@ import { getSuppliers } from '../lib/supplierService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsForDisplay } from '../lib/itemService';
 import { createPurchaseOrder } from '../lib/purchaseOrderService';
+import { getAccountants } from '../lib/userService';
 import '../styles/CreateSupplier.css';
 
 const CreatePurchaseOrder = () => {
@@ -71,13 +72,9 @@ const CreatePurchaseOrder = () => {
     const [suppliers, setSuppliers] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [products, setProducts] = useState([]);
+    const [accountants, setAccountants] = useState([]);
 
     const [errors, setErrors] = useState({});
-
-    const MOCK_EMPLOYEES = [
-        { id: 'EMP-001', name: 'Nguyễn Văn A' },
-        { id: 'EMP-002', name: 'Trần Thị B' },
-    ];
 
     const [supplierQuery, setSupplierQuery] = useState('');
     const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
@@ -124,10 +121,14 @@ const CreatePurchaseOrder = () => {
                         image: null,
                     }));
 
+                // Accountants (nhân viên kế toán)
+                const accountantList = await getAccountants();
+
                 if (!mounted) return;
                 setSuppliers(mappedSuppliers);
                 setWarehouses(mappedWarehouses);
                 setProducts(mappedProducts);
+                setAccountants(accountantList);
             } catch (err) {
                 if (!mounted) return;
                 showToast(err?.message || 'Không thể tải dữ liệu (nhà cung cấp/kho/vật tư).', 'error');
@@ -144,9 +145,13 @@ const CreatePurchaseOrder = () => {
 
     const filteredEmployees = useMemo(() => {
         const q = employeeQuery.trim().toLowerCase();
-        if (!q) return MOCK_EMPLOYEES;
-        return MOCK_EMPLOYEES.filter((e) => e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q));
-    }, [employeeQuery]);
+        if (!q) return accountants;
+        return accountants.filter((e) =>
+            (e.fullName || '').toLowerCase().includes(q) ||
+            (e.username || '').toLowerCase().includes(q) ||
+            (e.email || '').toLowerCase().includes(q)
+        );
+    }, [employeeQuery, accountants]);
 
     const filteredWarehouses = useMemo(() => {
         const q = warehouseQuery.trim().toLowerCase();
@@ -178,7 +183,7 @@ const CreatePurchaseOrder = () => {
         setFormData(prev => ({ ...prev, discountType: type }));
     };
 
-    const addAdditionalCost = () => {
+    const _addAdditionalCost = () => {
         setFormData(prev => ({
             ...prev,
             additionalCosts: [
@@ -188,14 +193,14 @@ const CreatePurchaseOrder = () => {
         }));
     };
 
-    const removeAdditionalCost = (id) => {
+    const _removeAdditionalCost = (id) => {
         setFormData(prev => ({
             ...prev,
             additionalCosts: (prev.additionalCosts || []).filter(c => c.id !== id)
         }));
     };
 
-    const updateAdditionalCost = (id, field, value) => {
+    const _updateAdditionalCost = (id, field, value) => {
         setFormData(prev => ({
             ...prev,
             additionalCosts: (prev.additionalCosts || []).map(c =>
@@ -403,12 +408,23 @@ const CreatePurchaseOrder = () => {
             newErrors.warehouseName = 'Kho nhận là bắt buộc';
         }
 
-        const hasInvalidLine = lines.some(line => 
-            !line.itemName.trim() || Number(line.orderedQty) <= 0
-        );
-        
-        if (hasInvalidLine) {
-            newErrors.lines = 'Vui lòng điền đầy đủ thông tin sản phẩm (Tên, Số lượng > 0)';
+        if (lines.length === 0) {
+            newErrors.lines = 'Vui lòng thêm ít nhất 1 sản phẩm';
+        } else {
+            const hasInvalidLine = lines.some(line => {
+                const itemIdNumber = Number(line.itemId);
+                return (
+                    !line.itemName.trim() ||
+                    !line.itemId ||
+                    Number.isNaN(itemIdNumber) ||
+                    itemIdNumber <= 0 ||
+                    Number(line.orderedQty) <= 0
+                );
+            });
+            
+            if (hasInvalidLine) {
+                newErrors.lines = 'Vui lòng điền đầy đủ thông tin sản phẩm (chọn vật tư, Tên, Số lượng > 0)';
+            }
         }
 
         if (formData.discountType === 'percent') {
@@ -1144,14 +1160,14 @@ const CreatePurchaseOrder = () => {
                                                 ) : (
                                                     filteredEmployees.map((emp) => (
                                                         <li
-                                                            key={emp.id}
+                                                            key={emp.username || emp.email || emp.fullName}
                                                             onClick={() => {
                                                                 setFormData((prev) => ({
                                                                     ...prev,
-                                                                    responsiblePersonId: emp.id,
-                                                                    responsiblePersonName: emp.name,
+                                                                    responsiblePersonId: emp.username || emp.email || '',
+                                                                    responsiblePersonName: emp.fullName || emp.username || emp.email || '',
                                                                 }));
-                                                                setEmployeeQuery(emp.name);
+                                                                setEmployeeQuery(emp.fullName || emp.username || emp.email || '');
                                                                 setEmployeeDropdownOpen(false);
                                                             }}
                                                             style={{
@@ -1166,7 +1182,7 @@ const CreatePurchaseOrder = () => {
                                                                 e.currentTarget.style.backgroundColor = 'transparent';
                                                             }}
                                                         >
-                                                            {emp.name} ({emp.id})
+                                                            {emp.fullName || emp.username || emp.email}
                                                         </li>
                                                     ))
                                                 )}

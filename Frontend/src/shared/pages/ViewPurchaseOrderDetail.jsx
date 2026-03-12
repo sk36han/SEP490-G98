@@ -37,6 +37,7 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
 import '../styles/CreateSupplier.css';
 
 const MAX_REASON_LENGTH = 250;
@@ -278,11 +279,54 @@ const ViewPurchaseOrderDetail = () => {
         ]
     });
 
+    // Load data from API
     useEffect(() => {
-        // Mock load data
-        setTimeout(() => {
-            setLoading(false);
-        }, 500);
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const data = await getPurchaseOrderDetail(id);
+                if (data) {
+                    // Map API response to state
+                    setOrderData({
+                        purchaseOrderId: data.purchaseOrderId || data.purchaseOrderId || null,
+                        orderCode: data.pocode || data.poCode || '',
+                        supplierName: data.supplierName || '',
+                        warehouseName: data.warehouseName || '',
+                        creatorName: data.requestedBy || data.RequestedBy || '',
+                        responsiblePersonName: data.responsiblePersonName || '',
+                        expectedReceiptDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate).toISOString().slice(0, 10) : '',
+                        justification: data.justification || '',
+                        approvalStatus: data.status || 'Pending',
+                        receivingStatus: data.receivingStatus || 'Pending',
+                        createdAt: data.createdAt ? new Date(data.createdAt).toISOString().slice(0, 10) : '',
+                        lines: (data.lines || []).map((line, index) => ({
+                            id: line.purchaseOrderLineId || line.PurchaseOrderLineId || index + 1,
+                            itemId: line.itemId || line.ItemId || null,
+                            itemName: line.itemName || line.ItemName || '',
+                            itemImage: line.itemImage || null,
+                            orderedQty: line.orderedQty || line.OrderedQty || 0,
+                            receivedQty: line.receivedQty || line.ReceivedQty || 0,
+                            unitPrice: line.unitPrice || line.UnitPrice || 0,
+                            totalPrice: (line.orderedQty || line.OrderedQty || 0) * (line.unitPrice || line.UnitPrice || 0),
+                            uom: line.uomName || line.UomName || '',
+                            hasCO: line.requiresCocq || false,
+                            hasCQ: false,
+                            note: line.note || ''
+                        })),
+                        history: []
+                    });
+                }
+            } catch (error) {
+                console.error('Lỗi khi tải chi tiết đơn mua:', error);
+                showToast('Không thể tải thông tin đơn mua', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (id) {
+            fetchData();
+        }
     }, [id]);
 
     const handleImageError = (id) => {
@@ -312,12 +356,14 @@ const ViewPurchaseOrderDetail = () => {
     const grandTotal = subtotal - discountAmount + totalAdditionalCosts;
 
     const getApprovalStatusStyle = (status) => {
+        // Normalize status to handle both uppercase and title case
+        const normalizedStatus = status?.toUpperCase();
         const styles = {
-            'Pending': { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
-            'Approved': { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
-            'Rejected': { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' }
+            'PENDING': { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
+            'APPROVED': { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
+            'REJECTED': { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' }
         };
-        return styles[status] || { label: status, color: '#6b7280', bgColor: '#f3f4f6' };
+        return styles[normalizedStatus] || { label: status, color: '#6b7280', bgColor: '#f3f4f6' };
     };
 
     const getReceivingStatusStyle = (status) => {
@@ -711,17 +757,25 @@ const ViewPurchaseOrderDetail = () => {
         if (!canConfirmAction) return;
         try {
             setSubmitting(true);
-            await new Promise((r) => setTimeout(r, 600));
             const reason = includeReason ? reasonText.trim() : '';
             const isApprove = confirmDialogType === 'approve';
+            const poId = orderData.purchaseOrderId;
+
+            if (isApprove) {
+                await approvePurchaseOrder(poId, reason || null);
+            } else {
+                await rejectPurchaseOrder(poId, reason);
+            }
+
             setOrderData((prev) => ({
                 ...prev,
                 approvalStatus: isApprove ? 'Approved' : 'Rejected',
             }));
-            showToast(isApprove ? 'Đã duyệt đơn mua hàng.' : 'Đã hủy đơn mua hàng.', 'success');
+            showToast(isApprove ? 'Đã duyệt đơn mua hàng.' : 'Đã từ chối đơn mua hàng.', 'success');
             closeConfirmDialog();
-        } catch (e) {
-            showToast(e?.message || 'Có lỗi xảy ra', 'error');
+        } catch (error) {
+            console.error('Lỗi khi xử lý duyệt/từ chối:', error);
+            showToast(error?.response?.data?.message || error?.message || 'Có lỗi xảy ra', 'error');
         } finally {
             setSubmitting(false);
         }
@@ -966,7 +1020,7 @@ const ViewPurchaseOrderDetail = () => {
                 <div className="page-header-actions">
                     {!isEditing ? (
                         <>
-                            {permissionRole === 'ACCOUNTANTS' && (
+                            {permissionRole === 'ACCOUNTANTS' && (orderData.approvalStatus === 'Pending' || orderData.approvalStatus === 'PENDING') && (
                                 <>
                                     <button
                                         type="button"
@@ -1057,7 +1111,7 @@ const ViewPurchaseOrderDetail = () => {
                                 }}>
                                     {orderData.approvalStatus === 'Approved' && <CheckCircle size={16} />}
                                     {orderData.approvalStatus === 'Rejected' && <XCircle size={16} />}
-                                    {orderData.approvalStatus === 'Pending' && <Clock size={16} />}
+                                    {(orderData.approvalStatus === 'Pending' || orderData.approvalStatus === 'PENDING') && <Clock size={16} />}
                                     {approvalStyle.label}
                                 </div>
                                 <div style={{

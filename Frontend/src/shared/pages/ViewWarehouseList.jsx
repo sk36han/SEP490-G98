@@ -303,6 +303,7 @@ const ViewWarehouseList = () => {
                   className="list-page-btn"
                   variant="contained"
                   startIcon={<Plus size={18} />}
+                  onClick={() => navigate('/inventory/create')}
                   sx={{
                     fontSize: 13,
                     fontWeight: 600,

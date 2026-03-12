@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Box,
@@ -26,13 +26,16 @@ import {
     Chip,
     TableSortLabel,
     Paper,
+    CircularProgress,
+    Alert,
 } from '@mui/material';
-import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical } from 'lucide-react';
+import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical, RefreshCw } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
+import { getPurchaseOrders } from '../lib/purchaseOrderService';
 import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -170,15 +173,30 @@ export default function ViewPurchaseOrderList() {
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
 
     const [list, setList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [totalItems, setTotalItems] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
-    const [filterValues, setFilterValues] = useState({});
+    const [filterValues, setFilterValues] = useState(() => {
+        const saved = localStorage.getItem('poFilterValues');
+        return saved ? JSON.parse(saved) : {};
+    });
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
+    const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
+        const saved = localStorage.getItem('poVisibleColumnIds');
+        return saved ? new Set(JSON.parse(saved)) : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+    });
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [orderBy, setOrderBy] = useState(null);
-    const [order, setOrder] = useState('asc');
+    const [orderBy, setOrderBy] = useState(() => {
+        const saved = localStorage.getItem('poSortConfig');
+        return saved ? JSON.parse(saved).orderBy : null;
+    });
+    const [order, setOrder] = useState(() => {
+        const saved = localStorage.getItem('poSortConfig');
+        return saved ? JSON.parse(saved).order : 'asc';
+    });
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [columnOrder, setColumnOrder] = useState(() => {
         const saved = localStorage.getItem('poColumnOrder');
@@ -207,18 +225,70 @@ export default function ViewPurchaseOrderList() {
         }
     }, []);
 
-    useEffect(() => setList(MOCK_PO_LIST), []);
+    // Fetch data từ API
+    const fetchList = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const apiPage = page + 1; // API dùng 1-based
+            const result = await getPurchaseOrders({
+                page: apiPage,
+                pageSize,
+                poCode: searchTerm.trim() || undefined,
+                supplierName: filterValues.supplier || undefined,
+                status: filterValues.approvalStatus || undefined,
+                fromDate: filterValues.fromDate || undefined,
+                toDate: filterValues.toDate || undefined,
+                requestedByName: filterValues.creator || undefined,
+            });
+            
+            // Map dữ liệu từ API sang format UI
+            const mappedList = (result.items ?? []).map((item) => ({
+                purchaseOrderId: item.purchaseOrderId ?? item.purchaseOrderId ?? 0,
+                orderCode: item.poCode ?? item.orderCode ?? '',
+                warehouseName: item.warehouseName ?? item.WarehouseName ?? '',
+                approvalStatus: item.status ?? item.Status ?? 'DRAFT',
+                receivingStatus: item.receivingStatus ?? item.ReceivingStatus ?? 'Pending',
+                supplierName: item.supplierName ?? item.SupplierName ?? '',
+                creator: item.requestedByName ?? item.RequestedByName ?? item.creator ?? '',
+                responsiblePerson: item.responsibleUserName ?? item.ResponsibleUserName ?? item.responsiblePerson ?? '',
+                totalReceivedQuantity: item.totalReceivedQty ?? item.TotalReceivedQty ?? 0,
+                orderValue: item.totalAmount ?? item.TotalAmount ?? 0,
+                createdAt: item.requestedDate ?? item.RequestedDate ?? item.createdAt ?? '',
+            }));
+            
+            setList(mappedList);
+            setTotalItems(result.totalItems ?? 0);
+        } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách đơn mua.');
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [page, pageSize, searchTerm, filterValues]);
+
+    useEffect(() => {
+        fetchList();
+    }, [fetchList]);
+
+    const handleRefresh = () => {
+        fetchList();
+    };
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
             const next = new Set(prev);
             if (checked) next.add(columnId);
             else next.delete(columnId);
+            // Lưu vào localStorage
+            localStorage.setItem('poVisibleColumnIds', JSON.stringify([...next]));
             return next;
         });
     };
     const handleSelectAllColumns = (checked) => {
-        setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
+        const newSet = checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set();
+        setVisibleColumnIds(newSet);
+        localStorage.setItem('poVisibleColumnIds', JSON.stringify([...newSet]));
     };
     const visibleColumns = PO_COLUMNS
         .filter((col) => visibleColumnIds.has(col.id))
@@ -429,6 +499,7 @@ export default function ViewPurchaseOrderList() {
 
     const handleFilterApply = (values) => {
         setFilterValues(values);
+        localStorage.setItem('poFilterValues', JSON.stringify(values));
         setPage(0);
     };
     const handlePageChange = (newPage) => setPage(newPage);
@@ -572,6 +643,25 @@ export default function ViewPurchaseOrderList() {
                                     }}
                                 >
                                     <Columns size={18} />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Làm mới">
+                                <IconButton 
+                                    color="primary" 
+                                    onClick={handleRefresh} 
+                                    aria-label="Làm mới" 
+                                    disabled={loading}
+                                    sx={{ 
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
+                                >
+                                    <RefreshCw size={18} className={loading ? 'spin' : ''} />
                                 </IconButton>
                             </Tooltip>
                             {permissionRole !== 'ACCOUNTANTS' && (
@@ -790,7 +880,16 @@ export default function ViewPurchaseOrderList() {
                     display: 'flex', 
                     flexDirection: 'column',
                 }}>
-                    {rows.length === 0 ? (
+                    {error && (
+                        <Alert severity="error" onClose={() => setError(null)} sx={{ m: 2, mb: 0 }}>
+                            {error}
+                        </Alert>
+                    )}
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+                            <CircularProgress size={32} />
+                        </Box>
+                    ) : rows.length === 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, px: 2, color: 'text.secondary' }}>
                             <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                             <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu đơn mua hàng</Typography>

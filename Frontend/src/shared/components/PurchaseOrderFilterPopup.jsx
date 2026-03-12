@@ -41,6 +41,8 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
 
     useEffect(() => {
         if (!open) return;
+        // Khi mở popup, sử dụng giá trị từ initialValues (là filterValues từ parent)
+        // Nếu initialValues rỗng thì dùng mặc định
         const approvalStatus = initialValues.approvalStatus ?? '';
         const receivingStatus = initialValues.receivingStatus ?? '';
         setApprovalStatusOption(

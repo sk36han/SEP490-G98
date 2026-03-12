@@ -350,6 +350,6 @@ namespace Warehouse.DataAcces.Service
             return $"PO{maxNumber + 1}";
         }
 
-       
+
     }
 }
