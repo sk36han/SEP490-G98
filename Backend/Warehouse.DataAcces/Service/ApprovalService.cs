@@ -137,21 +137,20 @@ namespace Warehouse.DataAcces.Service
             return new PagedResult<ApprovalQueueResponse>(items, totalItems, filter.PageNumber, filter.PageSize);
         }
 
-        public async Task<bool> ApproveRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
+        public async Task<ApprovalResult> ApproveRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
         {
-            // Force reason to null when approving
             return await ProcessDecisionAsync(requestType, requestId, currentUserId, "APPROVED", null);
         }
 
-        public async Task<bool> RejectRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
+        public async Task<ApprovalResult> RejectRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
         {
             return await ProcessDecisionAsync(requestType, requestId, currentUserId, "REJECTED", reason);
         }
 
-        private async Task<bool> ProcessDecisionAsync(string requestType, long requestId, long currentUserId, string decision, string reason)
+        private async Task<ApprovalResult> ProcessDecisionAsync(string requestType, long requestId, long currentUserId, string decision, string reason)
         {
             if (string.IsNullOrWhiteSpace(requestType))
-                return false;
+                return ApprovalResult.Failed("Loại yêu cầu (RequestType) không được để trống.");
 
             bool IsPending(string status) =>
                 !string.IsNullOrEmpty(status) &&
@@ -159,72 +158,128 @@ namespace Warehouse.DataAcces.Service
 
             string normalizedType = requestType.Trim().ToLowerInvariant();
             string? docType = null;
+            string currentStatus = "Unknown";
+            bool found = false;
 
             switch (normalizedType)
             {
                 case "purchaseorder":
                     var po = await _context.PurchaseOrders.FindAsync(requestId);
-                    if (po != null && IsPending(po.Status))
+                    if (po != null)
                     {
-                        po.Status = decision;
-                        docType = "PR";
+                        found = true;
+                        currentStatus = po.Status ?? "NULL";
+                        if (IsPending(po.Status))
+                        {
+                            po.Status = decision;
+                            docType = "PR";
+                        }
                     }
+                    else return ApprovalResult.Failed($"Không tìm thấy đơn PurchaseOrder với ID {requestId}.", 404);
                     break;
 
                 case "release":
                     var release = await _context.ReleaseRequests.FindAsync(requestId);
-                    if (release != null && IsPending(release.Status))
+                    if (release != null)
                     {
-                        release.Status = decision;
-                        docType = "GIR";
+                        found = true;
+                        currentStatus = release.Status ?? "NULL";
+                        if (IsPending(release.Status))
+                        {
+                            release.Status = decision;
+                            docType = "GIR";
+                        }
                     }
+                    else return ApprovalResult.Failed($"Không tìm thấy đơn ReleaseRequest với ID {requestId}.", 404);
                     break;
 
                 case "goodsreceipt":
                     var grn = await _context.GoodsReceiptNotes.FindAsync(requestId);
-                    if (grn != null && IsPending(grn.Status))
+                    if (grn != null)
                     {
-                        grn.Status = decision;
-                        docType = "GRN";
+                        found = true;
+                        currentStatus = grn.Status ?? "NULL";
+                        if (IsPending(grn.Status))
+                        {
+                            grn.Status = decision;
+                            docType = "GRN";
+                        }
                     }
+                    else return ApprovalResult.Failed($"Không tìm thấy đơn GoodsReceiptNote với ID {requestId}.", 404);
                     break;
 
                 case "goodsdelivery":
                     var gdn = await _context.GoodsDeliveryNotes.FindAsync(requestId);
-                    if (gdn != null && IsPending(gdn.Status))
+                    if (gdn != null)
                     {
-                        gdn.Status = decision;
-                        docType = "GDN";
+                        found = true;
+                        currentStatus = gdn.Status ?? "NULL";
+                        if (IsPending(gdn.Status))
+                        {
+                            gdn.Status = decision;
+                            docType = "GDN";
+                        }
                     }
+                    else return ApprovalResult.Failed($"Không tìm thấy đơn GoodsDeliveryNote với ID {requestId}.", 404);
                     break;
 
                 case "inventoryadjustment":
                     var adjustment = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
-                    if (adjustment != null && IsPending(adjustment.Status))
+                    if (adjustment != null)
                     {
-                        adjustment.Status = decision;
-                        docType = "ADJ";
+                        found = true;
+                        currentStatus = adjustment.Status ?? "NULL";
+                        if (IsPending(adjustment.Status))
+                        {
+                            adjustment.Status = decision;
+                            docType = "ADJ";
+                        }
                     }
+                    else return ApprovalResult.Failed($"Không tìm thấy đơn InventoryAdjustment với ID {requestId}.", 404);
                     break;
+
+                default:
+                    return ApprovalResult.Failed($"Loại yêu cầu '{requestType}' không hợp lệ (Dữ liệu không nằm trong danh mục hỗ trợ).", 400);
             }
 
+            if (!found)
+                return ApprovalResult.Failed($"Dữ liệu không tồn tại: Không thấy bản ghi {requestType} với mã định danh {requestId}.", 404);
+
             if (docType == null)
-                return false;
+                return ApprovalResult.Failed($"Lỗi nghiệp vụ: Đơn {requestType} hiện có trạng thái '{currentStatus}', hệ thống chỉ chấp nhận xử lý khi đơn ở trạng thái 'PENDING'.", 400);
 
-            var log = new DocumentApproval
+            try
             {
-                DocType = docType,
-                DocId = requestId,
-                StageNo = 1,
-                Decision = decision,
-                Reason = reason,
-                ActionBy = currentUserId,
-                ActionAt = DateTime.UtcNow
-            };
+                // Map internal status strings to DB-allowed Decision strings (CK_DA_Decision)
+                string dbDecision = decision switch
+                {
+                    "APPROVED" => "APPROVE",
+                    "REJECTED" => "REJECT",
+                    _ => decision.Length > 20 ? decision.Substring(0, 20) : decision
+                };
 
-            _context.DocumentApprovals.Add(log);
-            await _context.SaveChangesAsync();
-            return true;
+                var log = new DocumentApproval
+                {
+                    DocType = docType,
+                    DocId = requestId,
+                    StageNo = 1,
+                    Decision = dbDecision,
+                    Reason = reason,
+                    ActionBy = currentUserId,
+                    ActionAt = DateTime.UtcNow
+                };
+
+                _context.DocumentApprovals.Add(log);
+                await _context.SaveChangesAsync();
+                return ApprovalResult.Succeeded($"Thực hiện thành công: Đã chuyển trạng thái đơn {requestType} sang '{decision}'.");
+            }
+            catch (Exception ex)
+            {
+                var fullMessage = ex.InnerException != null 
+                    ? $"{ex.Message} Inner Error: {ex.InnerException.Message}" 
+                    : ex.Message;
+                return ApprovalResult.Failed($"Lỗi hệ thống (Internal Server Error): {fullMessage}", 500);
+            }
         }
 
         public async Task<object?> GetRequestDetailAsync(string requestType, long requestId)
