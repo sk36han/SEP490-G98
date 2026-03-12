@@ -106,42 +106,12 @@ const CreateGoodReceiptNote = () => {
         fetchPOList();
     }, []);
 
-    // Auto-fill từ query param poCode
-    useEffect(() => {
-        const poCodeFromUrl = searchParams.get('poCode');
-        if (poCodeFromUrl && poList.length > 0) {
-            const po = poList.find(p => p.poCode === poCodeFromUrl);
-            if (po) {
-                // Set formData và gọi import
-                setFormData(prev => ({
-                    ...prev,
-                    purchaseOrderCode: po.poCode,
-                }));
-                // Gọi hàm import PO sau khi đã load xong poList
-                // Sử dụng setTimeout để đảm bảo handleConfirmImportPO đã được định nghĩa
-                setTimeout(() => {
-                    handleConfirmImportPO(po.poCode);
-                }, 0);
-            }
-        }
-    }, [searchParams, poList, handleConfirmImportPO]);
-
-    // Tìm PO theo mã
+    // Tìm PO theo mã - define BEFORE the useEffect that uses it
     const getPOByCode = useCallback((code) => {
         return poList.find(po => po.poCode === code);
     }, [poList]);
 
-    // Lọc PO theo từ khóa
-    const filteredPoCodes = useMemo(() => {
-        const q = (formData.purchaseOrderCode || '').trim().toLowerCase();
-        if (!q) return poList.map(po => po.poCode);
-        return poList.filter(po => 
-            po.poCode.toLowerCase().includes(q) || 
-            po.supplierName.toLowerCase().includes(q)
-        ).map(po => po.poCode);
-    }, [formData.purchaseOrderCode, poList]);
-
-    // Handler khi xác nhận nhập từ PO
+    // Handler khi xác nhận nhập từ PO - define BEFORE the useEffect that uses it
     const handleConfirmImportPO = async (poCodeOverride = null) => {
         const poCode = poCodeOverride || formData.purchaseOrderCode;
         if (!poCode) return;
@@ -156,7 +126,7 @@ const CreateGoodReceiptNote = () => {
         }
 
         setPoImportLoading(true);
-        
+
         try {
             // Gọi API lấy chi tiết PO nếu chưa có lines
             let poDetail = po;
@@ -169,10 +139,10 @@ const CreateGoodReceiptNote = () => {
                     };
                 }
             }
-            
+
             setSelectedPODetails(poDetail);
             setConfirmImportPoOpen(false);
-            
+
             // Fill form data từ PO
             setFormData(prev => ({
                 ...prev,
@@ -181,7 +151,7 @@ const CreateGoodReceiptNote = () => {
                 warehouseId: poDetail.warehouseId ?? prev.warehouseId,
                 warehouseName: poDetail.warehouseName,
             }));
-            
+
             // Fill lines từ PO (chỉ những item chưa nhập đủ)
             const poLines = (poDetail.lines ?? [])
                 .filter(line => (line.receivedQty ?? 0) < (line.orderedQty ?? 0))
@@ -200,14 +170,14 @@ const CreateGoodReceiptNote = () => {
                     hasCO: false,
                     hasCQ: false,
                 }));
-            
+
             setLines(prev => {
                 // Merge với lines hiện tại, tránh trùng item
                 const existingItemIds = new Set(prev.map(l => l.itemId));
                 const newLines = poLines.filter(l => !existingItemIds.has(l.itemId));
                 return [...prev, ...newLines];
             });
-            
+
             showToast(`Đã nhập ${poLines.length} sản phẩm từ ${poDetail.poCode}`, 'success');
         } catch (err) {
             console.error('Lỗi khi import từ PO:', err);
@@ -216,6 +186,23 @@ const CreateGoodReceiptNote = () => {
             setPoImportLoading(false);
         }
     };
+
+    // Auto-fill từ query param poCode
+    useEffect(() => {
+        const poCodeFromUrl = searchParams.get('poCode');
+        if (poCodeFromUrl && poList.length > 0) {
+            const po = poList.find(p => p.poCode === poCodeFromUrl);
+            if (po) {
+                // Set formData
+                setFormData(prev => ({
+                    ...prev,
+                    purchaseOrderCode: po.poCode,
+                }));
+                // Call handleConfirmImportPO - now it's defined before this useEffect
+                handleConfirmImportPO(po.poCode);
+            }
+        }
+    }, [searchParams, poList]); // Removed handleConfirmImportPO dependency
 
     // Xóa PO đã chọn
     const handleClearSelectedPO = () => {
@@ -519,6 +506,16 @@ const CreateGoodReceiptNote = () => {
         : lines.length === 0
           ? 'Vui lòng thêm ít nhất 1 sản phẩm'
           : '';
+
+    // Lọc PO theo từ khóa
+    const filteredPoCodes = useMemo(() => {
+        const q = (formData.purchaseOrderCode || '').trim().toLowerCase();
+        if (!q) return poList.map(po => po.poCode);
+        return poList.filter(po => 
+            po.poCode.toLowerCase().includes(q) || 
+            po.supplierName.toLowerCase().includes(q)
+        ).map(po => po.poCode);
+    }, [formData.purchaseOrderCode, poList]);
 
     return (
         <div className="create-supplier-page">
@@ -1288,7 +1285,7 @@ const CreateGoodReceiptNote = () => {
                                                         {selectedPODetails.poCode}
                                                     </div>
                                                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                                                        {selectedPODDetail.supplierName}
+                                                        {selectedPODetails.supplierName}
                                                     </div>
                                                 </div>
                                                 <button

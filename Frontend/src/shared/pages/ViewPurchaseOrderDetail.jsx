@@ -826,7 +826,7 @@ const ViewPurchaseOrderDetail = () => {
 
     const handleCreateGoodReceiptNote = () => {
         // Navigate to CreateGoodReceiptNote with PO code as query param
-        navigate(`/create-good-receipt-note?poCode=${orderData.orderCode}`);
+        navigate(`/good-receipt-notes/create?poCode=${orderData.orderCode}`);
     };
 
     if (loading) {
