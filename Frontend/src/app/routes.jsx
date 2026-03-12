@@ -18,6 +18,7 @@ import AdminNotifications from '../shared/pages/AdminNotifications';
 import ViewNotifications from '../shared/pages/ViewNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 import ViewSupplierList from '../shared/pages/ViewSupplierList';
+import ViewSupplierDetail from '../shared/pages/ViewSupplierDetail';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
@@ -281,7 +282,17 @@ const AppRoutes = () => (
                 </MainLayout>
             }
         />
-        {/* Quản lý kho – Director, Thủ kho, Sale Support, Sale Engineer, Kế toán */}
+        <Route
+            path="/suppliers/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewSupplierDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Quản lý kho – Director, Thủ kho */}
         <Route
             path="/inventory"
             element={

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import MuiDrawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -20,23 +20,20 @@ import { getMenuItems } from './menuConfig';
 import { getPermissionRole, getRawRoleFromUser } from '../../shared/permissions/roleUtils';
 
 // ── Design tokens ────────────────────────────────────────────────
-const SIDEBAR_WIDTH_OPEN     = 260;
-const SIDEBAR_WIDTH_CLOSED   = 72;
-const HEADER_H               = 56;
-const ITEM_H                 = 44;   // parent item height
-const SUB_H                  = 38;   // submenu item height
-const ICON_SZ                = 18;   // icon px
-const ICON_STROKE            = 2;    // stroke-width
-const ITEM_PX                = 1.75; // 14px horizontal padding on item button
-const ICON_GAP               = 12;   // px gap between icon and label
-const LIST_PX                = 2;    // 16px outer list padding
-const ITEM_RADIUS            = 10;   // parent pill radius
-const SUB_RADIUS             = 8;    // submenu pill radius
-const ITEM_MB                = 0.5;  // 4px gap between parent items
-const SUB_MB                 = 0.25; // 2px gap between sub items
-const SUB_INDENT             = 20;   // px left indent for submenu
-const GROUP_GAP              = 20;   // px gap between groups (no label)
-const SECTION_LABEL_PB       = 10;   // px below section label
+const SIDEBAR_WIDTH_OPEN = 260;
+const SIDEBAR_WIDTH_CLOSED = 72;
+const HEADER_H = 56;
+const ITEM_H = 44;
+const SUB_H = 38;
+const ICON_SZ = 18;
+const ICON_STROKE = 2;
+const ITEM_PX = 1.75;
+const ICON_GAP = 12;
+const LIST_PX = 2;
+const ITEM_RADIUS = 10;
+const SUB_RADIUS = 8;
+const SUB_MB = 0.25;
+const SUB_INDENT = 20;
 
 const openedMixin = (theme) => ({
     width: SIDEBAR_WIDTH_OPEN,
@@ -56,47 +53,46 @@ const closedMixin = (theme) => ({
     overflowX: 'hidden',
 });
 
-const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' })(
-    ({ theme, open }) => ({
-        width: SIDEBAR_WIDTH_OPEN,
-        flexShrink: 0,
-        whiteSpace: 'nowrap',
-        boxSizing: 'border-box',
-        ...(open && {
-            ...openedMixin(theme),
-            '& .MuiDrawer-paper': openedMixin(theme),
-        }),
-        ...(!open && {
-            ...closedMixin(theme),
-            '& .MuiDrawer-paper': closedMixin(theme),
-        }),
+const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' })(({ theme, open }) => ({
+    width: SIDEBAR_WIDTH_OPEN,
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
+    boxSizing: 'border-box',
+    ...(open && {
+        ...openedMixin(theme),
+        '& .MuiDrawer-paper': openedMixin(theme),
     }),
-);
+    ...(!open && {
+        ...closedMixin(theme),
+        '& .MuiDrawer-paper': closedMixin(theme),
+    }),
+}));
 
-const isUserMgmtPath = (pathname) =>
-    pathname === '/admin/users' || pathname.startsWith('/admin/users/');
+const matchesPath = (pathname, targetPath) => {
+    if (!pathname || !targetPath) return false;
+    return pathname === targetPath || pathname.startsWith(`${targetPath}/`);
+};
 
-// Tất cả path thuộc mục "Vật tư" (products-mgmt) để menu xổ ra đúng và giữ expanded khi đang ở trang con
-const isProductsPath = (pathname) =>
-    pathname === '/products' ||
-    pathname.startsWith('/items/') ||
-    pathname === '/categories' ||
-    pathname.startsWith('/categories/') ||
-    pathname === '/uom' ||
-    pathname.startsWith('/uom/') ||
-    pathname === '/packaging-spec' ||
-    pathname.startsWith('/packaging-spec/') ||
-    pathname === '/specs' ||
-    pathname.startsWith('/specs/');
+const getExtraMatchPaths = (item) => {
+    if (item.id === 'products-mgmt') {
+        return ['/items'];
+    }
+    return [];
+};
 
-const isPurchaseOrdersPath = (pathname) =>
-    pathname === '/purchase-orders' || pathname.startsWith('/purchase-orders/');
+const isItemMatched = (item, pathname) => {
+    if (!item) return false;
 
-const isSuppliersPath = (pathname) =>
-    pathname === '/suppliers' || pathname.startsWith('/suppliers/');
+    if (item.path && matchesPath(pathname, item.path)) {
+        return true;
+    }
 
-const isGoodReceiptNotesPath = (pathname) =>
-    pathname === '/good-receipt-notes' || pathname.startsWith('/good-receipt-notes/');
+    if (Array.isArray(item.children) && item.children.some((child) => matchesPath(pathname, child.path))) {
+        return true;
+    }
+
+    return getExtraMatchPaths(item).some((path) => matchesPath(pathname, path));
+};
 
 const getSectionLabel = (item) => {
     if (item.id === 'purchase-orders-mgmt' || item.path?.startsWith('/purchase-orders')) {
@@ -112,13 +108,8 @@ const getSectionLabel = (item) => {
 };
 
 const Sidebar = () => {
-    const theme = useTheme();
     const [open, setOpen] = useState(true);
-    const [userMgmtCollapsed, setUserMgmtCollapsed] = useState(false);
-    const [productsCollapsed, setProductsCollapsed] = useState(false);
-    const [purchaseOrdersCollapsed, setPurchaseOrdersCollapsed] = useState(false);
-    const [goodReceiptNotesCollapsed, setGoodReceiptNotesCollapsed] = useState(false);
-    const [suppliersCollapsed, setSuppliersCollapsed] = useState(false);
+    const [collapsedGroups, setCollapsedGroups] = useState({});
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -127,130 +118,85 @@ const Sidebar = () => {
     const userInfo = authService.getUser();
     const roleFromBackend = getRawRoleFromUser(userInfo);
     const permissionRole = getPermissionRole(roleFromBackend);
-    const menuItems = getMenuItems(permissionRole);
+    const menuItems = useMemo(() => getMenuItems(permissionRole), [permissionRole]);
 
     const sectionLabels = useMemo(() => menuItems.map(getSectionLabel), [menuItems]);
 
-    useEffect(() => {
-        if (!isUserMgmtPath(pathname)) {
-            const id = setTimeout(() => setUserMgmtCollapsed(false), 0);
-            return () => clearTimeout(id);
-        }
-        return undefined;
-    }, [pathname]);
-
-    useEffect(() => {
-        if (!isProductsPath(pathname)) {
-            const id = setTimeout(() => setProductsCollapsed(false), 0);
-            return () => clearTimeout(id);
-        }
-        return undefined;
-    }, [pathname]);
-
-    useEffect(() => {
-        if (!isPurchaseOrdersPath(pathname)) {
-            const id = setTimeout(() => setPurchaseOrdersCollapsed(false), 0);
-            return () => clearTimeout(id);
-        }
-        return undefined;
-    }, [pathname]);
-
-    useEffect(() => {
-        if (!isGoodReceiptNotesPath(pathname)) {
-            const id = setTimeout(() => setGoodReceiptNotesCollapsed(false), 0);
-            return () => clearTimeout(id);
-        }
-        return undefined;
-    }, [pathname]);
-
-    useEffect(() => {
-        if (!isSuppliersPath(pathname)) {
-            const id = setTimeout(() => setSuppliersCollapsed(false), 0);
-            return () => clearTimeout(id);
-        }
-        return undefined;
-    }, [pathname]);
-
-    const isOnUserMgmtPath = () => isUserMgmtPath(pathname);
-    const isOnProductsPath = () => isProductsPath(pathname);
-    const isOnPurchaseOrdersPath = () => isPurchaseOrdersPath(pathname);
-    const isOnGoodReceiptNotesPath = () => isGoodReceiptNotesPath(pathname);
-    const isOnSuppliersPath = () => isSuppliersPath(pathname);
-
     const isGroupExpanded = (item) => {
-        if (!item.id) return false;
-        if (item.id === 'user-mgmt') return isOnUserMgmtPath() && !userMgmtCollapsed;
-        if (item.id === 'products-mgmt') return isOnProductsPath() && !productsCollapsed;
-        if (item.id === 'purchase-orders-mgmt') return isOnPurchaseOrdersPath() && !purchaseOrdersCollapsed;
-        if (item.id === 'good-receipt-notes-mgmt') return isOnGoodReceiptNotesPath() && !goodReceiptNotesCollapsed;
-        if (item.id === 'suppliers-mgmt') return isOnSuppliersPath() && !suppliersCollapsed;
-        return false;
+        if (!open || !item?.id || !item?.children?.length) return false;
+        return isItemMatched(item, pathname) && !collapsedGroups[item.id];
     };
 
     const handleParentClick = (item) => {
-        const onUserMgmt       = item.id === 'user-mgmt'            && isOnUserMgmtPath();
-        const onProducts       = item.id === 'products-mgmt'        && isOnProductsPath();
-        const onPurchaseOrders     = item.id === 'purchase-orders-mgmt'     && isOnPurchaseOrdersPath();
-        const onGoodReceiptNotes   = item.id === 'good-receipt-notes-mgmt'   && isOnGoodReceiptNotesPath();
-        const onSuppliers          = item.id === 'suppliers-mgmt'            && isOnSuppliersPath();
+        const hasChildren = Array.isArray(item.children) && item.children.length > 0;
 
-        if (onUserMgmt)           { setUserMgmtCollapsed((p) => !p);           return; }
-        if (onProducts)           { setProductsCollapsed((p) => !p);           return; }
-        if (onPurchaseOrders)     { setPurchaseOrdersCollapsed((p) => !p);     return; }
-        if (onGoodReceiptNotes)    { setGoodReceiptNotesCollapsed((p) => !p);   return; }
-        if (onSuppliers)          { setSuppliersCollapsed((p) => !p);          return; }
+        if (!hasChildren) {
+            navigate(item.path);
+            return;
+        }
+
+        const isOnCurrentGroup = isItemMatched(item, pathname);
+
+        if (isOnCurrentGroup) {
+            setCollapsedGroups((prev) => ({
+                ...prev,
+                [item.id]: !prev[item.id],
+            }));
+            return;
+        }
 
         navigate(item.path);
-        setUserMgmtCollapsed(false);
-        setProductsCollapsed(false);
-        setPurchaseOrdersCollapsed(false);
-        setGoodReceiptNotesCollapsed(false);
-        setSuppliersCollapsed(false);
+        setCollapsedGroups({});
     };
 
-    const handleChildClick = (child) => {
+    const handleChildClick = (child, parentId) => {
         navigate(child.path, { state: child.state ?? undefined });
+        if (parentId) {
+            setCollapsedGroups((prev) => ({
+                ...prev,
+                [parentId]: false,
+            }));
+        }
     };
 
     const isParentActive = (item) => {
-        if (!item.children) return pathname === item.path;
-        if (item.id === 'products-mgmt'         && isProductsPath(pathname))        return true;
-        if (item.id === 'purchase-orders-mgmt' && isPurchaseOrdersPath(pathname))  return true;
-        if (item.id === 'good-receipt-notes-mgmt' && isGoodReceiptNotesPath(pathname)) return true;
-        if (item.id === 'suppliers-mgmt'       && isSuppliersPath(pathname))       return true;
-        return item.children.some((c) => pathname === c.path);
+        if (!item.children) return matchesPath(pathname, item.path);
+        return isItemMatched(item, pathname);
     };
 
     const isChildActive = (child) => {
         if (pathname !== child.path) return false;
-        if (child.state?.openCreate) return !!location.state?.openCreate;
-        // Quản lý đơn mua: Tất cả / Chờ duyệt / Đã duyệt theo approvalStatus
+
+        if (child.state?.openCreate) {
+            return !!location.state?.openCreate;
+        }
+
         if (child.state?.approvalStatus != null) {
             return location.state?.approvalStatus === child.state.approvalStatus;
         }
-        return !location.state?.approvalStatus; // "Tất cả" active khi không có filter
+
+        return !location.state?.approvalStatus && !location.state?.openCreate;
     };
 
-    // Clone icon with consistent size + stroke
     const icon = (node) =>
         React.isValidElement(node)
             ? React.cloneElement(node, { size: ICON_SZ, strokeWidth: ICON_STROKE })
             : node;
 
     // ── Color palette — ocean blue ─────────────────────────────────
-    const ACCENT        = '#0284c7';                       // active text / icon
-    const TXT           = '#4b6a88';                       // default label — ocean blue-gray
-    const TXT_HOVER     = '#1e3a5f';                       // hover label — deep ocean
-    const TXT_MUTED     = 'rgba(75,106,136,0.55)';         // submenu default
-    const TXT_MUTED_HVR = '#4b6a88';                       // submenu hover
-    const CAPTION       = 'rgba(75,106,136,0.55)';         // section caption
-    const ICN           = 'rgba(75,106,136,0.72)';         // icon default — ocean blue-gray
-    const DIVIDER_CLR   = 'rgba(2,132,199,0.10)';          // subtle ocean divider
-    const HOVER_BG      = 'rgba(2,132,199,0.06)';          // hover background — ocean tint
-    const SUB_HOVER_BG  = 'rgba(2,132,199,0.06)';
-    const ACTIVE_PILL   = 'rgba(2,132,199,0.10)';          // active pill fill
-    const ACTIVE_BAR    = '#0284c7';                       // 2px bar inside active pill
-    const BTN_CLR       = 'rgba(75,106,136,0.55)';         // toggle icon colour
+    const ACCENT = '#0284c7';
+    const TXT = '#4b6a88';
+    const TXT_HOVER = '#1e3a5f';
+    const TXT_MUTED = 'rgba(75,106,136,0.55)';
+    const TXT_MUTED_HVR = '#4b6a88';
+    const CAPTION = 'rgba(75,106,136,0.55)';
+    const ICN = 'rgba(75,106,136,0.72)';
+    const DIVIDER_CLR = 'rgba(2,132,199,0.10)';
+    const HOVER_BG = 'rgba(2,132,199,0.06)';
+    const SUB_HOVER_BG = 'rgba(2,132,199,0.06)';
+    const ACTIVE_PILL = 'rgba(2,132,199,0.10)';
+    const ACTIVE_BAR = '#0284c7';
+    const BTN_CLR = 'rgba(75,106,136,0.55)';
 
     return (
         <Box sx={{ display: 'flex' }}>
@@ -269,7 +215,6 @@ const Sidebar = () => {
                     },
                 }}
             >
-                {/* ── Header ────────────────────────────────────────── */}
                 <Box
                     sx={{
                         height: HEADER_H,
@@ -282,15 +227,14 @@ const Sidebar = () => {
                         position: 'relative',
                     }}
                 >
-                    {/* Logo */}
                     <Box sx={{ display: 'flex', alignItems: 'center', overflow: 'hidden', minWidth: 0 }}>
-                        {open
-                            ? <img src={logo} alt="Logo" style={{ height: 26, maxWidth: 118, objectFit: 'contain' }} />
-                            : <img src={logo} alt="Logo" style={{ height: 22, width: 22, objectFit: 'contain' }} />
-                        }
+                        {open ? (
+                            <img src={logo} alt="Logo" style={{ height: 26, maxWidth: 118, objectFit: 'contain' }} />
+                        ) : (
+                            <img src={logo} alt="Logo" style={{ height: 22, width: 22, objectFit: 'contain' }} />
+                        )}
                     </Box>
 
-                    {/* Toggle arrow — same button for both states, no border/bg */}
                     <Tooltip title={open ? 'Thu gọn' : 'Mở rộng'} placement="right">
                         <IconButton
                             onClick={() => setOpen((prev) => !prev)}
@@ -309,20 +253,16 @@ const Sidebar = () => {
                                 transition: 'background-color 0.15s, color 0.15s',
                             }}
                         >
-                            {open
-                                ? <ChevronLeftIcon sx={{ fontSize: 17 }} />
-                                : <ChevronRightIcon sx={{ fontSize: 17 }} />
-                            }
+                            {open ? <ChevronLeftIcon sx={{ fontSize: 17 }} /> : <ChevronRightIcon sx={{ fontSize: 17 }} />}
                         </IconButton>
                     </Tooltip>
                 </Box>
 
                 <Divider sx={{ borderColor: DIVIDER_CLR }} />
 
-                {/* ── Nav list ───────────────────────────────────────── */}
                 <List
                     sx={{
-                        px: `${LIST_PX * 8}px`,   // 16px
+                        px: `${LIST_PX * 8}px`,
                         pt: '12px',
                         pb: '16px',
                         flex: 1,
@@ -332,36 +272,32 @@ const Sidebar = () => {
                     }}
                 >
                     {menuItems.map((item, index) => {
-                        const hasChildren   = Array.isArray(item.children) && item.children.length > 0;
-                        const parentActive  = isParentActive(item);
-                        const expanded      = open && isGroupExpanded(item);
+                        const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+                        const parentActive = isParentActive(item);
+                        const expanded = hasChildren && isGroupExpanded(item);
                         const hasActiveChild = hasChildren && item.children.some((c) => isChildActive(c));
 
-                        const currentSection  = sectionLabels[index];
-                        const prevSection     = sectionLabels[index - 1];
-                        const showLabel       = open && Boolean(currentSection) && (index === 0 || currentSection !== prevSection);
-                        const isGroupBreak    = index > 0 && prevSection !== null && currentSection === null;
+                        const currentSection = sectionLabels[index];
+                        const prevSection = sectionLabels[index - 1];
+                        const showLabel = open && Boolean(currentSection) && (index === 0 || currentSection !== prevSection);
 
-                        // ── Parent state derivations ─────────────────
-                        // Parent with active child: NO background fill — only semibold text
-                        // Parent without children (leaf) that is active: gets full pill
-                        const isLeafActive    = parentActive && !hasChildren;
-                                        const parentBg        = isLeafActive ? ACTIVE_PILL   : 'transparent';
-                                        const parentHoverBg   = isLeafActive ? 'rgba(2,132,199,0.16)' : HOVER_BG;
-                                        const parentTxtColor  = isLeafActive
-                                            ? ACCENT
-                                            : (parentActive && hasActiveChild)
-                                                ? TXT_HOVER
-                                                : TXT;
-                                        const parentIconColor = isLeafActive
-                                            ? ACCENT
-                                            : (parentActive && hasActiveChild) ? TXT : ICN;
-                                        const parentWeight    = (parentActive) ? 600 : 500;
+                        const isLeafActive = parentActive && !hasChildren;
+                        const parentBg = isLeafActive ? ACTIVE_PILL : 'transparent';
+                        const parentHoverBg = isLeafActive ? 'rgba(2,132,199,0.16)' : HOVER_BG;
+                        const parentTxtColor = isLeafActive
+                            ? ACCENT
+                            : parentActive && hasActiveChild
+                              ? TXT_HOVER
+                              : TXT;
+                        const parentIconColor = isLeafActive
+                            ? ACCENT
+                            : parentActive && hasActiveChild
+                              ? TXT
+                              : ICN;
+                        const parentWeight = parentActive ? 600 : 500;
 
                         return (
                             <React.Fragment key={item.id || item.path}>
-
-                                {/* Section label — muted caption */}
                                 {showLabel && (
                                     <Box sx={{ mt: index === 0 ? '10px' : '16px', mb: '6px' }}>
                                         <Typography
@@ -381,14 +317,10 @@ const Sidebar = () => {
                                     </Box>
                                 )}
 
-                                {/* ── Parent row ─────────────────────────── */}
-                                <ListItem
-                                    disablePadding
-                                    sx={{ display: 'block', mb: '4px' }}
-                                >
+                                <ListItem disablePadding sx={{ display: 'block', mb: '4px' }}>
                                     <Tooltip title={!open ? item.label : ''} placement="right" arrow>
                                         <ListItemButton
-                                            onClick={() => (hasChildren ? handleParentClick(item) : navigate(item.path))}
+                                            onClick={() => handleParentClick(item)}
                                             sx={{
                                                 height: `${ITEM_H}px`,
                                                 px: `${ITEM_PX * 8}px`,
@@ -403,11 +335,13 @@ const Sidebar = () => {
                                                     bgcolor: parentHoverBg,
                                                     color: isLeafActive ? ACCENT : TXT_HOVER,
                                                 },
-                                                    '&.Mui-focusVisible': { outline: `2px solid rgba(2,132,199,0.30)`, outlineOffset: 2 },
+                                                '&.Mui-focusVisible': {
+                                                    outline: '2px solid rgba(2,132,199,0.30)',
+                                                    outlineOffset: 2,
+                                                },
                                                 transition: 'background-color 0.15s, color 0.15s',
                                             }}
                                         >
-                                            {/* Icon slot — fixed 18×18 */}
                                             <Box
                                                 sx={{
                                                     width: `${ICON_SZ}px`,
@@ -423,7 +357,6 @@ const Sidebar = () => {
                                                 {icon(item.icon)}
                                             </Box>
 
-                                            {/* Label */}
                                             {open && (
                                                 <Box
                                                     component="span"
@@ -444,7 +377,6 @@ const Sidebar = () => {
                                         </ListItemButton>
                                     </Tooltip>
 
-                                    {/* ── Submenu ──────────────────────────── */}
                                     {open && hasChildren && (
                                         <Collapse in={expanded} timeout={200} unmountOnExit>
                                             <List
@@ -457,6 +389,7 @@ const Sidebar = () => {
                                             >
                                                 {item.children.map((child, ci) => {
                                                     const childActive = isChildActive(child);
+
                                                     return (
                                                         <ListItem
                                                             key={child.path + (child.state?.openCreate ? '-create' : `-${ci}`)}
@@ -464,7 +397,7 @@ const Sidebar = () => {
                                                             sx={{ display: 'block', mb: `${SUB_MB * 8}px` }}
                                                         >
                                                             <ListItemButton
-                                                                onClick={() => handleChildClick(child)}
+                                                                onClick={() => handleChildClick(child, item.id)}
                                                                 sx={{
                                                                     height: `${SUB_H}px`,
                                                                     pl: '10px',
@@ -473,17 +406,19 @@ const Sidebar = () => {
                                                                     display: 'flex',
                                                                     alignItems: 'center',
                                                                     gap: '8px',
-                                                    bgcolor: 'transparent',
-                                                    color: childActive ? ACCENT : TXT_MUTED,
-                                                    '&:hover': {
-                                                        bgcolor: SUB_HOVER_BG,
-                                                        color: childActive ? ACCENT : TXT_MUTED_HVR,
-                                                    },
-                                                    '&.Mui-focusVisible': { outline: `2px solid rgba(2,132,199,0.28)`, outlineOffset: 1 },
+                                                                    bgcolor: 'transparent',
+                                                                    color: childActive ? ACCENT : TXT_MUTED,
+                                                                    '&:hover': {
+                                                                        bgcolor: SUB_HOVER_BG,
+                                                                        color: childActive ? ACCENT : TXT_MUTED_HVR,
+                                                                    },
+                                                                    '&.Mui-focusVisible': {
+                                                                        outline: '2px solid rgba(2,132,199,0.28)',
+                                                                        outlineOffset: 1,
+                                                                    },
                                                                     transition: 'background-color 0.15s, color 0.15s',
                                                                 }}
                                                             >
-                                                                {/* 2px accent bar inside active pill */}
                                                                 {childActive && (
                                                                     <Box
                                                                         sx={{
