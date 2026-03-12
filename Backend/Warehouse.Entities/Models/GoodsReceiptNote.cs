@@ -35,6 +35,10 @@ public partial class GoodsReceiptNote
 
     public string? PaymentMethod { get; set; }
 
+    public decimal TotalReceivedQty { get; set; }
+
+    public decimal TotalGoodsAmount { get; set; }
+
     public virtual User CreatedByNavigation { get; set; } = null!;
 
     public virtual ICollection<GoodsReceiptNoteLine> GoodsReceiptNoteLines { get; set; } = new List<GoodsReceiptNoteLine>();
