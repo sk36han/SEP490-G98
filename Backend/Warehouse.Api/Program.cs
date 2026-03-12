@@ -85,6 +85,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<IItemService, ItemService>();
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+            builder.Services.AddScoped<IGoodsReceiptNoteService, GoodsReceiptNoteService>();
 
 
 			// JWT Authentication
