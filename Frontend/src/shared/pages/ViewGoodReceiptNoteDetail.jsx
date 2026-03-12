@@ -687,6 +687,18 @@ const ViewGoodReceiptNoteDetail = () => {
                                 <X size={15} />
                                 Hủy đơn
                             </button>
+                            {(grnData?.status === 'Approved' || grnData?.status === 'Posted') && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => navigate(`/purchase-return/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
+                                    disabled={submitting}
+                                    style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
+                                >
+                                    <Package size={16} className="btn-icon" />
+                                    Trả hàng
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 className="btn btn-primary"

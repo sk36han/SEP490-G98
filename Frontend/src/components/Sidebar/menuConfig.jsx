@@ -8,6 +8,7 @@ import {
     Bell,
     ClipboardList,
     Warehouse,
+    RotateCcw,
 } from 'lucide-react';
 
 const commonItems = [];
@@ -79,7 +80,7 @@ const warehouseKeeperItems = [
         id: 'good-receipt-notes-mgmt',
         path: '/good-receipt-notes',
         icon: <FileText size={22} />,
-        label: 'Quản lý phiếu nhập kho',
+        label: 'Phiếu nhập kho',
         children: [
             { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
             { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
@@ -105,7 +106,7 @@ const saleSupportItems = [
         id: 'suppliers-mgmt',
         path: '/suppliers',
         icon: <Truck size={22} />,
-        label: 'Quản lý nhà cung cấp',
+        label: 'Nhà cung cấp',
         children: [
             { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
             { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
@@ -115,7 +116,7 @@ const saleSupportItems = [
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: <ShoppingCart size={22} />,
-        label: 'Quản lý đơn mua',
+        label: 'Đơn mua',
         sublabel: 'Purchase Order',
         children: [
             { path: '/purchase-orders', label: 'Danh sách đơn mua hàng' },
@@ -157,17 +158,26 @@ const accountantItems = [
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: <ShoppingCart size={22} />,
-        label: 'Quản lý đơn mua',
+        label: 'Đơn mua',
         children: [{ path: '/purchase-orders', label: 'Danh sách đơn mua' }],
     },
     {
         id: 'good-receipt-notes-mgmt',
         path: '/good-receipt-notes',
         icon: <FileText size={22} />,
-        label: 'Quản lý phiếu nhập kho',
+        label: 'Phiếu nhập kho',
         children: [
             { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
             { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+        ],
+    },
+    {
+        id: 'purchase-returns-mgmt',
+        path: '/purchase-returns',
+        icon: <RotateCcw size={22} />,
+        label: 'Trả hàng',
+        children: [
+            { path: '/purchase-returns', label: 'Danh sách phiếu trả hàng' },
         ],
     },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
