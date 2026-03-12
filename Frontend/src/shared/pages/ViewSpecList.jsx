@@ -113,7 +113,7 @@ const ViewSpecList = () => {
                 isActive: payload.isActive,
             });
         } else {
-            const paramCode = (payload.paramCode ?? payload.specCode ?? '').trim();
+            const paramCode = (payload.specCode ?? '').trim();
             const paramName = (payload.paramName ?? payload.specName ?? '').trim();
             const dataType = (payload.dataType ?? 'string').trim() || 'string';
             if (!paramCode || !paramName) return;

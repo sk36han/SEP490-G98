@@ -1058,7 +1058,7 @@ const ViewPurchaseOrderDetail = () => {
                 <div className="page-header-actions">
                     {!isEditing ? (
                         <>
-                            {permissionRole === 'ACCOUNTANTS' && orderData.approvalStatus && (orderData.approvalStatus.toUpperCase() === 'PENDING' || orderData.approvalStatus.toUpperCase() === 'DRAFT') && (
+                            {permissionRole === 'ACCOUNTANTS' && orderData.approvalStatus && orderData.approvalStatus.toUpperCase() === 'PENDING_ACC' && (
                                 <>
                                     <button
                                         type="button"

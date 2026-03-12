@@ -61,12 +61,10 @@ export default function CreateSpecDialog({ open, onClose, onSubmit, editRow = nu
         try {
             await Promise.resolve(onSubmit({
                 paramId: editRow?.paramId,
-                paramCode: paramCode || toCode(name), // đảm bảo có code
                 paramName: name,
                 dataType: 'string',
                 isActive: isEdit ? isActive : true,
                 specCode: paramCode || toCode(name),
-                specName: name,
                 isEdit,
             }));
             onClose();
