@@ -8,5 +8,6 @@ namespace Warehouse.DataAcces.Service.Interface
     {
         Task<PagedResponse<GoodsReceiptNoteResponse>> GetGoodsReceiptNotesAsync(int page, int pageSize);
         Task<GoodsReceiptNoteResponse> CreateGRNAsync(long userId, CreateGRNRequest request);
+        Task<GoodsReceiptNoteResponse> ApproveGRNAsync(long grnId, long userId, ApproveGRNRequest request);
     }
 }

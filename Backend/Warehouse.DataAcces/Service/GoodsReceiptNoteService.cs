@@ -207,6 +207,7 @@ namespace Warehouse.DataAcces.Service
             };
 
             _context.GoodsReceiptNotes.Add(grn);
+            await _context.SaveChangesAsync();
 
             foreach (var line in request.Lines)
             {
@@ -226,6 +227,35 @@ namespace Warehouse.DataAcces.Service
                 };
 
                 _context.GoodsReceiptNoteLines.Add(grnLine);
+            }
+
+            // Tạo InventoryTransaction để ghi nhận lịch sử nhập kho
+            var inventoryTxn = new InventoryTransaction
+            {
+                TxnType = "INBOUND",
+                TxnDate = DateTime.UtcNow,
+                WarehouseId = grn.WarehouseId,
+                ReferenceType = "GRN",
+                ReferenceId = grn.Grnid,
+                Status = "POSTED",
+                PostedBy = userId,
+                PostedAt = DateTime.UtcNow
+            };
+            _context.InventoryTransactions.Add(inventoryTxn);
+            await _context.SaveChangesAsync();
+
+            // Tạo InventoryTransactionLine cho từng item
+            foreach (var grnLine in grn.GoodsReceiptNoteLines)
+            {
+                var txnLine = new InventoryTransactionLine
+                {
+                    InventoryTxnId = inventoryTxn.InventoryTxnId,
+                    ItemId = grnLine.ItemId,
+                    QtyChange = grnLine.ActualQty,
+                    UomId = grnLine.UomId,
+                    Note = $"Nhập theo {grn.Grncode}"
+                };
+                _context.InventoryTransactionLines.Add(txnLine);
             }
 
             // Audit log
@@ -286,6 +316,139 @@ namespace Warehouse.DataAcces.Service
             }
 
             return $"GRN{maxNumber + 1}";
+        }
+
+        public async Task<GoodsReceiptNoteResponse> ApproveGRNAsync(long grnId, long userId, ApproveGRNRequest request)
+        {
+            // Lấy GRN cùng với lines và PO
+            var grn = await _context.GoodsReceiptNotes
+                .Include(g => g.GoodsReceiptNoteLines)
+                .Include(g => g.PurchaseOrder)
+                    .ThenInclude(po => po.PurchaseOrderLines)
+                .FirstOrDefaultAsync(g => g.Grnid == grnId);
+
+            if (grn == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy phiếu nhập kho.");
+            }
+
+            // Kiểm tra status
+            if (grn.Status != "PENDING_ACC")
+            {
+                throw new InvalidOperationException("Chỉ có thể duyệt phiếu nhập kho đang chờ duyệt.");
+            }
+
+            // Cập nhật GRN status thành POST
+            grn.Status = "POSTED";
+            grn.PostedAt = DateTime.UtcNow;
+
+            // Lấy thông tin PO
+            var purchaseOrder = grn.PurchaseOrder;
+            if (purchaseOrder != null)
+            {
+                // Duyệt từng line của GRN
+                foreach (var grnLine in grn.GoodsReceiptNoteLines)
+                {
+                    // Tìm PO line tương ứng
+                    var poLine = purchaseOrder.PurchaseOrderLines
+                        .FirstOrDefault(l => l.PurchaseOrderLineId == grnLine.PurchaseOrderLineId);
+
+                    if (poLine != null)
+                    {
+                        // Kiểm tra số lượng nhập không vượt quá số lượng đặt
+                        var totalReceived = poLine.ReceivedQty + grnLine.ActualQty;
+                        if (totalReceived > poLine.OrderedQty)
+                        {
+                            throw new InvalidOperationException($"Số lượng nhập vượt quá số lượng đặt cho item {grnLine.ItemId}.");
+                        }
+
+                        // Cập nhật ReceivedQty trong PO Line
+                        poLine.ReceivedQty = totalReceived;
+
+                        // Cập nhật LineStatus
+                        if (totalReceived >= poLine.OrderedQty)
+                        {
+                            poLine.LineStatus = "FullyReceived";
+                        }
+                        else if (totalReceived > 0)
+                        {
+                            poLine.LineStatus = "PartiallyReceived";
+                        }
+                    }
+
+                    // Cập nhật tồn kho (InventoryOnHand)
+                    var inventory = await _context.InventoryOnHands
+                        .FirstOrDefaultAsync(i => i.WarehouseId == grn.WarehouseId && i.ItemId == grnLine.ItemId);
+
+                    if (inventory != null)
+                    {
+                        // Cộng dồn số lượng tồn kho
+                        inventory.OnHandQty += grnLine.ActualQty;
+                        inventory.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        // Tạo mới inventory nếu chưa có
+                        var newInventory = new InventoryOnHand
+                        {
+                            WarehouseId = grn.WarehouseId,
+                            ItemId = grnLine.ItemId,
+                            OnHandQty = grnLine.ActualQty,
+                            ReservedQty = 0,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _context.InventoryOnHands.Add(newInventory);
+                    }
+                }
+
+                // Cập nhật PO LifecycleStatus
+                var totalOrderedQty = purchaseOrder.PurchaseOrderLines.Sum(l => l.OrderedQty);
+                var totalReceivedQty = purchaseOrder.PurchaseOrderLines.Sum(l => l.ReceivedQty);
+
+                if (totalReceivedQty >= totalOrderedQty)
+                {
+                    purchaseOrder.LifecycleStatus = "FullRcv"; // Nhận đủ
+                }
+                else if (totalReceivedQty > 0)
+                {
+                    purchaseOrder.LifecycleStatus = "PartRcv"; // Nhận một phần
+                }
+            }
+
+            // Audit log
+            var auditLog = new AuditLog
+            {
+                ActorUserId = userId,
+                Action = "APPROVE",
+                EntityType = "GoodsReceiptNote",
+                EntityId = grn.Grnid,
+                Detail = $"Duyệt phiếu nhập kho {grn.Grncode}",
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+
+            await _context.SaveChangesAsync();
+
+            // Trả về kết quả
+            return new GoodsReceiptNoteResponse
+            {
+                GrnId = grn.Grnid,
+                GrnCode = grn.Grncode,
+                ReceiptDate = grn.ReceiptDate,
+                Status = grn.Status,
+                IsPaid = grn.IsPaid,
+                PurchaseOrderId = grn.PurchaseOrderId,
+                PurchaseOrderCode = purchaseOrder?.Pocode,
+                SupplierId = grn.SupplierId,
+                WarehouseId = grn.WarehouseId,
+                CreatedBy = grn.CreatedBy,
+                TotalReceivedQty = grn.TotalReceivedQty,
+                TotalAmount = grn.TotalGoodsAmount,
+                ShippingFee = grn.ShippingFee,
+                NetAmount = grn.TotalGoodsAmount + grn.ShippingFee,
+                CreatedAt = grn.PostedAt ?? DateTime.UtcNow,
+                Note = grn.Note
+            };
         }
     }
 }
