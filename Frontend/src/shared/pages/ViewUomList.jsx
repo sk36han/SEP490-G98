@@ -1,9 +1,8 @@
 /*
  * Danh sách Đơn vị tính – kết nối API UnitOfMeasure.
- * Cột: STT, Mã đơn vị tính, Tên đơn vị tính, Trạng thái, Hành động.
+ * Cột: STT, Tên đơn vị tính, Trạng thái, Hành động.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Button,
@@ -30,21 +29,35 @@ import {
     Paper,
     TableSortLabel,
 } from '@mui/material';
-import { Plus, Edit3, RefreshCw, Filter, Power, GripVertical, FileText } from 'lucide-react';
+import { Plus, Edit3, RefreshCw, Power, GripVertical, FileText } from 'lucide-react';
 import '../styles/ListView.css';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
 import UomFormDialog from '../components/UomFormDialog';
 import { getUomList, createUom, updateUom, toggleUomStatus } from '../lib/uomService';
-import { removeDiacritics } from '../utils/stringUtils';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const UOM_COLUMNS = [
-    { id: 'stt', label: 'STT', sortable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
-    { id: 'uomName', label: 'Tên đơn vị tính', sortable: true, getValue: (row) => row.uomName ?? '' },
-    { id: 'isActive', label: 'Trạng thái', sortable: true, getValue: (row) => row.isActive },
+    {
+        id: 'stt',
+        label: 'STT',
+        sortable: false,
+        getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1,
+    },
+    {
+        id: 'uomName',
+        label: 'Tên đơn vị tính',
+        sortable: true,
+        getValue: (row) => row.uomName ?? '',
+    },
+    {
+        id: 'isActive',
+        label: 'Trạng thái',
+        sortable: true,
+        getValue: (row) => row.isActive,
+    },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = UOM_COLUMNS.map((c) => c.id);
@@ -53,7 +66,6 @@ const SORTABLE_COLUMN_IDS = UOM_COLUMNS.filter((c) => c.sortable).map((c) => c.i
 const ViewUomList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const navigate = useNavigate();
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const canManage = permissionRole === 'WAREHOUSE_KEEPER';
@@ -61,90 +73,143 @@ const ViewUomList = () => {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
     const [totalItems, setTotalItems] = useState(0);
-    const [showOnlyActive, setShowOnlyActive] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('ALL');
 
-    // Column visibility and ordering
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
+    const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
+        const saved = localStorage.getItem('uomVisibleColumnIds');
+        if (!saved) return new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+
+        try {
+            const parsed = JSON.parse(saved);
+            return new Set(Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_VISIBLE_COLUMN_IDS);
+        } catch {
+            return new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        }
+    });
+
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
     const [columnOrder, setColumnOrder] = useState(() => {
         const saved = localStorage.getItem('uomColumnOrder');
-        return saved ? JSON.parse(saved) : UOM_COLUMNS.map(c => c.id);
+        if (!saved) return UOM_COLUMNS.map((c) => c.id);
+
+        try {
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) && parsed.length > 0 ? parsed : UOM_COLUMNS.map((c) => c.id);
+        } catch {
+            return UOM_COLUMNS.map((c) => c.id);
+        }
     });
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
-    // Sorting
-    const [orderBy, setOrderBy] = useState(null);
-    const [order, setOrder] = useState('asc');
-    const [sortConfig, setSortConfig] = useState(() => {
+    const [orderBy, setOrderBy] = useState(() => {
         const saved = localStorage.getItem('uomSortConfig');
-        return saved ? JSON.parse(saved) : { orderBy: null, order: 'asc' };
+        if (!saved) return null;
+
+        try {
+            const parsed = JSON.parse(saved);
+            return parsed?.orderBy ?? null;
+        } catch {
+            return null;
+        }
+    });
+    const [order, setOrder] = useState(() => {
+        const saved = localStorage.getItem('uomSortConfig');
+        if (!saved) return 'asc';
+
+        try {
+            const parsed = JSON.parse(saved);
+            return parsed?.order === 'desc' ? 'desc' : 'asc';
+        } catch {
+            return 'asc';
+        }
     });
 
-    // Selection
     const [selectedIds, setSelectedIds] = useState(new Set());
 
-    // Dialog state
     const [uomDialogOpen, setUomDialogOpen] = useState(false);
     const [uomDialogMode, setUomDialogMode] = useState('create');
     const [uomEditRow, setUomEditRow] = useState(null);
 
-    // Initialize sort from saved config
-    useEffect(() => {
-        if (sortConfig.orderBy) {
-            setOrderBy(sortConfig.orderBy);
-            setOrder(sortConfig.order);
-        }
-    }, []);
-
     const currentPage = page + 1;
-    const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalItems / pageSize)) : 0;
+    const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalItems / pageSize)) : 1;
+    const columnSelectorOpen = Boolean(columnSelectorAnchor);
+
+    useEffect(() => {
+        localStorage.setItem('uomSortConfig', JSON.stringify({ orderBy, order }));
+    }, [orderBy, order]);
+
+    useEffect(() => {
+        localStorage.setItem('uomColumnOrder', JSON.stringify(columnOrder));
+    }, [columnOrder]);
+
+    useEffect(() => {
+        localStorage.setItem('uomVisibleColumnIds', JSON.stringify(Array.from(visibleColumnIds)));
+    }, [visibleColumnIds]);
 
     const fetchList = useCallback(async () => {
         setLoading(true);
         setError(null);
+
         try {
             const result = await getUomList({
                 page: currentPage,
                 pageSize,
                 keyword: searchTerm.trim() || undefined,
-                isActive: showOnlyActive ? true : undefined,
+                isActive:
+                    statusFilter === 'ALL'
+                        ? undefined
+                        : statusFilter === 'ACTIVE',
+                orderBy: orderBy || undefined,
+                order: orderBy ? order : undefined,
             });
-            setRows(result.items ?? []);
-            setTotalItems(result.totalItems ?? 0);
+
+            const items = Array.isArray(result?.items) ? result.items : [];
+            const total = Number(result?.totalItems ?? 0);
+
+            setRows(items);
+            setTotalItems(Number.isNaN(total) ? 0 : total);
+            setSelectedIds(new Set());
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách đơn vị tính.');
             setRows([]);
+            setTotalItems(0);
+            setSelectedIds(new Set());
         } finally {
             setLoading(false);
         }
-    }, [currentPage, pageSize, searchTerm, showOnlyActive]);
+    }, [currentPage, pageSize, searchTerm, statusFilter, orderBy, order]);
 
     useEffect(() => {
         fetchList();
     }, [fetchList]);
 
-    // Reset page when search or filters change
-    useEffect(() => {
-        setPage(0);
-    }, [searchTerm, showOnlyActive]);
-
     const handleRefresh = () => {
         fetchList();
     };
 
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+        setPage(0);
+    };
+
+    const handleStatusFilterChange = (e) => {
+        setStatusFilter(e.target.value);
+        setPage(0);
+    };
+
     const handleToggleStatus = async (uom) => {
         if (!canManage) return;
+
         try {
             await toggleUomStatus(uom.uomId, !uom.isActive);
-            setRows((prev) =>
-                prev.map((r) => (r.uomId === uom.uomId ? { ...r, isActive: !r.isActive } : r))
-            );
+            fetchList();
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không đổi được trạng thái.');
         }
@@ -163,15 +228,25 @@ const ViewUomList = () => {
     };
 
     const handleUomDialogSuccess = async (payload) => {
-        if (payload.mode === 'edit') {
-            await updateUom(payload.uomId, { uomName: payload.uomName, isActive: payload.isActive });
-        } else {
-            await createUom({ uomName: payload.uomName });
+        try {
+            if (payload.mode === 'edit') {
+                await updateUom(payload.uomId, {
+                    uomName: payload.uomName,
+                    isActive: payload.isActive,
+                });
+            } else {
+                await createUom({
+                    uomName: payload.uomName,
+                });
+            }
+
+            setUomDialogOpen(false);
+            fetchList();
+        } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Không lưu được đơn vị tính.');
         }
-        fetchList();
     };
 
-    // Column visibility handlers
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
             const next = new Set(prev);
@@ -185,15 +260,15 @@ const ViewUomList = () => {
         setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
     };
 
-    const visibleColumns = UOM_COLUMNS
-        .filter((col) => visibleColumnIds.has(col.id))
-        .sort((a, b) => {
-            if (a.id === 'stt' && b.id !== 'stt') return -1;
-            if (b.id === 'stt' && a.id !== 'stt') return 1;
-            return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
-        });
-
-    const columnSelectorOpen = Boolean(columnSelectorAnchor);
+    const visibleColumns = useMemo(() => {
+        return UOM_COLUMNS
+            .filter((col) => visibleColumnIds.has(col.id))
+            .sort((a, b) => {
+                if (a.id === 'stt' && b.id !== 'stt') return -1;
+                if (b.id === 'stt' && a.id !== 'stt') return 1;
+                return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
+            });
+    }, [visibleColumnIds, columnOrder]);
 
     useEffect(() => {
         if (columnSelectorOpen) {
@@ -201,32 +276,26 @@ const ViewUomList = () => {
         }
     }, [columnSelectorOpen, columnOrder]);
 
-    // Sorting handlers
     const handleSortRequest = (columnId) => {
         if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
 
-        let newOrder, newOrderBy;
+        let newOrderBy = columnId;
+        let newOrder = 'asc';
+
         if (orderBy === columnId) {
             if (order === 'asc') {
                 newOrder = 'desc';
-                newOrderBy = columnId;
             } else {
-                newOrder = 'asc';
                 newOrderBy = null;
+                newOrder = 'asc';
             }
-        } else {
-            newOrderBy = columnId;
-            newOrder = 'asc';
         }
 
         setOrderBy(newOrderBy);
         setOrder(newOrder);
         setPage(0);
-
-        localStorage.setItem('uomSortConfig', JSON.stringify({ orderBy: newOrderBy, order: newOrder }));
     };
 
-    // Drag and drop handlers
     const handleDragStart = (e, columnId) => {
         setDraggedColumn(columnId);
         e.dataTransfer.effectAllowed = 'move';
@@ -249,7 +318,6 @@ const ViewUomList = () => {
         newOrder.splice(targetIndex, 0, draggedColumn);
 
         setColumnOrder(newOrder);
-        localStorage.setItem('uomColumnOrder', JSON.stringify(newOrder));
         setDraggedColumn(null);
     };
 
@@ -257,7 +325,6 @@ const ViewUomList = () => {
         setDraggedColumn(null);
     };
 
-    // Popup drag and drop handlers
     const handlePopupDragStart = (e, columnId) => {
         setDraggedPopupColumn(columnId);
         e.dataTransfer.effectAllowed = 'move';
@@ -289,7 +356,6 @@ const ViewUomList = () => {
 
     const handleSaveColumnOrder = () => {
         setColumnOrder(tempColumnOrder);
-        localStorage.setItem('uomColumnOrder', JSON.stringify(tempColumnOrder));
         setColumnSelectorAnchor(null);
     };
 
@@ -298,74 +364,53 @@ const ViewUomList = () => {
         setColumnSelectorAnchor(null);
     };
 
-    // Selection handlers
+    const displayedRows = useMemo(() => {
+        if (!orderBy) return rows;
+
+        const result = [...rows];
+
+        result.sort((a, b) => {
+            const aVal = a?.[orderBy];
+            const bVal = b?.[orderBy];
+
+            if (orderBy === 'isActive') {
+                const cmp = aVal === bVal ? 0 : aVal ? 1 : -1;
+                return order === 'asc' ? cmp : -cmp;
+            }
+
+            const strA = String(aVal ?? '').toLowerCase();
+            const strB = String(bVal ?? '').toLowerCase();
+            const cmp = strA.localeCompare(strB);
+
+            return order === 'asc' ? cmp : -cmp;
+        });
+
+        return result;
+    }, [rows, orderBy, order]);
+
     const handleSelectAll = (checked) => {
         if (checked) {
-            setSelectedIds(new Set(rows.map(row => row.uomId)));
+            setSelectedIds(new Set(displayedRows.map((row) => row.uomId)));
         } else {
             setSelectedIds(new Set());
         }
     };
 
     const handleSelectRow = (id, checked) => {
-        setSelectedIds(prev => {
+        setSelectedIds((prev) => {
             const next = new Set(prev);
-            if (checked) {
-                next.add(id);
-            } else {
-                next.delete(id);
-            }
+            if (checked) next.add(id);
+            else next.delete(id);
             return next;
         });
     };
 
-    const isAllSelected = rows.length > 0 && rows.every(row => selectedIds.has(row.uomId));
-    const isSomeSelected = rows.some(row => selectedIds.has(row.uomId)) && !isAllSelected;
+    const isAllSelected = displayedRows.length > 0 && displayedRows.every((row) => selectedIds.has(row.uomId));
+    const isSomeSelected = displayedRows.some((row) => selectedIds.has(row.uomId)) && !isAllSelected;
 
-    // Filter and sort data
-    const filteredAndSortedRows = useMemo(() => {
-        const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
-        const term = searchTerm.trim() ? normalize(searchTerm.trim()) : '';
-        let result = [...rows];
+    const start = totalItems === 0 ? 0 : page * pageSize + 1;
+    const end = totalItems === 0 ? 0 : Math.min((page + 1) * pageSize, totalItems);
 
-        if (term) {
-            result = result.filter((row) =>
-                normalize(row.uomName ?? '').includes(term)
-            );
-        }
-
-        if (showOnlyActive !== undefined) {
-            result = result.filter((row) => row.isActive === showOnlyActive);
-        }
-
-        result.sort((a, b) => {
-            if (!orderBy) return 0;
-
-            const aVal = a[orderBy];
-            const bVal = b[orderBy];
-            const isBoolean = ['isActive'].includes(orderBy);
-            let cmp = 0;
-
-            if (isBoolean) {
-                cmp = (aVal === bVal) ? 0 : aVal ? 1 : -1;
-            } else {
-                const strA = String(aVal ?? '').toLowerCase();
-                const strB = String(bVal ?? '').toLowerCase();
-                cmp = strA.localeCompare(strB);
-            }
-
-            return order === 'asc' ? cmp : -cmp;
-        });
-
-        return result;
-    }, [rows, searchTerm, showOnlyActive, orderBy, order]);
-
-    const totalCount = filteredAndSortedRows.length;
-    const start = totalCount === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalCount);
-    const displayedRows = filteredAndSortedRows.slice(page * pageSize, (page + 1) * pageSize);
-
-    // Cell styles
     const BODY_CELL_SX = {
         py: 1.75,
         px: 2,
@@ -383,39 +428,63 @@ const ViewUomList = () => {
         maxWidth: 48,
     };
 
-    const handlePageChange = (newPage) => setPage(newPage);
+    const handlePageChange = (newPage) => {
+        if (newPage < 0 || newPage > totalPages - 1) return;
+        setPage(newPage);
+    };
+
     const handlePageSizeChange = (e) => {
         setPageSize(Number(e.target.value));
         setPage(0);
     };
 
     return (
-        <Box sx={{
-            height: '100%',
-            minHeight: 0,
-            minWidth: 0,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: '#fafafa',
-        }}>
-            {/* Header Section */}
-            <Box sx={{
-                flexShrink: 0,
-                px: { xs: 2, sm: 2 },
-                py: 2.5,
+        <Box
+            sx={{
+                height: '100%',
+                minHeight: 0,
+                minWidth: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
                 bgcolor: '#fafafa',
-            }}>
-                <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
+            }}
+        >
+            <Box
+                sx={{
+                    flexShrink: 0,
+                    px: { xs: 2, sm: 2 },
+                    py: 2.5,
+                    bgcolor: '#fafafa',
+                }}
+            >
+                <Typography
+                    variant="h5"
+                    component="h1"
+                    fontWeight="600"
+                    sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
+                >
                     Danh sách đơn vị tính
                 </Typography>
-                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
+                <Typography
+                    variant="body2"
+                    sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}
+                >
                     Unit of Measure
                 </Typography>
             </Box>
 
-            {/* Main Content Wrapper with Border */}
-            <Box sx={{ flex: 1, px: { xs: 2, sm: 2 }, pb: 2, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box
+                sx={{
+                    flex: 1,
+                    px: { xs: 2, sm: 2 },
+                    pb: 2,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
+            >
                 <Paper
                     className="list-view"
                     elevation={0}
@@ -430,13 +499,20 @@ const ViewUomList = () => {
                         bgcolor: '#ffffff',
                     }}
                 >
-                    {/* Toolbar Section */}
                     <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #f3f4f6' }}>
-                        <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: isMobile ? 'column' : 'row',
+                                gap: 1.5,
+                                alignItems: isMobile ? 'stretch' : 'center',
+                                flexWrap: 'wrap',
+                            }}
+                        >
                             <SearchInput
                                 placeholder="Tìm theo tên đơn vị tính..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={handleSearchChange}
                                 sx={{
                                     flex: '1 1 200px',
                                     minWidth: isMobile ? '100%' : 200,
@@ -465,26 +541,32 @@ const ViewUomList = () => {
                                     },
                                 }}
                             />
-                            <Tooltip title="Bộ lọc">
-                                <IconButton
-                                    color="primary"
-                                    onClick={(e) => {
-                                        setColumnSelectorAnchor(e.currentTarget);
-                                    }}
-                                    aria-label="Bộ lọc"
-                                    sx={{
-                                        border: '1px solid #e5e7eb',
-                                        bgcolor: '#ffffff',
+
+                            <FormControl
+                                size="small"
+                                sx={{
+                                    minWidth: isMobile ? '100%' : 170,
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 40,
                                         borderRadius: '10px',
-                                        '&:hover': {
-                                            bgcolor: '#f9fafb',
-                                            borderColor: '#d1d5db',
-                                        },
-                                    }}
-                                >
-                                    <Filter size={18} />
-                                </IconButton>
-                            </Tooltip>
+                                        fontSize: '13px',
+                                        bgcolor: '#ffffff',
+                                    },
+                                }}
+                            >
+                                <Select value={statusFilter} onChange={handleStatusFilterChange} displayEmpty>
+                                    <MenuItem value="ALL" sx={{ fontSize: '13px' }}>
+                                        Tất cả trạng thái
+                                    </MenuItem>
+                                    <MenuItem value="ACTIVE" sx={{ fontSize: '13px' }}>
+                                        Hoạt động
+                                    </MenuItem>
+                                    <MenuItem value="INACTIVE" sx={{ fontSize: '13px' }}>
+                                        Tắt
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+
                             <Tooltip title="Chọn cột hiển thị">
                                 <IconButton
                                     color="primary"
@@ -503,8 +585,16 @@ const ViewUomList = () => {
                                     <GripVertical size={18} />
                                 </IconButton>
                             </Tooltip>
+
                             {canManage && (
-                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        gap: 1.5,
+                                        alignItems: 'center',
+                                        ml: isMobile ? 0 : 'auto',
+                                    }}
+                                >
                                     <Button
                                         className="list-page-btn"
                                         variant="contained"
@@ -529,6 +619,7 @@ const ViewUomList = () => {
                                     </Button>
                                 </Box>
                             )}
+
                             <Tooltip title="Làm mới">
                                 <IconButton
                                     onClick={handleRefresh}
@@ -549,14 +640,12 @@ const ViewUomList = () => {
                         </Box>
                     </Box>
 
-                    {/* Error Alert */}
                     {error && (
                         <Alert severity="error" onClose={() => setError(null)} sx={{ mx: 2, mt: 2 }}>
                             {error}
                         </Alert>
                     )}
 
-                    {/* Column Selector Popover */}
                     <Popover
                         open={columnSelectorOpen}
                         anchorEl={columnSelectorAnchor}
@@ -576,43 +665,45 @@ const ViewUomList = () => {
                                     overflow: 'hidden',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                }
-                            }
+                                },
+                            },
                         }}
                     >
-                        {/* Header */}
-                        <Box sx={{
-                            px: 2.5,
-                            py: 2,
-                            borderBottom: '1px solid #f3f4f6',
-                            flexShrink: 0,
-                        }}>
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                borderBottom: '1px solid #f3f4f6',
+                                flexShrink: 0,
+                            }}
+                        >
                             <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
                                 Chọn cột & Sắp xếp
                             </Typography>
                         </Box>
 
-                        {/* Body */}
-                        <Box sx={{
-                            px: 2.5,
-                            py: 2,
-                            flex: 1,
-                            minHeight: 0,
-                            overflowY: 'auto',
-                            '&::-webkit-scrollbar': {
-                                width: '6px',
-                            },
-                            '&::-webkit-scrollbar-track': {
-                                bgcolor: 'transparent',
-                            },
-                            '&::-webkit-scrollbar-thumb': {
-                                bgcolor: '#d1d5db',
-                                borderRadius: '3px',
-                                '&:hover': {
-                                    bgcolor: '#9ca3af',
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                flex: 1,
+                                minHeight: 0,
+                                overflowY: 'auto',
+                                '&::-webkit-scrollbar': {
+                                    width: '6px',
                                 },
-                            },
-                        }}>
+                                '&::-webkit-scrollbar-track': {
+                                    bgcolor: 'transparent',
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                    bgcolor: '#d1d5db',
+                                    borderRadius: '3px',
+                                    '&:hover': {
+                                        bgcolor: '#9ca3af',
+                                    },
+                                },
+                            }}
+                        >
                             <FormControlLabel
                                 control={
                                     <Checkbox
@@ -626,71 +717,80 @@ const ViewUomList = () => {
                                         }}
                                     />
                                 }
-                                label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
+                                label={
+                                    <Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                                        Tất cả
+                                    </Typography>
+                                }
                                 sx={{ mb: 1, py: 0.5 }}
                             />
-                            {UOM_COLUMNS.sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
-                                <Box
-                                    key={col.id}
-                                    sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 1,
-                                        bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
-                                        opacity: draggedPopupColumn === col.id ? 0.5 : 1,
-                                        transition: 'all 0.2s',
-                                        borderRadius: '8px',
-                                        px: 0.75,
-                                        py: 0.25,
-                                        '&:hover': {
-                                            bgcolor: '#f9fafb',
-                                        },
-                                    }}
-                                    onDragOver={handlePopupDragOver}
-                                    onDrop={(e) => handlePopupDrop(e, col.id)}
-                                >
+
+                            {[...UOM_COLUMNS]
+                                .sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id))
+                                .map((col) => (
                                     <Box
-                                        draggable
-                                        onDragStart={(e) => handlePopupDragStart(e, col.id)}
-                                        onDragEnd={handlePopupDragEnd}
+                                        key={col.id}
                                         sx={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            cursor: 'grab',
-                                            '&:active': { cursor: 'grabbing' },
-                                            color: '#9ca3af',
-                                            '&:hover': { color: '#6b7280' }
+                                            gap: 1,
+                                            bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
+                                            opacity: draggedPopupColumn === col.id ? 0.5 : 1,
+                                            transition: 'all 0.2s',
+                                            borderRadius: '8px',
+                                            px: 0.75,
+                                            py: 0.25,
+                                            '&:hover': {
+                                                bgcolor: '#f9fafb',
+                                            },
                                         }}
+                                        onDragOver={handlePopupDragOver}
+                                        onDrop={(e) => handlePopupDrop(e, col.id)}
                                     >
-                                        <GripVertical size={14} />
+                                        <Box
+                                            draggable
+                                            onDragStart={(e) => handlePopupDragStart(e, col.id)}
+                                            onDragEnd={handlePopupDragEnd}
+                                            sx={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                cursor: 'grab',
+                                                '&:active': { cursor: 'grabbing' },
+                                                color: '#9ca3af',
+                                                '&:hover': { color: '#6b7280' },
+                                            }}
+                                        >
+                                            <GripVertical size={14} />
+                                        </Box>
+
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={visibleColumnIds.has(col.id)}
+                                                    onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                                    sx={{
+                                                        color: '#9ca3af',
+                                                        '&.Mui-checked': { color: '#3b82f6' },
+                                                    }}
+                                                />
+                                            }
+                                            label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
+                                            sx={{ flex: 1, m: 0, py: 0.5 }}
+                                        />
                                     </Box>
-                                    <FormControlLabel
-                                        control={
-                                            <Checkbox
-                                                checked={visibleColumnIds.has(col.id)}
-                                                onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                                sx={{
-                                                    color: '#9ca3af',
-                                                    '&.Mui-checked': { color: '#3b82f6' },
-                                                }}
-                                            />
-                                        }
-                                        label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
-                                        sx={{ flex: 1, m: 0, py: 0.5 }}
-                                    />
-                                </Box>
-                            ))}
+                                ))}
                         </Box>
 
-                        {/* Footer */}
-                        <Box sx={{
-                            px: 2.5,
-                            py: 2,
-                            display: 'flex',
-                            gap: 1.5,
-                            borderTop: '1px solid #f3f4f6',
-                            flexShrink: 0,
-                        }}>
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                display: 'flex',
+                                gap: 1.5,
+                                borderTop: '1px solid #f3f4f6',
+                                flexShrink: 0,
+                            }}
+                        >
                             <Button
                                 variant="outlined"
                                 onClick={handleCancelColumnOrder}
@@ -734,20 +834,31 @@ const ViewUomList = () => {
                         </Box>
                     </Popover>
 
-                    {/* Table Section */}
-                    <Box sx={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                    }}>
+                    <Box
+                        sx={{
+                            flex: 1,
+                            minHeight: 0,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                        }}
+                    >
                         {loading ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
                                 <CircularProgress />
                             </Box>
                         ) : displayedRows.length === 0 ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, px: 2, color: 'text.secondary' }}>
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    py: 6,
+                                    px: 2,
+                                    color: 'text.secondary',
+                                }}
+                            >
                                 <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                                 <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu đơn vị tính</Typography>
                             </Box>
@@ -776,6 +887,7 @@ const ViewUomList = () => {
                                                     size="small"
                                                 />
                                             </TableCell>
+
                                             {visibleColumns.map((col) => (
                                                 <TableCell
                                                     key={col.id}
@@ -795,33 +907,34 @@ const ViewUomList = () => {
                                                     onDragOver={handleDragOver}
                                                     onDrop={(e) => handleDrop(e, col.id)}
                                                 >
-                                                    <Box sx={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 0.5,
-                                                        '&:hover .drag-icon': {
-                                                            opacity: 0.6,
-                                                        },
-                                                    }}>
-                                                        {col.sortable && (
-                                                            <Box
-                                                                draggable
-                                                                onDragStart={(e) => handleDragStart(e, col.id)}
-                                                                onDragEnd={handleDragEnd}
-                                                                className="drag-icon"
-                                                                sx={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    cursor: 'grab',
-                                                                    '&:active': { cursor: 'grabbing' },
-                                                                    color: '#9ca3af',
-                                                                    opacity: 0,
-                                                                    transition: 'opacity 0.2s',
-                                                                }}
-                                                            >
-                                                                <GripVertical size={14} />
-                                                            </Box>
-                                                        )}
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 0.5,
+                                                            '&:hover .drag-icon': {
+                                                                opacity: 0.6,
+                                                            },
+                                                        }}
+                                                    >
+                                                        <Box
+                                                            draggable
+                                                            onDragStart={(e) => handleDragStart(e, col.id)}
+                                                            onDragEnd={handleDragEnd}
+                                                            className="drag-icon"
+                                                            sx={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                cursor: 'grab',
+                                                                '&:active': { cursor: 'grabbing' },
+                                                                color: '#9ca3af',
+                                                                opacity: 0,
+                                                                transition: 'opacity 0.2s',
+                                                            }}
+                                                        >
+                                                            <GripVertical size={14} />
+                                                        </Box>
+
                                                         {col.sortable ? (
                                                             <TableSortLabel
                                                                 active={orderBy === col.id}
@@ -846,7 +959,7 @@ const ViewUomList = () => {
                                                     </Box>
                                                 </TableCell>
                                             ))}
-                                            {/* Actions column - always visible */}
+
                                             <TableCell
                                                 sx={{
                                                     fontWeight: 600,
@@ -865,6 +978,7 @@ const ViewUomList = () => {
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
+
                                     <TableBody>
                                         {displayedRows.map((row, index) => (
                                             <TableRow
@@ -887,10 +1001,10 @@ const ViewUomList = () => {
                                                         size="small"
                                                     />
                                                 </TableCell>
+
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
 
-                                                    // STT column
                                                     if (col.id === 'stt') {
                                                         return (
                                                             <TableCell
@@ -903,7 +1017,6 @@ const ViewUomList = () => {
                                                         );
                                                     }
 
-                                                    // Status column (isActive)
                                                     if (col.id === 'isActive') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
@@ -918,14 +1031,16 @@ const ViewUomList = () => {
                                                                             borderRadius: '999px',
                                                                             minWidth: 90,
                                                                             height: '26px',
-                                                                            bgcolor: row.isActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                                                                            bgcolor: row.isActive
+                                                                                ? 'rgba(16, 185, 129, 0.2)'
+                                                                                : 'rgba(107, 114, 128, 0.2)',
                                                                             color: '#374151',
                                                                             border: 'none',
                                                                             boxShadow: 'none',
                                                                             '& .MuiChip-label': {
                                                                                 px: 1.5,
                                                                                 py: 0,
-                                                                            }
+                                                                            },
                                                                         }}
                                                                     />
                                                                 </Box>
@@ -933,7 +1048,6 @@ const ViewUomList = () => {
                                                         );
                                                     }
 
-                                                    // Default text columns with ellipsis
                                                     return (
                                                         <TableCell
                                                             key={col.id}
@@ -950,17 +1064,26 @@ const ViewUomList = () => {
                                                         </TableCell>
                                                     );
                                                 })}
-                                                {/* Actions */}
+
                                                 <TableCell align="right" sx={{ px: 2 }}>
                                                     {canManage && (
                                                         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
                                                             <Tooltip title={row.isActive ? 'Tắt' : 'Bật'}>
-                                                                <IconButton size="small" onClick={() => handleToggleStatus(row)} aria-label={row.isActive ? 'Tắt' : 'Bật'}>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => handleToggleStatus(row)}
+                                                                    aria-label={row.isActive ? 'Tắt' : 'Bật'}
+                                                                >
                                                                     <Power size={18} color={row.isActive ? '#2e7d32' : '#757575'} />
                                                                 </IconButton>
                                                             </Tooltip>
+
                                                             <Tooltip title="Chỉnh sửa">
-                                                                <IconButton size="small" aria-label="Chỉnh sửa" onClick={() => handleOpenEditUom(row)}>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    aria-label="Chỉnh sửa"
+                                                                    onClick={() => handleOpenEditUom(row)}
+                                                                >
                                                                     <Edit3 size={18} />
                                                                 </IconButton>
                                                             </Tooltip>
@@ -975,19 +1098,28 @@ const ViewUomList = () => {
                         )}
                     </Box>
 
-                    {/* Pagination Section */}
-                    <Box sx={{
-                        flexShrink: 0,
-                        px: 2,
-                        py: 2,
-                        borderTop: '1px solid #f3f4f6',
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        gap: 2
-                    }}>
-                        <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>Số dòng / trang:</Typography>
+                    <Box
+                        sx={{
+                            flexShrink: 0,
+                            px: 2,
+                            py: 2,
+                            borderTop: '1px solid #f3f4f6',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: 2,
+                        }}
+                    >
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            Số dòng / trang:
+                        </Typography>
+
                         <FormControl size="small" sx={{ minWidth: 72 }}>
                             <Select
                                 value={pageSize}
@@ -1002,13 +1134,22 @@ const ViewUomList = () => {
                                 }}
                             >
                                 {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
+                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>
+                                        {n}
+                                    </MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
-                        <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                            {start}–{end} / {totalCount} (Tổng {totalPages} trang)
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            {start}–{end} / {totalItems} (Tổng {totalPages} trang)
                         </Typography>
+
                         <Button
                             size="small"
                             variant="outlined"
@@ -1027,10 +1168,11 @@ const ViewUomList = () => {
                         >
                             Trước
                         </Button>
+
                         <Button
                             size="small"
                             variant="outlined"
-                            disabled={end >= totalCount || totalCount === 0}
+                            disabled={page >= totalPages - 1 || totalItems === 0}
                             onClick={() => handlePageChange(page + 1)}
                             sx={{
                                 minWidth: 36,
@@ -1049,7 +1191,6 @@ const ViewUomList = () => {
                 </Paper>
             </Box>
 
-            {/* UOM Form Dialog */}
             <UomFormDialog
                 open={uomDialogOpen}
                 onClose={() => setUomDialogOpen(false)}
