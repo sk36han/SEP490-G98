@@ -90,7 +90,18 @@ namespace Warehouse.DataAcces.Service
                     Note = a.Reason
                 });
 
-            var combinedQuery = poQuery.Union(releasesQuery).Union(grnQuery).Union(gdnQuery).Union(adjustmentsQuery);
+            var combinedQuery = poQuery
+                .Union(releasesQuery)
+                .Union(grnQuery)
+                .Union(gdnQuery)
+                .Union(adjustmentsQuery)
+                .Where(x => x.Status != null);
+
+            if (!string.IsNullOrEmpty(filter.Status))
+            {
+                var lowerStatus = filter.Status.ToLower();
+                combinedQuery = combinedQuery.Where(x => x.Status != null && x.Status.ToLower().StartsWith(lowerStatus));
+            }
 
             if (!string.IsNullOrEmpty(filter.RequestType))
             {
@@ -117,7 +128,7 @@ namespace Warehouse.DataAcces.Service
             var totalItems = await combinedQuery.CountAsync();
 
             var items = await combinedQuery
-                .OrderBy(x => x.Status == "PENDING" ? 0 : 1)
+                .OrderBy(x => x.Status != null && x.Status.ToLower().StartsWith("pending") ? 0 : 1)
                 .ThenByDescending(x => x.SubmittedAt)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
                 .Take(filter.PageSize)
@@ -139,67 +150,66 @@ namespace Warehouse.DataAcces.Service
 
         private async Task<bool> ProcessDecisionAsync(string requestType, long requestId, long currentUserId, string decision, string reason)
         {
-            string docType = "";
-            bool found = false;
-
-            if (requestType.Equals("PurchaseOrder", StringComparison.OrdinalIgnoreCase))
-            {
-                var po = await _context.PurchaseOrders.FindAsync(requestId);
-                if (po != null && (po.Status == "PENDING" || po.Status == "DRAFT"))
-                {
-                    po.Status = decision;
-                    docType = "PurchaseOrder";
-                    found = true;
-                }
-            }
-            else if (requestType.Equals("Release", StringComparison.OrdinalIgnoreCase))
-            {
-                var release = await _context.ReleaseRequests.FindAsync(requestId);
-                if (release != null && release.Status == "PENDING")
-                {
-                    release.Status = decision;
-                    docType = "ReleaseRequest";
-                    found = true;
-                }
-            }
-            else if (requestType.Equals("GoodsReceipt", StringComparison.OrdinalIgnoreCase))
-            {
-                var grn = await _context.GoodsReceiptNotes.FindAsync(requestId);
-                if (grn != null && grn.Status == "PENDING")
-                {
-                    grn.Status = decision;
-                    if (decision == "APPROVED") grn.ApprovedAt = DateTime.UtcNow;
-                    docType = "GoodsReceiptNote";
-                    found = true;
-                }
-            }
-            else if (requestType.Equals("GoodsDelivery", StringComparison.OrdinalIgnoreCase))
-            {
-                var gdn = await _context.GoodsDeliveryNotes.FindAsync(requestId);
-                if (gdn != null && gdn.Status == "PENDING")
-                {
-                    gdn.Status = decision;
-                    if (decision == "APPROVED") gdn.ApprovedAt = DateTime.UtcNow;
-                    docType = "GoodsDeliveryNote";
-                    found = true;
-                }
-            }
-            else if (requestType.Equals("InventoryAdjustment", StringComparison.OrdinalIgnoreCase))
-            {
-                var adjustment = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
-                if (adjustment != null && adjustment.Status == "PENDING")
-                {
-                    adjustment.Status = decision;
-                    if (decision == "APPROVED") adjustment.ApprovedAt = DateTime.UtcNow;
-                    docType = "InventoryAdjustment";
-                    found = true;
-                }
-            }
-
-            if (!found)
-            {
+            if (string.IsNullOrWhiteSpace(requestType))
                 return false;
+
+            bool IsPending(string status) =>
+                !string.IsNullOrEmpty(status) &&
+                status.StartsWith("PENDING", StringComparison.OrdinalIgnoreCase);
+
+            string normalizedType = requestType.Trim().ToLowerInvariant();
+            string? docType = null;
+
+            switch (normalizedType)
+            {
+                case "purchaseorder":
+                    var po = await _context.PurchaseOrders.FindAsync(requestId);
+                    if (po != null && IsPending(po.Status))
+                    {
+                        po.Status = decision;
+                        docType = "PR";
+                    }
+                    break;
+
+                case "release":
+                    var release = await _context.ReleaseRequests.FindAsync(requestId);
+                    if (release != null && IsPending(release.Status))
+                    {
+                        release.Status = decision;
+                        docType = "GIR";
+                    }
+                    break;
+
+                case "goodsreceipt":
+                    var grn = await _context.GoodsReceiptNotes.FindAsync(requestId);
+                    if (grn != null && IsPending(grn.Status))
+                    {
+                        grn.Status = decision;
+                        docType = "GRN";
+                    }
+                    break;
+
+                case "goodsdelivery":
+                    var gdn = await _context.GoodsDeliveryNotes.FindAsync(requestId);
+                    if (gdn != null && IsPending(gdn.Status))
+                    {
+                        gdn.Status = decision;
+                        docType = "GDN";
+                    }
+                    break;
+
+                case "inventoryadjustment":
+                    var adjustment = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
+                    if (adjustment != null && IsPending(adjustment.Status))
+                    {
+                        adjustment.Status = decision;
+                        docType = "ADJ";
+                    }
+                    break;
             }
+
+            if (docType == null)
+                return false;
 
             var log = new DocumentApproval
             {
