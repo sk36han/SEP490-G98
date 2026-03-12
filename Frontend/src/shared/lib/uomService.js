@@ -16,7 +16,6 @@ function mapUomRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
         uomId: row.uomId ?? row.UomId,
-        uomCode: row.uomCode ?? row.UomCode ?? '',
         uomName: row.uomName ?? row.UomName ?? '',
         isActive: row.isActive ?? row.IsActive ?? true,
     };
@@ -32,9 +31,13 @@ export async function getUomList(params = {}) {
     const response = await apiClient.get('/UnitOfMeasure', {
         params: { page, pageSize, keyword: keyword || undefined, isActive },
     });
+    // DEBUG: log response structure
+    console.log('[getUomList] Raw response:', JSON.stringify(response?.data, null, 2));
     // Backend returns ApiResponse<PagedResult<UomResponse>> → body.data / body.Data = PagedResult
     const body = response?.data ?? {};
+    console.log('[getUomList] body:', JSON.stringify(body, null, 2));
     const paged = body.data ?? body.Data ?? body;
+    console.log('[getUomList] paged:', JSON.stringify(paged, null, 2));
     const rawList = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? []);
     const items = (Array.isArray(rawList) ? rawList : []).map(mapUomRow).filter(Boolean);
     return {
@@ -58,22 +61,22 @@ export async function getUomById(id) {
 
 /**
  * Tạo đơn vị tính mới.
- * @param {{ uomCode: string, uomName: string }} payload
+ * @param {{ uomName: string }} payload
  * @returns {Promise<{ success, message, data }>}
  */
 export async function createUom(payload) {
-    const response = await apiClient.post('/UnitOfMeasure', payload);
+    const response = await apiClient.post('/UnitOfMeasure', { uomName: payload.uomName });
     return response?.data;
 }
 
 /**
  * Cập nhật đơn vị tính.
  * @param {number|string} id
- * @param {{ uomCode: string, uomName: string, isActive?: boolean }} payload
+ * @param {{ uomName: string, isActive?: boolean }} payload
  * @returns {Promise<{ success, message, data }>}
  */
 export async function updateUom(id, payload) {
-    const response = await apiClient.put(`/UnitOfMeasure/${id}`, payload);
+    const response = await apiClient.put(`/UnitOfMeasure/${id}`, { uomName: payload.uomName, isActive: payload.isActive });
     return response?.data;
 }
 

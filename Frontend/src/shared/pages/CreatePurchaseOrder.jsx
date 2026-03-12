@@ -72,6 +72,8 @@ const CreatePurchaseOrder = () => {
     const [suppliers, setSuppliers] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [products, setProducts] = useState([]);
+    const [productsLoading, setProductsLoading] = useState(false);
+    const [productsError, setProductsError] = useState(null);
     const [accountants, setAccountants] = useState([]);
 
     const [errors, setErrors] = useState({});
@@ -108,18 +110,28 @@ const CreatePurchaseOrder = () => {
                     name: w.warehouseName ?? '',
                 }));
 
-                // Items for search
-                const itemList = await getItemsForDisplay();
-                const mappedProducts = (Array.isArray(itemList) ? itemList : [])
-                    .filter(Boolean)
-                    .map((it) => ({
-                        id: it.itemId,
-                        name: it.itemName ?? '',
-                        sku: it.itemCode ?? '',
-                        unitPrice: Number(it.purchasePrice ?? 0),
-                        uom: '',
-                        image: null,
-                    }));
+                // Items for search - with loading state
+                setProductsLoading(true);
+                try {
+                    const itemList = await getItemsForDisplay();
+                    const mappedProducts = (Array.isArray(itemList) ? itemList : [])
+                        .filter(Boolean)
+                        .map((it) => ({
+                            id: it.itemId,
+                            name: it.itemName ?? '',
+                            sku: it.itemCode ?? '',
+                            unitPrice: Number(it.purchasePrice ?? 0),
+                            uom: it.uomName || '',
+                            image: it.imageUrl || null,
+                        }));
+                    setProducts(mappedProducts);
+                    setProductsError(null);
+                } catch (err) {
+                    console.error('Error fetching items:', err);
+                    setProductsError('Không thể tải danh sách vật tư');
+                } finally {
+                    setProductsLoading(false);
+                }
 
                 // Accountants (nhân viên kế toán)
                 const accountantList = await getAccountants();
@@ -127,7 +139,6 @@ const CreatePurchaseOrder = () => {
                 if (!mounted) return;
                 setSuppliers(mappedSuppliers);
                 setWarehouses(mappedWarehouses);
-                setProducts(mappedProducts);
                 setAccountants(accountantList);
             } catch (err) {
                 if (!mounted) return;
@@ -212,14 +223,15 @@ const CreatePurchaseOrder = () => {
     const handleSearchChange = (e) => {
         const keyword = e.target.value;
         setSearchKeyword(keyword);
-        
+
         if (keyword.trim() === '') {
-            setFilteredProducts([]);
+            // When search is empty, show all products
+            setFilteredProducts(products);
             return;
         }
-        
+
         // Filter products theo tên hoặc mã SKU
-        const filtered = products.filter(product => 
+        const filtered = products.filter(product =>
             (product.name || '').toLowerCase().includes(keyword.toLowerCase()) ||
             (product.sku || '').toLowerCase().includes(keyword.toLowerCase())
         );
@@ -332,7 +344,37 @@ const CreatePurchaseOrder = () => {
     const openProductSearch = () => {
         setShowProductSearch(true);
         setSearchKeyword('');
-        setFilteredProducts([]);
+
+        // If products already loaded, show all
+        if (products.length > 0) {
+            setFilteredProducts(products);
+        } else if (!productsLoading && !productsError) {
+            // First time: fetch items
+            setProductsLoading(true);
+            setProductsError(null);
+            getItemsForDisplay()
+                .then(itemList => {
+                    const mapped = (Array.isArray(itemList) ? itemList : [])
+                        .filter(Boolean)
+                        .map(it => ({
+                            id: it.itemId,
+                            name: it.itemName ?? '',
+                            sku: it.itemCode ?? '',
+                            unitPrice: Number(it.purchasePrice ?? 0),
+                            uom: it.uomName || '',
+                            image: it.imageUrl || null,
+                        }));
+                    setProducts(mapped);
+                    setFilteredProducts(mapped);
+                })
+                .catch(err => {
+                    console.error('Error fetching items:', err);
+                    setProductsError('Không thể tải danh sách vật tư. Vui lòng thử lại.');
+                })
+                .finally(() => {
+                    setProductsLoading(false);
+                });
+        }
     };
 
     const closeProductSearch = () => {
@@ -340,6 +382,41 @@ const CreatePurchaseOrder = () => {
         setSearchKeyword('');
         setFilteredProducts([]);
         setSelectedProductIds([]);
+    };
+
+    const handleSearchFocus = () => {
+        // When user focuses on search bar:
+        // 1. If products already loaded → show all products
+        // 2. If products is empty (first time) → trigger API fetch
+        if (products.length > 0) {
+            setFilteredProducts(products);
+        } else if (!productsLoading && !productsError) {
+            // First time: fetch items
+            setProductsLoading(true);
+            setProductsError(null);
+            getItemsForDisplay()
+                .then(itemList => {
+                    const mapped = (Array.isArray(itemList) ? itemList : [])
+                        .filter(Boolean)
+                        .map(it => ({
+                            id: it.itemId,
+                            name: it.itemName ?? '',
+                            sku: it.itemCode ?? '',
+                            unitPrice: Number(it.purchasePrice ?? 0),
+                            uom: it.uomName || '',
+                            image: it.imageUrl || null,
+                        }));
+                    setProducts(mapped);
+                    setFilteredProducts(mapped);
+                })
+                .catch(err => {
+                    console.error('Error fetching items:', err);
+                    setProductsError('Không thể tải danh sách vật tư. Vui lòng thử lại.');
+                })
+                .finally(() => {
+                    setProductsLoading(false);
+                });
+        }
     };
 
     const addLine = () => {
@@ -696,6 +773,7 @@ const CreatePurchaseOrder = () => {
                                             type="text"
                                             value={searchKeyword}
                                             onChange={handleSearchChange}
+                                            onFocus={handleSearchFocus}
                                             placeholder="Tìm kiếm theo tên vật tư..."
                                             autoFocus
                                             style={{
@@ -731,8 +809,8 @@ const CreatePurchaseOrder = () => {
                                         </button>
                                     </div>
 
-                                    {/* Dropdown Results */}
-                                    {searchKeyword !== '' && (
+                                    {/* Dropdown Results - Show when search is open */}
+                                    {showProductSearch && (
                                         <div style={{
                                             position: 'absolute',
                                             top: '100%',
@@ -748,14 +826,85 @@ const CreatePurchaseOrder = () => {
                                             zIndex: 100,
                                             animation: 'fadeIn 0.2s ease-out'
                                         }}>
-                                            {filteredProducts.length === 0 ? (
+                                            {/* Header with count */}
+                                            <div style={{
+                                                padding: '10px 16px',
+                                                borderBottom: '1px solid #f3f4f6',
+                                                backgroundColor: '#f9fafb',
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                fontWeight: 500
+                                            }}>
+                                                {productsLoading ? 'Đang tải...' : `${filteredProducts.length} vật tư`}
+                                            </div>
+
+                                            {/* Loading State */}
+                                            {productsLoading ? (
+                                                <div style={{
+                                                    padding: '24px',
+                                                    textAlign: 'center',
+                                                    color: '#9ca3af'
+                                                }}>
+                                                    <Loader size={24} className="spinner" style={{ margin: '0 auto 8px', animation: 'spin 1s linear infinite' }} />
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>Đang tải danh sách vật tư...</p>
+                                                </div>
+                                            ) : productsError ? (
+                                                /* Error State */
+                                                <div style={{
+                                                    padding: '24px',
+                                                    textAlign: 'center'
+                                                }}>
+                                                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#ef4444' }}>{productsError}</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            // Trigger reload
+                                                            setProducts([]);
+                                                            setProductsError(null);
+                                                            getItemsForDisplay()
+                                                                .then(itemList => {
+                                                                    const mapped = (Array.isArray(itemList) ? itemList : [])
+                                                                        .filter(Boolean)
+                                                                        .map(it => ({
+                                                                            id: it.itemId,
+                                                                            name: it.itemName ?? '',
+                                                                            sku: it.itemCode ?? '',
+                                                                            unitPrice: Number(it.purchasePrice ?? 0),
+                                                                            uom: it.uomName || '',
+                                                                            image: it.imageUrl || null,
+                                                                        }));
+                                                                    setProducts(mapped);
+                                                                    setFilteredProducts(mapped);
+                                                                })
+                                                                .catch(err => {
+                                                                    setProductsError('Không thể tải danh sách vật tư');
+                                                                });
+                                                        }}
+                                                        style={{
+                                                            padding: '8px 16px',
+                                                            backgroundColor: '#3b82f6',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '13px',
+                                                            fontWeight: 500
+                                                        }}
+                                                    >
+                                                        Thử lại
+                                                    </button>
+                                                </div>
+                                            ) : filteredProducts.length === 0 ? (
+                                                /* Empty State */
                                                 <div style={{
                                                     padding: '24px',
                                                     textAlign: 'center',
                                                     color: '#9ca3af'
                                                 }}>
                                                     <Package size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-                                                    <p style={{ margin: 0, fontSize: '13px' }}>Không tìm thấy vật tư nào</p>
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>
+                                                        {searchKeyword ? `Không tìm thấy vật tư nào matching "${searchKeyword}"` : 'Không có vật tư nào trong hệ thống'}
+                                                    </p>
                                                 </div>
                                             ) : (
                                                 <>

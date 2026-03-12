@@ -9,7 +9,6 @@ function mapPackagingSpecRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
         packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId,
-        specCode: row.specCode ?? row.SpecCode ?? '',
         specName: row.specName ?? row.SpecName ?? '',
         description: row.description ?? row.Description ?? null,
         isActive: row.isActive ?? row.IsActive ?? true,
@@ -40,11 +39,10 @@ export async function getPackagingSpecById(id) {
 }
 
 /**
- * Tạo mới. Body: specCode, specName, description?
+ * Tạo mới. Body: specName, description?
  */
 export async function createPackagingSpec(payload) {
     const response = await apiClient.post(BASE, {
-        specCode: payload.specCode ?? payload.SpecCode,
         specName: payload.specName ?? payload.SpecName,
         description: payload.description ?? payload.Description ?? null,
     });

@@ -75,7 +75,6 @@ const ViewPackagingSpecList = () => {
         const term = normalize(searchTerm.trim());
         return rows.filter(
             (p) =>
-                normalize(p.specCode).includes(term) ||
                 normalize(p.specName).includes(term),
         );
     }, [rows, searchTerm]);
@@ -119,10 +118,10 @@ const ViewPackagingSpecList = () => {
                     isActive: payload.isActive,
                 });
             } else {
-                const code = (payload.specCode || '').trim();
-                const name = (payload.specName || '').trim();
-                if (!code || code.length < 2 || !name || name.length < 2) throw new Error('Mã và tên bắt buộc.');
-                await createPackagingSpec({ specCode: code, specName: name });
+                await createPackagingSpec({
+                    specName: (payload.specName || '').trim(),
+                    description: payload.description ?? null,
+                });
             }
             setPackDialogOpen(false);
             fetchList();

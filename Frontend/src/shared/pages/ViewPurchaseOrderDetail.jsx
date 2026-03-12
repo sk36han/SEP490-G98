@@ -38,6 +38,7 @@ import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
+import { getItemsForDisplay } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
 
 const MAX_REASON_LENGTH = 250;
@@ -60,6 +61,40 @@ const ViewPurchaseOrderDetail = () => {
     const [searchKeyword, setSearchKeyword] = useState('');
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [selectedProductIds, setSelectedProductIds] = useState([]);
+
+    // Item search states
+    const [itemsCache, setItemsCache] = useState([]);
+    const [itemsLoading, setItemsLoading] = useState(false);
+    const [itemsError, setItemsError] = useState(null);
+
+    // Fetch items when opening product search (with caching)
+    useEffect(() => {
+        if (showProductSearch && itemsCache.length === 0 && !itemsLoading) {
+            const fetchItems = async () => {
+                setItemsLoading(true);
+                setItemsError(null);
+                try {
+                    const items = await getItemsForDisplay();
+                    // Transform to match the format used in the component
+                    const transformedItems = (items || []).map(item => ({
+                        id: item.itemId,
+                        name: item.itemName,
+                        sku: item.itemCode,
+                        unitPrice: item.purchasePrice || 0,
+                        uom: '', // API may not return UOM, will need to handle
+                        image: null,
+                    }));
+                    setItemsCache(transformedItems);
+                } catch (error) {
+                    console.error('Error fetching items:', error);
+                    setItemsError('Không thể tải danh sách vật tư');
+                } finally {
+                    setItemsLoading(false);
+                }
+            };
+            fetchItems();
+        }
+    }, [showProductSearch]);
 
     const MAX_JUSTIFICATION_LENGTH = 250;
 
@@ -296,7 +331,8 @@ const ViewPurchaseOrderDetail = () => {
                         responsiblePersonName: data.responsiblePersonName || '',
                         expectedReceiptDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate).toISOString().slice(0, 10) : '',
                         justification: data.justification || '',
-                        approvalStatus: data.status || 'Pending',
+                        // Handle all status types: DRAFT, PENDING, APPROVED, REJECTED
+                        approvalStatus: (data.status || 'DRAFT').toUpperCase(),
                         receivingStatus: data.receivingStatus || 'Pending',
                         createdAt: data.createdAt ? new Date(data.createdAt).toISOString().slice(0, 10) : '',
                         lines: (data.lines || []).map((line, index) => ({
@@ -359,6 +395,7 @@ const ViewPurchaseOrderDetail = () => {
         // Normalize status to handle both uppercase and title case
         const normalizedStatus = status?.toUpperCase();
         const styles = {
+            'DRAFT': { label: 'Bản nháp', color: '#6b7280', bgColor: '#f3f4f6' },
             'PENDING': { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
             'APPROVED': { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
             'REJECTED': { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' }
@@ -463,33 +500,33 @@ const ViewPurchaseOrderDetail = () => {
         }));
     };
 
-    // Mock danh sách sản phẩm dùng cho search-select khi thêm dòng (giống CreatePurchaseOrder)
-    const MOCK_PRODUCTS = [
-        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
-        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
-        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
-        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
-        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
-        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-    ];
+    // Product search functions - using cached items
+    // Remove MOCK_PRODUCTS - using API data now
 
     const handleSearchChange = (e) => {
         const keyword = e.target.value;
         setSearchKeyword(keyword);
 
         if (keyword.trim() === '') {
-            setFilteredProducts([]);
+            // When search is empty, show all cached items
+            setFilteredProducts(itemsCache);
             return;
         }
 
-        const filtered = MOCK_PRODUCTS.filter(
+        // Filter from cached items
+        const filtered = itemsCache.filter(
             (product) =>
-                product.name.toLowerCase().includes(keyword.toLowerCase()) ||
-                product.sku.toLowerCase().includes(keyword.toLowerCase())
+                (product.name || '').toLowerCase().includes(keyword.toLowerCase()) ||
+                (product.sku || '').toLowerCase().includes(keyword.toLowerCase())
         );
         setFilteredProducts(filtered);
+    };
+
+    const handleSearchFocus = () => {
+        // When user focuses on search bar, show all cached items
+        if (itemsCache.length > 0) {
+            setFilteredProducts(itemsCache);
+        }
     };
 
     const handleSelectProduct = (product) => {
@@ -521,7 +558,7 @@ const ViewPurchaseOrderDetail = () => {
         });
 
         setSearchKeyword('');
-        setFilteredProducts([]);
+        setFilteredProducts(itemsCache); // Reset to show all items
         setShowProductSearch(false);
         setSelectedProductIds([]);
         showToast('Đã thêm sản phẩm vào danh sách', 'success');
@@ -539,7 +576,7 @@ const ViewPurchaseOrderDetail = () => {
             return;
         }
 
-        const productsToAdd = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id));
+        const productsToAdd = itemsCache.filter((p) => selectedProductIds.includes(p.id));
 
         setOrderData((prev) => {
             const newLines = [];
@@ -581,7 +618,7 @@ const ViewPurchaseOrderDetail = () => {
         });
 
         setSearchKeyword('');
-        setFilteredProducts([]);
+        setFilteredProducts(itemsCache);
         setShowProductSearch(false);
         setSelectedProductIds([]);
     };
@@ -589,7 +626,8 @@ const ViewPurchaseOrderDetail = () => {
     const openProductSearch = () => {
         setShowProductSearch(true);
         setSearchKeyword('');
-        setFilteredProducts([]);
+        // Show all cached items when opening search
+        setFilteredProducts(itemsCache);
     };
 
     const closeProductSearch = () => {
@@ -1020,7 +1058,7 @@ const ViewPurchaseOrderDetail = () => {
                 <div className="page-header-actions">
                     {!isEditing ? (
                         <>
-                            {permissionRole === 'ACCOUNTANTS' && (orderData.approvalStatus === 'Pending' || orderData.approvalStatus === 'PENDING') && (
+                            {permissionRole === 'ACCOUNTANTS' && orderData.approvalStatus && (orderData.approvalStatus.toUpperCase() === 'PENDING' || orderData.approvalStatus.toUpperCase() === 'DRAFT') && (
                                 <>
                                     <button
                                         type="button"
@@ -1111,7 +1149,7 @@ const ViewPurchaseOrderDetail = () => {
                                 }}>
                                     {orderData.approvalStatus === 'Approved' && <CheckCircle size={16} />}
                                     {orderData.approvalStatus === 'Rejected' && <XCircle size={16} />}
-                                    {(orderData.approvalStatus === 'Pending' || orderData.approvalStatus === 'PENDING') && <Clock size={16} />}
+                                    {(orderData.approvalStatus === 'Pending' || orderData.approvalStatus === 'PENDING' || orderData.approvalStatus === 'Draft' || orderData.approvalStatus === 'DRAFT') && <Clock size={16} />}
                                     {approvalStyle.label}
                                 </div>
                                 <div style={{
@@ -1197,6 +1235,7 @@ const ViewPurchaseOrderDetail = () => {
                                             type="text"
                                             value={searchKeyword}
                                             onChange={handleSearchChange}
+                                            onFocus={handleSearchFocus}
                                             placeholder="Tìm kiếm theo tên hoặc mã SKU..."
                                             autoFocus
                                             style={{
@@ -1231,7 +1270,8 @@ const ViewPurchaseOrderDetail = () => {
                                             <X size={20} />
                                         </button>
                                     </div>
-                                    {searchKeyword !== '' && (
+                                    {/* Product Search Dropdown - Show when search is open */}
+                                    {showProductSearch && (
                                         <div
                                             style={{
                                                 position: 'absolute',
@@ -1249,7 +1289,39 @@ const ViewPurchaseOrderDetail = () => {
                                                 animation: 'fadeIn 0.2s ease-out',
                                             }}
                                         >
-                                            {filteredProducts.length === 0 ? (
+                                            {/* Loading State */}
+                                            {itemsLoading ? (
+                                                <div
+                                                    style={{
+                                                        padding: '24px',
+                                                        textAlign: 'center',
+                                                        color: '#9ca3af',
+                                                    }}
+                                                >
+                                                    <Loader
+                                                        size={24}
+                                                        className="spinner"
+                                                        style={{ margin: '0 auto 8px', animation: 'spin 1s linear infinite' }}
+                                                    />
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>
+                                                        Đang tải danh sách vật tư...
+                                                    </p>
+                                                </div>
+                                            ) : itemsError ? (
+                                                /* Error State */
+                                                <div
+                                                    style={{
+                                                        padding: '24px',
+                                                        textAlign: 'center',
+                                                        color: '#ef4444',
+                                                    }}
+                                                >
+                                                    <p style={{ margin: 0, fontSize: '13px' }}>
+                                                        {itemsError}
+                                                    </p>
+                                                </div>
+                                            ) : filteredProducts.length === 0 ? (
+                                                /* Empty State */
                                                 <div
                                                     style={{
                                                         padding: '24px',
@@ -1262,10 +1334,11 @@ const ViewPurchaseOrderDetail = () => {
                                                         style={{ margin: '0 auto 8px', opacity: 0.5 }}
                                                     />
                                                     <p style={{ margin: 0, fontSize: '13px' }}>
-                                                        Không tìm thấy sản phẩm nào
+                                                        {searchKeyword ? 'Không tìm thấy vật tư nào' : 'Không có vật tư nào'}
                                                     </p>
                                                 </div>
                                             ) : (
+                                                /* Product List */
                                                 <>
                                                     {filteredProducts.map((product) => (
                                                         <div

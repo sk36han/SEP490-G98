@@ -12,6 +12,7 @@ import { X } from 'lucide-react';
 
 const APPROVAL_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
+    { value: 'Draft', label: 'Bản nháp' },
     { value: 'Pending', label: 'Chờ duyệt' },
     { value: 'Approved', label: 'Đã duyệt' },
     { value: 'Rejected', label: 'Từ chối' },

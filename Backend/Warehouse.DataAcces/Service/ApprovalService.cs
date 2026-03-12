@@ -145,7 +145,7 @@ namespace Warehouse.DataAcces.Service
             if (requestType.Equals("PurchaseOrder", StringComparison.OrdinalIgnoreCase))
             {
                 var po = await _context.PurchaseOrders.FindAsync(requestId);
-                if (po != null && po.Status == "PENDING")
+                if (po != null && (po.Status == "PENDING" || po.Status == "DRAFT"))
                 {
                     po.Status = decision;
                     docType = "PurchaseOrder";

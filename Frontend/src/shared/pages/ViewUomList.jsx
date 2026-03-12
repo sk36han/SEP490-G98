@@ -164,9 +164,9 @@ const ViewUomList = () => {
 
     const handleUomDialogSuccess = async (payload) => {
         if (payload.mode === 'edit') {
-            await updateUom(payload.uomId, { uomCode: payload.uomCode, uomName: payload.uomName, isActive: payload.isActive });
+            await updateUom(payload.uomId, { uomName: payload.uomName, isActive: payload.isActive });
         } else {
-            await createUom({ uomCode: payload.uomCode, uomName: payload.uomName });
+            await createUom({ uomName: payload.uomName });
         }
         fetchList();
     };
