@@ -18,8 +18,11 @@ namespace Warehouse.DataAcces.Service.Interface
 
         Task<bool> ChangePasswordByEmailAsync(string email, string newPassword);
     
-
 		Task SendEmailUserAccountAsync(string toEmail, string subject, string body);
-	}
 
+        Task<string?> GetUserRoleCodeAsync(long userId);
+        Task<User?> GetUserByIdAsync(long userId);
+        Task<bool> GenerateAndSendOtpAsync(User user);
+        Task<bool> VerifyOtpAsync(long userId, string otp);
+	}
 }

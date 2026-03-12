@@ -14,15 +14,19 @@ using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
 using System.Net;
 
+using Microsoft.Extensions.Caching.Memory;
+
 namespace Warehouse.DataAcces.Service
 {
     public class AuthService : GenericRepository<User>, IAuthService
     {
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _cache;
 
-        public AuthService(Mkiwms5Context context, IConfiguration configuration) : base(context)
+        public AuthService(Mkiwms5Context context, IConfiguration configuration, IMemoryCache cache) : base(context)
         {
             _configuration = configuration;
+            _cache = cache;
         }
 
         public async Task<User?> ValidateLoginAsync(string identifier, string password)
@@ -80,11 +84,7 @@ namespace Warehouse.DataAcces.Service
             var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? defaultMinutes.ToString());
             var expirationMinutes = rememberMe ? rememberMeMinutes : defaultMinutes;
 
-            var roleCode = await _context.UserRoles
-                .Where(ur => ur.UserId == user.UserId)
-                .Include(ur => ur.Role)
-                .Select(ur => ur.Role.RoleCode)
-                .FirstOrDefaultAsync();
+            var roleCode = await GetUserRoleCodeAsync(user.UserId);
 
             var claims = new List<Claim>
             {
@@ -366,5 +366,132 @@ namespace Warehouse.DataAcces.Service
             mailMessage.To.Add(toEmail);
             await smtpClient.SendMailAsync(mailMessage);
         }
+
+        public async Task<string?> GetUserRoleCodeAsync(long userId)
+        {
+            return await _context.UserRoles
+                .Where(ur => ur.UserId == userId)
+                .Include(ur => ur.Role)
+                .Select(ur => ur.Role.RoleCode)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<User?> GetUserByIdAsync(long userId)
+        {
+            return await GetByIdAsync(userId);
+        }
+
+        public async Task<bool> GenerateAndSendOtpAsync(User user)
+        {
+            // Sinh mã OTP 6 số ngẫu nhiên
+            var random = new Random();
+            var otp = random.Next(100000, 999999).ToString();
+
+            // Băm OTP trước khi lưu vào cache
+            var otpHash = BCrypt.Net.BCrypt.HashPassword(otp, workFactor: 12);
+
+            var cacheKey = $"OTP_{user.UserId}";
+            var expiry = TimeSpan.FromMinutes(5);
+            var otpData = new OtpCacheData
+            {
+                OtpHash = otpHash,
+                FailedAttempts = 0,
+                ExpiryAt = DateTime.UtcNow.Add(expiry)
+            };
+
+            // Lưu vào IMemoryCache với thời gian hết hạn cố định là 5 phút
+            var cacheOptions = new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = expiry
+            };
+
+            _cache.Set(cacheKey, otpData, cacheOptions);
+
+            // Gửi email chứa OTP
+            var subject = "Mã xác thực đăng nhập (OTP) - Minh Khanh WMS";
+            var body = $@"
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;'>
+                    <div style='background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;'>
+                        <h2 style='color: #333; margin-bottom: 20px;'>Mã xác thực đăng nhập</h2>
+                        <p style='color: #555; line-height: 1.6; font-size: 16px;'>Xin chào <strong>{user.FullName ?? user.Username}</strong>,</p>
+                        <p style='color: #555; line-height: 1.6;'>Mã OTP của bạn là:</p>
+                        <div style='margin: 20px 0;'>
+                            <span style='background-color: #f0f8ff; color: #007bff; padding: 15px 30px; font-size: 28px; font-weight: bold; border-radius: 5px; letter-spacing: 5px;'>{otp}</span>
+                        </div>
+                        <p style='color: #666; font-size: 14px; line-height: 1.6;'>Mã này có hiệu lực trong 5 phút. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>
+                        <hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;'>
+                        <p style='color: #999; font-size: 12px; line-height: 1.6;'>
+                            Trân trọng,<br>
+                            Minh Khanh Warehouse Management System
+                        </p>
+                    </div>
+                </div>";
+
+            try
+            {
+                await SendEmailUserAccountAsync(user.Email, subject, body);
+                return true;
+            }
+            catch (Exception)
+            {
+                // Có thể log lỗi ở đây
+                return false;
+            }
+        }
+
+        public Task<bool> VerifyOtpAsync(long userId, string otp)
+        {
+            var cacheKey = $"OTP_{userId}";
+
+            // Lấy dữ liệu OTP từ cache
+            if (!_cache.TryGetValue(cacheKey, out OtpCacheData? otpData) || otpData == null)
+            {
+                return Task.FromResult(false); // OTP không tồn tại hoặc đã hết hạn
+            }
+
+            // Kiểm tra số lần nhập sai
+            if (otpData.FailedAttempts >= 5)
+            {
+                _cache.Remove(cacheKey); // Xóa cache ngay lập tức nếu vượt quá 5 lần
+                return Task.FromResult(false);
+            }
+
+            // Kiểm tra chữ ký băm của OTP
+            bool isCorrect = BCrypt.Net.BCrypt.Verify(otp, otpData.OtpHash);
+
+            if (!isCorrect)
+            {
+                // Tăng số lần thử nghiệm sai
+                otpData.FailedAttempts++;
+
+                if (otpData.FailedAttempts >= 5)
+                {
+                    _cache.Remove(cacheKey); // Xóa ngay nếu sai quá 5 lần
+                }
+                else
+                {
+                    // Cập nhật lại cache với số đếm mới nhưng giữ nguyên thời gian hết hạn cũ
+                    var remaining = otpData.ExpiryAt - DateTime.UtcNow;
+                    if (remaining > TimeSpan.Zero)
+                    {
+                        _cache.Set(cacheKey, otpData, remaining);
+                    }
+                }
+
+                return Task.FromResult(false); 
+            }
+
+            // Xác thực thành công: Xóa OTP trong RAM và trả về true
+            _cache.Remove(cacheKey);
+            return Task.FromResult(true);
+        }
+    }
+
+    // Lớp hỗ trợ lưu cấu trúc OTP trong MemoryCache
+    public class OtpCacheData
+    {
+        public string OtpHash { get; set; } = string.Empty;
+        public int FailedAttempts { get; set; }
+        public DateTime ExpiryAt { get; set; }
     }
 }
