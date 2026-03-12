@@ -477,10 +477,24 @@ const CreatePurchaseOrder = () => {
     const validateForm = () => {
         const newErrors = {};
 
+        // Validate ngày nhập dự kiến
+        if (!formData.expectedReceiptDate) {
+            newErrors.expectedReceiptDate = 'Ngày nhập dự kiến là bắt buộc';
+        } else {
+            const receiptDate = new Date(formData.expectedReceiptDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            receiptDate.setHours(0, 0, 0, 0);
+
+            if (receiptDate < today) {
+                newErrors.expectedReceiptDate = 'Ngày nhập dự kiến không được trong quá khứ';
+            }
+        }
+
         if (!formData.supplierName.trim()) {
             newErrors.supplierName = 'Nhà cung cấp là bắt buộc';
         }
-        
+
         if (!formData.warehouseName.trim()) {
             newErrors.warehouseName = 'Kho nhận là bắt buộc';
         }
@@ -576,7 +590,7 @@ const CreatePurchaseOrder = () => {
 
     const handleSubmitForApproval = async (e) => {
         e.preventDefault();
-        
+
         if (!validateForm()) {
             showToast('Vui lòng kiểm tra lại thông tin!', 'error');
             return;
@@ -596,6 +610,7 @@ const CreatePurchaseOrder = () => {
                 expectedDeliveryDate: formData.expectedReceiptDate ? String(formData.expectedReceiptDate) : null,
                 justification: (formData.justification || '').trim() || null,
                 discountAmount: Number(discountAmount) || 0,
+                status: 'PENDING_ACC',
                 lines: lines.map((l) => ({
                     itemId: Number(l.itemId),
                     orderedQty: Number(l.orderedQty) || 0,
@@ -1447,9 +1462,12 @@ const CreatePurchaseOrder = () => {
                                             name="expectedReceiptDate"
                                             value={formData.expectedReceiptDate}
                                             onChange={handleChange}
-                                            className="form-input"
+                                            className={`form-input ${errors.expectedReceiptDate ? 'error' : ''}`}
                                         />
                                     </div>
+                                    {errors.expectedReceiptDate && (
+                                        <span className="error-message">{errors.expectedReceiptDate}</span>
+                                    )}
                                 </div>
                             </div>
                         </div>

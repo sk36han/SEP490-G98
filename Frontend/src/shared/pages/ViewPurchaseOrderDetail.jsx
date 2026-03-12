@@ -32,6 +32,7 @@ import {
     Trash2,
     Search,
     Phone,
+    Warehouse,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -395,21 +396,22 @@ const ViewPurchaseOrderDetail = () => {
         // Normalize status to handle both uppercase and title case
         const normalizedStatus = status?.toUpperCase();
         const styles = {
-            'DRAFT': { label: 'Bản nháp', color: '#6b7280', bgColor: '#f3f4f6' },
-            'PENDING': { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
-            'APPROVED': { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
-            'REJECTED': { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' }
+            'DRAFT': { label: 'Bản nháp', color: '#374151', bgColor: 'rgba(107,114,128,0.15)' },
+            'PENDING': { label: 'Chờ duyệt', color: '#374151', bgColor: 'rgba(59,130,246,0.15)' },
+            'PENDING_ACC': { label: 'Chờ duyệt', color: '#374151', bgColor: 'rgba(59,130,246,0.15)' },
+            'APPROVED': { label: 'Đã duyệt', color: '#374151', bgColor: 'rgba(16,185,129,0.18)' },
+            'REJECTED': { label: 'Từ chối', color: '#374151', bgColor: 'rgba(239,68,68,0.15)' }
         };
-        return styles[normalizedStatus] || { label: status, color: '#6b7280', bgColor: '#f3f4f6' };
+        return styles[normalizedStatus] || { label: status, color: '#374151', bgColor: 'rgba(107,114,128,0.15)' };
     };
 
     const getReceivingStatusStyle = (status) => {
         const styles = {
-            'Pending': { label: 'Chờ nhập', color: '#f59e0b', bgColor: '#fef3c7' },
-            'Partial': { label: 'Nhập một phần', color: '#3b82f6', bgColor: '#dbeafe' },
-            'Completed': { label: 'Hoàn thành', color: '#10b981', bgColor: '#d1fae5' }
+            'Pending': { label: 'Chờ nhập', color: '#374151', bgColor: 'rgba(107,114,128,0.15)' },
+            'Partial': { label: 'Nhập một phần', color: '#374151', bgColor: 'rgba(251,191,36,0.20)' },
+            'Completed': { label: 'Hoàn thành', color: '#374151', bgColor: 'rgba(16,185,129,0.18)' }
         };
-        return styles[status] || { label: status, color: '#6b7280', bgColor: '#f3f4f6' };
+        return styles[status] || { label: status, color: '#374151', bgColor: 'rgba(107,114,128,0.15)' };
     };
 
     const approvalStyle = getApprovalStatusStyle(orderData.approvalStatus);
@@ -822,6 +824,11 @@ const ViewPurchaseOrderDetail = () => {
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
 
+    const handleCreateGoodReceiptNote = () => {
+        // Navigate to CreateGoodReceiptNote with PO code as query param
+        navigate(`/create-good-receipt-note?poCode=${orderData.orderCode}`);
+    };
+
     if (loading) {
         return (
             <div className="create-supplier-page">
@@ -1058,7 +1065,7 @@ const ViewPurchaseOrderDetail = () => {
                 <div className="page-header-actions">
                     {!isEditing ? (
                         <>
-                            {permissionRole === 'ACCOUNTANTS' && orderData.approvalStatus && orderData.approvalStatus.toUpperCase() === 'PENDING_ACC' && (
+                            {permissionRole === 'ACCOUNTANTS' && orderData.approvalStatus && (orderData.approvalStatus.toUpperCase() === 'PENDING_ACC' || orderData.approvalStatus.toUpperCase() === 'DRAFT') && (
                                 <>
                                     <button
                                         type="button"
@@ -1079,6 +1086,16 @@ const ViewPurchaseOrderDetail = () => {
                                         Duyệt đơn
                                     </button>
                                 </>
+                            )}
+                            {orderData.approvalStatus === 'APPROVED' && (
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={handleCreateGoodReceiptNote}
+                                >
+                                    <Warehouse size={16} className="btn-icon" />
+                                    Tạo Phiếu Nhập Kho
+                                </button>
                             )}
                             <button
                                 type="button"
@@ -1147,9 +1164,9 @@ const ViewPurchaseOrderDetail = () => {
                                     alignItems: 'center',
                                     gap: '6px'
                                 }}>
-                                    {orderData.approvalStatus === 'Approved' && <CheckCircle size={16} />}
-                                    {orderData.approvalStatus === 'Rejected' && <XCircle size={16} />}
-                                    {(orderData.approvalStatus === 'Pending' || orderData.approvalStatus === 'PENDING' || orderData.approvalStatus === 'Draft' || orderData.approvalStatus === 'DRAFT') && <Clock size={16} />}
+                                    {orderData.approvalStatus === 'APPROVED' && <CheckCircle size={16} />}
+                                    {orderData.approvalStatus === 'REJECTED' && <XCircle size={16} />}
+                                    {(orderData.approvalStatus?.toUpperCase() === 'PENDING' || orderData.approvalStatus?.toUpperCase() === 'DRAFT') && <Clock size={16} />}
                                     {approvalStyle.label}
                                 </div>
                                 <div style={{

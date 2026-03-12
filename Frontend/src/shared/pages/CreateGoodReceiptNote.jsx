@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Tooltip from '@mui/material/Tooltip';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -32,6 +32,7 @@ import '../styles/CreateSupplier.css';
 
 const CreateGoodReceiptNote = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
     const currentUser = authService.getUser();
@@ -105,6 +106,26 @@ const CreateGoodReceiptNote = () => {
         fetchPOList();
     }, []);
 
+    // Auto-fill từ query param poCode
+    useEffect(() => {
+        const poCodeFromUrl = searchParams.get('poCode');
+        if (poCodeFromUrl && poList.length > 0) {
+            const po = poList.find(p => p.poCode === poCodeFromUrl);
+            if (po) {
+                // Set formData và gọi import
+                setFormData(prev => ({
+                    ...prev,
+                    purchaseOrderCode: po.poCode,
+                }));
+                // Gọi hàm import PO sau khi đã load xong poList
+                // Sử dụng setTimeout để đảm bảo handleConfirmImportPO đã được định nghĩa
+                setTimeout(() => {
+                    handleConfirmImportPO(po.poCode);
+                }, 0);
+            }
+        }
+    }, [searchParams, poList, handleConfirmImportPO]);
+
     // Tìm PO theo mã
     const getPOByCode = useCallback((code) => {
         return poList.find(po => po.poCode === code);
@@ -121,16 +142,19 @@ const CreateGoodReceiptNote = () => {
     }, [formData.purchaseOrderCode, poList]);
 
     // Handler khi xác nhận nhập từ PO
-    const handleConfirmImportPO = async () => {
-        if (!formData.purchaseOrderCode) return;
-        
-        const po = getPOByCode(formData.purchaseOrderCode);
+    const handleConfirmImportPO = async (poCodeOverride = null) => {
+        const poCode = poCodeOverride || formData.purchaseOrderCode;
+        if (!poCode) return;
+
+        const po = getPOByCode(poCode);
         if (!po) {
-            showToast('Không tìm thấy đơn mua hàng!', 'error');
-            setConfirmImportPoOpen(false);
+            if (!poCodeOverride) {
+                showToast('Không tìm thấy đơn mua hàng!', 'error');
+                setConfirmImportPoOpen(false);
+            }
             return;
         }
-        
+
         setPoImportLoading(true);
         
         try {
