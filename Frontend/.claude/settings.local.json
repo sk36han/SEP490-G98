@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && sed -i '/^```bash$/,/^```$/d' docs/superpowers/plans/2026-03-13-react-refactoring.md 2>/dev/null || true)",
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && sed -i '/- \\\\[ \\\\] \\\\*\\\\*Step.*Commit\\\\*\\\\*/d' docs/superpowers/plans/2026-03-13-react-refactoring.md)",
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npm run build 2>&1 | head -50)",
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npm run build 2>&1 | head -60)",
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npm run build 2>&1 | head -40)",
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npm run build 2>&1 | head -30)",
+      "Bash(wc -l \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\\\\src\\\\shared\\\\pages\"/*.jsx 2>/dev/null | sort -n | tail -10)",
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npm run build 2>&1 | tail -20)"
+    ]
+  }
+}

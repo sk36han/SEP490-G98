@@ -883,7 +883,7 @@ const CreatePurchaseReturn = () => {
                                 </div>
 
                                 <div className="form-field">
-                                    <label className="form-label">Kho áp dụng</label>
+                                    <label className="form-label">Kho trả</label>
                                     <div className="input-wrapper">
                                         <MapPin className="input-icon" size={16} />
                                         <input
