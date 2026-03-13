@@ -11,5 +11,11 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<StocktakeDetailResponse> CreateDraftAsync(CreateStocktakeDraftRequest request, long currentUserId);
         Task<StocktakeDetailResponse> StartStocktakeAsync(long stocktakeId, long currentUserId);
         Task<bool> IsWarehouseFrozenAsync(long warehouseId);
+
+        // Giai đoạn 2: Counting
+        Task<PagedResponse<StocktakeLineResponse>> GetStocktakeLinesAsync(long stocktakeId, StocktakeLineFilterRequest request);
+        Task<StocktakeLineResponse> UpdateCountedQtyAsync(long lineId, UpdateCountedQtyRequest request);
+        Task<StocktakeDetailResponse> BulkMatchSystemQtyAsync(long stocktakeId, long currentUserId);
+        Task<StocktakeDetailResponse> SubmitStocktakeAsync(long stocktakeId, long currentUserId);
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -365,6 +366,185 @@ namespace Warehouse.DataAcces.Service
         {
             return await _context.StocktakeSessions
                 .AnyAsync(s => s.WarehouseId == warehouseId && s.Status == "PROCESSING");
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // 6. COUNTING (Giai đoạn nhập số đếm)
+        // ─────────────────────────────────────────────────────────────
+        
+        public async Task<PagedResponse<StocktakeLineResponse>> GetStocktakeLinesAsync(long stocktakeId, StocktakeLineFilterRequest request)
+        {
+            var query = _context.StocktakeLines
+                .Include(l => l.Item)
+                    .ThenInclude(i => i.BaseUom)
+                .Where(l => l.StocktakeId == stocktakeId)
+                .AsQueryable();
+
+            // 1. Search (SKU / Name)
+            if (!string.IsNullOrWhiteSpace(request.SearchQuery))
+            {
+                var search = request.SearchQuery.Trim().ToLower();
+                query = query.Where(l => l.Item.ItemCode.ToLower().Contains(search) 
+                                      || l.Item.ItemName.ToLower().Contains(search));
+            }
+
+            // 2. Filter theo trạng thái đếm
+            if (!string.IsNullOrWhiteSpace(request.FilterType))
+            {
+                switch (request.FilterType.ToUpper())
+                {
+                    case "UNCOUNTED":
+                        query = query.Where(l => l.CountedQty == null);
+                        break;
+                    case "DISCREPANCY":
+                        query = query.Where(l => l.CountedQty != null && l.CountedQty != l.SystemQtySnapshot);
+                        break;
+                }
+            }
+
+            // 3. Paging
+            var totalItems = await query.CountAsync();
+            var items = await query
+                .OrderBy(l => l.Item.ItemCode)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(l => new StocktakeLineResponse
+                {
+                    StocktakeLineId = l.StocktakeLineId,
+                    ItemId = l.ItemId,
+                    ItemCode = l.Item.ItemCode,
+                    ItemName = l.Item.ItemName,
+                    UomName = l.Item.BaseUom.UomName,
+                    SystemQtySnapshot = l.SystemQtySnapshot,
+                    CountedQty = l.CountedQty,
+                    VarianceQty = l.VarianceQty,
+                    Note = l.Note
+                })
+                .ToListAsync();
+
+            return new PagedResponse<StocktakeLineResponse>
+            {
+                Page = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalItems = totalItems,
+                Items = items
+            };
+        }
+
+        public async Task<StocktakeLineResponse> UpdateCountedQtyAsync(long lineId, UpdateCountedQtyRequest request)
+        {
+            var line = await _context.StocktakeLines
+                .Include(l => l.Item)
+                    .ThenInclude(i => i.BaseUom)
+                .Include(l => l.Stocktake)
+                .FirstOrDefaultAsync(l => l.StocktakeLineId == lineId);
+
+            if (line == null)
+                throw new KeyNotFoundException($"Không tìm thấy dòng kiểm kê ID = {lineId}");
+
+            if (line.Stocktake.Status != "PROCESSING")
+                throw new InvalidOperationException("Chỉ có thể nhập số đếm khi phiếu ở trạng thái PROCESSING.");
+
+            // Cập nhật SL thực tế và tính chênh lệch
+            line.CountedQty = request.CountedQty;
+            line.VarianceQty = line.CountedQty - line.SystemQtySnapshot;
+            line.Note = request.Note;
+
+            await _context.SaveChangesAsync();
+
+            return new StocktakeLineResponse
+            {
+                StocktakeLineId = line.StocktakeLineId,
+                ItemId = line.ItemId,
+                ItemCode = line.Item.ItemCode,
+                ItemName = line.Item.ItemName,
+                UomName = line.Item.BaseUom.UomName,
+                SystemQtySnapshot = line.SystemQtySnapshot,
+                CountedQty = line.CountedQty,
+                VarianceQty = line.VarianceQty,
+                Note = line.Note
+            };
+        }
+
+        public async Task<StocktakeDetailResponse> BulkMatchSystemQtyAsync(long stocktakeId, long currentUserId)
+        {
+            var session = await _context.StocktakeSessions
+                .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
+
+            if (session == null)
+                throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}");
+
+            if (session.Status != "PROCESSING")
+                throw new InvalidOperationException("Chỉ có thể xử lý khi phiếu ở trạng thái PROCESSING.");
+
+            // Lấy các dòng chưa đếm
+            var uncountedLines = await _context.StocktakeLines
+                .Where(l => l.StocktakeId == stocktakeId && l.CountedQty == null)
+                .ToListAsync();
+
+            if (uncountedLines.Count > 0)
+            {
+                foreach (var line in uncountedLines)
+                {
+                    line.CountedQty = line.SystemQtySnapshot;
+                    line.VarianceQty = 0;
+                }
+                await _context.SaveChangesAsync();
+                
+                // Ghi Audit Log
+                await _context.AuditLogs.AddAsync(new AuditLog
+                {
+                    ActorUserId = currentUserId,
+                    Action = "BULK_MATCH_STOCKTAKE",
+                    EntityType = "StocktakeSession",
+                    EntityId = stocktakeId,
+                    Detail = $"Đánh dấu {uncountedLines.Count} mặt hàng 'Số thực tế = Tồn hệ thống' cho mã phiếu {session.StocktakeCode}." ,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+            }
+
+            return await GetStocktakeDetailAsync(stocktakeId) 
+                   ?? throw new Exception("Lỗi sau khi xử lý dữ liệu.");
+        }
+
+        public async Task<StocktakeDetailResponse> SubmitStocktakeAsync(long stocktakeId, long currentUserId)
+        {
+            var session = await _context.StocktakeSessions
+                .Include(s => s.StocktakeLines)
+                .Include(s => s.Warehouse)
+                .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
+
+            if (session == null)
+                throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}");
+
+            if (session.Status != "PROCESSING")
+                throw new InvalidOperationException("Chỉ có thể gửi xác nhận khi phiếu ở trạng thái PROCESSING.");
+
+            // Kiểm tra xem đã đếm hết chưa
+            var hasUncounted = session.StocktakeLines.Any(l => l.CountedQty == null);
+            if (hasUncounted)
+                throw new InvalidOperationException("Vui lòng hoàn tất nhập số đếm cho tất cả các mặt hàng trước khi gửi xác nhận.");
+
+            // Chuyển trạng thái
+            session.Status = "PENDING_APPROVAL";
+
+            await _context.SaveChangesAsync();
+
+            // Ghi Audit Log
+            await _context.AuditLogs.AddAsync(new AuditLog
+            {
+                ActorUserId = currentUserId,
+                Action = "SUBMIT_STOCKTAKE",
+                EntityType = "StocktakeSession",
+                EntityId = stocktakeId,
+                Detail = $"Gửi xác nhận hoàn tất đếm phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Đang chờ phê duyệt.",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            return await GetStocktakeDetailAsync(stocktakeId) 
+                   ?? throw new Exception("Lỗi sau khi lưu dữ liệu.");
         }
     }
 }

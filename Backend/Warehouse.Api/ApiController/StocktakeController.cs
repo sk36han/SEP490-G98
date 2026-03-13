@@ -189,5 +189,109 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Lấy danh sách các dòng hàng trong phiếu kiểm kê (Phân trang + Tìm kiếm + Filter).
+        /// </summary>
+        [HttpGet("{id}/lines")]
+        public async Task<IActionResult> GetStocktakeLines(long id, [FromQuery] StocktakeLineFilterRequest request)
+        {
+            try
+            {
+                var result = await _stocktakeService.GetStocktakeLinesAsync(id, request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi lấy danh sách dòng hàng.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật số lượng đếm thực tế cho một dòng hàng.
+        /// </summary>
+        [HttpPatch("line/{lineId}")]
+        public async Task<IActionResult> UpdateCountedQty(long lineId, [FromBody] UpdateCountedQtyRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                var result = await _stocktakeService.UpdateCountedQtyAsync(lineId, request);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi cập nhật số đếm.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Macro: Tự động gán SL thực tế = Tồn hệ thống cho tất cả các dòng CHƯA đếm.
+        /// </summary>
+        [HttpPost("{id}/bulk-match-system")]
+        public async Task<IActionResult> BulkMatchSystem(long id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.BulkMatchSystemQtyAsync(id, currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi xử lý hàng loạt.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Gửi xác nhận hoàn tất kiểm kê (Chuyển trạng thái sang PENDING_APPROVAL).
+        /// Yêu cầu: Tất cả các dòng hàng đã được nhập số đếm.
+        /// </summary>
+        [HttpPost("{id}/submit")]
+        public async Task<IActionResult> SubmitStocktake(long id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.SubmitStocktakeAsync(id, currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi gửi xác nhận.", detail = ex.Message });
+            }
+        }
     }
 }
