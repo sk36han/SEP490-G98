@@ -293,5 +293,97 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Lỗi khi gửi xác nhận.", detail = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Phê duyệt Bước 1 (Warehouse Manager).
+        /// </summary>
+        [HttpPost("{id}/approve-step1")]
+        public async Task<IActionResult> ApproveStep1(long id, [FromBody] StocktakeApprovalRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.ApproveStep1Async(id, request, currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi phê duyệt bước 1.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Phê duyệt Bước 2 (Accountant).
+        /// </summary>
+        [HttpPost("{id}/approve-step2")]
+        public async Task<IActionResult> ApproveStep2(long id, [FromBody] StocktakeApprovalRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.ApproveStep2Async(id, request, currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi phê duyệt bước 2.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Xem trước danh sách các mặt hàng chênh lệch trước khi ghi sổ.
+        /// </summary>
+        [HttpGet("{id}/preview-adjustment")]
+        public async Task<IActionResult> GetAdjustmentPreview(long id)
+        {
+            try
+            {
+                var result = await _stocktakeService.GetAdjustmentPreviewAsync(id);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi lấy dữ liệu xem trước.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy lịch sử phê duyệt của phiếu kiểm kê.
+        /// </summary>
+        [HttpGet("{id}/approval-history")]
+        public async Task<IActionResult> GetApprovalHistory(long id)
+        {
+            try
+            {
+                var result = await _stocktakeService.GetApprovalHistoryAsync(id);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi lấy lịch sử phê duyệt.", detail = ex.Message });
+            }
+        }
     }
 }

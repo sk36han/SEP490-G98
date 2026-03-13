@@ -17,5 +17,11 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<StocktakeLineResponse> UpdateCountedQtyAsync(long lineId, UpdateCountedQtyRequest request);
         Task<StocktakeDetailResponse> BulkMatchSystemQtyAsync(long stocktakeId, long currentUserId);
         Task<StocktakeDetailResponse> SubmitStocktakeAsync(long stocktakeId, long currentUserId);
+
+        // Giai đoạn 3: Approval
+        Task<StocktakeDetailResponse> ApproveStep1Async(long stocktakeId, StocktakeApprovalRequest request, long currentUserId);
+        Task<StocktakeDetailResponse> ApproveStep2Async(long stocktakeId, StocktakeApprovalRequest request, long currentUserId);
+        Task<List<AdjustmentPreviewResponse>> GetAdjustmentPreviewAsync(long stocktakeId);
+        Task<List<StocktakeApprovalHistoryResponse>> GetApprovalHistoryAsync(long stocktakeId);
     }
 }

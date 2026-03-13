@@ -546,5 +546,163 @@ namespace Warehouse.DataAcces.Service
             return await GetStocktakeDetailAsync(stocktakeId) 
                    ?? throw new Exception("Lỗi sau khi lưu dữ liệu.");
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // 7. APPROVAL (Giai đoạn phê duyệt)
+        // ─────────────────────────────────────────────────────────────
+
+        public async Task<StocktakeDetailResponse> ApproveStep1Async(long stocktakeId, StocktakeApprovalRequest request, long currentUserId)
+        {
+            var session = await _context.StocktakeSessions
+                .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
+
+            if (session == null)
+                throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}");
+
+            if (session.Status != "PENDING_APPROVAL")
+                throw new InvalidOperationException("Chỉ có thể phê duyệt khi phiếu ở trạng thái PENDING_APPROVAL.");
+
+            // Kiểm tra xem đã duyệt bước 1 chưa (tránh duyệt đè vô lý)
+            var existing = await _context.DocumentApprovals
+                .AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+
+            if (existing && request.Decision == "APPROVE")
+                throw new InvalidOperationException("Bước 1 (Warehouse Manager) đã được phê duyệt trước đó.");
+
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    // 1. Ghi log phê duyệt
+                    var approval = new DocumentApproval
+                    {
+                        DocType = "Stocktake",
+                        DocId = stocktakeId,
+                        StageNo = 1, // Manager
+                        Decision = request.Decision,
+                        Reason = request.Reason,
+                        ActionBy = currentUserId,
+                        ActionAt = DateTime.UtcNow
+                    };
+                    await _context.DocumentApprovals.AddAsync(approval);
+
+                    // 2. Xử lý logic theo quyết định
+                    if (request.Decision == "RECOUNT")
+                    {
+                        session.Status = "PROCESSING"; // Quay về đếm lại
+                    }
+                    else if (request.Decision == "REJECT")
+                    {
+                        session.Status = "CANCELLED"; // Từ chối - Hủy phiên
+                    }
+                    
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    // Ghi Audit Log tổng quát
+                    await _context.AuditLogs.AddAsync(new AuditLog
+                    {
+                        ActorUserId = currentUserId,
+                        Action = $"STAGE1_{request.Decision}",
+                        EntityType = "StocktakeSession",
+                        EntityId = stocktakeId,
+                        Detail = $"Bước 1 (Manager): {request.Decision}. Lý do: {request.Reason}",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+
+            return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
+        }
+
+        public async Task<StocktakeDetailResponse> ApproveStep2Async(long stocktakeId, StocktakeApprovalRequest request, long currentUserId)
+        {
+            var session = await _context.StocktakeSessions.FindAsync(stocktakeId);
+            if (session == null) throw new KeyNotFoundException("Không thấy phiếu.");
+
+            if (session.Status != "PENDING_APPROVAL")
+                throw new InvalidOperationException("Trạng thái không hợp lệ để phê duyệt Bước 2.");
+
+            // PHẢI có Bước 1 APPROVE rồi mới được làm Bước 2
+            var step1Approved = await _context.DocumentApprovals
+                .AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+
+            if (!step1Approved)
+                throw new InvalidOperationException("Cần Warehouse Manager phê duyệt Bước 1 trước.");
+
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    var approval = new DocumentApproval
+                    {
+                        DocType = "Stocktake",
+                        DocId = stocktakeId,
+                        StageNo = 2, // Accountant
+                        Decision = request.Decision,
+                        Reason = request.Reason,
+                        ActionBy = currentUserId,
+                        ActionAt = DateTime.UtcNow
+                    };
+                    await _context.DocumentApprovals.AddAsync(approval);
+
+                    if (request.Decision == "RECOUNT") session.Status = "PROCESSING";
+                    else if (request.Decision == "REJECT") session.Status = "CANCELLED";
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+
+            return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
+        }
+
+        public async Task<List<AdjustmentPreviewResponse>> GetAdjustmentPreviewAsync(long stocktakeId)
+        {
+            return await _context.StocktakeLines
+                .Include(l => l.Item)
+                    .ThenInclude(i => i.BaseUom)
+                .Where(l => l.StocktakeId == stocktakeId && l.VarianceQty != 0)
+                .Select(l => new AdjustmentPreviewResponse
+                {
+                    StocktakeLineId = l.StocktakeLineId,
+                    ItemCode = l.Item.ItemCode,
+                    ItemName = l.Item.ItemName,
+                    UomName = l.Item.BaseUom.UomName,
+                    SystemQtySnapshot = l.SystemQtySnapshot,
+                    CountedQty = l.CountedQty ?? 0,
+                    VarianceQty = l.VarianceQty ?? 0
+                })
+                .ToListAsync();
+        }
+
+        public async Task<List<StocktakeApprovalHistoryResponse>> GetApprovalHistoryAsync(long stocktakeId)
+        {
+            return await _context.DocumentApprovals
+                .Include(a => a.ActionByNavigation)
+                .Where(a => a.DocType == "Stocktake" && a.DocId == stocktakeId)
+                .OrderBy(a => a.ActionAt)
+                .Select(a => new StocktakeApprovalHistoryResponse
+                {
+                    ApprovalId = a.ApprovalId,
+                    StageNo = a.StageNo,
+                    Decision = a.Decision,
+                    Reason = a.Reason,
+                    ActionByName = a.ActionByNavigation.FullName,
+                    ActionAt = a.ActionAt
+                })
+                .ToListAsync();
+        }
     }
 }
