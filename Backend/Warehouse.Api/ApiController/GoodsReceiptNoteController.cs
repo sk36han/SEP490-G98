@@ -100,5 +100,23 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
             }
         }
+
+        [HttpGet("detail/{id:long}")]
+        public async Task<IActionResult> GetGRNDetail(long id)
+        {
+            try
+            {
+                var result = await _goodsReceiptNoteService.GetGRNDetailAsync(id);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
     }
 }
