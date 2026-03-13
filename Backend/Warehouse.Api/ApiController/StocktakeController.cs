@@ -158,6 +158,34 @@ namespace Warehouse.Api.ApiController
             {
                 return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
             }
+        /// <summary>
+        /// Bắt đầu kiểm kê (Snapshot tồn kho + Chuyển trạng thái sang PROCESSING + Khóa kho).
+        /// </summary>
+        [HttpPost("start/{id}")]
+        public async Task<IActionResult> StartStocktake(long id)
+        {
+            // Lấy userId từ JWT
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.StartStocktakeAsync(id, currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
+            }
         }
     }
 }

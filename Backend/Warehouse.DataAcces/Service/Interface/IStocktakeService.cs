@@ -9,5 +9,7 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<PagedResponse<StocktakeSummaryResponse>> GetStocktakesAsync(StocktakeListRequest request);
         Task<StocktakeDetailResponse?> GetStocktakeDetailAsync(long stocktakeId);
         Task<StocktakeDetailResponse> CreateDraftAsync(CreateStocktakeDraftRequest request, long currentUserId);
+        Task<StocktakeDetailResponse> StartStocktakeAsync(long stocktakeId, long currentUserId);
+        Task<bool> IsWarehouseFrozenAsync(long warehouseId);
     }
 }

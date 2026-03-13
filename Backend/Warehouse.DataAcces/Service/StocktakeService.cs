@@ -13,7 +13,7 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
 
-        private static readonly string[] AllowedStatuses = { "DRAFT", "IN_PROGRESS", "COMPLETED", "CANCELLED" };
+        private static readonly string[] AllowedStatuses = { "DRAFT", "PROCESSING", "COMPLETED", "CANCELLED" };
         private static readonly string[] AllowedModes = { "FULL", "PARTIAL" };
 
         public StocktakeService(Mkiwms5Context context)
@@ -227,10 +227,10 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException(
                     $"Kho '{warehouse.WarehouseName}' đang bị vô hiệu hóa, không thể tạo phiếu kiểm kê.");
 
-            // 2️⃣ Validate – không có phiên kiểm kê đang chạy (IN_PROGRESS) trên kho này
+            // 2️⃣ Validate – không có phiên kiểm kê đang chạy (PROCESSING) trên kho này
             var hasPendingSession = await _context.StocktakeSessions
                 .AnyAsync(s => s.WarehouseId == warehouse.WarehouseId
-                            && (s.Status == "IN_PROGRESS" || s.Status == "DRAFT"));
+                            && (s.Status == "PROCESSING" || s.Status == "DRAFT"));
 
             if (hasPendingSession)
                 throw new InvalidOperationException(
@@ -286,6 +286,85 @@ namespace Warehouse.DataAcces.Service
                 VarianceLines = 0,
                 ProgressPercent = 0
             };
+        }
+        // ─────────────────────────────────────────────────────────────
+        // 4. START STOCKTAKE (Snapshot tồn kho + Khóa kho)
+        // ─────────────────────────────────────────────────────────────
+        public async Task<StocktakeDetailResponse> StartStocktakeAsync(long stocktakeId, long currentUserId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // 1. Tìm phiếu kiểm kê
+                var session = await _context.StocktakeSessions
+                    .Include(s => s.Warehouse)
+                    .Include(s => s.CreatedByNavigation)
+                    .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
+
+                if (session == null)
+                    throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}.");
+
+                if (session.Status != "DRAFT")
+                    throw new InvalidOperationException("Chỉ có thể bắt đầu kiểm kê từ phiếu trạng thái DRAFT.");
+
+                // 2. Lấy dữ liệu tồn kho hiện tại (InventoryOnHand)
+                var inventory = await _context.InventoryOnHands
+                    .Where(i => i.WarehouseId == session.WarehouseId)
+                    .ToListAsync();
+
+                if (inventory.Count == 0)
+                    throw new InvalidOperationException("Kho này hiện không có sản phẩm nào có tồn kho để kiểm kê.");
+
+                // 3. Sinh StocktakeLines (Snapshot)
+                var lines = inventory.Select(inv => new StocktakeLine
+                {
+                    StocktakeId = session.StocktakeId,
+                    ItemId = inv.ItemId,
+                    SystemQtySnapshot = inv.OnHandQty,
+                    CountedQty = null,
+                    VarianceQty = null,
+                    Note = null
+                }).ToList();
+
+                _context.StocktakeLines.AddRange(lines);
+
+                // 4. Cập nhật trạng thái Session
+                session.Status = "PROCESSING";
+                session.StartedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // 5. Ghi Audit Log (sử dụng logic thủ công vì có thể chưa có repository cho AuditLog kiểu này)
+                await _context.AuditLogs.AddAsync(new AuditLog
+                {
+                    ActorUserId = currentUserId,
+                    Action = "START_STOCKTAKE",
+                    EntityType = "StocktakeSession",
+                    EntityId = session.StocktakeId.ToString(),
+                    Detail = $"Bắt đầu kiểm kê kho '{session.Warehouse.WarehouseName}' (Mã phiếu: {session.StocktakeCode}). Snapshot {lines.Count} mặt hàng.",
+                    CreatedAt = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
+                // 6. Trả về kết quả mới nhất
+                return await GetStocktakeDetailAsync(session.StocktakeId) 
+                       ?? throw new Exception("Lỗi sau khi lưu dữ liệu.");
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // 5. HELPER: Kiểm tra kho có đang bị khóa (Freeze) hay không
+        // ─────────────────────────────────────────────────────────────
+        public async Task<bool> IsWarehouseFrozenAsync(long warehouseId)
+        {
+            return await _context.StocktakeSessions
+                .AnyAsync(s => s.WarehouseId == warehouseId && s.Status == "PROCESSING");
         }
     }
 }
