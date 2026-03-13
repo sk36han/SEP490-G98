@@ -66,7 +66,7 @@ const warehouseKeeperItems = [
         matchPaths: FULL_PRODUCT_MATCH_PATHS,
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/categories', label: 'Danh mục sản phẩm' },
+            { path: '/categories', label: 'Danh mục' },
             { path: '/uom', label: 'Đơn vị tính' },
             { path: '/packaging-spec', label: 'Quy cách đóng gói' },
             { path: '/specs', label: 'Thông số' },
