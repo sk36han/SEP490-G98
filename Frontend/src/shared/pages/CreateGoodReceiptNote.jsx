@@ -25,6 +25,7 @@ import {
     Building2,
 } from 'lucide-react';
 import { getAllPurchaseOrdersForSelection, getPurchaseOrderDetail } from '../lib/purchaseOrderService';
+import { getItemsForDisplay } from '../lib/itemService';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
@@ -223,16 +224,32 @@ const CreateGoodReceiptNote = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const MOCK_PRODUCTS = [
-        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
-        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
-        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
-        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
-        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
-        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-    ];
+    // Load items from API when opening product search
+    const [productList, setProductList] = useState([]);
+    const [productListLoading, setProductListLoading] = useState(false);
+
+    const loadProductList = useCallback(async () => {
+        setProductListLoading(true);
+        try {
+            const items = await getItemsForDisplay();
+            // Filter only active items and map to GRN format
+            const mappedItems = (items ?? [])
+                .filter(item => item.isActive !== false)
+                .map(item => ({
+                    id: item.itemId,
+                    name: item.itemName,
+                    sku: item.itemCode,
+                    unitPrice: item.purchasePrice || 0,
+                    uom: item.baseUomName || '',
+                    image: null,
+                }));
+            setProductList(mappedItems);
+        } catch (err) {
+            console.error('Lỗi load danh sách sản phẩm:', err);
+        } finally {
+            setProductListLoading(false);
+        }
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -275,7 +292,7 @@ const CreateGoodReceiptNote = () => {
             setFilteredProducts([]);
             return;
         }
-        const filtered = MOCK_PRODUCTS.filter(
+        const filtered = productList.filter(
             (product) =>
                 product.name.toLowerCase().includes(keyword.toLowerCase()) ||
                 product.sku.toLowerCase().includes(keyword.toLowerCase())
@@ -334,7 +351,7 @@ const CreateGoodReceiptNote = () => {
             showToast('Vui lòng chọn ít nhất 1 sản phẩm', 'warning');
             return;
         }
-        const productsToAdd = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id));
+        const productsToAdd = productList.filter((p) => selectedProductIds.includes(p.id));
         const newLines = [];
         let duplicateCount = 0;
         productsToAdd.forEach((product) => {
@@ -373,6 +390,10 @@ const CreateGoodReceiptNote = () => {
         setShowProductSearch(true);
         setSearchKeyword('');
         setFilteredProducts([]);
+        // Load product list if not already loaded
+        if (productList.length === 0) {
+            loadProductList();
+        }
     };
 
     const closeProductSearch = () => {
@@ -1322,7 +1343,7 @@ const CreateGoodReceiptNote = () => {
                                                                selectedPODetails.status === 'Pending' ? '#f59e0b' : '#ef4444' 
                                                     }}>
                                                         {selectedPODetails.status === 'Approved' ? 'Đã duyệt' : 
-                                                         selectedPODetails.status === 'Pending' ? 'Chờ duyệt' : 'Từ chối'}
+                                                         selectedPODetails.status === 'PENDING_ACC' ? 'Chờ duyệt' : 'Từ chối'}
                                                     </span>
                                                 </div>
                                                 <div>
