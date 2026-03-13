@@ -1,6 +1,6 @@
 /*
  * Popup tạo/sửa Đơn vị tính – dùng trong ViewUomList (gọi API createUom/updateUom).
- * Props: open, onClose, mode 'create'|'edit', editRow { uomId, uomCode, uomName, isActive }, onSuccess()
+ * Props: open, onClose, mode 'create'|'edit', editRow { uomId, uomName, isActive }, onSuccess()
  */
 import React, { useState, useEffect } from 'react';
 import {
@@ -20,7 +20,6 @@ const inputSx = {
 };
 
 export default function UomFormDialog({ open, onClose, mode = 'create', editRow = null, onSuccess }) {
-  const [uomCode, setUomCode] = useState('');
   const [uomName, setUomName] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -28,11 +27,9 @@ export default function UomFormDialog({ open, onClose, mode = 'create', editRow 
   useEffect(() => {
     if (open) {
       if (mode === 'edit' && editRow) {
-        setUomCode(editRow.uomCode ?? '');
         setUomName(editRow.uomName ?? '');
         setIsActive(editRow.isActive ?? true);
       } else {
-        setUomCode('');
         setUomName('');
         setIsActive(true);
       }
@@ -42,12 +39,11 @@ export default function UomFormDialog({ open, onClose, mode = 'create', editRow 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const code = (uomCode || '').trim();
     const name = (uomName || '').trim();
-    if (!code || code.length < 2 || !name) return;
+    if (!name) return;
     setSubmitting(true);
     try {
-      await Promise.resolve(onSuccess({ mode, uomId: editRow?.uomId, uomCode: code, uomName: name, isActive }));
+      await Promise.resolve(onSuccess({ mode, uomId: editRow?.uomId, uomName: name, isActive }));
       onClose();
     } catch (_) {
       // Parent sets error; dialog stays open
@@ -61,19 +57,6 @@ export default function UomFormDialog({ open, onClose, mode = 'create', editRow 
       <DialogTitle>{mode === 'edit' ? 'Chỉnh sửa đơn vị tính' : 'Thêm đơn vị tính'}</DialogTitle>
       <form onSubmit={handleSubmit}>
         <DialogContent sx={{ pt: 2, pb: 1 }}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Mã đơn vị tính"
-            value={uomCode}
-            onChange={(e) => setUomCode(e.target.value)}
-            required
-            placeholder="VD: CAI, HOP, KG"
-            sx={{ ...inputSx, mb: 2 }}
-            InputLabelProps={{ shrink: true }}
-            inputProps={mode === 'edit' ? { readOnly: true } : {}}
-            helperText={mode === 'edit' ? 'Mã không đổi khi chỉnh sửa' : undefined}
-          />
           <TextField
             fullWidth
             size="small"

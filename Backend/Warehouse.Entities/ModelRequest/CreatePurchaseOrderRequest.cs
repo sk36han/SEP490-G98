@@ -21,9 +21,8 @@ namespace Warehouse.Entities.ModelRequest
         [Range(0, double.MaxValue)]
         public decimal? DiscountAmount { get; set; }
 
-        /// <summary>
-        /// Trạng thái đơn: DRAFT, PENDING. Nếu không truyền sẽ mặc định là DRAFT.
-        /// </summary>
+        // Status: DRAFT, PENDING_DIR, v.v. Nếu null sẽ dùng mặc định từ DB
+        [MaxLength(30)]
         public string? Status { get; set; }
 
         [Required]

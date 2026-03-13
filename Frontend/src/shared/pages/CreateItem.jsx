@@ -252,7 +252,6 @@ const CreateItem = () => {
       setUomOptions(
         uomItems.map((u) => ({
           id: u.uomId ?? u.UomId,
-          code: u.uomCode ?? u.UomCode ?? "",
           name: u.uomName ?? u.UomName ?? "",
         }))
       );
@@ -521,7 +520,6 @@ const CreateItem = () => {
                           setUomOptions(
                             items.map((u) => ({
                               id: u.uomId ?? u.UomId,
-                              code: u.uomCode ?? u.UomCode ?? "",
                               name: u.uomName ?? u.UomName ?? "",
                             }))
                           );
@@ -1284,12 +1282,11 @@ const CreateItem = () => {
             setSpecOptions((prev) => [
               ...prev,
               {
-                specId: newItem.specId,
-                specCode: newItem.specCode,
-                specName: newItem.specName,
+                specId: newItem.paramId,
+                specName: newItem.paramName,
               },
             ]);
-            setForm((prev) => ({ ...prev, specId: newItem.specId }));
+            setForm((prev) => ({ ...prev, specId: newItem.paramId }));
             setCreateSpecOpen(false);
             showToast("Tạo thông số sản phẩm thành công.", "success");
           }}

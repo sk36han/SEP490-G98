@@ -41,6 +41,11 @@ import '../styles/ListView.css';
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const APPROVAL_STATUS_STYLE = {
+    Draft: {
+        bgColor: 'rgba(107, 114, 128, 0.2)',
+        label: 'Bản nháp',
+        dot: '•'
+    },
     Pending: { 
         bgColor: 'rgba(251, 191, 36, 0.2)', 
         label: 'Chờ duyệt',
@@ -80,8 +85,8 @@ const PO_COLUMNS = [
     { id: 'stt', label: 'STT', sortable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
     { id: 'orderCode', label: 'Mã đơn đặt hàng nhập', sortable: true, getValue: (row) => row.orderCode ?? '' },
     { id: 'warehouseName', label: 'Kho nhận', sortable: true, getValue: (row) => row.warehouseName ?? '' },
-    { id: 'approvalStatus', label: 'Trạng thái duyệt', sortable: true, getValue: (row) => APPROVAL_STATUS_STYLE[row.approvalStatus]?.label ?? row.approvalStatus ?? '' },
-    { id: 'receivingStatus', label: 'Trạng thái nhập hàng', sortable: true, getValue: (row) => RECEIVING_STATUS_STYLE[row.receivingStatus]?.label ?? row.receivingStatus ?? '' },
+    { id: 'approvalStatus', label: 'Trạng thái duyệt', sortable: true, getValue: (row) => APPROVAL_STATUS_STYLE[row.approvalStatus?.toUpperCase()]?.label ?? row.approvalStatus ?? '' },
+    { id: 'receivingStatus', label: 'Trạng thái nhập hàng', sortable: true, getValue: (row) => RECEIVING_STATUS_STYLE[row.receivingStatus?.toUpperCase()]?.label ?? row.receivingStatus ?? '' },
     { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, getValue: (row) => row.supplierName ?? '' },
     { id: 'creator', label: 'Nhân viên tạo', sortable: true, getValue: (row) => row.creator ?? '' },
     { id: 'responsiblePerson', label: 'Nhân viên phụ trách', sortable: true, getValue: (row) => row.responsiblePerson ?? '' },
@@ -435,10 +440,10 @@ export default function ViewPurchaseOrderList() {
             );
         }
         if (filterValues.approvalStatus) {
-            result = result.filter((row) => row.approvalStatus === filterValues.approvalStatus);
+            result = result.filter((row) => row.approvalStatus?.toUpperCase() === filterValues.approvalStatus.toUpperCase());
         }
         if (filterValues.receivingStatus) {
-            result = result.filter((row) => row.receivingStatus === filterValues.receivingStatus);
+            result = result.filter((row) => row.receivingStatus?.toUpperCase() === filterValues.receivingStatus.toUpperCase());
         }
         if (filterValues.supplier) {
             result = result.filter((row) => normalize(row.supplierName ?? '').includes(normalize(filterValues.supplier)));
@@ -1064,7 +1069,7 @@ export default function ViewPurchaseOrderList() {
                                                     
                                                     // Approval Status chip (wrapped in flex box)
                                                     if (col.id === 'approvalStatus') {
-                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.approvalStatus ?? '', dot: '•' };
+                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus?.toUpperCase()] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.approvalStatus ?? '', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
@@ -1098,7 +1103,7 @@ export default function ViewPurchaseOrderList() {
                                                     
                                                     // Receiving Status chip (wrapped in flex box)
                                                     if (col.id === 'receivingStatus') {
-                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.receivingStatus ?? '', dot: '•' };
+                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus?.toUpperCase()] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.receivingStatus ?? '', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>

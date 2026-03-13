@@ -213,7 +213,8 @@ namespace Warehouse.DataAcces.Service
                 SupplierId = request.SupplierId,
                 RequestedDate = DateOnly.FromDateTime(now),
                 Justification = request.Justification,
-                Status = "DRAFT",
+                // Sử dụng Status từ request, nếu null thì để database tự set default
+        Status = request.Status,
                 CurrentStageNo = 1,
                 CreatedAt = now,
                 SubmittedAt = now,
@@ -249,7 +250,7 @@ namespace Warehouse.DataAcces.Service
                     UomId = item.BaseUomId,
                     Note = line.Note,
                     ReceivedQty = 0,
-                    LineStatus = "PendingRcv", // PendingReceipt
+                    LineStatus = "Open", // PendingReceipt
                     UnitPrice = line.UnitPrice,
                     Currency = "VND",
                     LineTotal = lineTotal

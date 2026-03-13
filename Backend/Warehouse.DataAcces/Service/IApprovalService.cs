@@ -7,8 +7,8 @@ namespace Warehouse.DataAcces.Service
     public interface IApprovalService
     {
         Task<PagedResult<ApprovalQueueResponse>> GetPendingApprovalsAsync(ApprovalQueueFilterRequest filter);
-        Task<bool> ApproveRequestAsync(string requestType, long requestId, long currentUserId, string reason = null);
-        Task<bool> RejectRequestAsync(string requestType, long requestId, long currentUserId, string reason = null);
+        Task<ApprovalResult> ApproveRequestAsync(string requestType, long requestId, long currentUserId, string reason = null);
+        Task<ApprovalResult> RejectRequestAsync(string requestType, long requestId, long currentUserId, string reason = null);
         Task<object?> GetRequestDetailAsync(string requestType, long requestId);
     }
 }

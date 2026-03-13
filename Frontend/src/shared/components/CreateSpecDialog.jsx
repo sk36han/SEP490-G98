@@ -61,12 +61,10 @@ export default function CreateSpecDialog({ open, onClose, onSubmit, editRow = nu
         try {
             await Promise.resolve(onSubmit({
                 paramId: editRow?.paramId,
-                paramCode: paramCode || toCode(name), // đảm bảo có code
                 paramName: name,
                 dataType: 'string',
                 isActive: isEdit ? isActive : true,
                 specCode: paramCode || toCode(name),
-                specName: name,
                 isEdit,
             }));
             onClose();
@@ -91,17 +89,6 @@ export default function CreateSpecDialog({ open, onClose, onSubmit, editRow = nu
                         placeholder="VD: Đường kính ống"
                         sx={{ ...inputSx, mb: 2 }}
                         InputLabelProps={{ shrink: true }}
-                    />
-                    {/* Mã thông số được tự động sinh, hiển thị để tham khảo */}
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Mã thông số (tự động)"
-                        value={paramCode}
-                        InputProps={{ readOnly: true }}
-                        sx={{ ...inputSx, mb: 2 }}
-                        InputLabelProps={{ shrink: true }}
-                        helperText="Mã được tự động tạo từ tên thông số"
                     />
                     {isEdit && (
                         <FormControlLabel

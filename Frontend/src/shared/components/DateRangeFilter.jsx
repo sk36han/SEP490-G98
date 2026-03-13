@@ -90,7 +90,7 @@ export default function DateRangeFilter({
     const displayText = currentPreset
         ? currentPreset.label
         : (fromDate && toDate
-            ? `${dayjs(fromDate).format('dd/MM/yyyy')} - ${dayjs(toDate).format('dd/MM/yyyy')}`
+            ? `${dayjs(fromDate).format('DD/MM/YYYY')} - ${dayjs(toDate).format('DD/MM/YYYY')}`
             : 'Chọn ngày');
 
     const isOpen = Boolean(anchorEl);

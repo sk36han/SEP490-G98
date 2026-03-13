@@ -43,14 +43,6 @@ const emptyBrand = { brandId: null, brandName: '', isActive: true };
 
 const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
 
-/** Hiển thị "mã" từ tên (backend không có brandCode). */
-const getBrandCodeDisplay = (b) =>
-    (b.brandName || '')
-        .trim()
-        .replace(/\s+/g, '_')
-        .toUpperCase()
-        .slice(0, 12) || '–';
-
 const ViewBrandList = () => {
     const navigate = useNavigate();
     const theme = useTheme();
@@ -395,10 +387,6 @@ const ViewBrandList = () => {
                 <DialogContent dividers sx={{ pt: 2 }}>
                     {detailBrand && (
                         <Stack spacing={2}>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary">Mã hiển thị</Typography>
-                                <Typography variant="body1" fontWeight={600}>{getBrandCodeDisplay(detailBrand)}</Typography>
-                            </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Tên Brand</Typography>
                                 <Typography variant="body1" fontWeight={600}>{detailBrand.brandName}</Typography>

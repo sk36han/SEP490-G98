@@ -21,6 +21,10 @@ public partial class GoodsReceiptNoteLine
 
     public long? PurchaseOrderLineId { get; set; }
 
+    public decimal? UnitPrice { get; set; }
+
+    public decimal? LineTotal { get; set; }
+
     public virtual ICollection<Certificate> Certificates { get; set; } = new List<Certificate>();
 
     public virtual GoodsReceiptNote Grn { get; set; } = null!;

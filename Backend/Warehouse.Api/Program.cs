@@ -83,7 +83,6 @@ namespace Warehouse.Api
 
             builder.Services.AddScoped<IWarehouseService, WarehouseService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
-
             builder.Services.AddScoped<IItemService, ItemService>();
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
             builder.Services.AddScoped<IBrandService, BrandService>();
@@ -93,6 +92,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IItemParameterValueService, ItemParameterValueService>();
             builder.Services.AddScoped<IPackagingSpecService, PackagingSpecService>();
             builder.Services.AddScoped<IApprovalService, ApprovalService>();
+            builder.Services.AddScoped<IGoodsReceiptNoteService, GoodsReceiptNoteService>();
 
 
 			// JWT Authentication
