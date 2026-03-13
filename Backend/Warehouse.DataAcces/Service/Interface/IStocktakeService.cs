@@ -27,5 +27,8 @@ namespace Warehouse.DataAcces.Service.Interface
         // Giai đoạn 4: Posting & Completion
         Task<StocktakeDetailResponse> PostAdjustmentAsync(long stocktakeId, long currentUserId);
         Task<StocktakeDetailResponse> CompleteStocktakeAsync(long stocktakeId, long currentUserId);
+        
+        // Huỷ phiếu
+        Task<StocktakeDetailResponse> CancelStocktakeAsync(long stocktakeId, string reason, long currentUserId);
     }
 }
