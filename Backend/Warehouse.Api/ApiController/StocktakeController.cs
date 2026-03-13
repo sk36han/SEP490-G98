@@ -118,5 +118,46 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
             }
         }
+        /// <summary>
+        /// Tạo phiếu kiểm kê nghịch (Draft) cho toàn bộ kho.
+        /// Mô tả: Phải không có phiên DRAFT/IN_PROGRESS nào trên cùng kho.
+        /// </summary>
+        [HttpPost("create-draft")]
+        public async Task<IActionResult> CreateDraft([FromBody] CreateStocktakeDraftRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // Lấy userId từ JWT
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.CreateDraftAsync(request, currentUserId);
+                return CreatedAtAction(
+                    nameof(GetStocktakeById),
+                    new { id = result.StocktakeId },
+                    result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // 409 Conflict – kho đang bận hoặc vô hiệu hóa
+                return Conflict(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
+            }
+        }
     }
 }

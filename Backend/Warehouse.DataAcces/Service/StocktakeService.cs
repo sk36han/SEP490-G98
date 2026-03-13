@@ -208,5 +208,84 @@ namespace Warehouse.DataAcces.Service
                     : Math.Round((decimal)countedLines / totalLines * 100, 1)
             };
         }
+        // ─────────────────────────────────────────────────────────────
+        // 3. CREATE DRAFT (FULL mode – kiểm kê toàn bộ kho)
+        // ─────────────────────────────────────────────────────────────
+        public async Task<StocktakeDetailResponse> CreateDraftAsync(
+            CreateStocktakeDraftRequest request, long currentUserId)
+        {
+            // 1️⃣ Validate – kho tồn tại và đang hoạt động
+            var warehouse = await _context.Warehouses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(w => w.WarehouseId == request.WarehouseId);
+
+            if (warehouse == null)
+                throw new KeyNotFoundException(
+                    $"Không tìm thấy kho với ID = {request.WarehouseId}.");
+
+            if (!warehouse.IsActive)
+                throw new InvalidOperationException(
+                    $"Kho '{warehouse.WarehouseName}' đang bị vô hiệu hóa, không thể tạo phiếu kiểm kê.");
+
+            // 2️⃣ Validate – không có phiên kiểm kê đang chạy (IN_PROGRESS) trên kho này
+            var hasPendingSession = await _context.StocktakeSessions
+                .AnyAsync(s => s.WarehouseId == warehouse.WarehouseId
+                            && (s.Status == "IN_PROGRESS" || s.Status == "DRAFT"));
+
+            if (hasPendingSession)
+                throw new InvalidOperationException(
+                    $"Kho '{warehouse.WarehouseName}' đang có phiên kiểm kê chưa hoàn thành " +
+                    "(DRAFT hoặc IN_PROGRESS). Vui lòng hủy hoặc hoàn tất phiên đó trước.");
+
+            // 3️⃣ Validate – ngày kiểm kê dự kiến không được ở quá khứ
+            if (request.PlannedAt.HasValue && request.PlannedAt.Value.Date < DateTime.UtcNow.Date)
+                throw new ArgumentException("Ngày kiểm kê dự kiến (PlannedAt) không được ở trong quá khứ.");
+
+            // 4️⃣ Tạo mã phiếu tự động: ST-2025-0001
+            var year = DateTime.UtcNow.Year;
+            var countThisYear = await _context.StocktakeSessions
+                .CountAsync(s => s.StocktakeCode.StartsWith($"ST-{year}-"));
+            var newCode = $"ST-{year}-{(countThisYear + 1):D4}";
+
+            // 5️⃣ Insert StocktakeSession (DRAFT, Mode = FULL)
+            var session = new StocktakeSession
+            {
+                StocktakeCode = newCode,
+                WarehouseId   = request.WarehouseId,
+                Mode          = "FULL",
+                Status        = "DRAFT",
+                PlannedAt     = request.PlannedAt,
+                Note          = request.Note,
+                CreatedBy     = currentUserId
+            };
+
+            _context.StocktakeSessions.Add(session);
+            await _context.SaveChangesAsync();
+
+            // 6️⃣ Reload để lấy navigation properties (Warehouse, CreatedByNavigation)
+            await _context.Entry(session).Reference(s => s.Warehouse).LoadAsync();
+            await _context.Entry(session).Reference(s => s.CreatedByNavigation).LoadAsync();
+
+            // 7️⃣ Return
+            return new StocktakeDetailResponse
+            {
+                StocktakeId   = session.StocktakeId,
+                StocktakeCode = session.StocktakeCode,
+                WarehouseId   = session.WarehouseId,
+                WarehouseName = session.Warehouse.WarehouseName,
+                Status        = session.Status,
+                Mode          = session.Mode,
+                PlannedAt     = session.PlannedAt,
+                StartedAt     = null,
+                EndedAt       = null,
+                CreatedBy     = session.CreatedBy,
+                CreatedByName = session.CreatedByNavigation.FullName,
+                Note          = session.Note,
+                TotalLines    = 0,
+                CountedLines  = 0,
+                VarianceLines = 0,
+                ProgressPercent = 0
+            };
+        }
     }
 }
