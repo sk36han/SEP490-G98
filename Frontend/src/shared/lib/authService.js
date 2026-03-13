@@ -1,32 +1,7 @@
 import apiClient from './axios';
-
-/**
- * Lấy role từ JWT payload (backend gửi ClaimTypes.Role trong token).
- * Tránh phụ thuộc GET /User/profile khi endpoint đó trả 500 (vd: user chưa có role).
- */
-function getRoleFromToken(token) {
-    if (!token || typeof token !== 'string') return null;
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return (
-            payload.role ??
-            payload.Role ??
-            payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
-            null
-        );
-    } catch {
-        return null;
-    }
-}
+import { getRoleFromToken } from '../permissions/roleUtils';
 
 const authService = {
-    /**
-     * Login user with email/username and password
-     * @param {string} identifier - Email or username
-     * @param {string} password - User password
-     * @param {boolean} rememberMe - Remember me option
-     * @returns {Promise<{accessToken, expiresAt, user}>}
-     */
     async login(identifier, password, rememberMe = false) {
         try {
             const response = await apiClient.post('/Auth/login', {
@@ -35,20 +10,26 @@ const authService = {
                 rememberMe,
             });
 
-            const { accessToken, expiresAt, user } = response.data;
+            const { requiresOtp, userId, accessToken, expiresAt, user, message } = response.data;
 
-            // Store token first (needed for authenticated API calls)
+            if (requiresOtp) {
+                localStorage.setItem('pendingUserId', userId);
+                localStorage.setItem('pendingEmail', identifier);
+                return {
+                    requiresOtp: true,
+                    userId: userId,
+                    message: message || 'Vui long kiem tra email de nhap ma OTP'
+                };
+            }
+
             localStorage.setItem('token', accessToken);
             localStorage.setItem('tokenExpiresAt', expiresAt);
 
-            // Fetch complete user profile with role from /api/User/profile
             try {
                 const profileResponse = await apiClient.get('/User/profile');
                 const userFromProfile = profileResponse.data;
                 const roleFromToken = getRoleFromToken(accessToken);
 
-                // Đảm bảo luôn có ít nhất một trong các trường roleCode/roleName/role,
-                // ưu tiên dữ liệu từ profile, fallback sang token nếu profile không có.
                 const userWithRole = {
                     ...(userFromProfile || {}),
                     roleCode: userFromProfile?.roleCode ?? userFromProfile?.RoleCode ?? user?.roleCode ?? roleFromToken,
@@ -59,8 +40,7 @@ const authService = {
 
                 localStorage.setItem('userInfo', JSON.stringify(userWithRole));
             } catch (profileError) {
-                // Fallback: profile trả 500 (vd: user chưa có role) → dùng user từ login + role từ JWT
-                console.warn('Failed to fetch user profile, using login data and role from token:', profileError?.response?.status);
+                console.warn('Failed to fetch user profile:', profileError?.response?.status);
                 const roleFromToken = getRoleFromToken(accessToken);
                 const userForStorage = {
                     ...(user || {}),
@@ -73,145 +53,132 @@ const authService = {
 
             return response.data;
         } catch (error) {
-            // Re-throw with more specific error message
             if (error.response?.status === 401) {
-                throw new Error('Email/Username hoặc mật khẩu không đúng');
+                throw new Error('Email/Username hoac mat khau khong dung.');
             } else if (error.response?.status === 500) {
                 const detail = error.response?.data?.error || error.response?.data?.message;
-                throw new Error(detail
-                    ? `Lỗi server: ${detail}`
-                    : 'Lỗi server. Có thể do tài khoản chưa được gán vai trò hoặc cấu hình server. Liên hệ quản trị viên.');
+                throw new Error(detail || 'Loi dang nhap.');
             } else if (error.code === 'ECONNABORTED') {
-                throw new Error('Timeout. Vui lòng kiểm tra kết nối.');
-            } else if (error.message === 'Network Error') {
-                throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra backend API.');
+                throw new Error('Timeout. Vui long kiem tra ket noi.');
             } else {
-                throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi trong quá trình đăng nhập');
+                throw new Error(error.response?.data?.message || 'Loi dang nhap.');
             }
         }
     },
 
-    /**
-     * Logout user - clear all auth data
-     */
-    logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('userInfo');
-        localStorage.removeItem('tokenExpiresAt');
+    async verifyOtp(otp) {
+        const userId = localStorage.getItem('pendingUserId');
+        
+        if (!userId) {
+            throw new Error('Session expired. Vui long dang nhap lai.');
+        }
+
+        try {
+            const response = await apiClient.post('/Auth/verify-otp', {
+                userId: parseInt(userId),
+                otp,
+                rememberMe: false
+            });
+
+            const { accessToken, expiresAt, user } = response.data;
+
+            localStorage.setItem('token', accessToken);
+            localStorage.setItem('tokenExpiresAt', expiresAt);
+
+            const roleFromToken = getRoleFromToken(accessToken);
+            const userWithRole = {
+                ...(user || {}),
+                roleCode: user?.roleCode ?? roleFromToken,
+                roleName: user?.roleName ?? roleFromToken,
+                role: user?.role ?? roleFromToken,
+            };
+
+            localStorage.setItem('userInfo', JSON.stringify(userWithRole));
+
+            localStorage.removeItem('pendingUserId');
+            localStorage.removeItem('pendingEmail');
+
+            return response.data;
+        } catch (error) {
+            if (error.response?.status === 400) {
+                throw new Error(error.response?.data?.message || 'Ma OTP khong hop le.');
+            } else if (error.response?.status === 401) {
+                throw new Error('Ma OTP khong dung.');
+            } else if (error.code === 'ECONNABORTED') {
+                throw new Error('Timeout.');
+            } else {
+                throw new Error(error.response?.data?.message || 'Xac thuc OTP that bai.');
+            }
+        }
     },
 
-    /**
-     * Get current auth token
-     * @returns {string|null}
-     */
+    logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('tokenExpiresAt');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('pendingUserId');
+        localStorage.removeItem('pendingEmail');
+    },
+
     getToken() {
         return localStorage.getItem('token');
     },
 
-    /**
-     * Get current user data
-     * @returns {object|null}
-     */
     getUser() {
-        const userStr = localStorage.getItem('userInfo');
-        try {
-            return userStr ? JSON.parse(userStr) : null;
-        } catch {
-            return null;
-        }
+        const userInfo = localStorage.getItem('userInfo');
+        return userInfo ? JSON.parse(userInfo) : null;
     },
 
-    /**
-     * Get current user ID (for so sánh với danh sách user). Ưu tiên từ userInfo, fallback decode JWT.
-     * @returns {number|null}
-     */
-    getCurrentUserId() {
-        const user = this.getUser();
-        const fromUser = user?.userId ?? user?.UserId;
-        if (fromUser != null) return Number(fromUser);
-        try {
-            const token = this.getToken();
-            if (!token) return null;
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const sub = payload.sub ?? payload.nameid;
-            if (sub != null) return Number(sub);
-        } catch {
-            // ignore
-        }
-        return null;
-    },
-
-    /**
-     * Check if user is authenticated
-     * @returns {boolean}
-     */
-    isAuthenticated() {
+    isLoggedIn() {
         const token = this.getToken();
-        const expiresAt = localStorage.getItem('tokenExpiresAt');
-
         if (!token) return false;
-
-        // Check if token is expired
-        if (expiresAt) {
-            const expiryDate = new Date(expiresAt);
-            if (expiryDate < new Date()) {
-                this.logout();
-                return false;
-            }
+        
+        const expiresAt = localStorage.getItem('tokenExpiresAt');
+        if (expiresAt && new Date(expiresAt) < new Date()) {
+            this.logout();
+            return false;
         }
-
+        
         return true;
     },
 
-    /**
-     * Send forgot password email
-     * @param {string} email - User email
-     */
+    isTokenExpired() {
+        const expiresAt = localStorage.getItem('tokenExpiresAt');
+        if (!expiresAt) return true;
+        return new Date(expiresAt) < new Date();
+    },
+
     async forgotPassword(email) {
         try {
             const response = await apiClient.post('/Auth/forgot-password', { email });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể gửi email. Vui lòng thử lại.');
+            throw new Error(error.response?.data?.message || 'Khong the gui email.');
         }
     },
 
-    /**
-     * Reset password with token
-     * @param {string} token - Reset token from email
-     * @param {string} newPassword - New password
-     */
     async resetPassword(token, newPassword) {
         try {
             const response = await apiClient.post('/Auth/reset-password', {
                 token,
                 newPassword,
-                confirmPassword: newPassword, // Backend requires confirmPassword for validation
+                confirmPassword: newPassword,
             });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
+            throw new Error(error.response?.data?.message || 'Khong the dat lai mat khau.');
         }
     },
 
-    /**
-     * Get current user profile from API
-     * @returns {Promise<object>}
-     */
     async getProfile() {
         try {
             const response = await apiClient.get('/User/profile');
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể tải thông tin hồ sơ.');
+            throw new Error(error.response?.data?.message || 'Khong tai duoc thong tin.');
         }
     },
 
-    /**
-     * Update user profile. Backend hiện chỉ bắt buộc Phone; gửi thêm gender, dob để sẵn sàng khi backend hỗ trợ.
-     * @param {string|{ phone: string, gender?: string, dob?: string }} payload - Số điện thoại hoặc object { phone, gender?, dob? } (dob format yyyy-MM-dd)
-     * @returns {Promise<object>}
-     */
     async updateProfile(payload) {
         const body = typeof payload === 'string'
             ? { phone: payload }
@@ -231,16 +198,10 @@ const authService = {
             }
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Không thể cập nhật hồ sơ.');
+            throw new Error(error.response?.data?.message || 'Khong cap nhat duoc.');
         }
     },
 
-    /**
-     * Change password
-     * @param {string} oldPassword
-     * @param {string} newPassword
-     * @param {string} confirmPassword
-     */
     async changePassword(oldPassword, newPassword, confirmPassword) {
         try {
             const response = await apiClient.post('/User/change-password', {
@@ -250,7 +211,7 @@ const authService = {
             });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Đổi mật khẩu thất bại.');
+            throw new Error(error.response?.data?.message || 'Doi mat khau that bai.');
         }
     },
 };

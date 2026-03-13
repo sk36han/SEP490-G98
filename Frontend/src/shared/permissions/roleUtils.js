@@ -1,61 +1,23 @@
-/** Các role hợp lệ – không có default, role không map được = không cho đăng nhập */
 export const VALID_PERMISSION_ROLES = ['ADMIN', 'DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'];
 
-/**
- * Lấy chuỗi role thô từ userInfo (để đưa vào getPermissionRole)
- * @param {object|null} userInfo - object từ authService.getUser()
- * @returns {string}
- */
 export const getRawRoleFromUser = (userInfo) => {
     if (!userInfo) return '';
-
-    // Ưu tiên chuỗi roleCode/roleName/role (KT, SP, ADMIN, ...).
-    const textRole =
-        userInfo.roleCode ||
-        userInfo.RoleCode ||
-        userInfo.roleName ||
-        userInfo.RoleName ||
-        userInfo.role ||
-        userInfo.Role ||
-        '';
-
-    if (String(textRole).trim() !== '') {
-        return String(textRole).trim();
-    }
-
-    // Fallback: dùng roleId dạng số nếu không có chuỗi.
+    const textRole = userInfo.roleCode || userInfo.RoleCode || userInfo.rolename || userInfo.RoleName || userInfo.role || userInfo.Role || '';
+    if (String(textRole).trim() !== '') return String(textRole).trim();
     if (userInfo.roleId != null) return String(userInfo.roleId);
     if (userInfo.RoleId != null) return String(userInfo.RoleId);
-
     return '';
 };
 
-/**
- * Kiểm tra có phải view dành cho Kế toán (ACCOUNTANTS) không
- * @param {string|null} permissionRole
- * @returns {boolean}
- */
 export const isAccountantView = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
-/**
- * Kiểm tra role có phải là permission role hợp lệ không
- * @param {string|null} role
- * @returns {boolean}
- */
 export const isPermissionRoleValid = (role) => {
     return !!role && VALID_PERMISSION_ROLES.includes(role);
 };
 
-/**
- * Chuẩn hóa role từ backend sang permission role. Không trả default.
- * @param {string} originalRole - Role từ backend (roleCode hoặc roleName)
- * @returns {string|null} Một trong 6 role hợp lệ hoặc null nếu không nhận dạng được
- */
 export const getPermissionRole = (originalRole) => {
     if (originalRole == null || String(originalRole).trim() === '') return null;
     const str = String(originalRole).trim();
-
-    // Trường hợp backend trả roleId dạng số (1,2,3,...)
     const numeric = Number(str);
     if (!Number.isNaN(numeric)) {
         if (numeric === 6) return 'ADMIN';
@@ -65,30 +27,16 @@ export const getPermissionRole = (originalRole) => {
         if (numeric === 2) return 'SALE_ENGINEER';
         if (numeric === 3) return 'ACCOUNTANTS';
     }
-
     const upper = str.toUpperCase();
-
-    // ADMIN: RoleCode thường là "ADMIN" hoặc "Admin"
     if (upper === 'ADMIN') return 'ADMIN';
-
-    // DIRECTOR: "DIRECTOR", "Giám đốc", "GD"
     if (upper === 'GD') return 'DIRECTOR';
-
-    // WAREHOUSE_KEEPER: "TK", "WH", "WHK", "WK", "WAREHOUSE"...
     if (upper === 'TK') return 'WAREHOUSE_KEEPER';
-
-    // SALE_SUPPORT: kiểm tra trước SALE_ENGINEER vì "SALE" chung
     if (upper === 'SP') return 'SALE_SUPPORT';
-
-    // SALE_ENGINEER: "SALE", "SALES", "SALE_ENGINEER"...
     if (upper === 'SE') return 'SALE_ENGINEER';
-
-    // ACCOUNTANTS: "KT" (Kế toán), "ACCOUNTANTS", "ACCOUNTANT"
     if (upper === 'KT') return 'ACCOUNTANTS';
     return null;
 };
 
-/** Nhãn hiển thị cho permission role (dùng trong Sidebar, badge) */
 export const PERMISSION_ROLE_LABELS = {
     ADMIN: 'Admin',
     DIRECTOR: 'Director',
@@ -99,5 +47,22 @@ export const PERMISSION_ROLE_LABELS = {
 };
 
 export const getPermissionRoleLabel = (permissionRole) => {
-    return PERMISSION_ROLE_LABELS[permissionRole] ?? (permissionRole || 'Lỗi vai trò');
+    return PERMISSION_ROLE_LABELS[permissionRole] ?? (permissionRole || 'Loi vai tro');
+};
+
+export const getRoleFromToken = (token) => {
+    try {
+        if (!token) return null;
+        const base64Url = token.split('.')[1];
+        if (!base64Url) return null;
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+            atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+        return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || 
+               payload.role || payload.Role || payload.roles?.[0] || null;
+    } catch (error) {
+        return null;
+    }
 };

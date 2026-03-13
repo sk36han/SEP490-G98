@@ -15,9 +15,13 @@ import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import logo from '../assets/logo.png';
 import Toast from '../../components/Toast/Toast';
 import AuthLayout from '../../components/Layout/AuthLayout';
+import OtpDialog from '../../components/auth/OtpDialog';
 import authService from '../lib/authService';
 import { useToast } from '../hooks/useToast';
 import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../permissions/roleUtils';
+
+// Roles that require OTP verification
+const OTP_REQUIRED_ROLES = ['ADMIN', 'DIRECTOR', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER'];
 
 const ROLE_ERROR_MESSAGE = 'Tài khoản đang bị lỗi vai trò. Vui lòng liên hệ quản trị viên.';
 
@@ -39,6 +43,8 @@ const Login = () => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+    const [pendingUser, setPendingUser] = useState(null);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -59,14 +65,30 @@ const Login = () => {
         setLoading(true);
 
         try {
-            await authService.login(formData.email, formData.password, formData.rememberMe);
+            const result = await authService.login(formData.email, formData.password, formData.rememberMe);
 
+            // Check if OTP is required
+            if (result.requiresOtp) {
+                setOtpDialogOpen(true);
+                setLoading(false);
+                return;
+            }
+
+            // Normal login - get user info
             const userInfo = authService.getUser();
             const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
             if (!isPermissionRoleValid(permissionRole)) {
                 authService.logout();
                 showToast(ROLE_ERROR_MESSAGE, 'error');
+                setLoading(false);
+                return;
+            }
+
+            // Check if role requires OTP verification (fallback check)
+            if (OTP_REQUIRED_ROLES.includes(permissionRole)) {
+                setPendingUser(userInfo);
+                setOtpDialogOpen(true);
                 setLoading(false);
                 return;
             }
@@ -97,6 +119,39 @@ const Login = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleOtpSuccess = () => {
+        setOtpDialogOpen(false);
+        const userInfo = authService.getUser();
+        const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+        
+        showToast('Đăng nhập thành công!', 'success');
+        
+        setTimeout(() => {
+            switch (permissionRole) {
+                case 'ADMIN':
+                    navigate('/admin/users');
+                    break;
+                case 'DIRECTOR':
+                    navigate('/home');
+                    break;
+                case 'WAREHOUSE_KEEPER':
+                case 'SALE_SUPPORT':
+                case 'SALE_ENGINEER':
+                case 'ACCOUNTANTS':
+                    navigate('/products');
+                    break;
+                default:
+                    navigate('/products');
+            }
+        }, 1000);
+    };
+
+    const handleOtpClose = () => {
+        setOtpDialogOpen(false);
+        setPendingUser(null);
+        authService.logout();
     };
 
     return (
@@ -260,6 +315,12 @@ const Login = () => {
         {toast && (
             <Toast message={toast.message} type={toast.type} onClose={clearToast} />
         )}
+        
+        <OtpDialog
+            open={otpDialogOpen}
+            onClose={handleOtpClose}
+            onSuccess={handleOtpSuccess}
+        />
         </>
     );
 };
