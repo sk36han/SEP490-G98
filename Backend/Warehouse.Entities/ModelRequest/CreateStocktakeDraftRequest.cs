@@ -10,6 +10,11 @@ namespace Warehouse.Entities.ModelRequest
         [Range(1, long.MaxValue, ErrorMessage = "WarehouseId không hợp lệ.")]
         public long WarehouseId { get; set; }
 
+        /// <summary>Hình thức: PERIODIC (Toàn bộ) hoặc ADHOC (Đột xuất)</summary>
+        [Required(ErrorMessage = "Vui lòng chọn hình thức kiểm kê.")]
+        [RegularExpression("^(PERIODIC|ADHOC)$", ErrorMessage = "Hình thức kiểm kê không hợp lệ (Chỉ chấp nhận PERIODIC hoặc ADHOC).")]
+        public string Mode { get; set; } = "PERIODIC";
+
         /// <summary>Ngày kiểm kê dự kiến (không bắt buộc)</summary>
         public DateTime? PlannedAt { get; set; }
 
