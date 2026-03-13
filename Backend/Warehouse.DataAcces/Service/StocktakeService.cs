@@ -341,7 +341,7 @@ namespace Warehouse.DataAcces.Service
                     ActorUserId = currentUserId,
                     Action = "START_STOCKTAKE",
                     EntityType = "StocktakeSession",
-                    EntityId = session.StocktakeId.ToString(),
+                    EntityId = session.StocktakeId,
                     Detail = $"Bắt đầu kiểm kê kho '{session.Warehouse.WarehouseName}' (Mã phiếu: {session.StocktakeCode}). Snapshot {lines.Count} mặt hàng.",
                     CreatedAt = DateTime.UtcNow
                 });

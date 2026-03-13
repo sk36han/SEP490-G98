@@ -158,6 +158,8 @@ namespace Warehouse.Api.ApiController
             {
                 return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
             }
+        }
+
         /// <summary>
         /// Bắt đầu kiểm kê (Snapshot tồn kho + Chuyển trạng thái sang PROCESSING + Khóa kho).
         /// </summary>
