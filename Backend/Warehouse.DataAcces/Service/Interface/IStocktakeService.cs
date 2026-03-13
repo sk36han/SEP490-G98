@@ -23,5 +23,9 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<StocktakeDetailResponse> ApproveStep2Async(long stocktakeId, StocktakeApprovalRequest request, long currentUserId);
         Task<List<AdjustmentPreviewResponse>> GetAdjustmentPreviewAsync(long stocktakeId);
         Task<List<StocktakeApprovalHistoryResponse>> GetApprovalHistoryAsync(long stocktakeId);
+
+        // Giai đoạn 4: Posting & Completion
+        Task<StocktakeDetailResponse> PostAdjustmentAsync(long stocktakeId, long currentUserId);
+        Task<StocktakeDetailResponse> CompleteStocktakeAsync(long stocktakeId, long currentUserId);
     }
 }

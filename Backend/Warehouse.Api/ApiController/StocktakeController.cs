@@ -385,5 +385,64 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Lỗi khi lấy lịch sử phê duyệt.", detail = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Thực hiện ghi sổ chênh lệch tồn kho. 
+        /// Hệ thống sẽ tự động tạo phiếu Inventory Adjustment và cập nhật InventoryOnHand.
+        /// </summary>
+        [HttpPost("{id}/post-adjustment")]
+        public async Task<IActionResult> PostAdjustment(long id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.PostAdjustmentAsync(id, currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi ghi sổ chênh lệch.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Hoàn tất đợt kiểm kê và mở khóa kho.
+        /// </summary>
+        [HttpPost("{id}/complete")]
+        public async Task<IActionResult> Complete(long id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.CompleteStocktakeAsync(id, currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi hoàn tất kiểm kê.", detail = ex.Message });
+            }
+        }
     }
 }

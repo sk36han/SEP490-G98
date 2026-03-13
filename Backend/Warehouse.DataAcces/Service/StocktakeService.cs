@@ -704,5 +704,154 @@ namespace Warehouse.DataAcces.Service
                 })
                 .ToListAsync();
         }
+
+        public async Task<StocktakeDetailResponse> PostAdjustmentAsync(long stocktakeId, long currentUserId)
+        {
+            var session = await _context.StocktakeSessions
+                .Include(s => s.StocktakeLines)
+                .Include(s => s.Warehouse)
+                .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
+
+            if (session == null)
+                throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}");
+
+            if (session.Status != "PENDING_APPROVAL")
+                throw new InvalidOperationException("Chỉ có thể ghi sổ khi phiếu ở trạng thái PENDING_APPROVAL.");
+
+            // Kiểm tra phê duyệt 2 bước
+            var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+            var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
+
+            if (!step1Approved || !step2Approved)
+                throw new InvalidOperationException("Phiếu cần được phê duyệt đầy đủ bởi Manager và Accountant trước khi ghi sổ.");
+
+            var discrepancyLines = session.StocktakeLines.Where(l => l.VarianceQty != 0).ToList();
+
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    if (discrepancyLines.Any())
+                    {
+                        // 1. Tạo mã phiếu điều chỉnh: ADJ-2025-0001
+                        var year = DateTime.UtcNow.Year;
+                        var adjCount = await _context.InventoryAdjustmentRequests
+                            .CountAsync(a => a.AdjustmentCode.StartsWith($"ADJ-{year}-"));
+                        var adjCode = $"ADJ-{year}-{(adjCount + 1):D4}";
+
+                        // 2. Tạo InventoryAdjustmentRequest
+                        var adjRequest = new InventoryAdjustmentRequest
+                        {
+                            AdjustmentCode = adjCode,
+                            StocktakeId = stocktakeId,
+                            WarehouseId = session.WarehouseId,
+                            SubmittedBy = currentUserId,
+                            Status = "POSTED",
+                            Reason = $"Điều chỉnh tự động từ phiếu kiểm kê {session.StocktakeCode}",
+                            SubmittedAt = DateTime.UtcNow,
+                            ApprovedAt = DateTime.UtcNow,
+                            PostedAt = DateTime.UtcNow
+                        };
+                        await _context.InventoryAdjustmentRequests.AddAsync(adjRequest);
+                        await _context.SaveChangesAsync();
+
+                        foreach (var line in discrepancyLines)
+                        {
+                            // 3. Tạo InventoryAdjustmentLine
+                            var adjLine = new InventoryAdjustmentLine
+                            {
+                                AdjustmentId = adjRequest.AdjustmentId,
+                                ItemId = line.ItemId,
+                                SystemQty = line.SystemQtySnapshot,
+                                CountedQty = line.CountedQty ?? 0,
+                                QtyChange = line.VarianceQty,
+                                Note = line.Note
+                            };
+                            await _context.InventoryAdjustmentLines.AddAsync(adjLine);
+
+                            // 4. Cập nhật tồn kho thực tế (InventoryOnHand)
+                            var onHand = await _context.InventoryOnHands
+                                .FirstOrDefaultAsync(oh => oh.WarehouseId == session.WarehouseId && oh.ItemId == line.ItemId);
+
+                            if (onHand != null)
+                            {
+                                onHand.OnHandQty += (line.VarianceQty ?? 0);
+                                onHand.UpdatedAt = DateTime.UtcNow;
+                            }
+                        }
+                    }
+
+                    // 5. Cập nhật trạng thái Stocktake
+                    session.Status = "ADJUSTMENT_POSTED";
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    // Ghi Audit Log
+                    await _context.AuditLogs.AddAsync(new AuditLog
+                    {
+                        ActorUserId = currentUserId,
+                        Action = "POST_ADJUSTMENT",
+                        EntityType = "StocktakeSession",
+                        EntityId = stocktakeId,
+                        Detail = $"Ghi sổ điều chỉnh tồn kho cho phiếu {session.StocktakeCode}. " + (discrepancyLines.Any() ? $"Đã tạo phiếu điều chỉnh tự động." : "Không có chênh lệch."),
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+
+            return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
+        }
+
+        public async Task<StocktakeDetailResponse> CompleteStocktakeAsync(long stocktakeId, long currentUserId)
+        {
+            var session = await _context.StocktakeSessions
+                .Include(s => s.StocktakeLines)
+                .Include(s => s.Warehouse)
+                .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
+
+            if (session == null)
+                throw new KeyNotFoundException("Không thấy phiếu.");
+
+            // Điều kiện hoàn tất: 
+            // 1. Nếu có lệch: phải ở ADJUSTMENT_POSTED
+            // 2. Nếu không lệch: phải ở PENDING_APPROVAL và đã duyệt đủ 2 bước
+            var hasVariance = session.StocktakeLines.Any(l => l.VarianceQty != 0);
+            
+            if (hasVariance && session.Status != "ADJUSTMENT_POSTED")
+                throw new InvalidOperationException("Cần thực hiện Ghi sổ (Post Adjustment) trước khi hoàn tất vì có chênh lệch tồn kho.");
+
+            if (!hasVariance)
+            {
+                var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+                var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
+                if (!step1Approved || !step2Approved)
+                    throw new InvalidOperationException("Phiếu cần được phê duyệt đầy đủ trước khi hoàn tất.");
+            }
+
+            session.Status = "COMPLETED";
+            session.EndedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            // Ghi Audit Log
+            await _context.AuditLogs.AddAsync(new AuditLog
+            {
+                ActorUserId = currentUserId,
+                Action = "COMPLETE_STOCKTAKE",
+                EntityType = "StocktakeSession",
+                EntityId = stocktakeId,
+                Detail = $"Hoàn tất kiểm kê phiếu {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Kho đã được mở khóa.",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
+        }
     }
 }
