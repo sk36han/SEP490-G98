@@ -39,7 +39,16 @@ namespace Warehouse.DataAcces.Service
 			var suppliers = await _supplierRepository.GetAllAsync();
 			if (suppliers.Any(s => s.SupplierCode == request.SupplierCode))
 			{
-				throw new InvalidOperationException("Supplier code already exists");
+				throw new InvalidOperationException("Mã nhà cung cấp đã tồn tại.");
+			}
+
+			// 1.1️⃣ Check duplicate Email (if provided)
+			if (!string.IsNullOrWhiteSpace(request.Email))
+			{
+				if (suppliers.Any(s => s.Email != null && s.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase)))
+				{
+					throw new InvalidOperationException("Địa chỉ email đã được sử dụng bởi nhà cung cấp khác.");
+				}
 			}
 
 			// 2️⃣ Create entity
@@ -110,6 +119,7 @@ namespace Warehouse.DataAcces.Service
 			// Safety
 			if (page <= 0) page = 1;
 			if (pageSize <= 0) pageSize = 20;
+			if (pageSize > 100) pageSize = 100; // Limit max page size
 
 			// 1. Get all
 			var suppliers = await _supplierRepository.GetAllAsync();
@@ -220,7 +230,7 @@ namespace Warehouse.DataAcces.Service
 
 				if (duplicateEmail)
 				{
-					throw new InvalidOperationException("Email đã được sử dụng bởi nhà cung cấp khác");
+					throw new InvalidOperationException("Địa chỉ email đã được sử dụng bởi nhà cung cấp khác.");
 				}
 			}
 
@@ -399,6 +409,17 @@ namespace Warehouse.DataAcces.Service
 			// 3. HISTORY (List) - Fixed: Fetch separately then union in memory to avoid EF Translation issues
 			if (page <= 0) page = 1;
 			if (pageSize <= 0) pageSize = 20;
+			if (pageSize > 100) pageSize = 100;
+
+			// Validate transactionType if provided
+			if (!string.IsNullOrWhiteSpace(transactionType))
+			{
+				var upperType = transactionType.ToUpper();
+				if (upperType != "PO" && upperType != "GRN")
+				{
+					throw new ArgumentException("Loại giao dịch không hợp lệ. Chỉ chấp nhận 'PO' hoặc 'GRN'.");
+				}
+			}
 
 			// Define PO Query
 			var poQuery = _context.PurchaseOrders.Where(x => x.SupplierId == supplierId);
