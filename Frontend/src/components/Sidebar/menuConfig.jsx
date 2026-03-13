@@ -15,6 +15,7 @@ const commonItems = [];
 
 const FULL_PRODUCT_MATCH_PATHS = ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'];
 const BASIC_PRODUCT_MATCH_PATHS = ['/products', '/uom', '/brands'];
+const SALE_SUPPORT_PRODUCT_MATCH_PATHS = ['/products', '/categories', '/brands'];
 
 const matchesPath = (pathname, targetPath) => {
     if (!pathname || !targetPath) return false;
@@ -95,21 +96,11 @@ const saleSupportItems = [
         path: '/products',
         icon: <BoxIcon size={22} />,
         label: 'Vật tư',
-        matchPaths: BASIC_PRODUCT_MATCH_PATHS,
+        matchPaths: SALE_SUPPORT_PRODUCT_MATCH_PATHS,
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/categories', label: 'Danh mục' },
             { path: '/brands', label: 'Thương hiệu' },
-        ],
-    },
-    {
-        id: 'suppliers-mgmt',
-        path: '/suppliers',
-        icon: <Truck size={22} />,
-        label: 'Nhà cung cấp',
-        children: [
-            { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
-            { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
         ],
     },
     {
