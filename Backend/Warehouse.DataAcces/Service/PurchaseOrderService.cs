@@ -1,110 +1,68 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
-using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
+using Warehouse.Entities.Models;
 
 namespace Warehouse.DataAcces.Service
 {
     public class PurchaseOrderService : IPurchaseOrderService
     {
-        private readonly IGenericRepository<PurchaseOrder> _purchaseOrderRepository;
+        private readonly Mkiwms5Context _context;
 
-
-
-        public PurchaseOrderService(IGenericRepository<PurchaseOrder> purchaseOrderRepository)
+        public PurchaseOrderService(Mkiwms5Context context)
         {
-            _purchaseOrderRepository = purchaseOrderRepository;
+            _context = context;
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
             int page,
-            int pageSize,
-            string? poCode,
-            string? supplierName,
-            string? status,
-            DateTime? fromDate,
-            DateTime? toDate,
-            string? requestedByName)
+            int pageSize)
         {
             if (page <= 0) page = 1;
             if (pageSize <= 0) pageSize = 20;
 
-
-            
-            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
-
-            var query = context.PurchaseOrders
+            var query = _context.PurchaseOrders
                 .Include(po => po.Supplier)
+                .Include(po => po.Warehouse)
                 .Include(po => po.RequestedByNavigation)
+                .Include(po => po.ResponsibleUser)
+                .Include(po => po.PurchaseOrderLines)
                 .AsQueryable();
 
-            // 1. SEARCH & FILTER
-            if (!string.IsNullOrWhiteSpace(poCode))
-            {
-                query = query.Where(po => po.Pocode.Contains(poCode));
-            }
+            var totalItems = query.Count();
 
-            if (!string.IsNullOrWhiteSpace(supplierName))
-            {
-                query = query.Where(po => po.Supplier != null && po.Supplier.SupplierName.Contains(supplierName));
-            }
-            
-            if (!string.IsNullOrWhiteSpace(requestedByName))
-            {
-                query = query.Where(po => po.RequestedByNavigation.FullName.Contains(requestedByName));
-            }
-
-            if (!string.IsNullOrWhiteSpace(status))
-            {
-                // Exact match for status usually, or contains? Let's use Contains for flexibility or specific if Enum
-                // Status is string in DB.
-                query = query.Where(po => po.Status == status);
-            }
-
-            if (fromDate.HasValue)
-            {
-                query = query.Where(po => po.CreatedAt >= fromDate.Value);
-            }
-
-            if (toDate.HasValue)
-            {
-                query = query.Where(po => po.CreatedAt <= toDate.Value);
-            }
-
-            // 2. Total
-            var totalItems = await query.CountAsync();
-
-            // 3. Paging
             var items = await query
-                .OrderByDescending(po => po.CreatedAt) // Newest first
+                .OrderByDescending(po => po.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(po => new PurchaseOrderResponse
                 {
                     PurchaseOrderId = po.PurchaseOrderId,
-                    Pocode = po.Pocode,
-                    RequestedBy = po.RequestedBy,
-                    SupplierId = po.SupplierId,
-                    RequestedDate = po.RequestedDate,
-                    Justification = po.Justification,
+                    POCode = po.Pocode,
                     Status = po.Status,
-                    CurrentStageNo = po.CurrentStageNo,
-                    CreatedAt = po.CreatedAt,
-                    SubmittedAt = po.SubmittedAt,
-                    UpdatedAt = po.UpdatedAt,
+                    LifecycleStatus = po.LifecycleStatus,
+                    RequestedDate = po.RequestedDate,
+                    ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                    TotalAmount = po.TotalAmount,
+                    DiscountAmount = po.DiscountAmount,
+                    NetAmount = po.NetAmount ?? 0,
+                    TotalReceivedQty = po.PurchaseOrderLines.Sum(line => line.ReceivedQty),
+                    SupplierId = po.SupplierId,
                     SupplierName = po.Supplier != null ? po.Supplier.SupplierName : null,
-                    RequestedByName = po.RequestedByNavigation.FullName
+                    WarehouseId = po.WarehouseId,
+                    WarehouseName = po.Warehouse != null ? po.Warehouse.WarehouseName : null,
+                    RequestedBy = po.RequestedBy,
+                    RequestedByName = po.RequestedByNavigation != null ? po.RequestedByNavigation.FullName : null,
+                    ResponsibleUserId = po.ResponsibleUserId,
+                    ResponsibleUserName = po.ResponsibleUser != null ? po.ResponsibleUser.FullName : null,
+                    CreatedAt = po.CreatedAt
                 })
                 .ToListAsync();
 
-            // 4. Return
             return new PagedResponse<PurchaseOrderResponse>
             {
                 Page = page,
@@ -116,239 +74,283 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<PurchaseOrderDetailResponse?> GetPurchaseOrderByIdAsync(long id)
         {
-            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
-
-            var po = await context.PurchaseOrders
-                .Include(p => p.Supplier)
-                .Include(p => p.RequestedByNavigation)
-                .Include(p => p.PurchaseOrderLines)
+            var po = await _context.PurchaseOrders
+                .Include(po => po.Supplier)
+                .Include(po => po.Warehouse)
+                .Include(po => po.RequestedByNavigation)
+                .Include(po => po.ResponsibleUser)
+                .Include(po => po.PurchaseOrderLines)
                     .ThenInclude(line => line.Item)
-                .Include(p => p.PurchaseOrderLines)
-                    .ThenInclude(line => line.Uom)
-                .FirstOrDefaultAsync(p => p.PurchaseOrderId == id);
+                .FirstOrDefaultAsync(po => po.PurchaseOrderId == id);
 
             if (po == null)
             {
                 return null;
             }
 
+            var totalOrderedQty = po.PurchaseOrderLines.Sum(line => line.OrderedQty);
+
             return new PurchaseOrderDetailResponse
             {
                 PurchaseOrderId = po.PurchaseOrderId,
-                Pocode = po.Pocode,
-                RequestedBy = po.RequestedBy,
-                SupplierId = po.SupplierId,
-                RequestedDate = po.RequestedDate,
-                Justification = po.Justification,
+                POCode = po.Pocode,
                 Status = po.Status,
+                LifecycleStatus = po.LifecycleStatus,
                 CurrentStageNo = po.CurrentStageNo,
+                RequestedBy = po.RequestedBy,
+                RequestedByName = po.RequestedByNavigation?.FullName,
+                ResponsibleUserId = po.ResponsibleUserId,
+                ResponsibleUserName = po.ResponsibleUser?.FullName,
+                SupplierId = po.SupplierId,
+                SupplierName = po.Supplier?.SupplierName,
+                WarehouseId = po.WarehouseId,
+                WarehouseName = po.Warehouse?.WarehouseName,
+                RequestedDate = po.RequestedDate,
+                ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                Justification = po.Justification,
+                TotalAmount = po.TotalAmount,
+                DiscountAmount = po.DiscountAmount,
+                NetAmount = po.NetAmount ?? 0,
+                TotalOrderedQty = totalOrderedQty,
                 CreatedAt = po.CreatedAt,
                 SubmittedAt = po.SubmittedAt,
                 UpdatedAt = po.UpdatedAt,
-                SupplierName = po.Supplier != null ? po.Supplier.SupplierName : null,
-                RequestedByName = po.RequestedByNavigation.FullName,
-                PurchaseOrderLines = po.PurchaseOrderLines.Select(line => new PurchaseOrderLineResponse
+                Lines = po.PurchaseOrderLines.Select(line => new PurchaseOrderLineResponse
                 {
                     PurchaseOrderLineId = line.PurchaseOrderLineId,
-                    PurchaseOrderId = line.PurchaseOrderId,
                     ItemId = line.ItemId,
-                    ItemCode = line.Item.ItemCode,
-                    ItemName = line.Item.ItemName,
-                    OrderedQty = line.OrderedQty,
+                    ItemCode = line.Item?.ItemCode,
+                    ItemName = line.Item?.ItemName,
                     UomId = line.UomId,
-                    UomName = line.Uom.UomName,
-                    Note = line.Note
+                    OrderedQty = line.OrderedQty,
+                    ReceivedQty = line.ReceivedQty,
+                    UnitPrice = line.UnitPrice ?? 0,
+                    LineTotal = line.LineTotal ?? 0,
+                    Currency = line.Currency ?? "VND",
+                    LineStatus = line.LineStatus,
+                    Note = line.Note,
+                    RequiresCo = line.Item?.RequiresCo ?? false,
+                    RequiresCq = line.Item?.RequiresCq ?? false
                 }).ToList()
             };
         }
 
         public async Task<PurchaseOrderDetailResponse> CreatePurchaseOrderAsync(long requestedByUserId, CreatePurchaseOrderRequest request)
         {
-            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
-
-            // 1. Validate PO Code uniqueness
-            var isDuplicate = await context.PurchaseOrders.AnyAsync(p => p.Pocode == request.Pocode);
-            if (isDuplicate)
+            if (request.Lines == null || request.Lines.Count == 0)
             {
-                throw new InvalidOperationException($"Mã đơn hàng '{request.Pocode}' đã tồn tại trong hệ thống.");
+                throw new InvalidOperationException("Đơn mua phải có ít nhất 1 vật tư.");
             }
 
-            using var transaction = await context.Database.BeginTransactionAsync();
-            try
+            var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.SupplierId == request.SupplierId);
+            if (supplier == null)
             {
-                // 2. Map & Create Header
-                var purchaseOrder = new PurchaseOrder
-                {
-                    Pocode = request.Pocode,
-                    RequestedBy = requestedByUserId,
-                    SupplierId = request.SupplierId,
-                    RequestedDate = request.RequestedDate,
-                    Justification = request.Justification,
-                    Status = request.Status,
-                    CurrentStageNo = request.CurrentStageNo,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                throw new KeyNotFoundException("Không tìm thấy nhà cung cấp.");
+            }
+            if (!supplier.IsActive)
+            {
+                throw new InvalidOperationException("Nhà cung cấp đang không hoạt động.");
+            }
 
-                context.PurchaseOrders.Add(purchaseOrder);
-                await context.SaveChangesAsync(); // Save to get PurchaseOrderId
+            var warehouse = await _context.Warehouses.FirstOrDefaultAsync(w => w.WarehouseId == request.WarehouseId);
+            if (warehouse == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy kho nhập.");
+            }
+            if (!warehouse.IsActive)
+            {
+                throw new InvalidOperationException("Kho nhập đang không hoạt động.");
+            }
 
-                // 3. Map & Create Lines
-                foreach (var lineReq in request.OrderLines)
+            User? responsibleUser = null;
+            if (request.ResponsibleUserId.HasValue)
+            {
+                responsibleUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == request.ResponsibleUserId.Value);
+                if (responsibleUser == null)
                 {
-                    var line = new PurchaseOrderLine
-                    {
-                        PurchaseOrderId = purchaseOrder.PurchaseOrderId,
-                        ItemId = lineReq.ItemId,
-                        OrderedQty = lineReq.OrderedQty,
-                        UomId = lineReq.UomId,
-                        Note = lineReq.Note
-                    };
-                    context.PurchaseOrderLines.Add(line);
+                    throw new KeyNotFoundException("Không tìm thấy nhân viên phụ trách.");
+                }
+                if (!responsibleUser.IsActive)
+                {
+                    throw new InvalidOperationException("Nhân viên phụ trách đang không hoạt động.");
+                }
+            }
+
+            var requestedByUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == requestedByUserId);
+            if (requestedByUser == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy người tạo đơn.");
+            }
+
+            var itemIds = request.Lines.Select(x => x.ItemId).Distinct().ToList();
+            var items = await _context.Items
+                .Where(i => itemIds.Contains(i.ItemId))
+                .ToDictionaryAsync(i => i.ItemId, i => i);
+
+            if (items.Count != itemIds.Count)
+            {
+                throw new KeyNotFoundException("Có vật tư không tồn tại trong hệ thống.");
+            }
+
+            if (items.Values.Any(i => !i.IsActive))
+            {
+                throw new InvalidOperationException("Có vật tư đang không hoạt động.");
+            }
+
+            if (request.Lines.GroupBy(x => x.ItemId).Any(g => g.Count() > 1))
+            {
+                throw new InvalidOperationException("Một vật tư không được xuất hiện nhiều hơn 1 lần trong cùng đơn mua.");
+            }
+
+            var poCode = await GenerateNextPoCodeAsync();
+            var now = DateTime.UtcNow;
+            var discount = request.DiscountAmount ?? 0m;
+
+            var po = new PurchaseOrder
+            {
+                Pocode = poCode,
+                RequestedBy = requestedByUserId,
+                SupplierId = request.SupplierId,
+                RequestedDate = DateOnly.FromDateTime(now),
+                Justification = request.Justification,
+                // Sử dụng Status từ request, nếu null thì để database tự set default
+        Status = request.Status,
+                CurrentStageNo = 1,
+                CreatedAt = now,
+                SubmittedAt = now,
+                UpdatedAt = now,
+                ExpectedDeliveryDate = request.ExpectedDeliveryDate,
+                LifecycleStatus = "PendingRcv", // PendingReceipt
+                DiscountAmount = discount,
+                ResponsibleUserId = request.ResponsibleUserId,
+                WarehouseId = request.WarehouseId
+            };
+
+            decimal totalAmount = 0m;
+            foreach (var line in request.Lines)
+            {
+                if (line.OrderedQty <= 0)
+                {
+                    throw new InvalidOperationException("Số lượng đặt phải lớn hơn 0.");
                 }
 
-                await context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                if (line.UnitPrice < 0)
+                {
+                    throw new InvalidOperationException("Đơn giá không được âm.");
+                }
 
-                // 4. Return created detail
-                return await GetPurchaseOrderByIdAsync(purchaseOrder.PurchaseOrderId)
-                       ?? throw new Exception("Error retrieving created Purchase Order");
+                var item = items[line.ItemId];
+                var lineTotal = line.OrderedQty * line.UnitPrice;
+                totalAmount += lineTotal;
+
+                po.PurchaseOrderLines.Add(new PurchaseOrderLine
+                {
+                    ItemId = line.ItemId,
+                    OrderedQty = line.OrderedQty,
+                    UomId = item.BaseUomId,
+                    Note = line.Note,
+                    ReceivedQty = 0,
+                    LineStatus = "Open", // PendingReceipt
+                    UnitPrice = line.UnitPrice,
+                    Currency = "VND",
+                    LineTotal = lineTotal
+                });
             }
-            catch (DbUpdateException ex)
+
+            if (discount > totalAmount)
             {
-                await transaction.RollbackAsync();
-                var message = ex.InnerException?.Message ?? ex.Message;
-                throw new InvalidOperationException($"Lỗi DB: {message}");
+                throw new InvalidOperationException("Giảm giá không được lớn hơn tổng tiền đơn hàng.");
             }
-            catch (Exception ex)
+
+            var netAmount = totalAmount - discount;
+            po.TotalAmount = totalAmount;
+            po.NetAmount = netAmount;
+
+            _context.PurchaseOrders.Add(po);
+            await _context.SaveChangesAsync();
+
+            // Ghi audit log khi tạo PO
+            var auditLog = new AuditLog
             {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                ActorUserId = requestedByUserId,
+                Action = "CREATE",
+                EntityType = "PurchaseOrder",
+                EntityId = po.PurchaseOrderId,
+                Detail = $"Tạo đơn mua hàng {po.Pocode}",
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
+            return new PurchaseOrderDetailResponse
+            {
+                PurchaseOrderId = po.PurchaseOrderId,
+                POCode = po.Pocode,
+                Status = po.Status,
+                LifecycleStatus = po.LifecycleStatus,
+                CurrentStageNo = po.CurrentStageNo,
+                RequestedBy = po.RequestedBy,
+                RequestedByName = requestedByUser.FullName,
+                ResponsibleUserId = po.ResponsibleUserId,
+                ResponsibleUserName = responsibleUser?.FullName,
+                SupplierId = po.SupplierId,
+                SupplierName = supplier.SupplierName,
+                WarehouseId = po.WarehouseId,
+                WarehouseName = warehouse.WarehouseName,
+                RequestedDate = po.RequestedDate,
+                ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                Justification = po.Justification,
+                TotalAmount = po.TotalAmount,
+                DiscountAmount = po.DiscountAmount,
+                NetAmount = po.NetAmount ?? 0,
+                CreatedAt = po.CreatedAt,
+                SubmittedAt = po.SubmittedAt,
+                UpdatedAt = po.UpdatedAt,
+                Lines = po.PurchaseOrderLines.Select(x => new PurchaseOrderLineResponse
+                {
+                    PurchaseOrderLineId = x.PurchaseOrderLineId,
+                    ItemId = x.ItemId,
+                    ItemCode = items[x.ItemId].ItemCode,
+                    ItemName = items[x.ItemId].ItemName,
+                    UomId = x.UomId,
+                    OrderedQty = x.OrderedQty,
+                    ReceivedQty = x.ReceivedQty,
+                    UnitPrice = x.UnitPrice ?? 0,
+                    LineTotal = x.LineTotal ?? 0,
+                    Currency = x.Currency ?? "VND",
+                    LineStatus = x.LineStatus,
+                    Note = x.Note
+                }).ToList()
+            };
         }
 
-        public async Task<PurchaseOrderDetailResponse?> UpdatePurchaseOrderAsync(long id, UpdatePurchaseOrderRequest request)
+        public Task<bool> CancelPurchaseOrderAsync(long id)
         {
-            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
-
-            var purchaseOrder = await context.PurchaseOrders
-                .Include(p => p.PurchaseOrderLines)
-                .FirstOrDefaultAsync(p => p.PurchaseOrderId == id);
-
-            if (purchaseOrder == null)
-            {
-                return null;
-            }
-
-            // 1. Validate PO Code uniqueness (if changed)
-            if (purchaseOrder.Pocode != request.Pocode)
-            {
-                var isDuplicate = await context.PurchaseOrders.AnyAsync(p => p.Pocode == request.Pocode && p.PurchaseOrderId != id);
-                if (isDuplicate)
-                {
-                    throw new InvalidOperationException($"Mã đơn hàng '{request.Pocode}' đã tồn tại trong hệ thống.");
-                }
-            }
-
-            using var transaction = await context.Database.BeginTransactionAsync();
-            try
-            {
-                // 2. Update Header
-                purchaseOrder.Pocode = request.Pocode;
-                purchaseOrder.SupplierId = request.SupplierId;
-                purchaseOrder.RequestedDate = request.RequestedDate;
-                purchaseOrder.Justification = request.Justification;
-                purchaseOrder.Status = request.Status;
-                purchaseOrder.CurrentStageNo = request.CurrentStageNo;
-                purchaseOrder.UpdatedAt = DateTime.UtcNow;
-
-                // 3. Update Lines
-                // Remove lines that are not in the request
-                var requestedLineIds = request.OrderLines
-                    .Where(l => l.PurchaseOrderLineId.HasValue)
-                    .Select(l => l.PurchaseOrderLineId!.Value)
-                    .ToList();
-
-                var linesToRemove = purchaseOrder.PurchaseOrderLines
-                    .Where(l => !requestedLineIds.Contains(l.PurchaseOrderLineId))
-                    .ToList();
-
-                context.PurchaseOrderLines.RemoveRange(linesToRemove);
-
-                // Add or update lines
-                foreach (var lineReq in request.OrderLines)
-                {
-                    if (lineReq.PurchaseOrderLineId.HasValue)
-                    {
-                        // Update existing line
-                        var existingLine = purchaseOrder.PurchaseOrderLines
-                            .FirstOrDefault(l => l.PurchaseOrderLineId == lineReq.PurchaseOrderLineId.Value);
-
-                        if (existingLine != null)
-                        {
-                            existingLine.ItemId = lineReq.ItemId;
-                            existingLine.OrderedQty = lineReq.OrderedQty;
-                            existingLine.UomId = lineReq.UomId;
-                            existingLine.Note = lineReq.Note;
-                        }
-                    }
-                    else
-                    {
-                        // Add new line
-                        var newLine = new PurchaseOrderLine
-                        {
-                            PurchaseOrderId = id,
-                            ItemId = lineReq.ItemId,
-                            OrderedQty = lineReq.OrderedQty,
-                            UomId = lineReq.UomId,
-                            Note = lineReq.Note
-                        };
-                        context.PurchaseOrderLines.Add(newLine);
-                    }
-                }
-
-                await context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return await GetPurchaseOrderByIdAsync(id);
-            }
-            catch (DbUpdateException ex)
-            {
-                await transaction.RollbackAsync();
-                var message = ex.InnerException?.Message ?? ex.Message;
-                throw new InvalidOperationException($"Lỗi DB khi cập nhật: {message}");
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            throw new NotImplementedException();
         }
 
-        public async Task<bool> CancelPurchaseOrderAsync(long id)
+        private async Task<string> GenerateNextPoCodeAsync()
         {
-            var context = ((GenericRepository<PurchaseOrder>)_purchaseOrderRepository).Context;
+            var poCodes = await _context.PurchaseOrders
+                .Where(p => p.Pocode.StartsWith("PO"))
+                .Select(p => p.Pocode)
+                .ToListAsync();
 
-            var purchaseOrder = await context.PurchaseOrders
-                .FirstOrDefaultAsync(p => p.PurchaseOrderId == id);
-
-            if (purchaseOrder == null)
+            var maxNumber = 0;
+            foreach (var code in poCodes)
             {
-                return false;
+                if (code.Length <= 2) continue;
+
+                var numberPart = code.Substring(2);
+                if (int.TryParse(numberPart, out var number) && number > maxNumber)
+                {
+                    maxNumber = number;
+                }
             }
 
-            // Business rule: Không cho phép hủy nếu đã RECEIVED hoặc COMPLETED
-            var forbiddenStatuses = new[] { "RECEIVED", "COMPLETED", "CANCELLED" };
-            if (forbiddenStatuses.Contains(purchaseOrder.Status.ToUpper()))
-            {
-                throw new InvalidOperationException($"Không thể hủy đơn hàng đang ở trạng thái {purchaseOrder.Status}.");
-            }
-
-            purchaseOrder.Status = "CANCELLED";
-            purchaseOrder.UpdatedAt = DateTime.UtcNow;
-
-            await context.SaveChangesAsync();
-            return true;
+            return $"PO{maxNumber + 1}";
         }
+
+       
     }
 }

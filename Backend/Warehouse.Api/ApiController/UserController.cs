@@ -40,7 +40,7 @@ namespace Warehouse.Api.ApiController
             var profile = _mapper.Map<UserResponse>(user);
             return Ok(profile);
         }
-
+        [Authorize]
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
@@ -70,6 +70,8 @@ namespace Warehouse.Api.ApiController
             }
         }
 
+        [Authorize]
+
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
@@ -98,6 +100,13 @@ namespace Warehouse.Api.ApiController
             {
                 return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
             }
+        }
+
+        [HttpGet("list-user-role-accountants")]
+        public async Task<IActionResult> GetAccountants()
+        {
+            var users = await _userService.GetAccountantsAsync();
+            return Ok(new { success = true, data = users });
         }
     }
 }

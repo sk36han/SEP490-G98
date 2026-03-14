@@ -17,6 +17,8 @@ public partial class Warehouse
 
     public DateTime CreatedAt { get; set; }
 
+    public string? District { get; set; }
+
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
 
     public virtual ICollection<GoodsReceiptNote> GoodsReceiptNotes { get; set; } = new List<GoodsReceiptNote>();
@@ -30,6 +32,8 @@ public partial class Warehouse
     public virtual ICollection<ItemWarehousePolicy> ItemWarehousePolicies { get; set; } = new List<ItemWarehousePolicy>();
 
     public virtual ICollection<Item> Items { get; set; } = new List<Item>();
+
+    public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
 
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 

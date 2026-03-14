@@ -1,42 +1,48 @@
 import apiClient from './axios';
 
 /**
- * Warehouse API – maps to backend WarehouseController.
- * Backend: GET /api/warehouse/get-Warehouse?pageNumber=1&pageSize=20
- * Response: ApiResponse<PagedResult<WarehouseResponse>> → data: { items, totalItems, pageNumber, pageSize }
+ * Kho (Warehouse) – kết nối WarehouseController.
+ * GET /Warehouse/get-Warehouse?pageNumber=1&pageSize=100 (FilterRequest)
+ * Response: ApiResponse<PagedResult<WarehouseResponse>> → data.Data.Items
  */
 
-/**
- * @param {Object} params
- * @param {number} [params.pageNumber=1] - 1-based (backend FilterRequest)
- * @param {number} [params.pageSize=20]
- * @returns {Promise<{ items: Array, totalItems: number, pageNumber: number, pageSize: number }>}
- */
-export async function getWarehouses(params = {}) {
-    const { pageNumber = 1, pageSize = 20 } = params;
-    const query = new URLSearchParams();
-    query.set('pageNumber', String(pageNumber));
-    query.set('pageSize', String(pageSize));
-
-    const response = await apiClient.get(`/warehouse/get-Warehouse?${query.toString()}`);
-    const data = response.data;
-    // Backend wraps in ApiResponse: { success, message, data: PagedResult }
-    const payload = data?.data ?? data;
-    const rawItems = payload?.items ?? payload?.Items ?? [];
-
-    const items = rawItems.map((row) => ({
+function mapWarehouseRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
         warehouseId: row.warehouseId ?? row.WarehouseId,
         warehouseCode: row.warehouseCode ?? row.WarehouseCode ?? '',
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
         address: row.address ?? row.Address ?? null,
         isActive: row.isActive ?? row.IsActive ?? true,
-        createdAt: row.createdAt ?? row.CreatedAt ?? null,
-    }));
-
-    return {
-        items,
-        totalItems: payload?.totalItems ?? payload?.TotalItems ?? 0,
-        pageNumber: payload?.pageNumber ?? payload?.PageNumber ?? pageNumber,
-        pageSize: payload?.pageSize ?? payload?.PageSize ?? pageSize,
     };
 }
+
+/**
+ * Lấy danh sách kho có phân trang.
+ * @param {{ pageNumber?: number, pageSize?: number }} params
+ * @returns {Promise<{ items, totalItems, pageNumber, pageSize }>}
+ */
+export async function getWarehouseList(params = {}) {
+    const { pageNumber = 1, pageSize = 100 } = params;
+    try {
+        const response = await apiClient.get('/Warehouse/get-Warehouse', {
+            params: { pageNumber, pageSize },
+        });
+        // ApiResponse<PagedResult<WarehouseResponse>> → body.data / body.Data = PagedResult với Items
+        const body = response?.data ?? {};
+        const paged = body.data ?? body.Data ?? body;
+        const rawList = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? []);
+        const items = (Array.isArray(rawList) ? rawList : []).map(mapWarehouseRow).filter(Boolean);
+        return {
+            items,
+            totalItems: paged?.totalItems ?? paged?.TotalItems ?? items.length,
+            pageNumber: paged?.pageNumber ?? paged?.PageNumber ?? pageNumber,
+            pageSize: paged?.pageSize ?? paged?.PageSize ?? pageSize,
+        };
+    } catch {
+        return { items: [], totalItems: 0, pageNumber: 1, pageSize };
+    }
+}
+
+/** Alias cho ViewWarehouseList và các nơi dùng tên getWarehouses */
+export const getWarehouses = getWarehouseList;

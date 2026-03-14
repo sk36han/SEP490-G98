@@ -1,8 +1,12 @@
 import axios from 'axios';
 
-// Create axios instance with default config
+// Backend API base URL: dùng biến môi trường để tránh 404 khi backend chạy port/URL khác
+const apiBaseURL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL
+    ? import.meta.env.VITE_API_BASE_URL
+    : 'http://localhost:5141/api';
+
 const apiClient = axios.create({
-    baseURL: 'http://localhost:5141/api', // Backend API base URL
+    baseURL: apiBaseURL,
     headers: {
         'Content-Type': 'application/json',
     },

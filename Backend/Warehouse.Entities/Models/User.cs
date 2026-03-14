@@ -25,6 +25,10 @@ public partial class User
 
     public string PasswordHash { get; set; } = null!;
 
+    public string? Gender { get; set; }
+
+    public DateOnly? Dob { get; set; }
+
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 
     public virtual ICollection<DocumentApproval> DocumentApprovals { get; set; } = new List<DocumentApproval>();
@@ -43,7 +47,13 @@ public partial class User
 
     public virtual ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
 
-    public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
+    public virtual ICollection<PurchaseOrder> PurchaseOrderRequestedByNavigations { get; set; } = new List<PurchaseOrder>();
+
+    public virtual ICollection<PurchaseOrder> PurchaseOrderResponsibleUsers { get; set; } = new List<PurchaseOrder>();
+
+    public virtual ICollection<PurchaseReturnNote> PurchaseReturnNoteApprovedByNavigations { get; set; } = new List<PurchaseReturnNote>();
+
+    public virtual ICollection<PurchaseReturnNote> PurchaseReturnNoteCreatedByNavigations { get; set; } = new List<PurchaseReturnNote>();
 
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 

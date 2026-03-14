@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -11,9 +13,11 @@ namespace Warehouse.DataAcces.Service
     public class WarehouseService : GenericRepository<WarehouseEntity>, IWarehouseService
     {
 		private readonly IConfiguration _configuration;
-		public WarehouseService(Mkiwms4Context context, IConfiguration configuration) : base(context)
+		private readonly IAuditLogService _auditLogService;
+		public WarehouseService(Mkiwms5Context context, IConfiguration configuration, IAuditLogService auditLogService) : base(context)
 		{
 			_configuration = configuration;
+			_auditLogService = auditLogService;
 		}
 
 
@@ -40,7 +44,7 @@ namespace Warehouse.DataAcces.Service
             return new PagedResult<WarehouseResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
         }
 
-        public async Task<WarehouseResponse> CreateWarehouseAsync(CreateWarehouseRequest request)
+        public async Task<WarehouseResponse> CreateWarehouseAsync(CreateWarehouseRequest request, long currentUserId)
         {
             var exists = await _context.Warehouses
                 .AnyAsync(w => w.WarehouseCode == request.WarehouseCode);
@@ -58,6 +62,15 @@ namespace Warehouse.DataAcces.Service
 
             await CreateAsync(entity);
 
+            // Ghi audit log
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Create,
+                AuditEntity.Warehouse,
+                entity.WarehouseId,
+                $"Tạo kho '{entity.WarehouseName}' (Mã: {entity.WarehouseCode})"
+            );
+
             return new WarehouseResponse
             {
                 WarehouseId = entity.WarehouseId,
@@ -69,16 +82,41 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<WarehouseResponse> UpdateWarehouseAsync(long id, UpdateWarehouseRequest request)
+        public async Task<WarehouseResponse> UpdateWarehouseAsync(long id, UpdateWarehouseRequest request, long currentUserId)
         {
             var entity = await _context.Warehouses.FindAsync(id);
             if (entity == null)
                 throw new KeyNotFoundException("Không tìm thấy kho.");
 
+            // Lưu giá trị cũ
+            var oldValues = JsonSerializer.Serialize(new
+            {
+                entity.WarehouseName,
+                entity.Address,
+                entity.IsActive
+            });
+
             entity.WarehouseName = request.WarehouseName;
             entity.Address = request.Address;
             entity.IsActive = request.IsActive;
             await _context.SaveChangesAsync();
+
+            // Ghi audit log
+            var newValues = JsonSerializer.Serialize(new
+            {
+                entity.WarehouseName,
+                entity.Address,
+                entity.IsActive
+            });
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.Warehouse,
+                entity.WarehouseId,
+                $"Cập nhật kho '{entity.WarehouseName}' (Mã: {entity.WarehouseCode})",
+                oldValues,
+                newValues
+            );
 
             return new WarehouseResponse
             {
@@ -109,6 +147,20 @@ namespace Warehouse.DataAcces.Service
                 IsActive = entity.IsActive,
                 CreatedAt = entity.CreatedAt
             };
+        }
+        public async Task<List<WarehouseDropdownItem>> GetWarehouseDropdownAsync()
+        {
+            return await _context.Warehouses
+                .AsNoTracking()
+                .Where(w => w.IsActive)
+                .OrderBy(w => w.WarehouseName)
+                .Select(w => new WarehouseDropdownItem
+                {
+                    WarehouseId   = w.WarehouseId,
+                    WarehouseName = w.WarehouseName,
+                    WarehouseCode = w.WarehouseCode
+                })
+                .ToListAsync();
         }
     }
 }

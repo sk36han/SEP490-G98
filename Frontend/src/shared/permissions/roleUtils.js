@@ -8,17 +8,26 @@ export const VALID_PERMISSION_ROLES = ['ADMIN', 'DIRECTOR', 'WAREHOUSE_KEEPER', 
  */
 export const getRawRoleFromUser = (userInfo) => {
     if (!userInfo) return '';
-    return (
-        (userInfo.roleId != null ? String(userInfo.roleId) : '') ||
-        (userInfo.RoleId != null ? String(userInfo.RoleId) : '') ||
+
+    // Ưu tiên chuỗi roleCode/roleName/role (KT, SP, ADMIN, ...).
+    const textRole =
         userInfo.roleCode ||
-        userInfo.roleName ||
-        userInfo.role ||
         userInfo.RoleCode ||
+        userInfo.roleName ||
         userInfo.RoleName ||
+        userInfo.role ||
         userInfo.Role ||
-        ''
-    );
+        '';
+
+    if (String(textRole).trim() !== '') {
+        return String(textRole).trim();
+    }
+
+    // Fallback: dùng roleId dạng số nếu không có chuỗi.
+    if (userInfo.roleId != null) return String(userInfo.roleId);
+    if (userInfo.RoleId != null) return String(userInfo.RoleId);
+
+    return '';
 };
 
 /**
@@ -60,7 +69,7 @@ export const getPermissionRole = (originalRole) => {
     const upper = str.toUpperCase();
 
     // ADMIN: RoleCode thường là "ADMIN" hoặc "Admin"
-    if (upper === 'ADMIN' || upper.includes('ADMIN')) return 'ADMIN';
+    if (upper === 'ADMIN') return 'ADMIN';
 
     // DIRECTOR: "DIRECTOR", "Giám đốc", "GD"
     if (upper === 'GD') return 'DIRECTOR';

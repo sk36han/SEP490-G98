@@ -1,26 +1,33 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Warehouse.Entities.ModelRequest
 {
     public class CreatePurchaseOrderRequest
     {
-        [Required(ErrorMessage = "Mã đơn hàng (Pocode) là bắt buộc.")]
-        [MaxLength(50)]
-        public string Pocode { get; set; } = null!;
+        [Required]
+        public long SupplierId { get; set; }
 
-        public long? SupplierId { get; set; }
+        [Required]
+        public long WarehouseId { get; set; }
 
-        public DateOnly? RequestedDate { get; set; }
+        public long? ResponsibleUserId { get; set; }
 
+        public DateOnly? ExpectedDeliveryDate { get; set; }
+
+        [MaxLength(1000)]
         public string? Justification { get; set; }
 
-        [Required(ErrorMessage = "Trạng thái là bắt buộc.")]
-        public string Status { get; set; } = "DRAFT";
+        [Range(0, double.MaxValue)]
+        public decimal? DiscountAmount { get; set; }
 
-        public int CurrentStageNo { get; set; } = 1;
+        // Status: DRAFT, PENDING_DIR, v.v. Nếu null sẽ dùng mặc định từ DB
+        [MaxLength(30)]
+        public string? Status { get; set; }
 
-        [MinLength(1, ErrorMessage = "Đơn hàng phải có ít nhất một mặt hàng.")]
-        public List<CreatePurchaseOrderLineRequest> OrderLines { get; set; } = new();
+        [Required]
+        [MinLength(1)]
+        public List<CreatePurchaseOrderLineRequest> Lines { get; set; } = new();
     }
 
     public class CreatePurchaseOrderLineRequest
@@ -28,12 +35,13 @@ namespace Warehouse.Entities.ModelRequest
         [Required]
         public long ItemId { get; set; }
 
-        [Range(0.01, double.MaxValue, ErrorMessage = "Số lượng phải lớn hơn 0.")]
+        [Range(typeof(decimal), "0.001", "999999999999999999")]
         public decimal OrderedQty { get; set; }
 
-        [Required]
-        public long UomId { get; set; }
+        [Range(typeof(decimal), "0", "999999999999999999")]
+        public decimal UnitPrice { get; set; }
 
+        [MaxLength(500)]
         public string? Note { get; set; }
     }
 }

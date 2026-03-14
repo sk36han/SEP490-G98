@@ -21,6 +21,7 @@ namespace Warehouse.Api
 
             // Add services to the container.
             builder.Services.AddControllers();
+            builder.Services.AddMemoryCache();
             
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
@@ -55,7 +56,7 @@ namespace Warehouse.Api
             });
 
             // Database context
-            builder.Services.AddDbContext<Mkiwms4Context>(options =>
+            builder.Services.AddDbContext<Mkiwms5Context>(options =>
             {
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
             });
@@ -67,7 +68,7 @@ namespace Warehouse.Api
             });
 
             // Repositories
-            builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+            builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));            
 
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -80,11 +81,24 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IRoleService, RoleService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
+
+            builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<IItemService, ItemService>();
+            builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+            builder.Services.AddScoped<IBrandService, BrandService>();
+            builder.Services.AddScoped<ICategoryService, CategoryService>();
+            builder.Services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
+            builder.Services.AddScoped<IItemParameterService, ItemParameterService>();
+            builder.Services.AddScoped<IItemParameterValueService, ItemParameterValueService>();
+            builder.Services.AddScoped<IPackagingSpecService, PackagingSpecService>();
+            builder.Services.AddScoped<IApprovalService, ApprovalService>();
+            builder.Services.AddScoped<IGoodsReceiptNoteService, GoodsReceiptNoteService>();
 
+            builder.Services.AddScoped<IStocktakeService, StocktakeService>();
 
-            // JWT Authentication
-            var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+			// JWT Authentication
+			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 
 			var secretKey = jwtSettings["SecretKey"];
 

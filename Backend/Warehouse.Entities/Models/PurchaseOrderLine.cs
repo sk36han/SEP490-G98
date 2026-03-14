@@ -17,6 +17,18 @@ public partial class PurchaseOrderLine
 
     public string? Note { get; set; }
 
+    public decimal ReceivedQty { get; set; }
+
+    public string LineStatus { get; set; } = null!;
+
+    public decimal? UnitPrice { get; set; }
+
+    public string? Currency { get; set; }
+
+    public decimal? LineTotal { get; set; }
+
+    public virtual ICollection<GoodsReceiptNoteLine> GoodsReceiptNoteLines { get; set; } = new List<GoodsReceiptNoteLine>();
+
     public virtual Item Item { get; set; } = null!;
 
     public virtual PurchaseOrder PurchaseOrder { get; set; } = null!;

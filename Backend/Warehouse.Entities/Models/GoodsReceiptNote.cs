@@ -29,11 +29,23 @@ public partial class GoodsReceiptNote
 
     public string? Note { get; set; }
 
+    public decimal ShippingFee { get; set; }
+
+    public bool IsPaid { get; set; }
+
+    public string? PaymentMethod { get; set; }
+
+    public decimal TotalReceivedQty { get; set; }
+
+    public decimal TotalGoodsAmount { get; set; }
+
     public virtual User CreatedByNavigation { get; set; } = null!;
 
     public virtual ICollection<GoodsReceiptNoteLine> GoodsReceiptNoteLines { get; set; } = new List<GoodsReceiptNoteLine>();
 
     public virtual PurchaseOrder? PurchaseOrder { get; set; }
+
+    public virtual ICollection<PurchaseReturnNote> PurchaseReturnNotes { get; set; } = new List<PurchaseReturnNote>();
 
     public virtual Supplier Supplier { get; set; } = null!;
 

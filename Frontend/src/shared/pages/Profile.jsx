@@ -8,20 +8,15 @@ import {
     TextField,
     Grid,
     Avatar,
-    IconButton,
     Fade,
     LinearProgress,
-    Tooltip,
     Paper,
     Stack,
-    Divider,
-    FormControl,
-    InputLabel,
-    Select,
+    Chip,
     MenuItem,
-    InputAdornment,
+    IconButton,
 } from '@mui/material';
-import { ArrowLeft, User, Key, Save, Pencil, Mars, Venus, Camera, Calendar } from 'lucide-react';
+import { ArrowLeft, User, Key, Save, Pencil, X, Mars, Venus } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import ChangePasswordDialog from '../../components/profile/ChangePasswordDialog';
 import authService from '../lib/authService';
@@ -46,21 +41,24 @@ const Profile = () => {
         username: '',
     });
 
+    const [originalData, setOriginalData] = useState({});
+
     useEffect(() => {
         const fetchProfile = async () => {
             setLoading(true);
             try {
                 const data = await authService.getProfile();
-                setFormData({
+                const profileData = {
                     fullName: data.fullName || '',
                     email: data.email || '',
                     phone: data.phone || '',
-                    role:
-                        data.roleName || ROLE_OPTIONS[data.roleId] || 'N/A',
+                    role: data.roleName || ROLE_OPTIONS[data.roleId] || 'N/A',
                     dob: data.dob ? data.dob.split('T')[0] : '',
                     gender: data.gender || '',
                     username: data.username || '',
-                });
+                };
+                setFormData(profileData);
+                setOriginalData(profileData);
             } catch (error) {
                 showToast(error.message, 'error');
             } finally {
@@ -76,7 +74,12 @@ const Profile = () => {
     };
 
     const handleEditToggle = () => {
-        setIsEditing((prev) => !prev);
+        setIsEditing(true);
+    };
+
+    const handleCancel = () => {
+        setFormData(originalData);
+        setIsEditing(false);
     };
 
     const handleSaveProfile = async () => {
@@ -88,8 +91,18 @@ const Profile = () => {
 
         setLoading(true);
         try {
-            await authService.updateProfile(formData.phone);
+            const dobStr = formData.dob
+                ? (typeof formData.dob === 'string' && formData.dob.length >= 10 
+                    ? formData.dob.substring(0, 10) 
+                    : new Date(formData.dob).toISOString().slice(0, 10))
+                : undefined;
+            await authService.updateProfile({
+                phone: formData.phone,
+                gender: formData.gender || undefined,
+                dob: dobStr,
+            });
             showToast('Cập nhật thông tin thành công!', 'success');
+            setOriginalData(formData);
             setIsEditing(false);
         } catch (error) {
             showToast(error.message, 'error');
@@ -108,24 +121,46 @@ const Profile = () => {
         String(formData.gender).toLowerCase() === 'f'
     );
 
+    const getGenderDisplay = (gender) => {
+        if (gender === 'male') return 'Nam';
+        if (gender === 'female') return 'Nữ';
+        if (gender === 'other') return 'Khác';
+        return gender || '—';
+    };
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '—';
+        return new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
+    };
+
     return (
-        <Box sx={{ minHeight: '100%', bgcolor: 'grey.50', py: 3 }}>
+        <Box sx={{ minHeight: '100vh', bgcolor: '#fafbfc' }}>
             <Fade in={true} timeout={400}>
-                <Container maxWidth="lg" sx={{ py: 4 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <Container 
+                    maxWidth={false} 
+                    sx={{ 
+                        maxWidth: '1150px',
+                        py: 4,
+                        px: { xs: 2, sm: 3, md: 4 }
+                    }}
+                >
+                    {/* Back Button */}
+                    <Box sx={{ mb: 3 }}>
                         <Button
-                            startIcon={<ArrowLeft size={22} />}
+                            startIcon={<ArrowLeft size={18} />}
                             onClick={handleBack}
                             sx={{
-                                mr: 2,
-                                color: 'primary.main',
-                                fontWeight: 700,
-                                fontSize: '1rem',
+                                color: 'text.secondary',
+                                fontWeight: 500,
+                                fontSize: '14px',
                                 textTransform: 'none',
+                                px: 1,
                                 '&:hover': {
-                                    bgcolor: 'rgba(25, 118, 210, 0.08)',
-                                    transform: 'translateX(-4px)',
-                                    transition: 'all 0.2s',
+                                    bgcolor: 'rgba(0, 0, 0, 0.04)',
                                 },
                             }}
                         >
@@ -133,296 +168,548 @@ const Profile = () => {
                         </Button>
                     </Box>
 
-                    {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
+                    {loading && <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />}
 
+                    {/* Header with Avatar, Name, Email, Role */}
                     <Paper
-                            elevation={0}
-                            sx={{
-                                p: 3,
-                                borderRadius: 3,
-                                bgcolor: 'background.paper',
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                boxShadow: 1,
-                            }}
-                        >
-                            <Stack
-                                direction={{ xs: 'column', sm: 'row' }}
-                                justifyContent="space-between"
-                                alignItems={{ xs: 'stretch', sm: 'center' }}
-                                spacing={2}
-                                sx={{ mb: 0 }}
-                            >
-                                <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0 }}>
-                                    <Box sx={{ position: 'relative', flexShrink: 0 }}>
-                                        <Avatar
-                                            sx={{
-                                                width: 80,
-                                                height: 80,
-                                                borderRadius: '50%',
-                                                bgcolor: isFemale ? 'secondary.main' : 'primary.main',
-                                                boxShadow: 1,
-                                            }}
-                                        >
-                                            {formData.fullName ? (
-                                                formData.fullName.charAt(0)
-                                            ) : isFemale ? (
-                                                <Venus size={40} color="white" />
-                                            ) : formData.gender ? (
-                                                <Mars size={40} color="white" />
-                                            ) : (
-                                                <User size={40} color="white" />
-                                            )}
-                                        </Avatar>
-                                        <IconButton
-                                            sx={{
-                                                position: 'absolute',
-                                                bottom: 0,
-                                                right: 0,
-                                                bgcolor: 'background.paper',
-                                                boxShadow: 2,
-                                                '&:hover': { bgcolor: 'grey.100' },
-                                            }}
-                                            size="small"
-                                        >
-                                            <Camera size={18} color="#1976d2" />
-                                        </IconButton>
-                                    </Box>
-                                    <Box sx={{ minWidth: 0 }}>
-                                        <Typography variant="h6" fontWeight="bold" sx={{ lineHeight: 1.3 }}>
-                                            {formData.fullName || '—'}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                            {formData.email || '—'}
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-                                    {isEditing ? (
-                                        <>
-                                            <Button
-                                                variant="contained"
-                                                size="medium"
-                                                startIcon={<Save size={18} />}
-                                                onClick={handleSaveProfile}
-                                                disabled={loading}
-                                                sx={{
-                                                    borderRadius: 2,
-                                                    textTransform: 'none',
-                                                    fontWeight: 600,
-                                                    px: 2,
-                                                }}
-                                            >
-                                                Lưu
-                                            </Button>
-                                            <Button
-                                                variant="outlined"
-                                                size="medium"
-                                                onClick={handleEditToggle}
-                                                disabled={loading}
-                                                sx={{
-                                                    borderRadius: 2,
-                                                    textTransform: 'none',
-                                                    fontWeight: 600,
-                                                    px: 2,
-                                                }}
-                                            >
-                                                Hủy
-                                            </Button>
-                                        </>
+                        elevation={0}
+                        sx={{
+                            p: 3,
+                            mb: 3,
+                            borderRadius: '14px',
+                            bgcolor: 'background.paper',
+                            border: '1px solid',
+                            borderColor: 'rgba(0, 0, 0, 0.06)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                        }}
+                    >
+                        <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 2
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+                                <Avatar
+                                    sx={{
+                                        width: 68,
+                                        height: 68,
+                                        bgcolor: isFemale ? 'secondary.main' : 'primary.main',
+                                        fontSize: '1.5rem',
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    {formData.fullName ? (
+                                        formData.fullName.charAt(0).toUpperCase()
+                                    ) : isFemale ? (
+                                        <Venus size={32} />
+                                    ) : formData.gender ? (
+                                        <Mars size={32} />
                                     ) : (
+                                        <User size={32} />
+                                    )}
+                                </Avatar>
+
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography 
+                                        variant="h6" 
+                                        sx={{ 
+                                            fontWeight: 600,
+                                            fontSize: '20px',
+                                            mb: 0.25,
+                                            color: 'text.primary'
+                                        }}
+                                    >
+                                        {formData.fullName || 'Người dùng'}
+                                    </Typography>
+                                    <Typography 
+                                        variant="body2" 
+                                        sx={{ 
+                                            color: 'text.secondary',
+                                            fontSize: '13px',
+                                            mb: 0.75
+                                        }}
+                                    >
+                                        {formData.email || '—'}
+                                    </Typography>
+                                    {formData.role && (
+                                        <Chip
+                                            label={formData.role}
+                                            size="small"
+                                            sx={{
+                                                height: '24px',
+                                                fontSize: '12px',
+                                                fontWeight: 500,
+                                                borderRadius: '999px',
+                                                bgcolor: 'rgba(25, 118, 210, 0.08)',
+                                                color: 'primary.main',
+                                                border: '1px solid rgba(25, 118, 210, 0.12)',
+                                                '& .MuiChip-label': {
+                                                    px: 1.5,
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+                            </Box>
+
+                            {/* Action Buttons */}
+                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                                {isEditing ? (
+                                    <>
+                                        <Button
+                                            size="small"
+                                            onClick={handleCancel}
+                                            disabled={loading}
+                                            sx={{
+                                                textTransform: 'none',
+                                                fontWeight: 500,
+                                                fontSize: '13px',
+                                                color: 'text.secondary',
+                                                px: 2,
+                                                '&:hover': {
+                                                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                                                },
+                                            }}
+                                        >
+                                            Hủy
+                                        </Button>
                                         <Button
                                             variant="contained"
-                                            size="medium"
-                                            startIcon={<Pencil size={18} />}
+                                            size="small"
+                                            startIcon={<Save size={16} />}
+                                            onClick={handleSaveProfile}
+                                            disabled={loading}
+                                            sx={{
+                                                textTransform: 'none',
+                                                fontWeight: 500,
+                                                fontSize: '13px',
+                                                px: 2.5,
+                                                py: 0.75,
+                                                borderRadius: '8px',
+                                                boxShadow: 'none',
+                                                '&:hover': {
+                                                    boxShadow: '0 2px 8px rgba(25, 118, 210, 0.24)',
+                                                },
+                                            }}
+                                        >
+                                            Lưu thay đổi
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button
+                                            size="small"
+                                            startIcon={<Key size={16} />}
+                                            onClick={() => setOpenPasswordDialog(true)}
+                                            sx={{
+                                                textTransform: 'none',
+                                                fontWeight: 500,
+                                                fontSize: '13px',
+                                                color: 'text.secondary',
+                                                px: 2,
+                                                '&:hover': {
+                                                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                                                },
+                                            }}
+                                        >
+                                            Đổi mật khẩu
+                                        </Button>
+                                        <Button
+                                            variant="contained"
+                                            size="small"
+                                            startIcon={<Pencil size={16} />}
                                             onClick={handleEditToggle}
                                             sx={{
-                                                borderRadius: 2,
                                                 textTransform: 'none',
-                                                fontWeight: 600,
-                                                px: 2,
+                                                fontWeight: 500,
+                                                fontSize: '13px',
+                                                px: 2.5,
+                                                py: 0.75,
+                                                borderRadius: '8px',
+                                                boxShadow: 'none',
+                                                '&:hover': {
+                                                    boxShadow: '0 2px 8px rgba(25, 118, 210, 0.24)',
+                                                },
                                             }}
                                         >
                                             Chỉnh sửa
                                         </Button>
-                                    )}
-                                    <Tooltip title="Đổi mật khẩu">
-                                        <IconButton
-                                            onClick={() => setOpenPasswordDialog(true)}
-                                            color="default"
-                                            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
-                                        >
-                                            <Key size={20} />
-                                        </IconButton>
-                                    </Tooltip>
-                                </Stack>
-                            </Stack>
+                                    </>
+                                )}
+                            </Box>
+                        </Box>
+                    </Paper>
 
-                            <Divider sx={{ my: 3 }} />
+                    {/* Main Content Grid */}
+                    <Box sx={{ 
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', lg: 'repeat(12, 1fr)' },
+                        gap: 3
+                    }}>
+                        {/* Left Column - Profile Summary Card */}
+                        <Box sx={{ gridColumn: { xs: 'span 1', lg: 'span 4' } }}>
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 3,
+                                    borderRadius: '14px',
+                                    bgcolor: 'background.paper',
+                                    border: '1px solid',
+                                    borderColor: 'rgba(0, 0, 0, 0.06)',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                                }}
+                            >
+                                <Typography 
+                                    variant="subtitle2" 
+                                    sx={{ 
+                                        fontWeight: 600,
+                                        fontSize: '15px',
+                                        mb: 2,
+                                        color: 'text.primary'
+                                    }}
+                                >
+                                    Thông tin tài khoản
+                                </Typography>
 
-                            <Box sx={{ maxWidth: 640 }}>
-                                <Grid container spacing={3}>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Họ và tên"
-                                        name="fullName"
-                                        value={formData.fullName || ''}
-                                        InputProps={{
-                                            readOnly: true,
-                                            sx: {
-                                                borderRadius: 2,
-                                                bgcolor: '#f6f7f9',
-                                                '& input': { py: 1.25 },
-                                            },
-                                        }}
-                                        helperText="Chỉ Admin mới có quyền thay đổi"
-                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Vai trò"
-                                        name="role"
-                                        value={formData.role || ''}
-                                        InputProps={{
-                                            readOnly: true,
-                                            sx: {
-                                                borderRadius: 2,
-                                                bgcolor: '#f6f7f9',
-                                                '& input': { py: 1.25 },
-                                            },
-                                        }}
-                                        helperText="Chỉ Admin mới có quyền thay đổi"
-                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Email"
-                                        name="email"
-                                        value={formData.email || ''}
-                                        InputProps={{
-                                            readOnly: true,
-                                            sx: {
-                                                borderRadius: 2,
-                                                bgcolor: '#f6f7f9',
-                                                '& input': { py: 1.25 },
-                                            },
-                                        }}
-                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Số điện thoại"
-                                        name="phone"
-                                        value={formData.phone || ''}
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, phone: e.target.value })
-                                        }
-                                        InputProps={{
-                                            readOnly: !isEditing,
-                                            sx: {
-                                                borderRadius: 2,
-                                                bgcolor: isEditing ? 'background.paper' : '#f6f7f9',
-                                                '& input': { py: 1.25 },
-                                            },
-                                        }}
-                                        sx={{ '& .MuiFormHelperText-root': { mx: 0 } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Ngày sinh"
-                                        name="dob"
-                                        type={isEditing ? 'date' : 'text'}
-                                        value={
-                                            isEditing
-                                                ? (formData.dob || '')
-                                                : (formData.dob
-                                                    ? new Date(formData.dob + 'T00:00:00').toLocaleDateString('vi-VN', {
-                                                        day: '2-digit',
-                                                        month: '2-digit',
-                                                        year: 'numeric',
-                                                    })
-                                                    : '')
-                                        }
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, dob: e.target.value })
-                                        }
-                                        InputProps={{
-                                            readOnly: !isEditing,
-                                            startAdornment: !isEditing && formData.dob ? (
-                                                <InputAdornment position="start" sx={{ mr: 1 }}>
-                                                    <Calendar size={18} style={{ color: 'var(--mui-palette-text-secondary)' }} />
-                                                </InputAdornment>
-                                            ) : null,
-                                            sx: {
-                                                borderRadius: 2,
-                                                bgcolor: isEditing ? 'background.paper' : '#f6f7f9',
-                                                '& input': { py: 1.25 },
-                                                '& fieldset': { borderRadius: 2 },
-                                            },
-                                        }}
-                                        InputLabelProps={{ shrink: true }}
-                                        sx={{ width: '100%', minWidth: 0, '& .MuiFormHelperText-root': { mx: 0 } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
-                                    <FormControl
-                                        fullWidth
-                                        size="small"
-                                        disabled={!isEditing}
-                                        variant="outlined"
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: 0,
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 2,
-                                                bgcolor: isEditing ? 'background.paper' : '#f6f7f9',
-                                                '& fieldset': { borderRadius: 2, borderColor: 'divider' },
-                                                '&:hover fieldset': { borderColor: isEditing ? 'primary.light' : undefined },
-                                                '&.Mui-focused fieldset': { borderWidth: 2 },
-                                            },
-                                            '& .MuiSelect-select': { width: '100%', minWidth: 0 },
-                                        }}
-                                    >
-                                        <InputLabel id="profile-gender-label" shrink>
-                                            Giới tính
-                                        </InputLabel>
-                                        <Select
-                                            labelId="profile-gender-label"
-                                            label="Giới tính"
-                                            value={formData.gender || ''}
-                                            displayEmpty
-                                            onChange={(e) =>
-                                                setFormData({ ...formData, gender: e.target.value })
-                                            }
-                                            renderValue={(v) => {
-                                                if (!v) return ' ';
-                                                const map = { male: 'Nam', female: 'Nữ', other: 'Khác' };
-                                                return map[v] || v;
+                                <Stack spacing={2}>
+                                    <Box>
+                                        <Typography 
+                                            variant="caption" 
+                                            sx={{ 
+                                                color: 'text.secondary',
+                                                fontSize: '12px',
+                                                fontWeight: 500,
+                                                mb: 0.5,
+                                                display: 'block',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px'
                                             }}
                                         >
-                                            <MenuItem value="male">Nam</MenuItem>
-                                            <MenuItem value="female">Nữ</MenuItem>
-                                            <MenuItem value="other">Khác</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                </Grid>
-                            </Box>
-                        </Paper>
+                                            Tên đăng nhập
+                                        </Typography>
+                                        <Typography 
+                                            variant="body2" 
+                                            sx={{ 
+                                                color: 'text.primary',
+                                                fontSize: '14px'
+                                            }}
+                                        >
+                                            {formData.username || '—'}
+                                        </Typography>
+                                    </Box>
+
+                                    <Box>
+                                        <Typography 
+                                            variant="caption" 
+                                            sx={{ 
+                                                color: 'text.secondary',
+                                                fontSize: '12px',
+                                                fontWeight: 500,
+                                                mb: 0.5,
+                                                display: 'block',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px'
+                                            }}
+                                        >
+                                            Email
+                                        </Typography>
+                                        <Typography 
+                                            variant="body2" 
+                                            sx={{ 
+                                                color: 'text.primary',
+                                                fontSize: '14px',
+                                                wordBreak: 'break-word'
+                                            }}
+                                        >
+                                            {formData.email || '—'}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            </Paper>
+                        </Box>
+
+                        {/* Right Column - Personal Information Form */}
+                        <Box sx={{ gridColumn: { xs: 'span 1', lg: 'span 8' } }}>
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 3,
+                                    borderRadius: '14px',
+                                    bgcolor: 'background.paper',
+                                    border: '1px solid',
+                                    borderColor: 'rgba(0, 0, 0, 0.06)',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                }}
+                            >
+                                <Box sx={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                    <Typography 
+                                        variant="subtitle2" 
+                                        sx={{ 
+                                            fontWeight: 600,
+                                            fontSize: '15px',
+                                            mb: 3,
+                                            color: 'text.primary'
+                                        }}
+                                    >
+                                        Thông tin cá nhân
+                                    </Typography>
+
+                                    <Stack spacing={3}>
+                                        {/* Họ và tên */}
+                                        <Box>
+                                            <Typography 
+                                                variant="caption" 
+                                                sx={{ 
+                                                    color: 'text.secondary',
+                                                    fontSize: '12px',
+                                                    fontWeight: 500,
+                                                    mb: 1,
+                                                    display: 'block'
+                                                }}
+                                            >
+                                                Họ và tên
+                                            </Typography>
+                                            {isEditing ? (
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    value={formData.fullName || ''}
+                                                    disabled
+                                                    placeholder="Chưa cập nhật"
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            height: '40px',
+                                                            borderRadius: '8px',
+                                                            bgcolor: '#f6f7f9',
+                                                            fontSize: '14px',
+                                                            '& fieldset': {
+                                                                borderColor: 'rgba(0, 0, 0, 0.06)',
+                                                            },
+                                                        },
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Box sx={{ 
+                                                    pb: 1, 
+                                                    borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
+                                                }}>
+                                                    <Typography 
+                                                        variant="body2" 
+                                                        sx={{ 
+                                                            color: 'text.primary',
+                                                            fontSize: '14px'
+                                                        }}
+                                                    >
+                                                        {formData.fullName || '—'}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                            {isEditing && (
+                                                <Typography 
+                                                    variant="caption" 
+                                                    sx={{ 
+                                                        color: 'text.secondary',
+                                                        fontSize: '11px',
+                                                        mt: 0.5,
+                                                        display: 'block'
+                                                    }}
+                                                >
+                                                    Chỉ Admin có thể thay đổi
+                                                </Typography>
+                                            )}
+                                        </Box>
+
+                                        {/* Số điện thoại */}
+                                        <Box>
+                                            <Typography 
+                                                variant="caption" 
+                                                sx={{ 
+                                                    color: 'text.secondary',
+                                                    fontSize: '12px',
+                                                    fontWeight: 500,
+                                                    mb: 1,
+                                                    display: 'block'
+                                                }}
+                                            >
+                                                Số điện thoại
+                                            </Typography>
+                                            {isEditing ? (
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    value={formData.phone || ''}
+                                                    onChange={(e) =>
+                                                        setFormData({ ...formData, phone: e.target.value })
+                                                    }
+                                                    placeholder="Nhập số điện thoại"
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            height: '40px',
+                                                            borderRadius: '8px',
+                                                            fontSize: '14px',
+                                                            '& fieldset': {
+                                                                borderColor: 'rgba(0, 0, 0, 0.1)',
+                                                            },
+                                                            '&:hover fieldset': {
+                                                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                                                            },
+                                                            '&.Mui-focused fieldset': {
+                                                                borderColor: 'primary.main',
+                                                                borderWidth: '1px',
+                                                            },
+                                                        },
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Box sx={{ 
+                                                    pb: 1, 
+                                                    borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
+                                                }}>
+                                                    <Typography 
+                                                        variant="body2" 
+                                                        sx={{ 
+                                                            color: 'text.primary',
+                                                            fontSize: '14px'
+                                                        }}
+                                                    >
+                                                        {formData.phone || '—'}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                        </Box>
+
+                                        {/* Ngày sinh */}
+                                        <Box>
+                                            <Typography 
+                                                variant="caption" 
+                                                sx={{ 
+                                                    color: 'text.secondary',
+                                                    fontSize: '12px',
+                                                    fontWeight: 500,
+                                                    mb: 1,
+                                                    display: 'block'
+                                                }}
+                                            >
+                                                Ngày sinh
+                                            </Typography>
+                                            {isEditing ? (
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    type="date"
+                                                    value={formData.dob || ''}
+                                                    onChange={(e) =>
+                                                        setFormData({ ...formData, dob: e.target.value })
+                                                    }
+                                                    InputLabelProps={{ shrink: true }}
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            height: '40px',
+                                                            borderRadius: '8px',
+                                                            fontSize: '14px',
+                                                            '& fieldset': {
+                                                                borderColor: 'rgba(0, 0, 0, 0.1)',
+                                                            },
+                                                            '&:hover fieldset': {
+                                                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                                                            },
+                                                            '&.Mui-focused fieldset': {
+                                                                borderColor: 'primary.main',
+                                                                borderWidth: '1px',
+                                                            },
+                                                        },
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Box sx={{ 
+                                                    pb: 1, 
+                                                    borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
+                                                }}>
+                                                    <Typography 
+                                                        variant="body2" 
+                                                        sx={{ 
+                                                            color: 'text.primary',
+                                                            fontSize: '14px'
+                                                        }}
+                                                    >
+                                                        {formatDate(formData.dob)}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                        </Box>
+
+                                        {/* Giới tính */}
+                                        <Box>
+                                            <Typography 
+                                                variant="caption" 
+                                                sx={{ 
+                                                    color: 'text.secondary',
+                                                    fontSize: '12px',
+                                                    fontWeight: 500,
+                                                    mb: 1,
+                                                    display: 'block'
+                                                }}
+                                            >
+                                                Giới tính
+                                            </Typography>
+                                            {isEditing ? (
+                                                <TextField
+                                                    select
+                                                    fullWidth
+                                                    size="small"
+                                                    value={formData.gender || ''}
+                                                    onChange={(e) =>
+                                                        setFormData({ ...formData, gender: e.target.value })
+                                                    }
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            height: '40px',
+                                                            borderRadius: '8px',
+                                                            fontSize: '14px',
+                                                            '& fieldset': {
+                                                                borderColor: 'rgba(0, 0, 0, 0.1)',
+                                                            },
+                                                            '&:hover fieldset': {
+                                                                borderColor: 'rgba(0, 0, 0, 0.2)',
+                                                            },
+                                                            '&.Mui-focused fieldset': {
+                                                                borderColor: 'primary.main',
+                                                                borderWidth: '1px',
+                                                            },
+                                                        },
+                                                    }}
+                                                >
+                                                    <MenuItem value="male">Nam</MenuItem>
+                                                    <MenuItem value="female">Nữ</MenuItem>
+                                                    <MenuItem value="other">Khác</MenuItem>
+                                                </TextField>
+                                            ) : (
+                                                <Box sx={{ 
+                                                    pb: 1, 
+                                                    borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
+                                                }}>
+                                                    <Typography 
+                                                        variant="body2" 
+                                                        sx={{ 
+                                                            color: 'text.primary',
+                                                            fontSize: '14px'
+                                                        }}
+                                                    >
+                                                        {getGenderDisplay(formData.gender)}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                        </Box>
+                                    </Stack>
+                                </Box>
+                            </Paper>
+                        </Box>
+                    </Box>
 
                     <ChangePasswordDialog
                         open={openPasswordDialog}
