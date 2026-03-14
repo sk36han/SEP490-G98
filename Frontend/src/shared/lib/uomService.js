@@ -31,13 +31,9 @@ export async function getUomList(params = {}) {
     const response = await apiClient.get('/UnitOfMeasure', {
         params: { page, pageSize, keyword: keyword || undefined, isActive },
     });
-    // DEBUG: log response structure
-    console.log('[getUomList] Raw response:', JSON.stringify(response?.data, null, 2));
-    // Backend returns ApiResponse<PagedResult<UomResponse>> → body.data / body.Data = PagedResult
+    // Backend returns Ok(PagedResponse): ASP.NET Core mặc định trả về PagedResponse trực tiếp (không wrap thêm)
     const body = response?.data ?? {};
-    console.log('[getUomList] body:', JSON.stringify(body, null, 2));
     const paged = body.data ?? body.Data ?? body;
-    console.log('[getUomList] paged:', JSON.stringify(paged, null, 2));
     const rawList = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? []);
     const items = (Array.isArray(rawList) ? rawList : []).map(mapUomRow).filter(Boolean);
     return {

@@ -38,11 +38,11 @@ import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
 import CreateBrandDialog from "../components/CreateBrandDialog";
 import { createItem as createItemApi } from "../lib/itemService";
-import { getUomList } from "../lib/uomService";
-import { getPackagingSpecList } from "../lib/packagingSpecService";
+import { getUomList, createUom } from "../lib/uomService";
+import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecService";
 import { getCategoryList } from "../lib/categoryService";
-import { getBrandList } from "../lib/brandService";
-import { getItemParameterList } from "../lib/itemParameterService";
+import { getBrandList, createBrand } from "../lib/brandService";
+import { getItemParameterList, createItemParameter } from "../lib/itemParameterService";
 import { getWarehouseList } from "../lib/warehouseService";
 
 /** Tài khoản kho – InventoryAccount (mã TK kế toán hàng tồn) */
@@ -344,6 +344,8 @@ const CreateItem = () => {
     }
     setSubmitting(true);
     try {
+      const specId = form.specId !== "" && form.specId != null ? Number(form.specId) : null;
+      
       const payload = {
         itemCode: code,
         itemName: name,
@@ -353,6 +355,8 @@ const CreateItem = () => {
         brandId: form.brandId !== "" && form.brandId != null ? Number(form.brandId) : null,
         baseUomId,
         packagingSpecId: form.packagingSpecId !== "" && form.packagingSpecId != null ? Number(form.packagingSpecId) : null,
+        specId: specId,
+        hasSpecifications: Boolean(form.laThongSo),
         requiresCo: Boolean(form.requiresCO),
         requiresCq: Boolean(form.requiresCQ),
         isActive: Boolean(form.isActive),
@@ -1243,52 +1247,74 @@ const CreateItem = () => {
         <CreateUomDialog
           open={createUomOpen}
           onClose={() => setCreateUomOpen(false)}
-          onSubmit={(newUom) => {
-            setUomOptions((prev) => [
-              ...prev,
-              {
-                id: newUom.id,
-                code: newUom.code,
-                name: newUom.name,
-              },
-            ]);
-            setForm((prev) => ({ ...prev, baseUomId: newUom.id }));
-            setCreateUomOpen(false);
-            showToast("Tạo đơn vị tính thành công.", "success");
+          onSubmit={async (newUom) => {
+            try {
+              const created = await createUom({
+                uomCode: newUom.code,
+                uomName: newUom.name,
+              });
+              setUomOptions((prev) => [
+                ...prev,
+                {
+                  id: created.uomId ?? created.id,
+                  code: created.uomCode ?? created.code,
+                  name: created.uomName ?? created.name,
+                },
+              ]);
+              setForm((prev) => ({ ...prev, baseUomId: created.uomId ?? created.id }));
+              showToast("Tao don vi tinh thanh cong.", "success");
+            } catch (err) {
+              showToast(err.message || "Khong tao duoc don vi tinh", "error");
+            }
           }}
         />
 
         <CreatePackagingSpecDialog
           open={createPackOpen}
           onClose={() => setCreatePackOpen(false)}
-          onSubmit={(newItem) => {
-            setPackagingOptions((prev) => [
-              ...prev,
-              {
-                id: newItem.id,
-                name: newItem.specName ?? newItem.name,
-              },
-            ]);
-            setForm((prev) => ({ ...prev, packagingSpecId: newItem.id }));
-            setCreatePackOpen(false);
-            showToast("Tạo quy cách đóng gói thành công.", "success");
+          onSubmit={async (newItem) => {
+            try {
+              const created = await createPackagingSpec({
+                specName: newItem.specName ?? newItem.name,
+                description: newItem.description,
+              });
+              setPackagingOptions((prev) => [
+                ...prev,
+                {
+                  id: created.packagingSpecId ?? created.id,
+                  name: created.specName ?? created.name,
+                },
+              ]);
+              setForm((prev) => ({ ...prev, packagingSpecId: created.packagingSpecId ?? created.id }));
+              showToast("Tao quy cach dong goi thanh cong.", "success");
+            } catch (err) {
+              showToast(err.message || "Khong tao duoc quy cach", "error");
+            }
           }}
         />
 
         <CreateSpecDialog
           open={createSpecOpen}
           onClose={() => setCreateSpecOpen(false)}
-          onSubmit={(newItem) => {
-            setSpecOptions((prev) => [
-              ...prev,
-              {
-                specId: newItem.paramId,
-                specName: newItem.paramName,
-              },
-            ]);
-            setForm((prev) => ({ ...prev, specId: newItem.paramId }));
-            setCreateSpecOpen(false);
-            showToast("Tạo thông số sản phẩm thành công.", "success");
+          onSubmit={async (newItem) => {
+            try {
+              const created = await createItemParameter({
+                paramCode: newItem.specCode || newItem.paramCode,
+                paramName: newItem.paramName,
+              });
+              setSpecOptions((prev) => [
+                ...prev,
+                {
+                  specId: created.paramId ?? created.id,
+                  specCode: created.paramCode ?? created.code,
+                  specName: created.paramName ?? created.name,
+                },
+              ]);
+              setForm((prev) => ({ ...prev, specId: created.paramId ?? created.id }));
+              showToast("Tao thong so san pham thanh cong.", "success");
+            } catch (err) {
+              showToast(err.message || "Khong tao duoc thong so", "error");
+            }
           }}
         />
 

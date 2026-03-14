@@ -13,7 +13,7 @@ export function UomProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await getUomList({ pageSize: 1000 });
+      const result = await getUomList({ page: 1, pageSize: 100 });
       setUoms(result.items || []);
     } catch (err) {
       setError(err.message);

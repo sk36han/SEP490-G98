@@ -13,7 +13,7 @@ export function CategoryProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await getCategoryList({ pageSize: 1000 });
+      const result = await getCategoryList({ page: 1, pageSize: 100 });
       setCategories(result.items || []);
     } catch (err) {
       setError(err.message);

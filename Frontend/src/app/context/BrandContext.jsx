@@ -13,7 +13,7 @@ export function BrandProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await getBrandList({ pageSize: 1000 });
+      const result = await getBrandList({ page: 1, pageSize: 100 });
       setBrands(result.items || []);
     } catch (err) {
       setError(err.message);

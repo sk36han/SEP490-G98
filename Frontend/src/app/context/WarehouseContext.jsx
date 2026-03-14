@@ -13,7 +13,7 @@ export function WarehouseProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await getWarehouseList({ pageSize: 1000 });
+      const result = await getWarehouseList({ pageNumber: 1, pageSize: 100 });
       setWarehouses(result.items || []);
     } catch (err) {
       setError(err.message);
