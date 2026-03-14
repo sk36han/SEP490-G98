@@ -30,10 +30,10 @@ namespace Warehouse.Entities.ModelResponse
         public decimal AvailableQty { get; set; }
 
         // Thông số kỹ thuật
-        public List<ItemParameterResponse>? Parameters { get; set; }
+        public List<ItemParameterResponse1>? Parameters { get; set; }
     }
 
-    public class ItemParameterResponse
+    public class ItemParameterResponse1
     {
         public string ParamName { get; set; } = string.Empty;
         public string? ParamValue { get; set; }
