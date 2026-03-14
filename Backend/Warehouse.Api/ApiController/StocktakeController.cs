@@ -156,12 +156,16 @@ namespace Warehouse.Api.ApiController
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
+                // DEBUG: Trả về chi tiết lỗi từ Database/InnerException
+                var errorDetail = ex.InnerException != null 
+                                  ? $"{ex.Message} | INNER: {ex.InnerException.Message}" 
+                                  : ex.Message;
+                return StatusCode(500, new { message = "Lỗi hệ thống khi tạo Draft.", detail = errorDetail });
             }
         }
 
         /// <summary>
-        /// Bắt đầu kiểm kê (Snapshot tồn kho + Chuyển trạng thái sang PROCESSING + Khóa kho).
+        /// Bắt đầu kiểm kê (Snapshot tồn kho + Chuyển trạng thái sang IN_PROGRESS + Khóa kho).
         /// </summary>
         [HttpPost("start/{id}")]
         public async Task<IActionResult> StartStocktake(long id)
@@ -186,7 +190,10 @@ namespace Warehouse.Api.ApiController
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Lỗi hệ thống.", detail = ex.Message });
+                var errorDetail = ex.InnerException != null 
+                                  ? $"{ex.Message} | DEBUG: {ex.InnerException.Message}" 
+                                  : ex.Message;
+                return StatusCode(500, new { message = "Lỗi hệ thống khi bắt đầu kiểm kê.", detail = errorDetail });
             }
         }
 
@@ -412,7 +419,8 @@ namespace Warehouse.Api.ApiController
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Lỗi khi ghi sổ chênh lệch.", detail = ex.Message });
+                var detail = ex.InnerException != null ? $"{ex.Message} | DEBUG: {ex.InnerException.Message}" : ex.Message;
+                return StatusCode(500, new { message = "Lỗi khi ghi sổ chênh lệch.", detail = detail });
             }
         }
 
@@ -442,6 +450,35 @@ namespace Warehouse.Api.ApiController
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Lỗi khi hoàn tất kiểm kê.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Hủy đợt kiểm kê.
+        /// </summary>
+        [HttpPost("{id}/cancel")]
+        public async Task<IActionResult> Cancel(long id, [FromBody] CancelStocktakeRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _stocktakeService.CancelStocktakeAsync(id, request.Reason ?? "Không có lý do", currentUserId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi hủy kiểm kê.", detail = ex.Message });
             }
         }
     }

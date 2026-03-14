@@ -14,8 +14,8 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
 
-        private static readonly string[] AllowedStatuses = { "DRAFT", "PROCESSING", "COMPLETED", "CANCELLED" };
-        private static readonly string[] AllowedModes = { "FULL", "PARTIAL" };
+        private static readonly string[] AllowedStatuses = { "DRAFT", "IN_PROGRESS", "PENDING_APPROVAL", "COMPLETED", "CANCELLED" };
+        private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
         public StocktakeService(Mkiwms5Context context)
         {
@@ -228,10 +228,10 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException(
                     $"Kho '{warehouse.WarehouseName}' đang bị vô hiệu hóa, không thể tạo phiếu kiểm kê.");
 
-            // 2️⃣ Validate – không có phiên kiểm kê đang chạy (PROCESSING) trên kho này
+            // 2️⃣ Validate – không có phiên kiểm kê đang chạy (IN_PROGRESS) trên kho này
             var hasPendingSession = await _context.StocktakeSessions
                 .AnyAsync(s => s.WarehouseId == warehouse.WarehouseId
-                            && (s.Status == "PROCESSING" || s.Status == "DRAFT"));
+                            && (s.Status == "IN_PROGRESS" || s.Status == "DRAFT"));
 
             if (hasPendingSession)
                 throw new InvalidOperationException(
@@ -248,20 +248,28 @@ namespace Warehouse.DataAcces.Service
                 .CountAsync(s => s.StocktakeCode.StartsWith($"ST-{year}-"));
             var newCode = $"ST-{year}-{(countThisYear + 1):D4}";
 
-            // 5️⃣ Insert StocktakeSession (DRAFT, Mode = FULL)
+            // 5️⃣ Insert StocktakeSession (DRAFT)
             var session = new StocktakeSession
             {
                 StocktakeCode = newCode,
                 WarehouseId   = request.WarehouseId,
-                Mode          = "FULL",
+                Mode          = request.Mode.ToUpper(),
                 Status        = "DRAFT",
                 PlannedAt     = request.PlannedAt,
                 Note          = request.Note,
                 CreatedBy     = currentUserId
             };
 
-            _context.StocktakeSessions.Add(session);
-            await _context.SaveChangesAsync();
+            try
+            {
+                _context.StocktakeSessions.Add(session);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerMsg = ex.InnerException?.Message ?? ex.Message;
+                throw new Exception($"Lỗi lưu Database: {innerMsg}");
+            }
 
             // 6️⃣ Reload để lấy navigation properties (Warehouse, CreatedByNavigation)
             await _context.Entry(session).Reference(s => s.Warehouse).LoadAsync();
@@ -330,7 +338,7 @@ namespace Warehouse.DataAcces.Service
                 _context.StocktakeLines.AddRange(lines);
 
                 // 4. Cập nhật trạng thái Session
-                session.Status = "PROCESSING";
+                session.Status = "IN_PROGRESS";
                 session.StartedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
@@ -365,7 +373,7 @@ namespace Warehouse.DataAcces.Service
         public async Task<bool> IsWarehouseFrozenAsync(long warehouseId)
         {
             return await _context.StocktakeSessions
-                .AnyAsync(s => s.WarehouseId == warehouseId && s.Status == "PROCESSING");
+                .AnyAsync(s => s.WarehouseId == warehouseId && s.Status == "IN_PROGRESS");
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -442,8 +450,8 @@ namespace Warehouse.DataAcces.Service
             if (line == null)
                 throw new KeyNotFoundException($"Không tìm thấy dòng kiểm kê ID = {lineId}");
 
-            if (line.Stocktake.Status != "PROCESSING")
-                throw new InvalidOperationException("Chỉ có thể nhập số đếm khi phiếu ở trạng thái PROCESSING.");
+            if (line.Stocktake.Status != "IN_PROGRESS")
+                throw new InvalidOperationException("Chỉ có thể nhập số đếm khi phiếu ở trạng thái IN_PROGRESS.");
 
             // Cập nhật SL thực tế và tính chênh lệch
             line.CountedQty = request.CountedQty;
@@ -474,8 +482,8 @@ namespace Warehouse.DataAcces.Service
             if (session == null)
                 throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}");
 
-            if (session.Status != "PROCESSING")
-                throw new InvalidOperationException("Chỉ có thể xử lý khi phiếu ở trạng thái PROCESSING.");
+            if (session.Status != "IN_PROGRESS")
+                throw new InvalidOperationException("Chỉ có thể xử lý khi phiếu ở trạng thái IN_PROGRESS.");
 
             // Lấy các dòng chưa đếm
             var uncountedLines = await _context.StocktakeLines
@@ -518,8 +526,8 @@ namespace Warehouse.DataAcces.Service
             if (session == null)
                 throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}");
 
-            if (session.Status != "PROCESSING")
-                throw new InvalidOperationException("Chỉ có thể gửi xác nhận khi phiếu ở trạng thái PROCESSING.");
+            if (session.Status != "IN_PROGRESS")
+                throw new InvalidOperationException("Chỉ có thể gửi xác nhận khi phiếu ở trạng thái IN_PROGRESS.");
 
             // Kiểm tra xem đã đếm hết chưa
             var hasUncounted = session.StocktakeLines.Any(l => l.CountedQty == null);
@@ -589,7 +597,7 @@ namespace Warehouse.DataAcces.Service
                     // 2. Xử lý logic theo quyết định
                     if (request.Decision == "RECOUNT")
                     {
-                        session.Status = "PROCESSING"; // Quay về đếm lại
+                        session.Status = "IN_PROGRESS"; // Quay về đếm lại
                     }
                     else if (request.Decision == "REJECT")
                     {
@@ -652,7 +660,7 @@ namespace Warehouse.DataAcces.Service
                     };
                     await _context.DocumentApprovals.AddAsync(approval);
 
-                    if (request.Decision == "RECOUNT") session.Status = "PROCESSING";
+                    if (request.Decision == "RECOUNT") session.Status = "IN_PROGRESS";
                     else if (request.Decision == "REJECT") session.Status = "CANCELLED";
 
                     await _context.SaveChangesAsync();
@@ -781,8 +789,10 @@ namespace Warehouse.DataAcces.Service
                         }
                     }
 
-                    // 5. Cập nhật trạng thái Stocktake
-                    session.Status = "ADJUSTMENT_POSTED";
+                    // 5. Cập nhật trạng thái Stocktake thành COMPLETED
+                    session.Status = "COMPLETED";
+                    session.EndedAt = DateTime.UtcNow;
+
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
@@ -818,13 +828,21 @@ namespace Warehouse.DataAcces.Service
             if (session == null)
                 throw new KeyNotFoundException("Không thấy phiếu.");
 
+            // Nếu đã COMPLETED rồi thì trả về luôn, không báo lỗi
+            if (session.Status == "COMPLETED")
+                return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
+
             // Điều kiện hoàn tất: 
-            // 1. Nếu có lệch: phải ở ADJUSTMENT_POSTED
-            // 2. Nếu không lệch: phải ở PENDING_APPROVAL và đã duyệt đủ 2 bước
+            // 1. Nếu có lệch: Phải qua bước Ghi sổ (đã xử lý ở API post-adjustment)
+            // 2. Nếu không lệch: Phải ở PENDING_APPROVAL và đã duyệt đủ 2 bước
             var hasVariance = session.StocktakeLines.Any(l => l.VarianceQty != 0);
             
-            if (hasVariance && session.Status != "ADJUSTMENT_POSTED")
+            if (hasVariance)
+            {
+                // Với trường hợp có lệch, quy trình mới là gọi post-adjustment sẽ chuyển thẳng sang COMPLETED.
+                // Nếu chạy đến đây mà vẫn chưa COMPLETED tức là chưa gọi Ghi sổ.
                 throw new InvalidOperationException("Cần thực hiện Ghi sổ (Post Adjustment) trước khi hoàn tất vì có chênh lệch tồn kho.");
+            }
 
             if (!hasVariance)
             {
@@ -852,6 +870,38 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
+        }
+
+        public async Task<StocktakeDetailResponse> CancelStocktakeAsync(long stocktakeId, string reason, long currentUserId)
+        {
+            var session = await _context.StocktakeSessions
+                .Include(s => s.Warehouse)
+                .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);
+
+            if (session == null)
+                throw new KeyNotFoundException("Không tìm thấy phiếu kiểm kê.");
+
+            if (session.Status == "COMPLETED" || session.Status == "CANCELLED")
+                throw new InvalidOperationException($"Không thể hủy phiếu đang ở trạng thái {session.Status}.");
+
+            session.Status = "CANCELLED";
+            session.EndedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            // Ghi Audit Log
+            await _context.AuditLogs.AddAsync(new AuditLog
+            {
+                ActorUserId = currentUserId,
+                Action = "CANCEL_STOCKTAKE",
+                EntityType = "StocktakeSession",
+                EntityId = stocktakeId,
+                Detail = $"Hủy phiếu kiểm kê {session.StocktakeCode}. Lý do: {reason}",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi khi lấy thông tin sau hủy.");
         }
     }
 }
