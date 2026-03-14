@@ -414,7 +414,7 @@ namespace Warehouse.DataAcces.Service
                 .Join(_context.ItemParameters.Where(p => p.IsActive),
                     pv => pv.ParamId,
                     p => p.ParamId,
-                    (pv, p) => new ItemParameterResponse
+                    (pv, p) => new ItemParameterResponse1
                     {
                         ParamName = p.ParamName,
                         ParamValue = pv.ParamValue
