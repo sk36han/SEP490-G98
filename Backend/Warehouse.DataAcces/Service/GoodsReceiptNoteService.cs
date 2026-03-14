@@ -450,5 +450,68 @@ namespace Warehouse.DataAcces.Service
                 Note = grn.Note
             };
         }
+
+        public async Task<GRNDetailResponse> GetGRNDetailAsync(long grnId)
+        {
+            var grn = await _context.GoodsReceiptNotes
+                .Include(g => g.Supplier)
+                .Include(g => g.Warehouse)
+                .Include(g => g.CreatedByNavigation)
+                .Include(g => g.PurchaseOrder)
+                .Include(g => g.GoodsReceiptNoteLines)
+                    .ThenInclude(l => l.Item)
+                .Include(g => g.GoodsReceiptNoteLines)
+                    .ThenInclude(l => l.Uom)
+                .FirstOrDefaultAsync(g => g.Grnid == grnId);
+
+            if (grn == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy phiếu nhập kho.");
+            }
+
+            var lines = grn.GoodsReceiptNoteLines.Select(l => new GRNLineDetailResponse
+            {
+                GrnlineId = l.GrnlineId,
+                ItemId = l.ItemId,
+                ItemName = l.Item != null ? l.Item.ItemName : null,
+                ItemCode = l.Item != null ? l.Item.ItemCode : null,
+                ExpectedQty = l.ExpectedQty ?? 0,
+                ActualQty = l.ActualQty,
+                UomId = l.UomId,
+                UomName = l.Uom != null ? l.Uom.UomName : null,
+                UnitPrice = l.UnitPrice,
+                LineTotal = l.LineTotal,
+                HasCO = l.RequiresCocq,
+                HasCQ = l.RequiresCocq,
+                PurchaseOrderLineId = l.PurchaseOrderLineId
+            }).ToList();
+
+            return new GRNDetailResponse
+            {
+                GrnId = grn.Grnid,
+                GrnCode = grn.Grncode,
+                ReceiptDate = grn.ReceiptDate,
+                Status = grn.Status,
+                IsPaid = grn.IsPaid,
+                PaymentMethod = grn.PaymentMethod,
+                PurchaseOrderId = grn.PurchaseOrderId,
+                PurchaseOrderCode = grn.PurchaseOrder?.Pocode,
+                SupplierId = grn.SupplierId,
+                SupplierName = grn.Supplier?.SupplierName,
+                WarehouseId = grn.WarehouseId,
+                WarehouseName = grn.Warehouse?.WarehouseName,
+                CreatedBy = grn.CreatedBy,
+                CreatedByName = grn.CreatedByNavigation?.FullName,
+                TotalReceivedQty = grn.TotalReceivedQty,
+                TotalAmount = grn.TotalGoodsAmount,
+                ShippingFee = grn.ShippingFee,
+                NetAmount = grn.TotalGoodsAmount + grn.ShippingFee,
+                CreatedAt = DateTime.UtcNow,
+                SubmittedAt = grn.SubmittedAt,
+                PostedAt = grn.PostedAt,
+                Note = grn.Note,
+                Lines = lines
+            };
+        }
     }
 }

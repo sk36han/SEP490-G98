@@ -122,13 +122,18 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<List<ItemDisplayResponse>> GetAllItemsDisplayAsync()
         {
-            var items = await GetAllAsync();
-            var itemList = items.ToList();
+            var items = await _context.Items
+                .Include(i => i.Brand)
+                .Include(i => i.BaseUom)
+                .Include(i => i.PackagingSpec)
+                .Include(i => i.Category)
+                .Where(i => i.IsActive)
+                .ToListAsync();
 
-            var result = new List<ItemDisplayResponse>(itemList.Count);
-            foreach (var item in itemList)
+            var result = new List<ItemDisplayResponse>(items.Count);
+            foreach (var item in items)
             {
-                var mapped = MapToDisplay(item);
+                var mapped = await MapToDisplay(item);
                 result.Add(mapped);
             }
 
@@ -143,7 +148,7 @@ namespace Warehouse.DataAcces.Service
                 return null;
             }
 
-            return MapToDisplay(item);
+            return await MapToDisplay(item);
         }
 
         public async Task<ItemDetailResponse?> GetItemDetailByIdAsync(long itemId, int historyPage = 1, int historyPageSize = 20)
@@ -354,7 +359,7 @@ namespace Warehouse.DataAcces.Service
             return item;
         }
 
-        private ItemDisplayResponse MapToDisplay(Item item)
+        private async Task<ItemDisplayResponse> MapToDisplay(Item item)
         {
             var itemId = item.ItemId;
 
@@ -403,6 +408,19 @@ namespace Warehouse.DataAcces.Service
             var reservedQty = stock?.ReservedQty ?? 0m;
             var availableQty = onHandQty - reservedQty;
 
+            // Lấy thông số kỹ thuật
+            var parameters = await _context.ItemParameterValues
+                .Where(pv => pv.ItemId == itemId)
+                .Join(_context.ItemParameters.Where(p => p.IsActive),
+                    pv => pv.ParamId,
+                    p => p.ParamId,
+                    (pv, p) => new ItemParameterResponse
+                    {
+                        ParamName = p.ParamName,
+                        ParamValue = pv.ParamValue
+                    })
+                .ToListAsync();
+
             return new ItemDisplayResponse
             {
                 ItemId = itemId,
@@ -411,6 +429,9 @@ namespace Warehouse.DataAcces.Service
                 ItemType = item.ItemType,
                 Description = item.Description,
                 CategoryName = categoryName,
+                BrandName = item.Brand?.BrandName,
+                BaseUomName = item.BaseUom?.UomName,
+                PackagingSpecName = item.PackagingSpec?.SpecName,
                 RequiresCo = item.RequiresCo,
                 RequiresCq = item.RequiresCq,
                 IsActive = item.IsActive,
@@ -422,7 +443,8 @@ namespace Warehouse.DataAcces.Service
                 SalePrice = salePrice,
                 OnHandQty = onHandQty,
                 ReservedQty = reservedQty,
-                AvailableQty = availableQty
+                AvailableQty = availableQty,
+                Parameters = parameters
             };
         }
     }
