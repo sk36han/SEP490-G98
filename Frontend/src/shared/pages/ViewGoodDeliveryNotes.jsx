@@ -47,7 +47,26 @@ const GDN_COLUMNS = [
     { id: 'actions', label: 'Hành động', getValue: () => '' },
 ];
 const DEFAULT_VISIBLE_IDS = GDN_COLUMNS.map((c) => c.id);
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
+
+const getColumnWeight = (colId) => {
+    switch (colId) {
+        case 'stt': return 0.6;
+        case 'gdncode': return 1.5;
+        case 'releaseRequestCode': return 1.5;
+        case 'warehouseName': return 1.5;
+        case 'issueDate': return 1.2;
+        case 'status': return 1.2;
+        case 'actions': return 1.4;
+        default: return 1;
+    }
+};
+const STT_COLUMN_SX = { width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' };
+const getColumnCellSx = (colId, widthPct) => {
+    if (colId === 'stt') return STT_COLUMN_SX;
+    const base = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: 'border-box' };
+    return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
+};
 
 const ViewGoodDeliveryNotes = () => {
     const theme = useTheme();
@@ -56,7 +75,7 @@ const ViewGoodDeliveryNotes = () => {
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(7);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
 
@@ -105,12 +124,14 @@ const ViewGoodDeliveryNotes = () => {
         setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_IDS) : new Set());
     };
     const visibleColumns = GDN_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
+    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
+    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     const statusColor = (s) => (s === 'Approved' ? 'success' : s === 'Submitted' ? 'info' : 'default');
 
     return (
-        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
+        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', pt: 0, pb: 2, width: '100%', maxWidth: '100%', ml: 0, mr: 0, boxSizing: 'border-box' }}>
             <Box sx={{ flexShrink: 0, mb: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
                 <Typography variant="h4" component="h1" gutterBottom fontWeight="800" sx={{ background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)', backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
                     Yêu cầu xuất hàng
@@ -125,7 +146,7 @@ const ViewGoodDeliveryNotes = () => {
                     flex: 1,
                     minHeight: 0,
                     minWidth: 0,
-                    overflow: 'hidden',
+                    overflow: 'visible',
                     display: 'flex',
                     flexDirection: 'column',
                     width: '100%',
@@ -162,30 +183,32 @@ const ViewGoodDeliveryNotes = () => {
                     </CardContent>
                 </Card>
 
-                <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={() => setColumnSelectorAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220 } } }}>
+                <Popover open={columnSelectorOpen} anchorEl={columnSelectorAnchor} onClose={() => setColumnSelectorAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>Chọn cột hiển thị</Typography>
                     <FormGroup>
                         <FormControlLabel control={<Checkbox checked={visibleColumnIds.size === GDN_COLUMNS.length} indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < GDN_COLUMNS.length} onChange={(e) => handleSelectAllColumns(e.target.checked)} />} label="Tất cả" />
-                        {GDN_COLUMNS.map((col) => (
-                            <FormControlLabel key={col.id} control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} label={col.label} />
-                        ))}
+                        <Box sx={{ display: 'grid', gridTemplateRows: 'repeat(5, auto)', gridAutoFlow: 'column', gap: '2px 20px', alignContent: 'start', mt: 0.5 }}>
+                            {GDN_COLUMNS.map((col) => (
+                                <FormControlLabel key={col.id} control={<Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)} />} label={col.label} />
+                            ))}
+                        </Box>
                     </FormGroup>
                 </Popover>
 
-                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
-                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <Card className="list-grid-card" sx={{ flex: 1, minHeight: 400, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', borderRadius: 3, border: '1px solid rgba(0,0,0,0.12)', boxShadow: (t) => t.shadows[1], p: 1 }}>
+                    <Box className="list-grid-wrapper" sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                         {paginatedList.length === 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, color: 'text.secondary' }}>
                                 <PackageOpen size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                                 <Typography>Chưa có phiếu xuất hàng</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflow: 'auto' }}>
-                                <Table size="small" stickyHeader>
+                            <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', maxWidth: '100%', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 2, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+                                <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
                                     <TableHead>
                                         <TableRow>
                                             {visibleColumns.map((col) => (
-                                                <TableCell key={col.id} sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align={col.id === 'actions' ? 'right' : 'left'}>{col.label}</TableCell>
+                                                <TableCell key={col.id} sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }} align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}>{col.label}</TableCell>
                                             ))}
                                         </TableRow>
                                     </TableHead>
@@ -193,17 +216,17 @@ const ViewGoodDeliveryNotes = () => {
                                         {paginatedList.map((row, index) => (
                                             <TableRow key={row.gdnid} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                                 {visibleColumns.map((col) => {
-                                                    if (col.id === 'stt') return <TableCell key={col.id} align="left">{page * pageSize + index + 1}</TableCell>;
-                                                    if (col.id === 'status') return <TableCell key={col.id} align="left"><Chip label={row.status} size="small" color={statusColor(row.status)} /></TableCell>;
+                                                    if (col.id === 'stt') return <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>{page * pageSize + index + 1}</TableCell>;
+                                                    if (col.id === 'status') return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}><Chip label={row.status} size="small" color={statusColor(row.status)} /></TableCell>;
                                                     if (col.id === 'actions') {
                                                         return (
-                                                            <TableCell key={col.id} align="right">
+                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
                                                                 <Tooltip title="Xem"><IconButton size="small"><Eye size={18} /></IconButton></Tooltip>
                                                                 <Tooltip title="Sửa"><IconButton size="small"><Edit size={18} /></IconButton></Tooltip>
                                                             </TableCell>
                                                         );
                                                     }
-                                                    return <TableCell key={col.id} align="left">{col.getValue(row)}</TableCell>;
+                                                    return <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(row)}>{col.getValue(row)}</TableCell>;
                                                 })}
                                             </TableRow>
                                         ))}
@@ -214,8 +237,8 @@ const ViewGoodDeliveryNotes = () => {
                     </Box>
                 </Card>
 
-                <Box sx={{ flexShrink: 0, mt: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>Số dòng / trang:</Typography>
+                <Box sx={{ flexShrink: 0, mt: 1, pt: 1, pb: 0.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2, overflow: 'visible', minHeight: 48 }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>Số dòng / trang:</Typography>
                     <FormControl size="small" sx={{ minWidth: 72 }}>
                         <Select value={pageSize} onChange={handlePageSizeChange} sx={{ height: 32, fontSize: '0.875rem' }}>
                             {ROWS_PER_PAGE_OPTIONS.map((n) => (
@@ -223,8 +246,9 @@ const ViewGoodDeliveryNotes = () => {
                             ))}
                         </Select>
                     </FormControl>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap' }}>{start}–{end} / {totalCount} (Tổng {totalPages} trang)</Typography>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{start}–{end} / {totalCount} (Tổng {totalPages} trang)</Typography>
                     <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Trước</Button>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0 }}>Trang {page + 1} / {totalPages || 1}</Typography>
                     <Button size="small" variant="outlined" disabled={end >= totalCount || totalCount === 0} onClick={() => handlePageChange(page + 1)} sx={{ minWidth: 36, textTransform: 'none' }}>Sau</Button>
                 </Box>
             </Box>

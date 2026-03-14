@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Warehouse.DataAcces.Service;
+using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.Api.ApiController
@@ -41,13 +41,13 @@ namespace Warehouse.Api.ApiController
                 return Unauthorized();
             }
 
-            var success = await _approvalService.ApproveRequestAsync(requestType, id, currentUserId, request.Reason);
-            if (!success)
+            var result = await _approvalService.ApproveRequestAsync(requestType, id, currentUserId, request.Reason);
+            if (!result.Success)
             {
-                return NotFound(new { Success = false, Message = "Request not found or not in PENDING status." });
+                return StatusCode(result.StatusCode, new { Success = false, Message = result.Message });
             }
 
-            return Ok(new { Success = true, Message = "Request approved successfully." });
+            return Ok(new { Success = true, Message = result.Message });
         }
 
         [HttpPost("{requestType}/{id}/reject")]
@@ -55,7 +55,7 @@ namespace Warehouse.Api.ApiController
         {
             if (string.IsNullOrWhiteSpace(request?.Reason))
             {
-                return BadRequest(new { Success = false, Message = "Reason is required when rejecting a request." });
+                return BadRequest(new { Success = false, Message = "Lý do từ chối là bắt buộc." });
             }
 
             var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -64,13 +64,13 @@ namespace Warehouse.Api.ApiController
                 return Unauthorized();
             }
 
-            var success = await _approvalService.RejectRequestAsync(requestType, id, currentUserId, request.Reason);
-            if (!success)
+            var result = await _approvalService.RejectRequestAsync(requestType, id, currentUserId, request.Reason);
+            if (!result.Success)
             {
-                return NotFound(new { Success = false, Message = "Request not found or not in PENDING status." });
+                return StatusCode(result.StatusCode, new { Success = false, Message = result.Message });
             }
 
-            return Ok(new { Success = true, Message = "Request rejected successfully." });
+            return Ok(new { Success = true, Message = result.Message });
         }
 
         [HttpGet("{requestType}/{id}")]

@@ -8,5 +8,6 @@ namespace Warehouse.Entities.ModelRequest
         public string? Priority { get; set; }
         public DateTime? SubmittedDateFrom { get; set; }
         public DateTime? SubmittedDateTo { get; set; }
+        public string? Status { get; set; }
     }
 }

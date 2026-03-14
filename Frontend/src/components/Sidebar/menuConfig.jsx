@@ -9,15 +9,19 @@ import {
     Bell,
     ClipboardList,
     Warehouse,
+    Briefcase,
 } from 'lucide-react';
 
-const commonItems = [
-    { path: '/profile', icon: <User size={22} />, label: 'Hồ sơ cá nhân' },
-];
+const brandIcon = <Briefcase size={22} />;
 
-// Giám đốc: chỉ có quyền truy cập Home Dashboard
+// Hồ sơ cá nhân không hiển thị trong sidebar — mở từ dropdown avatar trên header
+const commonItems = [];
+
+// Giám đốc: Home Dashboard + Supplier + Receiver
 const directorItems = [
     { path: '/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
+    { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
+    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
 ];
 
 // Admin: Quản lý người dùng (mục cha có dropdown con), Hồ sơ cá nhân, Cài đặt thông báo, Audit Log
@@ -33,12 +37,11 @@ const adminItems = [
             { path: '/admin/users/deactivated', label: 'Người dùng đã vô hiệu hóa' },
         ],
     },
-    { path: '/profile', icon: <User size={22} />, label: 'Hồ sơ cá nhân' },
     { path: '/admin/notifications', icon: <Bell size={22} />, label: 'Cài đặt thông báo' },
     { path: '/admin/audit-log', icon: <ClipboardList size={22} />, label: 'Audit Log hệ thống' },
 ];
 
-// Thủ kho: Vật tư (mục cha), Quản lý kho, Yêu cầu nhập/xuất hàng
+// Thủ kho: Vật tư (mục cha), Quản lý kho, Nhà cung cấp, Người nhận, Yêu cầu nhập/xuất hàng
 const warehouseKeeperItems = [
     {
         id: 'products-mgmt',
@@ -47,15 +50,30 @@ const warehouseKeeperItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
-            { path: '/items/create', label: 'Tạo mới vật tư' },
+            { path: '/categories', label: 'Danh mục sản phẩm' },
+            { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/packaging-spec', label: 'Quy cách' },
+            { path: '/specs', label: 'Thông số' },
         ],
     },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
+    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
+    {
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: <FileText size={22} />,
+        label: 'Quản lý phiếu nhập kho',
+        children: [
+            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
+            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+        ],
+    },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
-// Sale Support: Vật tư (mục cha), Nhà cung cấp, Đơn mua (PO)
+// Sale Support: Vật tư (mục cha), Brand, Nhà cung cấp, Đơn mua (PO)
 const saleSupportItems = [
     {
         id: 'products-mgmt',
@@ -64,13 +82,34 @@ const saleSupportItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/uom', label: 'Đơn vị tính' },
         ],
     },
-    { path: '/suppliers', icon: <Truck size={22} />, label: 'Quản lý nhà cung cấp' },
-    { path: '/purchase-orders', icon: <ShoppingCart size={22} />, label: 'Danh sách đơn mua (PO)' },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
+    {
+        id: 'suppliers-mgmt',
+        path: '/suppliers',
+        icon: <Truck size={22} />,
+        label: 'Quản lý nhà cung cấp',
+        children: [
+            { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
+            { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
+        ],
+    },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Quản lý đơn mua',
+        sublabel: 'Purchase Order',
+        children: [
+            { path: '/purchase-orders', label: 'Danh sách đơn mua hàng' },
+            { path: '/purchase-orders/create', label: 'Tạo đơn mua hàng' },
+        ],
+    },
 ];
 
-// Sale Engineer: Vật tư (mục cha), Người nhận hàng
+// Sale Engineer: Vật tư (mục cha), Brand, Người nhận hàng
 const saleEngineerItems = [
     {
         id: 'products-mgmt',
@@ -79,12 +118,14 @@ const saleEngineerItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/uom', label: 'Đơn vị tính' },
         ],
     },
-    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận hàng' },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
+    { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
 ];
 
-// Kế toán: Vật tư (mục cha), Yêu cầu nhập/xuất hàng, Báo cáo
+// Kế toán: Vật tư (mục cha), Quản lý đơn mua, Yêu cầu nhập/xuất hàng, Báo cáo
 const accountantItems = [
     {
         id: 'products-mgmt',
@@ -93,9 +134,29 @@ const accountantItems = [
         label: 'Vật tư',
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/uom', label: 'Đơn vị tính' },
         ],
     },
-    { path: '/good-receipt-notes', icon: <FileText size={22} />, label: 'Yêu cầu nhập hàng' },
+    { path: '/brands', icon: brandIcon, label: 'Thương hiệu' },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Quản lý đơn mua',
+        children: [
+            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
+        ],
+    },
+    {
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: <FileText size={22} />,
+        label: 'Quản lý phiếu nhập kho',
+        children: [
+            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
+            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
+        ],
+    },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
     { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
 ];

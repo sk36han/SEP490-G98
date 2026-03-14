@@ -42,22 +42,23 @@ const MainLayout = ({ children }) => {
                     component="main"
                     sx={{
                         flexGrow: 1,
-                        minHeight: 0,
+                        minHeight: '100vh',
                         minWidth: 0,
-                        height: '100vh',
-                        overflow: 'hidden',
+                        overflowY: 'auto',
                         display: 'flex',
                         flexDirection: 'column',
-                        p: 3,
+                        pt: 1.5,
+                        px: 3,
+                        pb: 3,
                     }}
                 >
                     <AppHeader />
                     <Box
                         sx={{
                             flex: 1,
-                            minHeight: 0,
+                            minHeight: 'auto',
                             minWidth: 0,
-                            overflow: 'hidden',
+                            overflow: 'visible',
                             display: 'flex',
                             flexDirection: 'column',
                         }}

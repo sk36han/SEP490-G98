@@ -101,5 +101,12 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
             }
         }
+
+        [HttpGet("list-user-role-accountants")]
+        public async Task<IActionResult> GetAccountants()
+        {
+            var users = await _userService.GetAccountantsAsync();
+            return Ok(new { success = true, data = users });
+        }
     }
 }

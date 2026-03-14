@@ -122,5 +122,31 @@ namespace Warehouse.DataAcces.Service
                 LastLoginAt = user.LastLoginAt
             };
         }
+
+        public async Task<List<UserResponse>> GetAccountantsAsync()
+        {
+            const string roleName = "Kế Toán";
+
+            var users = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .ThenInclude(ur => ur.Role)
+                .AsNoTracking()
+                .Where(u => u.UserRoleUser != null &&
+                            u.UserRoleUser.Role.RoleName == roleName &&
+                            u.IsActive)
+                .Select(u => new UserResponse
+                {
+                    Email = u.Email,
+                    Username = u.Username,
+                    FullName = u.FullName,
+                    Phone = u.Phone,
+                    IsActive = u.IsActive,
+                    RoleName = u.UserRoleUser!.Role.RoleName,
+                    LastLoginAt = u.LastLoginAt,
+                })
+                .ToListAsync();
+
+            return users;
+        }
     }
 }
