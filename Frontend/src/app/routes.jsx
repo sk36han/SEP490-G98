@@ -23,6 +23,7 @@ import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import ViewSupplierDetail from '../shared/pages/ViewSupplierDetail';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustmentList';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
@@ -313,6 +314,17 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateWarehouse />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Tồn kho - Inventory Adjustment - Thủ kho */}
+        <Route
+            path="/inventory/adjustments"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewInventoryAdjustmentList />
                     </MainLayout>
                 </ProtectedRoute>
             }
