@@ -32,7 +32,7 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Plus, Edit3, RefreshCw, Eye, Package, Filter, ArrowLeft, Save, Send, Loader, Trash2, X, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Plus, Edit3, RefreshCw, Eye, Package, Filter, ArrowLeft, Save, Send, Loader, Trash2, X, CheckCircle, Clock, XCircle, Warehouse } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
@@ -50,6 +50,7 @@ const ViewPurchaseOrderDetail = () => {
     const [error, setError] = useState(null);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [confirmDialogType, setConfirmDialogType] = useState(null);
+    const [rejectionReason, setRejectionReason] = useState('');
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
@@ -150,8 +151,8 @@ const ViewPurchaseOrderDetail = () => {
                         responsiblePersonName: data.responsiblePersonName || '',
                         expectedReceiptDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate).toISOString().slice(0, 10) : '',
                         justification: data.justification || '',
-                        // Handle all status types: DRAFT, PENDING, APPROVED, REJECTED
-                        approvalStatus: (data.status || 'DRAFT').toUpperCase(),
+                        // Handle all status types: DRAFT, PENDING, APPROVED, REJECTED (cả camelCase và PascalCase)
+                        approvalStatus: (data.status ?? data.Status ?? 'DRAFT').toUpperCase(),
                         receivingStatus: data.receivingStatus || 'Pending',
                         createdAt: data.createdAt ? new Date(data.createdAt).toISOString().slice(0, 10) : '',
                         lines: (data.lines || []).map((line, index) => ({
@@ -275,6 +276,7 @@ const ViewPurchaseOrderDetail = () => {
     const closeConfirmDialog = () => {
         setConfirmDialogOpen(false);
         setConfirmDialogType(null);
+        setRejectionReason('');
     };
 
     const canConfirmAction = orderData.approvalStatus?.toUpperCase() === 'PENDING_ACC';
@@ -285,13 +287,9 @@ const ViewPurchaseOrderDetail = () => {
         setSubmitting(true);
         try {
             if (confirmDialogType === 'approve') {
-                await approvePurchaseOrder(orderData.purchaseOrderId, {
-                    approvalStatus: 'Approved',
-                });
+                await approvePurchaseOrder(orderData.purchaseOrderId);
             } else {
-                await rejectPurchaseOrder(orderData.purchaseOrderId, {
-                    approvalStatus: 'Rejected',
-                });
+                await rejectPurchaseOrder(orderData.purchaseOrderId, rejectionReason);
             }
             showToast(confirmDialogType === 'approve' ? 'Đã duyệt đơn mua hàng.' : 'Đã từ chối đơn mua hàng.', 'success');
             closeConfirmDialog();
@@ -300,7 +298,7 @@ const ViewPurchaseOrderDetail = () => {
             if (data) {
                 setOrderData(prev => ({
                     ...prev,
-                    approvalStatus: (data.status || '').toUpperCase()
+                    approvalStatus: (data.status ?? data.Status ?? '').toUpperCase()
                 }));
             }
         } catch (err) {

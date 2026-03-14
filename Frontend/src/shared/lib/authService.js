@@ -85,15 +85,33 @@ const authService = {
             localStorage.setItem('token', accessToken);
             localStorage.setItem('tokenExpiresAt', expiresAt);
 
-            const roleFromToken = getRoleFromToken(accessToken);
-            const userWithRole = {
-                ...(user || {}),
-                roleCode: user?.roleCode ?? roleFromToken,
-                roleName: user?.roleName ?? roleFromToken,
-                role: user?.role ?? roleFromToken,
-            };
+            // Get role from token first
+            let roleFromToken = getRoleFromToken(accessToken);
+            
+            // Try to fetch user profile for complete info
+            try {
+                const profileResponse = await apiClient.get('/User/profile');
+                const userFromProfile = profileResponse.data;
+                
+                const userWithRole = {
+                    ...(userFromProfile || {}),
+                    roleCode: userFromProfile?.roleCode ?? userFromProfile?.RoleCode ?? roleFromToken,
+                    roleName: userFromProfile?.roleName ?? userFromProfile?.RoleName ?? roleFromToken,
+                    role: userFromProfile?.role ?? userFromProfile?.Role ?? roleFromToken,
+                    roleId: userFromProfile?.roleId ?? userFromProfile?.RoleId,
+                };
 
-            localStorage.setItem('userInfo', JSON.stringify(userWithRole));
+                localStorage.setItem('userInfo', JSON.stringify(userWithRole));
+            } catch (profileError) {
+                // Fallback: use user from response and role from token
+                const userWithRole = {
+                    ...(user || {}),
+                    roleCode: user?.roleCode ?? roleFromToken,
+                    roleName: user?.roleName ?? roleFromToken,
+                    role: user?.role ?? roleFromToken,
+                };
+                localStorage.setItem('userInfo', JSON.stringify(userWithRole));
+            }
 
             localStorage.removeItem('pendingUserId');
             localStorage.removeItem('pendingEmail');
@@ -129,6 +147,11 @@ const authService = {
         return userInfo ? JSON.parse(userInfo) : null;
     },
 
+    getCurrentUserId() {
+        const user = this.getUser();
+        return user?.userId ?? user?.id ?? user?.UserId ?? user?.Id ?? null;
+    },
+
     isLoggedIn() {
         const token = this.getToken();
         if (!token) return false;
@@ -140,6 +163,10 @@ const authService = {
         }
         
         return true;
+    },
+
+    isAuthenticated() {
+        return this.isLoggedIn();
     },
 
     isTokenExpired() {

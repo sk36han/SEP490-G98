@@ -13,7 +13,7 @@ export function SupplierProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await getSuppliers({ pageSize: 1000 });
+      const result = await getSuppliers({ page: 1, pageSize: 100 });
       setSuppliers(result.items || []);
     } catch (err) {
       setError(err.message);

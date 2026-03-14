@@ -113,7 +113,7 @@ const EditUserDialog = ({ open, formData, onFormChange, onSubmit, onClose }) => 
         </Typography>
       </DialogTitle>
       <form onSubmit={onSubmit}>
-        <DialogContent sx={{ p: 0, bgcolor: "grey.50" }}>
+        <DialogContent sx={{ p: 0, bgcolor: "grey.50", overflow: "auto", maxHeight: "calc(90vh - 140px)" }}>
           <Box sx={{ px: 3, pt: 2, pb: 0 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               Họ tên, Vai trò, Giới tính và Ngày sinh có thể chỉnh sửa. Các trường khác chỉ xem.

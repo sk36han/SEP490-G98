@@ -51,7 +51,7 @@ export function MasterDataProvider({ children }) {
     setCategoriesLoading(true);
     setCategoriesError(null);
     try {
-      const result = await getCategoryList({ pageSize: 1000 });
+      const result = await getCategoryList({ page: 1, pageSize: 100 });
       setCategories(result.items || []);
     } catch (err) {
       setCategoriesError(err.message);
@@ -65,7 +65,7 @@ export function MasterDataProvider({ children }) {
     setSuppliersLoading(true);
     setSuppliersError(null);
     try {
-      const result = await getSuppliers({ pageSize: 1000 });
+      const result = await getSuppliers({ page: 1, pageSize: 100 });
       setSuppliers(result.items || []);
     } catch (err) {
       setSuppliersError(err.message);
@@ -79,7 +79,7 @@ export function MasterDataProvider({ children }) {
     setWarehousesLoading(true);
     setWarehousesError(null);
     try {
-      const result = await getWarehouses({ pageSize: 1000 });
+      const result = await getWarehouses({ pageNumber: 1, pageSize: 100 });
       setWarehouses(result.items || []);
     } catch (err) {
       setWarehousesError(err.message);
@@ -93,7 +93,7 @@ export function MasterDataProvider({ children }) {
     setBrandsLoading(true);
     setBrandsError(null);
     try {
-      const result = await getBrands({ pageSize: 1000 });
+      const result = await getBrands({ page: 1, pageSize: 100 });
       setBrands(result.items || []);
     } catch (err) {
       setBrandsError(err.message);
@@ -107,7 +107,7 @@ export function MasterDataProvider({ children }) {
     setUomsLoading(true);
     setUomsError(null);
     try {
-      const result = await getUoms({ pageSize: 1000 });
+      const result = await getUoms({ page: 1, pageSize: 100 });
       setUoms(result.items || []);
     } catch (err) {
       setUomsError(err.message);
@@ -121,7 +121,7 @@ export function MasterDataProvider({ children }) {
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const result = await getUsers({ pageSize: 1000 });
+      const result = await getUsers();
       setUsers(result.items || []);
     } catch (err) {
       setUsersError(err.message);
@@ -135,7 +135,7 @@ export function MasterDataProvider({ children }) {
     setReceiversLoading(true);
     setReceiversError(null);
     try {
-      const result = await getReceivers({ pageSize: 1000 });
+      const result = await getReceivers({ page: 1, pageSize: 100 });
       setReceivers(result.items || []);
     } catch (err) {
       setReceiversError(err.message);
