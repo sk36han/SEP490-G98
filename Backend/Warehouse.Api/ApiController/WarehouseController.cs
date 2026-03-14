@@ -130,5 +130,22 @@ namespace Warehouse.Api.ApiController
 				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
+		/// <summary>
+		/// Lấy danh sách kho cho Dropdown (chỉ kho đang hoạt động)
+		/// GET: /api/Warehouse/dropdown
+		/// </summary>
+		[HttpGet("dropdown")]
+		public async Task<IActionResult> GetWarehouseDropdown()
+		{
+			try
+			{
+				var items = await _warehouseService.GetWarehouseDropdownAsync();
+				return Ok(ApiResponse<object>.SuccessResponse(items, "Lấy danh sách kho thành công."));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
     }
 }

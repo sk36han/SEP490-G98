@@ -148,5 +148,19 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = entity.CreatedAt
             };
         }
+        public async Task<List<WarehouseDropdownItem>> GetWarehouseDropdownAsync()
+        {
+            return await _context.Warehouses
+                .AsNoTracking()
+                .Where(w => w.IsActive)
+                .OrderBy(w => w.WarehouseName)
+                .Select(w => new WarehouseDropdownItem
+                {
+                    WarehouseId   = w.WarehouseId,
+                    WarehouseName = w.WarehouseName,
+                    WarehouseCode = w.WarehouseCode
+                })
+                .ToListAsync();
+        }
     }
 }
