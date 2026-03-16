@@ -83,6 +83,7 @@ const warehouseKeeperItems = [
             { path: '/inventory', label: 'Danh sách kho' },
             { path: '/inventory/adjustments', label: 'Tồn kho' },
             { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
+            { path: '/inventory/stocktakes/create', label: 'Tạo phiếu kiểm kê' },
         ],
     },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },

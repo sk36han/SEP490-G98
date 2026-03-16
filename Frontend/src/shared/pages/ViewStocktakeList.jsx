@@ -618,7 +618,7 @@ const ViewStocktakeList = () => {
                                         className="list-page-btn"
                                         variant="contained"
                                         startIcon={<Plus size={18} />}
-                                        onClick={() => {}}
+                                        onClick={() => navigate('/inventory/stocktakes/create')}
                                         sx={{
                                             fontSize: 13,
                                             fontWeight: 500,
