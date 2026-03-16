@@ -516,7 +516,7 @@ const CreateStocktake = () => {
                                                     <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
                                                     <th style={{ textAlign: 'left' }}>Vật tư </th>
                                                     <th style={{ width: '100px', textAlign: 'right' }}>SL hệ thống</th>
-                                                    <th style={{ width: '100px', textAlign: 'right' }}>SL kiểm kê *</th>
+                                                    <th style={{ width: '100px', textAlign: 'right' }}>SL đã kiểm kê *</th>
                                                     <th style={{ width: '80px', textAlign: 'right' }}>Chênh lệch</th>
                                                     <th style={{ width: '60px' }}></th>
                                                 </tr>
@@ -621,7 +621,10 @@ const CreateStocktake = () => {
                                 <div className="form-field">
                                     <label className="form-label">Hình thức <span className="required-mark">*</span></label>
                                     <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <input type="text" value={formData.modeLabel || ''} onChange={(e) => { setFormData(prev => ({ ...prev, mode: e.target.value })); setModeDropdownOpen(true); }} onFocus={() => setModeDropdownOpen(true)} placeholder="Chọn hình thức" className={`form-input ${errors.mode ? 'error' : ''}`} autoComplete="off" />
+                                        <div className="input-icon" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+                                            <Package size={16} />
+                                        </div>
+                                        <input type="text" value={formData.modeLabel || ''} onChange={(e) => { setFormData(prev => ({ ...prev, mode: e.target.value })); setModeDropdownOpen(true); }} onFocus={() => setModeDropdownOpen(true)} placeholder="Chọn hình thức" className={`form-input ${errors.mode ? 'error' : ''}`} style={{ paddingLeft: '36px' }} autoComplete="off" />
                                         {modeDropdownOpen && (
                                             <ul className="form-input" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', maxHeight: '150px', overflowY: 'auto', listStyle: 'none', padding: '8px 0', zIndex: 10, backgroundColor: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                                                 {MODE_OPTIONS.map(mode => (

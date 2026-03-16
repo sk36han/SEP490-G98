@@ -634,7 +634,7 @@ const ViewStocktakeList = () => {
                                             },
                                         }}
                                     >
-                                        Tạo kiểm kê
+                                        Tạo phiếu kiểm kê
                                     </Button>
                                 </Box>
                             </Box>

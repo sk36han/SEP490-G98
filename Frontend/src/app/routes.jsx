@@ -26,6 +26,7 @@ import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustmentList';
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
 import CreateStocktake from '../shared/pages/CreateStocktake';
+import ViewStocktakeDetail from '../shared/pages/ViewStocktakeDetail';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
@@ -348,6 +349,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <CreateStocktake />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/stocktakes/:id"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewStocktakeDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
