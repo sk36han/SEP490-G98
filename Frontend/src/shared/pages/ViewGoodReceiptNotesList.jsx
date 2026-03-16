@@ -36,6 +36,7 @@ import {
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import GoodReceiptNoteFilterPopup from '../components/GoodReceiptNoteFilterPopup';
+import { getGoodReceiptNotes } from '../lib/goodReceiptNoteService';
 import '../styles/ListView.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -201,7 +202,9 @@ export default function ViewGoodReceiptNotes() {
     const [draggedColumn, setDraggedColumn]       = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
-    // Restore saved sort
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
     useEffect(() => {
         const saved = localStorage.getItem(LS_SORT);
         if (saved) {
@@ -210,7 +213,24 @@ export default function ViewGoodReceiptNotes() {
         }
     }, []);
 
-    useEffect(() => { setList(MOCK_GRN); }, []);
+    // Fetch data from API
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await getGoodReceiptNotes({ page: page + 1, pageSize });
+                setList(response.items || []);
+            } catch (err) {
+                console.error('Error fetching GRN list:', err);
+                setError('Không thể tải danh sách phiếu nhập kho');
+                setList([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [page, pageSize]);
 
     // Sync temp order when popup opens
     useEffect(() => {

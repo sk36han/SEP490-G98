@@ -437,6 +437,17 @@ const ViewPurchaseOrderDetail = () => {
                                     </button>
                                 </>
                             )}
+                            {/* Nút tạo phiếu nhập kho - chỉ hiển thị cho ACCOUNTANTS khi status = APPROVED */}
+                            {permissionRole === 'ACCOUNTANTS' && orderData.approvalStatus && orderData.approvalStatus.toUpperCase() === 'APPROVED' && (
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => navigate(`/good-receipt-notes/create?poId=${orderData.purchaseOrderId}`)}
+                                >
+                                    <Warehouse size={16} className="btn-icon" />
+                                    Tạo phiếu nhập kho
+                                </button>
+                            )}
                             {canEdit && (
                                 <button
                                     type="button"
