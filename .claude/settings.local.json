@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npx eslint src/shared/pages/ViewGoodReceiptNoteDetail.jsx 2>&1 | head -10)",
-      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && rm -rf node_modules/.vite 2>/dev/null; npm run build 2>&1 | head -30)"
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && rm -rf node_modules/.vite 2>/dev/null; npm run build 2>&1 | head -30)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

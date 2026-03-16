@@ -77,6 +77,9 @@ const getExtraMatchPaths = (item) => {
     if (item.id === 'products-mgmt') {
         return ['/items'];
     }
+    if (item.id === 'inventory-mgmt') {
+        return ['/inventory', '/inventory/adjustments', '/inventory/stocktakes', '/inventory/stocktakes/create'];
+    }
     return [];
 };
 

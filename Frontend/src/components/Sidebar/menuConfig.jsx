@@ -75,15 +75,17 @@ const warehouseKeeperItems = [
         ],
     },
     {
-        id: 'purchase-orders-mgmt',
-        path: '/purchase-orders',
-        icon: <ShoppingCart size={22} />,
-        label: 'Đơn mua',
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: <Warehouse size={22} />,
+        label: 'Quản lý kho',
         children: [
-            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
+            { path: '/inventory', label: 'Danh sách kho' },
+            { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
+            { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
+            
         ],
     },
-    { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
     {
