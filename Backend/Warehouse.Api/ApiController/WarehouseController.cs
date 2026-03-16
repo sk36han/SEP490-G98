@@ -47,6 +47,28 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
+		/// Lấy chi tiết thông tin kho
+		/// GET: /api/warehouse/detail/{id}
+		/// </summary>
+		[HttpGet("detail/{id}")]
+		public async Task<IActionResult> GetWarehouseDetail(long id)
+		{
+			try
+			{
+				var result = await _warehouseService.GetWarehouseDetailAsync(id);
+				return Ok(ApiResponse<WarehouseDetailResponse>.SuccessResponse(result, "Lấy chi tiết kho thành công."));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+
+		/// <summary>
 		/// Tạo kho mới
 		/// POST: /api/warehouse/create
 		/// </summary>

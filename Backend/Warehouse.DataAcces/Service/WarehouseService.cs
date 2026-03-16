@@ -44,6 +44,110 @@ namespace Warehouse.DataAcces.Service
             return new PagedResult<WarehouseResponse>(items, totalCount, filter.PageNumber, filter.PageSize);
         }
 
+        public async Task<WarehouseDetailResponse> GetWarehouseDetailAsync(long warehouseId)
+        {
+            var warehouse = await _context.Warehouses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(w => w.WarehouseId == warehouseId);
+
+            if (warehouse == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy kho.");
+            }
+
+            var response = new WarehouseDetailResponse
+            {
+                WarehouseId = warehouse.WarehouseId,
+                WarehouseCode = warehouse.WarehouseCode,
+                WarehouseName = warehouse.WarehouseName,
+                Address = warehouse.Address,
+                IsActive = warehouse.IsActive,
+                CreatedAt = warehouse.CreatedAt
+            };
+
+            // Lấy danh sách vật tư trong kho
+            response.Items = await _context.InventoryOnHands
+                .AsNoTracking()
+                .Where(i => i.WarehouseId == warehouseId)
+                .Select(i => new WarehouseItemDto
+                {
+                    ItemId = i.ItemId,
+                    ItemCode = i.Item.ItemCode,
+                    ItemName = i.Item.ItemName,
+                    CategoryName = i.Item.Category != null ? i.Item.Category.CategoryName : null,
+                    BrandName = i.Item.Brand != null ? i.Item.Brand.BrandName : null,
+                    UnitName = i.Item.BaseUom != null ? i.Item.BaseUom.UomName : null,
+                    OnHandQty = i.OnHandQty,
+                    ReservedQty = i.ReservedQty
+                })
+                .ToListAsync();
+
+            // Lấy giấy tờ nhập kho (GRN)
+            var importPapers = await _context.GoodsReceiptNotes
+                .AsNoTracking()
+                .Where(g => g.WarehouseId == warehouseId)
+                .Select(g => new 
+                {
+                    g.Grnid,
+                    g.Grncode,
+                    g.ReceiptDate,
+                    g.Status,
+                    g.Note
+                })
+                .ToListAsync();
+
+            response.ImportPapers = importPapers.Select(g => new WarehousePaperDto
+            {
+                PaperId = g.Grnid,
+                PaperType = "GRN",
+                PaperCode = g.Grncode,
+                Date = g.ReceiptDate.ToDateTime(TimeOnly.MinValue),
+                Status = g.Status,
+                Note = g.Note
+            }).ToList();
+
+            // Lấy giấy tờ xuất kho (GDN)
+            var exportPapers = await _context.GoodsDeliveryNotes
+                .AsNoTracking()
+                .Where(g => g.WarehouseId == warehouseId)
+                .Select(g => new 
+                {
+                    g.Gdnid,
+                    g.Gdncode,
+                    g.IssueDate,
+                    g.Status,
+                    g.Note
+                })
+                .ToListAsync();
+
+            response.ExportPapers = exportPapers.Select(g => new WarehousePaperDto
+            {
+                PaperId = g.Gdnid,
+                PaperType = "GDN",
+                PaperCode = g.Gdncode,
+                Date = g.IssueDate.ToDateTime(TimeOnly.MinValue),
+                Status = g.Status,
+                Note = g.Note
+            }).ToList();
+
+            // Lấy giấy tờ trả lại hàng (PurchaseReturnNote) liên quan đến kho này
+            response.ReturnPapers = await _context.PurchaseReturnNotes
+                .AsNoTracking()
+                .Where(p => p.RelatedGrn != null && p.RelatedGrn.WarehouseId == warehouseId)
+                .Select(p => new WarehousePaperDto
+                {
+                    PaperId = p.PurchaseReturnId,
+                    PaperType = "PRN",
+                    PaperCode = p.ReturnCode,
+                    Date = p.ReturnDate,
+                    Status = p.Status,
+                    Note = p.Note
+                })
+                .ToListAsync();
+
+            return response;
+        }
+
         public async Task<WarehouseResponse> CreateWarehouseAsync(CreateWarehouseRequest request, long currentUserId)
         {
             var exists = await _context.Warehouses
