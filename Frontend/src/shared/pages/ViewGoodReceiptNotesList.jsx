@@ -220,7 +220,13 @@ export default function ViewGoodReceiptNotes() {
             setError(null);
             try {
                 const response = await getGoodReceiptNotes({ page: page + 1, pageSize });
-                setList(response.items || []);
+                // Map dữ liệu từ API sang format UI
+                const mappedList = (response.items ?? []).map((item) => ({
+                    ...item,
+                    actualQtyTotal: item.totalReceivedQty ?? item.TotalReceivedQty ?? item.actualQtyTotal ?? 0,
+                    totalValue: item.totalAmount ?? item.TotalAmount ?? item.netAmount ?? item.NetAmount ?? item.totalValue ?? 0,
+                }));
+                setList(mappedList);
             } catch (err) {
                 console.error('Error fetching GRN list:', err);
                 setError('Không thể tải danh sách phiếu nhập kho');

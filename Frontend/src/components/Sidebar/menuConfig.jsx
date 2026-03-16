@@ -83,11 +83,20 @@ const warehouseKeeperItems = [
             { path: '/inventory', label: 'Danh sách kho' },
             { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
             { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
-            
+
         ],
     },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Đơn mua',
+        children: [
+            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
+        ],
+    },
     {
         id: 'good-receipt-notes-mgmt',
         path: '/good-receipt-notes',
@@ -170,7 +179,6 @@ const accountantItems = [
         label: 'Phiếu nhập kho',
         children: [
             { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
-            { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
         ],
     },
     {

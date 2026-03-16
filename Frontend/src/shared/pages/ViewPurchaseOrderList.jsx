@@ -71,27 +71,27 @@ const APPROVAL_STATUS_STYLE = {
 const RECEIVING_STATUS_STYLE = {
     PendingRcv: {
         bgColor: 'rgba(59, 130, 246, 0.2)',
-        label: 'Đang đợi vận chuyển',
+        label: 'Đang đợi hàng về',
         dot: '•'
     },
     PartialRcv: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
-        label: 'Nhận một phần',
+        label: 'Đã về một phần hàng',
         dot: '•'
     },
     Received: {
         bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Nhận toàn bộ',
+        label: 'Đã về đủ hàng',
         dot: '•'
     },
     FullRcv: {
         bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Nhận đầy đủ',
+        label: 'Đã về đủ hàng',
         dot: '•'
     },
     PartRcv: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
-        label: 'Nhận một phần',
+        label: 'Đã về một phần hàng',
         dot: '•'
     },
 };
@@ -630,7 +630,7 @@ export default function ViewPurchaseOrderList() {
                                     <RefreshCw size={18} className={loading ? 'spin' : ''} />
                                 </IconButton>
                             </Tooltip>
-                            {permissionRole !== 'ACCOUNTANTS' && (
+                            {permissionRole === 'SALE_SUPPORT' && (
                                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                     <Button 
                                         className="list-page-btn" 
@@ -1064,7 +1064,7 @@ export default function ViewPurchaseOrderList() {
                                                     
                                                     // Receiving Status chip (wrapped in flex box)
                                                     if (col.id === 'receivingStatus') {
-                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus?.toUpperCase()] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.receivingStatus ?? '', dot: '•' };
+                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.receivingStatus ?? '', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>

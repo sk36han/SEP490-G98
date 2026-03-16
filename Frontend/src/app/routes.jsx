@@ -23,6 +23,7 @@ import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import ViewSupplierDetail from '../shared/pages/ViewSupplierDetail';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import ViewWarehouseDetail from '../shared/pages/ViewWarehouseDetail';
 import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustmentList';
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
 import CreateStocktake from '../shared/pages/CreateStocktake';
@@ -318,6 +319,17 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateWarehouse />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        {/* Chi tiết kho - ViewWarehouseDetail */}
+        <Route
+            path="/inventory/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewWarehouseDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
