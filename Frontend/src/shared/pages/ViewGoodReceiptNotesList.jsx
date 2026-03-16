@@ -75,8 +75,8 @@ const GRN_COLUMNS = [
 
 const DEFAULT_VISIBLE_COLUMN_IDS = GRN_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = GRN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
-const NUMBER_COLUMN_IDS   = ['actualQtyTotal', 'totalValue'];
-const CURRENCY_COLUMN_IDS = ['totalValue'];
+const NUMBER_COLUMN_IDS   = ['totalReceivedQty', 'netAmount'];
+const CURRENCY_COLUMN_IDS = ['netAmount'];
 const DATE_COLUMN_IDS     = ['receiptDate', 'createdAt'];
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
@@ -317,7 +317,7 @@ export default function ViewGoodReceiptNotes() {
         if (term) {
             result = result.filter((r) =>
                 norm(r.grnCode).includes(term) ||
-                norm(r.poCode).includes(term) ||
+                norm(r.purchaseOrderCode).includes(term) ||
                 norm(r.supplierName).includes(term) ||
                 norm(r.warehouseName).includes(term) ||
                 norm(r.createdByName).includes(term)
@@ -327,7 +327,6 @@ export default function ViewGoodReceiptNotes() {
         if (filterValues.warehouse)  result = result.filter((r) => norm(r.warehouseName).includes(norm(filterValues.warehouse)));
         if (filterValues.supplier)   result = result.filter((r) => norm(r.supplierName).includes(norm(filterValues.supplier)));
         if (filterValues.createdBy)  result = result.filter((r) => norm(r.createdByName).includes(norm(filterValues.createdBy)));
-        // if (filterValues.receivingStatus) result = result.filter((r) => r.receivingStatus === filterValues.receivingStatus);
         if (filterValues.fromDate)   result = result.filter((r) => r.receiptDate && r.receiptDate >= filterValues.fromDate);
         if (filterValues.toDate)     result = result.filter((r) => r.receiptDate && r.receiptDate <= filterValues.toDate);
 
@@ -337,7 +336,7 @@ export default function ViewGoodReceiptNotes() {
             const bVal = b[orderBy] ?? (NUMBER_COLUMN_IDS.includes(orderBy) ? 0 : '');
             let cmp = 0;
             if (orderBy === 'variance') {
-                cmp = ((a.actualQtyTotal ?? 0) - (a.expectedQtyTotal ?? 0)) - ((b.actualQtyTotal ?? 0) - (b.expectedQtyTotal ?? 0));
+                cmp = ((a.totalReceivedQty ?? 0) - (a.totalReceivedQty ?? 0)) - ((b.totalReceivedQty ?? 0) - (b.totalReceivedQty ?? 0));
             } else if (NUMBER_COLUMN_IDS.includes(orderBy)) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else if (DATE_COLUMN_IDS.includes(orderBy)) {
@@ -577,7 +576,7 @@ export default function ViewGoodReceiptNotes() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box component="a"
                                                                         href={`/good-receipt-notes/${row.grnId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/good-receipt-notes/${row.grnId}`); }}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/good-receipt-notes/confirmation/${row.grnId}`); }}
                                                                         sx={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
                                                                         title={row.grnCode}>
                                                                         {row.grnCode}

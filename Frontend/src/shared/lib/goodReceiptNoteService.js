@@ -83,3 +83,22 @@ export async function approveGoodReceiptNote(id, payload) {
     const response = await apiClient.post(`/GoodsReceiptNote/approve/${id}`, payload);
     return response?.data;
 }
+
+/**
+ * Kiểm tra xem PO đã có GRN đang chờ duyệt (PENDING_ACC) chưa.
+ * @param {number} purchaseOrderId - ID của PO
+ * @returns {Promise<boolean>} true nếu đã có GRN đang chờ duyệt
+ */
+export async function hasPendingGRNForPO(purchaseOrderId) {
+    try {
+        const result = await getGoodReceiptNotes({ page: 1, pageSize: 100, purchaseOrderId });
+        // Lọc các GRN có status = PENDING_ACC
+        const pendingGRNs = result.items?.filter(
+            grn => grn.status?.toUpperCase() === 'PENDING_ACC'
+        );
+        return pendingGRNs?.length > 0;
+    } catch (error) {
+        console.error('Lỗi kiểm tra GRN pending:', error);
+        return false;
+    }
+}

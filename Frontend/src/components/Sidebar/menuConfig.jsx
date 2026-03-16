@@ -74,6 +74,15 @@ const warehouseKeeperItems = [
             { path: '/brands', label: 'Thương hiệu' },
         ],
     },
+    {
+        id: 'purchase-orders-mgmt',
+        path: '/purchase-orders',
+        icon: <ShoppingCart size={22} />,
+        label: 'Đơn mua',
+        children: [
+            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
+        ],
+    },
     { path: '/inventory', icon: <Warehouse size={22} />, label: 'Quản lý kho' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
