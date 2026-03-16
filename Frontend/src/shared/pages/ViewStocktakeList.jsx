@@ -27,107 +27,97 @@ import {
 } from '@mui/material';
 import { Plus, Filter, Columns, GripVertical, Package } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
-import InventoryAdjustmentFilterPopup from '../components/InventoryAdjustmentFilterPopup';
+import StocktakeFilterPopup from '../components/StocktakeFilterPopup';
 import '../styles/ListView.css';
 
 // Mock data
 const MOCK_DATA = [
     {
-        adjustmentId: 1,
-        adjustmentCode: 'ADJ-0001',
+        stocktakeId: 1,
         stocktakeCode: 'STK-0001',
         warehouseCode: 'WH-HCM',
         warehouseName: 'Kho HCM',
-        submittedByName: 'Nguyễn Văn A',
-        status: 'POSTED',
-        reason: 'Điều chỉnh theo kiểm kê demo',
-        submittedAt: '2026-02-08T14:02:47.5454645',
-        approvedAt: '2026-02-08T14:02:47.5454645',
-        postedAt: '2026-02-08T14:02:47.5454645',
+        mode: 'PERIODIC',
+        status: 'COMPLETED',
+        plannedAt: '2026-02-01T08:00:00.0000000',
+        createdByName: 'Nguyễn Văn A',
+        createdAt: '2026-01-28T10:00:00.0000000',
     },
     {
-        adjustmentId: 2,
-        adjustmentCode: 'ADJ-0002',
-        stocktakeCode: null,
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        submittedByName: 'Trần Thị B',
-        status: 'APPROVED',
-        reason: 'Hàng hóa hư hỏng do bảo quản',
-        submittedAt: '2026-03-01T10:30:00.0000000',
-        approvedAt: '2026-03-01T11:00:00.0000000',
-        postedAt: null,
-    },
-    {
-        adjustmentId: 3,
-        adjustmentCode: 'ADJ-0003',
+        stocktakeId: 2,
         stocktakeCode: 'STK-0002',
         warehouseCode: 'WH-HCM',
         warehouseName: 'Kho HCM',
-        submittedByName: 'Lê Văn C',
-        status: 'PENDING_DIR',
-        reason: 'Chênh lệch tồn kho sau kiểm kê định kỳ',
-        submittedAt: '2026-03-05T09:15:00.0000000',
-        approvedAt: null,
-        postedAt: null,
+        mode: 'ADHOC',
+        status: 'PENDING_APPROVAL',
+        plannedAt: '2026-03-10T08:00:00.0000000',
+        createdByName: 'Trần Thị B',
+        createdAt: '2026-03-08T14:30:00.0000000',
     },
     {
-        adjustmentId: 4,
-        adjustmentCode: 'ADJ-0004',
-        stocktakeCode: null,
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        submittedByName: 'Phạm Thị D',
-        status: 'DRAFT',
-        reason: 'Chuẩn bị điều chỉnh tồn kho',
-        submittedAt: '2026-03-10T08:00:00.0000000',
-        approvedAt: null,
-        postedAt: null,
-    },
-    {
-        adjustmentId: 5,
-        adjustmentCode: 'ADJ-0005',
+        stocktakeId: 3,
         stocktakeCode: 'STK-0003',
+        warehouseCode: 'WH-HN',
+        warehouseName: 'Kho Hà Nội',
+        mode: 'PERIODIC',
+        status: 'IN_PROGRESS',
+        plannedAt: '2026-03-15T08:00:00.0000000',
+        createdByName: 'Lê Văn C',
+        createdAt: '2026-03-12T09:00:00.0000000',
+    },
+    {
+        stocktakeId: 4,
+        stocktakeCode: 'STK-0004',
         warehouseCode: 'WH-HCM',
         warehouseName: 'Kho HCM',
-        submittedByName: 'Nguyễn Văn E',
-        status: 'REJECTED',
-        reason: 'Sai sót trong phiếu kiểm kê',
-        submittedAt: '2026-03-08T14:20:00.0000000',
-        approvedAt: '2026-03-08T15:00:00.0000000',
-        postedAt: null,
+        mode: 'PERIODIC',
+        status: 'DRAFT',
+        plannedAt: '2026-03-20T08:00:00.0000000',
+        createdByName: 'Phạm Thị D',
+        createdAt: '2026-03-16T11:00:00.0000000',
+    },
+    {
+        stocktakeId: 5,
+        stocktakeCode: 'STK-0005',
+        warehouseCode: 'WH-DN',
+        warehouseName: 'Kho Đà Nẵng',
+        mode: 'ADHOC',
+        status: 'CANCELLED',
+        plannedAt: '2026-03-05T08:00:00.0000000',
+        createdByName: 'Nguyễn Văn E',
+        createdAt: '2026-03-01T16:00:00.0000000',
     },
 ];
 
 // LocalStorage keys
-const LS_COL_ORDER = 'inventoryAdjustmentColumnOrder';
+const LS_COL_ORDER = 'stocktakeColumnOrder';
 
 // Constants
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const ADJUSTMENT_COLUMNS = [
+const STOCKTAKE_COLUMNS = [
     { id: 'stt', label: 'STT', sortable: false },
-    { id: 'adjustmentCode', label: 'Mã điều chỉnh', sortable: true },
-    { id: 'stocktakeCode', label: 'Mã kiểm kê tham chiếu', sortable: false },
+    { id: 'stocktakeCode', label: 'Mã kiểm kê', sortable: true },
     { id: 'warehouseName', label: 'Kho', sortable: true },
-    { id: 'submittedByName', label: 'Người đề xuất', sortable: true },
+    { id: 'mode', label: 'Hình thức', sortable: true },
     { id: 'status', label: 'Trạng thái', sortable: true },
-    { id: 'reason', label: 'Lý do', sortable: false },
-    { id: 'submittedAt', label: 'Ngày tạo', sortable: true },
+    { id: 'plannedAt', label: 'Ngày dự kiến kiểm kê', sortable: true },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true },
+    { id: 'createdByName', label: 'Nhân viên tạo', sortable: true },
 ];
 
-const DEFAULT_VISIBLE_COLUMN_IDS = ['stt', 'adjustmentCode', 'stocktakeCode', 'warehouseName', 'status', 'submittedAt'];
+const DEFAULT_VISIBLE_COLUMN_IDS = ['stt', 'stocktakeCode', 'warehouseName', 'mode', 'status', 'plannedAt', 'createdAt', 'createdByName'];
 
 const getColumnWeight = (colId) => {
     switch (colId) {
         case 'stt': return 0.8;
-        case 'adjustmentCode': return 1.4;
-        case 'stocktakeCode': return 1.2;
+        case 'stocktakeCode': return 1.4;
         case 'warehouseName': return 1.6;
-        case 'submittedByName': return 1.6;
+        case 'mode': return 1.2;
         case 'status': return 1.6;
-        case 'reason': return 2;
-        case 'submittedAt': return 1.4;
+        case 'plannedAt': return 1.4;
+        case 'createdAt': return 1.4;
+        case 'createdByName': return 1.6;
         default: return 1;
     }
 };
@@ -173,39 +163,56 @@ const selectionBodyCellSx = {
     verticalAlign: 'middle',
 };
 
-const ADJUSTMENT_STATUS_STYLE = {
+const STOCKTAKE_STATUS_STYLE = {
     DRAFT: {
         bgColor: 'rgba(107, 114, 128, 0.2)',
-        label: 'Nháp',
+        label: 'Bản nháp',
         dot: '•'
     },
-    PENDING_DIR: {
+    IN_PROGRESS: {
+        bgColor: 'rgba(59, 130, 246, 0.2)',
+        label: 'Đang thực hiện',
+        dot: '•'
+    },
+    PENDING_APPROVAL: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
         label: 'Chờ duyệt',
         dot: '•'
     },
-    APPROVED: {
+    COMPLETED: {
         bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Đã duyệt',
+        label: 'Hoàn thành',
         dot: '•'
     },
-    POSTED: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Đã ghi sổ',
-        dot: '•'
-    },
-    REJECTED: {
+    CANCELLED: {
         bgColor: 'rgba(239, 68, 68, 0.2)',
-        label: 'Từ chối',
+        label: 'Đã hủy',
         dot: '•'
     },
 };
 
 const getStatusConfig = (status) => {
-    return ADJUSTMENT_STATUS_STYLE[status] || { bgColor: 'rgba(107, 114, 128, 0.2)', label: status, dot: '•' };
+    return STOCKTAKE_STATUS_STYLE[status] || { bgColor: 'rgba(107, 114, 128, 0.2)', label: status, dot: '•' };
 };
 
-const ViewInventoryAdjustmentList = () => {
+const MODE_STYLE = {
+    PERIODIC: {
+        bgColor: 'rgba(59, 130, 246, 0.2)',
+        label: 'Định kỳ',
+        dot: '•'
+    },
+    ADHOC: {
+        bgColor: 'rgba(168, 85, 247, 0.2)',
+        label: 'Đột xuất',
+        dot: '•'
+    },
+};
+
+const getModeConfig = (mode) => {
+    return MODE_STYLE[mode] || { bgColor: 'rgba(107, 114, 128, 0.2)', label: mode };
+};
+
+const ViewStocktakeList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
@@ -236,7 +243,7 @@ const ViewInventoryAdjustmentList = () => {
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnOrder, setColumnOrder] = useState(() => {
         try {
-            const allIds = ADJUSTMENT_COLUMNS.map((c) => c.id);
+            const allIds = STOCKTAKE_COLUMNS.map((c) => c.id);
             const saved = JSON.parse(localStorage.getItem(LS_COL_ORDER));
             if (Array.isArray(saved) && saved.length > 0) {
                 const validIds = new Set(allIds);
@@ -245,7 +252,7 @@ const ViewInventoryAdjustmentList = () => {
                 return [...filtered, ...missing];
             }
             return allIds;
-        } catch { return ADJUSTMENT_COLUMNS.map((c) => c.id); }
+        } catch { return STOCKTAKE_COLUMNS.map((c) => c.id); }
     });
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
@@ -263,7 +270,7 @@ const ViewInventoryAdjustmentList = () => {
 
     // Visible columns in current order
     const visibleColumns = useMemo(
-        () => ADJUSTMENT_COLUMNS.filter((c) => visibleColumnIds.has(c.id))
+        () => STOCKTAKE_COLUMNS.filter((c) => visibleColumnIds.has(c.id))
             .sort((a, b) => columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id)),
         [columnOrder, visibleColumnIds],
     );
@@ -281,14 +288,17 @@ const ViewInventoryAdjustmentList = () => {
             if (filterValues.status) {
                 filteredData = filteredData.filter((item) => item.status === filterValues.status);
             }
+            if (filterValues.mode) {
+                filteredData = filteredData.filter((item) => item.mode === filterValues.mode);
+            }
             if (filterValues.fromDate) {
                 const from = new Date(filterValues.fromDate);
-                filteredData = filteredData.filter((item) => item.submittedAt && new Date(item.submittedAt) >= from);
+                filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) >= from);
             }
             if (filterValues.toDate) {
                 const to = new Date(filterValues.toDate);
                 to.setHours(23, 59, 59, 999);
-                filteredData = filteredData.filter((item) => item.submittedAt && new Date(item.submittedAt) <= to);
+                filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) <= to);
             }
 
             // Apply search
@@ -296,10 +306,9 @@ const ViewInventoryAdjustmentList = () => {
                 const term = searchTerm.toLowerCase();
                 filteredData = filteredData.filter(
                     (item) =>
-                        item.adjustmentCode?.toLowerCase().includes(term) ||
+                        item.stocktakeCode?.toLowerCase().includes(term) ||
                         item.warehouseName?.toLowerCase().includes(term) ||
-                        item.submittedByName?.toLowerCase().includes(term) ||
-                        item.reason?.toLowerCase().includes(term),
+                        item.createdByName?.toLowerCase().includes(term),
                 );
             }
             setList(filteredData);
@@ -341,10 +350,10 @@ const ViewInventoryAdjustmentList = () => {
     };
 
     const handleSelectAllColumns = (checked) => {
-        setVisibleColumnIds(checked ? new Set(ADJUSTMENT_COLUMNS.map((c) => c.id)) : new Set());
+        setVisibleColumnIds(checked ? new Set(STOCKTAKE_COLUMNS.map((c) => c.id)) : new Set());
     };
 
-    const totalWeight = ADJUSTMENT_COLUMNS.filter((col) => visibleColumnIds.has(col.id))
+    const totalWeight = STOCKTAKE_COLUMNS.filter((col) => visibleColumnIds.has(col.id))
         .reduce((acc, col) => acc + getColumnWeight(col.id), 0);
     const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
@@ -353,7 +362,6 @@ const ViewInventoryAdjustmentList = () => {
         setDraggedColumn(colId);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', colId);
-        // Set drag image
         e.dataTransfer.setDragImage(e.target, 0, 0);
     };
     const handleDragEnd = () => setDraggedColumn(null);
@@ -397,7 +405,7 @@ const ViewInventoryAdjustmentList = () => {
 
     // Row selection
     const handleSelectAll = (checked) => {
-        setSelectedIds(checked ? new Set(paginatedList.map((r) => r.adjustmentId)) : new Set());
+        setSelectedIds(checked ? new Set(paginatedList.map((r) => r.stocktakeId)) : new Set());
     };
     const handleSelectRow = (id, checked) => {
         setSelectedIds((prev) => {
@@ -406,8 +414,8 @@ const ViewInventoryAdjustmentList = () => {
             return next;
         });
     };
-    const isAllSelected = paginatedList.length > 0 && paginatedList.every((r) => selectedIds.has(r.adjustmentId));
-    const isSomeSelected = paginatedList.some((r) => selectedIds.has(r.adjustmentId)) && !isAllSelected;
+    const isAllSelected = paginatedList.length > 0 && paginatedList.every((r) => selectedIds.has(r.stocktakeId));
+    const isSomeSelected = paginatedList.some((r) => selectedIds.has(r.stocktakeId)) && !isAllSelected;
 
     // Filter handlers
     const handleFilterApply = (values) => {
@@ -469,11 +477,11 @@ const ViewInventoryAdjustmentList = () => {
                         fontWeight="600"
                         sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
                     >
-                        Danh sách điều chỉnh tồn kho
+                        Danh sách kiểm kê kho
                     </Typography>
                 </Box>
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
-                    Inventory adjustment request
+                    Stocktake request
                 </Typography>
             </Box>
 
@@ -536,7 +544,7 @@ const ViewInventoryAdjustmentList = () => {
                             >
                                 {/* Search Input */}
                                 <SearchInput
-                                    placeholder="Tìm theo mã điều chỉnh, kho, người đề xuất…"
+                                    placeholder="Tìm theo mã kiểm kê, kho, nhân viên tạo…"
                                     value={searchTerm}
                                     onChange={handleSearchTermChange}
                                     sx={{
@@ -626,7 +634,7 @@ const ViewInventoryAdjustmentList = () => {
                                             },
                                         }}
                                     >
-                                        Tạo điều chỉnh
+                                        Tạo kiểm kê
                                     </Button>
                                 </Box>
                             </Box>
@@ -634,7 +642,7 @@ const ViewInventoryAdjustmentList = () => {
                     </Card>
 
                     {/* Filter Popup */}
-                    <InventoryAdjustmentFilterPopup
+                    <StocktakeFilterPopup
                         open={filterOpen}
                         onClose={() => setFilterOpen(false)}
                         initialValues={filterValues}
@@ -680,8 +688,8 @@ const ViewInventoryAdjustmentList = () => {
                                 <FormControlLabel
                                     control={
                                         <Checkbox
-                                            checked={visibleColumnIds.size === ADJUSTMENT_COLUMNS.length}
-                                            indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < ADJUSTMENT_COLUMNS.length}
+                                            checked={visibleColumnIds.size === STOCKTAKE_COLUMNS.length}
+                                            indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < STOCKTAKE_COLUMNS.length}
                                             onChange={(e) => handleSelectAllColumns(e.target.checked)}
                                             sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#3b82f6' } }}
                                         />
@@ -689,7 +697,7 @@ const ViewInventoryAdjustmentList = () => {
                                     label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
                                     sx={{ mb: 1, py: 0.5 }}
                                 />
-                                {ADJUSTMENT_COLUMNS
+                                {STOCKTAKE_COLUMNS
                                     .slice()
                                     .sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id))
                                     .map((col) => (
@@ -774,7 +782,7 @@ const ViewInventoryAdjustmentList = () => {
                                         color: 'text.secondary',
                                     }}
                                 >
-                                    <Typography variant="body2">Đang tải danh sách điều chỉnh tồn kho…</Typography>
+                                    <Typography variant="body2">Đang tải danh sách kiểm kê kho…</Typography>
                                 </Box>
                             ) : error ? (
                                 <Box
@@ -809,7 +817,7 @@ const ViewInventoryAdjustmentList = () => {
                                     }}
                                 >
                                     <Package size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
-                                    <Typography>Chưa có dữ liệu điều chỉnh tồn kho</Typography>
+                                    <Typography>Chưa có dữ liệu kiểm kê kho</Typography>
                                 </Box>
                             ) : (
                                 <TableContainer
@@ -892,7 +900,7 @@ const ViewInventoryAdjustmentList = () => {
                                             {paginatedList.map((item, index) => {
                                                 return (
                                                     <TableRow
-                                                        key={item.adjustmentId}
+                                                        key={item.stocktakeId}
                                                         hover
                                                         sx={{
                                                             height: 56,
@@ -913,8 +921,8 @@ const ViewInventoryAdjustmentList = () => {
                                                                 }}
                                                             >
                                                                 <Checkbox
-                                                                    checked={selectedIds.has(item.adjustmentId)}
-                                                                    onChange={(e) => handleSelectRow(item.adjustmentId, e.target.checked)}
+                                                                    checked={selectedIds.has(item.stocktakeId)}
+                                                                    onChange={(e) => handleSelectRow(item.stocktakeId, e.target.checked)}
                                                                     size="small"
                                                                     sx={{
                                                                         color: '#9ca3af',
@@ -936,14 +944,14 @@ const ViewInventoryAdjustmentList = () => {
                                                                     </TableCell>
                                                                 );
                                                             }
-                                                            if (col.id === 'adjustmentCode') {
+                                                            if (col.id === 'stocktakeCode') {
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Typography
-                                                                            onClick={() => navigate(`/inventory/adjustments/${item.adjustmentId}`)}
+                                                                            onClick={() => navigate(`/inventory/stocktakes/${item.stocktakeId}`)}
                                                                             sx={{
                                                                                 color: '#3b82f6',
                                                                                 fontSize: '13px',
@@ -956,41 +964,13 @@ const ViewInventoryAdjustmentList = () => {
                                                                                 display: 'block',
                                                                             }}
                                                                         >
-                                                                            {item.adjustmentCode}
+                                                                            {item.stocktakeCode}
                                                                         </Typography>
                                                                     </TableCell>
                                                                 );
                                                             }
-                                                            if (col.id === 'stocktakeCode') {
-                                                                return (
-                                                                    <TableCell
-                                                                        key={col.id}
-                                                                        sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
-                                                                    >
-                                                                        {item.stocktakeCode ? (
-                                                                            <Typography
-                                                                                sx={{
-                                                                                    color: '#3b82f6',
-                                                                                    fontSize: '13px',
-                                                                                    fontWeight: 500,
-                                                                                    cursor: 'pointer',
-                                                                                    '&:hover': { textDecoration: 'underline' },
-                                                                                    overflow: 'hidden',
-                                                                                    textOverflow: 'ellipsis',
-                                                                                    whiteSpace: 'nowrap',
-                                                                                    display: 'block',
-                                                                                }}
-                                                                            >
-                                                                                {item.stocktakeCode}
-                                                                            </Typography>
-                                                                        ) : (
-                                                                            '-'
-                                                                        )}
-                                                                    </TableCell>
-                                                                );
-                                                            }
-                                                            if (col.id === 'status') {
-                                                                const style = getStatusConfig(item.status);
+                                                            if (col.id === 'mode') {
+                                                                const modeStyle = getModeConfig(item.mode);
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
@@ -998,16 +978,16 @@ const ViewInventoryAdjustmentList = () => {
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                             <Chip
-                                                                                label={`${style.dot} ${style.label}`}
+                                                                                label={`${modeStyle.dot} ${modeStyle.label}`}
                                                                                 size="small"
                                                                                 sx={{
                                                                                     fontWeight: 500,
                                                                                     fontSize: '12px',
                                                                                     lineHeight: '16px',
                                                                                     borderRadius: '999px',
-                                                                                    minWidth: 100,
+                                                                                    minWidth: 80,
                                                                                     height: '26px',
-                                                                                    bgcolor: style.bgColor,
+                                                                                    bgcolor: modeStyle.bgColor,
                                                                                     color: '#374151',
                                                                                     border: 'none',
                                                                                     textAlign: 'left',
@@ -1017,10 +997,39 @@ const ViewInventoryAdjustmentList = () => {
                                                                                         py: 0,
                                                                                         textAlign: 'left',
                                                                                     },
-                                                                                    boxShadow: 'none',
+                                                                                }}
+                                                                            />
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            }
+                                                            if (col.id === 'status') {
+                                                                const statusStyle = getStatusConfig(item.status);
+                                                                return (
+                                                                    <TableCell
+                                                                        key={col.id}
+                                                                        sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
+                                                                    >
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                            <Chip
+                                                                                label={`${statusStyle.dot} ${statusStyle.label}`}
+                                                                                size="small"
+                                                                                sx={{
+                                                                                    fontWeight: 500,
+                                                                                    fontSize: '12px',
+                                                                                    lineHeight: '16px',
+                                                                                    borderRadius: '999px',
+                                                                                    minWidth: 100,
+                                                                                    height: '26px',
+                                                                                    bgcolor: statusStyle.bgColor,
+                                                                                    color: '#374151',
+                                                                                    border: 'none',
+                                                                                    textAlign: 'left',
+                                                                                    justifyContent: 'flex-start',
                                                                                     '& .MuiChip-label': {
                                                                                         px: 1.5,
                                                                                         py: 0,
+                                                                                        textAlign: 'left',
                                                                                     },
                                                                                 }}
                                                                             />
@@ -1028,13 +1037,13 @@ const ViewInventoryAdjustmentList = () => {
                                                                     </TableCell>
                                                                 );
                                                             }
-                                                            if (col.id === 'submittedAt') {
+                                                            if (col.id === 'plannedAt' || col.id === 'createdAt') {
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
-                                                                        sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%`, fontSize: '0.8rem' }}
+                                                                        sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
-                                                                        {formatDate(item.submittedAt)}
+                                                                        {formatDate(item[col.id])}
                                                                     </TableCell>
                                                                 );
                                                             }
@@ -1042,9 +1051,9 @@ const ViewInventoryAdjustmentList = () => {
                                                                 <TableCell
                                                                     key={col.id}
                                                                     sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
-                                                                    title={col.getValue?.(item) || item[col.id]}
+                                                                    title={item[col.id]}
                                                                 >
-                                                                    {col.getValue?.(item) || item[col.id]}
+                                                                    {item[col.id]}
                                                                 </TableCell>
                                                             );
                                                         })}
@@ -1143,4 +1152,4 @@ const ViewInventoryAdjustmentList = () => {
     );
 };
 
-export default ViewInventoryAdjustmentList;
+export default ViewStocktakeList;
