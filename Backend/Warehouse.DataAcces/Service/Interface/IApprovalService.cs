@@ -2,7 +2,7 @@ using System.Threading.Tasks;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.DataAcces.Service
+namespace Warehouse.DataAcces.Service.Interface
 {
     public interface IApprovalService
     {
