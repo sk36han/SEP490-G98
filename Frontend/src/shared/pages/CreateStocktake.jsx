@@ -64,11 +64,12 @@ const CreateStocktake = () => {
     const [lines, setLines] = useState([]);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
 
-    // Product search
+    // Product search - checkbox select
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [products] = useState(MOCK_ITEMS);
     const [filteredProducts, setFilteredProducts] = useState(MOCK_ITEMS);
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     // Dropdown states
     const [warehouseQuery, setWarehouseQuery] = useState('');
@@ -151,35 +152,59 @@ const CreateStocktake = () => {
         setFilteredProducts(filtered);
     };
 
-    const handleSelectProduct = (product) => {
-        // Check if already exists
-        const existingLine = lines.find(line => line.itemId === product.id);
+    // Checkbox selection for products
+    const toggleProductSelection = (productId) => {
+        setSelectedProductIds(prev =>
+            prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+        );
+    };
 
-        if (existingLine) {
-            showToast('Vật tư đã có trong danh sách!', 'warning');
+    const toggleSelectAllProducts = () => {
+        if (selectedProductIds.length === filteredProducts.length) {
+            setSelectedProductIds([]);
+        } else {
+            setSelectedProductIds(filteredProducts.map(p => p.id));
+        }
+    };
+
+    const handleAddSelectedProducts = () => {
+        if (selectedProductIds.length === 0) {
+            showToast('Vui lòng chọn ít nhất 1 vật tư!', 'warning');
             return;
         }
 
-        // Add new line
-        const newLine = {
-            id: Date.now(),
-            itemId: product.id,
-            itemName: product.name,
-            itemCode: product.code,
-            itemImage: product.image,
-            uom: product.uom,
-            systemQty: product.systemQty || 0,
-            countedQty: '',
-            varianceQty: '',
-            note: ''
-        };
+        const productsToAdd = products.filter(p => selectedProductIds.includes(p.id));
+        const newLines = [];
+        const existingItemIds = lines.map(l => l.itemId);
 
-        setLines(prev => [...prev, newLine]);
-        setSearchKeyword('');
-        setFilteredProducts(products);
+        productsToAdd.forEach(product => {
+            if (existingItemIds.includes(product.id)) {
+                return;
+            }
+            newLines.push({
+                id: Date.now() + Math.random(),
+                itemId: product.id,
+                itemName: product.name,
+                itemCode: product.code,
+                itemImage: product.image,
+                uom: product.uom,
+                systemQty: product.systemQty || 0,
+                countedQty: '',
+                varianceQty: '',
+                note: ''
+            });
+        });
+
+        if (newLines.length > 0) {
+            setLines(prev => [...prev, ...newLines]);
+            showToast(`Đã thêm ${newLines.length} vật tư vào danh sách`, 'success');
+        }
+
+        setSelectedProductIds([]);
         setShowProductSearch(false);
-        showToast('Đã thêm vật tư vào danh sách', 'success');
+        setSearchKeyword('');
     };
+
 
     const updateLine = (index, field, value) => {
         setLines(prev => prev.map((l, i) => {
@@ -400,7 +425,7 @@ const CreateStocktake = () => {
                         {/* Trái: Danh sách vật tư + Ghi chú */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             {/* 1. Danh sách vật tư */}
-                            <div className="info-section" style={{ margin: 0, minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
+                            <div className="info-section" style={{ margin: 0, minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -448,19 +473,37 @@ const CreateStocktake = () => {
                                             </button>
                                         </div>
 
-                                        {/* Dropdown Results */}
+                                        {/* Dropdown Results with Checkbox */}
                                         {showProductSearch && (
                                             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', maxHeight: '400px', overflowY: 'auto', zIndex: 100, animation: 'fadeIn 0.2s ease-out' }}>
-                                                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#f9fafb', fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
-                                                    {`${filteredProducts.length} vật tư`}
+                                                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#f9fafb', fontSize: '12px', color: '#6b7280', fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span>{`${filteredProducts.length} vật tư`}</span>
+                                                    {selectedProductIds.length > 0 && (
+                                                        <span style={{ color: '#2196F3', fontWeight: 600 }}>Đã chọn: {selectedProductIds.length}</span>
+                                                    )}
+                                                </div>
+                                                <div style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={filteredProducts.length > 0 && selectedProductIds.length === filteredProducts.length}
+                                                            onChange={toggleSelectAllProducts}
+                                                            style={{ cursor: 'pointer' }}
+                                                        />
+                                                        Chọn tất cả
+                                                    </label>
                                                 </div>
                                                 {filteredProducts.length === 0 ? (
                                                     <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>
                                                         <p style={{ margin: 0, fontSize: '13px' }}>Không tìm thấy vật tư</p>
                                                     </div>
-                                                ) : (
-                                                    filteredProducts.map(item => (
-                                                        <div key={item.id} onClick={() => handleSelectProduct(item)} style={{ padding: '12px 16px', cursor: 'pointer', transition: 'background-color 0.15s', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '12px' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}>
+                                                ) : filteredProducts.map(item => {
+                                                    const isChecked = selectedProductIds.includes(item.id);
+                                                    const handleMouseEnter = (e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; };
+                                                    const handleMouseLeave = (e) => { e.currentTarget.style.backgroundColor = 'white'; };
+                                                    return (
+                                                        <div key={item.id} style={{ padding: '12px 16px', cursor: 'pointer', transition: 'background-color 0.15s', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '12px' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+                                                            <input type="checkbox" checked={isChecked} onChange={() => toggleProductSelection(item.id)} style={{ cursor: 'pointer', flexShrink: 0 }} />
                                                             {isValidImageUrl(item.image) ? (
                                                                 <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e5e7eb', flexShrink: 0 }} />
                                                             ) : (
@@ -472,14 +515,21 @@ const CreateStocktake = () => {
                                                                 <div style={{ fontWeight: 500, color: '#111827', fontSize: '14px' }}>{item.name}</div>
                                                                 <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                                                                     <span>Mã: {item.code}</span>
-                                                                    <span>•</span>
+                                                                    <span style={{ color: '#9ca3af' }}>-</span>
                                                                     <span>ĐVT: {item.uom}</span>
-                                                                    <span>•</span>
+                                                                    <span style={{ color: '#9ca3af' }}>-</span>
                                                                     <span>SL Hệ thống: {item.systemQty || 0}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    ))
+                                                    );
+                                                })}
+                                                {selectedProductIds.length > 0 && (
+                                                    <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                                                        <button type="button" onClick={handleAddSelectedProducts} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                                                            Thêm {selectedProductIds.length} sản phẩm
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         )}
@@ -537,7 +587,32 @@ const CreateStocktake = () => {
                                                                         <ImageIcon size={20} color="#9ca3af" />
                                                                     </div>
                                                                 )}
-                                                                <div style={{ fontWeight: 500, color: '#111827', fontSize: '14px' }}>{line.itemName}</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                    <a
+                                                                        href="#"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            navigate(`/items/${line.itemId}`);
+                                                                        }}
+                                                                        style={{
+                                                                            color: '#2196F3',
+                                                                            textDecoration: 'none',
+                                                                            fontSize: 14,
+                                                                            fontWeight: 500,
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            e.target.style.textDecoration = 'underline';
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            e.target.style.textDecoration = 'none';
+                                                                        }}
+                                                                    >
+                                                                        {line.itemName}
+                                                                    </a>
+                                                                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                                        Mã: {line.itemCode} • ĐVT: {line.uom}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td>
@@ -640,10 +715,10 @@ const CreateStocktake = () => {
 
                                 {/* Ngày dự kiến */}
                                 <div className="form-field">
-                                    <label className="form-label">Ngày dự kiến kiểm kê <span className="required-mark">*</span></label>
+                                    <label className="form-label">Ngày giờ dự kiến kiểm kê <span className="required-mark">*</span></label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
-                                        <input type="date" name="plannedAt" value={formData.plannedAt} onChange={handleChange} className={`form-input ${errors.plannedAt ? 'error' : ''}`} />
+                                        <input type="datetime-local" name="plannedAt" value={formData.plannedAt} onChange={handleChange} className={`form-input ${errors.plannedAt ? 'error' : ''}`} />
                                     </div>
                                     {errors.plannedAt && <span className="error-message">{errors.plannedAt}</span>}
                                 </div>

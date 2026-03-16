@@ -101,7 +101,7 @@ const STOCKTAKE_COLUMNS = [
     { id: 'warehouseName', label: 'Kho', sortable: true },
     { id: 'mode', label: 'Hình thức', sortable: true },
     { id: 'status', label: 'Trạng thái', sortable: true },
-    { id: 'plannedAt', label: 'Ngày dự kiến kiểm kê', sortable: true },
+    { id: 'plannedAt', label: 'Ngày giờ dự kiến kiểm kê', sortable: true },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true },
     { id: 'createdByName', label: 'Nhân viên tạo', sortable: true },
 ];
