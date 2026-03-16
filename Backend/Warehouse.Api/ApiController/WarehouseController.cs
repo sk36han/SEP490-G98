@@ -47,6 +47,28 @@ namespace Warehouse.Api.ApiController
 		}
 
 		/// <summary>
+		/// Lấy chi tiết thông tin kho
+		/// GET: /api/warehouse/detail/{id}
+		/// </summary>
+		[HttpGet("detail/{id}")]
+		public async Task<IActionResult> GetWarehouseDetail(long id)
+		{
+			try
+			{
+				var result = await _warehouseService.GetWarehouseDetailAsync(id);
+				return Ok(ApiResponse<WarehouseDetailResponse>.SuccessResponse(result, "Lấy chi tiết kho thành công."));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+
+		/// <summary>
 		/// Tạo kho mới
 		/// POST: /api/warehouse/create
 		/// </summary>
@@ -141,6 +163,23 @@ namespace Warehouse.Api.ApiController
 			{
 				var items = await _warehouseService.GetWarehouseDropdownAsync();
 				return Ok(ApiResponse<object>.SuccessResponse(items, "Lấy danh sách kho thành công."));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+		/// <summary>
+		/// Lấy lịch sử xuất/nhập kho
+		/// GET: /api/Warehouse/history?pageNumber=1&pageSize=10
+		/// </summary>
+		[HttpGet("history")]
+		public async Task<IActionResult> GetWarehouseHistory([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] long? warehouseId = null)
+		{
+			try
+			{
+				var result = await _warehouseService.GetWarehouseHistoryAsync(pageNumber, pageSize, warehouseId);
+				return Ok(ApiResponse<PagedResult<WarehouseHistoryResponse>>.SuccessResponse(result, "Lấy lịch sử kho thành công."));
 			}
 			catch (Exception)
 			{
