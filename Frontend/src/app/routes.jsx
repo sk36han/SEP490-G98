@@ -354,7 +354,7 @@ const AppRoutes = () => (
             element={
                 <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
-                        <GRNConfirmation />
+                        <ViewGoodReceiptNoteDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }

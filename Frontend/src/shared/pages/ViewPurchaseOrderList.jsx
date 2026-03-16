@@ -41,42 +41,52 @@ import '../styles/ListView.css';
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const APPROVAL_STATUS_STYLE = {
-    Draft: {
+    DRAFT: {
         bgColor: 'rgba(107, 114, 128, 0.2)',
         label: 'Bản nháp',
         dot: '•'
     },
-    Pending: { 
-        bgColor: 'rgba(251, 191, 36, 0.2)', 
+    PENDING_ACC: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
         label: 'Chờ duyệt',
         dot: '•'
     },
-    Approved: { 
-        bgColor: 'rgba(16, 185, 129, 0.2)', 
+    APPROVED: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
         label: 'Đã duyệt',
         dot: '•'
     },
-    Rejected: { 
-        bgColor: 'rgba(239, 68, 68, 0.2)', 
+    REJECTED: {
+        bgColor: 'rgba(239, 68, 68, 0.2)',
         label: 'Từ chối',
         dot: '•'
     },
 };
 
 const RECEIVING_STATUS_STYLE = {
-    Pending: { 
-        bgColor: 'rgba(59, 130, 246, 0.2)', 
+    PendingRcv: {
+        bgColor: 'rgba(59, 130, 246, 0.2)',
         label: 'Chờ nhập',
         dot: '•'
     },
-    Partial: { 
-        bgColor: 'rgba(251, 191, 36, 0.2)', 
-        label: 'Nhập một phần',
+    PartialRcv: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        label: 'Nhận một phần',
         dot: '•'
     },
-    Completed: { 
-        bgColor: 'rgba(16, 185, 129, 0.2)', 
-        label: 'Nhập toàn bộ',
+    Received: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
+        label: 'Nhận toàn bộ',
+        dot: '•'
+    },
+    FullRcv: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
+        label: 'Nhận đầy đủ',
+        dot: '•'
+    },
+    PartRcv: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        label: 'Nhận một phần',
         dot: '•'
     },
 };
@@ -99,61 +109,7 @@ const PO_COLUMNS = [
 const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 
-/** Mock danh sách đơn mua – đủ cột theo yêu cầu (UI only). */
-const MOCK_PO_LIST = [
-    { 
-        purchaseOrderId: 1, 
-        orderCode: 'PO-2025-001', 
-        warehouseName: 'Kho Hà Nội', 
-        approvalStatus: 'Pending', 
-        receivingStatus: 'Pending', 
-        supplierName: 'Công ty TNHH ABC', 
-        creator: 'Nguyễn Văn A', 
-        responsiblePerson: 'Trần Thị B', 
-        totalReceivedQuantity: 0,
-        orderValue: 125000000, 
-        createdAt: '2025-02-09T08:00:00' 
-    },
-    { 
-        purchaseOrderId: 2, 
-        orderCode: 'PO-2025-002', 
-        warehouseName: 'Kho Đà Nẵng', 
-        approvalStatus: 'Approved', 
-        receivingStatus: 'Partial', 
-        supplierName: 'Công ty CP XYZ', 
-        creator: 'Lê Văn C', 
-        responsiblePerson: 'Phạm Thị D', 
-        totalReceivedQuantity: 350,
-        orderValue: 98000000, 
-        createdAt: '2025-02-11T09:00:00' 
-    },
-    { 
-        purchaseOrderId: 3, 
-        orderCode: 'PO-2025-003', 
-        warehouseName: 'Kho Hồ Chí Minh', 
-        approvalStatus: 'Approved', 
-        receivingStatus: 'Completed', 
-        supplierName: 'Công ty TNHH ABC', 
-        creator: 'Nguyễn Văn A', 
-        responsiblePerson: 'Trần Thị B', 
-        totalReceivedQuantity: 300,
-        orderValue: 45000000, 
-        createdAt: '2025-02-13T14:00:00' 
-    },
-    { 
-        purchaseOrderId: 4, 
-        orderCode: 'PO-2025-004', 
-        warehouseName: 'Kho Hà Nội', 
-        approvalStatus: 'Rejected', 
-        receivingStatus: 'Pending', 
-        supplierName: 'Công ty CP XYZ', 
-        creator: 'Phạm Thị D', 
-        responsiblePerson: 'Lê Văn C', 
-        totalReceivedQuantity: 0,
-        orderValue: 30500000, 
-        createdAt: '2025-02-14T16:00:00' 
-    },
-];
+/** Danh sách đơn mua - dữ liệu từ API */
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -253,7 +209,7 @@ export default function ViewPurchaseOrderList() {
                 orderCode: item.poCode ?? item.orderCode ?? '',
                 warehouseName: item.warehouseName ?? item.WarehouseName ?? '',
                 approvalStatus: item.status ?? item.Status ?? 'DRAFT',
-                receivingStatus: item.receivingStatus ?? item.ReceivingStatus ?? 'Pending',
+                receivingStatus: item.lifecycleStatus ?? item.LifecycleStatus ?? item.receivingStatus ?? 'PendingRcv',
                 supplierName: item.supplierName ?? item.SupplierName ?? '',
                 creator: item.requestedByName ?? item.RequestedByName ?? item.creator ?? '',
                 responsiblePerson: item.responsibleUserName ?? item.ResponsibleUserName ?? item.responsiblePerson ?? '',

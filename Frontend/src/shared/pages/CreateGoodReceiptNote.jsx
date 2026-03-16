@@ -267,6 +267,7 @@ const CreateGoodReceiptNote = () => {
                     .filter(line => (line.receivedQty ?? 0) < (line.orderedQty ?? 0))
                     .map(line => ({
                         id: line.purchaseOrderLineId || line.PurchaseOrderLineId || line.id || Date.now() + Math.random(),
+                        poLineId: line.purchaseOrderLineId || line.PurchaseOrderLineId || null,
                         itemId: line.itemId ?? line.ItemId,
                         itemName: line.itemName ?? line.ItemName ?? '',
                         orderedQty: line.orderedQty ?? line.OrderedQty ?? 0,

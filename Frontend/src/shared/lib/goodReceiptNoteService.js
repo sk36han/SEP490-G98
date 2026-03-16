@@ -102,3 +102,28 @@ export async function hasPendingGRNForPO(purchaseOrderId) {
         return false;
     }
 }
+
+/**
+ * Lấy chi tiết GRN theo ID.
+ * @param {number} grnId - ID của GRN
+ * @returns {Promise<any>} GRNDetailResponse
+ */
+export async function getGRNDetail(grnId) {
+    const response = await apiClient.get(`/GoodsReceiptNote/detail/${grnId}`);
+    return response?.data;
+}
+
+/**
+ * Duyệt GRN.
+ * @param {number} grnId - ID của GRN
+ * @param {{
+ *  note?: string,
+ *  isPaid?: boolean,
+ *  paymentMethod?: string
+ * }} payload
+ * @returns {Promise<any>}
+ */
+export async function approveGRN(grnId, payload) {
+    const response = await apiClient.post(`/GoodsReceiptNote/approve/${grnId}`, payload);
+    return response?.data;
+}
