@@ -147,5 +147,22 @@ namespace Warehouse.Api.ApiController
 				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
 			}
 		}
+		/// <summary>
+		/// Lấy lịch sử xuất/nhập kho
+		/// GET: /api/Warehouse/history?pageNumber=1&pageSize=10
+		/// </summary>
+		[HttpGet("history")]
+		public async Task<IActionResult> GetWarehouseHistory([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] long? warehouseId = null)
+		{
+			try
+			{
+				var result = await _warehouseService.GetWarehouseHistoryAsync(pageNumber, pageSize, warehouseId);
+				return Ok(ApiResponse<PagedResult<WarehouseHistoryResponse>>.SuccessResponse(result, "Lấy lịch sử kho thành công."));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
     }
 }
