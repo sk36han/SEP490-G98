@@ -46,11 +46,11 @@ const LS_SORT       = 'grnSortConfig';
 
 // ── Status styles ─────────────────────────────────────────────────────────────
 const STATUS_STYLE = {
-    Draft:     { bgColor: 'rgba(107,114,128,0.15)', label: 'Nháp',         dot: '•' },
-    Submitted: { bgColor: 'rgba(59,130,246,0.15)',  label: 'Đã gửi duyệt', dot: '•' },
-    Approved:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã duyệt',     dot: '•' },
-    Rejected:  { bgColor: 'rgba(239,68,68,0.15)',   label: 'Từ chối',      dot: '•' },
-    Posted:    { bgColor: 'rgba(139,92,246,0.15)',  label: 'Đã ghi sổ',    dot: '•' },
+    DRAFT:        { bgColor: 'rgba(107,114,128,0.15)', label: 'Bản nháp',    dot: '•' },
+    PENDING_ACC: { bgColor: 'rgba(251,191,36,0.20)',  label: 'Đợi duyệt',   dot: '•' },
+    APPROVED:     { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã duyệt',    dot: '•' },
+    REJECTED:     { bgColor: 'rgba(239,68,68,0.15)',   label: 'Từ chối',     dot: '•' },
+    POSTED:       { bgColor: 'rgba(139,92,246,0.15)',  label: 'Đã ghi sổ',   dot: '•' },
 };
 
 const RECEIVING_STATUS_STYLE = {
@@ -66,7 +66,7 @@ const GRN_COLUMNS = [
     { id: 'receiptDate',      label: 'Ngày nhập',        sortable: true,  getValue: (row) => row.receiptDate    ?? '' },
     { id: 'warehouseName',    label: 'Kho nhập',         sortable: true,  getValue: (row) => row.warehouseName  ?? '' },
     { id: 'supplierName',     label: 'Nhà cung cấp',     sortable: true,  getValue: (row) => row.supplierName   ?? '' },
-    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
+    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => STATUS_STYLE[row.status?.toUpperCase()]?.label ?? row.status ?? '' },
     { id: 'actualQtyTotal',   label: 'Số lượng nhập',    sortable: true,  getValue: (row) => row.actualQtyTotal ?? 0 },
     { id: 'totalValue',       label: 'Giá trị đơn',      sortable: true,  getValue: (row) => row.totalValue     ?? 0 },
     { id: 'createdByName',    label: 'Nhân viên tạo',    sortable: true,  getValue: (row) => row.createdByName  ?? '' },
@@ -155,7 +155,7 @@ const CHECKBOX_CELL_SX = {
 
 // ── Status Chip ───────────────────────────────────────────────────────────────
 const StatusChip = ({ status }) => {
-    const style = STATUS_STYLE[status] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-', dot: '•' };
+    const style = STATUS_STYLE[status?.toUpperCase()] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-', dot: '•' };
     return (
         <Chip
             label={`${style.dot} ${style.label}`}

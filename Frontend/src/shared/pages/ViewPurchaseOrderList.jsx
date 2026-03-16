@@ -48,7 +48,12 @@ const APPROVAL_STATUS_STYLE = {
     },
     PENDING_ACC: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
-        label: 'Chờ duyệt',
+        label: 'Đợi duyệt',
+        dot: '•'
+    },
+    PENDING_DIR: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        label: 'Đợi duyệt',
         dot: '•'
     },
     APPROVED: {
@@ -66,7 +71,7 @@ const APPROVAL_STATUS_STYLE = {
 const RECEIVING_STATUS_STYLE = {
     PendingRcv: {
         bgColor: 'rgba(59, 130, 246, 0.2)',
-        label: 'Chờ nhập',
+        label: 'Đang đợi vận chuyển',
         dot: '•'
     },
     PartialRcv: {
