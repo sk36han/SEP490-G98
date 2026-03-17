@@ -38,6 +38,7 @@ import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
+import { hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
 import { getItemsForDisplay } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
 
@@ -54,7 +55,6 @@ const ViewPurchaseOrderDetail = () => {
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
-    const canEdit = permissionRole === 'SALE_SUPPORT' || permissionRole === 'WAREHOUSE_KEEPER';
     const canConfirm = permissionRole === 'ACCOUNTANTS';
     const [isEditing, setIsEditing] = useState(false);
 
@@ -95,6 +95,9 @@ const ViewPurchaseOrderDetail = () => {
         unitPrice: 0,
         note: ''
     });
+
+    // State kiem tra GRN pending cho PO
+    const [hasPendingGRN, setHasPendingGRN] = useState(false);
 
     const [items, setItems] = useState([]);
     const [itemsLoading, setItemsLoading] = useState(false);
@@ -183,6 +186,21 @@ const ViewPurchaseOrderDetail = () => {
         fetchOrderDetail();
     }, [id]);
 
+    // Kiem tra xem PO da co GRN pending chua
+    useEffect(() => {
+        const checkPendingGRN = async () => {
+            if (orderData.purchaseOrderId && orderData.approvalStatus?.toUpperCase() === 'APPROVED') {
+                try {
+                    const hasPending = await hasPendingGRNForPO(orderData.purchaseOrderId);
+                    setHasPendingGRN(hasPending);
+                } catch (error) {
+                    console.error('Lỗi kiểm tra GRN pending:', error);
+                }
+            }
+        };
+        checkPendingGRN();
+    }, [orderData.purchaseOrderId, orderData.approvalStatus]);
+
     const filteredItems = useMemo(() => {
         const q = (newLine.itemName || '').trim().toLowerCase();
         if (!q) return items.slice(0, 20);
@@ -267,6 +285,27 @@ const ViewPurchaseOrderDetail = () => {
         ? (orderData.discountAmountFixed || 0)
         : (subtotal * (orderData.discount || 0)) / 100;
     const grandTotal = subtotal - discountAmount;
+
+    // Logic quyen chinh sua PO:
+    // - DRAFT: Chi Sale Support duoc sua
+    // - PENDING_ACC, APPROVED, REJECTED: Khong ai duoc sua
+    const canEdit = (() => {
+        const status = orderData.approvalStatus?.toUpperCase();
+        if (status === 'DRAFT') {
+            return permissionRole === 'SALE_SUPPORT';
+        }
+        return false;
+    })();
+
+    // Chi Thủ Kho duoc tao GRN khi PO da duyet va chua co GRN pending
+    const canCreateGRN = (() => {
+        const status = orderData.approvalStatus?.toUpperCase();
+        if (status !== 'APPROVED') return false;
+        if (permissionRole !== 'WAREHOUSE_KEEPER') return false;
+        // Khong cho tao neu da co GRN pending
+        if (hasPendingGRN) return false;
+        return true;
+    })();
 
     const openConfirmDialog = (type) => {
         setConfirmDialogType(type);
@@ -436,6 +475,30 @@ const ViewPurchaseOrderDetail = () => {
                                         Duyệt đơn
                                     </button>
                                 </>
+                            )}
+                            {/* Nut tao phieu nhap kho - chi Thủ Kho duoc tao khi status = APPROVED */}
+                            {canCreateGRN && (
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => navigate(`/good-receipt-notes/create?poId=${orderData.purchaseOrderId}`)}
+                                >
+                                    <Warehouse size={16} className="btn-icon" />
+                                    Tạo phiếu nhập kho
+                                </button>
+                            )}
+                            {/* Hien thi thong bao neu da co GRN pending */}
+                            {permissionRole === 'WAREHOUSE_KEEPER' && orderData.approvalStatus?.toUpperCase() === 'APPROVED' && hasPendingGRN && (
+                                <Chip
+                                    label="Đã có GRN chờ duyệt"
+                                    sx={{
+                                        bgcolor: '#fef3c7',
+                                        color: '#92400e',
+                                        fontWeight: 500,
+                                        fontSize: '12px',
+                                        height: 32,
+                                    }}
+                                />
                             )}
                             {canEdit && (
                                 <button

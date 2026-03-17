@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Warehouse.DataAcces.Service;
+using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 
 namespace Warehouse.Api.ApiController

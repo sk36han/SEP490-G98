@@ -23,6 +23,7 @@ import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import ViewSupplierDetail from '../shared/pages/ViewSupplierDetail';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import ViewWarehouseDetail from '../shared/pages/ViewWarehouseDetail';
 import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustmentList';
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
 import CreateStocktake from '../shared/pages/CreateStocktake';
@@ -31,6 +32,7 @@ import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
+import GRNConfirmation from '../shared/pages/mockup/GRNConfirmation';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
@@ -321,6 +323,17 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
+        {/* Chi tiết kho - ViewWarehouseDetail */}
+        <Route
+            path="/inventory/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewWarehouseDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
         {/* Tồn kho - Inventory Adjustment - Thủ kho */}
         <Route
             path="/inventory/adjustments"
@@ -394,6 +407,16 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
+        <Route
+            path="/good-receipt-notes/confirmation/:id"
+            element={
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewGoodReceiptNoteDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
         {/* Yêu cầu xuất hàng (GDN) – Kế toán, Thủ kho */}
         <Route
             path="/good-delivery-notes"
@@ -425,11 +448,11 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase order: Sale Support, Kế toán */}
+        {/* Purchase order: Sale Support, Ke toan, Thu Kho */}
         <Route
             path="/purchase-orders"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewPurchaseOrderList />
                     </MainLayout>
@@ -439,7 +462,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/create"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
                         <CreatePurchaseOrder />
                     </MainLayout>
@@ -449,7 +472,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/:id"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewPurchaseOrderDetail />
                     </MainLayout>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Box,
@@ -20,36 +20,11 @@ import {
     DialogActions,
     useTheme,
     useMediaQuery,
+    CircularProgress,
 } from '@mui/material';
 import { ArrowLeft, History } from 'lucide-react';
+import { getWarehouseDetail, getWarehouseHistory } from '../lib/warehouseService';
 import '../styles/ListView.css';
-
-/** Mock thông tin kho theo id */
-const MOCK_WAREHOUSES = {
-    1: { warehouseId: 1, warehouseCode: 'WH001', warehouseName: 'Kho chính', address: '123 Đường A, Quận 1, TP.HCM', isActive: true },
-    2: { warehouseId: 2, warehouseCode: 'WH002', warehouseName: 'Kho phụ', address: '456 Đường B, Quận 2, TP.HCM', isActive: true },
-    3: { warehouseId: 3, warehouseCode: 'WH003', warehouseName: 'Kho lạnh', address: '789 Đường C, Quận 7, TP.HCM', isActive: true },
-    4: { warehouseId: 4, warehouseCode: 'WH004', warehouseName: 'Kho tạm ngưng', address: '321 Đường D, Quận Bình Thạnh', isActive: false },
-};
-
-/** Mock danh sách vật tư trong kho (name, category, quantity) */
-const MOCK_WAREHOUSE_ITEMS = [
-    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', categoryName: 'Điện thoại', quantity: 120, uomName: 'Cái' },
-    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', categoryName: 'Điện thoại', quantity: 85, uomName: 'Cái' },
-    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', categoryName: 'Laptop', quantity: 42, uomName: 'Cái' },
-    { itemId: 4, itemCode: 'SP004', itemName: 'Tủ lạnh Samsung 234L', categoryName: 'Điện lạnh', quantity: 28, uomName: 'Cái' },
-    { itemId: 5, itemCode: 'SP005', itemName: 'Tai nghe AirPods Pro 2', categoryName: 'Phụ kiện', quantity: 256, uomName: 'Cái' },
-    { itemId: 6, itemCode: 'SP006', itemName: 'Cáp sạc USB-C 2m', categoryName: 'Phụ kiện', quantity: 500, uomName: 'Cái' },
-];
-
-/** Mock lịch sử xuất/nhập kho */
-const MOCK_STOCK_HISTORY = [
-    { id: 1, type: 'Nhập', documentCode: 'GRN-2025-001', date: '2025-02-15', itemName: 'iPhone 15 Pro Max 256GB', quantity: 20, uomName: 'Cái' },
-    { id: 2, type: 'Xuất', documentCode: 'GDN-2025-003', date: '2025-02-14', itemName: 'Samsung Galaxy S24 Ultra', quantity: 5, uomName: 'Cái' },
-    { id: 3, type: 'Nhập', documentCode: 'GRN-2025-002', date: '2025-02-13', itemName: 'MacBook Pro 14" M3', quantity: 10, uomName: 'Cái' },
-    { id: 4, type: 'Xuất', documentCode: 'GDN-2025-002', date: '2025-02-12', itemName: 'Tai nghe AirPods Pro 2', quantity: 30, uomName: 'Cái' },
-    { id: 5, type: 'Nhập', documentCode: 'GRN-2025-003', date: '2025-02-10', itemName: 'Cáp sạc USB-C 2m', quantity: 100, uomName: 'Cái' },
-];
 
 const ViewWarehouseDetail = () => {
     const { id } = useParams();
@@ -59,26 +34,106 @@ const ViewWarehouseDetail = () => {
 
     const [warehouse, setWarehouse] = useState(null);
     const [items, setItems] = useState([]);
+    const [historyList, setHistoryList] = useState([]);
     const [historyOpen, setHistoryOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    // Lấy chi tiết kho
+    const fetchWarehouseDetail = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await getWarehouseDetail(Number(id));
+            setWarehouse({
+                warehouseId: data.warehouseId ?? data.WarehouseId,
+                warehouseCode: data.warehouseCode ?? data.WarehouseCode ?? '',
+                warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
+                address: data.address ?? data.Address ?? '-',
+                isActive: data.isActive ?? data.IsActive ?? true,
+                createdAt: data.createdAt ?? data.CreatedAt,
+            });
+            // Map items từ API
+            const warehouseItems = (data.items ?? data.Items ?? []).map((item) => ({
+                itemId: item.itemId ?? item.ItemId,
+                itemCode: item.itemCode ?? item.ItemCode ?? '',
+                itemName: item.itemName ?? item.ItemName ?? '',
+                categoryName: item.categoryName ?? item.CategoryName ?? '',
+                brandName: item.brandName ?? item.BrandName ?? '',
+                unitName: item.unitName ?? item.UnitName ?? '',
+                onHandQty: item.onHandQty ?? item.OnHandQty ?? 0,
+                reservedQty: item.reservedQty ?? item.ReservedQty ?? 0,
+            }));
+            setItems(warehouseItems);
+        } catch (err) {
+            console.error('Error fetching warehouse detail:', err);
+            setError(err?.message || 'Không thể tải thông tin kho');
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
+
+    // Lấy lịch sử biến động kho
+    const fetchHistory = useCallback(async () => {
+        setHistoryLoading(true);
+        try {
+            const result = await getWarehouseHistory({
+                pageNumber: 1,
+                pageSize: 50,
+                warehouseId: Number(id),
+            });
+            const mappedHistory = (result.items ?? []).map((h, index) => ({
+                id: index + 1,
+                voucherCode: h.voucherCode ?? h.VoucherCode ?? '',
+                itemName: h.itemName ?? h.ItemName ?? '',
+                quantity: h.quantity ?? h.Quantity ?? 0,
+                transactionDate: h.transactionDate ?? h.TransactionDate ?? h.transactionDate ?? '',
+                approverName: h.approverName ?? h.ApproverName ?? '',
+            }));
+            setHistoryList(mappedHistory);
+        } catch (err) {
+            console.error('Error fetching history:', err);
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [id]);
 
     useEffect(() => {
-        const wh = MOCK_WAREHOUSES[Number(id)] || {
-            warehouseId: Number(id),
-            warehouseCode: `WH${String(id).padStart(3, '0')}`,
-            warehouseName: `Kho #${id}`,
-            address: '-',
-            isActive: true,
-        };
-        setWarehouse(wh);
-        setItems(MOCK_WAREHOUSE_ITEMS);
-    }, [id]);
+        fetchWarehouseDetail();
+    }, [fetchWarehouseDetail]);
+
+    const handleOpenHistory = () => {
+        setHistoryOpen(true);
+        if (historyList.length === 0) {
+            fetchHistory();
+        }
+    };
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (error) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Typography color="error">{error}</Typography>
+                <Button onClick={() => navigate('/inventory')} sx={{ mt: 2 }}>
+                    Quay lại
+                </Button>
+            </Box>
+        );
+    }
 
     if (!warehouse) return null;
 
     return (
         <>
             <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
-                {/* Header: nút Quay lại bên trái, tiêu đề và mô tả */}
                 <Box
                     sx={{
                         display: 'flex',
@@ -148,7 +203,6 @@ const ViewWarehouseDetail = () => {
                         boxSizing: 'border-box',
                     }}
                 >
-                    {/* Hàng nút: Xem lịch sử căn phải */}
                     <Box
                         sx={{
                             display: 'flex',
@@ -161,14 +215,13 @@ const ViewWarehouseDetail = () => {
                             className="list-page-btn"
                             variant="contained"
                             startIcon={<History size={18} />}
-                            onClick={() => setHistoryOpen(true)}
+                            onClick={handleOpenHistory}
                             sx={{ fontSize: 13, fontWeight: 600, textTransform: 'none', borderRadius: 2, minHeight: 36, px: 2 }}
                         >
                             Xem lịch sử xuất/nhập kho
                         </Button>
                     </Box>
 
-                    {/* Thông tin kho */}
                     <Card
                         className="list-filter-card"
                         sx={{
@@ -208,7 +261,6 @@ const ViewWarehouseDetail = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Bảng vật tư */}
                     <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>Danh sách vật tư trong kho</Typography>
                     <Card
                         className="list-grid-card"
@@ -225,22 +277,34 @@ const ViewWarehouseDetail = () => {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="left">STT</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="left">Mã vật tư</TableCell>
                                         <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="left">Tên vật tư</TableCell>
                                         <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="left">Danh mục</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="right">Số lượng</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="right">Tồn kho</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="right">Đặt trước</TableCell>
                                         <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50', whiteSpace: 'nowrap' }} align="left">Đơn vị</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {items.map((row, index) => (
+                                    {items.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                                <Typography color="text.secondary">Không có vật tư trong kho</Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        items.map((row, index) => (
                                         <TableRow key={row.itemId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                             <TableCell align="left">{index + 1}</TableCell>
+                                                <TableCell align="left">{row.itemCode}</TableCell>
                                             <TableCell align="left">{row.itemName}</TableCell>
                                             <TableCell align="left">{row.categoryName}</TableCell>
-                                            <TableCell align="right">{row.quantity}</TableCell>
-                                            <TableCell align="left">{row.uomName}</TableCell>
+                                                <TableCell align="right">{row.onHandQty}</TableCell>
+                                                <TableCell align="right">{row.reservedQty}</TableCell>
+                                                <TableCell align="left">{row.unitName}</TableCell>
                                         </TableRow>
-                                    ))}
+                                        ))
+                                    )}
                                 </TableBody>
                             </Table>
                         </TableContainer>
@@ -251,32 +315,46 @@ const ViewWarehouseDetail = () => {
             <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
                 <DialogTitle>Lịch sử xuất/nhập kho</DialogTitle>
                 <DialogContent>
+                    {historyLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
                     <TableContainer sx={{ mt: 0 }}>
                         <Table size="small" stickyHeader>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Loại</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>STT</TableCell>
                                     <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Mã chứng từ</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Ngày</TableCell>
                                     <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Vật tư</TableCell>
                                     <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="right">Số lượng</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Đơn vị</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Ngày</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Người duyệt</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {MOCK_STOCK_HISTORY.map((h) => (
-                                    <TableRow key={h.id} hover>
-                                        <TableCell>{h.type}</TableCell>
-                                        <TableCell>{h.documentCode}</TableCell>
-                                        <TableCell>{h.date}</TableCell>
+                                    {historyList.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                                                <Typography color="text.secondary">Không có lịch sử biến động</Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        historyList.map((h, index) => (
+                                            <TableRow key={h.id || index} hover>
+                                                <TableCell>{index + 1}</TableCell>
+                                                <TableCell>{h.voucherCode}</TableCell>
                                         <TableCell>{h.itemName}</TableCell>
                                         <TableCell align="right">{h.quantity}</TableCell>
-                                        <TableCell>{h.uomName}</TableCell>
+                                                <TableCell>{h.transactionDate ? new Date(h.transactionDate).toLocaleDateString('vi-VN') : '—'}</TableCell>
+                                                <TableCell>{h.approverName || '—'}</TableCell>
                                     </TableRow>
-                                ))}
+                                        ))
+                                    )}
                             </TableBody>
                         </Table>
                     </TableContainer>
+                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setHistoryOpen(false)} variant="contained" sx={{ textTransform: 'none' }}>Đóng</Button>
