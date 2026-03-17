@@ -294,15 +294,15 @@ const ViewWarehouseDetail = () => {
                                         </TableRow>
                                     ) : (
                                         items.map((row, index) => (
-                                            <TableRow key={row.itemId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                                <TableCell align="left">{index + 1}</TableCell>
+                                        <TableRow key={row.itemId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                            <TableCell align="left">{index + 1}</TableCell>
                                                 <TableCell align="left">{row.itemCode}</TableCell>
-                                                <TableCell align="left">{row.itemName}</TableCell>
-                                                <TableCell align="left">{row.categoryName}</TableCell>
+                                            <TableCell align="left">{row.itemName}</TableCell>
+                                            <TableCell align="left">{row.categoryName}</TableCell>
                                                 <TableCell align="right">{row.onHandQty}</TableCell>
                                                 <TableCell align="right">{row.reservedQty}</TableCell>
                                                 <TableCell align="left">{row.unitName}</TableCell>
-                                            </TableRow>
+                                        </TableRow>
                                         ))
                                     )}
                                 </TableBody>
@@ -320,19 +320,19 @@ const ViewWarehouseDetail = () => {
                             <CircularProgress />
                         </Box>
                     ) : (
-                        <TableContainer sx={{ mt: 0 }}>
-                            <Table size="small" stickyHeader>
-                                <TableHead>
-                                    <TableRow>
+                    <TableContainer sx={{ mt: 0 }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
                                         <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>STT</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Mã chứng từ</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Vật tư</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="right">Số lượng</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Mã chứng từ</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Vật tư</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }} align="right">Số lượng</TableCell>
                                         <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Ngày</TableCell>
                                         <TableCell sx={{ fontWeight: 600, bgcolor: 'grey.50' }}>Người duyệt</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
                                     {historyList.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
@@ -344,16 +344,16 @@ const ViewWarehouseDetail = () => {
                                             <TableRow key={h.id || index} hover>
                                                 <TableCell>{index + 1}</TableCell>
                                                 <TableCell>{h.voucherCode}</TableCell>
-                                                <TableCell>{h.itemName}</TableCell>
-                                                <TableCell align="right">{h.quantity}</TableCell>
+                                        <TableCell>{h.itemName}</TableCell>
+                                        <TableCell align="right">{h.quantity}</TableCell>
                                                 <TableCell>{h.transactionDate ? new Date(h.transactionDate).toLocaleDateString('vi-VN') : '—'}</TableCell>
                                                 <TableCell>{h.approverName || '—'}</TableCell>
-                                            </TableRow>
+                                    </TableRow>
                                         ))
                                     )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                     )}
                 </DialogContent>
                 <DialogActions>

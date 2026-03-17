@@ -281,7 +281,7 @@ const ViewPurchaseOrderDetail = () => {
     };
 
     const subtotal = orderData.lines.reduce((sum, line) => sum + (line.totalPrice || 0), 0);
-    const discountAmount = orderData.discountType === 'amount'
+    const discountAmount = orderData.discountType === 'amount' 
         ? (orderData.discountAmountFixed || 0)
         : (subtotal * (orderData.discount || 0)) / 100;
     const grandTotal = subtotal - discountAmount;

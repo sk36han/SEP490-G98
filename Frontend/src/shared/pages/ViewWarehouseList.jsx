@@ -1,38 +1,38 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Box,
+  Box,
     Button,
-    Typography,
+  Typography,
     IconButton,
     Tooltip,
     useTheme,
     useMediaQuery,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Popover,
-    FormGroup,
-    FormControlLabel,
-    Checkbox,
-    FormControl,
-    Select,
-    MenuItem,
-    Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Popover,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  FormControl,
+  Select,
+  MenuItem,
+  Chip,
     TableSortLabel,
     Paper,
 } from '@mui/material';
 import {
-    Warehouse as WarehouseIcon,
-    Plus,
+  Warehouse as WarehouseIcon,
+  Plus,
     Filter,
     Columns,
     GripVertical,
-    Eye,
-    Edit,
+  Eye,
+  Edit,
 } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
@@ -102,15 +102,15 @@ const StatusChip = ({ isActive }) => {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const ViewWarehouseList = () => {
-    const theme = useTheme();
+  const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
     // State
     const [loading, setLoading] = useState(true);
-    const [list, setList] = useState([]);
+  const [list, setList] = useState([]);
     const [totalCount, setTotalCount] = useState(0);
-    const [page, setPage] = useState(0);
+  const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [orderBy, setOrderBy] = useState('');
@@ -121,7 +121,7 @@ const ViewWarehouseList = () => {
         return saved ? JSON.parse(saved) : WAREHOUSE_COLUMNS.map(c => c.id);
     });
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
-    const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+  const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
     const [draggedColumn, setDraggedColumn] = useState(null);
 
     // Load data
@@ -155,21 +155,21 @@ const ViewWarehouseList = () => {
 
                 setList(items);
                 setTotalCount(res.totalItems ?? 0);
-            } catch (err) {
+    } catch (err) {
                 console.error('Error fetching warehouses:', err);
-                setList([]);
+      setList([]);
                 setTotalCount(0);
-            } finally {
-                setLoading(false);
-            }
+    } finally {
+      setLoading(false);
+    }
         };
-        fetchData();
+    fetchData();
     }, [page, pageSize, searchTerm, orderBy, order]);
 
     // Computed values
     const rows = list;
-    const start = totalCount === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalCount);
+  const start = totalCount === 0 ? 0 : page * pageSize + 1;
+  const end = Math.min((page + 1) * pageSize, totalCount);
     const totalPages = Math.ceil(totalCount / pageSize);
     const visibleColumns = WAREHOUSE_COLUMNS.filter(c => columnOrder.includes(c.id));
     const isAllSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.warehouseId));
@@ -182,19 +182,19 @@ const ViewWarehouseList = () => {
         setOrderBy(colId);
     };
 
-    const handlePageChange = (newPage) => setPage(newPage);
-    const handlePageSizeChange = (e) => {
-        setPageSize(Number(e.target.value));
-        setPage(0);
-    };
+  const handlePageChange = (newPage) => setPage(newPage);
+  const handlePageSizeChange = (e) => {
+    setPageSize(Number(e.target.value));
+    setPage(0);
+  };
 
     const handleSelectRow = (id, checked) => {
         setSelectedIds(prev => {
-            const next = new Set(prev);
+      const next = new Set(prev);
             checked ? next.add(id) : next.delete(id);
-            return next;
-        });
-    };
+      return next;
+    });
+  };
 
     const handleSelectAll = (checked) => {
         if (checked) {
@@ -245,11 +245,11 @@ const ViewWarehouseList = () => {
         newOrder.splice(targetIdx, 0, draggedColumn);
         setTempColumnOrder(newOrder);
         setDraggedColumn(null);
-    };
+  };
 
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
-    return (
+  return (
         <Box sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', pt: 0, pb: 2 }}>
             {/* Header */}
             <Box sx={{ flexShrink: 0, mb: 2 }}>
@@ -262,42 +262,42 @@ const ViewWarehouseList = () => {
                     mb: 0.5,
                 }}>
                     Danh sách kho
-                </Typography>
+        </Typography>
                 <Typography variant="body1" color="text.secondary">
-                    Danh sách kho – tìm kiếm theo mã kho, tên kho, địa chỉ.
-                </Typography>
-            </Box>
+          Danh sách kho – tìm kiếm theo mã kho, tên kho, địa chỉ.
+        </Typography>
+      </Box>
 
             <Box className="list-view" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: '#fff', borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 1, overflow: 'hidden' }}>
                 {/* Filter Bar */}
                 <Box sx={{ p: 1.5, borderBottom: '1px solid #f3f4f6', display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <SearchInput
-                        placeholder="Tìm theo mã kho, tên kho, địa chỉ…"
-                        value={searchTerm}
+              <SearchInput
+                placeholder="Tìm theo mã kho, tên kho, địa chỉ…"
+                value={searchTerm}
                         onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
                         sx={{ flex: '1 1 200px', minWidth: 200, maxWidth: 420 }}
-                    />
-                    <Tooltip title="Chọn cột hiển thị">
+              />
+              <Tooltip title="Chọn cột hiển thị">
                         <IconButton onClick={(e) => { setTempColumnOrder(columnOrder); setColumnSelectorAnchor(e.currentTarget); }} sx={{ border: 1, borderColor: 'divider' }}>
-                            <Columns size={20} />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
+                  <Columns size={20} />
+                </IconButton>
+              </Tooltip>
+            </Box>
 
                 {/* Column Selector Popover */}
-                <Popover
-                    open={columnSelectorOpen}
-                    anchorEl={columnSelectorAnchor}
-                    onClose={() => setColumnSelectorAnchor(null)}
+        <Popover
+          open={columnSelectorOpen}
+          anchorEl={columnSelectorAnchor}
+          onClose={() => setColumnSelectorAnchor(null)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                     slotProps={{ paper: { sx: { width: 280, maxHeight: 400 } } }}
-                >
+        >
                     <Box sx={{ p: 2, borderBottom: '1px solid #f3f4f6' }}>
                         <Typography sx={{ fontWeight: 600, fontSize: '14px' }}>Chọn cột hiển thị</Typography>
                     </Box>
                     <Box sx={{ p: 2, maxHeight: 280, overflowY: 'auto' }}>
-                        <FormGroup>
+          <FormGroup>
                             {tempColumnOrder.map((colId) => {
                                 const col = WAREHOUSE_COLUMNS.find(c => c.id === colId);
                                 if (!col) return null;
@@ -308,15 +308,15 @@ const ViewWarehouseList = () => {
                                             sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', '&:active': { cursor: 'grabbing' }, color: '#9ca3af', '&:hover': { color: '#6b7280' }, mr: 1 }}>
                                             <GripVertical size={14} />
                                         </Box>
-                                        <FormControlLabel
+            <FormControlLabel
                                             control={<Checkbox checked={tempColumnOrder.includes(colId)} onChange={(e) => handleColumnVisibilityChange(colId, e.target.checked)} sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#3b82f6' } }} />}
                                             label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
                                             sx={{ flex: 1, m: 0, py: 0.5 }}
-                                        />
-                                    </Box>
+                />
+            </Box>
                                 );
                             })}
-                        </FormGroup>
+          </FormGroup>
                     </Box>
                     <Box sx={{ px: 2.5, py: 2, display: 'flex', gap: 1.5, borderTop: '1px solid #f3f4f6', flexShrink: 0 }}>
                         <Button variant="outlined" onClick={handleCancelColumnOrder}
@@ -324,7 +324,7 @@ const ViewWarehouseList = () => {
                         <Button variant="contained" onClick={handleSaveColumnOrder}
                             sx={{ flex: 1, textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', bgcolor: '#3b82f6', boxShadow: 'none', '&:hover': { bgcolor: '#2563eb', boxShadow: '0 2px 8px rgba(59,130,246,0.3)' } }}>Lưu</Button>
                     </Box>
-                </Popover>
+        </Popover>
 
                 {/* Table */}
                 <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -332,13 +332,13 @@ const ViewWarehouseList = () => {
                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, px: 2, color: 'text.secondary' }}>
                             <WarehouseIcon size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
                             <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu kho</Typography>
-                        </Box>
-                    ) : (
+              </Box>
+            ) : (
                         <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
                             <Table size="small" stickyHeader>
-                                <TableHead>
-                                    <TableRow>
-                                        {visibleColumns.map((col) => (
+                  <TableHead>
+                    <TableRow>
+                      {visibleColumns.map((col) => (
                                             <TableCell key={col.id}
                                                 sx={{ fontWeight: 600, bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa', whiteSpace: 'nowrap', opacity: draggedColumn === col.id ? 0.5 : 1, transition: 'all 0.2s', borderBottom: '2px solid #e5e7eb', fontSize: '12px', color: '#6b7280', py: 1.5, px: 2 }}
                                                 align={col.id === 'stt' ? 'center' : 'left'}
@@ -356,21 +356,21 @@ const ViewWarehouseList = () => {
                                                         <TableSortLabel active={orderBy === col.id} direction={orderBy === col.id ? order : 'asc'} onClick={() => handleSortRequest(col.id)}
                                                             sx={{ flex: 1, '& .MuiTableSortLabel-icon': { fontSize: '14px', opacity: orderBy === col.id ? 1 : 0 } }}
                                                             hideSortIcon={false}>
-                                                            {col.label}
+                          {col.label}
                                                         </TableSortLabel>
                                                     ) : (
                                                         <Typography variant="inherit" sx={{ flex: 1 }}>{col.label}</Typography>
                                                     )}
                                                 </Box>
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                                     {rows.map((row, index) => (
                                         <TableRow key={row.warehouseId} hover
                                             sx={{ height: 56, '&:last-child td': { borderBottom: 0 }, '&:hover': { bgcolor: '#f9fafb' } }}>
-                                            {visibleColumns.map((col) => {
+                        {visibleColumns.map((col) => {
                                                 const opts = { pageNumber: page + 1, pageSize };
 
                                                 if (col.id === 'stt') {
@@ -378,7 +378,7 @@ const ViewWarehouseList = () => {
                                                 }
 
                                                 if (col.id === 'warehouseCode') {
-                                                    return (
+                            return (
                                                         <TableCell key={col.id} align="left">
                                                             <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                 <Box component="a"
@@ -389,66 +389,66 @@ const ViewWarehouseList = () => {
                                                                     {row.warehouseCode}
                                                                 </Box>
                                                             </Box>
-                                                        </TableCell>
-                                                    );
+                              </TableCell>
+                            );
                                                 }
 
                                                 if (col.id === 'isActive') {
-                                                    return (
+                            return (
                                                         <TableCell key={col.id} align="left">
                                                             <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                 <StatusChip isActive={row.isActive} />
                                                             </Box>
-                                                        </TableCell>
-                                                    );
+                              </TableCell>
+                            );
                                                 }
 
                                                 if (DATE_COLUMN_IDS.includes(col.id)) {
-                                                    return (
+                            return (
                                                         <TableCell key={col.id} align="left" sx={{ color: '#6b7280', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                                                             {col.id === 'createdAt' ? formatDateTime(row.createdAt) : formatDate(row.createdAt)}
-                                                        </TableCell>
-                                                    );
-                                                }
+                              </TableCell>
+                            );
+                          }
 
-                                                return (
+                          return (
                                                     <TableCell key={col.id} align="left" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={col.getValue(row)}>
                                                         {col.getValue(row) || <Box component="span" sx={{ color: '#d1d5db' }}>—</Box>}
-                                                    </TableCell>
-                                                );
-                                            })}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </Box>
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
 
                 {/* Pagination */}
                 <Box sx={{ flexShrink: 0, px: 2, py: 2, borderTop: '1px solid #f3f4f6', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
                     <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>Số dòng / trang:</Typography>
-                    <FormControl size="small" sx={{ minWidth: 72 }}>
+          <FormControl size="small" sx={{ minWidth: 72 }}>
                         <Select value={pageSize} onChange={handlePageSizeChange}
                             sx={{ height: 32, fontSize: '13px', borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' } }}>
                             {ROWS_PER_PAGE_OPTIONS.map((n) => <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>)}
-                        </Select>
-                    </FormControl>
+            </Select>
+          </FormControl>
                     <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                        {start}–{end} / {totalCount} (Tổng {totalPages} trang)
-                    </Typography>
+            {start}–{end} / {totalCount} (Tổng {totalPages} trang)
+          </Typography>
                     <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)}
                         sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)', '&:hover': { borderColor: 'rgba(0,0,0,0.2)' } }}>
-                        Trước
-                    </Button>
+            Trước
+          </Button>
                     <Button size="small" variant="outlined" disabled={end >= totalCount || totalCount === 0} onClick={() => handlePageChange(page + 1)}
                         sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)', '&:hover': { borderColor: 'rgba(0,0,0,0.2)' } }}>
-                        Sau
-                    </Button>
-                </Box>
-            </Box>
+            Sau
+          </Button>
         </Box>
-    );
+      </Box>
+    </Box>
+  );
 };
 
 export default ViewWarehouseList;

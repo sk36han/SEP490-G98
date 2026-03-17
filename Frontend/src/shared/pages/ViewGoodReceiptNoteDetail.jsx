@@ -85,11 +85,11 @@ const ViewGoodReceiptNoteDetail = () => {
                 setLoading(false);
                 return;
             }
-            setLoading(true);
+        setLoading(true);
             try {
                 const data = await getGRNDetail(id);
                 if (data) {
-                    setGrnData({
+            setGrnData({
                         grnId: data.grnId,
                         grnCode: data.grnCode,
                         referencePoCode: data.purchaseOrderCode,
@@ -116,7 +116,7 @@ const ViewGoodReceiptNoteDetail = () => {
                             hasCQ: line.hasCQ,
                             note: line.note || '',
                         })),
-                        history: [
+                history: [
                             data.postedAt ? { action: 'Đã ghi sổ phiếu nhập kho', date: new Date(data.postedAt).toLocaleDateString('vi-VN'), time: new Date(data.postedAt).toLocaleTimeString('vi-VN') } : null,
                             data.submittedAt ? { action: 'Gửi yêu cầu duyệt phiếu', date: new Date(data.submittedAt).toLocaleDateString('vi-VN'), time: new Date(data.submittedAt).toLocaleTimeString('vi-VN') } : null,
                             { action: `Tạo mới phiếu nhập kho ${data.grnCode}`, date: new Date(data.createdAt).toLocaleDateString('vi-VN'), time: new Date(data.createdAt).toLocaleTimeString('vi-VN') },
@@ -127,7 +127,7 @@ const ViewGoodReceiptNoteDetail = () => {
                 console.error('Lỗi khi tải chi tiết GRN:', error);
                 showToast('Không thể tải thông tin phiếu nhập kho', 'error');
             } finally {
-                setLoading(false);
+            setLoading(false);
             }
         };
 
@@ -374,16 +374,16 @@ const ViewGoodReceiptNoteDetail = () => {
                     )}
                     {/* Nut tra hang - chi hien thi khi GRN da duyet hoac tu choi */}
                     {(grnData?.status === 'APPROVED' || grnData?.status === 'REJECTED') && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
                             onClick={() => navigate(`/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
-                            disabled={submitting}
+                                disabled={submitting}
                             style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
-                        >
+                            >
                             <RotateCcw size={16} className="btn-icon" />
                             Trả hàng
-                        </button>
+                            </button>
                     )}
                     {/* Neu la Thủ Kho - hien thi thong bao */}
                     {isWarehouseKeeper && (
@@ -395,8 +395,8 @@ const ViewGoodReceiptNoteDetail = () => {
                                 color: '#92400e',
                                 fontSize: '13px',
                                 fontWeight: 500,
-                            }}
-                        >
+                                }}
+                            >
                             Bạn chỉ có quyền xem
                         </div>
                     )}
@@ -414,23 +414,23 @@ const ViewGoodReceiptNoteDetail = () => {
                                     <span style={{ fontWeight: 600, color: '#2196F3' }}>{grnData.grnCode}</span>
                                 </p>
                             </div>
-                            <div
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: 20,
-                                    backgroundColor: statusStyle.bgColor,
-                                    color: statusStyle.color,
-                                    fontWeight: 600,
-                                    fontSize: '13px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                }}
-                            >
+                                <div
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: 20,
+                                        backgroundColor: statusStyle.bgColor,
+                                        color: statusStyle.color,
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                    }}
+                                >
                                 {grnData.status === 'APPROVED' && <CheckCircle size={16} />}
                                 {grnData.status === 'REJECTED' && <XCircle size={16} />}
                                 {grnData.status === 'PENDING_ACC' && <Clock size={16} />}
-                                {statusStyle.label}
+                                    {statusStyle.label}
                             </div>
                         </div>
                     </div>
@@ -441,60 +441,60 @@ const ViewGoodReceiptNoteDetail = () => {
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                                 <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
 
-                                {grnData.lines.length === 0 ? (
+                            {grnData.lines.length === 0 ? (
                                     <div style={{ padding: '24px 12px', textAlign: 'center', color: '#6b7280', fontSize: 14 }}>
                                         Chưa có sản phẩm nào trong phiếu nhập kho.
-                                    </div>
-                                ) : (
+                                </div>
+                            ) : (
                                     <div className="table-container" style={{ flex: 1, maxHeight: '500px', overflowY: 'auto' }}>
-                                        <table className="product-table">
-                                            <thead>
-                                                <tr>
-                                                    <th style={{ width: '40px' }}>STT</th>
-                                                    <th>Sản phẩm</th>
-                                                    <th style={{ width: '110px' }}>SL đặt</th>
-                                                    <th style={{ width: '110px' }}>SL nhập</th>
-                                                    <th style={{ width: '130px' }}>Đơn giá</th>
-                                                    <th style={{ width: '150px' }}>Thành tiền</th>
-                                                    <th style={{ width: '80px', textAlign: 'center' }}>CO</th>
-                                                    <th style={{ width: '80px', textAlign: 'center' }}>CQ</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {grnData.lines.map((line, index) => (
-                                                    <tr key={line.id}>
-                                                        <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                        <td>
+                                    <table className="product-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '40px' }}>STT</th>
+                                                <th>Sản phẩm</th>
+                                                <th style={{ width: '110px' }}>SL đặt</th>
+                                                <th style={{ width: '110px' }}>SL nhập</th>
+                                                <th style={{ width: '130px' }}>Đơn giá</th>
+                                                <th style={{ width: '150px' }}>Thành tiền</th>
+                                                <th style={{ width: '80px', textAlign: 'center' }}>CO</th>
+                                                <th style={{ width: '80px', textAlign: 'center' }}>CQ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {grnData.lines.map((line, index) => (
+                                                <tr key={line.id}>
+                                                    <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                                    <td>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                                 <span style={{ fontSize: 14, fontWeight: 500 }}>{line.itemName}</span>
                                                                 <span style={{ fontSize: 12, color: '#6b7280' }}>Mã: {line.itemCode || '-'}</span>
-                                                            </div>
-                                                        </td>
+                                                        </div>
+                                                    </td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{Number(line.orderedQty) || 0}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{Number(line.receivedQty) || 0}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(Number(line.unitPrice) || 0)}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#2196F3' }}>
                                                             {formatCurrency((Number(line.unitPrice) || 0) * (Number(line.receivedQty) || 0))}
-                                                        </td>
+                                                    </td>
                                                         <td style={{ textAlign: 'center' }}>
                                                             <input type="checkbox" checked={!!line.hasCO} readOnly disabled style={{ width: 18, height: 18, cursor: 'default', margin: 0 }} />
-                                                        </td>
+                                                    </td>
                                                         <td style={{ textAlign: 'center' }}>
                                                             <input type="checkbox" checked={!!line.hasCQ} readOnly disabled style={{ width: 18, height: 18, cursor: 'default', margin: 0 }} />
                                                         </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
+                        </div>       
 
                         {/* Cột phải: Thông tin chung + Lịch sử */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
-                                <h2 className="section-title">Thông tin chung</h2>
+                                    <h2 className="section-title">Thông tin chung</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <div className="form-field">
                                         <label className="form-label">Nhân viên tạo</label>
@@ -535,7 +535,7 @@ const ViewGoodReceiptNoteDetail = () => {
                             </div>
 
                             <div className="info-section" style={{ margin: 0 }}>
-                                <h2 className="section-title">Lịch sử phiếu nhập</h2>
+                                    <h2 className="section-title">Lịch sử phiếu nhập</h2>
                                 <div style={{ padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {grnData.history?.map((item, index) => (
@@ -560,7 +560,7 @@ const ViewGoodReceiptNoteDetail = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', marginTop: 24 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
-                                <h2 className="section-title">Nhà cung cấp</h2>
+                                    <h2 className="section-title">Nhà cung cấp</h2>
                                 <div className="form-field">
                                     <label className="form-label">Nhà cung cấp</label>
                                     <div className="input-wrapper">
@@ -571,7 +571,7 @@ const ViewGoodReceiptNoteDetail = () => {
                             </div>
 
                             <div className="info-section" style={{ margin: 0 }}>
-                                <h2 className="section-title">Ghi chú</h2>
+                                    <h2 className="section-title">Ghi chú</h2>
                                 <div className="form-field">
                                     <label className="form-label">Ghi chú / Lý do nhập kho</label>
                                     <textarea value={grnData.note || ''} readOnly rows={4} className="form-input" style={{ resize: 'vertical', backgroundColor: '#f5f5f5' }} />
@@ -579,35 +579,35 @@ const ViewGoodReceiptNoteDetail = () => {
                             </div>
 
                             <div className="info-section" style={{ margin: 0 }}>
-                                <h2 className="section-title">Tổng hợp đơn hàng</h2>
-                                <div className="form-grid">
-                                    <div className="form-field">
+                                    <h2 className="section-title">Tổng hợp đơn hàng</h2>
+                                    <div className="form-grid">
+                                        <div className="form-field">
                                         <label className="form-label">Tổng số lượng</label>
                                         <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                             {totalQuantity} sản phẩm
-                                        </div>
-                                    </div>
-                                    <div className="form-field">
-                                        <label className="form-label">Tạm tính</label>
-                                        <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                            {formatCurrency(subtotal)}
-                                        </div>
-                                    </div>
-                                    <div className="form-field span-2">
-                                        <div style={{ fontSize: 13, color: '#666' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 600 }}>Phí vận chuyển:</span>
-                                                <span>{formatCurrency(grnData.shippingFee || 0)}</span>
                                             </div>
                                         </div>
+                                        <div className="form-field">
+                                            <label className="form-label">Tạm tính</label>
+                                        <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                                {formatCurrency(subtotal)}
+                                            </div>
+                                        </div>
+                                        <div className="form-field span-2">
+                                            <div style={{ fontSize: 13, color: '#666' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontWeight: 600 }}>Phí vận chuyển:</span>
+                                                <span>{formatCurrency(grnData.shippingFee || 0)}</span>
+                                                </div>
+                                                    </div>
                                         <div style={{ marginTop: 16, padding: '20px', backgroundColor: '#e3f2fd', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '4px solid #2196F3' }}>
                                             <span style={{ fontSize: 18, fontWeight: 700, color: '#2196F3' }}>Tổng giá trị:</span>
                                             <span style={{ fontSize: 22, fontWeight: 700, color: '#2196F3', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(grandTotal)}</span>
+                                            </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
                             </div>
-                        </div>
                     </div>
                 </div>
             </div>

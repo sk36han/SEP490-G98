@@ -75,8 +75,8 @@ const GRN_COLUMNS = [
 
 const DEFAULT_VISIBLE_COLUMN_IDS = GRN_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = GRN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
-const NUMBER_COLUMN_IDS   = ['totalReceivedQty', 'netAmount'];
-const CURRENCY_COLUMN_IDS = ['netAmount'];
+const NUMBER_COLUMN_IDS   = ['actualQtyTotal', 'totalValue'];
+const CURRENCY_COLUMN_IDS = ['totalValue'];
 const DATE_COLUMN_IDS     = ['receiptDate', 'createdAt'];
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
