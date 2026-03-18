@@ -21,7 +21,6 @@ namespace Warehouse.Api
 
             // Add services to the container.
             builder.Services.AddControllers();
-            builder.Services.AddMemoryCache();
             
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
@@ -61,6 +60,9 @@ namespace Warehouse.Api
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
             });
 
+            // Memory Cache
+            builder.Services.AddMemoryCache();
+
             // AutoMapper
             builder.Services.AddAutoMapper(cfg =>
             {
@@ -86,16 +88,8 @@ namespace Warehouse.Api
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<IItemService, ItemService>();
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
-            builder.Services.AddScoped<IBrandService, BrandService>();
-            builder.Services.AddScoped<ICategoryService, CategoryService>();
-            builder.Services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
-            builder.Services.AddScoped<IItemParameterService, ItemParameterService>();
-            builder.Services.AddScoped<IItemParameterValueService, ItemParameterValueService>();
-            builder.Services.AddScoped<IPackagingSpecService, PackagingSpecService>();
-            builder.Services.AddScoped<IApprovalService, ApprovalService>();
             builder.Services.AddScoped<IGoodsReceiptNoteService, GoodsReceiptNoteService>();
 
-            builder.Services.AddScoped<IStocktakeService, StocktakeService>();
 
 			// JWT Authentication
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");

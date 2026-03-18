@@ -89,11 +89,26 @@ namespace Warehouse.DataAcces.Service
                 DefaultWarehouseId = request.DefaultWarehouseId,
                 InventoryAccount = request.InventoryAccount?.Trim(),
                 RevenueAccount = request.RevenueAccount?.Trim(),
+                ImageUrl = request.ImageUrls?.FirstOrDefault(),
                 CreatedAt = now,
                 UpdatedAt = now
             };
 
             await CreateAsync(entity);
+
+            // Tạo giá trị thông số kỹ thuật (đã có ItemParameter từ trước)
+            if (request.ParameterValues != null && request.ParameterValues.Any())
+            {
+                foreach (var param in request.ParameterValues)
+                {
+                    _context.ItemParameterValues.Add(new ItemParameterValue
+                    {
+                        ItemId = entity.ItemId,
+                        ParamId = param.ParamId,
+                        ParamValue = param.ParamValue?.Trim()
+                    });
+                }
+            }
 
             var effectiveFrom = request.PriceEffectiveFrom ?? DateOnly.FromDateTime(now);
 
@@ -112,10 +127,7 @@ namespace Warehouse.DataAcces.Service
                 });
             }
 
-            if (request.InitialPurchasePrice.HasValue)
-            {
-                await _context.SaveChangesAsync();
-            }
+            await _context.SaveChangesAsync();
 
             return entity;
         }
@@ -338,6 +350,66 @@ namespace Warehouse.DataAcces.Service
             item.UpdatedAt = DateTime.UtcNow;
 
             await UpdateAsync(item);
+
+            // Xử lý cập nhật giá
+            var effectiveFrom = request.PriceEffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+            // Cập nhật giá mua (Purchase)
+            if (request.PurchasePrice.HasValue)
+            {
+                // Deactive các giá purchase cũ và set EffectiveTo
+                var existingPurchasePrices = _context.ItemPrices
+                    .Where(p => p.ItemId == itemId && p.PriceType == "Purchase" && p.IsActive)
+                    .ToList();
+                foreach (var price in existingPurchasePrices)
+                {
+                    price.IsActive = false;
+                    price.EffectiveTo = effectiveFrom.AddDays(-1);
+                }
+
+                // Thêm giá purchase mới
+                _context.ItemPrices.Add(new ItemPrice
+                {
+                    ItemId = itemId,
+                    PriceType = "Purchase",
+                    Amount = request.PurchasePrice.Value,
+                    Currency = "VND",
+                    EffectiveFrom = effectiveFrom,
+                    EffectiveTo = null,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            // Cập nhật giá bán (Sale)
+            if (request.SalePrice.HasValue)
+            {
+                // Deactive các giá sale cũ và set EffectiveTo
+                var existingSalePrices = _context.ItemPrices
+                    .Where(p => p.ItemId == itemId && p.PriceType == "Sale" && p.IsActive)
+                    .ToList();
+                foreach (var price in existingSalePrices)
+                {
+                    price.IsActive = false;
+                    price.EffectiveTo = effectiveFrom.AddDays(-1);
+                }
+
+                // Thêm giá sale mới
+                _context.ItemPrices.Add(new ItemPrice
+                {
+                    ItemId = itemId,
+                    PriceType = "Sale",
+                    Amount = request.SalePrice.Value,
+                    Currency = "VND",
+                    EffectiveFrom = effectiveFrom,
+                    EffectiveTo = null,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
             return item;
         }
 
@@ -414,7 +486,7 @@ namespace Warehouse.DataAcces.Service
                 .Join(_context.ItemParameters.Where(p => p.IsActive),
                     pv => pv.ParamId,
                     p => p.ParamId,
-                    (pv, p) => new ItemParameterResponse
+                    (pv, p) => new ItemParameterResponse1
                     {
                         ParamName = p.ParamName,
                         ParamValue = pv.ParamValue

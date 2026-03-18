@@ -37,5 +37,16 @@ namespace Warehouse.Entities.ModelRequest
 
         [MaxLength(100, ErrorMessage = "RevenueAccount không được vượt quá 100 ký tự.")]
         public string? RevenueAccount { get; set; }
+
+        // Giá mua (Purchase)
+        [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "Giá mua phải lớn hơn hoặc bằng 0.")]
+        public decimal? PurchasePrice { get; set; }
+
+        // Giá bán (Sale)
+        [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "Giá bán phải lớn hơn hoặc bằng 0.")]
+        public decimal? SalePrice { get; set; }
+
+        // Ngày hiệu lực giá
+        public DateOnly? PriceEffectiveFrom { get; set; }
     }
 }
