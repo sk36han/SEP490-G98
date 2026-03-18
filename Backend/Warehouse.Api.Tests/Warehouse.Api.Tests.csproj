@@ -8,6 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Approvals\**" />
+    <EmbeddedResource Remove="Approvals\**" />
+    <None Remove="Approvals\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.11" />
@@ -26,10 +32,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Approvals\" />
     <Folder Include="ItemParameterValue\" />
     <Folder Include="ItemParameter\" />
-    <Folder Include="PackagingSpec\" />
   </ItemGroup>
 
 </Project>
