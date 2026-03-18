@@ -401,7 +401,7 @@ namespace Warehouse.DataAcces.Service
                     {
                         // Cộng dồn số lượng tồn kho
                         var oldQty = inventory.OnHandQty;
-                        var oldCost = inventory.UnitCost ?? 0;
+                        var oldCost = inventory.UnitCost;
                         var newQty = grnLine.ActualQty;
 
                         // Tính bình quân gia quyền với Cost đã bao gồm shipping
