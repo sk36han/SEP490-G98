@@ -106,9 +106,10 @@ export const calculateGRNTotals = (lines, formData) => {
         ? (Number(formData.discountAmountFixed) || 0)
         : (subtotal * (Number(formData.discount) || 0)) / 100;
     const totalAdditionalCosts = (formData.additionalCosts || []).reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-    const grandTotal = subtotal - discountAmount + totalAdditionalCosts;
+    const shippingFee = Number(formData.shippingFee) || 0;
+    const grandTotal = subtotal - discountAmount + totalAdditionalCosts + shippingFee;
 
-    return { subtotal, discountAmount, grandTotal, totalQuantityOrdered, totalAdditionalCosts };
+    return { subtotal, discountAmount, grandTotal, totalQuantityOrdered, totalAdditionalCosts, shippingFee };
 };
 
 /**

@@ -352,6 +352,22 @@ const CreateGoodReceiptNote = () => {
         setFormData((prev) => ({ ...prev, discountType: type }));
     };
 
+    const handleShippingFeeChange = (e) => {
+        const value = e.target.value;
+        setFormData((prev) => ({ ...prev, shippingFee: value }));
+        if (errors.shippingFee) setErrors((prev) => ({ ...prev, shippingFee: '' }));
+    };
+
+    const handlePaymentMethodChange = (e) => {
+        const { value } = e.target;
+        setFormData((prev) => ({ ...prev, paymentMethod: value }));
+    };
+
+    const handleIsPaidChange = (e) => {
+        const checked = e.target.checked;
+        setFormData((prev) => ({ ...prev, isPaid: checked, paymentMethod: checked ? prev.paymentMethod : '' }));
+    };
+
     const addAdditionalCost = () => {
         setFormData((prev) => ({
             ...prev,
@@ -1454,6 +1470,12 @@ const CreateGoodReceiptNote = () => {
                                 addAdditionalCost={addAdditionalCost}
                                 removeAdditionalCost={removeAdditionalCost}
                                 updateAdditionalCost={updateAdditionalCost}
+                                isPaid={formData.isPaid}
+                                setIsPaid={(val) => setFormData(prev => ({ ...prev, isPaid: val }))}
+                                paymentMethod={formData.paymentMethod}
+                                setPaymentMethod={(val) => setFormData(prev => ({ ...prev, paymentMethod: val }))}
+                                shippingFee={formData.shippingFee}
+                                setShippingFee={(val) => setFormData(prev => ({ ...prev, shippingFee: val }))}
                             />
                         </div>
                         <div />

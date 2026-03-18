@@ -220,7 +220,7 @@ export default function ViewPurchaseOrderList() {
                 responsiblePerson: item.responsibleUserName ?? item.ResponsibleUserName ?? item.responsiblePerson ?? '',
                 totalReceivedQuantity: item.totalReceivedQty ?? item.TotalReceivedQty ?? 0,
                 orderValue: item.totalAmount ?? item.TotalAmount ?? 0,
-                createdAt: item.requestedDate ?? item.RequestedDate ?? item.createdAt ?? '',
+                createdAt: item.createdAt ?? item.CreatedAt ?? '',
             }));
             
             setList(mappedList);
@@ -1132,16 +1132,22 @@ export default function ViewPurchaseOrderList() {
                                                     
                                                     // Date column
                                                     if (col.id === 'createdAt') {
+                                                        const dateValue = row[col.id];
+                                                        const datePart = dateValue ? new Date(dateValue).toLocaleDateString('vi-VN') : '-';
+                                                        const timePart = dateValue ? new Date(dateValue).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
                                                         return (
-                                                            <TableCell 
-                                                                key={col.id} 
+                                                            <TableCell
+                                                                key={col.id}
                                                                 align="left"
                                                                 sx={{
                                                                     color: '#6b7280',
                                                                     fontVariantNumeric: 'tabular-nums',
                                                                 }}
                                                             >
-                                                                {formatDate(row[col.id])}
+                                                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                                                                    <span>Ngày tạo: {datePart}</span>
+                                                                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>Thời gian tạo: {timePart}</span>
+                                                                </div>
                                                             </TableCell>
                                                         );
                                                     }

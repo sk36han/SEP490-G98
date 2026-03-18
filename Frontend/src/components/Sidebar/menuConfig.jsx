@@ -15,7 +15,7 @@ const commonItems = [];
 
 const FULL_PRODUCT_MATCH_PATHS = ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'];
 const BASIC_PRODUCT_MATCH_PATHS = ['/products', '/uom', '/brands'];
-const SALE_SUPPORT_PRODUCT_MATCH_PATHS = ['/products', '/categories', '/brands'];
+const SALE_SUPPORT_PRODUCT_MATCH_PATHS = ['/products', '/categories', '/brands', '/products/create', '/categories/create', '/brands/create'];
 
 const matchesPath = (pathname, targetPath) => {
     if (!pathname || !targetPath) return false;
@@ -119,19 +119,40 @@ const saleSupportItems = [
         matchPaths: SALE_SUPPORT_PRODUCT_MATCH_PATHS,
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/products/create', label: 'Tạo vật tư', state: { openCreate: true } },
             { path: '/categories', label: 'Danh mục' },
+            { path: '/categories/create', label: 'Tạo danh mục', state: { openCreate: true } },
             { path: '/brands', label: 'Thương hiệu' },
+            { path: '/brands/create', label: 'Tạo thương hiệu', state: { openCreate: true } },
         ],
     },
+    {
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: <Warehouse size={22} />,
+        label: 'Quản lý kho',
+        children: [
+            { path: '/inventory', label: 'Danh sách kho' },
+        ],
+    },
+    { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà Cung Cấp' },
     {
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: <ShoppingCart size={22} />,
         label: 'Đơn mua',
-        sublabel: 'Purchase Order',
         children: [
-            { path: '/purchase-orders', label: 'Danh sách đơn mua hàng' },
-            { path: '/purchase-orders/create', label: 'Tạo đơn mua hàng' },
+            { path: '/purchase-orders', label: 'Danh sách đơn mua' },
+            { path: '/purchase-orders/create', label: 'Tạo đơn mua' },
+        ],
+    },
+    {
+        id: 'good-receipt-notes-mgmt',
+        path: '/good-receipt-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu nhập kho',
+        children: [
+            { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
         ],
     },
 ];

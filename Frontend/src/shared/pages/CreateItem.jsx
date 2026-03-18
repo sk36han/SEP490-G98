@@ -44,6 +44,7 @@ import { getCategoryList } from "../lib/categoryService";
 import { getBrandList, createBrand } from "../lib/brandService";
 import { getItemParameterList, createItemParameter } from "../lib/itemParameterService";
 import { getWarehouseList } from "../lib/warehouseService";
+import UomFormDialog from "../components/UomFormDialog";
 
 /** Tài khoản kho – InventoryAccount (mã TK kế toán hàng tồn) */
 const INVENTORY_ACCOUNT_OPTIONS = [
@@ -1244,30 +1245,35 @@ const CreateItem = () => {
           </Box>
         </Box>
 
-        <CreateUomDialog
-          open={createUomOpen}
-          onClose={() => setCreateUomOpen(false)}
-          onSubmit={async (newUom) => {
-            try {
-              const created = await createUom({
-                uomCode: newUom.code,
-                uomName: newUom.name,
-              });
-              setUomOptions((prev) => [
-                ...prev,
-                {
-                  id: created.uomId ?? created.id,
-                  code: created.uomCode ?? created.code,
-                  name: created.uomName ?? created.name,
-                },
-              ]);
-              setForm((prev) => ({ ...prev, baseUomId: created.uomId ?? created.id }));
-              showToast("Tao don vi tinh thanh cong.", "success");
-            } catch (err) {
-              showToast(err.message || "Khong tao duoc don vi tinh", "error");
-            }
-          }}
-        />
+        <UomFormDialog
+  open={createUomOpen}
+  onClose={() => setCreateUomOpen(false)}
+  onSuccess={async (newUom) => {
+    try {
+      const created = await createUom({
+        uomName: newUom.uomName,
+      });
+
+      setUomOptions((prev) => [
+        ...prev,
+        {
+          id: created.uomId ?? created.id,
+          name: created.uomName ?? created.name,
+        },
+      ]);
+
+      setForm((prev) => ({
+        ...prev,
+        baseUomId: created.uomId ?? created.id,
+      }));
+
+      showToast("Tao don vi tinh thanh cong.", "success");
+    } catch (err) {
+      showToast(err.message || "Khong tao duoc don vi tinh", "error");
+      throw err;
+    }
+  }}
+/>
 
         <CreatePackagingSpecDialog
           open={createPackOpen}

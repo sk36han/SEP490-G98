@@ -272,10 +272,11 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
+        {/* Nhà cung cấp - Director, Admin, Thủ kho, Kế toán, Sale Support */}
         <Route
             path="/suppliers"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewSupplierList />
                     </MainLayout>
@@ -285,7 +286,7 @@ const AppRoutes = () => (
         <Route
             path="/suppliers/create"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <CreateSupplier />
                     </MainLayout>
@@ -295,18 +296,18 @@ const AppRoutes = () => (
         <Route
             path="/suppliers/:id"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewSupplierDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Quản lý kho – Director, Thủ kho */}
+        {/* Quản lý kho – Director, Thủ kho, Kế toán, Sale Support */}
         <Route
             path="/inventory"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewWarehouseList />
                     </MainLayout>
@@ -316,7 +317,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/create"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <CreateWarehouse />
                     </MainLayout>
@@ -327,7 +328,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/:id"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewWarehouseDetail />
                     </MainLayout>
@@ -376,11 +377,11 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu nhập hàng (GRN) – Kế toán, Thủ kho */}
+        {/* Yêu cầu nhập hàng (GRN) – Kế toán, Thủ kho, Sale Support */}
         <Route
             path="/good-receipt-notes"
             element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewGoodReceiptNotes />
                     </MainLayout>
@@ -390,7 +391,7 @@ const AppRoutes = () => (
         <Route
             path="/good-receipt-notes/:id"
             element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewGoodReceiptNoteDetail />
                     </MainLayout>

@@ -225,6 +225,7 @@ export default function ViewGoodReceiptNotes() {
                     ...item,
                     actualQtyTotal: item.totalReceivedQty ?? item.TotalReceivedQty ?? item.actualQtyTotal ?? 0,
                     totalValue: item.totalAmount ?? item.TotalAmount ?? item.netAmount ?? item.NetAmount ?? item.totalValue ?? 0,
+                    createdAt: item.createdAt ?? item.CreatedAt ?? '',
                 }));
                 setList(mappedList);
             } catch (err) {

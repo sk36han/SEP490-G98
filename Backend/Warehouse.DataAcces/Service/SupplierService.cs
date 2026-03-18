@@ -35,9 +35,32 @@ namespace Warehouse.DataAcces.Service
 
 		public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
 		{
-			// 1️⃣ Check duplicate SupplierCode
+			// Lấy danh sách suppliers để check duplicate và tạo mã tự động
 			var suppliers = await _supplierRepository.GetAllAsync();
-			if (suppliers.Any(s => s.SupplierCode == request.SupplierCode))
+
+			// Tạo mã supplier tự động nếu không cung cấp
+			var supplierCode = request.SupplierCode;
+			if (string.IsNullOrWhiteSpace(supplierCode))
+			{
+				// Lấy các mã bắt đầu bằng SUP-
+				var existingCodes = suppliers
+					.Where(s => s.SupplierCode != null && s.SupplierCode.StartsWith("SUP-"))
+					.Select(s => s.SupplierCode!)
+									.ToList();
+
+				int maxNumber = 0;
+				foreach (var code in existingCodes)
+				{
+					if (code.Length > 4 && int.TryParse(code.Substring(4), out int num))
+					{
+						if (num > maxNumber) maxNumber = num;
+					}
+				}
+				supplierCode = $"SUP-{maxNumber + 1}";
+			}
+
+			// Check duplicate SupplierCode
+			if (suppliers.Any(s => s.SupplierCode == supplierCode))
 			{
 				throw new InvalidOperationException("Mã nhà cung cấp đã tồn tại.");
 			}
@@ -54,7 +77,7 @@ namespace Warehouse.DataAcces.Service
 			// 2️⃣ Create entity
 			var supplier = new Supplier
 			{
-				SupplierCode = request.SupplierCode,
+				SupplierCode = supplierCode,
 				SupplierName = request.SupplierName,
 				TaxCode = request.TaxCode,
 				Phone = request.Phone,

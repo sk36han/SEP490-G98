@@ -258,11 +258,24 @@ const ViewItemList = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(() => {
+        const saved = localStorage.getItem('itemPageSize');
+        return saved ? Number(saved) : 20;
+    });
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS));
+    const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
+        const saved = localStorage.getItem('itemVisibleColumns');
+        if (saved) {
+            try {
+                return new Set(JSON.parse(saved));
+            } catch (e) {
+                return new Set(BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS);
+            }
+        }
+        return new Set(BASE_DEFAULT_VISIBLE_ITEM_COLUMN_IDS);
+    });
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [orderBy, setOrderBy] = useState(null);
@@ -305,6 +318,11 @@ const ViewItemList = () => {
             else next.delete(columnId);
             return next;
         });
+        // Lưu vào localStorage
+        const newSet = new Set(visibleColumnIds);
+        if (checked) newSet.add(columnId);
+        else newSet.delete(columnId);
+        localStorage.setItem('itemVisibleColumns', JSON.stringify([...newSet]));
     };
 
     const handleSelectAllItemColumns = (checked) => {
@@ -464,10 +482,8 @@ const ViewItemList = () => {
             result = result.filter((it) => (it.createdAt ? new Date(it.createdAt).getTime() : 0) <= toMs);
         }
 
-        const total = result.length;
-        const start = page * pageSize;
-        return { filteredItems: result.slice(start, start + pageSize), totalCount: total };
-    }, [items, searchTerm, filterValues, page, pageSize]);
+        return { filteredItems: result, totalCount: result.length };
+    }, [items, searchTerm, filterValues]);
 
     const handleSearchTermChange = (e) => {
         setSearchTerm(e.target.value);
@@ -482,8 +498,10 @@ const ViewItemList = () => {
     const handlePageChange = (newPage) => setPage(newPage);
 
     const handlePageSizeChange = (e) => {
-        setPageSize(Number(e.target.value));
+        const newSize = Number(e.target.value);
+        setPageSize(newSize);
         setPage(0);
+        localStorage.setItem('itemPageSize', newSize);
     };
 
     const handleSelectAll = (checked) => {

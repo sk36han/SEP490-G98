@@ -99,6 +99,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         creatorName: data.createdByName,
                         createdAt: data.createdAt ? new Date(data.createdAt).toLocaleString('vi-VN') : '',
                         status: data.status,
+                        purchaseOrderLifecycleStatus: data.purchaseOrderLifecycleStatus || data.purchaseOrder?.lifecycleStatus,
                         note: data.note || '',
                         shippingFee: data.shippingFee || 0,
                         totalAmount: data.totalAmount || 0,
@@ -184,6 +185,13 @@ const ViewGoodReceiptNoteDetail = () => {
             setSubmitting(false);
         }
     };
+
+    // Kiểm tra điều kiện hiển thị nút Trả hàng
+    // Khi GRN đã duyệt (POSTED) và PO đã nhập đầy đủ (FullRcv)
+    const isGRNPosted = grnData?.status === 'POSTED';
+    const isPOFullyReceived = grnData?.purchaseOrderLifecycleStatus === 'FullRcv';
+    const showReturnButton = isAccountant && isGRNPosted && isPOFullyReceived;
+    const showApproveButton = isAccountant && !showReturnButton;
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
