@@ -17,6 +17,8 @@ public partial class InventoryOnHand
 
     public DateTime UpdatedAt { get; set; }
 
+    public decimal UnitCost { get; set; }
+
     public virtual Item Item { get; set; } = null!;
 
     public virtual Warehouse Warehouse { get; set; } = null!;

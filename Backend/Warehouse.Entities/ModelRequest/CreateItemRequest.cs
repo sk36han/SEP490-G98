@@ -46,5 +46,18 @@ namespace Warehouse.Entities.ModelRequest
         public decimal? InitialPurchasePrice { get; set; }
 
         public DateOnly? PriceEffectiveFrom { get; set; }
+
+        public List<CreateItemParameterValueDto>? ParameterValues { get; set; }
+
+        public List<string>? ImageUrls { get; set; }
+    }
+
+    public class CreateItemParameterValueDto
+    {
+        [Required(ErrorMessage = "ParamId là bắt buộc.")]
+        public long ParamId { get; set; }
+
+        [MaxLength(1000, ErrorMessage = "ParamValue không được vượt quá 1000 ký tự.")]
+        public string? ParamValue { get; set; }
     }
 }

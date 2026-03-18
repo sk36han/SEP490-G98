@@ -91,7 +91,7 @@ public partial class Mkiwms5Context : DbContext
 
     public virtual DbSet<Warehouse> Warehouses { get; set; }
 
-  
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AuditLog>(entity =>
@@ -361,6 +361,7 @@ public partial class Mkiwms5Context : DbContext
 
             entity.Property(e => e.OnHandQty).HasColumnType("decimal(18, 3)");
             entity.Property(e => e.ReservedQty).HasColumnType("decimal(18, 3)");
+            entity.Property(e => e.UnitCost).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(sysutcdatetime())");
 
             entity.HasOne(d => d.Item).WithMany(p => p.InventoryOnHands)
