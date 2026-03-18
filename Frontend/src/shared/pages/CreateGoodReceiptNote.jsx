@@ -79,6 +79,9 @@ const CreateGoodReceiptNote = () => {
         discount: 0,
         discountAmountFixed: 0,
         additionalCosts: [],
+        isPaid: false,
+        paymentMethod: '',
+        shippingFee: 0,
     });
 
     const [lines, setLines] = useState([]);
@@ -161,6 +164,7 @@ const CreateGoodReceiptNote = () => {
                 if (detail) {
                     poDetail = {
                         ...po,
+                        ...detail,
                         lines: detail.lines ?? detail.Lines ?? [],
                     };
                 }
@@ -172,10 +176,10 @@ const CreateGoodReceiptNote = () => {
             // Fill form data từ PO
             setFormData(prev => ({
                 ...prev,
-                supplierId: poDetail.supplierId ?? prev.supplierId,
-                supplierName: poDetail.supplierName,
-                warehouseId: poDetail.warehouseId ?? prev.warehouseId,
-                warehouseName: poDetail.warehouseName,
+                supplierId: poDetail.supplierId ?? poDetail.SupplierId ?? prev.supplierId,
+                supplierName: poDetail.supplierName ?? poDetail.SupplierName ?? '',
+                warehouseId: poDetail.warehouseId ?? poDetail.WarehouseId ?? prev.warehouseId,
+                warehouseName: poDetail.warehouseName ?? poDetail.WarehouseName ?? '',
             }));
 
             // Fill lines từ PO (chỉ những item chưa nhập đủ)
@@ -557,6 +561,9 @@ const CreateGoodReceiptNote = () => {
                 DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
                 DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
                 Note: formData.justification || null,
+                IsPaid: formData.isPaid || false,
+                PaymentMethod: formData.paymentMethod || null,
+                ShippingFee: Number(formData.shippingFee) || 0,
                 Lines: lines.map(line => ({
                     ItemId: Number(line.itemId),
                     ExpectedQty: Number(line.orderedQty) || 0,
@@ -597,6 +604,9 @@ const CreateGoodReceiptNote = () => {
                 DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
                 DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
                 Note: formData.justification || null,
+                IsPaid: formData.isPaid || false,
+                PaymentMethod: formData.paymentMethod || null,
+                ShippingFee: Number(formData.shippingFee) || 0,
                 Lines: lines.map(line => ({
                     ItemId: Number(line.itemId),
                     ExpectedQty: Number(line.orderedQty) || 0,
