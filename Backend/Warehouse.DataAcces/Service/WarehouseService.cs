@@ -37,7 +37,8 @@ namespace Warehouse.DataAcces.Service
                     WarehouseName = w.WarehouseName,
                     Address = w.Address,
                     IsActive = w.IsActive,
-                    CreatedAt = w.CreatedAt
+                    CreatedAt = w.CreatedAt,
+                    ItemCount = w.InventoryOnHands.Count
                 })
                 .ToListAsync();
 
@@ -81,6 +82,8 @@ namespace Warehouse.DataAcces.Service
                     ReservedQty = i.ReservedQty
                 })
                 .ToListAsync();
+
+            response.ItemCount = response.Items.Count;
 
             // Lấy giấy tờ nhập kho (GRN)
             var importPapers = await _context.GoodsReceiptNotes
