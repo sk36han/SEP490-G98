@@ -100,6 +100,7 @@ const ViewStocktakeDetail = () => {
     const [basicEditing, setBasicEditing] = useState(false);
     const [isCounting, setIsCounting] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [reportSent, setReportSent] = useState(sessionStorage.getItem('stocktakeReportSent') === 'true');
     const [selectedLineIds, setSelectedLineIds] = useState([]);
 
 
@@ -800,10 +801,34 @@ const ViewStocktakeDetail = () => {
                     </div>
 
                     {/* Gửi báo cáo */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px' }}>
-                        <button type="button" className="btn btn-primary" onClick={() => navigate('/inventory/stocktakes/report')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Send size={15} />
-                            Gửi báo cáo
+                    <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: '16px' }}>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => {
+                                if (!reportSent) {
+                                    const hasEmpty = stocktakeData.lines.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
+                                    if (hasEmpty) {
+                                        showToast('Vui lòng nhập đầy đủ số lượng kiểm kê cho tất cả vật tư trước khi gửi báo cáo', 'warning');
+                                        return;
+                                    }
+                                }
+                                navigate(`/inventory/stocktakes/report/${stocktakeData.id}`, { state: { reportSent } });
+                            }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                height: '42px',
+                                padding: '0 20px',
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                            }}
+                        >
+                            <Send size={16} />
+                            {reportSent ? 'Xem báo cáo' : 'Tạo báo cáo'}
                         </button>
                     </div>
                 </form>

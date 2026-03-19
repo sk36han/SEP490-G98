@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from '../shared/pages/Login';
 import ForgotPassword from '../shared/pages/ForgotPassword';
 import ResetPassword from '../shared/pages/ResetPassword';
@@ -28,6 +28,7 @@ import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustment
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
 import CreateStocktake from '../shared/pages/CreateStocktake';
 import ViewStocktakeDetail from '../shared/pages/ViewStocktakeDetail';
+import StocktakeReport from '../shared/pages/StocktakeReport';
 import CreateInventoryAdjustment from '../shared/pages/CreateInventoryAdjustment';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
@@ -378,6 +379,16 @@ const AppRoutes = () => (
             }
         />
         <Route
+            path="/inventory/stocktakes/report/:id"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <StocktakeReport />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
             path="/inventory/stocktakes"
             element={
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
@@ -387,6 +398,21 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
+        <Route
+            path="/reports"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <Outlet />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        >
+            <Route
+                path="stocktakes"
+                element={<ViewStocktakeList />}
+            />
+        </Route>
         {/* Yêu cầu nhập hàng (GRN) – Kế toán, Thủ kho */}
         <Route
             path="/good-receipt-notes"

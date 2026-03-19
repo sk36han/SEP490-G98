@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import {
     Box,
     Card,
@@ -216,6 +218,9 @@ const ViewStocktakeList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+    const location = useLocation();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const canCreate = permissionRole === 'WAREHOUSE_KEEPER';
 
     // Data state
     const [list, setList] = useState([]);
@@ -629,28 +634,30 @@ const ViewStocktakeList = () => {
                                         ml: isMobile ? 0 : 'auto',
                                     }}
                                 >
-                                    <Button
-                                        className="list-page-btn"
-                                        variant="contained"
-                                        startIcon={<Plus size={18} />}
-                                        onClick={() => navigate('/inventory/stocktakes/create')}
-                                        sx={{
-                                            fontSize: 13,
-                                            fontWeight: 500,
-                                            textTransform: 'none',
-                                            borderRadius: 10,
-                                            minHeight: 38,
-                                            px: 2.5,
-                                            bgcolor: '#0284c7',
-                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
-                                            '&:hover': {
-                                                bgcolor: '#0369a1',
-                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
-                                            },
-                                        }}
-                                    >
-                                        Tạo phiếu kiểm kê
-                                    </Button>
+                                    {canCreate && (
+                                        <Button
+                                            className="list-page-btn"
+                                            variant="contained"
+                                            startIcon={<Plus size={18} />}
+                                            onClick={() => navigate('/inventory/stocktakes/create')}
+                                            sx={{
+                                                fontSize: 13,
+                                                fontWeight: 500,
+                                                textTransform: 'none',
+                                                borderRadius: 10,
+                                                minHeight: 38,
+                                                px: 2.5,
+                                                bgcolor: '#0284c7',
+                                                boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                                '&:hover': {
+                                                    bgcolor: '#0369a1',
+                                                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                                },
+                                            }}
+                                        >
+                                            Tạo phiếu kiểm kê
+                                        </Button>
+                                    )}
                                 </Box>
                             </Box>
                         </CardContent>
@@ -966,7 +973,14 @@ const ViewStocktakeList = () => {
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Typography
-                                                                            onClick={() => navigate(`/inventory/stocktakes/${item.stocktakeId}`)}
+                                                                            onClick={() => {
+                                                                                const isReportPage = location.pathname.startsWith('/reports');
+                                                                                if (isReportPage) {
+                                                                                    navigate(`/inventory/stocktakes/report/${item.stocktakeId}`);
+                                                                                } else {
+                                                                                    navigate(`/inventory/stocktakes/${item.stocktakeId}`);
+                                                                                }
+                                                                            }}
                                                                             sx={{
                                                                                 color: '#3b82f6',
                                                                                 fontSize: '13px',
