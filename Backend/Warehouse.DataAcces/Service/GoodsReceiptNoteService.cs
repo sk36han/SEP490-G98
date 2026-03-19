@@ -198,6 +198,7 @@ namespace Warehouse.DataAcces.Service
                 ReceiptDate = request.ReceiptDate,
                 CreatedBy = userId,
                 Status = "PENDING_ACC", // Chờ duyệt
+                SubmittedAt = DateTime.UtcNow, // Tạo xong là submit luôn
                 Note = request.Note,
                 ShippingFee = shippingFee,
                 IsPaid = request.IsPaid,
@@ -341,6 +342,11 @@ namespace Warehouse.DataAcces.Service
             // Cập nhật GRN status thành POST
             grn.Status = "POSTED";
             grn.PostedAt = DateTime.UtcNow;
+            grn.ApprovedAt = DateTime.UtcNow;
+
+            // Tính tổng giá trị GRN để phân bổ shipping
+            var totalGrnAmount = grn.GoodsReceiptNoteLines
+                .Sum(l => (l.UnitPrice ?? 0) * l.ActualQty);
 
             // Lấy thông tin PO
             var purchaseOrder = grn.PurchaseOrder;
@@ -380,10 +386,35 @@ namespace Warehouse.DataAcces.Service
                     var inventory = await _context.InventoryOnHands
                         .FirstOrDefaultAsync(i => i.WarehouseId == grn.WarehouseId && i.ItemId == grnLine.ItemId);
 
+                    var purchasePrice = grnLine.UnitPrice;
+
+                    // Phân bổ shipping theo tỷ trọng giá trị
+                    var lineAmount = (purchasePrice ?? 0) * grnLine.ActualQty;
+                    var shippingRatio = totalGrnAmount > 0 ? lineAmount / totalGrnAmount : 0;
+                    var shippingForLine = grn.ShippingFee * shippingRatio;
+                    var shippingPerUnit = grnLine.ActualQty > 0 ? shippingForLine / grnLine.ActualQty : 0;
+
+                    // Cost = Purchase + Shipping phân bổ
+                    var costPrice = (purchasePrice ?? 0) + shippingPerUnit;
+
                     if (inventory != null)
                     {
                         // Cộng dồn số lượng tồn kho
-                        inventory.OnHandQty += grnLine.ActualQty;
+                        var oldQty = inventory.OnHandQty;
+                        var oldCost = inventory.UnitCost;
+                        var newQty = grnLine.ActualQty;
+
+                        // Tính bình quân gia quyền với Cost đã bao gồm shipping
+                        if (oldQty > 0 && newQty > 0 && costPrice > 0)
+                        {
+                            inventory.UnitCost = (oldQty * oldCost + newQty * costPrice) / (oldQty + newQty);
+                        }
+                        else if (newQty > 0 && costPrice > 0)
+                        {
+                            inventory.UnitCost = costPrice;
+                        }
+
+                        inventory.OnHandQty += newQty;
                         inventory.UpdatedAt = DateTime.UtcNow;
                     }
                     else
@@ -395,9 +426,39 @@ namespace Warehouse.DataAcces.Service
                             ItemId = grnLine.ItemId,
                             OnHandQty = grnLine.ActualQty,
                             ReservedQty = 0,
+                            UnitCost = costPrice, // Cost = Purchase + Shipping
                             UpdatedAt = DateTime.UtcNow
                         };
                         _context.InventoryOnHands.Add(newInventory);
+                    }
+
+                    // Cập nhật giá mua (Purchase) vào ItemPrice
+                    if (purchasePrice.HasValue && purchasePrice > 0)
+                    {
+                        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+                        // Deactive giá Purchase cũ và set EffectiveTo
+                        var existingPurchasePrices = _context.ItemPrices
+                            .Where(p => p.ItemId == grnLine.ItemId && p.PriceType == "Purchase" && p.IsActive)
+                            .ToList();
+                        foreach (var price in existingPurchasePrices)
+                        {
+                            price.IsActive = false;
+                            price.EffectiveTo = today.AddDays(-1);
+                        }
+
+                        // Thêm giá Purchase mới
+                        _context.ItemPrices.Add(new ItemPrice
+                        {
+                            ItemId = grnLine.ItemId,
+                            PriceType = "Purchase",
+                            Amount = purchasePrice.Value,
+                            Currency = "VND",
+                            EffectiveFrom = today,
+                            EffectiveTo = null,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
                     }
                 }
 
