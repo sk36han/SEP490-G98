@@ -28,6 +28,7 @@ import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustment
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
 import CreateStocktake from '../shared/pages/CreateStocktake';
 import ViewStocktakeDetail from '../shared/pages/ViewStocktakeDetail';
+import CreateInventoryAdjustment from '../shared/pages/CreateInventoryAdjustment';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
@@ -341,6 +342,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewInventoryAdjustmentList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/adjustments/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <CreateInventoryAdjustment />
                     </MainLayout>
                 </ProtectedRoute>
             }

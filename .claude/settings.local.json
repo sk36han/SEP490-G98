@@ -11,7 +11,15 @@
       "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\\\\src\\\\shared\\\\pages\" && node -e \"const fs = require\\('fs'\\); const lines = fs.readFileSync\\('CreateStocktake.jsx', 'utf8'\\).split\\('\\\\n'\\); console.log\\('Line 500 length:', lines[499]?.length\\); console.log\\('Line 500:', lines[499]?.slice\\(380, 400\\)\\);\")",
       "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npx vite build 2>&1 | head -50)",
       "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npx vite build 2>&1 | head -30)",
-      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npx vite build 2>&1 | head -20)"
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npx vite build 2>&1 | head -20)",
+      "Bash(cd \"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\Frontend\" && npx vite build 2>&1 | head -40)",
+      "Bash(cd:*)",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/ViewStocktakeDetail.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''Syntax OK''\\)\")",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/CreateStocktake.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''Syntax OK''\\)\")",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/components/StocktakeFilterPopup.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''Filter OK''\\)\")",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/ViewStocktakeList.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''List OK''\\)\")",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/components/StocktakeFilterPopup.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''Syntax OK''\\)\")",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/components/StocktakeFilterPopup.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")"
     ]
   }
 }

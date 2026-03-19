@@ -16,6 +16,7 @@ import {
     Plus,
     Search,
     Trash2,
+    RotateCcw,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -92,10 +93,11 @@ const ViewStocktakeDetail = () => {
     const [submitting, setSubmitting] = useState(false);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
 
-    // Product search state
-    const [showProductSearch, setShowProductSearch] = useState(false);
-    const [searchKeyword, setSearchKeyword] = useState('');
-    const [selectedProductIds, setSelectedProductIds] = useState([]);
+
+    // Variance filter state
+    const [varianceFilter, setVarianceFilter] = useState('all'); // 'all' | 'negative' | 'positive' | 'sufficient'
+    const [lineSearchKeyword, setLineSearchKeyword] = useState('');
+    const [pendingMarkSufficient, setPendingMarkSufficient] = useState(false); // confirm mode
 
     // Mock data - trong thực tế sẽ gọi API
     const [stocktakeData, setStocktakeData] = useState(MOCK_STOCKTAKE);
@@ -131,102 +133,54 @@ const ViewStocktakeDetail = () => {
     };
 
     const toggleSelectAll = () => {
-        if (selectedLineIds.length === stocktakeData.lines.length) {
+        // Select items with null/empty countedQty (no auto-fill)
+        const emptyIds = filteredLines.filter(l => l.countedQty === '' || l.countedQty === null || l.countedQty === undefined).map(l => l.id);
+        if (selectedLineIds.length === emptyIds.length && emptyIds.every(id => selectedLineIds.includes(id))) {
             setSelectedLineIds([]);
         } else {
-            setSelectedLineIds(stocktakeData.lines.map(l => l.id));
+            setSelectedLineIds(emptyIds);
         }
     };
 
-    const removeSelectedLines = () => {
+    const handleMarkAllSufficient = () => {
         if (selectedLineIds.length === 0) return;
-        const newLines = stocktakeData.lines.filter(line => !selectedLineIds.includes(line.id));
-        setStocktakeData(prev => ({ ...prev, lines: newLines }));
-        setSelectedLineIds([]);
+        setPendingMarkSufficient(true);
     };
 
-    // Update line data
-    const updateLine = (index, field, value) => {
+    const confirmMarkSufficient = () => {
+        setStocktakeData(prev => ({
+            ...prev,
+            lines: prev.lines.map(line => {
+                if (!selectedLineIds.includes(line.id)) return line;
+                return { ...line, countedQty: line.systemQty, varianceQty: 0 };
+            })
+        }));
+        setSelectedLineIds([]);
+        setPendingMarkSufficient(false);
+    };
+
+    const cancelMarkSufficient = () => {
+        setPendingMarkSufficient(false);
+    };
+
+    // Update line data by line id
+    const updateLine = (lineId, field, value) => {
         setStocktakeData(prev => {
-            const newLines = [...prev.lines];
-            const updated = { ...newLines[index], [field]: value };
+            const newLines = prev.lines.map(line => {
+                if (line.id !== lineId) return line;
+                const updated = { ...line, [field]: value };
 
-            // Auto calculate variance
-            if (field === 'systemQty' || field === 'countedQty') {
-                const sysQty = field === 'systemQty' ? parseFloat(value) || 0 : parseFloat(newLines[index].systemQty) || 0;
-                const cntQty = field === 'countedQty' ? parseFloat(value) || 0 : parseFloat(newLines[index].countedQty) || 0;
-                updated.varianceQty = cntQty - sysQty;
-            }
+                // Auto calculate variance
+                if (field === 'systemQty' || field === 'countedQty') {
+                    const sysQty = parseFloat(updated.systemQty) || 0;
+                    const cntQty = parseFloat(updated.countedQty) || 0;
+                    updated.varianceQty = cntQty - sysQty;
+                }
 
-            newLines[index] = updated;
+                return updated;
+            });
             return { ...prev, lines: newLines };
         });
-    };
-
-    // Product search handlers
-    const openProductSearch = () => {
-        setShowProductSearch(true);
-        setSearchKeyword('');
-    };
-
-    const closeProductSearch = () => {
-        setShowProductSearch(false);
-        setSearchKeyword('');
-        setSelectedProductIds([]);
-    };
-
-    const toggleProductSelection = (productId) => {
-        setSelectedProductIds(prev =>
-            prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
-        );
-    };
-
-    const toggleSelectAllProducts = () => {
-        if (selectedProductIds.length === MOCK_ITEMS.length) {
-            setSelectedProductIds([]);
-        } else {
-            setSelectedProductIds(MOCK_ITEMS.map(p => p.id));
-        }
-    };
-
-    const handleAddSelectedProducts = () => {
-        if (selectedProductIds.length === 0) {
-            showToast('Vui lòng chọn ít nhất 1 vật tư!', 'warning');
-            return;
-        }
-
-        const productsToAdd = MOCK_ITEMS.filter(p => selectedProductIds.includes(p.id));
-        const newLines = [];
-        const existingItemIds = stocktakeData.lines.map(l => l.itemId);
-
-        productsToAdd.forEach(product => {
-            if (existingItemIds.includes(product.id)) {
-                return;
-            }
-            newLines.push({
-                id: Date.now() + Math.random(),
-                itemId: product.id,
-                itemName: product.name,
-                itemCode: product.code,
-                itemImage: product.image,
-                uom: product.uom,
-                systemQty: product.systemQty || 0,
-                countedQty: '',
-                varianceQty: 0,
-            });
-        });
-
-        if (newLines.length > 0) {
-            setStocktakeData(prev => ({
-                ...prev,
-                lines: [...prev.lines, ...newLines]
-            }));
-            showToast(`Đã thêm ${newLines.length} vật tư vào danh sách`, 'success');
-        }
-
-        setSelectedProductIds([]);
-        setShowProductSearch(false);
-        setSearchKeyword('');
     };
 
     // Save changes
@@ -248,20 +202,79 @@ const ViewStocktakeDetail = () => {
     // Calculate summary
     const summary = useMemo(() => {
         if (!stocktakeData.lines || stocktakeData.lines.length === 0) {
-            return { totalItems: 0, totalSystemQty: 0, totalCountedQty: 0, totalVariance: 0 };
+            return { totalItems: 0, totalSystemQty: 0, totalCountedQty: 0, totalVariance: 0, totalCounted: 0 };
         }
 
+        const hasValue = (val) => val !== null && val !== undefined && val !== '';
+
         const totalSystemQty = stocktakeData.lines.reduce((sum, line) => sum + (line.systemQty || 0), 0);
-        const totalCountedQty = stocktakeData.lines.reduce((sum, line) => sum + (line.countedQty || 0), 0);
-        const totalVariance = stocktakeData.lines.reduce((sum, line) => sum + (line.varianceQty || 0), 0);
+        // Chỉ tính items đã nhập countedQty
+        const countedLines = stocktakeData.lines.filter(l => hasValue(l.countedQty));
+        const totalCountedQty = countedLines.reduce((sum, line) => sum + (parseFloat(line.countedQty) || 0), 0);
+        const totalVariance = countedLines.reduce((sum, line) => sum + (line.varianceQty || 0), 0);
 
         return {
             totalItems: stocktakeData.lines.length,
             totalSystemQty,
             totalCountedQty,
-            totalVariance
+            totalVariance,
+            totalCounted: countedLines.length
         };
     }, [stocktakeData.lines]);
+
+    // Filtered lines based on variance filter and search
+    const filteredLines = useMemo(() => {
+        let lines = stocktakeData.lines || [];
+
+        // Apply variance filter
+        if (varianceFilter === 'negative') {
+            lines = lines.filter(l => l.varianceQty < 0);
+        } else if (varianceFilter === 'positive') {
+            lines = lines.filter(l => l.varianceQty > 0);
+        } else if (varianceFilter === 'sufficient') {
+            // Only items with countedQty entered and varianceQty = 0
+            lines = lines.filter(l => l.countedQty !== null && l.countedQty !== undefined && l.countedQty !== '' && l.varianceQty === 0);
+        }
+
+        // Apply search filter
+        if (lineSearchKeyword.trim()) {
+            const kw = lineSearchKeyword.toLowerCase();
+            lines = lines.filter(l =>
+                l.itemName?.toLowerCase().includes(kw) ||
+                l.itemCode?.toLowerCase().includes(kw)
+            );
+        }
+
+        // Sort: selected first, then Thiếu -> Thừa -> Đủ -> Null
+        lines = [...lines].sort((a, b) => {
+            // Selected items first
+            const aSelected = selectedLineIds.includes(a.id);
+            const bSelected = selectedLineIds.includes(b.id);
+            if (aSelected && !bSelected) return -1;
+            if (!aSelected && bSelected) return 1;
+
+            // Sort categories: 1=Thiếu, 2=Thừa, 3=Đủ, 4=Null
+            const getSortOrder = (line) => {
+                const hasValue = line.countedQty !== null && line.countedQty !== undefined && line.countedQty !== '';
+                if (!hasValue) return 4; // Null
+                const v = line.varianceQty || 0;
+                if (v === 0) return 3; // Đủ
+                if (v < 0) return 1; // Thiếu
+                return 2; // Thừa
+            };
+
+            const orderA = getSortOrder(a);
+            const orderB = getSortOrder(b);
+            if (orderA !== orderB) return orderA - orderB;
+
+            // Within same category, sort by variance value
+            const vA = a.varianceQty || 0;
+            const vB = b.varianceQty || 0;
+            return vA - vB;
+        });
+
+        return lines;
+    }, [stocktakeData.lines, varianceFilter, lineSearchKeyword, selectedLineIds]);
 
     if (loading) {
         return (
@@ -311,6 +324,11 @@ const ViewStocktakeDetail = () => {
                             </button>
                         </>
                     )}
+                    {/* Nút tạo phiếu điều chỉnh tồn kho */}
+                    <button type="button" className="btn btn-secondary" onClick={() => navigate('/inventory/adjustments/create')}>
+                        <RotateCcw size={15} />
+                        Tạo phiếu điều chỉnh
+                    </button>
                 </div>
             </div>
 
@@ -379,94 +397,88 @@ const ViewStocktakeDetail = () => {
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
                                     {isEditing && (
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            {selectedLineIds.length > 0 && (
-                                                <button type="button" onClick={removeSelectedLines} className="btn btn-sm" style={{ fontWeight: 600, backgroundColor: '#ef4444', color: 'white', border: 'none' }}>
-                                                    <Trash2 size={16} />
-                                                    Xóa ({selectedLineIds.length})
+                                            {selectedLineIds.length > 0 && !pendingMarkSufficient && (
+                                                <button type="button" onClick={handleMarkAllSufficient} className="btn btn-sm btn-card-text" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }} title="Đánh dấu tất cả những sản phẩm chưa điền.">
+                                                    <CheckCircle size={14} />
+                                                    Đánh dấu tất cả là đã đủ
                                                 </button>
                                             )}
-                                            <button type="button" onClick={openProductSearch} className="btn btn-sm" style={{ fontSize: '14px', fontWeight: 600 }}>
-                                                <Plus size={16} />
-                                                Thêm vật tư
-                                            </button>
+                                            {pendingMarkSufficient && (
+                                                <>
+                                                    <button type="button" onClick={cancelMarkSufficient} className="btn btn-sm btn-card-text" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }}>
+                                                        Hủy
+                                                    </button>
+                                                    <button type="button" onClick={confirmMarkSufficient} className="btn btn-sm" style={{ fontSize: '12px', height: '32px', padding: '0 12px', backgroundColor: '#16a34a', color: 'white', border: 'none' }}>
+                                                        Xác nhận
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Search bar for editing */}
-                                {isEditing && showProductSearch && (
-                                    <div style={{ marginBottom: '16px', animation: 'slideDown 0.3s ease-out', position: 'relative' }}>
-                                        <div style={{ position: 'relative' }}>
-                                            <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', zIndex: 1 }} />
-                                            <input
-                                                type="text"
-                                                value={searchKeyword}
-                                                onChange={(e) => setSearchKeyword(e.target.value)}
-                                                placeholder="Tìm kiếm theo tên vật tư..."
-                                                autoFocus
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 44px 12px 44px',
-                                                    border: '2px solid #2196F3',
-                                                    borderRadius: '10px',
-                                                    fontSize: '14px',
-                                                    outline: 'none',
-                                                    boxSizing: 'border-box',
-                                                }}
-                                            />
-                                            <button type="button" onClick={closeProductSearch} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: '#6b7280', zIndex: 1 }}>
-                                                <X size={20} />
+                                {/* Variance Filter + Search Row */}
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                    {/* Search Input */}
+                                    <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px' }}>
+                                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+                                        <input
+                                            type="text"
+                                            value={lineSearchKeyword}
+                                            onChange={(e) => setLineSearchKeyword(e.target.value)}
+                                            placeholder="Tìm vật tư theo tên, mã..."
+                                            className="form-input line-search-input"
+                                        />
+                                        {lineSearchKeyword && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setLineSearchKeyword('')}
+                                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', color: '#9ca3af' }}
+                                            >
+                                                <X size={16} />
                                             </button>
-                                        </div>
-
-                                        {/* Dropdown Results with Checkbox */}
-                                        {showProductSearch && (
-                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', maxHeight: '400px', overflowY: 'auto', zIndex: 100 }}>
-                                                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#f9fafb', fontSize: '12px', color: '#6b7280', fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span>{MOCK_ITEMS.length} vật tư</span>
-                                                    {selectedProductIds.length > 0 && (
-                                                        <span style={{ color: '#2196F3', fontWeight: 600 }}>Đã chọn: {selectedProductIds.length}</span>
-                                                    )}
-                                                </div>
-                                                <div style={{ padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
-                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: '#374151' }}>
-                                                        <input type="checkbox" checked={selectedProductIds.length === MOCK_ITEMS.length} onChange={toggleSelectAllProducts} style={{ cursor: 'pointer' }} />
-                                                        Chọn tất cả
-                                                    </label>
-                                                </div>
-                                                {MOCK_ITEMS.map(item => {
-                                                    const isChecked = selectedProductIds.includes(item.id);
-                                                    return (
-                                                        <div key={item.id} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                            <input type="checkbox" checked={isChecked} onChange={() => toggleProductSelection(item.id)} style={{ cursor: 'pointer', flexShrink: 0 }} />
-                                                            {isValidImageUrl(item.image) ? (
-                                                                <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e5e7eb', flexShrink: 0 }} />
-                                                            ) : (
-                                                                <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
-                                                                    <ImageIcon size={20} color="#9ca3af" />
-                                                                </div>
-                                                            )}
-                                                            <div>
-                                                                <div style={{ fontWeight: 500, color: '#111827', fontSize: '14px' }}>{item.name}</div>
-                                                                <div style={{ fontSize: 12, color: '#6b7280' }}>Mã: {item.code} - ĐVT: {item.uom}</div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                                {selectedProductIds.length > 0 && (
-                                                    <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                                                        <button type="button" onClick={handleAddSelectedProducts} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-                                                            Thêm {selectedProductIds.length} sản phẩm
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
                                         )}
                                     </div>
-                                )}
 
-                                {/* Empty state */}
-                                {stocktakeData.lines && stocktakeData.lines.length === 0 && (
+                                    {/* Variance Filter Chips */}
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setVarianceFilter('all')}
+                                            className={`variance-chip ${varianceFilter === 'all' ? 'active' : ''}`}
+                                            data-variance="all"
+                                        >
+                                            Tất cả
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setVarianceFilter('negative')}
+                                            className={`variance-chip ${varianceFilter === 'negative' ? 'active' : ''}`}
+                                            data-variance="negative"
+                                        >
+                                            Thiếu
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setVarianceFilter('positive')}
+                                            className={`variance-chip ${varianceFilter === 'positive' ? 'active' : ''}`}
+                                            data-variance="positive"
+                                        >
+                                            Thừa                                
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setVarianceFilter('sufficient')}
+                                            className={`variance-chip ${varianceFilter === 'sufficient' ? 'active' : ''}`}
+                                            data-variance="sufficient"
+                                        >
+                                            Đủ
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Empty state - no lines at all */}
+                                {(!stocktakeData.lines || stocktakeData.lines.length === 0) && (
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px', padding: '60px 20px', color: '#9ca3af' }}>
                                         <Package size={64} strokeWidth={1.5} />
                                         <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư nào</p>
@@ -479,7 +491,17 @@ const ViewStocktakeDetail = () => {
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
-                                                    {isEditing && <th style={{ width: '60px' }}></th>}
+                                                    {isEditing && (
+                                                        <th style={{ width: '60px', textAlign: 'center' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedLineIds.length === filteredLines.length && filteredLines.length > 0}
+                                                                onChange={toggleSelectAll}
+                                                                style={{ cursor: 'pointer' }}
+                                                                title="Đánh dấu tất cả những sản phẩm chưa điền."
+                                                            />
+                                                        </th>
+                                                    )}
                                                     <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
                                                     <th style={{ textAlign: 'left' }}>Vật tư</th>
                                                     <th style={{ width: '100px', textAlign: 'right' }}>SL hệ thống</th>
@@ -488,7 +510,7 @@ const ViewStocktakeDetail = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {stocktakeData.lines.map((line, index) => (
+                                                {filteredLines.map((line, index) => (
                                                     <tr key={line.id}>
                                                         {isEditing && (
                                                             <td style={{ textAlign: 'center' }}>
@@ -546,7 +568,7 @@ const ViewStocktakeDetail = () => {
                                                                 <input
                                                                     type="number"
                                                                     value={line.countedQty ?? ''}
-                                                                    onChange={(e) => updateLine(index, 'countedQty', e.target.value)}
+                                                                    onChange={(e) => updateLine(line.id, 'countedQty', e.target.value)}
                                                                     className="form-input"
                                                                     style={{ textAlign: 'right', fontSize: '13px', width: '100%' }}
                                                                     placeholder="0"
@@ -557,8 +579,8 @@ const ViewStocktakeDetail = () => {
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: line.varianceQty > 0 ? '#2196F3' : line.varianceQty < 0 ? '#dc2626' : '#16a34a' }}>
-                                                            {line.varianceQty || 0}
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: (line.countedQty === null || line.countedQty === undefined || line.countedQty === '') ? '#9ca3af' : line.varianceQty > 0 ? '#2196F3' : line.varianceQty < 0 ? '#dc2626' : '#16a34a' }}>
+                                                            {line.countedQty === null || line.countedQty === undefined || line.countedQty === '' ? '-' : line.varianceQty || 0}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -600,6 +622,10 @@ const ViewStocktakeDetail = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                         <span style={{ color: '#64748b' }}>Tổng số vật tư:</span>
                                         <span style={{ fontWeight: 600 }}>{summary.totalItems}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <span style={{ color: '#64748b' }}>Đã kiểm kê:</span>
+                                        <span style={{ fontWeight: 600 }}>{summary.totalCounted} / {summary.totalItems}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                         <span style={{ color: '#64748b' }}>Tổng số lượng hệ thống:</span>

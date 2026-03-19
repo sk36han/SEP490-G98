@@ -285,20 +285,35 @@ const ViewStocktakeList = () => {
             let filteredData = [...MOCK_DATA];
 
             // Apply filter from popup
-            if (filterValues.status) {
-                filteredData = filteredData.filter((item) => item.status === filterValues.status);
+            if (filterValues.warehouseCode) {
+                filteredData = filteredData.filter((item) => item.warehouseCode === filterValues.warehouseCode);
             }
             if (filterValues.mode) {
                 filteredData = filteredData.filter((item) => item.mode === filterValues.mode);
             }
-            if (filterValues.fromDate) {
-                const from = new Date(filterValues.fromDate);
+            if (filterValues.status) {
+                filteredData = filteredData.filter((item) => item.status === filterValues.status);
+            }
+            if (filterValues.createdByName) {
+                filteredData = filteredData.filter((item) => item.createdByName === filterValues.createdByName);
+            }
+            if (filterValues.plannedFromDate) {
+                const from = new Date(filterValues.plannedFromDate);
                 filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) >= from);
             }
-            if (filterValues.toDate) {
-                const to = new Date(filterValues.toDate);
+            if (filterValues.plannedToDate) {
+                const to = new Date(filterValues.plannedToDate);
                 to.setHours(23, 59, 59, 999);
                 filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) <= to);
+            }
+            if (filterValues.createdFromDate) {
+                const from = new Date(filterValues.createdFromDate);
+                filteredData = filteredData.filter((item) => item.createdAt && new Date(item.createdAt) >= from);
+            }
+            if (filterValues.createdToDate) {
+                const to = new Date(filterValues.createdToDate);
+                to.setHours(23, 59, 59, 999);
+                filteredData = filteredData.filter((item) => item.createdAt && new Date(item.createdAt) <= to);
             }
 
             // Apply search
