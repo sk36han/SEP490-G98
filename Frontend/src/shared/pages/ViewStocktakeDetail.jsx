@@ -1,6 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+} from '@mui/material';
+import {
     ArrowLeft,
     Package,
     ImageIcon,
@@ -17,6 +23,8 @@ import {
     Search,
     Trash2,
     RotateCcw,
+    Printer,
+    Send,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -40,33 +48,33 @@ const MOCK_STOCKTAKE = {
     warehouseCode: 'WH-HCM',
     mode: 'PERIODIC',
     modeLabel: 'Định kỳ',
-    plannedAt: '2024-03-20T08:00:00',
+    plannedAt: '2026-04-01T08:00:00',
     note: 'Kiểm kê định kỳ hàng tháng',
     creatorName: 'Nguyễn Văn A',
-    status: 'DRAFT',
+    status: 'APPROVED',
     statusLabel: 'Bản nháp',
     createdAt: '2024-03-15T08:00:00',
     lines: [
-        { id: 1, itemId: 1, itemName: 'Vật tư A', itemCode: 'ITEM-001', uom: 'Cái', systemQty: 150, countedQty: 145, varianceQty: -5 },
-        { id: 2, itemId: 2, itemName: 'Vật tư B', itemCode: 'ITEM-002', uom: 'Cái', systemQty: 85, countedQty: 85, varianceQty: 0 },
-        { id: 3, itemId: 3, itemName: 'Vật tư C', itemCode: 'ITEM-003', uom: 'Kg', systemQty: 200, countedQty: 210, varianceQty: 10 },
-        { id: 4, itemId: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', systemQty: 50, countedQty: 48, varianceQty: -2 },
-        { id: 5, itemId: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', systemQty: 120, countedQty: 120, varianceQty: 0 },
-        { id: 6, itemId: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', systemQty: 75, countedQty: 75, varianceQty: 0 },
-        { id: 7, itemId: 7, itemName: 'Vật tư G', itemCode: 'ITEM-007', uom: 'Hộp', systemQty: 300, countedQty: 295, varianceQty: -5 },
-        { id: 8, itemId: 8, itemName: 'Vật tư H', itemCode: 'ITEM-008', uom: 'Kg', systemQty: 180, countedQty: 180, varianceQty: 0 },
-        { id: 9, itemId: 9, itemName: 'Vật tư I', itemCode: 'ITEM-009', uom: 'Cái', systemQty: 95, countedQty: 100, varianceQty: 5 },
-        { id: 10, itemId: 10, itemName: 'Vật tư J', itemCode: 'ITEM-010', uom: 'Thùng', systemQty: 45, countedQty: 45, varianceQty: 0 },
-        { id: 11, itemId: 11, itemName: 'Vật tư K', itemCode: 'ITEM-011', uom: 'Cái', systemQty: 220, countedQty: 215, varianceQty: -5 },
-        { id: 12, itemId: 12, itemName: 'Vật tư L', itemCode: 'ITEM-012', uom: 'Kg', systemQty: 160, countedQty: 170, varianceQty: 10 },
-        { id: 13, itemId: 13, itemName: 'Vật tư M', itemCode: 'ITEM-013', uom: 'Hộp', systemQty: 88, countedQty: 88, varianceQty: 0 },
-        { id: 14, itemId: 14, itemName: 'Vật tư N', itemCode: 'ITEM-014', uom: 'Cái', systemQty: 112, countedQty: 110, varianceQty: -2 },
-        { id: 15, itemId: 15, itemName: 'Vật tư O', itemCode: 'ITEM-015', uom: 'Thùng', systemQty: 60, countedQty: 60, varianceQty: 0 },
-        { id: 16, itemId: 16, itemName: 'Vật tư P', itemCode: 'ITEM-016', uom: 'Cái', systemQty: 135, countedQty: 140, varianceQty: 5 },
-        { id: 17, itemId: 17, itemName: 'Vật tư Q', itemCode: 'ITEM-017', uom: 'Kg', systemQty: 99, countedQty: 99, varianceQty: 0 },
-        { id: 18, itemId: 18, itemName: 'Vật tư R', itemCode: 'ITEM-018', uom: 'Hộp', systemQty: 250, countedQty: 245, varianceQty: -5 },
-        { id: 19, itemId: 19, itemName: 'Vật tư S', itemCode: 'ITEM-019', uom: 'Cái', systemQty: 42, countedQty: 42, varianceQty: 0 },
-        { id: 20, itemId: 20, itemName: 'Vật tư T', itemCode: 'ITEM-020', uom: 'Thùng', systemQty: 78, countedQty: 80, varianceQty: 2 },
+        { id: 1, itemId: 1, itemName: 'Vật tư A', itemCode: 'ITEM-001', uom: 'Cái', systemQty: 150, countedQty: null, varianceQty: 0 },
+        { id: 2, itemId: 2, itemName: 'Vật tư B', itemCode: 'ITEM-002', uom: 'Cái', systemQty: 85, countedQty: null, varianceQty: 0 },
+        { id: 3, itemId: 3, itemName: 'Vật tư C', itemCode: 'ITEM-003', uom: 'Kg', systemQty: 200, countedQty: null, varianceQty: 0 },
+        { id: 4, itemId: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', systemQty: 50, countedQty: null, varianceQty: 0 },
+        { id: 5, itemId: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', systemQty: 120, countedQty: null, varianceQty: 0 },
+        { id: 6, itemId: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', systemQty: 75, countedQty: null, varianceQty: 0 },
+        { id: 7, itemId: 7, itemName: 'Vật tư G', itemCode: 'ITEM-007', uom: 'Hộp', systemQty: 300, countedQty: null, varianceQty: 0 },
+        { id: 8, itemId: 8, itemName: 'Vật tư H', itemCode: 'ITEM-008', uom: 'Kg', systemQty: 180, countedQty: null, varianceQty: 0 },
+        { id: 9, itemId: 9, itemName: 'Vật tư I', itemCode: 'ITEM-009', uom: 'Cái', systemQty: 95, countedQty: null, varianceQty: 0 },
+        { id: 10, itemId: 10, itemName: 'Vật tư J', itemCode: 'ITEM-010', uom: 'Thùng', systemQty: 45, countedQty: null, varianceQty: 0 },
+        { id: 11, itemId: 11, itemName: 'Vật tư K', itemCode: 'ITEM-011', uom: 'Cái', systemQty: 220, countedQty: null, varianceQty: 0 },
+        { id: 12, itemId: 12, itemName: 'Vật tư L', itemCode: 'ITEM-012', uom: 'Kg', systemQty: 160, countedQty: null, varianceQty: 0 },
+        { id: 13, itemId: 13, itemName: 'Vật tư M', itemCode: 'ITEM-013', uom: 'Hộp', systemQty: 88, countedQty: null, varianceQty: 0 },
+        { id: 14, itemId: 14, itemName: 'Vật tư N', itemCode: 'ITEM-014', uom: 'Cái', systemQty: 112, countedQty: null, varianceQty: 0 },
+        { id: 15, itemId: 15, itemName: 'Vật tư O', itemCode: 'ITEM-015', uom: 'Thùng', systemQty: 60, countedQty: null, varianceQty: 0 },
+        { id: 16, itemId: 16, itemName: 'Vật tư P', itemCode: 'ITEM-016', uom: 'Cái', systemQty: 135, countedQty: null, varianceQty: 0 },
+        { id: 17, itemId: 17, itemName: 'Vật tư Q', itemCode: 'ITEM-017', uom: 'Kg', systemQty: 99, countedQty: null, varianceQty: 0 },
+        { id: 18, itemId: 18, itemName: 'Vật tư R', itemCode: 'ITEM-018', uom: 'Hộp', systemQty: 250, countedQty: null, varianceQty: 0 },
+        { id: 19, itemId: 19, itemName: 'Vật tư S', itemCode: 'ITEM-019', uom: 'Cái', systemQty: 42, countedQty: null, varianceQty: 0 },
+        { id: 20, itemId: 20, itemName: 'Vật tư T', itemCode: 'ITEM-020', uom: 'Thùng', systemQty: 78, countedQty: null, varianceQty: 0 },
     ]
 };
 
@@ -89,7 +97,8 @@ const ViewStocktakeDetail = () => {
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
     const [loading] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
+    const [basicEditing, setBasicEditing] = useState(false);
+    const [isCounting, setIsCounting] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
 
@@ -98,6 +107,7 @@ const ViewStocktakeDetail = () => {
     const [varianceFilter, setVarianceFilter] = useState('all'); // 'all' | 'negative' | 'positive' | 'sufficient'
     const [lineSearchKeyword, setLineSearchKeyword] = useState('');
     const [pendingMarkSufficient, setPendingMarkSufficient] = useState(false); // confirm mode
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
     // Mock data - trong thực tế sẽ gọi API
     const [stocktakeData, setStocktakeData] = useState(MOCK_STOCKTAKE);
@@ -116,14 +126,16 @@ const ViewStocktakeDetail = () => {
         navigate(-1);
     };
 
-    // Edit handlers
-    const toggleEdit = () => {
-        if (isEditing) {
-            // Cancel editing - reset data
-            setStocktakeData(MOCK_STOCKTAKE);
-        }
-        setIsEditing(!isEditing);
+    // Count editing handlers
+    const startCounting = () => {
+        setIsCounting(true);
+    };
+
+    const stopCounting = () => {
+        setStocktakeData(MOCK_STOCKTAKE);
+        setIsCounting(false);
         setSelectedLineIds([]);
+        setPendingMarkSufficient(false);
     };
 
     const toggleLineSelection = (lineId) => {
@@ -183,15 +195,13 @@ const ViewStocktakeDetail = () => {
         });
     };
 
-    // Save changes
+    // Save basic info
     const handleSave = async () => {
         try {
             setSubmitting(true);
-            // API call would go here
             await new Promise(resolve => setTimeout(resolve, 1000));
             showToast('Lưu thay đổi thành công!', 'success');
-            setIsEditing(false);
-            setSelectedLineIds([]);
+            setBasicEditing(false);
         } catch (error) {
             showToast('Có lỗi xảy ra khi lưu', 'error');
         } finally {
@@ -202,7 +212,7 @@ const ViewStocktakeDetail = () => {
     // Calculate summary
     const summary = useMemo(() => {
         if (!stocktakeData.lines || stocktakeData.lines.length === 0) {
-            return { totalItems: 0, totalSystemQty: 0, totalCountedQty: 0, totalVariance: 0, totalCounted: 0 };
+            return { totalItems: 0, totalSystemQty: 0, totalCountedQty: 0, totalVariance: 0, totalCounted: 0, missing: 0, excess: 0, sufficient: 0 };
         }
 
         const hasValue = (val) => val !== null && val !== undefined && val !== '';
@@ -213,12 +223,19 @@ const ViewStocktakeDetail = () => {
         const totalCountedQty = countedLines.reduce((sum, line) => sum + (parseFloat(line.countedQty) || 0), 0);
         const totalVariance = countedLines.reduce((sum, line) => sum + (line.varianceQty || 0), 0);
 
+        const missing = countedLines.filter(l => l.varianceQty < 0).length;
+        const excess = countedLines.filter(l => l.varianceQty > 0).length;
+        const sufficient = countedLines.filter(l => l.varianceQty === 0).length;
+
         return {
             totalItems: stocktakeData.lines.length,
             totalSystemQty,
             totalCountedQty,
             totalVariance,
-            totalCounted: countedLines.length
+            totalCounted: countedLines.length,
+            missing,
+            excess,
+            sufficient
         };
     }, [stocktakeData.lines]);
 
@@ -297,15 +314,17 @@ const ViewStocktakeDetail = () => {
                     </button>
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {!isEditing && stocktakeData.status === 'DRAFT' && (
-                        <button type="button" className="btn btn-secondary" onClick={toggleEdit}>
+                    {!isCounting && !basicEditing && stocktakeData.status === 'DRAFT' && (
+                        <button type="button" className="btn btn-secondary" onClick={() => setBasicEditing(true)}>
                             <Edit size={15} />
                             Chỉnh sửa
                         </button>
                     )}
-                    {isEditing && (
+                    {basicEditing && (
                         <>
-                            <button type="button" className="btn btn-cancel" onClick={toggleEdit} disabled={submitting}>
+                            <button type="button" className="btn btn-cancel" onClick={() => {
+                                setBasicEditing(false);
+                            }} disabled={submitting}>
                                 <X size={15} />
                                 Hủy
                             </button>
@@ -324,11 +343,30 @@ const ViewStocktakeDetail = () => {
                             </button>
                         </>
                     )}
-                    {/* Nút tạo phiếu điều chỉnh tồn kho */}
-                    <button type="button" className="btn btn-secondary" onClick={() => navigate('/inventory/adjustments/create')}>
-                        <RotateCcw size={15} />
-                        Tạo phiếu điều chỉnh
-                    </button>
+                    {!isCounting && !basicEditing && stocktakeData.status !== 'DRAFT' && (
+                        <button type="button" className="btn btn-secondary" onClick={() => setBasicEditing(true)}>
+                            <Edit size={15} />
+                            Chỉnh sửa
+                        </button>
+                    )}
+                    {!basicEditing && (
+                        <>
+                            <button type="button" className="btn btn-secondary" onClick={() => showToast('In PDF', 'info')}>
+                                <Printer size={15} />
+                                In PDF
+                            </button>
+                            <button type="button" className="btn btn-secondary" onClick={() => showToast('In A4', 'info')}>
+                                <Printer size={15} />
+                                In A4
+                            </button>
+                        </>
+                    )}
+                    {!isCounting && !basicEditing && (
+                        <button type="button" className="btn btn-primary" onClick={() => navigate('/inventory/adjustments/create')}>
+                            <RotateCcw size={15} />
+                            Tạo phiếu điều chỉnh
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -395,7 +433,29 @@ const ViewStocktakeDetail = () => {
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', minHeight: '600px' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
-                                    {isEditing && (
+                                    {!isCounting && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => {
+                                                if (stocktakeData.status !== 'APPROVED') {
+                                                    showToast('Chỉ phiếu đã duyệt mới có thể bắt đầu kiểm kê', 'warning');
+                                                    return;
+                                                }
+                                                const now = new Date();
+                                                const planned = stocktakeData.plannedAt ? new Date(stocktakeData.plannedAt) : null;
+                                                if (!planned || now >= planned) {
+                                                    setConfirmDialogOpen(true);
+                                                } else {
+                                                    showToast('Chưa đến ngày giờ dự kiến kiểm kê', 'warning');
+                                                }
+                                            }}
+                                            style={{ fontSize: '13px', height: '36px', padding: '0 16px' }}
+                                        >
+                                            Bắt đầu kiểm kê
+                                        </button>
+                                    )}
+                                    {isCounting && (
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                             {selectedLineIds.length > 0 && !pendingMarkSufficient && (
                                                 <button type="button" onClick={handleMarkAllSufficient} className="btn btn-sm btn-card-text" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }} title="Đánh dấu tất cả những sản phẩm chưa điền.">
@@ -410,6 +470,24 @@ const ViewStocktakeDetail = () => {
                                                     </button>
                                                     <button type="button" onClick={confirmMarkSufficient} className="btn btn-sm" style={{ fontSize: '12px', height: '32px', padding: '0 12px', backgroundColor: '#16a34a', color: 'white', border: 'none' }}>
                                                         Xác nhận
+                                                    </button>
+                                                </>
+                                            )}
+                                            {!pendingMarkSufficient && (
+                                                <>
+                                                    <button type="button" onClick={stopCounting} className="btn btn-cancel" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }}>
+                                                        Hủy
+                                                    </button>
+                                                    <button type="button" onClick={() => {
+                                                        const hasEmptyCounted = stocktakeData.lines.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
+                                                        if (hasEmptyCounted) {
+                                                            showToast('Vui lòng nhập đầy đủ số lượng kiểm kê cho tất cả vật tư trước khi lưu', 'warning');
+                                                            return;
+                                                        }
+                                                        showToast('Lưu số lượng kiểm kê thành công', 'success');
+                                                        setIsCounting(false);
+                                                    }} className="btn btn-primary" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }}>
+                                                        Lưu
                                                     </button>
                                                 </>
                                             )}
@@ -491,7 +569,7 @@ const ViewStocktakeDetail = () => {
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
-                                                    {isEditing && (
+                                                    {isCounting && (
                                                         <th style={{ width: '60px', textAlign: 'center' }}>
                                                             <input
                                                                 type="checkbox"
@@ -512,7 +590,7 @@ const ViewStocktakeDetail = () => {
                                             <tbody>
                                                 {filteredLines.map((line, index) => (
                                                     <tr key={line.id}>
-                                                        {isEditing && (
+                                                        {isCounting && (
                                                             <td style={{ textAlign: 'center' }}>
                                                                 <input type="checkbox" checked={selectedLineIds.includes(line.id)} onChange={() => toggleLineSelection(line.id)} style={{ cursor: 'pointer' }} />
                                                             </td>
@@ -564,7 +642,7 @@ const ViewStocktakeDetail = () => {
                                                             </div>
                                                         </td>
                                                         <td>
-                                                            {isEditing ? (
+                                                            {isCounting ? (
                                                                 <input
                                                                     type="number"
                                                                     value={line.countedQty ?? ''}
@@ -575,12 +653,12 @@ const ViewStocktakeDetail = () => {
                                                                 />
                                                             ) : (
                                                                 <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#374151' }}>
-                                                                    {line.countedQty || 0}
+                                                                    {line.countedQty ?? '-'}
                                                                 </div>
                                                             )}
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontWeight: 600, color: (line.countedQty === null || line.countedQty === undefined || line.countedQty === '') ? '#9ca3af' : line.varianceQty > 0 ? '#2196F3' : line.varianceQty < 0 ? '#dc2626' : '#16a34a' }}>
-                                                            {line.countedQty === null || line.countedQty === undefined || line.countedQty === '' ? '-' : line.varianceQty || 0}
+                                                            {line.countedQty === null || line.countedQty === undefined || line.countedQty === '' ? '-' : line.varianceQty < 0 ? `Thiếu ${Math.abs(line.varianceQty)}` : line.varianceQty > 0 ? `Thừa ${line.varianceQty}` : 'Đủ'}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -595,16 +673,21 @@ const ViewStocktakeDetail = () => {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú</h2>
                                 </div>
-                                <div className="form-field">
-                                    {isEditing ? (
-                                        <textarea
-                                            value={stocktakeData.note || ''}
-                                            onChange={(e) => setStocktakeData(prev => ({ ...prev, note: e.target.value }))}
-                                            className="form-textarea"
-                                            rows={4}
-                                            placeholder="Nhập ghi chú (nếu có)"
-                                            style={{ width: '100%', minHeight: '100px' }}
-                                        />
+                                <div className="form-field" style={{ position: 'relative' }}>
+                                    {basicEditing && !isCounting ? (
+                                        <>
+                                            <textarea
+                                                value={stocktakeData.note || ''}
+                                                onChange={(e) => setStocktakeData(prev => ({ ...prev, note: e.target.value }))}
+                                                className="form-textarea"
+                                                rows={4}
+                                                placeholder="Nhập ghi chú (nếu có)"
+                                                style={{ width: '100%', minHeight: '100px' }}
+                                            />
+                                            <span style={{ position: 'absolute', bottom: '8px', right: '12px', fontSize: '12px', color: '#9ca3af' }}>
+                                                {(stocktakeData.note || '').length} / 500
+                                            </span>
+                                        </>
                                     ) : (
                                         <div className="form-textarea" style={{ width: '100%', minHeight: '100px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#374151' }}>
                                             {stocktakeData.note || '—'}
@@ -628,21 +711,35 @@ const ViewStocktakeDetail = () => {
                                         <span style={{ fontWeight: 600 }}>{summary.totalCounted} / {summary.totalItems}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <span style={{ color: '#64748b' }}>Vật tư thiếu:</span>
+                                        <span style={{ fontWeight: 600, color: '#dc2626' }}>{summary.missing}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <span style={{ color: '#64748b' }}>Vật tư thừa:</span>
+                                        <span style={{ fontWeight: 600, color: '#2196F3' }}>{summary.excess}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <span style={{ color: '#64748b' }}>Vật tư đủ:</span>
+                                        <span style={{ fontWeight: 600, color: '#16a34a' }}>{summary.sufficient}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                         <span style={{ color: '#64748b' }}>Tổng số lượng hệ thống:</span>
                                         <span style={{ fontWeight: 600 }}>{summary.totalSystemQty}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                         <span style={{ color: '#64748b' }}>Tổng số lượng kiểm kê:</span>
-                                        <span style={{ fontWeight: 600 }}>{summary.totalCountedQty}</span>
+                                        <span style={{ fontWeight: 600 }}>{summary.totalCounted === 0 ? 'Chưa thực hiện kiểm kê kho' : summary.totalCountedQty}</span>
                                     </div>
+                                    {summary.totalCounted > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #d1d5db' }}>
                                         <span style={{ fontSize: '18px', fontWeight: 700, color: summary.totalVariance > 0 ? '#2196F3' : summary.totalVariance < 0 ? '#dc2626' : '#16a34a' }}>
                                             Tổng chênh lệch:
                                         </span>
                                         <span style={{ fontSize: '24px', fontWeight: 700, color: summary.totalVariance > 0 ? '#2196F3' : summary.totalVariance < 0 ? '#dc2626' : '#16a34a' }}>
-                                            {summary.totalVariance > 0 ? '+' : ''}{summary.totalVariance}
+                                            {summary.totalVariance > 0 ? `Thừa ${summary.excess} sản phẩm` : summary.totalVariance < 0 ? `Thiếu ${summary.missing} sản phẩm` : 'Đủ'}
                                         </span>
                                     </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -686,7 +783,7 @@ const ViewStocktakeDetail = () => {
                                     <label className="form-label">Ngày giờ dự kiến kiểm kê</label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
-                                        {isEditing ? (
+                                        {basicEditing && !isCounting ? (
                                             <input
                                                 type="datetime-local"
                                                 value={stocktakeData.plannedAt ? stocktakeData.plannedAt.slice(0, 16) : ''}
@@ -701,8 +798,63 @@ const ViewStocktakeDetail = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Gửi báo cáo */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px' }}>
+                        <button type="button" className="btn btn-primary" onClick={() => navigate('/inventory/stocktakes/report')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Send size={15} />
+                            Gửi báo cáo
+                        </button>
+                    </div>
                 </form>
             </div>
+
+            {/* Confirm Dialog - Bắt đầu kiểm kê */}
+            <Dialog
+                open={confirmDialogOpen}
+                onClose={() => setConfirmDialogOpen(false)}
+                fullWidth
+                maxWidth="xs"
+                PaperProps={{
+                    sx: {
+                        width: '100%',
+                        maxWidth: '480px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--slate-200, #e5e7eb)',
+                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                    },
+                }}
+            >
+                <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
+                    Xác nhận bắt đầu kiểm kê
+                </DialogTitle>
+                <DialogContent sx={{ px: 3, pb: 2 }}>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
+                        Khi bắt đầu kiểm kê, <strong>CÁC GIAO DỊCH trong kho sẽ bị khóa</strong>. Bạn có muốn tiếp tục?
+                    </p>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
+                    <button
+                        type="button"
+                        onClick={() => setConfirmDialogOpen(false)}
+                        className="btn btn-cancel"
+                        style={{ minWidth: '72px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                            setConfirmDialogOpen(false);
+                            startCounting();
+                        }}
+                        style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}
+                    >
+                        Xác nhận
+                    </button>
+                </DialogActions>
+            </Dialog>
 
             {/* Toast Notification */}
             {toast && (

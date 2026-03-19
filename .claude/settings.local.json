@@ -19,7 +19,11 @@
       "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/components/StocktakeFilterPopup.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''Filter OK''\\)\")",
       "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/ViewStocktakeList.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''List OK''\\)\")",
       "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/components/StocktakeFilterPopup.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''Syntax OK''\\)\")",
-      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/components/StocktakeFilterPopup.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")"
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/components/StocktakeFilterPopup.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/CreateStocktake.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")",
+      "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/ViewStocktakeDetail.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")",
+      "Bash(npx vite:*)",
+      "Bash(timeout 10 npm run dev)"
     ]
   }
 }

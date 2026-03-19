@@ -492,7 +492,7 @@ const ViewStocktakeList = () => {
                         fontWeight="600"
                         sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
                     >
-                        Danh sách kiểm kê kho
+                        Danh sách yêu cầu kiểm kê kho
                     </Typography>
                 </Box>
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>

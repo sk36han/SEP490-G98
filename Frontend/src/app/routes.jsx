@@ -358,16 +358,6 @@ const AppRoutes = () => (
         />
         {/* Kiểm kê kho - Stocktake - Thủ kho */}
         <Route
-            path="/inventory/stocktakes"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
-                    <MainLayout>
-                        <ViewStocktakeList />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
             path="/inventory/stocktakes/create"
             element={
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
@@ -383,6 +373,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewStocktakeDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/stocktakes"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewStocktakeList />
                     </MainLayout>
                 </ProtectedRoute>
             }

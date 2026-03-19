@@ -11,10 +11,7 @@ import {
     Package,
     Calendar,
     User,
-    Trash2,
-    Search,
     ImageIcon,
-    CheckCircle,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -63,14 +60,8 @@ const CreateStocktake = () => {
 
     // Lines data
     const [lines, setLines] = useState([]);
-    const [selectedLineIds, setSelectedLineIds] = useState([]);
 
-    // Variance filter state
-    const [varianceFilter, setVarianceFilter] = useState('all'); // 'all' | 'negative' | 'positive' | 'sufficient'
-    const [lineSearchKeyword, setLineSearchKeyword] = useState('');
-    const [pendingMarkSufficient, setPendingMarkSufficient] = useState(false);
-
-    // Product search - checkbox select
+    // Product search
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [products] = useState(MOCK_ITEMS);
@@ -229,66 +220,6 @@ const CreateStocktake = () => {
     };
 
 
-    const updateLine = (lineId, field, value) => {
-        setLines(prev => prev.map(line => {
-            if (line.id !== lineId) return line;
-            const updated = { ...line, [field]: value };
-
-            // Auto calculate variance
-            if (field === 'systemQty' || field === 'countedQty') {
-                const sysQty = parseFloat(updated.systemQty) || 0;
-                const cntQty = parseFloat(updated.countedQty) || 0;
-                updated.varianceQty = cntQty - sysQty;
-            }
-
-            return updated;
-        }));
-    };
-
-    const removeLine = (lineId) => {
-        setLines(prev => prev.filter(line => line.id !== lineId));
-        setSelectedLineIds(prev => prev.filter(id => id !== lineId));
-    };
-
-    const toggleLineSelection = (lineId) => {
-        setSelectedLineIds(prev =>
-            prev.includes(lineId) ? prev.filter(id => id !== lineId) : [...prev, lineId]
-        );
-    };
-
-    const toggleSelectAll = () => {
-        const emptyIds = filteredLines.filter(l => l.countedQty === '' || l.countedQty === null || l.countedQty === undefined).map(l => l.id);
-        if (selectedLineIds.length === emptyIds.length && emptyIds.every(id => selectedLineIds.includes(id))) {
-            setSelectedLineIds([]);
-        } else {
-            setSelectedLineIds(emptyIds);
-        }
-    };
-
-    const handleMarkAllSufficient = () => {
-        if (selectedLineIds.length === 0) return;
-        setPendingMarkSufficient(true);
-    };
-
-    const confirmMarkSufficient = () => {
-        setLines(prev => prev.map(line => {
-            if (!selectedLineIds.includes(line.id)) return line;
-            return { ...line, countedQty: line.systemQty, varianceQty: 0 };
-        }));
-        setSelectedLineIds([]);
-        setPendingMarkSufficient(false);
-    };
-
-    const cancelMarkSufficient = () => {
-        setPendingMarkSufficient(false);
-    };
-
-    const removeSelectedLines = () => {
-        if (selectedLineIds.length === 0) return;
-        setLines(prev => prev.filter(line => !selectedLineIds.includes(line.id)));
-        setSelectedLineIds([]);
-    };
-
     const validateForm = () => {
         const newErrors = {};
 
@@ -393,78 +324,6 @@ const CreateStocktake = () => {
         navigate(-1);
     };
 
-    // Filtered lines based on variance filter and search
-    const filteredLines = useMemo(() => {
-        let result = lines || [];
-
-        // Apply variance filter
-        if (varianceFilter === 'negative') {
-            result = result.filter(l => l.varianceQty < 0);
-        } else if (varianceFilter === 'positive') {
-            result = result.filter(l => l.varianceQty > 0);
-        } else if (varianceFilter === 'sufficient') {
-            result = result.filter(l => l.countedQty !== null && l.countedQty !== undefined && l.countedQty !== '' && l.varianceQty === 0);
-        }
-
-        // Apply search filter
-        if (lineSearchKeyword.trim()) {
-            const kw = lineSearchKeyword.toLowerCase();
-            result = result.filter(line =>
-                line.itemName?.toLowerCase().includes(kw) ||
-                line.itemCode?.toLowerCase().includes(kw)
-            );
-        }
-
-        // Sort: selected first, then Thiếu -> Thừa -> Đủ -> Null
-        result = [...result].sort((a, b) => {
-            const aSelected = selectedLineIds.includes(a.id);
-            const bSelected = selectedLineIds.includes(b.id);
-            if (aSelected && !bSelected) return -1;
-            if (!aSelected && bSelected) return 1;
-
-            const getSortOrder = (line) => {
-                const hasValue = line.countedQty !== null && line.countedQty !== undefined && line.countedQty !== '';
-                if (!hasValue) return 4;
-                const v = line.varianceQty || 0;
-                if (v === 0) return 3;
-                if (v < 0) return 1;
-                return 2;
-            };
-
-            const orderA = getSortOrder(a);
-            const orderB = getSortOrder(b);
-            if (orderA !== orderB) return orderA - orderB;
-
-            const vA = a.varianceQty || 0;
-            const vB = b.varianceQty || 0;
-            return vA - vB;
-        });
-
-        return result;
-    }, [lines, varianceFilter, lineSearchKeyword, selectedLineIds]);
-
-    // Calculate summary
-    const summary = useMemo(() => {
-        if (!lines || lines.length === 0) {
-            return { totalItems: 0, totalSystemQty: 0, totalCountedQty: 0, totalVariance: 0, totalCounted: 0 };
-        }
-
-        const hasValue = (val) => val !== null && val !== undefined && val !== '';
-
-        const totalSystemQty = lines.reduce((sum, line) => sum + (line.systemQty || 0), 0);
-        const countedLines = lines.filter(l => hasValue(l.countedQty));
-        const totalCountedQty = countedLines.reduce((sum, line) => sum + (parseFloat(line.countedQty) || 0), 0);
-        const totalVariance = countedLines.reduce((sum, line) => sum + (line.varianceQty || 0), 0);
-
-        return {
-            totalItems: lines.length,
-            totalSystemQty,
-            totalCountedQty,
-            totalVariance,
-            totalCounted: countedLines.length
-        };
-    }, [lines]);
-
     // Validation for submit button
     const canSubmit = useMemo(() => {
         return (
@@ -526,7 +385,7 @@ const CreateStocktake = () => {
                 <form className="form-wrapper">
                     {/* Intro */}
                     <div className="form-card-intro">
-                        <h1 className="page-title">Tạo phiếu kiểm kê kho</h1>
+                        <h1 className="page-title">Tạo yêu cầu kiểm kê kho</h1>
                         <p className="form-card-required-note">
                             Các trường đánh dấu <span className="required-mark">*</span> là bắt buộc
                         </p>
@@ -537,87 +396,9 @@ const CreateStocktake = () => {
                         {/* Trái: Danh sách vật tư + Ghi chú */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             {/* 1. Danh sách vật tư */}
-                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', minHeight: '600px' }}>
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        {selectedLineIds.length > 0 && !pendingMarkSufficient && (
-                                            <button type="button" onClick={handleMarkAllSufficient} className="btn btn-sm btn-card-text" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }} title="Đánh dấu tất cả những sản phẩm chưa điền.">
-                                                <CheckCircle size={14} />
-                                                Đánh dấu tất cả là đã đủ
-                                            </button>
-                                        )}
-                                        {pendingMarkSufficient && (
-                                            <>
-                                                <button type="button" onClick={cancelMarkSufficient} className="btn btn-sm btn-card-text" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }}>
-                                                    Hủy
-                                                </button>
-                                                <button type="button" onClick={confirmMarkSufficient} className="btn btn-sm" style={{ fontSize: '12px', height: '32px', padding: '0 12px', backgroundColor: '#16a34a', color: 'white', border: 'none' }}>
-                                                    Xác nhận
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Variance Filter + Search Row */}
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-                                    {/* Search Input */}
-                                    <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px' }}>
-                                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
-                                        <input
-                                            type="text"
-                                            value={lineSearchKeyword}
-                                            onChange={(e) => setLineSearchKeyword(e.target.value)}
-                                            placeholder="Tìm vật tư theo tên, mã..."
-                                            className="form-input line-search-input"
-                                        />
-                                        {lineSearchKeyword && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setLineSearchKeyword('')}
-                                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', color: '#9ca3af' }}
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Variance Filter Chips */}
-                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('all')}
-                                            className={`variance-chip ${varianceFilter === 'all' ? 'active' : ''}`}
-                                            data-variance="all"
-                                        >
-                                            Tất cả
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('negative')}
-                                            className={`variance-chip ${varianceFilter === 'negative' ? 'active' : ''}`}
-                                            data-variance="negative"
-                                        >
-                                            Thiếu
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('positive')}
-                                            className={`variance-chip ${varianceFilter === 'positive' ? 'active' : ''}`}
-                                            data-variance="positive"
-                                        >
-                                            Thừa
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('sufficient')}
-                                            className={`variance-chip ${varianceFilter === 'sufficient' ? 'active' : ''}`}
-                                            data-variance="sufficient"
-                                        >
-                                            Đủ
-                                        </button>
-                                    </div>
                                 </div>
 
                                 {errors.lines && (
@@ -643,32 +424,19 @@ const CreateStocktake = () => {
 
                                 {/* Lines table */}
                                 {lines.length > 0 && (
-                                    <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                                    <div className="table-container">
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
-                                                    <th style={{ width: '60px', textAlign: 'center' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedLineIds.length === filteredLines.length && filteredLines.length > 0}
-                                                            onChange={toggleSelectAll}
-                                                            style={{ cursor: 'pointer' }}
-                                                            title="Đánh dấu tất cả những sản phẩm chưa điền."
-                                                        />
-                                                    </th>
                                                     <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
                                                     <th style={{ textAlign: 'left' }}>Vật tư</th>
                                                     <th style={{ width: '100px', textAlign: 'right' }}>SL hệ thống</th>
-                                                    <th style={{ width: '100px', textAlign: 'right' }}>SL đã kiểm kê</th>
-                                                    <th style={{ width: '80px', textAlign: 'right' }}>Chênh lệch</th>
+                                                    <th style={{ width: '60px' }}></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {filteredLines.map((line, index) => (
+                                                {lines.map((line, index) => (
                                                     <tr key={line.id}>
-                                                        <td style={{ textAlign: 'center' }}>
-                                                            <input type="checkbox" checked={selectedLineIds.includes(line.id)} onChange={() => toggleLineSelection(line.id)} style={{ cursor: 'pointer' }} />
-                                                        </td>
                                                         <td style={{ textAlign: 'center' }}>{index + 1}</td>
                                                         <td>
                                                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -712,12 +480,6 @@ const CreateStocktake = () => {
                                                                 {line.systemQty || 0}
                                                             </div>
                                                         </td>
-                                                        <td>
-                                                            <input type="number" value={line.countedQty ?? ''} onChange={(e) => updateLine(line.id, 'countedQty', e.target.value)} className="form-input" style={{ textAlign: 'right', fontSize: '13px', width: '100%' }} placeholder="0" />
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: (line.countedQty === null || line.countedQty === undefined || line.countedQty === '') ? '#9ca3af' : line.varianceQty > 0 ? '#2196F3' : line.varianceQty < 0 ? '#dc2626' : '#16a34a' }}>
-                                                            {line.countedQty === null || line.countedQty === undefined || line.countedQty === '' ? '-' : line.varianceQty || 0}
-                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -739,40 +501,6 @@ const CreateStocktake = () => {
                                 </div>
                             </div>
 
-                            {/* 3. Tổng kết */}
-                            {lines.length > 0 && (
-                                <div className="info-section" style={{ margin: 0 }}>
-                                    <div className="section-header-with-toggle">
-                                        <h2 className="section-title">Tổng kết phiếu kiểm kê kho</h2>
-                                    </div>
-                                    <div style={{ padding: '20px', backgroundColor: '#f0f9ff', borderRadius: '12px', borderLeft: '4px solid #2196F3' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                            <span style={{ color: '#64748b' }}>Tổng số vật tư:</span>
-                                            <span style={{ fontWeight: 600 }}>{summary.totalItems}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                            <span style={{ color: '#64748b' }}>Đã kiểm kê:</span>
-                                            <span style={{ fontWeight: 600 }}>{summary.totalCounted} / {summary.totalItems}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                            <span style={{ color: '#64748b' }}>Tổng số lượng hệ thống:</span>
-                                            <span style={{ fontWeight: 600 }}>{summary.totalSystemQty}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                            <span style={{ color: '#64748b' }}>Tổng số lượng kiểm kê:</span>
-                                            <span style={{ fontWeight: 600 }}>{summary.totalCountedQty}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #d1d5db' }}>
-                                            <span style={{ fontSize: '18px', fontWeight: 700, color: summary.totalVariance > 0 ? '#2196F3' : summary.totalVariance < 0 ? '#dc2626' : '#16a34a' }}>
-                                                Tổng chênh lệch:
-                                            </span>
-                                            <span style={{ fontSize: '24px', fontWeight: 700, color: summary.totalVariance > 0 ? '#2196F3' : summary.totalVariance < 0 ? '#dc2626' : '#16a34a' }}>
-                                                {summary.totalVariance > 0 ? '+' : ''}{summary.totalVariance}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* Phải: Thông tin chung */}
