@@ -117,15 +117,6 @@ const warehouseKeeperItems = [
         ],
     },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
-    {
-        id: 'reports-mgmt',
-        path: '/reports',
-        icon: <BarChart3 size={22} />,
-        label: 'Báo cáo',
-        children: [
-            { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
-        ],
-    },
 ];
 
 const saleSupportItems = [

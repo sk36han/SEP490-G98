@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/CreateSupplier.css';
 
 // Mock data
@@ -30,6 +32,21 @@ const MOCK_LINES = [
     { id: 3, itemName: 'Vật tư C', itemCode: 'ITEM-003', uom: 'Kg', systemQty: 200, countedQty: 200, varianceQty: 0 },
     { id: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', systemQty: 50, countedQty: 48, varianceQty: -2 },
     { id: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', systemQty: 120, countedQty: 120, varianceQty: 0 },
+    { id: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', systemQty: 75, countedQty: 75, varianceQty: 0 },
+    { id: 7, itemName: 'Vật tư G', itemCode: 'ITEM-007', uom: 'Hộp', systemQty: 300, countedQty: 295, varianceQty: -5 },
+    { id: 8, itemName: 'Vật tư H', itemCode: 'ITEM-008', uom: 'Kg', systemQty: 180, countedQty: 185, varianceQty: 5 },
+    { id: 9, itemName: 'Vật tư I', itemCode: 'ITEM-009', uom: 'Cái', systemQty: 95, countedQty: 95, varianceQty: 0 },
+    { id: 10, itemName: 'Vật tư J', itemCode: 'ITEM-010', uom: 'Thùng', systemQty: 45, countedQty: 45, varianceQty: 0 },
+    { id: 11, itemName: 'Vật tư K', itemCode: 'ITEM-011', uom: 'Cái', systemQty: 220, countedQty: 218, varianceQty: -2 },
+    { id: 12, itemName: 'Vật tư L', itemCode: 'ITEM-012', uom: 'Kg', systemQty: 160, countedQty: 165, varianceQty: 5 },
+    { id: 13, itemName: 'Vật tư M', itemCode: 'ITEM-013', uom: 'Hộp', systemQty: 88, countedQty: 88, varianceQty: 0 },
+    { id: 14, itemName: 'Vật tư N', itemCode: 'ITEM-014', uom: 'Cái', systemQty: 112, countedQty: 110, varianceQty: -2 },
+    { id: 15, itemName: 'Vật tư O', itemCode: 'ITEM-015', uom: 'Thùng', systemQty: 60, countedQty: 60, varianceQty: 0 },
+    { id: 16, itemName: 'Vật tư P', itemCode: 'ITEM-016', uom: 'Cái', systemQty: 135, countedQty: 138, varianceQty: 3 },
+    { id: 17, itemName: 'Vật tư Q', itemCode: 'ITEM-017', uom: 'Kg', systemQty: 99, countedQty: 99, varianceQty: 0 },
+    { id: 18, itemName: 'Vật tư R', itemCode: 'ITEM-018', uom: 'Hộp', systemQty: 250, countedQty: 248, varianceQty: -2 },
+    { id: 19, itemName: 'Vật tư S', itemCode: 'ITEM-019', uom: 'Cái', systemQty: 42, countedQty: 42, varianceQty: 0 },
+    { id: 20, itemName: 'Vật tư T', itemCode: 'ITEM-020', uom: 'Thùng', systemQty: 78, countedQty: 80, varianceQty: 2 },
 ];
 
 const StocktakeReport = () => {
@@ -37,10 +54,12 @@ const StocktakeReport = () => {
     const location = useLocation();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const isWarehouseKeeper = permissionRole === 'WAREHOUSE_KEEPER';
     const [submitting, setSubmitting] = useState(false);
     const [sendDialogOpen, setSendDialogOpen] = useState(false);
-    const [reportSent, setReportSent] = useState(location.state?.reportSent || false);
-    const [note] = useState('');
+    const [reportSent, setReportSent] = useState(false);
+    const [note, setNote] = useState('');
     const [varianceFilter, setVarianceFilter] = useState('all');
     const [searchKeyword, setSearchKeyword] = useState('');
 
@@ -54,6 +73,22 @@ const StocktakeReport = () => {
         if (!searchKeyword.trim()) return true;
         const kw = searchKeyword.toLowerCase();
         return l.itemName?.toLowerCase().includes(kw) || l.itemCode?.toLowerCase().includes(kw);
+    }).sort((a, b) => {
+        // Sort categories: 1=Thiếu, 2=Thừa, 3=Đủ, 4=Null
+        const getSortOrder = (line) => {
+            const hasValue = line.countedQty !== null && line.countedQty !== undefined;
+            if (!hasValue) return 4;
+            const v = line.varianceQty || 0;
+            if (v === 0) return 3;
+            if (v < 0) return 1;
+            return 2;
+        };
+        const orderA = getSortOrder(a);
+        const orderB = getSortOrder(b);
+        if (orderA !== orderB) return orderA - orderB;
+        const vA = a.varianceQty || 0;
+        const vB = b.varianceQty || 0;
+        return vA - vB;
     });
 
     const handleSendReport = async () => {
@@ -87,25 +122,70 @@ const StocktakeReport = () => {
                         <Printer size={15} />
                         In A4
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => setSendDialogOpen(true)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            height: '42px',
-                            padding: '0 20px',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            borderRadius: '12px',
-                            boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
-                        }}
-                    >
-                        <Send size={16} />
-                        {reportSent ? 'Đã gửi báo cáo' : 'Gửi báo cáo'}
-                    </button>
+                    {isWarehouseKeeper && !reportSent && (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => setSendDialogOpen(true)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                height: '42px',
+                                padding: '0 20px',
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                            }}
+                        >
+                            <Send size={16} />
+                            Gửi báo cáo
+                        </button>
+                    )}
+                    {isWarehouseKeeper && reportSent && (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                height: '42px',
+                                padding: '0 20px',
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                opacity: 0.6,
+                                cursor: 'not-allowed',
+                            }}
+                        >
+                            <CheckCircle size={16} />
+                            Đã gửi báo cáo
+                        </button>
+                    )}
+                    {!isWarehouseKeeper && (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => setSendDialogOpen(true)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                height: '42px',
+                                padding: '0 20px',
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                            }}
+                        >
+                            <CheckCircle size={16} />
+                            Xác nhận điều chỉnh tồn kho
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -116,7 +196,7 @@ const StocktakeReport = () => {
                     <div className="form-card-intro">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                             <div>
-                                <h1 className="page-title">{reportSent ? 'Xem báo cáo kiểm kê kho' : 'Gửi báo cáo kiểm kê kho'}</h1>
+                                <h1 className="page-title">{reportSent ? 'Báo cáo kiểm kê kho' : (isWarehouseKeeper ? 'Gửi báo cáo kiểm kê kho' : 'Báo cáo kiểm kê kho')}</h1>
                                 <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
                                     Mã phiếu:{' '}
                                     <span style={{ fontWeight: 600, color: '#2196F3' }}>KK-20240315-001</span>
@@ -248,9 +328,25 @@ const StocktakeReport = () => {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú</h2>
                                 </div>
-                                <div className="form-textarea" style={{ width: '100%', minHeight: '100px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#374151' }}>
-                                    {note || '—'}
-                                </div>
+                                {isWarehouseKeeper ? (
+                                    <div className="form-textarea" style={{ width: '100%', minHeight: '100px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#374151' }}>
+                                        {note || '—'}
+                                    </div>
+                                ) : (
+                                    <div className="form-field" style={{ position: 'relative' }}>
+                                        <textarea
+                                            value={note}
+                                            onChange={(e) => setNote(e.target.value)}
+                                            className="form-textarea"
+                                            rows={4}
+                                            placeholder="Nhập ghi chú (nếu có)"
+                                            style={{ width: '100%', minHeight: '100px' }}
+                                        />
+                                        <span style={{ position: 'absolute', bottom: '8px', right: '12px', fontSize: '12px', color: '#9ca3af' }}>
+                                            {note.length} / 500
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -298,19 +394,19 @@ const StocktakeReport = () => {
                                     <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: '#374151' }}>Kết quả kiểm kê</h3>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
                                         <span style={{ color: '#64748b' }}>Tổng vật tư:</span>
-                                        <span style={{ fontWeight: 600 }}>5</span>
+                                        <span style={{ fontWeight: 600 }}>20</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
                                         <span style={{ color: '#64748b' }}>Vật tư thiếu:</span>
-                                        <span style={{ fontWeight: 600, color: '#dc2626' }}>2</span>
+                                        <span style={{ fontWeight: 600, color: '#dc2626' }}>6</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
                                         <span style={{ color: '#64748b' }}>Vật tư thừa:</span>
-                                        <span style={{ fontWeight: 600, color: '#2196F3' }}>1</span>
+                                        <span style={{ fontWeight: 600, color: '#2196F3' }}>5</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                         <span style={{ color: '#64748b' }}>Vật tư đủ:</span>
-                                        <span style={{ fontWeight: 600, color: '#16a34a' }}>2</span>
+                                        <span style={{ fontWeight: 600, color: '#16a34a' }}>9</span>
                                     </div>
                                 </div>
                             </div>
@@ -320,7 +416,7 @@ const StocktakeReport = () => {
             </div>
 
             {/* Toast Notification */}
-            {/* Confirm Dialog - Gửi báo cáo */}
+            {/* Confirm Dialog - Xác nhận điều chỉnh tồn kho */}
             <Dialog
                 open={sendDialogOpen}
                 onClose={() => setSendDialogOpen(false)}
@@ -337,11 +433,11 @@ const StocktakeReport = () => {
                 }}
             >
                 <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
-                    Xác nhận gửi báo cáo
+                    Xác nhận điều chỉnh tồn kho
                 </DialogTitle>
                 <DialogContent sx={{ px: 3, pb: 2 }}>
                     <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
-                        Bạn có chắc chắn muốn gửi báo cáo kiểm kê kho này không?
+                        Xác nhận đủ số lượng và điều chỉnh số lượng tồn kho. Bạn có muốn tiếp tục?
                     </p>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
@@ -361,12 +457,9 @@ const StocktakeReport = () => {
                             try {
                                 setSubmitting(true);
                                 await new Promise(resolve => setTimeout(resolve, 1500));
-                                setReportSent(true);
-                                sessionStorage.setItem('stocktakeReportSent', 'true');
-                                navigate('.', { state: { ...location.state, reportSent: true }, replace: true });
-                                showToast('Gửi báo cáo thành công!', 'success');
+                                showToast('Xác nhận điều chỉnh số lượng tồn kho thành công!', 'success');
                             } catch (error) {
-                                showToast('Có lỗi xảy ra khi gửi báo cáo', 'error');
+                                showToast('Có lỗi xảy ra khi xác nhận', 'error');
                             } finally {
                                 setSubmitting(false);
                             }
