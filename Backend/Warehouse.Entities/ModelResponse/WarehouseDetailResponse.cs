@@ -11,6 +11,7 @@ namespace Warehouse.Entities.ModelResponse
         public string Address { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+        public int ItemCount { get; set; }
 
         public List<WarehouseItemDto> Items { get; set; } = new List<WarehouseItemDto>();
         public List<WarehousePaperDto> ImportPapers { get; set; } = new List<WarehousePaperDto>();

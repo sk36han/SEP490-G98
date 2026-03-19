@@ -10,9 +10,9 @@ namespace Warehouse.Entities.ModelRequest
 {
     public class CreateSupplierRequest
     {
-        [Required(ErrorMessage = "Mã nhà cung cấp là bắt buộc")]
+        // SupplierCode không bắt buộc - sẽ tự động tạo nếu không truyền
         [MaxLength(50)]
-        public string SupplierCode { get; set; } = null!;
+        public string? SupplierCode { get; set; }
 
         [Required(ErrorMessage = "Tên nhà cung cấp là bắt buộc")]
         [MaxLength(255)]

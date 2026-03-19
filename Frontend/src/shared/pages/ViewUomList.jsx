@@ -411,6 +411,19 @@ const ViewUomList = () => {
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = totalItems === 0 ? 0 : Math.min((page + 1) * pageSize, totalItems);
 
+    const HEADER_CELL_SX = {
+        fontWeight: 600,
+        bgcolor: '#fafafa',
+        borderBottom: '2px solid #e5e7eb',
+        fontSize: '12px',
+        color: '#6b7280',
+        py: 1.5,
+        px: 2,
+        verticalAlign: 'middle',
+    };
+    
+    const ACTION_CELL_WIDTH = 120;
+    
     const BODY_CELL_SX = {
         py: 1.75,
         px: 2,
@@ -865,234 +878,264 @@ const ViewUomList = () => {
                         ) : (
                             <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
                                 <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell
-                                                padding="checkbox"
-                                                sx={{
-                                                    fontWeight: 600,
-                                                    bgcolor: '#fafafa',
-                                                    width: 56,
-                                                    minWidth: 56,
-                                                    maxWidth: 56,
-                                                    borderBottom: '2px solid #e5e7eb',
-                                                    fontSize: '12px',
-                                                    px: 2,
-                                                }}
-                                            >
-                                                <Checkbox
-                                                    checked={isAllSelected}
-                                                    indeterminate={isSomeSelected}
-                                                    onChange={(e) => handleSelectAll(e.target.checked)}
-                                                    size="small"
-                                                />
-                                            </TableCell>
+                                <TableHead>
+    <TableRow>
+        <TableCell
+            padding="checkbox"
+            sx={{
+                ...HEADER_CELL_SX,
+                width: 56,
+                minWidth: 56,
+                maxWidth: 56,
+            }}
+        >
+            <Checkbox
+                checked={isAllSelected}
+                indeterminate={isSomeSelected}
+                onChange={(e) => handleSelectAll(e.target.checked)}
+                size="small"
+            />
+        </TableCell>
 
-                                            {visibleColumns.map((col) => (
-                                                <TableCell
-                                                    key={col.id}
-                                                    sx={{
-                                                        fontWeight: 600,
-                                                        bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa',
-                                                        whiteSpace: 'nowrap',
-                                                        opacity: draggedColumn === col.id ? 0.5 : 1,
-                                                        transition: 'all 0.2s',
-                                                        borderBottom: '2px solid #e5e7eb',
-                                                        fontSize: '12px',
-                                                        color: '#6b7280',
-                                                        py: 1.5,
-                                                        px: 2,
-                                                    }}
-                                                    align="left"
-                                                    onDragOver={handleDragOver}
-                                                    onDrop={(e) => handleDrop(e, col.id)}
-                                                >
-                                                    <Box
-                                                        sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: 0.5,
-                                                            '&:hover .drag-icon': {
-                                                                opacity: 0.6,
-                                                            },
-                                                        }}
-                                                    >
-                                                        <Box
-                                                            draggable
-                                                            onDragStart={(e) => handleDragStart(e, col.id)}
-                                                            onDragEnd={handleDragEnd}
-                                                            className="drag-icon"
-                                                            sx={{
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                cursor: 'grab',
-                                                                '&:active': { cursor: 'grabbing' },
-                                                                color: '#9ca3af',
-                                                                opacity: 0,
-                                                                transition: 'opacity 0.2s',
-                                                            }}
-                                                        >
-                                                            <GripVertical size={14} />
-                                                        </Box>
+        {visibleColumns.map((col) => {
+            const isCenterCol = col.id === 'stt';
 
-                                                        {col.sortable ? (
-                                                            <TableSortLabel
-                                                                active={orderBy === col.id}
-                                                                direction={orderBy === col.id ? order : 'asc'}
-                                                                onClick={() => handleSortRequest(col.id)}
-                                                                sx={{
-                                                                    flex: 1,
-                                                                    '& .MuiTableSortLabel-icon': {
-                                                                        fontSize: '14px',
-                                                                        opacity: orderBy === col.id ? 1 : 0,
-                                                                    },
-                                                                }}
-                                                                hideSortIcon={false}
-                                                            >
-                                                                {col.label}
-                                                            </TableSortLabel>
-                                                        ) : (
-                                                            <Typography variant="inherit" sx={{ flex: 1 }}>
-                                                                {col.label}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                </TableCell>
-                                            ))}
+            return (
+                <TableCell
+                    key={col.id}
+                    sx={{
+                        ...HEADER_CELL_SX,
+                        bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa',
+                        whiteSpace: 'nowrap',
+                        opacity: draggedColumn === col.id ? 0.5 : 1,
+                        transition: 'all 0.2s',
+                    }}
+                    align={isCenterCol ? 'center' : 'left'}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, col.id)}
+                >
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: isCenterCol ? 'center' : 'flex-start',
+                            gap: 0.5,
+                            width: '100%',
+                            '&:hover .drag-icon': {
+                                opacity: 0.6,
+                            },
+                        }}
+                    >
+                        <Box
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, col.id)}
+                            onDragEnd={handleDragEnd}
+                            className="drag-icon"
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                cursor: 'grab',
+                                '&:active': { cursor: 'grabbing' },
+                                color: '#9ca3af',
+                                opacity: 0,
+                                transition: 'opacity 0.2s',
+                                flexShrink: 0,
+                            }}
+                        >
+                            <GripVertical size={14} />
+                        </Box>
 
-                                            <TableCell
-                                                sx={{
-                                                    fontWeight: 600,
-                                                    bgcolor: '#fafafa',
-                                                    borderBottom: '2px solid #e5e7eb',
-                                                    fontSize: '12px',
-                                                    color: '#6b7280',
-                                                    py: 1.5,
-                                                    px: 2,
-                                                    width: 120,
-                                                    minWidth: 120,
-                                                }}
-                                                align="right"
-                                            >
-                                                Hành động
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableHead>
+                        {col.sortable ? (
+                            <TableSortLabel
+                                active={orderBy === col.id}
+                                direction={orderBy === col.id ? order : 'asc'}
+                                onClick={() => handleSortRequest(col.id)}
+                                hideSortIcon={false}
+                                sx={{
+                                    flex: isCenterCol ? '0 1 auto' : 1,
+                                    justifyContent: isCenterCol ? 'center' : 'flex-start',
+                                    '& .MuiTableSortLabel-icon': {
+                                        fontSize: '14px',
+                                        opacity: orderBy === col.id ? 1 : 0,
+                                    },
+                                }}
+                            >
+                                {col.label}
+                            </TableSortLabel>
+                        ) : (
+                            <Typography
+                                variant="inherit"
+                                sx={{
+                                    flex: isCenterCol ? '0 1 auto' : 1,
+                                    textAlign: isCenterCol ? 'center' : 'left',
+                                }}
+                            >
+                                {col.label}
+                            </Typography>
+                        )}
+                    </Box>
+                </TableCell>
+            );
+        })}
 
-                                    <TableBody>
-                                        {displayedRows.map((row, index) => (
-                                            <TableRow
-                                                key={row.uomId}
-                                                hover
-                                                sx={{
-                                                    height: 56,
-                                                    '&:last-child td': { borderBottom: 0 },
-                                                    '&:hover': {
-                                                        bgcolor: '#f9fafb',
-                                                    },
-                                                    '& .MuiTableCell-root': BODY_CELL_SX,
-                                                    '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
-                                                }}
-                                            >
-                                                <TableCell padding="checkbox">
-                                                    <Checkbox
-                                                        checked={selectedIds.has(row.uomId)}
-                                                        onChange={(e) => handleSelectRow(row.uomId, e.target.checked)}
-                                                        size="small"
-                                                    />
-                                                </TableCell>
+        <TableCell
+            align="right"
+            sx={{
+                ...HEADER_CELL_SX,
+                width: ACTION_CELL_WIDTH,
+                minWidth: ACTION_CELL_WIDTH,
+                maxWidth: ACTION_CELL_WIDTH,
+            }}
+        >
+            Hành động
+        </TableCell>
+    </TableRow>
+</TableHead>
 
-                                                {visibleColumns.map((col) => {
-                                                    const opts = { pageNumber: page + 1, pageSize };
+<TableBody>
+    {displayedRows.map((row, index) => (
+        <TableRow
+            key={row.uomId}
+            hover
+            sx={{
+                height: 56,
+                '&:last-child td': { borderBottom: 0 },
+                '&:hover': {
+                    bgcolor: '#f9fafb',
+                },
+                '& .MuiTableCell-root': BODY_CELL_SX,
+                '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
+            }}
+        >
+            <TableCell padding="checkbox">
+                <Checkbox
+                    checked={selectedIds.has(row.uomId)}
+                    onChange={(e) => handleSelectRow(row.uomId, e.target.checked)}
+                    size="small"
+                />
+            </TableCell>
 
-                                                    if (col.id === 'stt') {
-                                                        return (
-                                                            <TableCell
-                                                                key={col.id}
-                                                                align="center"
-                                                                sx={{ fontVariantNumeric: 'tabular-nums' }}
-                                                            >
-                                                                {col.getValue(row, index, opts)}
-                                                            </TableCell>
-                                                        );
-                                                    }
+            {visibleColumns.map((col) => {
+                const opts = { pageNumber: page + 1, pageSize };
 
-                                                    if (col.id === 'isActive') {
-                                                        return (
-                                                            <TableCell key={col.id} align="left">
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip
-                                                                        label={row.isActive ? 'Hoạt động' : 'Tắt'}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            fontWeight: 500,
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 90,
-                                                                            height: '26px',
-                                                                            bgcolor: row.isActive
-                                                                                ? 'rgba(16, 185, 129, 0.2)'
-                                                                                : 'rgba(107, 114, 128, 0.2)',
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': {
-                                                                                px: 1.5,
-                                                                                py: 0,
-                                                                            },
-                                                                        }}
-                                                                    />
-                                                                </Box>
-                                                            </TableCell>
-                                                        );
-                                                    }
+                if (col.id === 'stt') {
+                    return (
+                        <TableCell
+                            key={col.id}
+                            align="center"
+                            sx={{
+                                fontVariantNumeric: 'tabular-nums',
+                                textAlign: 'center',
+                            }}
+                        >
+                            {col.getValue(row, index, opts)}
+                        </TableCell>
+                    );
+                }
 
-                                                    return (
-                                                        <TableCell
-                                                            key={col.id}
-                                                            align="left"
-                                                            sx={{
-                                                                maxWidth: 200,
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                            }}
-                                                            title={col.getValue(row)}
-                                                        >
-                                                            {col.getValue(row)}
-                                                        </TableCell>
-                                                    );
-                                                })}
+                if (col.id === 'isActive') {
+                    return (
+                        <TableCell key={col.id} align="left">
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'flex-start',
+                                    minHeight: 24,
+                                }}
+                            >
+                                <Chip
+                                    label={row.isActive ? 'Hoạt động' : 'Tắt'}
+                                    size="small"
+                                    sx={{
+                                        fontWeight: 500,
+                                        fontSize: '12px',
+                                        lineHeight: '16px',
+                                        borderRadius: '999px',
+                                        minWidth: 90,
+                                        height: '26px',
+                                        bgcolor: row.isActive
+                                            ? 'rgba(16, 185, 129, 0.2)'
+                                            : 'rgba(107, 114, 128, 0.2)',
+                                        color: '#374151',
+                                        border: 'none',
+                                        boxShadow: 'none',
+                                        '& .MuiChip-label': {
+                                            px: 1.5,
+                                            py: 0,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '100%',
+                                        },
+                                    }}
+                                />
+                            </Box>
+                        </TableCell>
+                    );
+                }
 
-                                                <TableCell align="right" sx={{ px: 2 }}>
-                                                    {canManage && (
-                                                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                                                            <Tooltip title={row.isActive ? 'Tắt' : 'Bật'}>
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handleToggleStatus(row)}
-                                                                    aria-label={row.isActive ? 'Tắt' : 'Bật'}
-                                                                >
-                                                                    <Power size={18} color={row.isActive ? '#2e7d32' : '#757575'} />
-                                                                </IconButton>
-                                                            </Tooltip>
+                return (
+                    <TableCell
+                        key={col.id}
+                        align="left"
+                        sx={{
+                            maxWidth: 200,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                        title={col.getValue(row)}
+                    >
+                        {col.getValue(row)}
+                    </TableCell>
+                );
+            })}
 
-                                                            <Tooltip title="Chỉnh sửa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    aria-label="Chỉnh sửa"
-                                                                    onClick={() => handleOpenEditUom(row)}
-                                                                >
-                                                                    <Edit3 size={18} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
+            <TableCell
+                align="right"
+                sx={{
+                    px: 2,
+                    width: ACTION_CELL_WIDTH,
+                    minWidth: ACTION_CELL_WIDTH,
+                    maxWidth: ACTION_CELL_WIDTH,
+                }}
+            >
+                {canManage && (
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: 0.25,
+                            width: '100%',
+                        }}
+                    >
+                        <Tooltip title={row.isActive ? 'Tắt' : 'Bật'}>
+                            <IconButton
+                                size="small"
+                                onClick={() => handleToggleStatus(row)}
+                                aria-label={row.isActive ? 'Tắt' : 'Bật'}
+                            >
+                                <Power size={18} color={row.isActive ? '#2e7d32' : '#757575'} />
+                            </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Chỉnh sửa">
+                            <IconButton
+                                size="small"
+                                aria-label="Chỉnh sửa"
+                                onClick={() => handleOpenEditUom(row)}
+                            >
+                                <Edit3 size={18} />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                )}
+            </TableCell>
+        </TableRow>
+    ))}
+</TableBody>
                                 </Table>
                             </TableContainer>
                         )}

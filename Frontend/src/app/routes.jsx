@@ -34,7 +34,6 @@ import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
-import GRNConfirmation from '../shared/pages/mockup/GRNConfirmation';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
@@ -56,7 +55,6 @@ const AppRoutes = () => (
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Home Dashboard: chỉ Giám đốc (DIRECTOR) mới có quyền truy cập */}
         <Route
             path="/home"
             element={
@@ -67,7 +65,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Home dashboard chỉ dành cho Giám đốc; Admin không có đường /admin/home tới dashboard */}
         <Route
             path="/admin/home"
             element={
@@ -128,7 +125,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Thông báo dùng chung cho mọi role (mockup theo role) */}
         <Route
             path="/notifications"
             element={
@@ -139,7 +135,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Cài đặt thông báo (chỉ Admin) */}
         <Route
             path="/admin/notifications"
             element={
@@ -160,7 +155,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Items – WAREHOUSE_KEEPER, SALE_ENGINEER, ACCOUNTANTS full quyền; SALE_SUPPORT chỉ xem */}
         <Route
             path="/products"
             element={
@@ -277,7 +271,7 @@ const AppRoutes = () => (
         <Route
             path="/suppliers"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewSupplierList />
                     </MainLayout>
@@ -287,7 +281,7 @@ const AppRoutes = () => (
         <Route
             path="/suppliers/create"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <CreateSupplier />
                     </MainLayout>
@@ -297,18 +291,17 @@ const AppRoutes = () => (
         <Route
             path="/suppliers/:id"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewSupplierDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Quản lý kho – Director, Thủ kho */}
         <Route
             path="/inventory"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewWarehouseList />
                     </MainLayout>
@@ -318,25 +311,23 @@ const AppRoutes = () => (
         <Route
             path="/inventory/create"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <CreateWarehouse />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Chi tiết kho - ViewWarehouseDetail */}
         <Route
             path="/inventory/:id"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewWarehouseDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Tồn kho - Inventory Adjustment - Thủ kho */}
         <Route
             path="/inventory/adjustments"
             element={
@@ -357,7 +348,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Kiểm kê kho - Stocktake - Thủ kho */}
         <Route
             path="/inventory/stocktakes/create"
             element={
@@ -408,16 +398,12 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         >
-            <Route
-                path="stocktakes"
-                element={<ViewStocktakeList />}
-            />
+            <Route path="stocktakes" element={<ViewStocktakeList />} />
         </Route>
-        {/* Yêu cầu nhập hàng (GRN) – Kế toán, Thủ kho */}
         <Route
             path="/good-receipt-notes"
             element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewGoodReceiptNotes />
                     </MainLayout>
@@ -427,7 +413,7 @@ const AppRoutes = () => (
         <Route
             path="/good-receipt-notes/:id"
             element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewGoodReceiptNoteDetail />
                     </MainLayout>
@@ -454,7 +440,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu xuất hàng (GDN) – Kế toán, Thủ kho */}
         <Route
             path="/good-delivery-notes"
             element={
@@ -485,7 +470,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase order: Sale Support, Ke toan, Thu Kho */}
         <Route
             path="/purchase-orders"
             element={
@@ -516,7 +500,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase Returns: Kế toán (ACCOUNTANTS) */}
         <Route
             path="/purchase-returns"
             element={

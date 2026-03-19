@@ -79,6 +79,9 @@ const CreateGoodReceiptNote = () => {
         discount: 0,
         discountAmountFixed: 0,
         additionalCosts: [],
+        isPaid: false,
+        paymentMethod: '',
+        shippingFee: 0,
     });
 
     const [lines, setLines] = useState([]);
@@ -161,6 +164,7 @@ const CreateGoodReceiptNote = () => {
                 if (detail) {
                     poDetail = {
                         ...po,
+                        ...detail,
                         lines: detail.lines ?? detail.Lines ?? [],
                     };
                 }
@@ -172,10 +176,10 @@ const CreateGoodReceiptNote = () => {
             // Fill form data từ PO
             setFormData(prev => ({
                 ...prev,
-                supplierId: poDetail.supplierId ?? prev.supplierId,
-                supplierName: poDetail.supplierName,
-                warehouseId: poDetail.warehouseId ?? prev.warehouseId,
-                warehouseName: poDetail.warehouseName,
+                supplierId: poDetail.supplierId ?? poDetail.SupplierId ?? prev.supplierId,
+                supplierName: poDetail.supplierName ?? poDetail.SupplierName ?? '',
+                warehouseId: poDetail.warehouseId ?? poDetail.WarehouseId ?? prev.warehouseId,
+                warehouseName: poDetail.warehouseName ?? poDetail.WarehouseName ?? '',
             }));
 
             // Fill lines từ PO (chỉ những item chưa nhập đủ)
@@ -346,6 +350,22 @@ const CreateGoodReceiptNote = () => {
 
     const setDiscountType = (type) => {
         setFormData((prev) => ({ ...prev, discountType: type }));
+    };
+
+    const handleShippingFeeChange = (e) => {
+        const value = e.target.value;
+        setFormData((prev) => ({ ...prev, shippingFee: value }));
+        if (errors.shippingFee) setErrors((prev) => ({ ...prev, shippingFee: '' }));
+    };
+
+    const handlePaymentMethodChange = (e) => {
+        const { value } = e.target;
+        setFormData((prev) => ({ ...prev, paymentMethod: value }));
+    };
+
+    const handleIsPaidChange = (e) => {
+        const checked = e.target.checked;
+        setFormData((prev) => ({ ...prev, isPaid: checked, paymentMethod: checked ? prev.paymentMethod : '' }));
     };
 
     const addAdditionalCost = () => {
@@ -557,6 +577,9 @@ const CreateGoodReceiptNote = () => {
                 DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
                 DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
                 Note: formData.justification || null,
+                IsPaid: formData.isPaid || false,
+                PaymentMethod: formData.paymentMethod || null,
+                ShippingFee: Number(formData.shippingFee) || 0,
                 Lines: lines.map(line => ({
                     ItemId: Number(line.itemId),
                     ExpectedQty: Number(line.orderedQty) || 0,
@@ -597,6 +620,9 @@ const CreateGoodReceiptNote = () => {
                 DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
                 DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
                 Note: formData.justification || null,
+                IsPaid: formData.isPaid || false,
+                PaymentMethod: formData.paymentMethod || null,
+                ShippingFee: Number(formData.shippingFee) || 0,
                 Lines: lines.map(line => ({
                     ItemId: Number(line.itemId),
                     ExpectedQty: Number(line.orderedQty) || 0,
@@ -1444,6 +1470,12 @@ const CreateGoodReceiptNote = () => {
                                 addAdditionalCost={addAdditionalCost}
                                 removeAdditionalCost={removeAdditionalCost}
                                 updateAdditionalCost={updateAdditionalCost}
+                                isPaid={formData.isPaid}
+                                setIsPaid={(val) => setFormData(prev => ({ ...prev, isPaid: val }))}
+                                paymentMethod={formData.paymentMethod}
+                                setPaymentMethod={(val) => setFormData(prev => ({ ...prev, paymentMethod: val }))}
+                                shippingFee={formData.shippingFee}
+                                setShippingFee={(val) => setFormData(prev => ({ ...prev, shippingFee: val }))}
                             />
                         </div>
                         <div />

@@ -75,7 +75,7 @@ const ViewPurchaseOrderDetail = () => {
         warehouseName: '',
         creatorName: '',
         responsiblePersonName: '',
-        expectedReceiptDate: '',
+        expectedDeliveryDate: '',
         justification: '',
         discountType: 'percent',
         discount: 0,
@@ -150,14 +150,14 @@ const ViewPurchaseOrderDetail = () => {
                         supplierAddressDistrict: data.supplierAddressDistrict ?? data.SupplierAddressDistrict ?? '',
                         supplierAddressProvince: data.supplierAddressProvince ?? data.SupplierAddressProvince ?? '',
                         warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
-                        creatorName: data.requestedBy || data.RequestedBy || '',
+                        creatorName: data.requestedByName || data.RequestedByName || data.requestedBy || data.RequestedBy || '',
                         responsiblePersonName: data.responsiblePersonName || '',
-                        expectedReceiptDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate).toISOString().slice(0, 10) : '',
+                        expectedDeliveryDate: data.expectedDeliveryDate ? formatDate(data.expectedDeliveryDate) : '',
                         justification: data.justification || '',
                         // Handle all status types: DRAFT, PENDING, APPROVED, REJECTED (cả camelCase và PascalCase)
                         approvalStatus: (data.status ?? data.Status ?? 'DRAFT').toUpperCase(),
                         receivingStatus: data.receivingStatus || 'Pending',
-                        createdAt: data.createdAt ? new Date(data.createdAt).toISOString().slice(0, 10) : '',
+                        createdAt: data.createdAt ? formatDate(data.createdAt) : '',
                         lines: (data.lines || []).map((line, index) => ({
                             id: line.purchaseOrderLineId || line.PurchaseOrderLineId || index + 1,
                             itemId: line.itemId || line.ItemId || null,
@@ -212,6 +212,13 @@ const ViewPurchaseOrderDetail = () => {
 
     const formatCurrency = (value) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('vi-VN');
+    };
 
     const STATUS_MAP = {
         'DRAFT': { label: 'Bản nháp', color: '#6b7280', bgColor: '#f3f4f6' },
