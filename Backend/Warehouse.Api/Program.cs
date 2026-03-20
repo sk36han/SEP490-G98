@@ -89,10 +89,10 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IItemService, ItemService>();
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
             builder.Services.AddScoped<IGoodsReceiptNoteService, GoodsReceiptNoteService>();
-
             builder.Services.AddScoped<IStocktakeService, StocktakeService>();
             builder.Services.AddScoped<IStocktakePlanService, StocktakePlanService>();
             builder.Services.AddScoped<IStocktakeExecutionService, StocktakeExecutionService>();
+
 
 			// JWT Authentication
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
