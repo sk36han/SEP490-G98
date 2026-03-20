@@ -44,6 +44,16 @@ const MAX_REASON_LENGTH = 250;
 const formatCurrency = (value) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 
+const getPaymentMethodLabel = (method) => {
+    const methodMap = {
+        'cash': 'Tiền mặt',
+        'bank_transfer': 'Chuyển khoản',
+        'credit_card': 'Thẻ tín dụng',
+        'other': 'Khác',
+    };
+    return methodMap[method?.toLowerCase()] || method || '-';
+};
+
 const STATUS_STYLE = {
     Draft: { bgColor: 'rgba(107,114,128,0.15)', label: 'Nháp', dot: '•', color: '#4b5563' },
     Submitted: { bgColor: 'rgba(59,130,246,0.15)', label: 'Đã gửi duyệt', dot: '•', color: '#1d4ed8' },
@@ -159,6 +169,8 @@ const ViewGoodReceiptNoteDetail = () => {
             if (isApprove) {
                 await approveGRN(grnData.grnId, {
                     note: reason,
+                    isPaid: isPaid,
+                    paymentMethod: paymentMethod,
                 });
             }
 
@@ -539,6 +551,36 @@ const ViewGoodReceiptNoteDetail = () => {
                                             <input type="text" value={grnData.referencePoCode || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
                                     </div>
+                                    
+                                    {/* Thông tin thanh toán - chỉ hiển thị khi đã có dữ liệu */}
+                                    {(grnData.isPaid !== undefined || grnData.paymentMethod) && (
+                                        <>
+                                            <div className="form-field">
+                                                <label className="form-label">Trạng thái thanh toán</label>
+                                                <div className="input-wrapper">
+                                                    <span style={{
+                                                        padding: '4px 12px',
+                                                        borderRadius: '16px',
+                                                        fontSize: '13px',
+                                                        fontWeight: 500,
+                                                        backgroundColor: grnData.isPaid ? '#d1fae5' : '#fef3c7',
+                                                        color: grnData.isPaid ? '#059669' : '#d97706',
+                                                    }}>
+                                                        {grnData.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {grnData.isPaid && grnData.paymentMethod && (
+                                                <div className="form-field">
+                                                    <label className="form-label">Phương thức thanh toán</label>
+                                                    <div className="input-wrapper">
+                                                        <CreditCard className="input-icon" size={16} />
+                                                        <input type="text" value={getPaymentMethodLabel(grnData.paymentMethod)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
 

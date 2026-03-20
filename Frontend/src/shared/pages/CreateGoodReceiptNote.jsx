@@ -58,6 +58,25 @@ import {
 import '../styles/CreateGoodReceiptNote.css';
 import '../styles/CreateSupplier.css';
 
+// Helper functions cho lifecycleStatus
+const getLifecycleStatusLabel = (status) => {
+    const statusMap = {
+        'PENDINGRCV': 'Chờ nhận hàng',
+        'PARTRCV': 'Nhận một phần',
+        'FULLRCV': 'Đã nhận đủ',
+    };
+    return statusMap[status?.toUpperCase()] || status || '-';
+};
+
+const getLifecycleStatusColor = (status) => {
+    const colorMap = {
+        'PENDINGRCV': '#f59e0b',  // Vàng - chờ
+        'PARTRCV': '#3b82f6',     // Xanh dương - đang nhận
+        'FULLRCV': '#10b981',     // Xanh lá - hoàn thành
+    };
+    return colorMap[status?.toUpperCase()] || '#6b7280';
+};
+
 const CreateGoodReceiptNote = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -116,6 +135,7 @@ const CreateGoodReceiptNote = () => {
                     supplierName: po.supplierName ?? po.SupplierName ?? '',
                     warehouseName: po.warehouseName ?? po.WarehouseName ?? '',
                     status: po.status ?? po.Status ?? '',
+                    lifecycleStatus: po.lifecycleStatus ?? po.LifecycleStatus ?? '',
                     requestedDate: po.requestedDate ?? po.RequestedDate ?? '',
                     expectedDeliveryDate: po.expectedDeliveryDate ?? po.ExpectedDeliveryDate ?? '',
                     supplierId: po.supplierId ?? po.SupplierId ?? null,
@@ -165,6 +185,7 @@ const CreateGoodReceiptNote = () => {
                     poDetail = {
                         ...po,
                         ...detail,
+                        lifecycleStatus: detail.lifecycleStatus ?? detail.LifecycleStatus ?? po.lifecycleStatus ?? po.LifecycleStatus ?? '',
                         lines: detail.lines ?? detail.Lines ?? [],
                     };
                 }
@@ -182,24 +203,38 @@ const CreateGoodReceiptNote = () => {
                 warehouseName: poDetail.warehouseName ?? poDetail.WarehouseName ?? '',
             }));
 
+            // Kiểm tra lifecycleStatus để xác định cách fill số lượng
+            const isPartRcv = (poDetail.lifecycleStatus ?? '').toUpperCase() === 'PARTRCV';
+
             // Fill lines từ PO (chỉ những item chưa nhập đủ)
             const poLines = (poDetail.lines ?? [])
                 .filter(line => (line.receivedQty ?? 0) < (line.orderedQty ?? 0))
-                .map(line => ({
+                .map(line => {
+                    const ordered = line.orderedQty ?? line.OrderedQty ?? 0;
+                    const received = line.receivedQty ?? 0;
+                    const remaining = ordered - received;
+                    
+                    // PartRcv: Fill = remaining (không cho sửa)
+                    // PendingRcv: Fill = ordered (cho sửa)
+                    const defaultReceivedQty = isPartRcv ? remaining : ordered;
+                    
+                    return {
                     id: Date.now() + Math.random(),
                     itemId: line.itemId ?? line.ItemId,
                     itemName: line.itemName ?? line.ItemName ?? '',
                     itemSku: line.sku ?? line.Sku ?? '',
                     uom: line.uom ?? line.Uom ?? '',
-                    orderedQty: line.orderedQty ?? line.OrderedQty ?? 0,
-                    remainingQty: (line.orderedQty ?? 0) - (line.receivedQty ?? 0),
-                    receivedQty: (line.orderedQty ?? 0) - (line.receivedQty ?? 0), // Mặc định nhập đủ số còn lại
+                        orderedQty: ordered,
+                        remainingQty: remaining,
+                        receivedQty: defaultReceivedQty,
                     unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
-                    totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * ((line.orderedQty ?? 0) - (line.receivedQty ?? 0)),
+                        totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
                     note: '',
                     hasCO: false,
                     hasCQ: false,
-                }));
+                        isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
+                    };
+                });
 
             setLines(prev => {
                 // Merge với lines hiện tại, tránh trùng item
@@ -222,7 +257,7 @@ const CreateGoodReceiptNote = () => {
         const handleAutoFillFromQueryParams = async () => {
             if (poList.length === 0) return;
 
-            const poCodeFromUrl = searchParams.get('poCode');
+        const poCodeFromUrl = searchParams.get('poCode');
             const poIdFromUrl = searchParams.get('poId');
 
             // Tìm PO theo poId hoặc poCode
@@ -236,10 +271,10 @@ const CreateGoodReceiptNote = () => {
 
             if (!selectedPO) return;
 
-            setFormData(prev => ({
-                ...prev,
+                setFormData(prev => ({
+                    ...prev,
                 purchaseOrderCode: selectedPO.poCode,
-            }));
+                }));
 
             // Gọi API lấy chi tiết PO
             setPoImportLoading(true);
@@ -266,21 +301,38 @@ const CreateGoodReceiptNote = () => {
                     warehouseName: poDetail.warehouseName,
                 }));
 
+                // Kiểm tra lifecycleStatus để xác định cách fill số lượng
+                const isPartRcv = (poDetail.lifecycleStatus ?? '').toUpperCase() === 'PARTRCV';
+                
                 // Fill lines từ PO (chỉ những item chưa nhập đủ)
                 const poLines = (poDetail.lines ?? [])
                     .filter(line => (line.receivedQty ?? 0) < (line.orderedQty ?? 0))
-                    .map(line => ({
-                        id: line.purchaseOrderLineId || line.PurchaseOrderLineId || line.id || Date.now() + Math.random(),
-                        poLineId: line.purchaseOrderLineId || line.PurchaseOrderLineId || null,
-                        itemId: line.itemId ?? line.ItemId,
-                        itemName: line.itemName ?? line.ItemName ?? '',
-                        orderedQty: line.orderedQty ?? line.OrderedQty ?? 0,
-                        receivedQty: 0,
-                        unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
-                        totalPrice: 0,
-                        uom: line.uomName ?? line.UomName ?? '',
-                        note: '',
-                    }));
+                    .map(line => {
+                        const ordered = line.orderedQty ?? line.OrderedQty ?? 0;
+                        const received = line.receivedQty ?? 0;
+                        const remaining = ordered - received;
+                        
+                        // PartRcv: Fill = remaining (không cho sửa)
+                        // PendingRcv: Fill = ordered (cho sửa)
+                        const defaultReceivedQty = isPartRcv ? remaining : ordered;
+                        
+                        return {
+                            id: line.purchaseOrderLineId || line.PurchaseOrderLineId || line.id || Date.now() + Math.random(),
+                            poLineId: line.purchaseOrderLineId || line.PurchaseOrderLineId || null,
+                            itemId: line.itemId ?? line.ItemId,
+                            itemName: line.itemName ?? line.ItemName ?? '',
+                            orderedQty: ordered,
+                            remainingQty: remaining,
+                            receivedQty: defaultReceivedQty,
+                            unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
+                            totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
+                            uom: line.uomName ?? line.UomName ?? '',
+                            note: '',
+                            hasCO: false,
+                            hasCQ: false,
+                            isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
+                        };
+                    });
 
                 setLines(poLines);
                 setSelectedLineIds(poLines.map(l => l.id));
@@ -1208,6 +1260,7 @@ const CreateGoodReceiptNote = () => {
                                                             min="0"
                                                             className="form-input"
                                                             style={{ textAlign: 'right' }}
+                                                            disabled={line.isLockedQty}
                                                         />
                                                     </td>
                                                     <td style={{ textAlign: 'center', verticalAlign: 'middle', fontSize: '14px', color: 'var(--slate-700)' }}>
@@ -1327,11 +1380,11 @@ const CreateGoodReceiptNote = () => {
                                 </div>
                                 <div className="form-field" ref={poDropdownRef}>
                                     <label htmlFor="purchaseOrderCode" className="form-label">
-                                        Đơn mua hàng tham chiếu
+                                        Đơn mua hàng 
                                     </label>
                                     {/* Chỉ hiển thị thông tin PO đã chọn, không cho phép chọn/sửa */}
                                     <div></div>
-
+                                    
                                     {/* Hiển thị thông tin PO đã chọn */}
                                     {selectedPODetails !== null && selectedPODetails !== undefined && selectedPODetails.poCode && (
                                         <div 
@@ -1382,17 +1435,28 @@ const CreateGoodReceiptNote = () => {
                                                     <span style={{ color: '#64748b' }}>Trạng thái: </span>
                                                     <span style={{ 
                                                         fontWeight: 500, 
-                                                        color: selectedPODetails.status === 'Approved' ? '#10b981' : 
-                                                               selectedPODetails.status === 'Pending' ? '#f59e0b' : '#ef4444' 
+                                                        color: selectedPODetails.status === 'APPROVED' ? '#10b981' : 
+                                                               selectedPODetails.status === 'PENDING_ACC' ? '#f59e0b' : '#ef4444' 
                                                     }}>
-                                                        {selectedPODetails.status === 'Approved' ? 'Đã duyệt' : 
-                                                         selectedPODetails.status === 'PENDING_ACC' ? 'Chờ duyệt' : 'Từ chối'}
+                                                        {selectedPODetails.status === 'APPROVED' ? 'Đã duyệt' : 
+                                                         selectedPODetails.status === 'PENDING_ACC' ? 'Chờ duyệt': 
+                                                         selectedPODetails.status === 'REJECTED' ? 'Từ chối':'Bị lỗi status'}
                                                     </span>
                                                 </div>
                                                 <div>
                                                     <span style={{ color: '#64748b' }}>Sản phẩm: </span>
                                                     <span style={{ fontWeight: 500, color: '#1e293b' }}>{selectedPODetails.lines.length} items</span>
                                                 </div>
+                                                {selectedPODetails.lifecycleStatus?.toUpperCase() === 'PARTRCV' && (
+                                                    <div style={{ gridColumn: '1 / -1', padding: '8px 12px', backgroundColor: '#fef3c7', borderRadius: '6px', color: '#92400e', fontSize: '12px' }}>
+                                                        <strong>Lưu ý:</strong> Đơn hàng đã được nhập một phần. Số lượng thực tế được tự động fill theo số còn thiếu và không thể chỉnh sửa.
+                                                    </div>
+                                                )}
+                                                {selectedPODetails.lifecycleStatus?.toUpperCase() === 'PENDINGRCV' && (
+                                                    <div style={{ gridColumn: '1 / -1', padding: '8px 12px', backgroundColor: '#dbeafe', borderRadius: '6px', color: '#1e40af', fontSize: '12px' }}>
+                                                        <strong>Thông tin:</strong> Đơn hàng chưa được nhập. Số lượng thực tế được fill theo số lượng đặt, bạn có thể chỉnh sửa.
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}
