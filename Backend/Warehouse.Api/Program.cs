@@ -92,6 +92,13 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IStocktakeService, StocktakeService>();
             builder.Services.AddScoped<IStocktakePlanService, StocktakePlanService>();
             builder.Services.AddScoped<IStocktakeExecutionService, StocktakeExecutionService>();
+            builder.Services.AddScoped<IBrandService, BrandService>();
+            builder.Services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
+            builder.Services.AddScoped<IApprovalService, ApprovalService>();
+            builder.Services.AddScoped<ICategoryService, CategoryService>();
+            builder.Services.AddScoped<IItemParameterService, ItemParameterService>();
+            builder.Services.AddScoped<IItemParameterValueService, ItemParameterValueService>();
+            builder.Services.AddScoped<IPackagingSpecService, PackagingSpecService>();
 
 
 			// JWT Authentication
