@@ -10,6 +10,7 @@ import {
     Warehouse,
     RotateCcw,
     BarChart3,
+    DollarSign,
 } from 'lucide-react';
 
 const commonItems = [];
@@ -50,6 +51,7 @@ const directorItems = [
             { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
         ],
     },
+    { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Quản lý giá sản phẩm' },
 ];
 
 const adminItems = [
@@ -230,6 +232,7 @@ const accountantItems = [
             { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
         ],
     },
+    { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Quản lý giá sản phẩm' },
 ];
 
 export const getMenuItems = (role) => {

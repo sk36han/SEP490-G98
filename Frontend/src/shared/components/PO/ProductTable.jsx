@@ -322,7 +322,7 @@ const ProductTable = ({
                                     <td>
                                         <input
                                             type="number"
-                                            value={line.orderedQty}
+                                            value={line.orderedQty != null ? line.orderedQty : ''}
                                             onChange={(e) => updateLine(index, 'orderedQty', Number(e.target.value))}
                                             min="1"
                                             className="form-input po-input-number"
@@ -331,7 +331,7 @@ const ProductTable = ({
                                     <td>
                                         <input
                                             type="number"
-                                            value={line.unitPrice}
+                                            value={line.unitPrice != null ? line.unitPrice : ''}
                                             onChange={(e) => updateLine(index, 'unitPrice', Number(e.target.value))}
                                             min="0"
                                             className="form-input po-input-number"

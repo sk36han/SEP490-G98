@@ -19,7 +19,6 @@ import {
     X,
     MapPin,
     User,
-    Save,
     Send,
     Loader,
     Calendar,
@@ -569,7 +568,13 @@ const CreateGoodReceiptNote = () => {
         setLines((prev) =>
             prev.map((line, i) => {
                 if (i !== index) return line;
-                const updatedLine = { ...line, [field]: value };
+                let safeValue = value;
+                // Giới hạn receivedQty không vượt quá remainingQty
+                if (field === 'receivedQty') {
+                    const maxQty = Number(line.remainingQty) || Number(line.orderedQty) || 0;
+                    safeValue = Math.min(value, maxQty);
+                }
+                const updatedLine = { ...line, [field]: safeValue };
                 // Tự động tính totalPrice khi receivedQty hoặc unitPrice thay đổi
                 if (field === 'receivedQty' || field === 'unitPrice') {
                     updatedLine.totalPrice = (Number(updatedLine.receivedQty) || 0) * (Number(updatedLine.unitPrice) || 0);
@@ -612,7 +617,7 @@ const CreateGoodReceiptNote = () => {
         return result.isValid;
     };
 
-    const handleSaveDraft = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validateForm()) {
             showToast('Vui lòng kiểm tra lại thông tin!', 'error');
@@ -655,49 +660,6 @@ const CreateGoodReceiptNote = () => {
         }
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!validateForm()) {
-            showToast('Vui lòng kiểm tra lại thông tin!', 'error');
-            return;
-        }
-        try {
-            setSubmitting(true);
-            // Chuẩn bị payload cho API
-            const payload = {
-                PurchaseOrderId: Number(selectedPODetails?.poId),
-                ReceiptDate: formData.receiptDate,
-                WarehouseId: Number(formData.warehouseId),
-                SupplierId: Number(formData.supplierId),
-                DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
-                DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
-                Note: formData.justification || null,
-                IsPaid: formData.isPaid || false,
-                PaymentMethod: formData.paymentMethod || null,
-                ShippingFee: Number(formData.shippingFee) || 0,
-                Lines: lines.map(line => ({
-                    ItemId: Number(line.itemId),
-                    ExpectedQty: Number(line.orderedQty) || 0,
-                    ActualQty: Number(line.receivedQty) || 0,
-                    UomId: Number(line.uomId) || 1,
-                    HasCO: line.hasCO || false,
-                    HasCQ: line.hasCQ || false,
-                    Note: line.note || null,
-                    PurchaseOrderLineId: line.poLineId ? Number(line.poLineId) : null,
-                    UnitPrice: Number(line.unitPrice) || 0,
-                })),
-            };
-            const result = await createGoodReceiptNote(payload);
-            showToast(`Tạo và duyệt phiếu nhập kho thành công${result?.grnCode ? ` (${result.grnCode})` : ''}.`, 'success');
-            setTimeout(() => navigate('/good-receipt-notes'), 1500);
-        } catch (error) {
-            const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
-            showToast(msg, 'error');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     const handleCancel = () => navigate(-1);
 
     const canSubmit = useMemo(
@@ -705,7 +667,7 @@ const CreateGoodReceiptNote = () => {
             Boolean(formData.warehouseName) &&
             lines.length > 0 &&
             !submitting &&
-            !lines.some((l) => !l.itemName?.trim() || Number(l.receivedQty) <= 0),
+            !lines.some((l) => !l.itemName?.trim()),
         [formData.warehouseName, lines, submitting]
     );
 
@@ -859,15 +821,6 @@ const CreateGoodReceiptNote = () => {
                         <X size={15} />
                         Hủy
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-draft"
-                        disabled={submitting}
-                        onClick={handleSaveDraft}
-                    >
-                        <Save size={15} />
-                        Lưu nháp
-                    </button>
                     <Tooltip title={!canSubmit && !submitting ? submitTooltip : ''} arrow placement="top">
                         <span style={{ display: 'inline-flex' }}>
                             <button
@@ -885,7 +838,7 @@ const CreateGoodReceiptNote = () => {
                                 ) : (
                                     <>
                                         <Send size={15} />
-                                        Tạo & duyệt đơn
+                                        Tạo Phiếu Nhập Kho
                                     </>
                                 )}
                             </button>
@@ -1245,7 +1198,7 @@ const CreateGoodReceiptNote = () => {
                                                     <td>
                                                         <input
                                                             type="number"
-                                                            value={line.orderedQty}
+                                                            value={line.orderedQty != null ? line.orderedQty : ''}
                                                             onChange={(e) => updateLine(index, 'orderedQty', Number(e.target.value))}
                                                             min="0"
                                                             className="form-input"
@@ -1255,12 +1208,12 @@ const CreateGoodReceiptNote = () => {
                                                     <td>
                                                         <input
                                                             type="number"
-                                                            value={line.receivedQty}
+                                                            value={line.receivedQty != null ? line.receivedQty : ''}
                                                             onChange={(e) => updateLine(index, 'receivedQty', Number(e.target.value))}
                                                             min="0"
                                                             className="form-input"
                                                             style={{ textAlign: 'right' }}
-                                                            disabled={line.isLockedQty}
+                                                            
                                                         />
                                                     </td>
                                                     <td style={{ textAlign: 'center', verticalAlign: 'middle', fontSize: '14px', color: 'var(--slate-700)' }}>

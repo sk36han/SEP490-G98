@@ -31,6 +31,7 @@ import {
     Loader,
     Plus,
     RotateCcw,
+    CreditCard,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -88,6 +89,14 @@ const ViewGoodReceiptNoteDetail = () => {
     const [isPaid, setIsPaid] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('cash');
 
+    // Sync isPaid & paymentMethod khi grnData load xong
+    useEffect(() => {
+        if (grnData) {
+            setIsPaid(grnData.isPaid ?? false);
+            setPaymentMethod(grnData.paymentMethod || 'cash');
+        }
+    }, [grnData]);
+
     // Load GRN detail from API
     useEffect(() => {
         const fetchGRNDetail = async () => {
@@ -110,6 +119,8 @@ const ViewGoodReceiptNoteDetail = () => {
                         createdAt: data.createdAt ? new Date(data.createdAt).toLocaleString('vi-VN') : '',
                         status: data.status,
                         purchaseOrderLifecycleStatus: data.purchaseOrderLifecycleStatus || data.purchaseOrder?.lifecycleStatus,
+                        isPaid: data.isPaid ?? false,
+                        paymentMethod: data.paymentMethod || 'cash',
                         note: data.note || '',
                         shippingFee: data.shippingFee || 0,
                         totalAmount: data.totalAmount || 0,
@@ -198,12 +209,12 @@ const ViewGoodReceiptNoteDetail = () => {
         }
     };
 
-    // Kiểm tra điều kiện hiển thị nút Trả hàng
-    // Khi GRN đã duyệt (POSTED) và PO đã nhập đầy đủ (FullRcv)
-    const isGRNPosted = grnData?.status === 'POSTED';
+    // Kiểm tra điều kiện hiển thị nút
+    // GRN đã được duyệt/từ chối/ghi sổ → hiện Trả hàng, ẩn Duyệt/Hủy
+    const isGRNFinalized = ['APPROVED', 'REJECTED', 'POSTED'].includes(grnData?.status);
     const isPOFullyReceived = grnData?.purchaseOrderLifecycleStatus === 'FullRcv';
-    const showReturnButton = isAccountant && isGRNPosted && isPOFullyReceived;
-    const showApproveButton = isAccountant && !showReturnButton;
+    const showReturnButton = isAccountant && isGRNFinalized && isPOFullyReceived;
+    const showApproveButton = isAccountant && !isGRNFinalized;
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
@@ -273,8 +284,8 @@ const ViewGoodReceiptNoteDetail = () => {
                         </span>
                     </div>
 
-                    {/* Thanh toán - chỉ hiện khi duyệt */}
-                    {confirmDialogType === 'approve' && (
+                    {/* Thanh toán - chỉ hiện khi duyệt & Kế Toán mới được xác nhận */}
+                    {confirmDialogType === 'approve' && isAccountant && (
                         <>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
                                 <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Đã thanh toán?</span>
@@ -369,8 +380,8 @@ const ViewGoodReceiptNoteDetail = () => {
                     </button>
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {/* Chi Ke toan moi thay cac nut duyet/tu choi */}
-                    {isAccountant && (
+                    {/* Chi Kế toán & GRN chưa finalized mới thấy nút duyệt/từ chối */}
+                    {showApproveButton && (
                         <>
                             <button
                                 type="button"
@@ -392,8 +403,8 @@ const ViewGoodReceiptNoteDetail = () => {
                             </button>
                         </>
                     )}
-                    {/* Nut tra hang - chi hien thi khi GRN da duyet hoac tu choi */}
-                    {(grnData?.status === 'APPROVED' || grnData?.status === 'REJECTED') && (
+                    {/* Nut tra hang */}
+                    {showReturnButton && (
                             <button
                                 type="button"
                                 className="btn btn-secondary"

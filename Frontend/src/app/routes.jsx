@@ -16,6 +16,7 @@ import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
 import CreatePurchaseOrder from '../shared/pages/CreatePurchaseOrder';
 import ViewPurchaseReturnList from '../shared/pages/ViewPurchaseReturnList';
 import CreatePurchaseReturn from '../shared/pages/CreatePurchaseReturn';
+import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import ViewNotifications from '../shared/pages/ViewNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
@@ -516,6 +517,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['ACCOUNTANTS']}>
                     <MainLayout>
                         <CreatePurchaseReturn />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/item-prices"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewItemPriceList />
                     </MainLayout>
                 </ProtectedRoute>
             }

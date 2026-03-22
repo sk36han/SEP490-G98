@@ -15,10 +15,13 @@ import apiClient from './axios';
  * @param {number} params.pageSize - Số dòng mỗi trang
  * @returns {Promise<{ items: any[], totalItems: number, page: number, pageSize: number, totalPages: number }>}
  */
-export async function getGoodReceiptNotes({ page = 1, pageSize = 20 } = {}) {
+export async function getGoodReceiptNotes({ page = 1, pageSize = 20, purchaseOrderId } = {}) {
     const params = new URLSearchParams();
     params.append('page', page);
     params.append('pageSize', pageSize);
+    if (purchaseOrderId) {
+        params.append('purchaseOrderId', purchaseOrderId);
+    }
 
     const response = await apiClient.get(`/GoodsReceiptNote/list?${params.toString()}`);
     const data = response?.data;
@@ -91,10 +94,13 @@ export async function approveGoodReceiptNote(id, payload) {
  */
 export async function hasPendingGRNForPO(purchaseOrderId) {
     try {
-        const result = await getGoodReceiptNotes({ page: 1, pageSize: 100, purchaseOrderId });
-        // Lọc các GRN có status = PENDING_ACC
+        // Fetch 1 page lớn, lọc đúng PO và status PENDING_ACC
+        const result = await getGoodReceiptNotes({ page: 1, pageSize: 100 });
         const pendingGRNs = result.items?.filter(
-            grn => grn.status?.toUpperCase() === 'PENDING_ACC'
+            grn =>
+                (String(grn.purchaseOrderId) === String(purchaseOrderId) ||
+                    String(grn.PurchaseOrderId) === String(purchaseOrderId)) &&
+                grn.status?.toUpperCase() === 'PENDING_ACC'
         );
         return pendingGRNs?.length > 0;
     } catch (error) {

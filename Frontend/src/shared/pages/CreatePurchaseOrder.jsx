@@ -37,7 +37,6 @@ import { getSuppliers } from '../lib/supplierService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsForDisplay } from '../lib/itemService';
 import { createPurchaseOrder } from '../lib/purchaseOrderService';
-import { getAccountants } from '../lib/userService';
 
 // 7. Internal - Hooks
 import { useToast } from '../hooks/useToast';
@@ -86,8 +85,6 @@ const CreatePurchaseOrder = () => {
         warehouseName: '',
         creatorId: currentUser?.userId || '',
         creatorName: currentUser?.fullName || currentUser?.FullName || '',
-        responsiblePersonId: '',
-        responsiblePersonName: '',
         expectedReceiptDate: '',
         justification: '',
         discountType: 'percent',
@@ -110,14 +107,11 @@ const CreatePurchaseOrder = () => {
     const [products, setProducts] = useState([]);
     const [productsLoading, setProductsLoading] = useState(false);
     const [productsError, setProductsError] = useState(null);
-    const [accountants, setAccountants] = useState([]);
 
     const [errors, setErrors] = useState({});
 
     const [supplierQuery, setSupplierQuery] = useState('');
     const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
-    const [employeeQuery, setEmployeeQuery] = useState('');
-    const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
     const [warehouseQuery, setWarehouseQuery] = useState('');
     const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
 
@@ -169,13 +163,9 @@ const CreatePurchaseOrder = () => {
                     setProductsLoading(false);
                 }
 
-                // Accountants (nhân viên kế toán)
-                const accountantList = await getAccountants();
-
                 if (!mounted) return;
                 setSuppliers(mappedSuppliers);
                 setWarehouses(mappedWarehouses);
-                setAccountants(accountantList);
             } catch (err) {
                 if (!mounted) return;
                 showToast(err?.message || 'Không thể tải dữ liệu (nhà cung cấp/kho/vật tư).', 'error');
@@ -189,16 +179,6 @@ const CreatePurchaseOrder = () => {
         if (!q) return suppliers;
         return suppliers.filter((s) => (s.name || '').toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q));
     }, [supplierQuery, suppliers]);
-
-    const filteredEmployees = useMemo(() => {
-        const q = employeeQuery.trim().toLowerCase();
-        if (!q) return accountants;
-        return accountants.filter((e) =>
-            (e.fullName || '').toLowerCase().includes(q) ||
-            (e.username || '').toLowerCase().includes(q) ||
-            (e.email || '').toLowerCase().includes(q)
-        );
-    }, [employeeQuery, accountants]);
 
     const filteredWarehouses = useMemo(() => {
         const q = warehouseQuery.trim().toLowerCase();
@@ -481,10 +461,16 @@ const CreatePurchaseOrder = () => {
         return result.isValid;
     };
 
+    const validateFormDraft = () => {
+        const result = validatePOForm(formData, lines, true);
+        setErrors(result.errors);
+        return result.isValid;
+    };
+
     const handleSaveDraft = async (e) => {
         e.preventDefault();
-        
-        if (!validateForm()) {
+
+        if (!validateFormDraft()) {
             showToast('Vui lòng kiểm tra lại thông tin!', 'error');
             return;
         }
@@ -684,91 +670,6 @@ const CreatePurchaseOrder = () => {
                                         />
                                     </div>
                                    
-                                </div>
-
-                                {/* Nhân viên phụ trách - search select mock */}
-                                <div className="form-field">
-                                    <label htmlFor="responsiblePersonName" className="form-label">
-                                        Nhân viên phụ trách
-                                    </label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <User className="input-icon" size={16} />
-                                        <input
-                                            id="responsiblePersonName"
-                                            type="text"
-                                            name="responsiblePersonName"
-                                            value={employeeQuery || formData.responsiblePersonName}
-                                            onChange={(e) => {
-                                                setEmployeeQuery(e.target.value);
-                                                setEmployeeDropdownOpen(true);
-                                            }}
-                                            onFocus={() => setEmployeeDropdownOpen(true)}
-                                            placeholder="Tìm hoặc chọn nhân viên"
-                                            className="form-input"
-                                            autoComplete="off"
-                                        />
-                                        {employeeDropdownOpen && (
-                                            <ul
-                                                className="form-input"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '220px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredEmployees.length === 0 ? (
-                                                    <li
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            color: '#6b7280',
-                                                            fontSize: '14px',
-                                                        }}
-                                                    >
-                                                        Không có nhân viên phù hợp
-                                                    </li>
-                                                ) : (
-                                                    filteredEmployees.map((emp) => (
-                                                        <li
-                                                            key={emp.username || emp.email || emp.fullName}
-                                                            onClick={() => {
-                                                                setFormData((prev) => ({
-                                                                    ...prev,
-                                                                    responsiblePersonId: emp.username || emp.email || '',
-                                                                    responsiblePersonName: emp.fullName || emp.username || emp.email || '',
-                                                                }));
-                                                                setEmployeeQuery(emp.fullName || emp.username || emp.email || '');
-                                                                setEmployeeDropdownOpen(false);
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {emp.fullName || emp.username || emp.email}
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
                                 </div>
 
                                 {/* Kho nhận - search select mock */}

@@ -137,6 +137,7 @@ export default function ViewPurchaseOrderList() {
     const navigate = useNavigate();
     const location = useLocation();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const currentUserId = authService.getUser()?.userId ?? authService.getUser()?.UserId ?? null;
 
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -217,6 +218,7 @@ export default function ViewPurchaseOrderList() {
                 receivingStatus: item.lifecycleStatus ?? item.LifecycleStatus ?? item.receivingStatus ?? 'PendingRcv',
                 supplierName: item.supplierName ?? item.SupplierName ?? '',
                 creator: item.requestedByName ?? item.RequestedByName ?? item.creator ?? '',
+                creatorId: item.requestedBy ?? item.RequestedBy ?? null,
                 responsiblePerson: item.responsibleUserName ?? item.ResponsibleUserName ?? item.responsiblePerson ?? '',
                 totalReceivedQuantity: item.totalReceivedQty ?? item.TotalReceivedQty ?? 0,
                 orderValue: item.totalAmount ?? item.TotalAmount ?? 0,
@@ -390,6 +392,13 @@ export default function ViewPurchaseOrderList() {
         const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
         const term = searchTerm.trim() ? normalize(searchTerm.trim()) : '';
         let result = [...list];
+
+        // Ẩn PO DRAFT mà người dùng không phải người tạo
+        result = result.filter((row) => {
+            const isDraft = (row.approvalStatus || '').toUpperCase() === 'DRAFT';
+            const isCreator = row.creatorId != null && String(row.creatorId) === String(currentUserId);
+            return !isDraft || isCreator;
+        });
 
         if (term) {
             result = result.filter((row) =>

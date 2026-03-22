@@ -34,11 +34,20 @@ export const validateGRNForm = (formData, lines) => {
     if (!lines || lines.length === 0) {
         errors.lines = 'Vui lòng thêm ít nhất 1 sản phẩm';
     } else {
-        const hasInvalidLine = lines.some(line => {
-            return !line.itemName?.trim() || Number(line.receivedQty) <= 0;
+        const hasInvalidLine = lines.some((line, index) => {
+            if (!line.itemName?.trim()) return true;
+            const receivedQty = Number(line.receivedQty);
+            const orderedQty = Number(line.orderedQty) || 0;
+            const remainingQty = Number(line.remainingQty) || orderedQty;
+            // Allow 0, but not exceed ordered/remaining qty
+            if (receivedQty > remainingQty) {
+                errors[`line_${index}`] = `Số lượng thực tế (${receivedQty}) vượt quá số lượng đặt (${remainingQty})`;
+                return true;
+            }
+            return false;
         });
         if (hasInvalidLine) {
-            errors.lines = 'Vui lòng nhập số lượng > 0 cho tất cả sản phẩm';
+            errors.lines = 'Số lượng thực tế không được vượt quá số lượng đặt hàng';
         }
     }
 

@@ -1,77 +1,121 @@
-import React, { useState, useEffect, useMemo } from 'react';
+/**
+ * ViewPurchaseOrderDetail - Chi tiết đơn mua hàng (read-only)
+ * Kế toán: duyệt / từ chối đơn, xác nhận thanh toán
+ * Thủ Kho: tạo phiếu nhập kho
+ * Sale Support: tạo đơn
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Box,
-    Card,
-    CardContent,
-    Button,
-    Typography,
-    IconButton,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
-    TextField,
+    Button,
     Chip,
-    Stack,
-    Tooltip,
-    useTheme,
-    useMediaQuery,
-    CircularProgress,
-    Alert,
-    FormControlLabel,
-    Checkbox,
-    Popover,
-    FormControl,
-    Select,
-    MenuItem,
 } from '@mui/material';
-import { Plus, Edit3, RefreshCw, Eye, Package, Filter, ArrowLeft, Save, Send, Loader, Trash2, X, CheckCircle, Clock, XCircle, Warehouse } from 'lucide-react';
+import {
+    ArrowLeft,
+    CheckCircle,
+    Clock,
+    XCircle,
+    Warehouse,
+    Building2,
+    Calendar,
+    MapPin,
+    User,
+    Loader,
+} from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
 import { hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
-import { getItemsForDisplay } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
+
+const formatCurrency = (value) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+
+const STATUS_MAP = {
+    DRAFT: { label: 'Bản nháp', color: '#6b7280', bgColor: '#f3f4f6' },
+    PENDING: { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
+    PENDING_ACC: { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
+    APPROVED: { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
+    REJECTED: { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' },
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const mapOrderDetail = (data) => ({
+    purchaseOrderId:
+        data.purchaseOrderId ??
+        data.PurchaseOrderId ??
+        data.id ??
+        null,
+    orderCode: data.poCode ?? data.OrderCode ?? '',
+    supplierName: data.supplierName ?? data.SupplierName ?? '',
+    warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
+    creatorId: data.requestedBy ?? data.RequestedBy ?? null,
+    creatorName: data.requestedByName || data.RequestedByName || '',
+    responsiblePersonName: data.responsiblePersonName || data.ResponsibleUserName || '',
+    expectedDeliveryDate: data.expectedDeliveryDate ? formatDate(data.expectedDeliveryDate) : '',
+    justification: data.justification || '',
+    discountType: data.discountType ?? 'percent',
+    discount: data.discount ?? 0,
+    approvalStatus: (data.status ?? data.Status ?? 'DRAFT').toUpperCase(),
+    createdAt: data.createdAt ? formatDate(data.createdAt) : '',
+    lines: (data.lines || []).map((line, index) => ({
+        id: line.purchaseOrderLineId || line.id || index + 1,
+        itemName: line.itemName || line.ItemName || '',
+        itemCode: line.itemCode || line.ItemCode || '',
+        orderedQty: line.orderedQty ?? line.OrderedQty ?? 0,
+        receivedQty: line.receivedQty ?? line.ReceivedQty ?? 0,
+        unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
+        totalPrice:
+            line.totalPrice ??
+            line.TotalPrice ??
+            ((line.orderedQty ?? line.OrderedQty ?? 0) * (line.unitPrice ?? line.UnitPrice ?? 0)),
+        uom: line.uomName || line.UomName || '',
+        note: line.note || '',
+    })),
+});
 
 const ViewPurchaseOrderDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
-    const [submitting, setSubmitting] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-    const [confirmDialogType, setConfirmDialogType] = useState(null);
-    const [rejectionReason, setRejectionReason] = useState('');
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
-    const canConfirm = permissionRole === 'ACCOUNTANTS';
-    const [isEditing, setIsEditing] = useState(false);
 
-    const MAX_JUSTIFICATION_LENGTH = 250;
+    const [loading, setLoading] = useState(true);
+    const [accessDenied, setAccessDenied] = useState(false);
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [confirmDialogType, setConfirmDialogType] = useState(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [hasPendingGRNState, setHasPendingGRNState] = useState({
+        purchaseOrderId: null,
+        hasPending: false,
+        checking: false,
+    });
 
-    // Initial state - sẽ load từ API
     const [orderData, setOrderData] = useState({
         purchaseOrderId: null,
         orderCode: '',
+        creatorId: null,
+        creatorName: '',
         supplierName: '',
-        supplierPhone: '',
-        supplierEmail: '',
-        supplierTaxCode: '',
-        supplierAddressStreet: '',
-        supplierAddressWard: '',
-        supplierAddressDistrict: '',
-        supplierAddressProvince: '',
         warehouseName: '',
         creatorName: '',
         responsiblePersonName: '',
@@ -79,241 +123,159 @@ const ViewPurchaseOrderDetail = () => {
         justification: '',
         discountType: 'percent',
         discount: 0,
-        discountAmountFixed: 0,
-        additionalCosts: [],
         approvalStatus: '',
-        receivingStatus: '',
         createdAt: '',
         lines: [],
-        history: []
     });
 
-    const [newLine, setNewLine] = useState({
-        itemId: '',
-        itemName: '',
-        orderedQty: 1,
-        unitPrice: 0,
-        note: ''
-    });
-
-    // State kiem tra GRN pending cho PO
-    const [hasPendingGRN, setHasPendingGRN] = useState(false);
-
-    const [items, setItems] = useState([]);
-    const [itemsLoading, setItemsLoading] = useState(false);
-    const [itemDropdownOpen, setItemDropdownOpen] = useState(false);
-
-    const [supplierQuery, setSupplierQuery] = useState('');
-    const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
-    const [employeeQuery, setEmployeeQuery] = useState('');
-    const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
-    const [warehouseQuery, setWarehouseQuery] = useState('');
-    const [warehouseDropdownOpen, setWarehouseDropdownOpen] = useState(false);
-
-    // Load items for dropdown
-    useEffect(() => {
-        const fetchItems = async () => {
-            setItemsLoading(true);
-            try {
-                const data = await getItemsForDisplay();
-                setItems(data || []);
-            } catch (err) {
-                console.error('Lỗi load items:', err);
-            } finally {
-                setItemsLoading(false);
-            }
-        };
-        fetchItems();
-    }, []);
-
-    // Load PO detail
-    useEffect(() => {
-        const fetchOrderDetail = async () => {
+    const loadOrderDetail = useCallback(
+        async ({ showLoading = true } = {}) => {
             if (!id) {
                 setLoading(false);
-                return;
+                return null;
             }
-            setLoading(true);
-            setError(null);
+
+            if (showLoading) {
+                setLoading(true);
+            }
+
             try {
                 const data = await getPurchaseOrderDetail(id);
-                if (data) {
-                    setOrderData({
-                        purchaseOrderId: data.purchaseOrderId ?? data.purchaseOrderId,
-                        orderCode: data.poCode ?? data.OrderCode ?? '',
-                        supplierName: data.supplierName ?? data.SupplierName ?? '',
-                        supplierPhone: data.supplierPhone ?? data.SupplierPhone ?? '',
-                        supplierEmail: data.supplierEmail ?? data.SupplierEmail ?? '',
-                        supplierTaxCode: data.supplierTaxCode ?? data.SupplierTaxCode ?? '',
-                        supplierAddressStreet: data.supplierAddressStreet ?? data.SupplierAddressStreet ?? '',
-                        supplierAddressWard: data.supplierAddressWard ?? data.SupplierAddressWard ?? '',
-                        supplierAddressDistrict: data.supplierAddressDistrict ?? data.SupplierAddressDistrict ?? '',
-                        supplierAddressProvince: data.supplierAddressProvince ?? data.SupplierAddressProvince ?? '',
-                        warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
-                        creatorName: data.requestedByName || data.RequestedByName || data.requestedBy || data.RequestedBy || '',
-                        responsiblePersonName: data.responsiblePersonName || '',
-                        expectedDeliveryDate: data.expectedDeliveryDate ? formatDate(data.expectedDeliveryDate) : '',
-                        justification: data.justification || '',
-                        // Handle all status types: DRAFT, PENDING, APPROVED, REJECTED (cả camelCase và PascalCase)
-                        approvalStatus: (data.status ?? data.Status ?? 'DRAFT').toUpperCase(),
-                        receivingStatus: data.receivingStatus || 'Pending',
-                        createdAt: data.createdAt ? formatDate(data.createdAt) : '',
-                        lines: (data.lines || []).map((line, index) => ({
-                            id: line.purchaseOrderLineId || line.PurchaseOrderLineId || index + 1,
-                            itemId: line.itemId || line.ItemId || null,
-                            itemName: line.itemName || line.ItemName || '',
-                            itemImage: line.itemImage || null,
-                            orderedQty: line.orderedQty || line.OrderedQty || 0,
-                            receivedQty: line.receivedQty || line.ReceivedQty || 0,
-                            unitPrice: line.unitPrice || line.UnitPrice || 0,
-                            totalPrice: (line.orderedQty || line.OrderedQty || 0) * (line.unitPrice || line.UnitPrice || 0),
-                            uom: line.uomName || line.UomName || '',
-                            hasCO: line.requiresCocq || false,
-                            hasCQ: false,
-                            note: line.note || ''
-                        })),
-                        history: []
-                    });
+                if (!data) return null;
+
+                const mapped = mapOrderDetail(data);
+
+                // Kiểm tra quyền truy cập: PO DRAFT chỉ người tạo mới xem được
+                const currentUserId = userInfo?.userId ?? userInfo?.UserId ?? null;
+                const isDraft = (mapped.approvalStatus || '').toUpperCase() === 'DRAFT';
+                const isCreator = mapped.creatorId != null && String(mapped.creatorId) === String(currentUserId);
+                if (isDraft && !isCreator) {
+                    setAccessDenied(true);
+                    return mapped;
                 }
+
+                setOrderData(mapped);
+                return mapped;
             } catch (error) {
                 console.error('Lỗi khi tải chi tiết đơn mua:', error);
                 showToast('Không thể tải thông tin đơn mua', 'error');
+                return null;
             } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchOrderDetail();
-    }, [id]);
-
-    // Kiem tra xem PO da co GRN pending chua
-    useEffect(() => {
-        const checkPendingGRN = async () => {
-            if (orderData.purchaseOrderId && orderData.approvalStatus?.toUpperCase() === 'APPROVED') {
-                try {
-                    const hasPending = await hasPendingGRNForPO(orderData.purchaseOrderId);
-                    setHasPendingGRN(hasPending);
-                } catch (error) {
-                    console.error('Lỗi kiểm tra GRN pending:', error);
+                if (showLoading) {
+                    setLoading(false);
                 }
             }
+        },
+        [id, showToast]
+    );
+
+    // Load PO detail
+    useEffect(() => {
+        loadOrderDetail();
+    }, [loadOrderDetail]);
+
+    // Kiểm tra GRN pending khi PO đã duyệt
+    useEffect(() => {
+        let cancelled = false;
+
+        const currentPoId = orderData.purchaseOrderId;
+        const isApproved = orderData.approvalStatus === 'APPROVED';
+
+        if (!currentPoId || !isApproved) {
+            setHasPendingGRNState({
+                purchaseOrderId: currentPoId ?? null,
+                hasPending: false,
+                checking: false,
+            });
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        setHasPendingGRNState({
+            purchaseOrderId: currentPoId,
+            hasPending: false,
+            checking: true,
+        });
+
+        const checkPendingGRN = async () => {
+            try {
+                const result = await hasPendingGRNForPO(currentPoId);
+                if (cancelled) return;
+
+                const resultPoId =
+                    result?.purchaseOrderId ??
+                    result?.poId ??
+                    currentPoId;
+
+                const normalizedPoMatches =
+                    Number(resultPoId) === Number(currentPoId);
+
+                const hasPending =
+                    typeof result === 'boolean'
+                        ? result
+                        : Boolean(
+                              result?.hasPending ??
+                                  result?.exists ??
+                                  result?.isPending ??
+                                  false
+                          );
+
+                setHasPendingGRNState({
+                    purchaseOrderId: currentPoId,
+                    hasPending: normalizedPoMatches ? hasPending : false,
+                    checking: false,
+                });
+            } catch (error) {
+                console.error('Lỗi kiểm tra GRN pending:', error);
+                if (cancelled) return;
+
+                setHasPendingGRNState({
+                    purchaseOrderId: currentPoId,
+                    hasPending: false,
+                    checking: false,
+                });
+            }
         };
+
         checkPendingGRN();
+
+        return () => {
+            cancelled = true;
+        };
     }, [orderData.purchaseOrderId, orderData.approvalStatus]);
 
-    const filteredItems = useMemo(() => {
-        const q = (newLine.itemName || '').trim().toLowerCase();
-        if (!q) return items.slice(0, 20);
-        return items.filter(item =>
-            (item.itemName || '').toLowerCase().includes(q) ||
-            (item.itemCode || '').toLowerCase().includes(q)
-        ).slice(0, 20);
-    }, [newLine.itemName, items]);
-
-    const formatCurrency = (value) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '-';
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString('vi-VN');
-    };
-
-    const STATUS_MAP = {
-        'DRAFT': { label: 'Bản nháp', color: '#6b7280', bgColor: '#f3f4f6' },
-        'PENDING': { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
-        'PENDING_ACC': { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
-        'APPROVED': { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
-        'REJECTED': { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' },
-    };
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        
-        if (name === 'justification' && value.length > MAX_JUSTIFICATION_LENGTH) {
-            return;
-        }
-        
-        setOrderData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
-    const handleNewLineChange = (e) => {
-        const { name, value } = e.target;
-        setNewLine(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
-    const handleAddLine = () => {
-        if (!newLine.itemId || !newLine.orderedQty) return;
-        
-        const selectedItem = items.find(i => i.itemId === newLine.itemId);
-        const newItemLine = {
-            id: Date.now(),
-            itemId: newLine.itemId,
-            itemName: selectedItem?.itemName || newLine.itemName,
-            orderedQty: Number(newLine.orderedQty),
-            unitPrice: Number(newLine.unitPrice) || 0,
-            totalPrice: (Number(newLine.orderedQty) || 0) * (Number(newLine.unitPrice) || 0),
-            note: newLine.note,
-            receivedQty: 0,
-            hasCO: false,
-            hasCQ: false
-        };
-        
-        setOrderData(prev => ({
-            ...prev,
-            lines: [...prev.lines, newItemLine]
-        }));
-        
-        setNewLine({
-            itemId: '',
-            itemName: '',
-            orderedQty: 1,
-            unitPrice: 0,
-            note: ''
-        });
-    };
-
-    const handleRemoveLine = (index) => {
-        setOrderData(prev => ({
-            ...prev,
-            lines: prev.lines.filter((_, i) => i !== index)
-        }));
-    };
-
-    const subtotal = orderData.lines.reduce((sum, line) => sum + (line.totalPrice || 0), 0);
-    const discountAmount = orderData.discountType === 'amount' 
-        ? (orderData.discountAmountFixed || 0)
-        : (subtotal * (orderData.discount || 0)) / 100;
+    // Tính toán
+    const subtotal = orderData.lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
+    const discountAmount =
+        orderData.discountType === 'amount'
+            ? Number(orderData.discount ?? 0)
+            : (subtotal * Number(orderData.discount ?? 0)) / 100;
     const grandTotal = subtotal - discountAmount;
 
-    // Logic quyen chinh sua PO:
-    // - DRAFT: Chi Sale Support duoc sua
-    // - PENDING_ACC, APPROVED, REJECTED: Khong ai duoc sua
-    const canEdit = (() => {
-        const status = orderData.approvalStatus?.toUpperCase();
-        if (status === 'DRAFT') {
-            return permissionRole === 'SALE_SUPPORT';
-        }
-        return false;
-    })();
+    // Quyền: Kế toán duyệt/từ chối đơn
+    const isPending = orderData.approvalStatus === 'PENDING_ACC';
+    const canApprove = permissionRole === 'ACCOUNTANTS' && isPending;
 
-    // Chi Thủ Kho duoc tao GRN khi PO da duyet va chua co GRN pending
-    const canCreateGRN = (() => {
-        const status = orderData.approvalStatus?.toUpperCase();
-        if (status !== 'APPROVED') return false;
-        if (permissionRole !== 'WAREHOUSE_KEEPER') return false;
-        // Khong cho tao neu da co GRN pending
-        if (hasPendingGRN) return false;
-        return true;
-    })();
+    const isPendingGrnCheckedForCurrentPO =
+        Number(hasPendingGRNState.purchaseOrderId) === Number(orderData.purchaseOrderId);
 
+    const showPendingGRNChip =
+        permissionRole === 'WAREHOUSE_KEEPER' &&
+        orderData.approvalStatus === 'APPROVED' &&
+        isPendingGrnCheckedForCurrentPO &&
+        !hasPendingGRNState.checking &&
+        hasPendingGRNState.hasPending;
+
+    // Quyền: Thủ Kho tạo GRN khi PO đã duyệt và chưa có GRN pending
+    const canCreateGRN =
+        permissionRole === 'WAREHOUSE_KEEPER' &&
+        orderData.approvalStatus === 'APPROVED' &&
+        isPendingGrnCheckedForCurrentPO &&
+        !hasPendingGRNState.checking &&
+        !hasPendingGRNState.hasPending;
+
+    // Dialog
     const openConfirmDialog = (type) => {
         setConfirmDialogType(type);
         setConfirmDialogOpen(true);
@@ -325,33 +287,33 @@ const ViewPurchaseOrderDetail = () => {
         setRejectionReason('');
     };
 
-    const canConfirmAction = orderData.approvalStatus?.toUpperCase() === 'PENDING_ACC';
-
     const handleConfirmAction = async () => {
-        if (!canConfirmAction) return;
-        
-        // Validate rejection reason when rejecting
         if (confirmDialogType === 'reject' && !rejectionReason.trim()) {
             showToast('Vui lòng nhập lý do từ chối.', 'warning');
             return;
         }
-        
+
         setSubmitting(true);
+
         try {
             if (confirmDialogType === 'approve') {
                 await approvePurchaseOrder(orderData.purchaseOrderId);
+                showToast('Đã duyệt đơn mua hàng.');
             } else {
                 await rejectPurchaseOrder(orderData.purchaseOrderId, rejectionReason);
+                showToast('Đã từ chối đơn mua hàng.');
             }
-            showToast(confirmDialogType === 'approve' ? 'Đã duyệt đơn mua hàng.' : 'Đã từ chối đơn mua hàng.', 'success');
+
             closeConfirmDialog();
-            // Reload data
-            const data = await getPurchaseOrderDetail(id);
-            if (data) {
-                setOrderData(prev => ({
-                    ...prev,
-                    approvalStatus: (data.status ?? data.Status ?? '').toUpperCase()
-                }));
+
+            const refreshed = await loadOrderDetail({ showLoading: false });
+
+            if (!refreshed || refreshed.approvalStatus !== 'APPROVED') {
+                setHasPendingGRNState({
+                    purchaseOrderId: refreshed?.purchaseOrderId ?? orderData.purchaseOrderId ?? null,
+                    hasPending: false,
+                    checking: false,
+                });
             }
         } catch (err) {
             showToast(err?.response?.data?.message || err?.message || 'Có lỗi xảy ra.', 'error');
@@ -360,22 +322,55 @@ const ViewPurchaseOrderDetail = () => {
         }
     };
 
-    const handleApprove = () => openConfirmDialog('approve');
-    const handleReject = () => openConfirmDialog('reject');
-
     if (loading) {
         return (
-            <div className="create-supplier-page">
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                    <div style={{ fontSize: '16px', color: '#6b7280' }}>Đang tải dữ liệu...</div>
-                </div>
+            <div
+                className="create-supplier-page"
+                style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}
+            >
+                <Loader size={32} style={{ color: '#9ca3af', animation: 'spin 1s linear infinite' }} />
             </div>
         );
     }
 
+    if (accessDenied) {
+        return (
+            <div
+                className="create-supplier-page"
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: '400px',
+                    gap: '16px',
+                }}
+            >
+                <XCircle size={64} style={{ color: '#ef4444', opacity: 0.6 }} />
+                <h2 style={{ color: '#374151', margin: 0 }}>Không có quyền truy cập</h2>
+                <p style={{ color: '#6b7280', margin: 0 }}>
+                    Bạn không có quyền xem đơn mua hàng này.
+                </p>
+                <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => navigate('/purchase-orders')}
+                >
+                    Quay lại danh sách
+                </button>
+            </div>
+        );
+    }
+
+    const statusStyle =
+        STATUS_MAP[orderData.approvalStatus] || {
+            label: orderData.approvalStatus,
+            color: '#6b7280',
+            bgColor: '#f3f4f6',
+        };
+
     return (
         <div className="create-supplier-page">
-            {/* Popup xác nhận Duyệt đơn / Hủy đơn */}
             <Dialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
@@ -385,32 +380,88 @@ const ViewPurchaseOrderDetail = () => {
                 PaperProps={{
                     sx: {
                         width: '100%',
-                        maxWidth: '620px',
+                        maxWidth: '560px',
                         borderRadius: '16px',
-                        border: '1px solid var(--slate-200, #e5e7eb)',
+                        border: '1px solid #e5e7eb',
                         boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
                     },
                 }}
             >
-                <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
-                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận hủy đơn'}
+                <DialogTitle
+                    sx={{
+                        px: 3,
+                        pt: 2.5,
+                        pb: 1.5,
+                        fontWeight: 700,
+                        fontSize: '18px',
+                        color: '#111827',
+                        borderBottom: '1px solid #f3f4f6',
+                    }}
+                >
+                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
                 </DialogTitle>
-                <DialogContent sx={{ px: 3, pb: 2 }}>
+
+                <DialogContent sx={{ px: 3, py: 2 }}>
                     <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
-                        {confirmDialogType === 'approve' 
+                        {confirmDialogType === 'approve'
                             ? 'Bạn có chắc chắn muốn duyệt đơn mua hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
-                            : 'Bạn có chắc chắn muốn hủy/từ chối đơn mua hàng này? Sau khi hủy, đơn hàng sẽ không thể tiếp tục xử lý.'}
+                            : 'Bạn có chắc chắn muốn từ chối đơn mua hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
                     </p>
+
+                    {confirmDialogType === 'reject' && (
+                        <div style={{ marginTop: '16px' }}>
+                            <label
+                                style={{
+                                    display: 'block',
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    color: '#374151',
+                                    marginBottom: '8px',
+                                }}
+                            >
+                                Lý do từ chối <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
+                            <textarea
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                                disabled={submitting}
+                                rows={3}
+                                placeholder="Nhập lý do từ chối đơn hàng"
+                                maxLength={250}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #d1d5db',
+                                    fontSize: '14px',
+                                    resize: 'vertical',
+                                    outline: 'none',
+                                    fontFamily: 'inherit',
+                                    boxSizing: 'border-box',
+                                }}
+                            />
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'flex-end',
+                                    fontSize: '12px',
+                                    color: rejectionReason.length >= 250 ? '#ef4444' : '#6b7280',
+                                    marginTop: '4px',
+                                }}
+                            >
+                                {rejectionReason.length}/250 ký tự
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
+
+                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5, borderTop: '1px solid #f3f4f6' }}>
                     <Button
                         onClick={closeConfirmDialog}
                         disabled={submitting}
-                        disableRipple
                         sx={{
                             minWidth: '72px',
                             height: 40,
-                            px: 1,
                             borderRadius: '10px',
                             textTransform: 'none',
                             fontSize: '14px',
@@ -418,23 +469,19 @@ const ViewPurchaseOrderDetail = () => {
                             color: '#6b7280',
                             backgroundColor: 'transparent',
                             boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor: 'transparent',
-                                color: '#4b5563',
-                                boxShadow: 'none',
-                            },
+                            '&:hover': { backgroundColor: 'transparent', color: '#4b5563' },
                         }}
                     >
                         Hủy
                     </Button>
+
                     <Button
                         variant="contained"
                         onClick={handleConfirmAction}
-                        disabled={!canConfirmAction}
+                        disabled={confirmDialogType === 'reject' && !rejectionReason.trim()}
                         sx={{
                             minWidth: '110px',
                             height: 40,
-                            px: 2,
                             borderRadius: '12px',
                             textTransform: 'none',
                             fontSize: '14px',
@@ -445,10 +492,7 @@ const ViewPurchaseOrderDetail = () => {
                                 backgroundColor: confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
                                 boxShadow: 'none',
                             },
-                            '&:disabled': {
-                                backgroundColor: '#bae6fd',
-                                color: '#ffffff',
-                            },
+                            '&:disabled': { backgroundColor: '#bae6fd', color: '#ffffff' },
                         }}
                     >
                         {submitting ? 'Đang xử lý...' : 'Xác nhận'}
@@ -456,7 +500,6 @@ const ViewPurchaseOrderDetail = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
                     <button type="button" onClick={() => navigate(-1)} className="back-button">
@@ -464,281 +507,315 @@ const ViewPurchaseOrderDetail = () => {
                         <span>Quay lại</span>
                     </button>
                 </div>
+
                 <div className="page-header-actions">
-                    {!isEditing ? (
-                        <>
-                            {permissionRole === 'ACCOUNTANTS' && orderData.approvalStatus && orderData.approvalStatus.toUpperCase() === 'PENDING_ACC' && (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="btn btn-cancel"
-                                        disabled={submitting}
-                                        onClick={handleReject}
-                                    >
-                                        <XCircle size={16} className="btn-icon" />
-                                        Hủy đơn
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary"
-                                        disabled={submitting}
-                                        onClick={handleApprove}
-                                    >
-                                        <CheckCircle size={16} className="btn-icon" />
-                                        Duyệt đơn
-                                    </button>
-                                </>
-                            )}
-                            {/* Nut tao phieu nhap kho - chi Thủ Kho duoc tao khi status = APPROVED */}
-                            {canCreateGRN && (
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => navigate(`/good-receipt-notes/create?poId=${orderData.purchaseOrderId}`)}
-                                >
-                                    <Warehouse size={16} className="btn-icon" />
-                                    Tạo phiếu nhập kho
-                                </button>
-                            )}
-                            {/* Hien thi thong bao neu da co GRN pending */}
-                            {permissionRole === 'WAREHOUSE_KEEPER' && orderData.approvalStatus?.toUpperCase() === 'APPROVED' && hasPendingGRN && (
-                                <Chip
-                                    label="Đã có GRN chờ duyệt"
-                                    sx={{
-                                        bgcolor: '#fef3c7',
-                                        color: '#92400e',
-                                        fontWeight: 500,
-                                        fontSize: '12px',
-                                        height: 32,
-                                    }}
-                                />
-                            )}
-                            {canEdit && (
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => setIsEditing(true)}
-                                >
-                                    <Edit3 size={16} className="btn-icon" />
-                                    Chỉnh sửa
-                                </button>
-                            )}
-                        </>
-                    ) : (
+                    {canApprove && (
                         <>
                             <button
                                 type="button"
                                 className="btn btn-cancel"
-                                onClick={() => setIsEditing(false)}
+                                disabled={submitting}
+                                onClick={() => openConfirmDialog('reject')}
                             >
-                                <X size={16} />
-                                Hủy
+                                <XCircle size={16} className="btn-icon" />
+                                Từ chối
                             </button>
+
                             <button
                                 type="button"
                                 className="btn btn-primary"
+                                disabled={submitting}
+                                onClick={() => openConfirmDialog('approve')}
                             >
-                                <Save size={16} className="btn-icon" />
-                                Lưu
+                                <CheckCircle size={16} className="btn-icon" />
+                                Duyệt đơn
                             </button>
                         </>
+                    )}
+
+                    {canCreateGRN && (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => navigate(`/good-receipt-notes/create?poId=${orderData.purchaseOrderId}`)}
+                        >
+                            <Warehouse size={16} className="btn-icon" />
+                            Tạo phiếu nhập kho
+                        </button>
+                    )}
+
+                    {permissionRole === 'WAREHOUSE_KEEPER' &&
+                        orderData.approvalStatus === 'APPROVED' &&
+                        hasPendingGRNState.checking && (
+                            <Chip
+                                label="Đang kiểm tra Phiếu Nhập Kho..."
+                                sx={{
+                                    bgcolor: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    fontWeight: 500,
+                                    fontSize: '12px',
+                                    height: 32,
+                                }}
+                            />
+                        )}
+
+                    {showPendingGRNChip && (
+                        <Chip
+                            label="Đã có Phiếu Nhập Kho - Đang chờ duyệt"
+                            sx={{
+                                bgcolor: '#fef3c7',
+                                color: '#92400e',
+                                fontWeight: 500,
+                                fontSize: '12px',
+                                height: 32,
+                            }}
+                        />
                     )}
                 </div>
             </div>
 
             <div className="form-card">
-                <form className="form-wrapper">
+                <div className="form-wrapper">
                     <div className="form-card-intro">
-                        <h1 className="page-title">
-                            Chi tiết đơn mua hàng
-                            {orderData.approvalStatus && STATUS_MAP[orderData.approvalStatus] && (
-                                <Chip 
-                                    label={STATUS_MAP[orderData.approvalStatus].label}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <h1 className="page-title">Chi tiết đơn mua hàng</h1>
+                            {statusStyle && (
+                                <Chip
+                                    label={statusStyle.label}
                                     size="small"
-                                    sx={{ 
-                                        ml: 2,
-                                        backgroundColor: STATUS_MAP[orderData.approvalStatus].bgColor,
-                                        color: STATUS_MAP[orderData.approvalStatus].color,
+                                    sx={{
+                                        backgroundColor: statusStyle.bgColor,
+                                        color: statusStyle.color,
                                         fontWeight: 600,
-                                        fontSize: '12px'
+                                        fontSize: '12px',
                                     }}
                                 />
                             )}
-                        </h1>
+                        </div>
+
+                        {orderData.orderCode && (
+                            <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
+                                MÃ ĐƠN: <span style={{ fontWeight: 600, color: '#2196F3' }}>{orderData.orderCode}</span>
+                            </p>
+                        )}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        {/* Left column - Products */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            <div className="info-section" style={{ margin: 0 }}>
                                 <h2 className="section-title">Danh sách sản phẩm</h2>
+
+                                {orderData.lines.length === 0 ? (
+                                    <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+                                        <Clock size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                                        <p>Chưa có sản phẩm nào trong đơn mua hàng.</p>
+                                    </div>
+                                ) : (
+                                    <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                                        <table className="product-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ width: '44px' }}>STT</th>
+                                                    <th>Sản phẩm</th>
+                                                    <th style={{ width: '90px', textAlign: 'right' }}>SL đặt</th>
+                                                    <th style={{ width: '90px', textAlign: 'right' }}>SL nhập</th>
+                                                    <th style={{ width: '130px', textAlign: 'right' }}>Đơn giá</th>
+                                                    <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
+                                                    <th style={{ width: '130px' }}>Ghi chú</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {orderData.lines.map((line, index) => (
+                                                    <tr key={line.id}>
+                                                        <td style={{ textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>{index + 1}</td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                <span style={{ fontSize: 14, fontWeight: 500 }}>{line.itemName}</span>
+                                                                {line.itemCode && (
+                                                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                                                        Mã: {line.itemCode}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                            {Number(line.orderedQty) || 0}
+                                                        </td>
+                                                        <td
+                                                            style={{
+                                                                textAlign: 'right',
+                                                                fontVariantNumeric: 'tabular-nums',
+                                                                fontWeight: 600,
+                                                            }}
+                                                        >
+                                                            {Number(line.receivedQty) || 0}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                            {formatCurrency(Number(line.unitPrice) || 0)}
+                                                        </td>
+                                                        <td
+                                                            style={{
+                                                                textAlign: 'right',
+                                                                fontVariantNumeric: 'tabular-nums',
+                                                                fontWeight: 600,
+                                                                color: '#2196F3',
+                                                            }}
+                                                        >
+                                                            {formatCurrency(Number(line.totalPrice) || 0)}
+                                                        </td>
+                                                        <td style={{ color: '#6b7280', fontSize: 13 }}>{line.note || '—'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </div>
 
-                            {orderData.lines.length === 0 ? (
-                                <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
-                                    <Package size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-                                    <p>Chưa có sản phẩm nào</p>
+                            <div
+                                style={{
+                                    padding: '16px 20px',
+                                    backgroundColor: '#f0f9ff',
+                                    borderRadius: '12px',
+                                    borderLeft: '4px solid #2196F3',
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <span style={{ color: '#64748b' }}>Tạm tính:</span>
+                                    <span style={{ fontWeight: 600 }}>{formatCurrency(subtotal)}</span>
                                 </div>
-                            ) : (
-                                <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                                    <table className="product-table">
-                                        <thead>
-                                            <tr>
-                                                <th>STT</th>
-                                                <th>Sản phẩm</th>
-                                                <th>SL đặt</th>
-                                                <th>SL nhập</th>
-                                                <th>Đơn giá</th>
-                                                <th>Thành tiền</th>
-                                                <th>Ghi chú</th>
-                                                {isEditing && <th></th>}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {orderData.lines.map((line, index) => (
-                                                <tr key={line.id}>
-                                                    <td>{index + 1}</td>
-                                                    <td>{line.itemName}</td>
-                                                    <td>{line.orderedQty}</td>
-                                                    <td>{line.receivedQty}</td>
-                                                    <td>{formatCurrency(line.unitPrice)}</td>
-                                                    <td>{formatCurrency(line.totalPrice)}</td>
-                                                    <td>{line.note || '—'}</td>
-                                                    {isEditing && (
-                                                        <td>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemoveLine(index)}
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
 
-                            {isEditing && (
-                                <div style={{ marginTop: '16px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
-                                    <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600 }}>Thêm sản phẩm</h4>
-                                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                                        <select
-                                            name="itemId"
-                                            value={newLine.itemId}
-                                            onChange={handleNewLineChange}
-                                            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #d1d5db', minWidth: '200px' }}
-                                        >
-                                            <option value="">Chọn sản phẩm</option>
-                                            {items.map(item => (
-                                                <option key={item.itemId} value={item.itemId}>{item.itemName}</option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="number"
-                                            name="orderedQty"
-                                            value={newLine.orderedQty}
-                                            onChange={handleNewLineChange}
-                                            placeholder="Số lượng"
-                                            min="1"
-                                            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #d1d5db', width: '100px' }}
-                                        />
-                                        <input
-                                            type="number"
-                                            name="unitPrice"
-                                            value={newLine.unitPrice}
-                                            onChange={handleNewLineChange}
-                                            placeholder="Đơn giá"
-                                            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #d1d5db', width: '120px' }}
-                                        />
-                                        <input
-                                            type="text"
-                                            name="note"
-                                            value={newLine.note}
-                                            onChange={handleNewLineChange}
-                                            placeholder="Ghi chú"
-                                            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #d1d5db', flex: 1 }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={handleAddLine}
-                                            className="btn btn-primary"
-                                            style={{ padding: '8px 16px' }}
-                                        >
-                                            <Plus size={16} />
-                                            Thêm
-                                        </button>
+                                {orderData.discount > 0 && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <span style={{ color: '#64748b' }}>
+                                            Chiết khấu {orderData.discountType === 'percent' ? `(${orderData.discount}%)` : ''}:
+                                        </span>
+                                        <span style={{ fontWeight: 600, color: '#ef4444' }}>
+                                            - {formatCurrency(discountAmount)}
+                                        </span>
                                     </div>
+                                )}
+
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        paddingTop: '8px',
+                                        borderTop: '1px solid #d1d5db',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Tổng cộng:</span>
+                                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#2196F3' }}>
+                                        {formatCurrency(grandTotal)}
+                                    </span>
                                 </div>
-                            )}
+                            </div>
                         </div>
 
-                        {/* Right column - Info */}
                         <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thông tin đơn hàng</h2>
-                            </div>
+                            <h2 className="section-title">Thông tin đơn hàng</h2>
 
-                            <div className="form-grid">
-                                <div className="form-field">
-                                    <label className="form-label">Mã đơn</label>
-                                    <div className="form-value">{orderData.orderCode || '—'}</div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Ngày tạo</label>
-                                    <div className="form-value">{orderData.createdAt || '—'}</div>
-                                </div>
-
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div className="form-field">
                                     <label className="form-label">Nhà cung cấp</label>
-                                    <div className="form-value">{orderData.supplierName || '—'}</div>
+                                    <div className="input-wrapper">
+                                        <Building2 size={16} className="input-icon" />
+                                        <input
+                                            type="text"
+                                            value={orderData.supplierName || ''}
+                                            readOnly
+                                            className="form-input"
+                                            style={{ backgroundColor: '#f5f5f5' }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="form-field">
                                     <label className="form-label">Kho nhận</label>
-                                    <div className="form-value">{orderData.warehouseName || '—'}</div>
+                                    <div className="input-wrapper">
+                                        <MapPin size={16} className="input-icon" />
+                                        <input
+                                            type="text"
+                                            value={orderData.warehouseName || ''}
+                                            readOnly
+                                            className="form-input"
+                                            style={{ backgroundColor: '#f5f5f5' }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="form-field">
                                     <label className="form-label">Người tạo</label>
-                                    <div className="form-value">{orderData.creatorName || '—'}</div>
+                                    <div className="input-wrapper">
+                                        <User size={16} className="input-icon" />
+                                        <input
+                                            type="text"
+                                            value={orderData.creatorName || ''}
+                                            readOnly
+                                            className="form-input"
+                                            style={{ backgroundColor: '#f5f5f5' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {orderData.responsiblePersonName && (
+                                    <div className="form-field">
+                                        <label className="form-label">Người phụ trách</label>
+                                        <div className="input-wrapper">
+                                            <User size={16} className="input-icon" />
+                                            <input
+                                                type="text"
+                                                value={orderData.responsiblePersonName || ''}
+                                                readOnly
+                                                className="form-input"
+                                                style={{ backgroundColor: '#f5f5f5' }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="form-field">
+                                    <label className="form-label">Ngày tạo</label>
+                                    <div className="input-wrapper">
+                                        <Calendar size={16} className="input-icon" />
+                                        <input
+                                            type="text"
+                                            value={orderData.createdAt || '—'}
+                                            readOnly
+                                            className="form-input"
+                                            style={{ backgroundColor: '#f5f5f5' }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="form-field">
                                     <label className="form-label">Ngày nhận dự kiến</label>
-                                    <div className="form-value">{orderData.expectedReceiptDate || '—'}</div>
+                                    <div className="input-wrapper">
+                                        <Calendar size={16} className="input-icon" />
+                                        <input
+                                            type="text"
+                                            value={orderData.expectedDeliveryDate || '—'}
+                                            readOnly
+                                            className="form-input"
+                                            style={{ backgroundColor: '#f5f5f5' }}
+                                        />
+                                    </div>
                                 </div>
 
-                                <div className="form-field span-2">
+                                <div className="form-field">
                                     <label className="form-label">Lý do / Ghi chú</label>
-                                    <div className="form-value">{orderData.justification || '—'}</div>
+                                    <textarea
+                                        value={orderData.justification || ''}
+                                        readOnly
+                                        rows={4}
+                                        className="form-input"
+                                        style={{ resize: 'vertical', backgroundColor: '#f5f5f5' }}
+                                    />
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    {/* Summary */}
-                    <div style={{ marginTop: '24px', padding: '20px', backgroundColor: '#f0f9ff', borderRadius: '12px', borderLeft: '4px solid #2196F3' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ color: '#64748b' }}>Tạm tính:</span>
-                            <span style={{ fontWeight: 600 }}>{formatCurrency(subtotal)}</span>
-                        </div>
-                        {orderData.discount > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                <span style={{ color: '#64748b' }}>Chiết khấu ({orderData.discountType === 'percent' ? `${orderData.discount}%` : ''}):</span>
-                                <span style={{ fontWeight: 600, color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #d1d5db' }}>
-                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#2196F3' }}>Tổng cộng:</span>
-                            <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(grandTotal)}</span>
-                        </div>
-                    </div>
-                </form>
+                </div>
             </div>
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}

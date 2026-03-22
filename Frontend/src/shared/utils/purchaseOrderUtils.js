@@ -13,41 +13,44 @@ export const formatCurrency = (value) => {
 
 /**
  * Validate Purchase Order form data
- * @param {Object} formData 
- * @param {Array} lines 
+ * @param {Object} formData
+ * @param {Array} lines
+ * @param {boolean} isDraft - true: bỏ qua validate bắt buộc các trường
  * @returns {Object} - { isValid: boolean, errors: Object }
  */
-export const validatePOForm = (formData, lines) => {
+export const validatePOForm = (formData, lines, isDraft = false) => {
     const errors = {};
 
-    // Validate expected receipt date
-    if (!formData.expectedReceiptDate) {
-        errors.expectedReceiptDate = 'Ngày nhập dự kiến là bắt buộc';
-    } else {
-        const receiptDate = new Date(formData.expectedReceiptDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        receiptDate.setHours(0, 0, 0, 0);
+    if (!isDraft) {
+        // Validate expected receipt date
+        if (!formData.expectedReceiptDate) {
+            errors.expectedReceiptDate = 'Ngày nhập dự kiến là bắt buộc';
+        } else {
+            const receiptDate = new Date(formData.expectedReceiptDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            receiptDate.setHours(0, 0, 0, 0);
 
-        if (receiptDate < today) {
-            errors.expectedReceiptDate = 'Ngày nhập dự kiến không được trong quá khứ';
+            if (receiptDate < today) {
+                errors.expectedReceiptDate = 'Ngày nhập dự kiến không được trong quá khứ';
+            }
+        }
+
+        // Validate supplier
+        if (!formData.supplierName?.trim()) {
+            errors.supplierName = 'Nhà cung cấp là bắt buộc';
+        }
+
+        // Validate warehouse
+        if (!formData.warehouseName?.trim()) {
+            errors.warehouseName = 'Kho nhận là bắt buộc';
         }
     }
 
-    // Validate supplier
-    if (!formData.supplierName?.trim()) {
-        errors.supplierName = 'Nhà cung cấp là bắt buộc';
-    }
-
-    // Validate warehouse
-    if (!formData.warehouseName?.trim()) {
-        errors.warehouseName = 'Kho nhận là bắt buộc';
-    }
-
-    // Validate lines
+    // Validate lines - luôn bắt buộc
     if (!lines || lines.length === 0) {
         errors.lines = 'Vui lòng thêm ít nhất 1 sản phẩm';
-    } else {
+    } else if (!isDraft) {
         const hasInvalidLine = lines.some(line => {
             const itemIdNumber = Number(line.itemId);
             return (
@@ -161,14 +164,10 @@ export const calculatePOTotals = (lines, formData) => {
 export const preparePOPayload = (formData, lines, discountAmount, status = 'DRAFT') => {
     const supplierId = Number(formData.supplierId);
     const warehouseId = Number(formData.warehouseId);
-    const responsibleUserId = formData.responsiblePersonId !== '' && !Number.isNaN(Number(formData.responsiblePersonId))
-        ? Number(formData.responsiblePersonId)
-        : null;
 
     return {
         supplierId,
         warehouseId,
-        responsibleUserId,
         expectedDeliveryDate: formData.expectedReceiptDate ? String(formData.expectedReceiptDate) : null,
         justification: (formData.justification || '').trim() || null,
         discountAmount: Number(discountAmount) || 0,
@@ -216,8 +215,6 @@ export const getInitialPOFormData = (currentUser) => ({
     warehouseName: '',
     creatorId: currentUser?.userId || '',
     creatorName: currentUser?.fullName || currentUser?.FullName || '',
-    responsiblePersonId: '',
-    responsiblePersonName: '',
     expectedReceiptDate: '',
     justification: '',
     discountType: 'percent',
