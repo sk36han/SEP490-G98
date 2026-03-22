@@ -81,5 +81,38 @@ namespace Warehouse.Api.ApiController
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpPut("update/{id:long}")]
+        public async Task<IActionResult> UpdatePurchaseOrder(long id, [FromBody] UpdatePurchaseOrderRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+            {
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+            }
+
+            try
+            {
+                var result = await _purchaseOrderService.UpdatePurchaseOrderAsync(id, currentUserId, request);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
     }
 }
