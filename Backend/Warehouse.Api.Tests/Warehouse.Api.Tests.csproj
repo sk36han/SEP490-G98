@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Warehouse.Api\Warehouse.Api.csproj" />
+    <ProjectReference Include="..\Warehouse.DataAcces\Warehouse.DataAcces.csproj" />
+    <ProjectReference Include="..\Warehouse.Entities\Warehouse.Entities.csproj" />
   </ItemGroup>
 
   <ItemGroup>
