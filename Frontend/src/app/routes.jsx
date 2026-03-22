@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from '../shared/pages/Login';
 import ForgotPassword from '../shared/pages/ForgotPassword';
 import ResetPassword from '../shared/pages/ResetPassword';
@@ -28,11 +28,12 @@ import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustment
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
 import CreateStocktake from '../shared/pages/CreateStocktake';
 import ViewStocktakeDetail from '../shared/pages/ViewStocktakeDetail';
+import StocktakeReport from '../shared/pages/StocktakeReport';
+import CreateInventoryAdjustment from '../shared/pages/CreateInventoryAdjustment';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
-import GRNConfirmation from '../shared/pages/mockup/GRNConfirmation';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
@@ -54,7 +55,6 @@ const AppRoutes = () => (
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Home Dashboard: chỉ Giám đốc (DIRECTOR) mới có quyền truy cập */}
         <Route
             path="/home"
             element={
@@ -65,7 +65,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Home dashboard chỉ dành cho Giám đốc; Admin không có đường /admin/home tới dashboard */}
         <Route
             path="/admin/home"
             element={
@@ -126,7 +125,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Thông báo dùng chung cho mọi role (mockup theo role) */}
         <Route
             path="/notifications"
             element={
@@ -137,7 +135,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Cài đặt thông báo (chỉ Admin) */}
         <Route
             path="/admin/notifications"
             element={
@@ -158,7 +155,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Items – WAREHOUSE_KEEPER, SALE_ENGINEER, ACCOUNTANTS full quyền; SALE_SUPPORT chỉ xem */}
         <Route
             path="/products"
             element={
@@ -272,7 +268,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Nhà cung cấp - Director, Admin, Thủ kho, Kế toán, Sale Support */}
         <Route
             path="/suppliers"
             element={
@@ -303,7 +298,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Quản lý kho – Director, Thủ kho, Kế toán, Sale Support */}
         <Route
             path="/inventory"
             element={
@@ -324,7 +318,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Chi tiết kho - ViewWarehouseDetail */}
         <Route
             path="/inventory/:id"
             element={
@@ -335,7 +328,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Tồn kho - Inventory Adjustment - Thủ kho */}
         <Route
             path="/inventory/adjustments"
             element={
@@ -346,13 +338,12 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Kiểm kê kho - Stocktake - Thủ kho */}
         <Route
-            path="/inventory/stocktakes"
+            path="/inventory/adjustments/create"
             element={
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
                     <MainLayout>
-                        <ViewStocktakeList />
+                        <CreateInventoryAdjustment />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -377,7 +368,38 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu nhập hàng (GRN) – Kế toán, Thủ kho, Sale Support */}
+        <Route
+            path="/inventory/stocktakes/report/:id"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <StocktakeReport />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/stocktakes"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <ViewStocktakeList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/reports"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <Outlet />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        >
+            <Route path="stocktakes" element={<ViewStocktakeList />} />
+        </Route>
         <Route
             path="/good-receipt-notes"
             element={
@@ -418,7 +440,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu xuất hàng (GDN) – Kế toán, Thủ kho */}
         <Route
             path="/good-delivery-notes"
             element={
@@ -449,7 +470,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase order: Sale Support, Ke toan, Thu Kho */}
         <Route
             path="/purchase-orders"
             element={
@@ -480,7 +500,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase Returns: Kế toán (ACCOUNTANTS) */}
         <Route
             path="/purchase-returns"
             element={

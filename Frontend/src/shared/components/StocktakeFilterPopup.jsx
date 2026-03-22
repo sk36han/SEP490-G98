@@ -8,20 +8,34 @@ import {
     IconButton,
     Autocomplete,
 } from '@mui/material';
-import { X } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function StocktakeFilterPopup({ open, onClose, initialValues = {}, onApply }) {
-    const [statusOption, setStatusOption] = useState({ value: '', label: 'Tất cả' });
-    const [modeOption, setModeOption] = useState({ value: '', label: 'Tất cả' });
-    const [fromDate, setFromDate] = useState('');
-    const [toDate, setToDate] = useState('');
+    const [warehouseOption, setWarehouseOption] = useState(null);
+    const [modeOption, setModeOption] = useState(null);
+    const [statusOption, setStatusOption] = useState(null);
+    const [creatorOption, setCreatorOption] = useState(null);
+    const [plannedFromDate, setPlannedFromDate] = useState('');
+    const [plannedToDate, setPlannedToDate] = useState('');
+    const [createdFromDate, setCreatedFromDate] = useState('');
+    const [createdToDate, setCreatedToDate] = useState('');
 
     const boxRef = useRef(null);
     const dragRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
 
+    const WAREHOUSE_OPTIONS = [
+        { value: 'WH-HCM', label: 'Kho HCM' },
+        { value: 'WH-HN', label: 'Kho Hà Nội' },
+        { value: 'WH-DN', label: 'Kho Đà Nẵng' },
+    ];
+
+    const MODE_OPTIONS = [
+        { value: 'PERIODIC', label: 'Định kỳ' },
+        { value: 'ADHOC', label: 'Đột xuất' },
+    ];
+
     const STATUS_OPTIONS = [
-        { value: '', label: 'Tất cả' },
         { value: 'DRAFT', label: 'Bản nháp' },
         { value: 'IN_PROGRESS', label: 'Đang thực hiện' },
         { value: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
@@ -29,10 +43,12 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
         { value: 'CANCELLED', label: 'Đã hủy' },
     ];
 
-    const MODE_OPTIONS = [
-        { value: '', label: 'Tất cả' },
-        { value: 'PERIODIC', label: 'Định kỳ' },
-        { value: 'ADHOC', label: 'Đột xuất' },
+    const CREATOR_OPTIONS = [
+        { value: 'Nguyễn Văn A', label: 'Nguyễn Văn A' },
+        { value: 'Trần Thị B', label: 'Trần Thị B' },
+        { value: 'Lê Văn C', label: 'Lê Văn C' },
+        { value: 'Phạm Thị D', label: 'Phạm Thị D' },
+        { value: 'Nguyễn Văn E', label: 'Nguyễn Văn E' },
     ];
 
     const inputSx = {
@@ -41,6 +57,25 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
             bgcolor: '#f3f4f6',
             borderRadius: '10px',
             fontSize: '13px',
+            '& fieldset': { border: 'none' },
+            '&:hover': { bgcolor: '#e5e7eb' },
+            '&.Mui-focused': {
+                bgcolor: '#ffffff',
+                boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                '& fieldset': { border: '1px solid #3b82f6' },
+            },
+        },
+        '& .MuiInputBase-input': { fontSize: '13px' },
+    };
+
+    const inputWithIconSx = {
+        ...inputSx,
+        '& .MuiOutlinedInput-root': {
+            height: 40,
+            bgcolor: '#f3f4f6',
+            borderRadius: '10px',
+            fontSize: '13px',
+            pl: 5,
             '& fieldset': { border: 'none' },
             '&:hover': { bgcolor: '#e5e7eb' },
             '&.Mui-focused': {
@@ -84,22 +119,36 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
         if (!open) return;
 
         // Reset to default
-        setStatusOption({ value: '', label: 'Tất cả' });
-        setModeOption({ value: '', label: 'Tất cả' });
-        setFromDate('');
-        setToDate('');
+        setWarehouseOption(null);
+        setModeOption(null);
+        setStatusOption(null);
+        setCreatorOption(null);
+        setPlannedFromDate('');
+        setPlannedToDate('');
+        setCreatedFromDate('');
+        setCreatedToDate('');
 
         // Apply initial values if any
-        if (initialValues.status) {
-            const found = STATUS_OPTIONS.find(o => o.value === initialValues.status);
-            if (found) setStatusOption(found);
+        if (initialValues.warehouseCode) {
+            const found = WAREHOUSE_OPTIONS.find(o => o.value === initialValues.warehouseCode);
+            if (found) setWarehouseOption(found);
         }
         if (initialValues.mode) {
             const found = MODE_OPTIONS.find(o => o.value === initialValues.mode);
             if (found) setModeOption(found);
         }
-        if (initialValues.fromDate) setFromDate(initialValues.fromDate);
-        if (initialValues.toDate) setToDate(initialValues.toDate);
+        if (initialValues.status) {
+            const found = STATUS_OPTIONS.find(o => o.value === initialValues.status);
+            if (found) setStatusOption(found);
+        }
+        if (initialValues.createdByName) {
+            const found = CREATOR_OPTIONS.find(o => o.value === initialValues.createdByName);
+            if (found) setCreatorOption(found);
+        }
+        if (initialValues.plannedFromDate) setPlannedFromDate(initialValues.plannedFromDate);
+        if (initialValues.plannedToDate) setPlannedToDate(initialValues.plannedToDate);
+        if (initialValues.createdFromDate) setCreatedFromDate(initialValues.createdFromDate);
+        if (initialValues.createdToDate) setCreatedToDate(initialValues.createdToDate);
     }, [open, initialValues]);
 
     // Drag logic
@@ -127,20 +176,28 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
 
     const handleApply = useCallback(() => {
         onApply({
-            status: statusOption.value || undefined,
-            mode: modeOption.value || undefined,
-            fromDate: fromDate || undefined,
-            toDate: toDate || undefined,
+            warehouseCode: warehouseOption?.value || undefined,
+            mode: modeOption?.value || undefined,
+            status: statusOption?.value || undefined,
+            createdByName: creatorOption?.value || undefined,
+            plannedFromDate: plannedFromDate || undefined,
+            plannedToDate: plannedToDate || undefined,
+            createdFromDate: createdFromDate || undefined,
+            createdToDate: createdToDate || undefined,
         });
         onClose();
-    }, [statusOption, modeOption, fromDate, toDate, onApply, onClose]);
+    }, [warehouseOption, modeOption, statusOption, creatorOption, plannedFromDate, plannedToDate, createdFromDate, createdToDate, onApply, onClose]);
 
     const handleClear = useCallback(() => {
-        setStatusOption({ value: '', label: 'Tất cả' });
-        setModeOption({ value: '', label: 'Tất cả' });
-        setFromDate('');
-        setToDate('');
-        onApply({ status: undefined, mode: undefined, fromDate: undefined, toDate: undefined });
+        setWarehouseOption(null);
+        setModeOption(null);
+        setStatusOption(null);
+        setCreatorOption(null);
+        setPlannedFromDate('');
+        setPlannedToDate('');
+        setCreatedFromDate('');
+        setCreatedToDate('');
+        onApply({});
         onClose();
     }, [onApply, onClose]);
 
@@ -154,7 +211,7 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
                 position: 'fixed',
                 left: 300,
                 top: 110,
-                width: 320,
+                width: 360,
                 borderRadius: '12px',
                 border: '1px solid rgba(0, 0, 0, 0.08)',
                 boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
@@ -212,30 +269,38 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
                 '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
                 '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px' },
             }}>
-                {/* Trạng thái */}
+                {/* Kho - Search-Select */}
                 <Box>
-                    <Typography variant="body2" sx={labelSx}>Trạng thái</Typography>
+                    <Typography variant="body2" sx={labelSx}>Kho</Typography>
                     <Autocomplete
                         size="small"
-                        options={STATUS_OPTIONS}
+                        options={WAREHOUSE_OPTIONS}
                         getOptionLabel={(opt) => opt.label}
-                        value={statusOption}
-                        onChange={(_, v) => setStatusOption(v || STATUS_OPTIONS[0])}
-                        isOptionEqualToValue={(a, b) => a.value === b.value}
+                        value={warehouseOption}
+                        onChange={(_, v) => setWarehouseOption(v)}
                         PaperComponent={(props) => (
                             <Paper {...props} sx={dropdownPaperSx} />
                         )}
                         renderInput={(params) => (
                             <TextField
                                 {...params}
-                                placeholder="Chọn trạng thái"
+                                placeholder="Tìm hoặc chọn kho"
                                 sx={inputSx}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    startAdornment: (
+                                        <>
+                                            <Search size={16} style={{ marginRight: 4, color: '#9ca3af' }} />
+                                            {params.InputProps.startAdornment}
+                                        </>
+                                    ),
+                                }}
                             />
                         )}
                     />
                 </Box>
 
-                {/* Hình thức */}
+                {/* Hình thức - Dropdown */}
                 <Box>
                     <Typography variant="body2" sx={labelSx}>Hình thức</Typography>
                     <Autocomplete
@@ -243,8 +308,7 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
                         options={MODE_OPTIONS}
                         getOptionLabel={(opt) => opt.label}
                         value={modeOption}
-                        onChange={(_, v) => setModeOption(v || MODE_OPTIONS[0])}
-                        isOptionEqualToValue={(a, b) => a.value === b.value}
+                        onChange={(_, v) => setModeOption(v)}
                         PaperComponent={(props) => (
                             <Paper {...props} sx={dropdownPaperSx} />
                         )}
@@ -258,15 +322,68 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
                     />
                 </Box>
 
-                {/* Ngày dự kiến */}
+                {/* Trạng thái - Dropdown */}
                 <Box>
-                    <Typography variant="body2" sx={labelSx}>Ngày dự kiến</Typography>
+                    <Typography variant="body2" sx={labelSx}>Trạng thái</Typography>
+                    <Autocomplete
+                        size="small"
+                        options={STATUS_OPTIONS}
+                        getOptionLabel={(opt) => opt.label}
+                        value={statusOption}
+                        onChange={(_, v) => setStatusOption(v)}
+                        PaperComponent={(props) => (
+                            <Paper {...props} sx={dropdownPaperSx} />
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Chọn trạng thái"
+                                sx={inputSx}
+                            />
+                        )}
+                    />
+                </Box>
+
+                {/* Nhân viên tạo - Search-Select */}
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Nhân viên tạo</Typography>
+                    <Autocomplete
+                        size="small"
+                        options={CREATOR_OPTIONS}
+                        getOptionLabel={(opt) => opt.label}
+                        value={creatorOption}
+                        onChange={(_, v) => setCreatorOption(v)}
+                        PaperComponent={(props) => (
+                            <Paper {...props} sx={dropdownPaperSx} />
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Tìm hoặc chọn nhân viên"
+                                sx={inputSx}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    startAdornment: (
+                                        <>
+                                            <Search size={16} style={{ marginRight: 4, color: '#9ca3af' }} />
+                                            {params.InputProps.startAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
+                    />
+                </Box>
+
+                {/* Ngày giờ dự kiến kiểm kê */}
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Ngày giờ dự kiến kiểm kê</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <TextField
                             size="small"
                             type="date"
-                            value={fromDate}
-                            onChange={(e) => setFromDate(e.target.value)}
+                            value={plannedFromDate}
+                            onChange={(e) => setPlannedFromDate(e.target.value)}
                             InputLabelProps={{ shrink: true }}
                             placeholder="Từ ngày"
                             fullWidth
@@ -275,8 +392,35 @@ export default function StocktakeFilterPopup({ open, onClose, initialValues = {}
                         <TextField
                             size="small"
                             type="date"
-                            value={toDate}
-                            onChange={(e) => setToDate(e.target.value)}
+                            value={plannedToDate}
+                            onChange={(e) => setPlannedToDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            placeholder="Đến ngày"
+                            fullWidth
+                            sx={inputSx}
+                        />
+                    </Box>
+                </Box>
+
+                {/* Ngày tạo */}
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Ngày tạo</Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <TextField
+                            size="small"
+                            type="date"
+                            value={createdFromDate}
+                            onChange={(e) => setCreatedFromDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            placeholder="Từ ngày"
+                            fullWidth
+                            sx={inputSx}
+                        />
+                        <TextField
+                            size="small"
+                            type="date"
+                            value={createdToDate}
+                            onChange={(e) => setCreatedToDate(e.target.value)}
                             InputLabelProps={{ shrink: true }}
                             placeholder="Đến ngày"
                             fullWidth

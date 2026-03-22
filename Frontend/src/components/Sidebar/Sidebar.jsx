@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
@@ -121,7 +121,7 @@ const Sidebar = () => {
     const userInfo = authService.getUser();
     const roleFromBackend = getRawRoleFromUser(userInfo);
     const permissionRole = getPermissionRole(roleFromBackend);
-    const menuItems = useMemo(() => getMenuItems(permissionRole), [permissionRole]);
+    const menuItems = getMenuItems(permissionRole);
 
     const sectionLabels = useMemo(() => menuItems.map(getSectionLabel), [menuItems]);
 

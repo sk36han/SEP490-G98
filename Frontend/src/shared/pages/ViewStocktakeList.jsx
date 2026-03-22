@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import {
     Box,
     Card,
@@ -101,7 +103,7 @@ const STOCKTAKE_COLUMNS = [
     { id: 'warehouseName', label: 'Kho', sortable: true },
     { id: 'mode', label: 'Hình thức', sortable: true },
     { id: 'status', label: 'Trạng thái', sortable: true },
-    { id: 'plannedAt', label: 'Ngày dự kiến kiểm kê', sortable: true },
+    { id: 'plannedAt', label: 'Ngày giờ dự kiến kiểm kê', sortable: true },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true },
     { id: 'createdByName', label: 'Nhân viên tạo', sortable: true },
 ];
@@ -216,6 +218,9 @@ const ViewStocktakeList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+    const location = useLocation();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const canCreate = permissionRole === 'WAREHOUSE_KEEPER';
 
     // Data state
     const [list, setList] = useState([]);
@@ -285,20 +290,35 @@ const ViewStocktakeList = () => {
             let filteredData = [...MOCK_DATA];
 
             // Apply filter from popup
-            if (filterValues.status) {
-                filteredData = filteredData.filter((item) => item.status === filterValues.status);
+            if (filterValues.warehouseCode) {
+                filteredData = filteredData.filter((item) => item.warehouseCode === filterValues.warehouseCode);
             }
             if (filterValues.mode) {
                 filteredData = filteredData.filter((item) => item.mode === filterValues.mode);
             }
-            if (filterValues.fromDate) {
-                const from = new Date(filterValues.fromDate);
+            if (filterValues.status) {
+                filteredData = filteredData.filter((item) => item.status === filterValues.status);
+            }
+            if (filterValues.createdByName) {
+                filteredData = filteredData.filter((item) => item.createdByName === filterValues.createdByName);
+            }
+            if (filterValues.plannedFromDate) {
+                const from = new Date(filterValues.plannedFromDate);
                 filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) >= from);
             }
-            if (filterValues.toDate) {
-                const to = new Date(filterValues.toDate);
+            if (filterValues.plannedToDate) {
+                const to = new Date(filterValues.plannedToDate);
                 to.setHours(23, 59, 59, 999);
                 filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) <= to);
+            }
+            if (filterValues.createdFromDate) {
+                const from = new Date(filterValues.createdFromDate);
+                filteredData = filteredData.filter((item) => item.createdAt && new Date(item.createdAt) >= from);
+            }
+            if (filterValues.createdToDate) {
+                const to = new Date(filterValues.createdToDate);
+                to.setHours(23, 59, 59, 999);
+                filteredData = filteredData.filter((item) => item.createdAt && new Date(item.createdAt) <= to);
             }
 
             // Apply search
@@ -477,7 +497,7 @@ const ViewStocktakeList = () => {
                         fontWeight="600"
                         sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
                     >
-                        Danh sách kiểm kê kho
+                        Danh sách yêu cầu kiểm kê kho
                     </Typography>
                 </Box>
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
@@ -614,28 +634,30 @@ const ViewStocktakeList = () => {
                                         ml: isMobile ? 0 : 'auto',
                                     }}
                                 >
-                                    <Button
-                                        className="list-page-btn"
-                                        variant="contained"
-                                        startIcon={<Plus size={18} />}
-                                        onClick={() => navigate('/inventory/stocktakes/create')}
-                                        sx={{
-                                            fontSize: 13,
-                                            fontWeight: 500,
-                                            textTransform: 'none',
-                                            borderRadius: 10,
-                                            minHeight: 38,
-                                            px: 2.5,
-                                            bgcolor: '#0284c7',
-                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
-                                            '&:hover': {
-                                                bgcolor: '#0369a1',
-                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
-                                            },
-                                        }}
-                                    >
-                                        Tạo phiếu kiểm kê
-                                    </Button>
+                                    {canCreate && (
+                                        <Button
+                                            className="list-page-btn"
+                                            variant="contained"
+                                            startIcon={<Plus size={18} />}
+                                            onClick={() => navigate('/inventory/stocktakes/create')}
+                                            sx={{
+                                                fontSize: 13,
+                                                fontWeight: 500,
+                                                textTransform: 'none',
+                                                borderRadius: 10,
+                                                minHeight: 38,
+                                                px: 2.5,
+                                                bgcolor: '#0284c7',
+                                                boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                                '&:hover': {
+                                                    bgcolor: '#0369a1',
+                                                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                                },
+                                            }}
+                                        >
+                                            Tạo phiếu kiểm kê
+                                        </Button>
+                                    )}
                                 </Box>
                             </Box>
                         </CardContent>
@@ -951,7 +973,14 @@ const ViewStocktakeList = () => {
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Typography
-                                                                            onClick={() => navigate(`/inventory/stocktakes/${item.stocktakeId}`)}
+                                                                            onClick={() => {
+                                                                                const isReportPage = location.pathname.startsWith('/reports');
+                                                                                if (isReportPage) {
+                                                                                    navigate(`/inventory/stocktakes/report/${item.stocktakeId}`);
+                                                                                } else {
+                                                                                    navigate(`/inventory/stocktakes/${item.stocktakeId}`);
+                                                                                }
+                                                                            }}
                                                                             sx={{
                                                                                 color: '#3b82f6',
                                                                                 fontSize: '13px',

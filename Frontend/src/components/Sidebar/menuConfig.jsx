@@ -9,6 +9,7 @@ import {
     ClipboardList,
     Warehouse,
     RotateCcw,
+    BarChart3,
 } from 'lucide-react';
 
 const commonItems = [];
@@ -40,6 +41,15 @@ const directorItems = [
     { path: '/home', icon: <LayoutDashboard size={22} />, label: 'Trang chủ' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
+    {
+        id: 'reports-mgmt',
+        path: '/reports',
+        icon: <BarChart3 size={22} />,
+        label: 'Báo cáo',
+        children: [
+            { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
+        ],
+    },
 ];
 
 const adminItems = [
@@ -83,7 +93,6 @@ const warehouseKeeperItems = [
             { path: '/inventory', label: 'Danh sách kho' },
             { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
             { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
-
         ],
     },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
@@ -212,7 +221,15 @@ const accountantItems = [
         ],
     },
     { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
-    { path: '/reports', icon: <FileText size={22} />, label: 'Báo cáo' },
+    {
+        id: 'reports-mgmt',
+        path: '/reports',
+        icon: <BarChart3 size={22} />,
+        label: 'Báo cáo',
+        children: [
+            { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
+        ],
+    },
 ];
 
 export const getMenuItems = (role) => {

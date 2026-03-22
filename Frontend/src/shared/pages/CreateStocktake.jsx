@@ -11,8 +11,6 @@ import {
     Package,
     Calendar,
     User,
-    Trash2,
-    Search,
     ImageIcon,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
@@ -62,13 +60,13 @@ const CreateStocktake = () => {
 
     // Lines data
     const [lines, setLines] = useState([]);
-    const [selectedLineIds, setSelectedLineIds] = useState([]);
 
     // Product search
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [products] = useState(MOCK_ITEMS);
     const [filteredProducts, setFilteredProducts] = useState(MOCK_ITEMS);
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     // Dropdown states
     const [warehouseQuery, setWarehouseQuery] = useState('');
@@ -109,6 +107,23 @@ const CreateStocktake = () => {
         if (errors.warehouseId) {
             setErrors(prev => ({ ...prev, warehouseId: '' }));
         }
+
+        // Auto-import all items from the selected warehouse
+        const newLines = products.map(product => ({
+            id: Date.now() + Math.random(),
+            itemId: product.id,
+            itemName: product.name,
+            itemCode: product.code,
+            itemImage: product.image,
+            uom: product.uom,
+            systemQty: product.systemQty || 0,
+            countedQty: '',
+            variance: '',
+            note: ''
+        }));
+
+        setLines(newLines);
+        showToast(`Đã tự động thêm ${newLines.length} vật tư từ kho ${warehouse.name}`, 'success');
     };
 
     const handleModeSelect = (mode) => {
@@ -151,78 +166,59 @@ const CreateStocktake = () => {
         setFilteredProducts(filtered);
     };
 
-    const handleSelectProduct = (product) => {
-        // Check if already exists
-        const existingLine = lines.find(line => line.itemId === product.id);
-
-        if (existingLine) {
-            showToast('Vật tư đã có trong danh sách!', 'warning');
-            return;
-        }
-
-        // Add new line
-        const newLine = {
-            id: Date.now(),
-            itemId: product.id,
-            itemName: product.name,
-            itemCode: product.code,
-            itemImage: product.image,
-            uom: product.uom,
-            systemQty: product.systemQty || 0,
-            countedQty: '',
-            varianceQty: '',
-            note: ''
-        };
-
-        setLines(prev => [...prev, newLine]);
-        setSearchKeyword('');
-        setFilteredProducts(products);
-        setShowProductSearch(false);
-        showToast('Đã thêm vật tư vào danh sách', 'success');
-    };
-
-    const updateLine = (index, field, value) => {
-        setLines(prev => prev.map((l, i) => {
-            if (i === index) {
-                const updated = { ...l, [field]: value };
-
-                // Auto calculate variance
-                if (field === 'systemQty' || field === 'countedQty') {
-                    const sysQty = field === 'systemQty' ? parseFloat(value) || 0 : parseFloat(l.systemQty) || 0;
-                    const cntQty = field === 'countedQty' ? parseFloat(value) || 0 : parseFloat(l.countedQty) || 0;
-                    updated.varianceQty = cntQty - sysQty;
-                }
-
-                return updated;
-            }
-            return l;
-        }));
-    };
-
-    const removeLine = (index) => {
-        setLines(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const toggleLineSelection = (lineId) => {
-        setSelectedLineIds(prev =>
-            prev.includes(lineId) ? prev.filter(id => id !== lineId) : [...prev, lineId]
+    // Checkbox selection for products
+    const toggleProductSelection = (productId) => {
+        setSelectedProductIds(prev =>
+            prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
         );
     };
 
-    const toggleSelectAll = () => {
-        if (selectedLineIds.length === lines.length) {
-            setSelectedLineIds([]);
+    const toggleSelectAllProducts = () => {
+        if (selectedProductIds.length === filteredProducts.length) {
+            setSelectedProductIds([]);
         } else {
-            setSelectedLineIds(lines.map(l => l.id));
+            setSelectedProductIds(filteredProducts.map(p => p.id));
         }
     };
 
-    const removeSelectedLines = () => {
-        if (selectedLineIds.length === 0) return;
-        const newLines = lines.filter(line => !selectedLineIds.includes(line.id));
-        setLines(newLines);
-        setSelectedLineIds([]);
+    const handleAddSelectedProducts = () => {
+        if (selectedProductIds.length === 0) {
+            showToast('Vui lòng chọn ít nhất 1 vật tư!', 'warning');
+            return;
+        }
+
+        const productsToAdd = products.filter(p => selectedProductIds.includes(p.id));
+        const newLines = [];
+        const existingItemIds = lines.map(l => l.itemId);
+
+        productsToAdd.forEach(product => {
+            if (existingItemIds.includes(product.id)) {
+                return;
+            }
+            newLines.push({
+                id: Date.now() + Math.random(),
+                itemId: product.id,
+                itemName: product.name,
+                itemCode: product.code,
+                itemImage: product.image,
+                uom: product.uom,
+                systemQty: product.systemQty || 0,
+                countedQty: '',
+                varianceQty: '',
+                note: ''
+            });
+        });
+
+        if (newLines.length > 0) {
+            setLines(prev => [...prev, ...newLines]);
+            showToast(`Đã thêm ${newLines.length} vật tư vào danh sách`, 'success');
+        }
+
+        setSelectedProductIds([]);
+        setShowProductSearch(false);
+        setSearchKeyword('');
     };
+
 
     const validateForm = () => {
         const newErrors = {};
@@ -389,7 +385,7 @@ const CreateStocktake = () => {
                 <form className="form-wrapper">
                     {/* Intro */}
                     <div className="form-card-intro">
-                        <h1 className="page-title">Tạo phiếu kiểm kê kho</h1>
+                        <h1 className="page-title">Tạo yêu cầu kiểm kê kho</h1>
                         <p className="form-card-required-note">
                             Các trường đánh dấu <span className="required-mark">*</span> là bắt buộc
                         </p>
@@ -400,133 +396,47 @@ const CreateStocktake = () => {
                         {/* Trái: Danh sách vật tư + Ghi chú */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             {/* 1. Danh sách vật tư */}
-                            <div className="info-section" style={{ margin: 0, minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        {selectedLineIds.length > 0 && (
-                                            <button type="button" onClick={removeSelectedLines} className="btn btn-sm" style={{ fontWeight: 600, backgroundColor: '#ef4444', color: 'white', border: 'none' }}>
-                                                <Trash2 size={16} />
-                                                Xóa ({selectedLineIds.length})
-                                            </button>
-                                        )}
-                                        <button type="button" onClick={openProductSearch} className="btn btn-sm" style={{ fontSize: '14px', fontWeight: 600 }}>
-                                            <Plus size={16} />
-                                            Thêm vật tư
-                                        </button>
-                                    </div>
                                 </div>
 
                                 {errors.lines && (
                                     <div className="error-message" style={{ marginBottom: '16px' }}>{errors.lines}</div>
                                 )}
 
-                                {/* Search Bar with Animation */}
-                                {showProductSearch && (
-                                    <div style={{ marginBottom: '16px', animation: 'slideDown 0.3s ease-out', position: 'relative' }}>
-                                        <div style={{ position: 'relative' }}>
-                                            <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', zIndex: 1 }} />
-                                            <input
-                                                type="text"
-                                                value={searchKeyword}
-                                                onChange={handleSearchChange}
-                                                placeholder="Tìm kiếm theo tên vật tư..."
-                                                autoFocus
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 44px 12px 44px',
-                                                    border: '2px solid #2196F3',
-                                                    borderRadius: '10px',
-                                                    fontSize: '14px',
-                                                    outline: 'none',
-                                                    boxSizing: 'border-box',
-                                                    boxShadow: '0 0 0 4px rgba(33, 150, 243, 0.1)'
-                                                }}
-                                            />
-                                            <button type="button" onClick={closeProductSearch} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: '#6b7280', zIndex: 1 }}>
-                                                <X size={20} />
-                                            </button>
-                                        </div>
-
-                                        {/* Dropdown Results */}
-                                        {showProductSearch && (
-                                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', maxHeight: '400px', overflowY: 'auto', zIndex: 100, animation: 'fadeIn 0.2s ease-out' }}>
-                                                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#f9fafb', fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
-                                                    {`${filteredProducts.length} vật tư`}
-                                                </div>
-                                                {filteredProducts.length === 0 ? (
-                                                    <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>
-                                                        <p style={{ margin: 0, fontSize: '13px' }}>Không tìm thấy vật tư</p>
-                                                    </div>
-                                                ) : (
-                                                    filteredProducts.map(item => (
-                                                        <div key={item.id} onClick={() => handleSelectProduct(item)} style={{ padding: '12px 16px', cursor: 'pointer', transition: 'background-color 0.15s', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '12px' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}>
-                                                            {isValidImageUrl(item.image) ? (
-                                                                <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e5e7eb', flexShrink: 0 }} />
-                                                            ) : (
-                                                                <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
-                                                                    <ImageIcon size={20} color="#9ca3af" />
-                                                                </div>
-                                                            )}
-                                                            <div>
-                                                                <div style={{ fontWeight: 500, color: '#111827', fontSize: '14px' }}>{item.name}</div>
-                                                                <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                                                                    <span>Mã: {item.code}</span>
-                                                                    <span>•</span>
-                                                                    <span>ĐVT: {item.uom}</span>
-                                                                    <span>•</span>
-                                                                    <span>SL Hệ thống: {item.systemQty || 0}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
                                 {/* Empty state when no warehouse selected */}
-                                {!formData.warehouseId && lines.length === 0 && !showProductSearch && (
+                                {!formData.warehouseId && lines.length === 0 && (
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px', padding: '60px 20px', color: '#9ca3af' }}>
                                         <Package size={64} strokeWidth={1.5} />
-                                        <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Vui lòng chọn kho cần kiểm kê sản phẩm trước khi thêm vật tư</p>
-                                        <p style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: '#ef4444' }}>Chọn kho ở bên phải trước</p>
+                                        <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Vui lòng chọn kho cần kiểm kê</p>
+                                        <p style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: '#ef4444' }}>Chọn kho ở bên phải để tự động tải vật tư</p>
                                     </div>
                                 )}
 
-                                {/* Empty state when warehouse selected but no lines */}
-                                {formData.warehouseId && lines.length === 0 && !showProductSearch && (
+                                {/* Empty state - no lines */}
+                                {(formData.warehouseId && lines.length === 0) && (
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px', padding: '60px 20px', color: '#9ca3af' }}>
                                         <Package size={64} strokeWidth={1.5} />
                                         <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư nào</p>
-                                        <p style={{ fontSize: '14px', margin: 0 }}>Nhấn "Thêm vật tư" để bắt đầu</p>
                                     </div>
                                 )}
 
                                 {/* Lines table */}
                                 {lines.length > 0 && (
-                                    <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                                    <div className="table-container">
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
-                                                    <th style={{ width: '40px' }}>
-                                                        <input type="checkbox" checked={lines.length > 0 && selectedLineIds.length === lines.length} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} />
-                                                    </th>
                                                     <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
-                                                    <th style={{ textAlign: 'left' }}>Vật tư </th>
+                                                    <th style={{ textAlign: 'left' }}>Vật tư</th>
                                                     <th style={{ width: '100px', textAlign: 'right' }}>SL hệ thống</th>
-                                                    <th style={{ width: '100px', textAlign: 'right' }}>SL đã kiểm kê *</th>
-                                                    <th style={{ width: '80px', textAlign: 'right' }}>Chênh lệch</th>
                                                     <th style={{ width: '60px' }}></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {lines.map((line, index) => (
                                                     <tr key={line.id}>
-                                                        <td style={{ textAlign: 'center' }}>
-                                                            <input type="checkbox" checked={selectedLineIds.includes(line.id)} onChange={() => toggleLineSelection(line.id)} style={{ cursor: 'pointer' }} />
-                                                        </td>
                                                         <td style={{ textAlign: 'center' }}>{index + 1}</td>
                                                         <td>
                                                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -537,24 +447,38 @@ const CreateStocktake = () => {
                                                                         <ImageIcon size={20} color="#9ca3af" />
                                                                     </div>
                                                                 )}
-                                                                <div style={{ fontWeight: 500, color: '#111827', fontSize: '14px' }}>{line.itemName}</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                    <a
+                                                                        href="#"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            navigate(`/items/${line.itemId}`);
+                                                                        }}
+                                                                        style={{
+                                                                            color: '#2196F3',
+                                                                            textDecoration: 'none',
+                                                                            fontSize: 14,
+                                                                            fontWeight: 500,
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            e.target.style.textDecoration = 'underline';
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            e.target.style.textDecoration = 'none';
+                                                                        }}
+                                                                    >
+                                                                        {line.itemName}
+                                                                    </a>
+                                                                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                                        Mã: {line.itemCode} • ĐVT: {line.uom}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td>
                                                             <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#374151' }}>
                                                                 {line.systemQty || 0}
                                                             </div>
-                                                        </td>
-                                                        <td>
-                                                            <input type="number" value={line.countedQty} onChange={(e) => updateLine(index, 'countedQty', e.target.value)} className="form-input" style={{ textAlign: 'right', fontSize: '13px' }} placeholder="0" />
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: line.varianceQty > 0 ? '#2196F3' : line.varianceQty < 0 ? '#dc2626' : '#16a34a' }}>
-                                                            {line.varianceQty || 0}
-                                                        </td>
-                                                        <td>
-                                                            <button type="button" className="btn-icon-only" onClick={() => removeLine(index)} style={{ color: '#ef4444' }}>
-                                                                <Trash2 size={18} />
-                                                            </button>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -576,6 +500,7 @@ const CreateStocktake = () => {
                                     </div>
                                 </div>
                             </div>
+
                         </div>
 
                         {/* Phải: Thông tin chung */}
@@ -640,10 +565,10 @@ const CreateStocktake = () => {
 
                                 {/* Ngày dự kiến */}
                                 <div className="form-field">
-                                    <label className="form-label">Ngày dự kiến kiểm kê <span className="required-mark">*</span></label>
+                                    <label className="form-label">Ngày giờ dự kiến kiểm kê <span className="required-mark">*</span></label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
-                                        <input type="date" name="plannedAt" value={formData.plannedAt} onChange={handleChange} className={`form-input ${errors.plannedAt ? 'error' : ''}`} />
+                                        <input type="datetime-local" name="plannedAt" value={formData.plannedAt} onChange={handleChange} className={`form-input ${errors.plannedAt ? 'error' : ''}`} />
                                     </div>
                                     {errors.plannedAt && <span className="error-message">{errors.plannedAt}</span>}
                                 </div>
