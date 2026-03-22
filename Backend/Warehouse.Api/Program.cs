@@ -100,6 +100,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IItemParameterValueService, ItemParameterValueService>();
             builder.Services.AddScoped<IPackagingSpecService, PackagingSpecService>();
 
+
 			// JWT Authentication
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 
