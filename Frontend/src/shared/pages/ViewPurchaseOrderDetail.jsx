@@ -330,6 +330,12 @@ const ViewPurchaseOrderDetail = () => {
     const handleConfirmAction = async () => {
         if (!canConfirmAction) return;
         
+        // Validate rejection reason when rejecting
+        if (confirmDialogType === 'reject' && !rejectionReason.trim()) {
+            showToast('Vui lòng nhập lý do từ chối.', 'warning');
+            return;
+        }
+        
         setSubmitting(true);
         try {
             if (confirmDialogType === 'approve') {
