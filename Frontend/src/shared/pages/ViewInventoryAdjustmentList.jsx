@@ -25,7 +25,7 @@ import {
     TableRow,
     Chip,
 } from '@mui/material';
-import { Plus, Filter, Columns, GripVertical, Package } from 'lucide-react';
+import { Filter, Columns, GripVertical, Package } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import InventoryAdjustmentFilterPopup from '../components/InventoryAdjustmentFilterPopup';
 import '../styles/ListView.css';
@@ -605,30 +605,7 @@ const ViewInventoryAdjustmentList = () => {
                                         alignItems: 'center',
                                         ml: isMobile ? 0 : 'auto',
                                     }}
-                                >
-                                    <Button
-                                        className="list-page-btn"
-                                        variant="contained"
-                                        startIcon={<Plus size={18} />}
-                                        onClick={() => {}}
-                                        sx={{
-                                            fontSize: 13,
-                                            fontWeight: 500,
-                                            textTransform: 'none',
-                                            borderRadius: 10,
-                                            minHeight: 38,
-                                            px: 2.5,
-                                            bgcolor: '#0284c7',
-                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
-                                            '&:hover': {
-                                                bgcolor: '#0369a1',
-                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
-                                            },
-                                        }}
-                                    >
-                                        Tạo điều chỉnh
-                                    </Button>
-                                </Box>
+                                />
                             </Box>
                         </CardContent>
                     </Card>

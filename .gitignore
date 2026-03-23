@@ -106,3 +106,4 @@ coverage/
 *.swp
 *~
 Backend/Warehouse.Api/appsettings.json
+Backend/Warehouse.Api/appsettings.json
