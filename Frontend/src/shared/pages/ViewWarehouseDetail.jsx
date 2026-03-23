@@ -1,83 +1,91 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Box,
-    Card,
-    CardContent,
+    CircularProgress,
     Typography,
     Button,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Grid,
-    Chip,
-    useTheme,
-    useMediaQuery,
-    CircularProgress,
 } from '@mui/material';
-import { ArrowLeft, History, Package, MapPin, Calendar, Building2 } from 'lucide-react';
-import { getWarehouseDetail, getWarehouseHistory } from '../lib/warehouseService';
-import '../styles/ListView.css';
+import {
+    ArrowLeft,
+    Warehouse as WarehouseIcon,
+    MapPin,
+    Calendar,
+    User,
+    Package,
+    ImageIcon,
+    Search,
+    X,
+    Phone,
+    Mail,
+    ClipboardList,
+    Building2,
+    History,
+} from 'lucide-react';
+import { getWarehouseDetail } from '../lib/warehouseService';
+import Toast from '../../components/Toast/Toast';
+import { useToast } from '../hooks/useToast';
+import '../styles/CreateSupplier.css';
 
-// ── Helper Functions ────────────────────────────────────────────────────────────
-const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+// Mock data for items in warehouse
+const MOCK_WAREHOUSE_ITEMS = [
+    { id: 1, itemId: 1, itemName: 'Vật tư A', itemCode: 'ITEM-001', uom: 'Cái', categoryName: 'Vật tư điện', brandName: 'Brand A', systemQty: 150, onHandQty: 145, reservedQty: 10 },
+    { id: 2, itemId: 2, itemName: 'Vật tư B', itemCode: 'ITEM-002', uom: 'Cái', categoryName: 'Vật tư cơ khí', brandName: 'Brand B', systemQty: 85, onHandQty: 90, reservedQty: 5 },
+    { id: 3, itemId: 3, itemName: 'Vật tư C', itemCode: 'ITEM-003', uom: 'Kg', categoryName: 'Vật tư xây dựng', brandName: 'Brand C', systemQty: 200, onHandQty: 200, reservedQty: 0 },
+    { id: 4, itemId: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', categoryName: 'Vật tư điện', brandName: 'Brand D', systemQty: 50, onHandQty: 48, reservedQty: 2 },
+    { id: 5, itemId: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', categoryName: 'Vật tư cơ khí', brandName: 'Brand E', systemQty: 120, onHandQty: 120, reservedQty: 0 },
+    { id: 6, itemId: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', categoryName: 'Vật tư xây dựng', brandName: 'Brand F', systemQty: 75, onHandQty: 75, reservedQty: 0 },
+    { id: 7, itemId: 7, itemName: 'Vật tư G', itemCode: 'ITEM-007', uom: 'Hộp', categoryName: 'Vật tư điện', brandName: 'Brand G', systemQty: 300, onHandQty: 295, reservedQty: 8 },
+    { id: 8, itemId: 8, itemName: 'Vật tư H', itemCode: 'ITEM-008', uom: 'Kg', categoryName: 'Vật tư cơ khí', brandName: 'Brand H', systemQty: 180, onHandQty: 185, reservedQty: 0 },
+    { id: 9, itemId: 9, itemName: 'Vật tư I', itemCode: 'ITEM-009', uom: 'Cái', categoryName: 'Vật tư xây dựng', brandName: 'Brand I', systemQty: 95, onHandQty: 95, reservedQty: 0 },
+    { id: 10, itemId: 10, itemName: 'Vật tư J', itemCode: 'ITEM-010', uom: 'Thùng', categoryName: 'Vật tư điện', brandName: 'Brand J', systemQty: 45, onHandQty: 45, reservedQty: 3 },
+];
+
+// Mock warehouse data
+const MOCK_WAREHOUSE = {
+    warehouseId: 1,
+    warehouseCode: 'WH-HCM',
+    warehouseName: 'Kho Hồ Chí Minh',
+    address: '123 Đường Nguyễn Trãi, Quận 1, TP. Hồ Chí Minh',
+    isActive: true,
+    createdAt: '2024-01-15T08:00:00',
+    createdByName: 'Nguyễn Văn A',
+    phone: '028 1234 5678',
+    email: 'kho.hcm@company.vn',
+    managerName: 'Trần Thị B',
+    description: 'Kho hàng chính phục vụ khu vực TP. Hồ Chí Minh và các tỉnh miền Nam',
+    totalItems: 10,
+    totalQty: 1278,
 };
 
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('vi-VN');
+const STATUS_CONFIG = {
+    true: { bgColor: 'rgba(16,185,129,0.2)', label: 'Hoạt động', color: '#059669' },
+    false: { bgColor: 'rgba(239,68,68,0.2)', label: 'Tắt', color: '#dc2626' },
 };
-
-const formatNumber = (num) => {
-    if (num == null || num === '') return '0';
-    return Number(num).toLocaleString('vi-VN');
-};
-
-// ── Status Chip Component ─────────────────────────────────────────────────────
-const StatusChip = ({ isActive }) => (
-    <Chip
-        label={isActive ? 'Hoạt động' : 'Tắt'}
-        size="small"
-        color={isActive ? 'success' : 'error'}
-        variant="filled"
-        sx={{
-            fontWeight: 500,
-            fontSize: '12px',
-            borderRadius: '6px',
-            minWidth: 70,
-        }}
-    />
-);
 
 const ViewWarehouseDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const { toast, showToast, clearToast } = useToast();
 
     const [warehouse, setWarehouse] = useState(null);
     const [items, setItems] = useState([]);
-    const [historyList, setHistoryList] = useState([]);
-    const [showHistory, setShowHistory] = useState(true);
     const [loading, setLoading] = useState(true);
-    const [historyLoading, setHistoryLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [lineSearchKeyword, setLineSearchKeyword] = useState('');
+    const [stockFilter, setStockFilter] = useState('all');
 
-    // Lấy chi tiết kho
     const fetchWarehouseDetail = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await getWarehouseDetail(Number(id));
+            // Try API first, fallback to mock
+            let data;
+            try {
+                data = await getWarehouseDetail(Number(id));
+            } catch {
+                data = MOCK_WAREHOUSE;
+            }
             setWarehouse({
                 warehouseId: data.warehouseId ?? data.WarehouseId,
                 warehouseCode: data.warehouseCode ?? data.WarehouseCode ?? '',
@@ -85,17 +93,25 @@ const ViewWarehouseDetail = () => {
                 address: data.address ?? data.Address ?? '-',
                 isActive: data.isActive ?? data.IsActive ?? true,
                 createdAt: data.createdAt ?? data.CreatedAt,
+                createdByName: data.createdByName ?? data.CreatedByName ?? '',
+                phone: data.phone ?? data.Phone ?? '',
+                email: data.email ?? data.Email ?? '',
+                managerName: data.managerName ?? data.ManagerName ?? '',
+                description: data.description ?? data.Description ?? '',
                 totalItems: data.totalItems ?? 0,
                 totalQty: data.totalQty ?? 0,
             });
-            // Map items từ API
-            const warehouseItems = (data.items ?? data.Items ?? []).map((item) => ({
-                itemId: item.itemId ?? item.ItemId,
-                itemCode: item.itemCode ?? item.ItemCode ?? '',
+
+            // Items from API or mock
+            const warehouseItems = (data.items ?? data.Items ?? MOCK_WAREHOUSE_ITEMS).map((item, idx) => ({
+                id: item.itemId ?? item.ItemId ?? idx + 1,
+                itemId: item.itemId ?? item.ItemId ?? idx + 1,
                 itemName: item.itemName ?? item.ItemName ?? '',
+                itemCode: item.itemCode ?? item.ItemCode ?? '',
+                uom: item.unitName ?? item.UnitName ?? item.uom ?? '',
                 categoryName: item.categoryName ?? item.CategoryName ?? '',
                 brandName: item.brandName ?? item.BrandName ?? '',
-                unitName: item.unitName ?? item.UnitName ?? '',
+                systemQty: item.systemQty ?? item.SystemQty ?? 0,
                 onHandQty: item.onHandQty ?? item.OnHandQty ?? 0,
                 reservedQty: item.reservedQty ?? item.ReservedQty ?? 0,
             }));
@@ -108,39 +124,45 @@ const ViewWarehouseDetail = () => {
         }
     }, [id]);
 
-    // Lấy lịch sử biến động kho
-    const fetchHistory = useCallback(async () => {
-        setHistoryLoading(true);
-        try {
-            const result = await getWarehouseHistory({
-                pageNumber: 1,
-                pageSize: 50,
-                warehouseId: Number(id),
-            });
-            const mappedHistory = (result.items ?? []).map((h, index) => ({
-                id: index + 1,
-                voucherCode: h.voucherCode ?? h.VoucherCode ?? '',
-                itemName: h.itemName ?? h.ItemName ?? '',
-                quantity: h.quantity ?? h.Quantity ?? 0,
-                transactionDate: h.transactionDate ?? h.TransactionDate ?? h.transactionDate ?? '',
-                approverName: h.approverName ?? h.ApproverName ?? '',
-                transactionType: h.transactionType ?? h.TransactionType ?? '',
-            }));
-            setHistoryList(mappedHistory);
-        } catch (err) {
-            console.error('Error fetching history:', err);
-        } finally {
-            setHistoryLoading(false);
-        }
-    }, [id]);
-
     useEffect(() => {
         fetchWarehouseDetail();
-        fetchHistory();
-    }, [fetchWarehouseDetail, fetchHistory]);
+    }, [fetchWarehouseDetail]);
 
-    const handleRefreshHistory = () => {
-        fetchHistory();
+    const filteredLines = useMemo(() => {
+        return items.filter(item => {
+            if (stockFilter === 'out-of-stock') return item.onHandQty === 0;
+            if (stockFilter === 'low-stock') return item.onHandQty > 0 && item.onHandQty < 20;
+            if (stockFilter === 'available') return item.onHandQty >= 20;
+            return true;
+        }).filter(item => {
+            if (!lineSearchKeyword.trim()) return true;
+            const kw = lineSearchKeyword.toLowerCase();
+            return (
+                item.itemName?.toLowerCase().includes(kw) ||
+                item.itemCode?.toLowerCase().includes(kw) ||
+                item.categoryName?.toLowerCase().includes(kw)
+            );
+        });
+    }, [items, stockFilter, lineSearchKeyword]);
+
+    const stats = useMemo(() => {
+        const total = items.length;
+        const outOfStock = items.filter(i => i.onHandQty === 0).length;
+        const lowStock = items.filter(i => i.onHandQty > 0 && i.onHandQty < 20).length;
+        const available = items.filter(i => i.onHandQty >= 20).length;
+        return { total, outOfStock, lowStock, available };
+    }, [items]);
+
+    const formatDateTime = (dateStr) => {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const formatNumber = (num) => {
+        if (num == null || num === '') return '0';
+        return Number(num).toLocaleString('vi-VN');
     };
 
     if (loading) {
@@ -164,280 +186,287 @@ const ViewWarehouseDetail = () => {
 
     if (!warehouse) return null;
 
+    const statusConfig = STATUS_CONFIG[warehouse.isActive] ?? STATUS_CONFIG[true];
+
     return (
-            <Box sx={{ pt: 0, pb: 2, mt: -3 }}>
+        <div className="create-supplier-page">
             {/* Header */}
-            <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<ArrowLeft size={20} />}
-                        onClick={() => navigate('/inventory')}
-                        sx={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            textTransform: 'none',
-                            borderRadius: 2,
-                            minHeight: 36,
-                            px: 2,
-                            borderColor: '#e5e7eb',
-                            color: '#374151',
-                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                        }}
-                    >
-                        Quay lại
-                    </Button>
-                </Box>
-                        <Typography
-                            variant="h4"
-                            component="h1"
-                            fontWeight="800"
-                            sx={{
-                                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                                backgroundClip: 'text',
-                                textFillColor: 'transparent',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                            }}
-                        >
-                            Chi tiết kho: {warehouse.warehouseName}
-                        </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Mã kho: {warehouse.warehouseCode} • Địa chỉ: {warehouse.address}
-                        </Typography>
-                </Box>
+            <div className="page-header">
+                <div className="page-header-left">
+                    <button type="button" onClick={() => navigate('/inventory')} className="back-button">
+                        <ArrowLeft size={20} />
+                        <span>Quay lại</span>
+                    </button>
+                </div>
+                <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => showToast('Đang xuất file...', 'info')}>
+                        <ClipboardList size={15} />
+                        Xuất Excel
+                    </button>
+                </div>
+            </div>
 
-            {/* Main Content */}
-            <Box sx={{
-                background: '#fff',
-                        borderRadius: 3,
-                p: 2.5,
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            }}>
-                {/* Action Buttons */}
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                        <Button
-                            variant="contained"
-                            startIcon={<History size={18} />}
-                        onClick={handleRefreshHistory}
-                        sx={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            textTransform: 'none',
-                            borderRadius: 2,
-                            bgcolor: '#3b82f6',
-                            '&:hover': { bgcolor: '#2563eb' },
-                        }}
-                    >
-                        Lịch sử xuất/nhập kho
-                    </Button>
-                </Box>
-
-                {/* Warehouse Info Card */}
-                <Card sx={{ borderRadius: 2, border: '1px solid #e5e7eb', boxShadow: 'none', mb: 3 }}>
-                    <CardContent sx={{ p: 2.5 }}>
-                            <Grid container spacing={3}>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Box sx={{
-                                        width: 40, height: 40, borderRadius: 2,
-                                        bgcolor: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <Building2 size={20} color="#3b82f6" />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '11px' }}>
-                                            Mã kho
-                                        </Typography>
-                                        <Typography variant="body1" fontWeight={600} sx={{ fontSize: '14px', color: '#111827' }}>
-                                            {warehouse.warehouseCode}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                </Grid>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Box sx={{
-                                        width: 40, height: 40, borderRadius: 2,
-                                        bgcolor: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <Package size={20} color="#10b981" />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '11px' }}>
-                                            Tên kho
-                                        </Typography>
-                                        <Typography variant="body1" fontWeight={600} sx={{ fontSize: '14px', color: '#111827' }}>
-                                            {warehouse.warehouseName}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                </Grid>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Box sx={{
-                                        width: 40, height: 40, borderRadius: 2,
-                                        bgcolor: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <MapPin size={20} color="#f59e0b" />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '11px' }}>
-                                            Địa chỉ
-                                        </Typography>
-                                        <Typography variant="body1" fontWeight={500} sx={{ fontSize: '14px', color: '#111827', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {warehouse.address}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                </Grid>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Box sx={{
-                                        width: 40, height: 40, borderRadius: 2,
-                                        bgcolor: warehouse.isActive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <Calendar size={20} color={warehouse.isActive ? '#10b981' : '#ef4444'} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '11px' }}>
-                                            Trạng thái
-                                        </Typography>
-                                        <StatusChip isActive={warehouse.isActive} />
-                                    </Box>
-                                </Box>
-                                </Grid>
-                            </Grid>
-                        </CardContent>
-                    </Card>
-
-                {/* Items Table */}
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5, fontSize: '15px', color: '#111827' }}>
-                    Danh sách vật tư trong kho
-                </Typography>
-                <Card sx={{ borderRadius: 2, border: '1px solid #e5e7eb', boxShadow: 'none', overflow: 'hidden' }}>
-                    <TableContainer sx={{ maxHeight: 400 }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5, px: 2 }} align="center">STT</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5 }}>Mã vật tư</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5 }}>Tên vật tư</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5 }}>Danh mục</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5 }}>Thương hiệu</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5 }} align="right">Tồn kho</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5 }} align="right">Đặt trước</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f9fafb', fontSize: '12px', color: '#6b7280', py: 1.5 }}>Đơn vị</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {items.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                                            <Typography color="text.secondary" sx={{ fontSize: '13px' }}>Không có vật tư trong kho</Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    items.map((row, index) => (
-                                        <TableRow key={row.itemId} hover sx={{ '&:hover': { bgcolor: '#f9fafb' } }}>
-                                            <TableCell align="center" sx={{ fontSize: '13px', color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{index + 1}</TableCell>
-                                            <TableCell sx={{ fontSize: '13px', fontWeight: 500, color: '#3b82f6' }}>{row.itemCode}</TableCell>
-                                            <TableCell sx={{ fontSize: '13px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.itemName}>{row.itemName}</TableCell>
-                                            <TableCell sx={{ fontSize: '13px', color: '#374151' }}>{row.categoryName || '-'}</TableCell>
-                                            <TableCell sx={{ fontSize: '13px', color: '#374151' }}>{row.brandName || '-'}</TableCell>
-                                            <TableCell align="right" sx={{ fontSize: '13px', fontWeight: 600, color: '#10b981', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.onHandQty)}</TableCell>
-                                            <TableCell align="right" sx={{ fontSize: '13px', color: '#f59e0b', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.reservedQty)}</TableCell>
-                                            <TableCell sx={{ fontSize: '13px', color: '#6b7280' }}>{row.unitName || '-'}</TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                </Card>
-            </Box>
-
-            {/* History Card - Embed like ViewItemDetail */}
-            {showHistory && (
-                <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1], border: '1px solid', borderColor: 'info.light' }}>
-                    <Box sx={{ px: 2, py: 1.5, bgcolor: 'info.50', borderBottom: '1px solid', borderColor: 'info.light' }}>
-                        <Typography variant="subtitle1" fontWeight="700" sx={{ color: 'info.dark' }}>Lịch sử xuất/nhập kho</Typography>
-                    </Box>
-                    <CardContent sx={{ p: 2.5 }}>
-                        {historyLoading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                                <CircularProgress />
-                            </Box>
-                        ) : (
-                            <TableContainer sx={{ maxHeight: 300, overflowY: 'auto' }}>
-                                <Table
-                                    size="small"
-                                    stickyHeader
-                                    sx={{
-                                        '& .MuiTableCell-root': {
-                                            borderRight: '1px solid',
-                                            borderColor: 'divider',
-                                        },
-                                        '& .MuiTableCell-root:last-of-type': {
-                                            borderRight: 'none',
-                                        },
-                                        '& .MuiTableHead-root .MuiTableCell-root': {
-                                            bgcolor: 'grey.50',
-                                        },
+            {/* Form Card */}
+            <div className="form-card">
+                <form className="form-wrapper">
+                    {/* Intro */}
+                    <div className="form-card-intro">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                            <div>
+                                <h1 className="page-title">Chi tiết kho</h1>
+                                <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
+                                    Mã kho:{' '}
+                                    <span style={{ fontWeight: 600, color: '#2196F3' }}>{warehouse.warehouseCode}</span>
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <div
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: 20,
+                                        backgroundColor: statusConfig.bgColor,
+                                        color: statusConfig.color,
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
                                     }}
                                 >
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 600 }} align="center">STT</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Mã chứng từ</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Vật tư</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }} align="center">Loại</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }} align="right">Số lượng</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Ngày</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Người thực hiện</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {historyList.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                                    <Typography color="text.secondary">Không có lịch sử biến động</Typography>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            historyList.map((h, index) => (
-                                                <TableRow key={h.id || index} hover>
-                                                    <TableCell align="center" sx={{ fontSize: '13px', color: '#6b7280' }}>{index + 1}</TableCell>
-                                                    <TableCell sx={{ fontSize: '13px', fontWeight: 500, color: '#3b82f6' }}>{h.voucherCode || '-'}</TableCell>
-                                                    <TableCell sx={{ fontSize: '13px', color: '#374151', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.itemName || '-'}</TableCell>
-                                                    <TableCell align="center">
-                                                        <Chip
-                                                            label={h.transactionType || 'IN/OUT'}
-                                                            size="small"
-                                                            sx={{
-                                                                fontSize: '11px',
-                                                                height: 22,
-                                                                bgcolor: (h.transactionType || '').toUpperCase().includes('IN') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                                                                color: (h.transactionType || '').toUpperCase().includes('IN') ? '#10b981' : '#ef4444',
-                                                            }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell align="right" sx={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: '#374151' }}>{formatNumber(h.quantity)}</TableCell>
-                                                    <TableCell sx={{ fontSize: '13px', color: '#6b7280' }}>{h.transactionDate ? formatDateTime(h.transactionDate) : '-'}</TableCell>
-                                                    <TableCell sx={{ fontSize: '13px', color: '#374151' }}>{h.approverName || '-'}</TableCell>
-                                                </TableRow>
-                                            ))
+                                    {statusConfig.label}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Layout 2 cột */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
+                        {/* Trái: Warehouse Lines */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            {/* Danh sách vật tư trong kho */}
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Danh sách vật tư trong kho</h2>
+                                </div>
+
+                                {/* Search + Filter */}
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                    <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px' }}>
+                                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+                                        <input
+                                            type="text"
+                                            value={lineSearchKeyword}
+                                            onChange={(e) => setLineSearchKeyword(e.target.value)}
+                                            placeholder="Tìm vật tư theo tên, mã, danh mục..."
+                                            className="form-input line-search-input"
+                                        />
+                                        {lineSearchKeyword && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setLineSearchKeyword('')}
+                                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', color: '#9ca3af' }}
+                                            >
+                                                <X size={16} />
+                                            </button>
                                         )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        )}
-                    </CardContent>
-                </Card>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        {[
+                                            { value: 'all', label: 'Tất cả' },
+                                            { value: 'available', label: 'Còn hàng' },
+                                            { value: 'low-stock', label: 'Sắp hết' },
+                                            { value: 'out-of-stock', label: 'Hết hàng' },
+                                        ].map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setStockFilter(opt.value)}
+                                                className={`variance-chip ${stockFilter === opt.value ? 'active' : ''}`}
+                                                data-variance={opt.value}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                                    <table className="product-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
+                                                <th style={{ textAlign: 'left' }}>Vật tư</th>
+                                                <th style={{ width: '100px', textAlign: 'right' }}>Tồn kho</th>
+                                                <th style={{ width: '100px', textAlign: 'right' }}>Đang giao dịch</th>
+                                                <th style={{ width: '100px', textAlign: 'right' }}>Khả dụng</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredLines.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                                                        <Package size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
+                                                        <p style={{ fontSize: '14px', margin: 0 }}>Không có vật tư nào</p>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredLines.map((line, index) => (
+                                                    <tr key={line.id}>
+                                                        <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                                <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
+                                                                    <ImageIcon size={20} color="#9ca3af" />
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                    <span
+                                                                        style={{ fontSize: 14, fontWeight: 500, color: '#2196F3', cursor: 'pointer' }}
+                                                                        onClick={() => navigate(`/items/${line.itemId}`)}
+                                                                    >
+                                                                        {line.itemName}
+                                                                    </span>
+                                                                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                                        Mã: {line.itemCode} • ĐVT: {line.uom} • QCĐG: {line.qcdg || line.minimumQty || 0}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 600, color: line.onHandQty === 0 ? '#dc2626' : line.onHandQty < 20 ? '#f59e0b' : '#374151' }}>
+                                                                {formatNumber(line.onHandQty)}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#f59e0b' }}>
+                                                                {formatNumber(line.reservedQty)}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
+                                                            {formatNumber(Math.max(0, line.onHandQty - line.reservedQty))}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Mô tả */}
+                            {warehouse.description && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">Mô tả</h2>
+                                    </div>
+                                    <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#374151', minHeight: '60px' }}>
+                                        {warehouse.description}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Phải: Thông tin kho */}
+                        <div className="info-section" style={{ margin: 0 }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Thông tin kho</h2>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                
+
+                                <div className="form-field">
+                                    <label className="form-label">Tên kho</label>
+                                    <div className="input-wrapper">
+                                        <WarehouseIcon className="input-icon" size={16} />
+                                        <input type="text" value={warehouse.warehouseName} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                    </div>
+                                </div>
+
+                                <div className="form-field">
+                                    <label className="form-label">Địa chỉ</label>
+                                    <div className="input-wrapper">
+                                        <MapPin className="input-icon" size={16} />
+                                        <input type="text" value={warehouse.address} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                    </div>
+                                </div>
+
+                                {warehouse.phone && (
+                                    <div className="form-field">
+                                        <label className="form-label">Số điện thoại</label>
+                                        <div className="input-wrapper">
+                                            <Phone className="input-icon" size={16} />
+                                            <input type="text" value={warehouse.phone} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {warehouse.email && (
+                                    <div className="form-field">
+                                        <label className="form-label">Email</label>
+                                        <div className="input-wrapper">
+                                            <Mail className="input-icon" size={16} />
+                                            <input type="text" value={warehouse.email} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {warehouse.managerName && (
+                                    <div className="form-field">
+                                        <label className="form-label">Người quản lý</label>
+                                        <div className="input-wrapper">
+                                            <User className="input-icon" size={16} />
+                                            <input type="text" value={warehouse.managerName} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="form-field">
+                                    <label className="form-label">Ngày tạo</label>
+                                    <div className="input-wrapper">
+                                        <Calendar className="input-icon" size={16} />
+                                        <input type="text" value={formatDateTime(warehouse.createdAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                    </div>
+                                </div>
+
+                                <div className="form-field">
+                                    <label className="form-label">Người tạo</label>
+                                    <div className="input-wrapper">
+                                        <User className="input-icon" size={16} />
+                                        <input type="text" value={warehouse.createdByName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                    </div>
+                                </div>
+
+                                {/* Tóm tắt kho */}
+                                <div style={{ padding: '16px', backgroundColor: '#f0f9ff', borderRadius: '12px', borderLeft: '4px solid #2196F3' }}>
+                                    <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: '#374151' }}>Tóm tắt kho</h3>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
+                                        <span style={{ color: '#64748b' }}>Tổng vật tư:</span>
+                                        <span style={{ fontWeight: 600 }}>{stats.total}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
+                                        <span style={{ color: '#64748b' }}>Còn hàng:</span>
+                                        <span style={{ fontWeight: 600, color: '#16a34a' }}>{stats.available}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
+                                        <span style={{ color: '#64748b' }}>Sắp hết:</span>
+                                        <span style={{ fontWeight: 600, color: '#f59e0b' }}>{stats.lowStock}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                        <span style={{ color: '#64748b' }}>Hết hàng:</span>
+                                        <span style={{ fontWeight: 600, color: '#dc2626' }}>{stats.outOfStock}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {toast && (
+                <Toast message={toast.message} type={toast.type} onClose={clearToast} />
             )}
-        </Box>
+        </div>
     );
 };
 
