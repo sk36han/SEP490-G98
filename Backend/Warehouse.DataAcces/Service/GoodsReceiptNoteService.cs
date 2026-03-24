@@ -179,7 +179,10 @@ namespace Warehouse.DataAcces.Service
             }
 
             totalGoodsAmount = totalGoodsAmount - discountAmount;
-            if (totalGoodsAmount < 0) totalGoodsAmount = 0;
+            if (totalGoodsAmount < 0)
+            {
+                throw new InvalidOperationException("Giảm giá không được lớn hơn tổng giá trị hàng hóa.");
+            }
 
             foreach (var line in request.Lines)
             {
