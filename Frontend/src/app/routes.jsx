@@ -47,6 +47,7 @@ import ViewSpecList from '../shared/pages/ViewSpecList';
 import ViewBrandList from '../shared/pages/ViewBrandList';
 import ViewUomList from '../shared/pages/ViewUomList';
 import ViewReleaseRequestList from '../shared/pages/ViewReleaseRequestList';
+import CreateReleaseRequest from '../shared/pages/CreateReleaseRequest';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -459,6 +460,16 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewReleaseRequestList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/good-delivery-notes/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
+                    <MainLayout>
+                        <CreateReleaseRequest />
                     </MainLayout>
                 </ProtectedRoute>
             }
