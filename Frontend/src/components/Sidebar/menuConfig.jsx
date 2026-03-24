@@ -166,6 +166,7 @@ const saleSupportItems = [
             { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
         ],
     },
+    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
 const saleEngineerItems = [
@@ -182,6 +183,7 @@ const saleEngineerItems = [
         ],
     },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
+    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
 ];
 
 const accountantItems = [
