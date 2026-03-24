@@ -23,7 +23,9 @@
       "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/CreateStocktake.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")",
       "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/ViewStocktakeDetail.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")",
       "Bash(npx vite:*)",
-      "Bash(timeout 10 npm run dev)"
+      "Bash(timeout 10 npm run dev)",
+      "Bash(xxd)",
+      "Bash(node:*)"
     ]
   }
 }
