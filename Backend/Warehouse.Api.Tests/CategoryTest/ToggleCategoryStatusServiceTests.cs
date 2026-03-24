@@ -34,7 +34,7 @@ namespace Warehouse.Api.Tests.CategoryTest
         {
             // Arrange
             var categoryId = 1L;
-            var currentUserId = 123L;
+            var currentUserId = 1L;
             var existingCategory = new ItemCategory { CategoryId = categoryId, CategoryCode = "C1", CategoryName = "Cat", IsActive = false };
 
             _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory> { existingCategory }.AsQueryable());
@@ -54,7 +54,7 @@ namespace Warehouse.Api.Tests.CategoryTest
         {
             // Arrange
             var categoryId = 1L;
-            var currentUserId = 123L;
+            var currentUserId = 1L;
             var existingCategory = new ItemCategory { CategoryId = categoryId, CategoryCode = "C1", CategoryName = "Cat", IsActive = true };
 
             _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory> { existingCategory }.AsQueryable());
