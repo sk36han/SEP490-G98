@@ -25,6 +25,10 @@ public partial class ReleaseRequest
 
     public DateTime? SubmittedAt { get; set; }
 
+    public DateOnly? ExpectedDate { get; set; }
+
+    public string LifecycleStatus { get; set; } = null!;
+
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
 
     public virtual Receiver Receiver { get; set; } = null!;
