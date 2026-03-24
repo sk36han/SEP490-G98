@@ -1,3 +1,4 @@
+﻿extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -6,19 +7,19 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class CategoryControllerTests
 {
 	private readonly Mock<ICategoryService> _categoryServiceMock = new();
 
 	/// <summary>
-	/// Gán fake HttpContext với UserId claim để tránh NullReferenceException khi controller gọi User.FindFirst().
+	/// GÃ¡n fake HttpContext vá»›i UserId claim Ä‘á»ƒ trÃ¡nh NullReferenceException khi controller gá»i User.FindFirst().
 	/// </summary>
 	private static void SetupUserClaims(ControllerBase controller, long userId = 1)
 	{
@@ -40,8 +41,8 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new CreateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Điện tử", ParentId = null };
-		var expected = new CategoryResponse { CategoryId = 1, CategoryCode = "ELEC", CategoryName = "Điện tử", IsActive = true };
+		var request = new CreateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­", ParentId = null };
+		var expected = new CategoryResponse { CategoryId = 1, CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­", IsActive = true };
 
 		_categoryServiceMock.Setup(x => x.CreateCategoryAsync(request, It.IsAny<long>())).ReturnsAsync(expected);
 
@@ -49,7 +50,7 @@ public class CategoryControllerTests
 		var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
 		var response = okResult.Value.Should().BeOfType<CategoryResponse>().Subject;
 		response.CategoryCode.Should().Be("ELEC");
-		response.CategoryName.Should().Be("Điện tử");
+		response.CategoryName.Should().Be("Äiá»‡n tá»­");
 		response.IsActive.Should().BeTrue();
 	}
 
@@ -57,7 +58,7 @@ public class CategoryControllerTests
 	public async Task CreateCategory_ShouldReturnBadRequest_WhenModelStateIsInvalid()
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
-		controller.ModelState.AddModelError("CategoryCode", "Mã danh mục không được để trống.");
+		controller.ModelState.AddModelError("CategoryCode", "MÃ£ danh má»¥c khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
 
 		var result = await controller.CreateCategory(new CreateCategoryRequest { CategoryName = "Test" });
 		result.Should().BeOfType<BadRequestObjectResult>();
@@ -68,14 +69,14 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new CreateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Điện tử" };
+		var request = new CreateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­" };
 		_categoryServiceMock
 			.Setup(x => x.CreateCategoryAsync(request, It.IsAny<long>()))
-			.ThrowsAsync(new InvalidOperationException("Mã danh mục 'ELEC' đã tồn tại."));
+			.ThrowsAsync(new InvalidOperationException("MÃ£ danh má»¥c 'ELEC' Ä‘Ã£ tá»“n táº¡i."));
 
 		var result = await controller.CreateCategory(request);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Mã danh mục 'ELEC' đã tồn tại." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "MÃ£ danh má»¥c 'ELEC' Ä‘Ã£ tá»“n táº¡i." });
 	}
 
 	[Fact]
@@ -83,14 +84,14 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new CreateCategoryRequest { CategoryCode = "ELEC2", CategoryName = "Điện tử" };
+		var request = new CreateCategoryRequest { CategoryCode = "ELEC2", CategoryName = "Äiá»‡n tá»­" };
 		_categoryServiceMock
 			.Setup(x => x.CreateCategoryAsync(request, It.IsAny<long>()))
-			.ThrowsAsync(new InvalidOperationException("Tên danh mục 'Điện tử' đã tồn tại trong cùng cấp cha."));
+			.ThrowsAsync(new InvalidOperationException("TÃªn danh má»¥c 'Äiá»‡n tá»­' Ä‘Ã£ tá»“n táº¡i trong cÃ¹ng cáº¥p cha."));
 
 		var result = await controller.CreateCategory(request);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Tên danh mục 'Điện tử' đã tồn tại trong cùng cấp cha." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "TÃªn danh má»¥c 'Äiá»‡n tá»­' Ä‘Ã£ tá»“n táº¡i trong cÃ¹ng cáº¥p cha." });
 	}
 
 	[Fact]
@@ -101,11 +102,11 @@ public class CategoryControllerTests
 		var request = new CreateCategoryRequest { CategoryCode = "SUB", CategoryName = "Sub", ParentId = 999 };
 		_categoryServiceMock
 			.Setup(x => x.CreateCategoryAsync(request, It.IsAny<long>()))
-			.ThrowsAsync(new KeyNotFoundException("Không tìm thấy danh mục cha với ID = 999."));
+			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y danh má»¥c cha vá»›i ID = 999."));
 
 		var result = await controller.CreateCategory(request);
 		var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-		notFoundResult.Value.Should().BeEquivalentTo(new { message = "Không tìm thấy danh mục cha với ID = 999." });
+		notFoundResult.Value.Should().BeEquivalentTo(new { message = "KhÃ´ng tÃ¬m tháº¥y danh má»¥c cha vá»›i ID = 999." });
 	}
 
 	[Fact]
@@ -113,14 +114,14 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new CreateCategoryRequest { CategoryCode = "A", CategoryName = "Test" }; // mã quá ngắn
+		var request = new CreateCategoryRequest { CategoryCode = "A", CategoryName = "Test" }; // mÃ£ quÃ¡ ngáº¯n
 		_categoryServiceMock
 			.Setup(x => x.CreateCategoryAsync(request, It.IsAny<long>()))
-			.ThrowsAsync(new ArgumentException("Mã danh mục phải có ít nhất 2 ký tự."));
+			.ThrowsAsync(new ArgumentException("MÃ£ danh má»¥c pháº£i cÃ³ Ã­t nháº¥t 2 kÃ½ tá»±."));
 
 		var result = await controller.CreateCategory(request);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Mã danh mục phải có ít nhất 2 ký tự." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "MÃ£ danh má»¥c pháº£i cÃ³ Ã­t nháº¥t 2 kÃ½ tá»±." });
 	}
 
 	[Fact]
@@ -131,7 +132,7 @@ public class CategoryControllerTests
 		{
 			HttpContext = new DefaultHttpContext()
 		};
-		var request = new CreateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Điện tử" };
+		var request = new CreateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­" };
 
 		var result = await controller.CreateCategory(request);
 		result.Should().BeOfType<UnauthorizedObjectResult>();
@@ -142,7 +143,7 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new CreateCategoryRequest { CategoryCode = "FOOD", CategoryName = "Thực phẩm" };
+		var request = new CreateCategoryRequest { CategoryCode = "FOOD", CategoryName = "Thá»±c pháº©m" };
 		_categoryServiceMock
 			.Setup(x => x.CreateCategoryAsync(request, It.IsAny<long>()))
 			.ReturnsAsync(new CategoryResponse { CategoryCode = "FOOD" })
@@ -178,16 +179,16 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		_categoryServiceMock
-			.Setup(x => x.GetCategoriesAsync(1, 20, "Điện tử", null))
+			.Setup(x => x.GetCategoriesAsync(1, 20, "Äiá»‡n tá»­", null))
 			.ReturnsAsync(new PagedResponse<CategoryResponse>
 			{
-				Items = new List<CategoryResponse> { new CategoryResponse { CategoryName = "Điện tử" } }
+				Items = new List<CategoryResponse> { new CategoryResponse { CategoryName = "Äiá»‡n tá»­" } }
 			});
 
-		var result = await controller.GetCategories(1, 20, "Điện tử");
+		var result = await controller.GetCategories(1, 20, "Äiá»‡n tá»­");
 		var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
 		var response = okResult.Value.Should().BeOfType<PagedResponse<CategoryResponse>>().Subject;
-		response.Items[0].CategoryName.Should().Be("Điện tử");
+		response.Items[0].CategoryName.Should().Be("Äiá»‡n tá»­");
 	}
 
 	[Fact]
@@ -228,11 +229,11 @@ public class CategoryControllerTests
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		_categoryServiceMock
 			.Setup(x => x.GetCategoriesAsync(1, 200, null, null))
-			.ThrowsAsync(new ArgumentException("Số lượng item mỗi trang không được vượt quá 100."));
+			.ThrowsAsync(new ArgumentException("Sá»‘ lÆ°á»£ng item má»—i trang khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 100."));
 
 		var result = await controller.GetCategories(1, 200);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Số lượng item mỗi trang không được vượt quá 100." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "Sá»‘ lÆ°á»£ng item má»—i trang khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 100." });
 	}
 
 	// =========================================================
@@ -245,7 +246,7 @@ public class CategoryControllerTests
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		_categoryServiceMock
 			.Setup(x => x.GetCategoryByIdAsync(1))
-			.ReturnsAsync(new CategoryResponse { CategoryId = 1, CategoryCode = "ELEC", CategoryName = "Điện tử" });
+			.ReturnsAsync(new CategoryResponse { CategoryId = 1, CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­" });
 
 		var result = await controller.GetCategoryById(1);
 		var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -260,11 +261,11 @@ public class CategoryControllerTests
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		_categoryServiceMock
 			.Setup(x => x.GetCategoryByIdAsync(99))
-			.ThrowsAsync(new KeyNotFoundException("Không tìm thấy danh mục với ID = 99."));
+			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i ID = 99."));
 
 		var result = await controller.GetCategoryById(99);
 		var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-		notFoundResult.Value.Should().BeEquivalentTo(new { message = "Không tìm thấy danh mục với ID = 99." });
+		notFoundResult.Value.Should().BeEquivalentTo(new { message = "KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i ID = 99." });
 	}
 
 	[Fact]
@@ -273,11 +274,11 @@ public class CategoryControllerTests
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		_categoryServiceMock
 			.Setup(x => x.GetCategoryByIdAsync(0))
-			.ThrowsAsync(new ArgumentException("ID danh mục phải là số nguyên dương."));
+			.ThrowsAsync(new ArgumentException("ID danh má»¥c pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng."));
 
 		var result = await controller.GetCategoryById(0);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "ID danh mục phải là số nguyên dương." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "ID danh má»¥c pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng." });
 	}
 
 	[Fact]
@@ -286,11 +287,11 @@ public class CategoryControllerTests
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		_categoryServiceMock
 			.Setup(x => x.GetCategoryByIdAsync(-5))
-			.ThrowsAsync(new ArgumentException("ID danh mục phải là số nguyên dương."));
+			.ThrowsAsync(new ArgumentException("ID danh má»¥c pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng."));
 
 		var result = await controller.GetCategoryById(-5);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "ID danh mục phải là số nguyên dương." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "ID danh má»¥c pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng." });
 	}
 
 	// =========================================================
@@ -302,22 +303,22 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new UpdateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Điện tử cập nhật", IsActive = true };
+		var request = new UpdateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­ cáº­p nháº­t", IsActive = true };
 		_categoryServiceMock
 			.Setup(x => x.UpdateCategoryAsync(1, request, It.IsAny<long>()))
-			.ReturnsAsync(new CategoryResponse { CategoryId = 1, CategoryCode = "ELEC", CategoryName = "Điện tử cập nhật", IsActive = true });
+			.ReturnsAsync(new CategoryResponse { CategoryId = 1, CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­ cáº­p nháº­t", IsActive = true });
 
 		var result = await controller.UpdateCategory(1, request);
 		var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
 		var response = okResult.Value.Should().BeOfType<CategoryResponse>().Subject;
-		response.CategoryName.Should().Be("Điện tử cập nhật");
+		response.CategoryName.Should().Be("Äiá»‡n tá»­ cáº­p nháº­t");
 	}
 
 	[Fact]
 	public async Task UpdateCategory_ShouldReturnBadRequest_WhenModelStateIsInvalid()
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
-		controller.ModelState.AddModelError("CategoryCode", "Mã danh mục không được để trống.");
+		controller.ModelState.AddModelError("CategoryCode", "MÃ£ danh má»¥c khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
 
 		var result = await controller.UpdateCategory(1, new UpdateCategoryRequest { CategoryName = "Test" });
 		result.Should().BeOfType<BadRequestObjectResult>();
@@ -328,14 +329,14 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new UpdateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Điện tử", IsActive = true };
+		var request = new UpdateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­", IsActive = true };
 		_categoryServiceMock
 			.Setup(x => x.UpdateCategoryAsync(999, request, It.IsAny<long>()))
-			.ThrowsAsync(new KeyNotFoundException("Không tìm thấy danh mục với ID = 999."));
+			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i ID = 999."));
 
 		var result = await controller.UpdateCategory(999, request);
 		var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-		notFoundResult.Value.Should().BeEquivalentTo(new { message = "Không tìm thấy danh mục với ID = 999." });
+		notFoundResult.Value.Should().BeEquivalentTo(new { message = "KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i ID = 999." });
 	}
 
 	[Fact]
@@ -343,14 +344,14 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new UpdateCategoryRequest { CategoryCode = "FOOD", CategoryName = "Điện tử", IsActive = true };
+		var request = new UpdateCategoryRequest { CategoryCode = "FOOD", CategoryName = "Äiá»‡n tá»­", IsActive = true };
 		_categoryServiceMock
 			.Setup(x => x.UpdateCategoryAsync(1, request, It.IsAny<long>()))
-			.ThrowsAsync(new InvalidOperationException("Mã danh mục 'FOOD' đã tồn tại."));
+			.ThrowsAsync(new InvalidOperationException("MÃ£ danh má»¥c 'FOOD' Ä‘Ã£ tá»“n táº¡i."));
 
 		var result = await controller.UpdateCategory(1, request);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Mã danh mục 'FOOD' đã tồn tại." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "MÃ£ danh má»¥c 'FOOD' Ä‘Ã£ tá»“n táº¡i." });
 	}
 
 	[Fact]
@@ -358,14 +359,14 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new UpdateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Điện tử", ParentId = 1, IsActive = true };
+		var request = new UpdateCategoryRequest { CategoryCode = "ELEC", CategoryName = "Äiá»‡n tá»­", ParentId = 1, IsActive = true };
 		_categoryServiceMock
 			.Setup(x => x.UpdateCategoryAsync(1, request, It.IsAny<long>()))
-			.ThrowsAsync(new InvalidOperationException("Danh mục không thể là cha của chính nó."));
+			.ThrowsAsync(new InvalidOperationException("Danh má»¥c khÃ´ng thá»ƒ lÃ  cha cá»§a chÃ­nh nÃ³."));
 
 		var result = await controller.UpdateCategory(1, request);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Danh mục không thể là cha của chính nó." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "Danh má»¥c khÃ´ng thá»ƒ lÃ  cha cá»§a chÃ­nh nÃ³." });
 	}
 
 	[Fact]
@@ -384,7 +385,7 @@ public class CategoryControllerTests
 	{
 		var controller = new CategoryController(_categoryServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new UpdateCategoryRequest { CategoryCode = "SOFT", CategoryName = "Phần mềm", IsActive = false };
+		var request = new UpdateCategoryRequest { CategoryCode = "SOFT", CategoryName = "Pháº§n má»m", IsActive = false };
 		_categoryServiceMock
 			.Setup(x => x.UpdateCategoryAsync(55, request, It.IsAny<long>()))
 			.ReturnsAsync(new CategoryResponse { CategoryId = 55 })
@@ -433,11 +434,11 @@ public class CategoryControllerTests
 		SetupUserClaims(controller);
 		_categoryServiceMock
 			.Setup(x => x.ToggleCategoryStatusAsync(99, true, It.IsAny<long>()))
-			.ThrowsAsync(new KeyNotFoundException("Không tìm thấy danh mục với ID = 99."));
+			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i ID = 99."));
 
 		var result = await controller.ToggleCategoryStatus(99, true);
 		var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-		notFoundResult.Value.Should().BeEquivalentTo(new { message = "Không tìm thấy danh mục với ID = 99." });
+		notFoundResult.Value.Should().BeEquivalentTo(new { message = "KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i ID = 99." });
 	}
 
 	[Fact]
@@ -447,12 +448,12 @@ public class CategoryControllerTests
 		SetupUserClaims(controller);
 		_categoryServiceMock
 			.Setup(x => x.ToggleCategoryStatusAsync(1, true, It.IsAny<long>()))
-			.ThrowsAsync(new InvalidOperationException("Danh mục 'Điện tử' hiện tại đang hoạt động. Không cần thay đổi."));
+			.ThrowsAsync(new InvalidOperationException("Danh má»¥c 'Äiá»‡n tá»­' hiá»‡n táº¡i Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng cáº§n thay Ä‘á»•i."));
 
 		var result = await controller.ToggleCategoryStatus(1, true);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 		badRequest.Value.Should().BeEquivalentTo(
-			new { message = "Danh mục 'Điện tử' hiện tại đang hoạt động. Không cần thay đổi." });
+			new { message = "Danh má»¥c 'Äiá»‡n tá»­' hiá»‡n táº¡i Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng cáº§n thay Ä‘á»•i." });
 	}
 
 	[Fact]
@@ -462,11 +463,11 @@ public class CategoryControllerTests
 		SetupUserClaims(controller);
 		_categoryServiceMock
 			.Setup(x => x.ToggleCategoryStatusAsync(0, true, It.IsAny<long>()))
-			.ThrowsAsync(new ArgumentException("ID danh mục phải là số nguyên dương."));
+			.ThrowsAsync(new ArgumentException("ID danh má»¥c pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng."));
 
 		var result = await controller.ToggleCategoryStatus(0, true);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "ID danh mục phải là số nguyên dương." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "ID danh má»¥c pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng." });
 	}
 
 	[Fact]

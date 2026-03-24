@@ -25,16 +25,26 @@ namespace Warehouse.DataAcces.Service
 		// Các role sẽ nhận thông báo về supplier
 		private static readonly string[] _notifyRoleCodes = { "ADMIN", "GD", "SALE SP" };
 
-		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService)
+		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService, Mkiwms5Context context)
 		{
 			_supplierRepository = supplierRepository;
 			_notificationService = notificationService;
 			_auditLogService = auditLogService;
-
+			_context = context;
 		}
 
 		public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
 		{
+			// 0️⃣ Validate required fields (in addition to DataAnnotations)
+			if (string.IsNullOrWhiteSpace(request.SupplierCode))
+			{
+				throw new InvalidOperationException("Mã nhà cung cấp là bắt buộc.");
+			}
+			if (string.IsNullOrWhiteSpace(request.SupplierName))
+			{
+				throw new InvalidOperationException("Tên nhà cung cấp là bắt buộc.");
+			}
+
 			// 1️⃣ Check duplicate SupplierCode
 			var suppliers = await _supplierRepository.GetAllAsync();
 			if (suppliers.Any(s => s.SupplierCode == request.SupplierCode))
@@ -130,20 +140,20 @@ namespace Warehouse.DataAcces.Service
 			{
 				query = query.Where(s =>
 					s.SupplierCode != null &&
-					s.SupplierCode.Contains(supplierCode));
+					s.SupplierCode.Contains(supplierCode, StringComparison.OrdinalIgnoreCase));
 			}
 
 			if (!string.IsNullOrWhiteSpace(supplierName))
 			{
 				query = query.Where(s =>
-					s.SupplierName.Contains(supplierName));
+					s.SupplierName.Contains(supplierName, StringComparison.OrdinalIgnoreCase));
 			}
 
 			if (!string.IsNullOrWhiteSpace(taxCode))
 			{
 				query = query.Where(s =>
 					s.TaxCode != null &&
-					s.TaxCode.Contains(taxCode));
+					s.TaxCode.Contains(taxCode, StringComparison.OrdinalIgnoreCase));
 			}
 
 			// 3. FILTER

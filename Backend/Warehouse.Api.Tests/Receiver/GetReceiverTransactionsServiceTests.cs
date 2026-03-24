@@ -8,7 +8,7 @@ using Warehouse.Entities.ModelResponse;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
 using WarehouseEntity = Warehouse.Entities.Models.Warehouse;
 
-namespace Warehouse.Api.Tests.ReceiverServiceTests;
+namespace WarehouseTests.ReceiverServiceTests;
 
 public class GetReceiverTransactionsServiceTests : IDisposable
 {

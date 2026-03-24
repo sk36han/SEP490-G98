@@ -6,7 +6,7 @@ using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
 
-namespace Warehouse.Api.Tests.ReceiverServiceTests;
+namespace WarehouseTests.ReceiverServiceTests;
 
 public class GetReceiversServiceTests
 {

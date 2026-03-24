@@ -1,3 +1,4 @@
+﻿extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -6,19 +7,19 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class BrandControllerTests
 {
 	private readonly Mock<IBrandService> _brandServiceMock = new();
 
 	/// <summary>
-	/// Gán fake HttpContext với UserId claim để tránh NullReferenceException khi controller gọi User.FindFirst().
+	/// GÃ¡n fake HttpContext vá»›i UserId claim Ä‘á»ƒ trÃ¡nh NullReferenceException khi controller gá»i User.FindFirst().
 	/// </summary>
 	private static void SetupUserClaims(ControllerBase controller, long userId = 1)
 	{
@@ -56,7 +57,7 @@ public class BrandControllerTests
 	public async Task CreateBrand_ShouldReturnBadRequest_WhenModelStateIsInvalid()
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
-		controller.ModelState.AddModelError("BrandName", "Tên thương hiệu không được để trống.");
+		controller.ModelState.AddModelError("BrandName", "TÃªn thÆ°Æ¡ng hiá»‡u khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
 
 		var result = await controller.CreateBrand(new CreateBrandRequest());
 		result.Should().BeOfType<BadRequestObjectResult>();
@@ -70,18 +71,18 @@ public class BrandControllerTests
 		var request = new CreateBrandRequest { BrandName = "Nike" };
 		_brandServiceMock
 			.Setup(x => x.CreateBrandAsync(request, It.IsAny<long>()))
-			.ThrowsAsync(new InvalidOperationException("Thương hiệu 'Nike' đã tồn tại."));
+			.ThrowsAsync(new InvalidOperationException("ThÆ°Æ¡ng hiá»‡u 'Nike' Ä‘Ã£ tá»“n táº¡i."));
 
 		var result = await controller.CreateBrand(request);
 		var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequestResult.Value.Should().BeEquivalentTo(new { message = "Thương hiệu 'Nike' đã tồn tại." });
+		badRequestResult.Value.Should().BeEquivalentTo(new { message = "ThÆ°Æ¡ng hiá»‡u 'Nike' Ä‘Ã£ tá»“n táº¡i." });
 	}
 
 	[Fact]
 	public async Task CreateBrand_ShouldReturnBadRequest_WhenBrandNameIsBlank_ModelState()
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
-		controller.ModelState.AddModelError("BrandName", "Tên thương hiệu không được để trống.");
+		controller.ModelState.AddModelError("BrandName", "TÃªn thÆ°Æ¡ng hiá»‡u khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
 
 		var result = await controller.CreateBrand(new CreateBrandRequest { BrandName = "   " });
 		result.Should().BeOfType<BadRequestObjectResult>();
@@ -92,21 +93,21 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new CreateBrandRequest { BrandName = "A" }; // quá ngắn
+		var request = new CreateBrandRequest { BrandName = "A" }; // quÃ¡ ngáº¯n
 		_brandServiceMock
 			.Setup(x => x.CreateBrandAsync(request, It.IsAny<long>()))
-			.ThrowsAsync(new ArgumentException("Tên thương hiệu phải có ít nhất 2 ký tự."));
+			.ThrowsAsync(new ArgumentException("TÃªn thÆ°Æ¡ng hiá»‡u pháº£i cÃ³ Ã­t nháº¥t 2 kÃ½ tá»±."));
 
 		var result = await controller.CreateBrand(request);
 		var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequestResult.Value.Should().BeEquivalentTo(new { message = "Tên thương hiệu phải có ít nhất 2 ký tự." });
+		badRequestResult.Value.Should().BeEquivalentTo(new { message = "TÃªn thÆ°Æ¡ng hiá»‡u pháº£i cÃ³ Ã­t nháº¥t 2 kÃ½ tá»±." });
 	}
 
 	[Fact]
 	public async Task CreateBrand_ShouldReturnBadRequest_WhenBrandNameExceedsMaxLength()
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
-		controller.ModelState.AddModelError("BrandName", "Tên thương hiệu không được vượt quá 255 ký tự.");
+		controller.ModelState.AddModelError("BrandName", "TÃªn thÆ°Æ¡ng hiá»‡u khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 255 kÃ½ tá»±.");
 
 		var result = await controller.CreateBrand(new CreateBrandRequest { BrandName = new string('A', 256) });
 		result.Should().BeOfType<BadRequestObjectResult>();
@@ -249,11 +250,11 @@ public class BrandControllerTests
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
 			.Setup(x => x.GetBrandByIdAsync(99))
-			.ThrowsAsync(new KeyNotFoundException("Không tìm thấy thương hiệu với ID = 99."));
+			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y thÆ°Æ¡ng hiá»‡u vá»›i ID = 99."));
 
 		var result = await controller.GetBrandById(99);
 		var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-		notFoundResult.Value.Should().BeEquivalentTo(new { message = "Không tìm thấy thương hiệu với ID = 99." });
+		notFoundResult.Value.Should().BeEquivalentTo(new { message = "KhÃ´ng tÃ¬m tháº¥y thÆ°Æ¡ng hiá»‡u vá»›i ID = 99." });
 	}
 
 	[Fact]
@@ -262,11 +263,11 @@ public class BrandControllerTests
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
 			.Setup(x => x.GetBrandByIdAsync(0))
-			.ThrowsAsync(new ArgumentException("ID thương hiệu không hợp lệ."));
+			.ThrowsAsync(new ArgumentException("ID thÆ°Æ¡ng hiá»‡u khÃ´ng há»£p lá»‡."));
 
 		var result = await controller.GetBrandById(0);
 		var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequestResult.Value.Should().BeEquivalentTo(new { message = "ID thương hiệu không hợp lệ." });
+		badRequestResult.Value.Should().BeEquivalentTo(new { message = "ID thÆ°Æ¡ng hiá»‡u khÃ´ng há»£p lá»‡." });
 	}
 
 	// =========================================================
@@ -293,7 +294,7 @@ public class BrandControllerTests
 	public async Task UpdateBrand_ShouldReturnBadRequest_WhenModelStateIsInvalid()
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
-		controller.ModelState.AddModelError("BrandName", "Tên thương hiệu không được để trống.");
+		controller.ModelState.AddModelError("BrandName", "TÃªn thÆ°Æ¡ng hiá»‡u khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng.");
 
 		var result = await controller.UpdateBrand(1, new UpdateBrandRequest());
 		result.Should().BeOfType<BadRequestObjectResult>();
@@ -307,11 +308,11 @@ public class BrandControllerTests
 		var request = new UpdateBrandRequest { BrandName = "Brand X", IsActive = true };
 		_brandServiceMock
 			.Setup(x => x.UpdateBrandAsync(999, request, It.IsAny<long>()))
-			.ThrowsAsync(new KeyNotFoundException("Không tìm thấy thương hiệu với ID = 999."));
+			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y thÆ°Æ¡ng hiá»‡u vá»›i ID = 999."));
 
 		var result = await controller.UpdateBrand(999, request);
 		var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-		notFoundResult.Value.Should().BeEquivalentTo(new { message = "Không tìm thấy thương hiệu với ID = 999." });
+		notFoundResult.Value.Should().BeEquivalentTo(new { message = "KhÃ´ng tÃ¬m tháº¥y thÆ°Æ¡ng hiá»‡u vá»›i ID = 999." });
 	}
 
 	[Fact]
@@ -322,11 +323,11 @@ public class BrandControllerTests
 		var request = new UpdateBrandRequest { BrandName = "Adidas", IsActive = true };
 		_brandServiceMock
 			.Setup(x => x.UpdateBrandAsync(1, request, It.IsAny<long>()))
-			.ThrowsAsync(new InvalidOperationException("Thương hiệu 'Adidas' đã tồn tại."));
+			.ThrowsAsync(new InvalidOperationException("ThÆ°Æ¡ng hiá»‡u 'Adidas' Ä‘Ã£ tá»“n táº¡i."));
 
 		var result = await controller.UpdateBrand(1, request);
 		var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequestResult.Value.Should().BeEquivalentTo(new { message = "Thương hiệu 'Adidas' đã tồn tại." });
+		badRequestResult.Value.Should().BeEquivalentTo(new { message = "ThÆ°Æ¡ng hiá»‡u 'Adidas' Ä‘Ã£ tá»“n táº¡i." });
 	}
 
 	[Fact]
@@ -334,14 +335,14 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		SetupUserClaims(controller);
-		var request = new UpdateBrandRequest { BrandName = "A", IsActive = true }; // quá ngắn
+		var request = new UpdateBrandRequest { BrandName = "A", IsActive = true }; // quÃ¡ ngáº¯n
 		_brandServiceMock
 			.Setup(x => x.UpdateBrandAsync(1, request, It.IsAny<long>()))
-			.ThrowsAsync(new ArgumentException("Tên thương hiệu phải có ít nhất 2 ký tự."));
+			.ThrowsAsync(new ArgumentException("TÃªn thÆ°Æ¡ng hiá»‡u pháº£i cÃ³ Ã­t nháº¥t 2 kÃ½ tá»±."));
 
 		var result = await controller.UpdateBrand(1, request);
 		var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequestResult.Value.Should().BeEquivalentTo(new { message = "Tên thương hiệu phải có ít nhất 2 ký tự." });
+		badRequestResult.Value.Should().BeEquivalentTo(new { message = "TÃªn thÆ°Æ¡ng hiá»‡u pháº£i cÃ³ Ã­t nháº¥t 2 kÃ½ tá»±." });
 	}
 
 	[Fact]
@@ -406,11 +407,11 @@ public class BrandControllerTests
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
 			.Setup(x => x.ToggleBrandStatusAsync(99, true))
-			.ThrowsAsync(new KeyNotFoundException("Không tìm thấy thương hiệu với ID = 99."));
+			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y thÆ°Æ¡ng hiá»‡u vá»›i ID = 99."));
 
 		var result = await controller.ToggleBrandStatus(99, true);
 		var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-		notFoundResult.Value.Should().BeEquivalentTo(new { message = "Không tìm thấy thương hiệu với ID = 99." });
+		notFoundResult.Value.Should().BeEquivalentTo(new { message = "KhÃ´ng tÃ¬m tháº¥y thÆ°Æ¡ng hiá»‡u vá»›i ID = 99." });
 	}
 
 	[Fact]
@@ -419,12 +420,12 @@ public class BrandControllerTests
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
 			.Setup(x => x.ToggleBrandStatusAsync(1, true))
-			.ThrowsAsync(new InvalidOperationException("Thương hiệu 'Nike' hiện tại đang hoạt động. Không cần thay đổi."));
+			.ThrowsAsync(new InvalidOperationException("ThÆ°Æ¡ng hiá»‡u 'Nike' hiá»‡n táº¡i Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng cáº§n thay Ä‘á»•i."));
 
 		var result = await controller.ToggleBrandStatus(1, true);
 		var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 		badRequestResult.Value.Should().BeEquivalentTo(
-			new { message = "Thương hiệu 'Nike' hiện tại đang hoạt động. Không cần thay đổi." });
+			new { message = "ThÆ°Æ¡ng hiá»‡u 'Nike' hiá»‡n táº¡i Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng cáº§n thay Ä‘á»•i." });
 	}
 
 	[Fact]
@@ -433,11 +434,11 @@ public class BrandControllerTests
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
 			.Setup(x => x.ToggleBrandStatusAsync(0, true))
-			.ThrowsAsync(new ArgumentException("ID thương hiệu không hợp lệ."));
+			.ThrowsAsync(new ArgumentException("ID thÆ°Æ¡ng hiá»‡u khÃ´ng há»£p lá»‡."));
 
 		var result = await controller.ToggleBrandStatus(0, true);
 		var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequestResult.Value.Should().BeEquivalentTo(new { message = "ID thương hiệu không hợp lệ." });
+		badRequestResult.Value.Should().BeEquivalentTo(new { message = "ID thÆ°Æ¡ng hiá»‡u khÃ´ng há»£p lá»‡." });
 	}
 
 	[Fact]
@@ -454,26 +455,26 @@ public class BrandControllerTests
 	}
 
 	// =========================================================
-	// 6. Service-level Validation (ArgumentException từ service)
+	// 6. Service-level Validation (ArgumentException tá»« service)
 	// =========================================================
 
 	[Fact]
 	public async Task CreateBrand_ShouldReturnBadRequest_WhenBrandNameContainsInvalidChars()
 	{
-		// Service validate regex: ký tự < > / \ | ' " ; không được phép
+		// Service validate regex: kÃ½ tá»± < > / \ | ' " ; khÃ´ng Ä‘Æ°á»£c phÃ©p
 		var controller = new BrandController(_brandServiceMock.Object);
 		SetupUserClaims(controller);
 		var request = new CreateBrandRequest { BrandName = "Nike<script>" };
 		_brandServiceMock
 			.Setup(x => x.CreateBrandAsync(request, It.IsAny<long>()))
 			.ThrowsAsync(new ArgumentException(
-				"Tên thương hiệu chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.) và ký tự &."));
+				"TÃªn thÆ°Æ¡ng hiá»‡u chá»‰ Ä‘Æ°á»£c chá»©a chá»¯ cÃ¡i, chá»¯ sá»‘, khoáº£ng tráº¯ng, dáº¥u gáº¡ch ngang (-), dáº¥u cháº¥m (.) vÃ  kÃ½ tá»± &."));
 
 		var result = await controller.CreateBrand(request);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 		badRequest.Value.Should().BeEquivalentTo(new
 		{
-			message = "Tên thương hiệu chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.) và ký tự &."
+			message = "TÃªn thÆ°Æ¡ng hiá»‡u chá»‰ Ä‘Æ°á»£c chá»©a chá»¯ cÃ¡i, chá»¯ sá»‘, khoáº£ng tráº¯ng, dáº¥u gáº¡ch ngang (-), dáº¥u cháº¥m (.) vÃ  kÃ½ tá»± &."
 		});
 	}
 
@@ -486,13 +487,13 @@ public class BrandControllerTests
 		_brandServiceMock
 			.Setup(x => x.UpdateBrandAsync(1, request, It.IsAny<long>()))
 			.ThrowsAsync(new ArgumentException(
-				"Tên thương hiệu chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.) và ký tự &."));
+				"TÃªn thÆ°Æ¡ng hiá»‡u chá»‰ Ä‘Æ°á»£c chá»©a chá»¯ cÃ¡i, chá»¯ sá»‘, khoáº£ng tráº¯ng, dáº¥u gáº¡ch ngang (-), dáº¥u cháº¥m (.) vÃ  kÃ½ tá»± &."));
 
 		var result = await controller.UpdateBrand(1, request);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 		badRequest.Value.Should().BeEquivalentTo(new
 		{
-			message = "Tên thương hiệu chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.) và ký tự &."
+			message = "TÃªn thÆ°Æ¡ng hiá»‡u chá»‰ Ä‘Æ°á»£c chá»©a chá»¯ cÃ¡i, chá»¯ sá»‘, khoáº£ng tráº¯ng, dáº¥u gáº¡ch ngang (-), dáº¥u cháº¥m (.) vÃ  kÃ½ tá»± &."
 		});
 	}
 
@@ -502,29 +503,29 @@ public class BrandControllerTests
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
 			.Setup(x => x.GetBrandsAsync(1, 200, null, null))
-			.ThrowsAsync(new ArgumentException("Số lượng item mỗi trang không được vượt quá 100."));
+			.ThrowsAsync(new ArgumentException("Sá»‘ lÆ°á»£ng item má»—i trang khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 100."));
 
 		var result = await controller.GetBrands(1, 200);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Số lượng item mỗi trang không được vượt quá 100." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "Sá»‘ lÆ°á»£ng item má»—i trang khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 100." });
 	}
 
 	[Fact]
 	public async Task CreateBrand_ShouldReturnBadRequest_WhenUserIdIsZero()
 	{
-		// userId = 0 vẫn bị từ chối bởi controller (Unauthorized) vì claim không parse được
-		// Trường hợp này test service throw ArgumentException khi userId <= 0
+		// userId = 0 váº«n bá»‹ tá»« chá»‘i bá»Ÿi controller (Unauthorized) vÃ¬ claim khÃ´ng parse Ä‘Æ°á»£c
+		// TrÆ°á»ng há»£p nÃ y test service throw ArgumentException khi userId <= 0
 		var controller = new BrandController(_brandServiceMock.Object);
 		SetupUserClaims(controller, userId: 0); // claim value = "0"
 		var request = new CreateBrandRequest { BrandName = "ValidBrand" };
 		_brandServiceMock
 			.Setup(x => x.CreateBrandAsync(request, 0))
-			.ThrowsAsync(new ArgumentException("ID người dùng không hợp lệ."));
+			.ThrowsAsync(new ArgumentException("ID ngÆ°á»i dÃ¹ng khÃ´ng há»£p lá»‡."));
 
 		var result = await controller.CreateBrand(request);
-		// Vì token parse thành công nhưng service throw ArgumentException → BadRequest
+		// VÃ¬ token parse thÃ nh cÃ´ng nhÆ°ng service throw ArgumentException â†’ BadRequest
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "ID người dùng không hợp lệ." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "ID ngÆ°á»i dÃ¹ng khÃ´ng há»£p lá»‡." });
 	}
 
 	[Fact]
@@ -534,11 +535,11 @@ public class BrandControllerTests
 		var longKeyword = new string('A', 256);
 		_brandServiceMock
 			.Setup(x => x.GetBrandsAsync(1, 20, longKeyword, null))
-			.ThrowsAsync(new ArgumentException("Từ khoá tìm kiếm không được vượt quá 255 ký tự."));
+			.ThrowsAsync(new ArgumentException("Tá»« khoÃ¡ tÃ¬m kiáº¿m khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 255 kÃ½ tá»±."));
 
 		var result = await controller.GetBrands(1, 20, longKeyword);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "Từ khoá tìm kiếm không được vượt quá 255 ký tự." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "Tá»« khoÃ¡ tÃ¬m kiáº¿m khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 255 kÃ½ tá»±." });
 	}
 
 	[Fact]
@@ -547,11 +548,11 @@ public class BrandControllerTests
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
 			.Setup(x => x.GetBrandByIdAsync(-5))
-			.ThrowsAsync(new ArgumentException("ID thương hiệu phải là số nguyên dương."));
+			.ThrowsAsync(new ArgumentException("ID thÆ°Æ¡ng hiá»‡u pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng."));
 
 		var result = await controller.GetBrandById(-5);
 		var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-		badRequest.Value.Should().BeEquivalentTo(new { message = "ID thương hiệu phải là số nguyên dương." });
+		badRequest.Value.Should().BeEquivalentTo(new { message = "ID thÆ°Æ¡ng hiá»‡u pháº£i lÃ  sá»‘ nguyÃªn dÆ°Æ¡ng." });
 	}
 }
 

@@ -5,7 +5,7 @@ using Warehouse.DataAcces.Service;
 using Warehouse.Entities.Models;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
 
-namespace Warehouse.Api.Tests.ReceiverServiceTests;
+namespace WarehouseTests.ReceiverServiceTests;
 
 public class ToggleReceiverStatusServiceTests
 {
