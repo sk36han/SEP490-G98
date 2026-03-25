@@ -44,6 +44,20 @@ namespace Warehouse.DataAcces.Service
             if (!receiver.IsActive)
                 throw new InvalidOperationException("Người nhận đang không hoạt động.");
 
+            // Cập nhật thông tin Công ty/Địa chỉ cho Người nhận nếu có truyền lên
+            if (request.CompanyId.HasValue) receiver.CompanyId = request.CompanyId.Value;
+            if (request.AddressId.HasValue)
+            {
+                var addr = await _context.Addresses.FindAsync(request.AddressId.Value);
+                if (addr != null)
+                {
+                    receiver.Address = addr.AddressDetail;
+                    receiver.City = addr.City;
+                    receiver.District = addr.District;
+                    receiver.Ward = addr.Ward;
+                }
+            }
+
             // 4. Validate: Người tạo
             var requestedByUser = await _context.Users
                 .FirstOrDefaultAsync(u => u.UserId == requestedByUserId);
@@ -258,6 +272,7 @@ namespace Warehouse.DataAcces.Service
         {
             // 1. Lấy yêu cầu xuất kho cùng lines
             var rr = await _context.ReleaseRequests
+                .Include(r => r.Receiver)
                 .Include(r => r.ReleaseRequestLines)
                 .FirstOrDefaultAsync(r => r.ReleaseRequestId == id);
 
@@ -288,15 +303,32 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 5. Cập nhật người nhận
-            if (request.ReceiverId.HasValue)
+            if (request.ReceiverId.HasValue && request.ReceiverId.Value != rr.ReceiverId)
             {
-                var receiver = await _context.Receivers
+                var newReceiver = await _context.Receivers
                     .FirstOrDefaultAsync(r => r.ReceiverId == request.ReceiverId.Value);
-                if (receiver == null)
-                    throw new KeyNotFoundException("Không tìm thấy người nhận.");
-                if (!receiver.IsActive)
-                    throw new InvalidOperationException("Người nhận đang không hoạt động.");
+                if (newReceiver == null)
+                    throw new KeyNotFoundException("Không tìm thấy người nhận mới.");
+                if (!newReceiver.IsActive)
+                    throw new InvalidOperationException("Người nhận mới đang không hoạt động.");
+                
                 rr.ReceiverId = request.ReceiverId.Value;
+                // Nếu đổi người nhận thì dùng người nhận mới để update info bên dưới
+                rr.Receiver = newReceiver; 
+            }
+
+            // Cập nhật thông tin Công ty/Địa chỉ cho Người nhận hiện tại của đơn
+            if (request.CompanyId.HasValue) rr.Receiver.CompanyId = request.CompanyId.Value;
+            if (request.AddressId.HasValue)
+            {
+                var addr = await _context.Addresses.FindAsync(request.AddressId.Value);
+                if (addr != null)
+                {
+                    rr.Receiver.Address = addr.AddressDetail;
+                    rr.Receiver.City = addr.City;
+                    rr.Receiver.District = addr.District;
+                    rr.Receiver.Ward = addr.Ward;
+                }
             }
 
             // 6. Cập nhật ngày xuất dự kiến
