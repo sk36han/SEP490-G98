@@ -63,7 +63,7 @@ const MOCK_GRNS = [
 
 const MAX_REASON_LENGTH = 250;
 const MAX_NOTE_LENGTH = 250;
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -242,7 +242,7 @@ const CreatePurchaseReturn = () => {
             if (value && value > TODAY) {
                 setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được ở tương lai' }));
             } else if (value && formData.grnReceiptDate && value < formData.grnReceiptDate) {
-                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến' }));
+                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được sớm hơn Ngày nhập của GRN' }));
             } else {
                 setErrors((prev) => {
                     const next = { ...prev };
@@ -464,7 +464,7 @@ const CreatePurchaseReturn = () => {
             } else if (formData.refundRecordedDate > TODAY) {
                 newErrors.refundRecordedDate = 'Ngày ghi nhận không được ở tương lai';
             } else if (formData.grnReceiptDate && formData.refundRecordedDate < formData.grnReceiptDate) {
-                newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến';
+                newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập của GRN';
             }
         }
 
