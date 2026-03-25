@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import authService from '../../shared/lib/authService';
 import { getSuppliers } from '../../shared/lib/supplierService';
 
 const SupplierContext = createContext(null);
@@ -22,7 +23,10 @@ export function SupplierProvider({ children }) {
     }
   }, [suppliers.length]);
 
-  useEffect(() => { fetchSuppliers(); }, []);
+  useEffect(() => {
+    if (!authService.getToken()) return;
+    fetchSuppliers();
+  }, []);
 
   const value = {
     suppliers,

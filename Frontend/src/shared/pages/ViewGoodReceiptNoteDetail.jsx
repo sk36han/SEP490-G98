@@ -215,6 +215,8 @@ const ViewGoodReceiptNoteDetail = () => {
     const isPOFullyReceived = grnData?.purchaseOrderLifecycleStatus === 'FullRcv';
     const showReturnButton = isAccountant && isGRNFinalized && isPOFullyReceived;
     const showApproveButton = isAccountant && !isGRNFinalized;
+    // Hiện nút Trả hàng cho mọi role (nếu chưa có nút Trả hàng ở trên)
+    const showGeneralReturnButton = !showReturnButton && grnData?.grnId;
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
@@ -415,6 +417,20 @@ const ViewGoodReceiptNoteDetail = () => {
                             <RotateCcw size={16} className="btn-icon" />
                             Trả hàng
                             </button>
+                    )}
+
+                    {/* Nút Trả hàng cho các role khác */}
+                    {showGeneralReturnButton && (
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => navigate(`/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
+                            disabled={submitting}
+                            style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
+                        >
+                            <RotateCcw size={16} className="btn-icon" />
+                            Trả hàng
+                        </button>
                     )}
                     {/* Neu la Thủ Kho - hien thi thong bao */}
                     {isWarehouseKeeper && (

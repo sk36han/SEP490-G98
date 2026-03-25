@@ -223,11 +223,33 @@ const accountantItems = [
         path: '/products',
         icon: <BoxIcon size={22} />,
         label: 'Vật tư',
-        matchPaths: BASIC_PRODUCT_MATCH_PATHS,
+        matchPaths: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands', '/items/create', '/items/edit', '/items'],
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/categories', label: 'Danh mục' },
             { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/packaging-spec', label: 'Quy cách đóng gói' },
+            { path: '/specs', label: 'Thông số' },
             { path: '/brands', label: 'Thương hiệu' },
+        ],
+    },
+    {
+        id: 'suppliers-mgmt',
+        path: '/suppliers',
+        icon: <Truck size={22} />,
+        label: 'Nhà cung cấp',
+        children: [
+            { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
+            { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
+        ],
+    },
+    {
+        id: 'receivers-mgmt',
+        path: '/receivers',
+        icon: <Users size={22} />,
+        label: 'Người nhận',
+        children: [
+            { path: '/receivers', label: 'Danh sách người nhận' },
         ],
     },
     {
@@ -253,6 +275,7 @@ const accountantItems = [
         label: 'Trả hàng',
         children: [
             { path: '/purchase-returns', label: 'Danh sách phiếu trả hàng' },
+            { path: '/purchase-returns/create', label: 'Tạo phiếu trả hàng' },
         ],
     },
     {

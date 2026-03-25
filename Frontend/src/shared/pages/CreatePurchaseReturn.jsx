@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
     Plus,
@@ -68,9 +68,56 @@ const MOCK_GRNS = [
 
 const CreatePurchaseReturn = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
     const currentUser = { userId: 1, fullName: 'Nguyễn Văn A' };
+
+    // Load GRN data from URL params on mount
+    useEffect(() => {
+        const grnId = searchParams.get('grnId');
+        const grnCode = searchParams.get('grnCode');
+
+        if (grnId && grnCode) {
+            const foundGrn = MOCK_GRNS.find((g) => g.id === Number(grnId) && g.grnCode === grnCode);
+            if (foundGrn) {
+                setFormData((prev) => ({
+                    ...prev,
+                    relatedGRNId: foundGrn.id,
+                    relatedGRNCode: foundGrn.grnCode,
+                    supplierId: foundGrn.supplierId,
+                    supplierName: foundGrn.supplierName,
+                    supplierPhone: foundGrn.supplierPhone,
+                    supplierEmail: foundGrn.supplierEmail,
+                    supplierTaxCode: foundGrn.supplierTaxCode,
+                    supplierAddressProvince: foundGrn.supplierAddressProvince,
+                    supplierAddressDistrict: foundGrn.supplierAddressDistrict,
+                    supplierAddressWard: foundGrn.supplierAddressWard,
+                    supplierAddressStreet: foundGrn.supplierAddressStreet,
+                    warehouseId: foundGrn.warehouseId,
+                    warehouseName: foundGrn.warehouseName,
+                }));
+
+                // Auto-fill lines from GRN
+                const autoLines = foundGrn.lines.map((item) => ({
+                    id: Date.now() + Math.random() + item.grnLineId,
+                    grnLineId: item.grnLineId,
+                    productId: item.productId,
+                    sku: item.sku,
+                    productName: item.productName,
+                    uom: item.uom,
+                    receivedQty: Number(item.receivedQty) || 0,
+                    returnQty: 1,
+                    unitPrice: Number(item.unitPrice) || 0,
+                    totalPrice: Number(item.unitPrice) || 0,
+                }));
+                setLines(autoLines);
+                setSelectedProductIds(foundGrn.lines.map((item) => item.productId));
+                setGrnQuery(foundGrn.grnCode);
+                showToast('Đã tải thông tin từ phiếu nhập kho', 'success');
+            }
+        }
+    }, []);
 
     const [formData, setFormData] = useState({
         relatedGRNId: '',

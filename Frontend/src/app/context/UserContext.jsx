@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import authService from '../../shared/lib/authService';
 import { getAccountants } from '../../shared/lib/userService';
 
 const UserContext = createContext(null);
@@ -22,7 +23,10 @@ export function UserProvider({ children }) {
     }
   }, [users.length]);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    if (!authService.getToken()) return;
+    fetchUsers();
+  }, []);
 
   const value = {
     users,

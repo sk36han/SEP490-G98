@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import authService from '../../shared/lib/authService';
 import { getCategoryList } from '../../shared/lib/categoryService';
 import { getSuppliers } from '../../shared/lib/supplierService';
 import { getWarehouses } from '../../shared/lib/warehouseService';
@@ -146,6 +147,7 @@ export function MasterDataProvider({ children }) {
 
   // Initial load
   useEffect(() => {
+    if (!authService.getToken()) return;
     fetchCategories();
     fetchSuppliers();
     fetchWarehouses();

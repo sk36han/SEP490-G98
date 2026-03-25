@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import authService from '../../shared/lib/authService';
 import { getUomList } from '../../shared/lib/uomService';
 
 const UomContext = createContext(null);
@@ -22,7 +23,10 @@ export function UomProvider({ children }) {
     }
   }, [uoms.length]);
 
-  useEffect(() => { fetchUoms(); }, []);
+  useEffect(() => {
+    if (!authService.getToken()) return;
+    fetchUoms();
+  }, []);
 
   const value = {
     uoms,
