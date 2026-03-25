@@ -27,5 +27,7 @@ namespace Warehouse.Entities.Constants
 		public const string ItemParameterValue = "ItemParameterValue";
 		public const string PackagingSpec = "PackagingSpec";
 		public const string TransportInfo = "TransportInfo";
+		public const string Company = "Company";
+		public const string Address = "Address";
 	}
 }
