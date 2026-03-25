@@ -44,6 +44,20 @@ namespace Warehouse.DataAcces.Service
             if (!receiver.IsActive)
                 throw new InvalidOperationException("Người nhận đang không hoạt động.");
 
+            // Cập nhật thông tin Công ty/Địa chỉ cho Người nhận nếu có truyền lên
+            if (request.CompanyId.HasValue) receiver.CompanyId = request.CompanyId.Value;
+            if (request.AddressId.HasValue)
+            {
+                var addr = await _context.Addresses.FindAsync(request.AddressId.Value);
+                if (addr != null)
+                {
+                    receiver.Address = addr.AddressDetail;
+                    receiver.City = addr.City;
+                    receiver.District = addr.District;
+                    receiver.Ward = addr.Ward;
+                }
+            }
+
             // 4. Validate: Người tạo
             var requestedByUser = await _context.Users
                 .FirstOrDefaultAsync(u => u.UserId == requestedByUserId);
@@ -141,6 +155,7 @@ namespace Warehouse.DataAcces.Service
             var query = _context.ReleaseRequests
                 .Include(rr => rr.Warehouse)
                 .Include(rr => rr.Receiver)
+                    .ThenInclude(rc => rc.Company)
                 .Include(rr => rr.RequestedByNavigation)
                 .Include(rr => rr.ReleaseRequestLines)
                 .AsQueryable();
@@ -164,6 +179,9 @@ namespace Warehouse.DataAcces.Service
                     WarehouseName = rr.Warehouse != null ? rr.Warehouse.WarehouseName : null,
                     ReceiverId = rr.ReceiverId,
                     ReceiverName = rr.Receiver != null ? rr.Receiver.ReceiverName : null,
+                    CompanyId = rr.Receiver != null ? rr.Receiver.CompanyId : null,
+                    CompanyName = (rr.Receiver != null && rr.Receiver.Company != null) ? rr.Receiver.Company.CompanyName : null,
+                    ReceiverAddress = rr.Receiver != null ? rr.Receiver.Address : null,
                     RequestedBy = rr.RequestedBy,
                     RequestedByName = rr.RequestedByNavigation != null ? rr.RequestedByNavigation.FullName : null,
                     TotalItems = rr.ReleaseRequestLines.Count,
@@ -217,6 +235,8 @@ namespace Warehouse.DataAcces.Service
                     ReceiverName = rr.Receiver.ReceiverName,
                     Phone = rr.Receiver.Phone,
                     Email = rr.Receiver.Email,
+                    CompanyId = rr.Receiver.CompanyId,
+                    CompanyName = rr.Receiver.Company?.CompanyName,
                     Notes = rr.Receiver.Notes,
                     Address = rr.Receiver.Address,
                     City = rr.Receiver.City,
@@ -252,6 +272,7 @@ namespace Warehouse.DataAcces.Service
         {
             // 1. Lấy yêu cầu xuất kho cùng lines
             var rr = await _context.ReleaseRequests
+                .Include(r => r.Receiver)
                 .Include(r => r.ReleaseRequestLines)
                 .FirstOrDefaultAsync(r => r.ReleaseRequestId == id);
 
@@ -282,15 +303,32 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 5. Cập nhật người nhận
-            if (request.ReceiverId.HasValue)
+            if (request.ReceiverId.HasValue && request.ReceiverId.Value != rr.ReceiverId)
             {
-                var receiver = await _context.Receivers
+                var newReceiver = await _context.Receivers
                     .FirstOrDefaultAsync(r => r.ReceiverId == request.ReceiverId.Value);
-                if (receiver == null)
-                    throw new KeyNotFoundException("Không tìm thấy người nhận.");
-                if (!receiver.IsActive)
-                    throw new InvalidOperationException("Người nhận đang không hoạt động.");
+                if (newReceiver == null)
+                    throw new KeyNotFoundException("Không tìm thấy người nhận mới.");
+                if (!newReceiver.IsActive)
+                    throw new InvalidOperationException("Người nhận mới đang không hoạt động.");
+                
                 rr.ReceiverId = request.ReceiverId.Value;
+                // Nếu đổi người nhận thì dùng người nhận mới để update info bên dưới
+                rr.Receiver = newReceiver; 
+            }
+
+            // Cập nhật thông tin Công ty/Địa chỉ cho Người nhận hiện tại của đơn
+            if (request.CompanyId.HasValue) rr.Receiver.CompanyId = request.CompanyId.Value;
+            if (request.AddressId.HasValue)
+            {
+                var addr = await _context.Addresses.FindAsync(request.AddressId.Value);
+                if (addr != null)
+                {
+                    rr.Receiver.Address = addr.AddressDetail;
+                    rr.Receiver.City = addr.City;
+                    rr.Receiver.District = addr.District;
+                    rr.Receiver.Ward = addr.Ward;
+                }
             }
 
             // 6. Cập nhật ngày xuất dự kiến
@@ -441,23 +479,43 @@ namespace Warehouse.DataAcces.Service
       
         private async Task<string> GenerateNextRRCodeAsync()
         {
-            var codes = await _context.ReleaseRequests
-                .Where(r => r.ReleaseRequestCode.StartsWith("RR"))
+            var year = DateTime.Now.Year;
+            var prefix = $"XR-{year}-";
+            
+            var lastCode = await _context.ReleaseRequests
+                .Where(r => r.ReleaseRequestCode.StartsWith(prefix))
+                .OrderByDescending(r => r.ReleaseRequestCode)
                 .Select(r => r.ReleaseRequestCode)
-                .ToListAsync();
+                .FirstOrDefaultAsync();
 
-            var maxNumber = 0;
-            foreach (var code in codes)
+            var nextNumber = 1;
+            if (lastCode != null)
             {
-                // Hỗ trợ cả định dạng cũ (RR001) và mới (RR-001)
-                var numberStr = code.StartsWith("RR-") ? code.Substring(3) : 
-                               (code.StartsWith("RR") ? code.Substring(2) : "");
+                var parts = lastCode.Split('-');
+                if (parts.Length == 3 && int.TryParse(parts[2], out var lastNumber))
+                {
+                    nextNumber = lastNumber + 1;
+                }
+            }
+            else
+            {
+                // Fallback cho logic cũ nếu không tìm thấy prefix năm hiện tại
+                var codes = await _context.ReleaseRequests
+                    .Select(r => r.ReleaseRequestCode)
+                    .ToListAsync();
                 
-                if (int.TryParse(numberStr, out var number) && number > maxNumber)
-                    maxNumber = number;
+                var maxNumber = 0;
+                foreach (var code in codes)
+                {
+                    var parts = code.Split('-');
+                    var lastPart = parts.Last();
+                    if (int.TryParse(lastPart, out var number) && number > maxNumber)
+                        maxNumber = number;
+                }
+                nextNumber = maxNumber + 1;
             }
 
-            return $"RR-{((maxNumber + 1).ToString("D3"))}";
+            return $"{prefix}{nextNumber:D3}";
         }
 
        
