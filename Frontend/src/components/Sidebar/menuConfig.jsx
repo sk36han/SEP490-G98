@@ -51,6 +51,8 @@ const directorItems = [
             { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
         ],
     },
+    { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Cảnh báo tồn kho' },
+    { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Cảnh báo tài chính' },
     { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Quản lý giá sản phẩm' },
 ];
 
@@ -97,6 +99,8 @@ const warehouseKeeperItems = [
             { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
         ],
     },
+    { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Cảnh báo tồn kho' },
+    { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Cảnh báo tài chính' },
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
     {

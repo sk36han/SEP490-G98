@@ -48,6 +48,8 @@ import ViewBrandList from '../shared/pages/ViewBrandList';
 import ViewUomList from '../shared/pages/ViewUomList';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
+import InventoryAlertSetup from '../Mockup/InventoryAlertSetup';
+import SalesRevenueTarget from '../Mockup/SalesRevenueTarget';
 
 const AppRoutes = () => (
     <Routes>
@@ -538,6 +540,30 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewItemPriceList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+
+        {/* ── Mockup: Inventory Alert Setup ── */}
+        <Route
+            path="/mockup/inventory-alert"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR']}>
+                    <MainLayout>
+                        <InventoryAlertSetup />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+
+        {/* ── Mockup: Sales Revenue Target (Finance Alert) ── */}
+        <Route
+            path="/mockup/sales-target"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR']}>
+                    <MainLayout>
+                        <SalesRevenueTarget />
                     </MainLayout>
                 </ProtectedRoute>
             }
