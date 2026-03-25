@@ -1,3 +1,4 @@
+﻿extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -6,20 +7,20 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Xunit;
 
-namespace Warehouse.Api.Tests.Warehouse
+namespace WarehouseTests.WarehouseFolderFolder
 {
 	public class WarehouseControllerTests
 	{
 		private readonly Mock<IWarehouseService> _warehouseServiceMock = new();
 
 		/// <summary>
-		/// Tạo WarehouseController KHÔNG có claim (dùng cho GetWarehouseList, ToggleWarehouseStatus)
+		/// Táº¡o WarehouseController KHÃ”NG cÃ³ claim (dÃ¹ng cho GetWarehouseList, ToggleWarehouseStatus)
 		/// </summary>
 		private WarehouseController CreateController()
 		{
@@ -32,7 +33,7 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 
 		/// <summary>
-		/// Tạo WarehouseController CÓ claim userId (dùng cho CreateWarehouse, UpdateWarehouse)
+		/// Táº¡o WarehouseController CÃ“ claim userId (dÃ¹ng cho CreateWarehouse, UpdateWarehouse)
 		/// </summary>
 		private WarehouseController CreateControllerWithUser(long userId = 1)
 		{
@@ -50,19 +51,19 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 
 		// =========================================================
-		// 1️⃣ GetWarehouseList — 8 test cases
+		// 1ï¸âƒ£ GetWarehouseList â€” 8 test cases
 		// =========================================================
 
-		#region UTCID 01: GetWarehouseList — Normal — Thành công (Có dữ liệu)
+		#region UTCID 01: GetWarehouseList â€” Normal â€” ThÃ nh cÃ´ng (CÃ³ dá»¯ liá»‡u)
 		[Fact]
 		public async Task GetWarehouseList_UTCID01_ReturnsOk_WhenSuccessful()
 		{
-			// Arrange — Page: 1, Size: 20, Database có dữ liệu
+			// Arrange â€” Page: 1, Size: 20, Database cÃ³ dá»¯ liá»‡u
 			var controller = CreateController();
 			var filter = new FilterRequest { PageNumber = 1, PageSize = 20 };
 			var warehouses = new List<WarehouseResponse>
 			{
-				new WarehouseResponse { WarehouseId = 1, WarehouseCode = "WH001", WarehouseName = "Kho Hà Nội" }
+				new WarehouseResponse { WarehouseId = 1, WarehouseCode = "WH001", WarehouseName = "Kho HÃ  Ná»™i" }
 			};
 			var expected = new PagedResult<WarehouseResponse>(warehouses, 1, 1, 20);
 
@@ -76,16 +77,16 @@ namespace Warehouse.Api.Tests.Warehouse
 			var response = ok.Value.Should().BeOfType<ApiResponse<PagedResult<WarehouseResponse>>>().Subject;
 
 			response.Success.Should().BeTrue();
-			response.Message.Should().Be("Lấy danh sách kho thành công.");
+			response.Message.Should().Be("Láº¥y danh sÃ¡ch kho thÃ nh cÃ´ng.");
 			response.Data!.Items.Should().NotBeEmpty();
 		}
 		#endregion
 
-		#region UTCID 02: GetWarehouseList — Normal — Thành công (Danh sách rỗng)
+		#region UTCID 02: GetWarehouseList â€” Normal â€” ThÃ nh cÃ´ng (Danh sÃ¡ch rá»—ng)
 		[Fact]
 		public async Task GetWarehouseList_UTCID02_ReturnsOk_WhenDatabaseEmpty()
 		{
-			// Arrange — Database trống
+			// Arrange â€” Database trá»‘ng
 			var controller = CreateController();
 			var filter = new FilterRequest { PageNumber = 1, PageSize = 20 };
 			var expected = new PagedResult<WarehouseResponse>(new List<WarehouseResponse>(), 0, 1, 20);
@@ -99,16 +100,16 @@ namespace Warehouse.Api.Tests.Warehouse
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var response = ok.Value.Should().BeOfType<ApiResponse<PagedResult<WarehouseResponse>>>().Subject;
 
-			response.Message.Should().Be("Lấy danh sách kho thành công.");
+			response.Message.Should().Be("Láº¥y danh sÃ¡ch kho thÃ nh cÃ´ng.");
 			response.Data!.Items.Should().BeEmpty();
 		}
 		#endregion
 
-		#region UTCID 03: GetWarehouseList — Boundary — PageNumber không hợp lệ (<= 0)
+		#region UTCID 03: GetWarehouseList â€” Boundary â€” PageNumber khÃ´ng há»£p lá»‡ (<= 0)
 		[Fact]
 		public async Task GetWarehouseList_UTCID03_ReturnsBadRequest_WhenPageNumberInvalid()
 		{
-			// Arrange — PageNumber: -10
+			// Arrange â€” PageNumber: -10
 			var controller = CreateController();
 			controller.ModelState.AddModelError("PageNumber", "Invalid");
 			var filter = new FilterRequest { PageNumber = -10, PageSize = 20 };
@@ -120,16 +121,16 @@ namespace Warehouse.Api.Tests.Warehouse
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 			var response = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
-			response.Message.Should().Be("Dữ liệu không hợp lệ.");
+			response.Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 			_warehouseServiceMock.Verify(x => x.GetWarehouseListAsync(It.IsAny<FilterRequest>()), Times.Never);
 		}
 		#endregion
 
-		#region UTCID 04: GetWarehouseList — Boundary — PageSize không hợp lệ (<= 0)
+		#region UTCID 04: GetWarehouseList â€” Boundary â€” PageSize khÃ´ng há»£p lá»‡ (<= 0)
 		[Fact]
 		public async Task GetWarehouseList_UTCID04_ReturnsBadRequest_WhenPageSizeInvalid()
 		{
-			// Arrange — PageSize: -10
+			// Arrange â€” PageSize: -10
 			var controller = CreateController();
 			controller.ModelState.AddModelError("PageSize", "Invalid");
 			var filter = new FilterRequest { PageNumber = 1, PageSize = -10 };
@@ -139,15 +140,15 @@ namespace Warehouse.Api.Tests.Warehouse
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 		}
 		#endregion
 
-		#region UTCID 05: GetWarehouseList — Boundary — Trang không tồn tại (Vượt range)
+		#region UTCID 05: GetWarehouseList â€” Boundary â€” Trang khÃ´ng tá»“n táº¡i (VÆ°á»£t range)
 		[Fact]
 		public async Task GetWarehouseList_UTCID05_ReturnsOkWithEmpty_WhenPageExceedsRange()
 		{
-			// Arrange — Yêu cầu trang 100 khi chỉ có ít dữ liệu
+			// Arrange â€” YÃªu cáº§u trang 100 khi chá»‰ cÃ³ Ã­t dá»¯ liá»‡u
 			var controller = CreateController();
 			var filter = new FilterRequest { PageNumber = 100, PageSize = 20 };
 			var expected = new PagedResult<WarehouseResponse>(new List<WarehouseResponse>(), 5, 100, 20);
@@ -157,17 +158,17 @@ namespace Warehouse.Api.Tests.Warehouse
 			// Act
 			var result = await controller.GetWarehouseList(filter);
 
-			// Assert — Kết quả vẫn là 200 OK kèm list rỗng
+			// Assert â€” Káº¿t quáº£ váº«n lÃ  200 OK kÃ¨m list rá»—ng
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-			((ApiResponse<PagedResult<WarehouseResponse>>)ok.Value!).Message.Should().Be("Lấy danh sách kho thành công.");
+			((ApiResponse<PagedResult<WarehouseResponse>>)ok.Value!).Message.Should().Be("Láº¥y danh sÃ¡ch kho thÃ nh cÃ´ng.");
 		}
 		#endregion
 
-		#region UTCID 06: GetWarehouseList — Abnormal — Lỗi SQL (500)
+		#region UTCID 06: GetWarehouseList â€” Abnormal â€” Lá»—i SQL (500)
 		[Fact]
 		public async Task GetWarehouseList_UTCID06_Returns500_WhenSqlException()
 		{
-			// Arrange — Giả lập SqlException
+			// Arrange â€” Giáº£ láº­p SqlException
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.GetWarehouseListAsync(It.IsAny<FilterRequest>()))
 								  .ThrowsAsync(new Exception("SQL Error"));
@@ -178,11 +179,11 @@ namespace Warehouse.Api.Tests.Warehouse
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
 		}
 		#endregion
 
-		#region UTCID 07: GetWarehouseList — Abnormal — Lỗi tham chiếu Null (500)
+		#region UTCID 07: GetWarehouseList â€” Abnormal â€” Lá»—i tham chiáº¿u Null (500)
 		[Fact]
 		public async Task GetWarehouseList_UTCID07_Returns500_WhenNullReference()
 		{
@@ -197,11 +198,11 @@ namespace Warehouse.Api.Tests.Warehouse
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
 		}
 		#endregion
 
-		#region UTCID 08: GetWarehouseList — Abnormal — Lỗi hệ thống chung (500)
+		#region UTCID 08: GetWarehouseList â€” Abnormal â€” Lá»—i há»‡ thá»‘ng chung (500)
 		[Fact]
 		public async Task GetWarehouseList_UTCID08_Returns500_WhenGeneralException()
 		{
@@ -215,15 +216,15 @@ namespace Warehouse.Api.Tests.Warehouse
 
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
 		}
 		#endregion
 
 		// =========================================================
-		// 2️⃣ CreateWarehouse — 12 Test Cases
+		// 2ï¸âƒ£ CreateWarehouse â€” 12 Test Cases
 		// =========================================================
 
-		#region UTCID 01: KHVT + khoTang 1 + 12 tố hữu (Thành công)
+		#region UTCID 01: KHVT + khoTang 1 + 12 tá»‘ há»¯u (ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task CreateWarehouse_UTCID01_ReturnsOk_StandardSuccess()
 		{
@@ -232,7 +233,7 @@ namespace Warehouse.Api.Tests.Warehouse
 			{
 				WarehouseCode = "KHVT",
 				WarehouseName = "khoTang 1",
-				Address = "12 tố hữu",
+				Address = "12 tá»‘ há»¯u",
 				IsActive = true
 			};
 			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
@@ -240,27 +241,27 @@ namespace Warehouse.Api.Tests.Warehouse
 			var result = await controller.CreateWarehouse(request);
 
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-			((ApiResponse<WarehouseResponse>)ok.Value!).Message.Should().Be("Tạo kho thành công.");
+			((ApiResponse<WarehouseResponse>)ok.Value!).Message.Should().Be("Táº¡o kho thÃ nh cÃ´ng.");
 		}
 		#endregion
 
-		#region UTCID 02: trùng mã kho (MKHH) (400)
+		#region UTCID 02: trÃ¹ng mÃ£ kho (MKHH) (400)
 		[Fact]
 		public async Task CreateWarehouse_UTCID02_ReturnsBadRequest_DuplicateCode()
 		{
 			var controller = CreateControllerWithUser(userId: 1);
 			var request = new CreateWarehouseRequest { WarehouseCode = "MKHH" };
 			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1))
-								  .ThrowsAsync(new InvalidOperationException("Mã kho đã tồn tại."));
+								  .ThrowsAsync(new InvalidOperationException("MÃ£ kho Ä‘Ã£ tá»“n táº¡i."));
 
 			var result = await controller.CreateWarehouse(request);
 
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Mã kho đã tồn tại.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("MÃ£ kho Ä‘Ã£ tá»“n táº¡i.");
 		}
 		#endregion
 
-		#region UTCID 03: WarehouseCode là Ký tự lạ (" ' ") (400)
+		#region UTCID 03: WarehouseCode lÃ  KÃ½ tá»± láº¡ (" ' ") (400)
 		[Fact]
 		public async Task CreateWarehouse_UTCID03_ReturnsBadRequest_InvalidCodeFormat()
 		{
@@ -271,11 +272,11 @@ namespace Warehouse.Api.Tests.Warehouse
 			var result = await controller.CreateWarehouse(request);
 
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 		}
 		#endregion
 
-		#region UTCID 04: WarehouseName là KHo 12@%$% (Thành công)
+		#region UTCID 04: WarehouseName lÃ  KHo 12@%$% (ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task CreateWarehouse_UTCID04_ReturnsOk_SpecialCharsName()
 		{
@@ -289,7 +290,7 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 		#endregion
 
-		#region UTCID 05: Trùng tên kho (Kho1) (Thành công)
+		#region UTCID 05: TrÃ¹ng tÃªn kho (Kho1) (ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task CreateWarehouse_UTCID05_ReturnsOk_DuplicateName()
 		{
@@ -303,7 +304,7 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 		#endregion
 
-		#region UTCID 06: WarehouseName là Empty/Null / " " (400)
+		#region UTCID 06: WarehouseName lÃ  Empty/Null / " " (400)
 		[Fact]
 		public async Task CreateWarehouse_UTCID06_ReturnsBadRequest_NameEmpty()
 		{
@@ -314,16 +315,16 @@ namespace Warehouse.Api.Tests.Warehouse
 			var result = await controller.CreateWarehouse(request);
 
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 		}
 		#endregion
 
-		#region UTCID 07: Address là 124@ tố tấm (Thành công)
+		#region UTCID 07: Address lÃ  124@ tá»‘ táº¥m (ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task CreateWarehouse_UTCID07_ReturnsOk_SpecialCharsAddress()
 		{
 			var controller = CreateControllerWithUser(userId: 1);
-			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", Address = "124@ tố tấm" };
+			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", Address = "124@ tá»‘ táº¥m" };
 			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
@@ -332,12 +333,12 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 		#endregion
 
-		#region UTCID 08: trùng địa chỉ (Lê quang đao) (Thành công)
+		#region UTCID 08: trÃ¹ng Ä‘á»‹a chá»‰ (LÃª quang Ä‘ao) (ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task CreateWarehouse_UTCID08_ReturnsOk_DuplicateAddress()
 		{
 			var controller = CreateControllerWithUser(userId: 1);
-			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT3", Address = "Lê quang đao" };
+			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT3", Address = "LÃª quang Ä‘ao" };
 			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			var result = await controller.CreateWarehouse(request);
@@ -346,7 +347,7 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 		#endregion
 
-		#region UTCID 09: Address là Empty/Null / " " (400)
+		#region UTCID 09: Address lÃ  Empty/Null / " " (400)
 		[Fact]
 		public async Task CreateWarehouse_UTCID09_ReturnsBadRequest_AddressEmpty()
 		{
@@ -356,11 +357,11 @@ namespace Warehouse.Api.Tests.Warehouse
 			var result = await controller.CreateWarehouse(new CreateWarehouseRequest { Address = "" });
 
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 		}
 		#endregion
 
-		#region UTCID 10: isActive = False (Thành công)
+		#region UTCID 10: isActive = False (ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task CreateWarehouse_UTCID10_ReturnsOk_StatusFalse()
 		{
@@ -374,23 +375,23 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 		#endregion
 
-		#region UTCID 11: Dữ liệu chuẩn + Lỗi hệ thống (500)
+		#region UTCID 11: Dá»¯ liá»‡u chuáº©n + Lá»—i há»‡ thá»‘ng (500)
 		[Fact]
 		public async Task CreateWarehouse_UTCID11_Returns500_SystemError()
 		{
 			var controller = CreateControllerWithUser(userId: 1);
-			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", WarehouseName = "khoTang 1", Address = "12 tố hữu" };
+			var request = new CreateWarehouseRequest { WarehouseCode = "KHVT", WarehouseName = "khoTang 1", Address = "12 tá»‘ há»¯u" };
 			_warehouseServiceMock.Setup(x => x.CreateWarehouseAsync(request, 1)).ThrowsAsync(new Exception());
 
 			var result = await controller.CreateWarehouse(request);
 
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
 		}
 		#endregion
 
-		#region UTCID 12: WarehouseCode là Empty/Null (400)
+		#region UTCID 12: WarehouseCode lÃ  Empty/Null (400)
 		[Fact]
 		public async Task CreateWarehouse_UTCID12_ReturnsBadRequest_CodeNull()
 		{
@@ -400,27 +401,27 @@ namespace Warehouse.Api.Tests.Warehouse
 			var result = await controller.CreateWarehouse(new CreateWarehouseRequest { WarehouseCode = null });
 
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 		}
 		#endregion
 
 		// =========================================================
-		// 3️⃣ UpdateWarehouse — 8 Test Cases
+		// 3ï¸âƒ£ UpdateWarehouse â€” 8 Test Cases
 		// =========================================================
 
-		#region UTCID 01: UpdateWarehouse — Normal — Thành công (Dữ liệu chuẩn)
+		#region UTCID 01: UpdateWarehouse â€” Normal â€” ThÃ nh cÃ´ng (Dá»¯ liá»‡u chuáº©n)
 		[Fact]
 		public async Task UpdateWarehouse_UTCID01_ReturnsOk_StandardSuccess()
 		{
-			// Arrange — ID tồn tại (10), Name/Address hợp lệ
+			// Arrange â€” ID tá»“n táº¡i (10), Name/Address há»£p lá»‡
 			var controller = CreateControllerWithUser(userId: 1);
 			var request = new UpdateWarehouseRequest
 			{
-				WarehouseName = "Kho Hà Nội (Cập nhật)",
-				Address = "456 Đường Mới",
+				WarehouseName = "Kho HÃ  Ná»™i (Cáº­p nháº­t)",
+				Address = "456 ÄÆ°á»ng Má»›i",
 				IsActive = true
 			};
-			var expected = new WarehouseResponse { WarehouseId = 10, WarehouseName = "Kho Hà Nội (Cập nhật)" };
+			var expected = new WarehouseResponse { WarehouseId = 10, WarehouseName = "Kho HÃ  Ná»™i (Cáº­p nháº­t)" };
 
 			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(10, request, 1)).ReturnsAsync(expected);
 
@@ -432,44 +433,44 @@ namespace Warehouse.Api.Tests.Warehouse
 			var response = ok.Value.Should().BeOfType<ApiResponse<WarehouseResponse>>().Subject;
 
 			response.Success.Should().BeTrue();
-			response.Message.Should().Be("Cập nhật kho thành công.");
-			response.Data!.WarehouseName.Should().Be("Kho Hà Nội (Cập nhật)");
+			response.Message.Should().Be("Cáº­p nháº­t kho thÃ nh cÃ´ng.");
+			response.Data!.WarehouseName.Should().Be("Kho HÃ  Ná»™i (Cáº­p nháº­t)");
 		}
 		#endregion
 
-		#region UTCID 02: UpdateWarehouse — Abnormal — ID không tồn tại (404)
+		#region UTCID 02: UpdateWarehouse â€” Abnormal â€” ID khÃ´ng tá»“n táº¡i (404)
 		[Fact]
 		public async Task UpdateWarehouse_UTCID02_ReturnsNotFound_WhenIdNotExist()
 		{
-			// Arrange — ID 9999 không có trong DB
+			// Arrange â€” ID 9999 khÃ´ng cÃ³ trong DB
 			var controller = CreateControllerWithUser(userId: 1);
 			var request = new UpdateWarehouseRequest { WarehouseName = "Test" };
 
 			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(9999, request, 1))
-								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+								  .ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y kho."));
 
 			// Act
 			var result = await controller.UpdateWarehouse(9999, request);
 
-			// Assert — Phải trả về 404 NotFound
+			// Assert â€” Pháº£i tráº£ vá» 404 NotFound
 			var nf = result.Should().BeOfType<NotFoundObjectResult>().Subject;
 			var response = nf.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
-			response.Message.Should().Be("Không tìm thấy kho.");
+			response.Message.Should().Be("KhÃ´ng tÃ¬m tháº¥y kho.");
 			response.Success.Should().BeFalse();
 		}
 		#endregion
 
-		#region UTCID 04: UpdateWarehouse — Boundary — ID biên (ID <= 0) (404)
+		#region UTCID 04: UpdateWarehouse â€” Boundary â€” ID biÃªn (ID <= 0) (404)
 		[Fact]
 		public async Task UpdateWarehouse_UTCID04_ReturnsNotFound_WhenIdIsInvalid()
 		{
-			// Arrange — ID = -10 hoặc 0
+			// Arrange â€” ID = -10 hoáº·c 0
 			var controller = CreateControllerWithUser(userId: 1);
 			var request = new UpdateWarehouseRequest { WarehouseName = "KHo 12@%$%" };
 
 			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(It.IsInRange(long.MinValue, 0, Moq.Range.Inclusive), It.IsAny<UpdateWarehouseRequest>(), It.IsAny<long>()))
-								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+								  .ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y kho."));
 
 			// Act
 			var result = await controller.UpdateWarehouse(-10, request);
@@ -479,11 +480,11 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 		#endregion
 
-		#region UTCID 05: UpdateWarehouse — Boundary — Name trống (400)
+		#region UTCID 05: UpdateWarehouse â€” Boundary â€” Name trá»‘ng (400)
 		[Fact]
 		public async Task UpdateWarehouse_UTCID05_ReturnsBadRequest_WhenNameEmpty()
 		{
-			// Arrange — Name trống/Null
+			// Arrange â€” Name trá»‘ng/Null
 			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("WarehouseName", "Required");
 			var request = new UpdateWarehouseRequest { WarehouseName = " " };
@@ -493,34 +494,34 @@ namespace Warehouse.Api.Tests.Warehouse
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 
 			_warehouseServiceMock.Verify(x => x.UpdateWarehouseAsync(It.IsAny<long>(), It.IsAny<UpdateWarehouseRequest>(), It.IsAny<long>()), Times.Never);
 		}
 		#endregion
 
-		#region UTCID 07: UpdateWarehouse — Boundary — Address ký tự lạ (200)
+		#region UTCID 07: UpdateWarehouse â€” Boundary â€” Address kÃ½ tá»± láº¡ (200)
 		[Fact]
 		public async Task UpdateWarehouse_UTCID07_ReturnsOk_WhenAddressHasSpecialChars()
 		{
-			// Arrange — Địa chỉ 124@ tố tấm
+			// Arrange â€” Äá»‹a chá»‰ 124@ tá»‘ táº¥m
 			var controller = CreateControllerWithUser(userId: 1);
-			var request = new UpdateWarehouseRequest { WarehouseName = "Kho chuẩn", Address = "124@ tố tấm", IsActive = true };
+			var request = new UpdateWarehouseRequest { WarehouseName = "Kho chuáº©n", Address = "124@ tá»‘ táº¥m", IsActive = true };
 			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(10, request, 1)).ReturnsAsync(new WarehouseResponse());
 
 			// Act
 			var result = await controller.UpdateWarehouse(10, request);
 
-			// Assert — Hệ thống cho phép ký tự lạ trong địa chỉ
+			// Assert â€” Há»‡ thá»‘ng cho phÃ©p kÃ½ tá»± láº¡ trong Ä‘á»‹a chá»‰
 			result.Should().BeOfType<OkObjectResult>();
 		}
 		#endregion
 
-		#region UTCID 03, 06, 08: UpdateWarehouse — Abnormal — Lỗi hệ thống (500)
+		#region UTCID 03, 06, 08: UpdateWarehouse â€” Abnormal â€” Lá»—i há»‡ thá»‘ng (500)
 		[Fact]
 		public async Task UpdateWarehouse_SystemError_Returns500()
 		{
-			// Arrange — Dữ liệu chuẩn nhưng DB crash
+			// Arrange â€” Dá»¯ liá»‡u chuáº©n nhÆ°ng DB crash
 			var controller = CreateControllerWithUser(userId: 1);
 			_warehouseServiceMock.Setup(x => x.UpdateWarehouseAsync(It.IsAny<long>(), It.IsAny<UpdateWarehouseRequest>(), It.IsAny<long>()))
 								  .ThrowsAsync(new Exception("DB Crash"));
@@ -531,19 +532,19 @@ namespace Warehouse.Api.Tests.Warehouse
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
 		}
 		#endregion
 
 		// =========================================================
-		// 4️⃣ ToggleWarehouseStatus — 6 Test Cases
+		// 4ï¸âƒ£ ToggleWarehouseStatus â€” 6 Test Cases
 		// =========================================================
 
-		#region UTCID 01: Toggle sang Enable (Normal - Thành công)
+		#region UTCID 01: Toggle sang Enable (Normal - ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task ToggleWarehouseStatus_UTCID01_ReturnsEnableMessage_WhenSuccess()
 		{
-			// Arrange: Giả lập kho đang tắt (False), toggle xong sẽ thành True (Enable)
+			// Arrange: Giáº£ láº­p kho Ä‘ang táº¯t (False), toggle xong sáº½ thÃ nh True (Enable)
 			var controller = CreateController();
 			var id = 10L;
 			var expected = new WarehouseResponse { WarehouseId = id, IsActive = true };
@@ -553,21 +554,21 @@ namespace Warehouse.Api.Tests.Warehouse
 			// Act
 			var result = await controller.ToggleWarehouseStatus(id);
 
-			// Assert: Kiểm tra status code và message động
+			// Assert: Kiá»ƒm tra status code vÃ  message Ä‘á»™ng
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var response = ok.Value.Should().BeOfType<ApiResponse<WarehouseResponse>>().Subject;
 
 			response.Success.Should().BeTrue();
-			response.Message.Should().Be("Đã chuyển trạng thái kho thành Enable.");
+			response.Message.Should().Be("ÄÃ£ chuyá»ƒn tráº¡ng thÃ¡i kho thÃ nh Enable.");
 			response.Data!.IsActive.Should().BeTrue();
 		}
 		#endregion
 
-		#region UTCID 02: Toggle sang Disable (Normal - Thành công)
+		#region UTCID 02: Toggle sang Disable (Normal - ThÃ nh cÃ´ng)
 		[Fact]
 		public async Task ToggleWarehouseStatus_UTCID02_ReturnsDisableMessage_WhenSuccess()
 		{
-			// Arrange: Giả lập kho đang bật (True), toggle xong sẽ thành False (Disable)
+			// Arrange: Giáº£ láº­p kho Ä‘ang báº­t (True), toggle xong sáº½ thÃ nh False (Disable)
 			var controller = CreateController();
 			var id = 10L;
 			var expected = new WarehouseResponse { WarehouseId = id, IsActive = false };
@@ -581,19 +582,19 @@ namespace Warehouse.Api.Tests.Warehouse
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var response = ok.Value.Should().BeOfType<ApiResponse<WarehouseResponse>>().Subject;
 
-			response.Message.Should().Be("Đã chuyển trạng thái kho thành Disable.");
+			response.Message.Should().Be("ÄÃ£ chuyá»ƒn tráº¡ng thÃ¡i kho thÃ nh Disable.");
 			response.Data!.IsActive.Should().BeFalse();
 		}
 		#endregion
 
-		#region UTCID 03: ID không tồn tại (Abnormal - 404)
+		#region UTCID 03: ID khÃ´ng tá»“n táº¡i (Abnormal - 404)
 		[Fact]
 		public async Task ToggleWarehouseStatus_UTCID03_ReturnsNotFound_WhenIdNotExist()
 		{
-			// Arrange: ID 9999 không có trong hệ thống
+			// Arrange: ID 9999 khÃ´ng cÃ³ trong há»‡ thá»‘ng
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.ToggleWarehouseStatusAsync(9999))
-								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+								  .ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y kho."));
 
 			// Act
 			var result = await controller.ToggleWarehouseStatus(9999);
@@ -603,18 +604,18 @@ namespace Warehouse.Api.Tests.Warehouse
 			var response = nf.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			response.Success.Should().BeFalse();
-			response.Message.Should().Be("Không tìm thấy kho.");
+			response.Message.Should().Be("KhÃ´ng tÃ¬m tháº¥y kho.");
 		}
 		#endregion
 
-		#region UTCID 04: ID biên (ID <= 0) (Boundary - 404)
+		#region UTCID 04: ID biÃªn (ID <= 0) (Boundary - 404)
 		[Fact]
 		public async Task ToggleWarehouseStatus_UTCID04_ReturnsNotFound_WhenIdIsZeroOrNegative()
 		{
 			// Arrange: ID = 0
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.ToggleWarehouseStatusAsync(0))
-								  .ThrowsAsync(new KeyNotFoundException("Không tìm thấy kho."));
+								  .ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y kho."));
 
 			// Act
 			var result = await controller.ToggleWarehouseStatus(0);
@@ -624,11 +625,11 @@ namespace Warehouse.Api.Tests.Warehouse
 		}
 		#endregion
 
-		#region UTCID 05 & 06: Lỗi hệ thống (Abnormal - 500)
+		#region UTCID 05 & 06: Lá»—i há»‡ thá»‘ng (Abnormal - 500)
 		[Fact]
 		public async Task ToggleWarehouseStatus_UTCID05_06_Returns500_WhenSystemError()
 		{
-			// Arrange: Giả lập lỗi kết nối Database
+			// Arrange: Giáº£ láº­p lá»—i káº¿t ná»‘i Database
 			var controller = CreateController();
 			_warehouseServiceMock.Setup(x => x.ToggleWarehouseStatusAsync(It.IsAny<long>()))
 								  .ThrowsAsync(new Exception("Database connection failed"));
@@ -639,7 +640,7 @@ namespace Warehouse.Api.Tests.Warehouse
 			// Assert: Controller catch Exception chung -> 500
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
 		}
 		#endregion
 
@@ -655,7 +656,7 @@ namespace Warehouse.Api.Tests.Warehouse
 			// Act
 			await controller.ToggleWarehouseStatus(1);
 
-			// Assert: Đảm bảo service chỉ được gọi đúng 1 lần với đúng ID
+			// Assert: Äáº£m báº£o service chá»‰ Ä‘Æ°á»£c gá»i Ä‘Ãºng 1 láº§n vá»›i Ä‘Ãºng ID
 			_warehouseServiceMock.Verify(x => x.ToggleWarehouseStatusAsync(1), Times.Once);
 		}
 		#endregion

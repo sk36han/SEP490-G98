@@ -1,14 +1,15 @@
+﻿extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class AuthControllerLoginTests
 {
@@ -98,7 +99,7 @@ public class AuthControllerLoginTests
 
 		var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
 		unauthorized.Value.Should().NotBeNull();
-		unauthorized.Value!.ToString().Should().Contain("Email/Username hoặc mật khẩu không đúng");
+		unauthorized.Value!.ToString().Should().Contain("Email/Username hoáº·c máº­t kháº©u khÃ´ng Ä‘Ãºng");
 		_authServiceMock.Verify(x => x.IssueTokensAsync(It.IsAny<User>(), It.IsAny<bool>()), Times.Never);
 		_mapperMock.Verify(x => x.Map<UserResponse>(It.IsAny<User>()), Times.Never);
 	}
@@ -147,7 +148,7 @@ public class AuthControllerLoginTests
 	public async Task UTC005_IdentifierNull_ModelInvalid_ShouldReturnBadRequest_AndNotCallService()
 	{
 		var controller = CreateController();
-		controller.ModelState.AddModelError("Identifier", "Email hoặc Username là bắt buộc");
+		controller.ModelState.AddModelError("Identifier", "Email hoáº·c Username lÃ  báº¯t buá»™c");
 
 		var request = new LoginRequest { Identifier = null!, Password = "correctPassword123" };
 
@@ -161,7 +162,7 @@ public class AuthControllerLoginTests
 	public async Task UTC006_IdentifierEmpty_ModelInvalid_ShouldReturnBadRequest()
 	{
 		var controller = CreateController();
-		controller.ModelState.AddModelError("Identifier", "Email hoặc Username là bắt buộc");
+		controller.ModelState.AddModelError("Identifier", "Email hoáº·c Username lÃ  báº¯t buá»™c");
 
 		var request = new LoginRequest { Identifier = "", Password = "correctPassword123" };
 
@@ -174,7 +175,7 @@ public class AuthControllerLoginTests
 	public async Task UTC007_PasswordNull_ModelInvalid_ShouldReturnBadRequest()
 	{
 		var controller = CreateController();
-		controller.ModelState.AddModelError("Password", "Password là bắt buộc");
+		controller.ModelState.AddModelError("Password", "Password lÃ  báº¯t buá»™c");
 
 		var request = new LoginRequest { Identifier = "john.doe@example.com", Password = null! };
 
@@ -187,7 +188,7 @@ public class AuthControllerLoginTests
 	public async Task UTC008_PasswordEmpty_ModelInvalid_ShouldReturnBadRequest()
 	{
 		var controller = CreateController();
-		controller.ModelState.AddModelError("Password", "Password là bắt buộc");
+		controller.ModelState.AddModelError("Password", "Password lÃ  báº¯t buá»™c");
 
 		var request = new LoginRequest { Identifier = "john.doe@example.com", Password = "" };
 
@@ -287,7 +288,7 @@ public class AuthControllerLoginTests
 	public async Task UTC012_IdentifierWhitespace_ModelInvalid_ShouldReturnBadRequest()
 	{
 		var controller = CreateController();
-		controller.ModelState.AddModelError("Identifier", "Email hoặc Username là bắt buộc");
+		controller.ModelState.AddModelError("Identifier", "Email hoáº·c Username lÃ  báº¯t buá»™c");
 
 		var request = new LoginRequest { Identifier = "   ", Password = "correctPassword123" };
 
@@ -300,7 +301,7 @@ public class AuthControllerLoginTests
 	public async Task UTC013_PasswordWhitespace_ModelInvalid_ShouldReturnBadRequest()
 	{
 		var controller = CreateController();
-		controller.ModelState.AddModelError("Password", "Password là bắt buộc");
+		controller.ModelState.AddModelError("Password", "Password lÃ  báº¯t buá»™c");
 
 		var request = new LoginRequest { Identifier = "john.doe@example.com", Password = "   " };
 

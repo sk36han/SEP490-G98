@@ -25,42 +25,29 @@ namespace Warehouse.DataAcces.Service
 		// Các role sẽ nhận thông báo về supplier
 		private static readonly string[] _notifyRoleCodes = { "ADMIN", "GD", "SALE SP" };
 
-		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService)
+		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService, Mkiwms5Context context)
 		{
 			_supplierRepository = supplierRepository;
 			_notificationService = notificationService;
 			_auditLogService = auditLogService;
-
+			_context = context;
 		}
 
 		public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
 		{
-			// Lấy danh sách suppliers để check duplicate và tạo mã tự động
-			var suppliers = await _supplierRepository.GetAllAsync();
-
-			// Tạo mã supplier tự động nếu không cung cấp
-			var supplierCode = request.SupplierCode;
-			if (string.IsNullOrWhiteSpace(supplierCode))
+			// 0️⃣ Validate required fields (in addition to DataAnnotations)
+			if (string.IsNullOrWhiteSpace(request.SupplierCode))
 			{
-				// Lấy các mã bắt đầu bằng SUP-
-				var existingCodes = suppliers
-					.Where(s => s.SupplierCode != null && s.SupplierCode.StartsWith("SUP-"))
-					.Select(s => s.SupplierCode!)
-									.ToList();
-
-				int maxNumber = 0;
-				foreach (var code in existingCodes)
-				{
-					if (code.Length > 4 && int.TryParse(code.Substring(4), out int num))
-					{
-						if (num > maxNumber) maxNumber = num;
-					}
-				}
-				supplierCode = $"SUP-{maxNumber + 1}";
+				throw new InvalidOperationException("Mã nhà cung cấp là bắt buộc.");
+			}
+			if (string.IsNullOrWhiteSpace(request.SupplierName))
+			{
+				throw new InvalidOperationException("Tên nhà cung cấp là bắt buộc.");
 			}
 
-			// Check duplicate SupplierCode
-			if (suppliers.Any(s => s.SupplierCode == supplierCode))
+			// 1️⃣ Check duplicate SupplierCode
+			var suppliers = await _supplierRepository.GetAllAsync();
+			if (suppliers.Any(s => s.SupplierCode == request.SupplierCode))
 			{
 				throw new InvalidOperationException("Mã nhà cung cấp đã tồn tại.");
 			}
@@ -77,7 +64,7 @@ namespace Warehouse.DataAcces.Service
 			// 2️⃣ Create entity
 			var supplier = new Supplier
 			{
-				SupplierCode = supplierCode,
+				SupplierCode = request.SupplierCode,
 				SupplierName = request.SupplierName,
 				TaxCode = request.TaxCode,
 				Phone = request.Phone,
@@ -153,20 +140,20 @@ namespace Warehouse.DataAcces.Service
 			{
 				query = query.Where(s =>
 					s.SupplierCode != null &&
-					s.SupplierCode.Contains(supplierCode));
+					s.SupplierCode.Contains(supplierCode, StringComparison.OrdinalIgnoreCase));
 			}
 
 			if (!string.IsNullOrWhiteSpace(supplierName))
 			{
 				query = query.Where(s =>
-					s.SupplierName.Contains(supplierName));
+					s.SupplierName.Contains(supplierName, StringComparison.OrdinalIgnoreCase));
 			}
 
 			if (!string.IsNullOrWhiteSpace(taxCode))
 			{
 				query = query.Where(s =>
 					s.TaxCode != null &&
-					s.TaxCode.Contains(taxCode));
+					s.TaxCode.Contains(taxCode, StringComparison.OrdinalIgnoreCase));
 			}
 
 			// 3. FILTER

@@ -1,0 +1,461 @@
+{
+  "$schema": "http://json.schemastore.org/sarif-1.0.0",
+  "version": "1.0.0",
+  "runs": [
+    {
+      "tool": {
+        "name": "Microsoft (R) Visual C# Compiler",
+        "version": "4.14.0.0",
+        "fileVersion": "4.14.0-3.25218.8 (d7bde97e)",
+        "semanticVersion": "4.14.0",
+        "language": "en-US"
+      },
+      "results": [
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Admin/AdminControllerTests.cs",
+                "region": {
+                  "startLine": 9,
+                  "startColumn": 17,
+                  "endLine": 9,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Auth/AuthControllerForgotPasswordTests.cs",
+                "region": {
+                  "startLine": 5,
+                  "startColumn": 17,
+                  "endLine": 5,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Auth/AuthControllerLoginTests.cs",
+                "region": {
+                  "startLine": 5,
+                  "startColumn": 17,
+                  "endLine": 5,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Auth/AuthControllerResetPasswordTests.cs",
+                "region": {
+                  "startLine": 6,
+                  "startColumn": 17,
+                  "endLine": 6,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Brand/BrandControllerTests.cs",
+                "region": {
+                  "startLine": 9,
+                  "startColumn": 17,
+                  "endLine": 9,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Category/CategoryControllerTests.cs",
+                "region": {
+                  "startLine": 9,
+                  "startColumn": 17,
+                  "endLine": 9,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Receiver/ReceiverControllerTests.cs",
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 17,
+                  "endLine": 7,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Role/RoleControllerTests.cs",
+                "region": {
+                  "startLine": 9,
+                  "startColumn": 17,
+                  "endLine": 9,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Supplier/SupplierControllerTests.cs",
+                "region": {
+                  "startLine": 9,
+                  "startColumn": 17,
+                  "endLine": 9,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/User/UserControllerChangePasswordTests.cs",
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 17,
+                  "endLine": 7,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/User/UserControllerUpdateProfileTests.cs",
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 17,
+                  "endLine": 7,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0234",
+          "level": "error",
+          "message": "The type or namespace name 'Api' does not exist in the namespace 'Warehouse' (are you missing an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/WarehouseFolder/WarehouseControllerTests.cs",
+                "region": {
+                  "startLine": 9,
+                  "startColumn": 17,
+                  "endLine": 9,
+                  "endColumn": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'AuthController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Auth/AuthControllerForgotPasswordTests.cs",
+                "region": {
+                  "startLine": 18,
+                  "startColumn": 10,
+                  "endLine": 18,
+                  "endColumn": 24
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'AuthController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Auth/AuthControllerLoginTests.cs",
+                "region": {
+                  "startLine": 19,
+                  "startColumn": 10,
+                  "endLine": 19,
+                  "endColumn": 24
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'AuthController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Auth/AuthControllerResetPasswordTests.cs",
+                "region": {
+                  "startLine": 19,
+                  "startColumn": 10,
+                  "endLine": 19,
+                  "endColumn": 24
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'AdminController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Admin/AdminControllerTests.cs",
+                "region": {
+                  "startLine": 25,
+                  "startColumn": 11,
+                  "endLine": 25,
+                  "endColumn": 26
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'RoleController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Role/RoleControllerTests.cs",
+                "region": {
+                  "startLine": 25,
+                  "startColumn": 11,
+                  "endLine": 25,
+                  "endColumn": 25
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'AdminController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Admin/AdminControllerTests.cs",
+                "region": {
+                  "startLine": 48,
+                  "startColumn": 11,
+                  "endLine": 48,
+                  "endColumn": 26
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'RoleController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/Role/RoleControllerTests.cs",
+                "region": {
+                  "startLine": 48,
+                  "startColumn": 11,
+                  "endLine": 48,
+                  "endColumn": 25
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'UserController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/User/UserControllerChangePasswordTests.cs",
+                "region": {
+                  "startLine": 18,
+                  "startColumn": 13,
+                  "endLine": 18,
+                  "endColumn": 27
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'UserController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/User/UserControllerUpdateProfileTests.cs",
+                "region": {
+                  "startLine": 24,
+                  "startColumn": 14,
+                  "endLine": 24,
+                  "endColumn": 28
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'WarehouseController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/WarehouseFolder/WarehouseControllerTests.cs",
+                "region": {
+                  "startLine": 24,
+                  "startColumn": 11,
+                  "endLine": 24,
+                  "endColumn": 30
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CS0246",
+          "level": "error",
+          "message": "The type or namespace name 'WarehouseController' could not be found (are you missing a using directive or an assembly reference?)",
+          "locations": [
+            {
+              "resultFile": {
+                "uri": "file:///D:/CODE/14.3/SEP490-G98/Backend/Warehouse.Api.Tests/WarehouseFolder/WarehouseControllerTests.cs",
+                "region": {
+                  "startLine": 37,
+                  "startColumn": 11,
+                  "endLine": 37,
+                  "endColumn": 30
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "rules": {
+        "CS0234": {
+          "id": "CS0234",
+          "defaultLevel": "error",
+          "helpUri": "https://msdn.microsoft.com/query/roslyn.query?appId=roslyn&k=k(CS0234)",
+          "properties": {
+            "category": "Compiler",
+            "isEnabledByDefault": true,
+            "tags": [
+              "Compiler",
+              "Telemetry",
+              "NotConfigurable"
+            ]
+          }
+        },
+        "CS0246": {
+          "id": "CS0246",
+          "defaultLevel": "error",
+          "helpUri": "https://msdn.microsoft.com/query/roslyn.query?appId=roslyn&k=k(CS0246)",
+          "properties": {
+            "category": "Compiler",
+            "isEnabledByDefault": true,
+            "tags": [
+              "Compiler",
+              "Telemetry",
+              "NotConfigurable"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
