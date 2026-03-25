@@ -561,7 +561,7 @@ const AppRoutes = () => (
         <Route
             path="/mockup/inventory-alert"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <InventoryAlertSetup />
                     </MainLayout>
@@ -573,7 +573,7 @@ const AppRoutes = () => (
         <Route
             path="/mockup/sales-target"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <SalesRevenueTarget />
                     </MainLayout>

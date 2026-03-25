@@ -17,6 +17,7 @@ import Toast from '../../components/Toast/Toast';
 import { COUNTRIES } from '../data/vietnamAdministrative';
 import { useToast } from '../hooks/useToast';
 import { getProvinces, getProvinceWithWards } from '../lib/locationService';
+import { createReceiver } from '../lib/receiverService';
 
 import '../styles/CreateSupplier.css';
 
@@ -174,17 +175,30 @@ const CreateReceiver = () => {
             setSubmitting(true);
 
             const payload = {
-                ...formData,
+                receiverName: formData.receiverName.trim(),
+                phone: formData.phone.trim(),
+                email: formData.email.trim() || null,
+                address: formData.address.trim(),
+                isActive: formData.isActive,
+                notes: formData.notes.trim() || null,
                 countryName: COUNTRIES.find((country) => country.code === formData.country)?.name ?? formData.country,
                 provinceName: selectedProvince?.name ?? '',
                 wardName: wardOptions.find((ward) => String(ward.code) === formData.wardCode)?.name ?? '',
             };
 
+            await createReceiver(payload);
             showToast('Tạo người nhận thành công!', 'success');
 
             setTimeout(() => {
                 navigate(-1);
             }, 900);
+        } catch (error) {
+            const errorMessage =
+                error?.response?.data?.message ||
+                error?.response?.data?.Message ||
+                error?.message ||
+                'Có lỗi xảy ra khi tạo người nhận';
+            showToast(errorMessage, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -260,6 +274,7 @@ const CreateReceiver = () => {
                                         onChange={handleChange}
                                         placeholder="Nhập tên người nhận"
                                         className={`form-input ${errors.receiverName ? 'error' : ''}`}
+                                        autoComplete="off"
                                     />
                                 </div>
                                 {errors.receiverName && <span className="error-message">{errors.receiverName}</span>}
@@ -277,6 +292,7 @@ const CreateReceiver = () => {
                                         onChange={handleChange}
                                         placeholder="example@company.com"
                                         className={`form-input ${errors.email ? 'error' : ''}`}
+                                        autoComplete="email"
                                     />
                                 </div>
                                 {errors.email && <span className="error-message">{errors.email}</span>}
@@ -296,6 +312,7 @@ const CreateReceiver = () => {
                                         onChange={handleChange}
                                         placeholder="0912345678"
                                         className={`form-input ${errors.phone ? 'error' : ''}`}
+                                        autoComplete="tel"
                                     />
                                 </div>
                                 {errors.phone && <span className="error-message">{errors.phone}</span>}
@@ -315,6 +332,7 @@ const CreateReceiver = () => {
                                         onChange={handleChange}
                                         placeholder="Số nhà, đường..."
                                         className={`form-input ${errors.address ? 'error' : ''}`}
+                                        autoComplete="street-address"
                                     />
                                 </div>
                                 {errors.address && <span className="error-message">{errors.address}</span>}
@@ -436,7 +454,7 @@ const CreateReceiver = () => {
                 </form>
             </div>
 
-            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+            {toast && toast.message && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>
     );
 };
