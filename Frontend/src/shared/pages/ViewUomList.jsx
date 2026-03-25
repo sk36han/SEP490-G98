@@ -1,6 +1,5 @@
 /*
  * Danh sách Đơn vị tính – kết nối API UnitOfMeasure.
- * Cột: STT, Tên đơn vị tính, Trạng thái, Hành động.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -29,23 +28,18 @@ import {
     Paper,
     TableSortLabel,
 } from '@mui/material';
-import { Plus, Edit3, RefreshCw, Power, GripVertical, FileText } from 'lucide-react';
+import { Plus, Edit3, Power, GripVertical, FileText, Filter, Columns } from 'lucide-react';
 import '../styles/ListView.css';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
 import UomFormDialog from '../components/UomFormDialog';
+import UomFilterPopup from '../components/UomFilterPopup';
 import { getUomList, createUom, updateUom, toggleUomStatus } from '../lib/uomService';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const UOM_COLUMNS = [
-    {
-        id: 'stt',
-        label: 'STT',
-        sortable: false,
-        getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1,
-    },
     {
         id: 'uomName',
         label: 'Tên đơn vị tính',
@@ -78,7 +72,10 @@ const ViewUomList = () => {
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
     const [totalItems, setTotalItems] = useState(0);
-    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
+    const [filterAnchor, setFilterAnchor] = useState(null);
 
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
         const saved = localStorage.getItem('uomVisibleColumnIds');
@@ -131,8 +128,6 @@ const ViewUomList = () => {
         }
     });
 
-    const [selectedIds, setSelectedIds] = useState(new Set());
-
     const [uomDialogOpen, setUomDialogOpen] = useState(false);
     const [uomDialogMode, setUomDialogMode] = useState('create');
     const [uomEditRow, setUomEditRow] = useState(null);
@@ -163,9 +158,9 @@ const ViewUomList = () => {
                 pageSize,
                 keyword: searchTerm.trim() || undefined,
                 isActive:
-                    statusFilter === 'ALL'
+                    filterStatus === 'all'
                         ? undefined
-                        : statusFilter === 'ACTIVE',
+                        : filterStatus === 'ACTIVE',
                 orderBy: orderBy || undefined,
                 order: orderBy ? order : undefined,
             });
@@ -175,34 +170,36 @@ const ViewUomList = () => {
 
             setRows(items);
             setTotalItems(Number.isNaN(total) ? 0 : total);
-            setSelectedIds(new Set());
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách đơn vị tính.');
             setRows([]);
             setTotalItems(0);
-            setSelectedIds(new Set());
         } finally {
             setLoading(false);
         }
-    }, [currentPage, pageSize, searchTerm, statusFilter, orderBy, order]);
+    }, [currentPage, pageSize, searchTerm, filterStatus, filterDateFrom, filterDateTo, orderBy, order]);
 
     useEffect(() => {
         fetchList();
     }, [fetchList]);
-
-    const handleRefresh = () => {
-        fetchList();
-    };
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
         setPage(0);
     };
 
-    const handleStatusFilterChange = (e) => {
-        setStatusFilter(e.target.value);
+    const handleFilterApply = useCallback((values) => {
+        setFilterStatus(values.filterStatus ?? 'all');
+        setFilterDateFrom(values.fromDate ?? '');
+        setFilterDateTo(values.toDate ?? '');
         setPage(0);
-    };
+    }, []);
+
+    const activeFilterCount = [
+        filterStatus !== 'all',
+        filterDateFrom,
+        filterDateTo,
+    ].filter(Boolean).length;
 
     const handleToggleStatus = async (uom) => {
         if (!canManage) return;
@@ -223,6 +220,12 @@ const ViewUomList = () => {
 
     const handleOpenEditUom = (u) => {
         setUomEditRow(u);
+        setUomDialogMode('edit');
+        setUomDialogOpen(true);
+    };
+
+    const handleOpenEditUomByRow = (row) => {
+        setUomEditRow(row);
         setUomDialogMode('edit');
         setUomDialogOpen(true);
     };
@@ -263,11 +266,7 @@ const ViewUomList = () => {
     const visibleColumns = useMemo(() => {
         return UOM_COLUMNS
             .filter((col) => visibleColumnIds.has(col.id))
-            .sort((a, b) => {
-                if (a.id === 'stt' && b.id !== 'stt') return -1;
-                if (b.id === 'stt' && a.id !== 'stt') return 1;
-                return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
-            });
+            .sort((a, b) => columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id));
     }, [visibleColumnIds, columnOrder]);
 
     useEffect(() => {
@@ -388,26 +387,6 @@ const ViewUomList = () => {
         return result;
     }, [rows, orderBy, order]);
 
-    const handleSelectAll = (checked) => {
-        if (checked) {
-            setSelectedIds(new Set(displayedRows.map((row) => row.uomId)));
-        } else {
-            setSelectedIds(new Set());
-        }
-    };
-
-    const handleSelectRow = (id, checked) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (checked) next.add(id);
-            else next.delete(id);
-            return next;
-        });
-    };
-
-    const isAllSelected = displayedRows.length > 0 && displayedRows.every((row) => selectedIds.has(row.uomId));
-    const isSomeSelected = displayedRows.some((row) => selectedIds.has(row.uomId)) && !isAllSelected;
-
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = totalItems === 0 ? 0 : Math.min((page + 1) * pageSize, totalItems);
 
@@ -417,13 +396,12 @@ const ViewUomList = () => {
         borderBottom: '2px solid #e5e7eb',
         fontSize: '12px',
         color: '#6b7280',
-        py: 1.5,
+        height: 48,
+        py: 0,
         px: 2,
         verticalAlign: 'middle',
     };
-    
-    const ACTION_CELL_WIDTH = 120;
-    
+
     const BODY_CELL_SX = {
         py: 1.75,
         px: 2,
@@ -432,13 +410,6 @@ const ViewUomList = () => {
         verticalAlign: 'middle',
         borderBottom: '1px solid #f3f4f6',
         color: '#374151',
-    };
-
-    const CHECKBOX_CELL_SX = {
-        ...BODY_CELL_SX,
-        width: 48,
-        minWidth: 48,
-        maxWidth: 48,
     };
 
     const handlePageChange = (newPage) => {
@@ -555,30 +526,32 @@ const ViewUomList = () => {
                                 }}
                             />
 
-                            <FormControl
-                                size="small"
-                                sx={{
-                                    minWidth: isMobile ? '100%' : 170,
-                                    '& .MuiOutlinedInput-root': {
-                                        height: 40,
-                                        borderRadius: '10px',
-                                        fontSize: '13px',
+                            <Tooltip title="Bộ lọc">
+                                <IconButton
+                                    color="primary"
+                                    onClick={(e) => setFilterAnchor(e.currentTarget)}
+                                    aria-label="Bộ lọc"
+                                    sx={{
+                                        border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
-                                    },
-                                }}
-                            >
-                                <Select value={statusFilter} onChange={handleStatusFilterChange} displayEmpty>
-                                    <MenuItem value="ALL" sx={{ fontSize: '13px' }}>
-                                        Tất cả trạng thái
-                                    </MenuItem>
-                                    <MenuItem value="ACTIVE" sx={{ fontSize: '13px' }}>
-                                        Hoạt động
-                                    </MenuItem>
-                                    <MenuItem value="INACTIVE" sx={{ fontSize: '13px' }}>
-                                        Tắt
-                                    </MenuItem>
-                                </Select>
-                            </FormControl>
+                                        borderRadius: '10px',
+                                        position: 'relative',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
+                                >
+                                    <Filter size={18} />
+                                    {activeFilterCount > 0 && (
+                                        <Box sx={{
+                                            position: 'absolute', top: 4, right: 4,
+                                            width: 8, height: 8, borderRadius: '50%',
+                                            bgcolor: '#0284c7',
+                                        }} />
+                                    )}
+                                </IconButton>
+                            </Tooltip>
 
                             <Tooltip title="Chọn cột hiển thị">
                                 <IconButton
@@ -595,7 +568,7 @@ const ViewUomList = () => {
                                         },
                                     }}
                                 >
-                                    <GripVertical size={18} />
+                                    <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
 
@@ -632,24 +605,6 @@ const ViewUomList = () => {
                                     </Button>
                                 </Box>
                             )}
-
-                            <Tooltip title="Làm mới">
-                                <IconButton
-                                    onClick={handleRefresh}
-                                    aria-label="Làm mới"
-                                    sx={{
-                                        border: '1px solid #e5e7eb',
-                                        bgcolor: '#ffffff',
-                                        borderRadius: '10px',
-                                        '&:hover': {
-                                            bgcolor: '#f9fafb',
-                                            borderColor: '#d1d5db',
-                                        },
-                                    }}
-                                >
-                                    <RefreshCw size={18} />
-                                </IconButton>
-                            </Tooltip>
                         </Box>
                     </Box>
 
@@ -847,6 +802,13 @@ const ViewUomList = () => {
                         </Box>
                     </Popover>
 
+                    <UomFilterPopup
+                        open={Boolean(filterAnchor)}
+                        onClose={() => setFilterAnchor(null)}
+                        initialValues={{ isActive: filterStatus === 'active' ? true : filterStatus === 'inactive' ? false : null, fromDate: filterDateFrom, toDate: filterDateTo }}
+                        onApply={handleFilterApply}
+                    />
+
                     <Box
                         sx={{
                             flex: 1,
@@ -876,266 +838,253 @@ const ViewUomList = () => {
                                 <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu đơn vị tính</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                                <Table size="small" stickyHeader>
-                                <TableHead>
-    <TableRow>
-        <TableCell
-            padding="checkbox"
-            sx={{
-                ...HEADER_CELL_SX,
-                width: 56,
-                minWidth: 56,
-                maxWidth: 56,
-            }}
-        >
-            <Checkbox
-                checked={isAllSelected}
-                indeterminate={isSomeSelected}
-                onChange={(e) => handleSelectAll(e.target.checked)}
-                size="small"
-            />
-        </TableCell>
-
-        {visibleColumns.map((col) => {
-            const isCenterCol = col.id === 'stt';
-
-            return (
-                <TableCell
-                    key={col.id}
-                    sx={{
-                        ...HEADER_CELL_SX,
-                        bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa',
-                        whiteSpace: 'nowrap',
-                        opacity: draggedColumn === col.id ? 0.5 : 1,
-                        transition: 'all 0.2s',
-                    }}
-                    align={isCenterCol ? 'center' : 'left'}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, col.id)}
-                >
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: isCenterCol ? 'center' : 'flex-start',
-                            gap: 0.5,
-                            width: '100%',
-                            '&:hover .drag-icon': {
-                                opacity: 0.6,
-                            },
-                        }}
-                    >
-                        <Box
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, col.id)}
-                            onDragEnd={handleDragEnd}
-                            className="drag-icon"
-                            sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                cursor: 'grab',
-                                '&:active': { cursor: 'grabbing' },
-                                color: '#9ca3af',
-                                opacity: 0,
-                                transition: 'opacity 0.2s',
-                                flexShrink: 0,
-                            }}
-                        >
-                            <GripVertical size={14} />
-                        </Box>
-
-                        {col.sortable ? (
-                            <TableSortLabel
-                                active={orderBy === col.id}
-                                direction={orderBy === col.id ? order : 'asc'}
-                                onClick={() => handleSortRequest(col.id)}
-                                hideSortIcon={false}
+                            <TableContainer
                                 sx={{
-                                    flex: isCenterCol ? '0 1 auto' : 1,
-                                    justifyContent: isCenterCol ? 'center' : 'flex-start',
-                                    '& .MuiTableSortLabel-icon': {
-                                        fontSize: '14px',
-                                        opacity: orderBy === col.id ? 1 : 0,
-                                    },
+                                    flex: 1,
+                                    minHeight: 0,
+                                    minWidth: 0,
+                                    width: '100%',
+                                    maxWidth: '100%',
+                                    overflow: 'auto',
+                                    boxSizing: 'border-box',
                                 }}
                             >
-                                {col.label}
-                            </TableSortLabel>
-                        ) : (
-                            <Typography
-                                variant="inherit"
-                                sx={{
-                                    flex: isCenterCol ? '0 1 auto' : 1,
-                                    textAlign: isCenterCol ? 'center' : 'left',
-                                }}
-                            >
-                                {col.label}
-                            </Typography>
-                        )}
-                    </Box>
-                </TableCell>
-            );
-        })}
-
-        <TableCell
-            align="right"
-            sx={{
-                ...HEADER_CELL_SX,
-                width: ACTION_CELL_WIDTH,
-                minWidth: ACTION_CELL_WIDTH,
-                maxWidth: ACTION_CELL_WIDTH,
-            }}
-        >
-            Hành động
-        </TableCell>
-    </TableRow>
-</TableHead>
-
-<TableBody>
-    {displayedRows.map((row, index) => (
-        <TableRow
-            key={row.uomId}
-            hover
-            sx={{
-                height: 56,
-                '&:last-child td': { borderBottom: 0 },
-                '&:hover': {
-                    bgcolor: '#f9fafb',
-                },
-                '& .MuiTableCell-root': BODY_CELL_SX,
-                '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
-            }}
-        >
-            <TableCell padding="checkbox">
-                <Checkbox
-                    checked={selectedIds.has(row.uomId)}
-                    onChange={(e) => handleSelectRow(row.uomId, e.target.checked)}
-                    size="small"
-                />
-            </TableCell>
-
-            {visibleColumns.map((col) => {
-                const opts = { pageNumber: page + 1, pageSize };
-
-                if (col.id === 'stt') {
-                    return (
-                        <TableCell
-                            key={col.id}
-                            align="center"
-                            sx={{
-                                fontVariantNumeric: 'tabular-nums',
-                                textAlign: 'center',
-                            }}
-                        >
-                            {col.getValue(row, index, opts)}
-                        </TableCell>
-                    );
-                }
-
-                if (col.id === 'isActive') {
-                    return (
-                        <TableCell key={col.id} align="left">
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'flex-start',
-                                    minHeight: 24,
-                                }}
-                            >
-                                <Chip
-                                    label={row.isActive ? 'Hoạt động' : 'Tắt'}
+                                <Table
                                     size="small"
+                                    stickyHeader
                                     sx={{
-                                        fontWeight: 500,
-                                        fontSize: '12px',
-                                        lineHeight: '16px',
-                                        borderRadius: '999px',
-                                        minWidth: 90,
-                                        height: '26px',
-                                        bgcolor: row.isActive
-                                            ? 'rgba(16, 185, 129, 0.2)'
-                                            : 'rgba(107, 114, 128, 0.2)',
-                                        color: '#374151',
-                                        border: 'none',
-                                        boxShadow: 'none',
-                                        '& .MuiChip-label': {
-                                            px: 1.5,
-                                            py: 0,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: '100%',
-                                        },
+                                        minWidth: '100%',
+                                        width: 'max-content',
+                                        tableLayout: 'fixed',
+                                        borderCollapse: 'separate',
+                                        borderSpacing: 0,
                                     }}
-                                />
-                            </Box>
-                        </TableCell>
-                    );
-                }
+                                >
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell
+                                            sx={{
+                                                ...HEADER_CELL_SX,
+                                                width: 56,
+                                                minWidth: 56,
+                                                maxWidth: 56,
+                                                textAlign: 'center',
+                                            }}
+                                        >
+                                            STT
+                                        </TableCell>
+                                        {/* Ma UOM — always visible, not in configurable columns */}
+                                        <TableCell
+                                            sx={{
+                                                ...HEADER_CELL_SX,
+                                                width: 140,
+                                                minWidth: 140,
+                                                maxWidth: 140,
+                                            }}
+                                        >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <GripVertical size={14} style={{ color: '#9ca3af', flexShrink: 0 }} />
+                                                <Typography variant="inherit" sx={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>
+                                                    Mã đơn vị tính
+                                                </Typography>
+                                            </Box>
+                                        </TableCell>
+                                        {visibleColumns.map((col) => (
+                                            <TableCell
+                                                key={col.id}
+                                                draggable
+                                                onDragStart={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDragStart(e, col.id);
+                                                }}
+                                                onDragEnd={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDragEnd();
+                                                }}
+                                                onDragOver={handleDragOver}
+                                                onDrop={(e) => handleDrop(e, col.id)}
+                                                sortDirection={orderBy === col.id ? order : false}
+                                                sx={{
+                                                    ...HEADER_CELL_SX,
+                                                    cursor: 'grab',
+                                                    userSelect: 'none',
+                                                    opacity: draggedColumn === col.id ? 0.5 : 1,
+                                                }}
+                                            >
+                                                <Box
+                                                    sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 0.5,
+                                                        minWidth: 0,
+                                                        width: '100%',
+                                                    }}
+                                                >
+                                                    <GripVertical size={14} style={{ color: '#9ca3af', flexShrink: 0 }} />
+                                                    {col.sortable ? (
+                                                        <TableSortLabel
+                                                            active={orderBy === col.id}
+                                                            direction={orderBy === col.id ? order : 'asc'}
+                                                            onClick={() => handleSortRequest(col.id)}
+                                                            hideSortIcon={false}
+                                                            sx={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                minWidth: 0,
+                                                                flex: 1,
+                                                                '& .MuiTableSortLabel-icon': {
+                                                                    fontSize: '14px',
+                                                                    opacity: orderBy === col.id ? 1 : 0,
+                                                                },
+                                                            }}
+                                                        >
+                                                            <Box
+                                                                component="span"
+                                                                sx={{
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                            >
+                                                                {col.label}
+                                                            </Box>
+                                                        </TableSortLabel>
+                                                    ) : (
+                                                        <Typography
+                                                            variant="inherit"
+                                                            sx={{
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                flex: 1,
+                                                            }}
+                                                        >
+                                                            {col.label}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
 
-                return (
-                    <TableCell
-                        key={col.id}
-                        align="left"
-                        sx={{
-                            maxWidth: 200,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                        title={col.getValue(row)}
-                    >
-                        {col.getValue(row)}
-                    </TableCell>
-                );
-            })}
+                                <TableBody>
+                                    {displayedRows.map((row, index) => (
+                                        <TableRow
+                                            key={row.uomId}
+                                            hover
+                                            sx={{
+                                                height: 52,
+                                                '&:hover': { bgcolor: '#f9fafb' },
+                                            }}
+                                        >
+                                            <TableCell
+                                                align="center"
+                                                sx={{
+                                                    ...BODY_CELL_SX,
+                                                    width: 56,
+                                                    minWidth: 56,
+                                                    maxWidth: 56,
+                                                }}
+                                            >
+                                                {page * pageSize + index + 1}
+                                            </TableCell>
+                                            <TableCell
+                                                align="left"
+                                                sx={{
+                                                    ...BODY_CELL_SX,
+                                                    width: 140,
+                                                    minWidth: 140,
+                                                    maxWidth: 140,
+                                                }}
+                                            >
+                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
+                                                    {row.uomCode ?? ''}
+                                                </Typography>
+                                            </TableCell>
+                                            {visibleColumns.map((col) => {
+                                                const opts = { pageNumber: page + 1, pageSize };
 
-            <TableCell
-                align="right"
-                sx={{
-                    px: 2,
-                    width: ACTION_CELL_WIDTH,
-                    minWidth: ACTION_CELL_WIDTH,
-                    maxWidth: ACTION_CELL_WIDTH,
-                }}
-            >
-                {canManage && (
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            gap: 0.25,
-                            width: '100%',
-                        }}
-                    >
-                        <Tooltip title={row.isActive ? 'Tắt' : 'Bật'}>
-                            <IconButton
-                                size="small"
-                                onClick={() => handleToggleStatus(row)}
-                                aria-label={row.isActive ? 'Tắt' : 'Bật'}
-                            >
-                                <Power size={18} color={row.isActive ? '#2e7d32' : '#757575'} />
-                            </IconButton>
-                        </Tooltip>
+                                                if (col.id === 'uomName') {
+                                                    return (
+                                                        <TableCell
+                                                            key={col.id}
+                                                            align="left"
+                                                            sx={{ ...BODY_CELL_SX }}
+                                                        >
+                                                            <Box
+                                                                component="button"
+                                                                onClick={() => handleOpenEditUomByRow(row)}
+                                                                sx={{
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                    width: '100%',
+                                                                    display: 'block',
+                                                                    fontSize: '13px',
+                                                                    textAlign: 'left',
+                                                                    color: '#2563eb',
+                                                                    cursor: 'pointer',
+                                                                    bgcolor: 'transparent',
+                                                                    border: 'none',
+                                                                    p: 0,
+                                                                    fontFamily: 'inherit',
+                                                                    '&:hover': { color: '#1d4ed8' },
+                                                                }}
+                                                                title={row.uomName ?? ''}
+                                                            >
+                                                                {row.uomName ?? ''}
+                                                            </Box>
+                                                        </TableCell>
+                                                    );
+                                                }
 
-                        <Tooltip title="Chỉnh sửa">
-                            <IconButton
-                                size="small"
-                                aria-label="Chỉnh sửa"
-                                onClick={() => handleOpenEditUom(row)}
-                            >
-                                <Edit3 size={18} />
-                            </IconButton>
-                        </Tooltip>
-                    </Box>
-                )}
-            </TableCell>
-        </TableRow>
-    ))}
-</TableBody>
+                                                if (col.id === 'isActive') {
+                                                    return (
+                                                        <TableCell key={col.id} align="left" sx={{ ...BODY_CELL_SX }}>
+                                                            <Chip
+                                                                label={row.isActive ? '• Hoạt động' : '• Tạm dừng'}
+                                                                size="small"
+                                                                sx={{
+                                                                    fontWeight: 500,
+                                                                    fontSize: '12px',
+                                                                    lineHeight: '16px',
+                                                                    borderRadius: '999px',
+                                                                    minWidth: 100,
+                                                                    height: '26px',
+                                                                    bgcolor: row.isActive
+                                                                        ? 'rgba(16, 185, 129, 0.2)'
+                                                                        : 'rgba(107, 114, 128, 0.2)',
+                                                                    color: '#374151',
+                                                                    border: 'none',
+                                                                    boxShadow: 'none',
+                                                                    '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left' },
+                                                                }}
+                                                            />
+                                                        </TableCell>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <TableCell
+                                                        key={col.id}
+                                                        align="left"
+                                                        sx={{
+                                                            ...BODY_CELL_SX,
+                                                            maxWidth: 200,
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap',
+                                                        }}
+                                                        title={col.getValue(row, index, opts)}
+                                                    >
+                                                        {col.getValue(row, index, opts)}
+                                                    </TableCell>
+                                                );
+                                            })}
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
                                 </Table>
                             </TableContainer>
                         )}

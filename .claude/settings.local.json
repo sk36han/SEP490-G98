@@ -23,7 +23,10 @@
       "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/CreateStocktake.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")",
       "Bash(node -e \"require\\(''@babel/parser''\\).parse\\(require\\(''fs''\\).readFileSync\\(''src/shared/pages/ViewStocktakeDetail.jsx'', ''utf8''\\), {sourceType: ''module'', plugins: [''jsx'']}\\); console.log\\(''OK''\\)\")",
       "Bash(npx vite:*)",
-      "Bash(timeout 10 npm run dev)"
+      "Bash(timeout 10 npm run dev)",
+      "Bash(xxd)",
+      "Bash(node:*)",
+      "Bash(perl -i -pe 's/useState\\\\\\(STATUS_OPTIONS\\\\[0\\\\]\\\\\\)/useState\\(STATUS_OPTIONS[0]\\)/g; s/useRef\\\\\\(\\\\{ x: 0, y: 0, startX: 0, startY: 0 \\\\}\\\\\\)/useRef\\({ x: 0, y: 0, startX: 0, startY: 0 }\\)/g' \"D:/SEP490 SP26/SEP490-G98/Frontend/src/shared/components/ReleaseRequestFilterPopup.jsx\")"
     ]
   }
 }

@@ -122,7 +122,16 @@ const warehouseKeeperItems = [
             { path: '/good-receipt-notes/create', label: 'Tạo phiếu nhập kho' },
         ],
     },
-    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
+    {
+        id: 'good-delivery-notes-mgmt',
+        path: '/good-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Yêu cầu xuất hàng',
+        children: [
+            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
+            { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
+        ],
+    },
 ];
 
 const saleSupportItems = [
@@ -170,6 +179,16 @@ const saleSupportItems = [
             { path: '/good-receipt-notes', label: 'Danh sách phiếu nhập kho' },
         ],
     },
+    {
+        id: 'good-delivery-notes-mgmt',
+        path: '/good-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Yêu cầu xuất hàng',
+        children: [
+            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
+            { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
+        ],
+    },
 ];
 
 const saleEngineerItems = [
@@ -186,6 +205,16 @@ const saleEngineerItems = [
         ],
     },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
+    {
+        id: 'good-delivery-notes-mgmt',
+        path: '/good-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Yêu cầu xuất hàng',
+        children: [
+            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
+            { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
+        ],
+    },
 ];
 
 const accountantItems = [
@@ -226,7 +255,15 @@ const accountantItems = [
             { path: '/purchase-returns', label: 'Danh sách phiếu trả hàng' },
         ],
     },
-    { path: '/good-delivery-notes', icon: <FileText size={22} />, label: 'Yêu cầu xuất hàng' },
+    {
+        id: 'good-delivery-notes-mgmt',
+        path: '/good-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Yêu cầu xuất hàng',
+        children: [
+            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
+        ],
+    },
     {
         id: 'reports-mgmt',
         path: '/reports',
