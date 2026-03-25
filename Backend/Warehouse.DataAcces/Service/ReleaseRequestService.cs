@@ -141,6 +141,7 @@ namespace Warehouse.DataAcces.Service
             var query = _context.ReleaseRequests
                 .Include(rr => rr.Warehouse)
                 .Include(rr => rr.Receiver)
+                    .ThenInclude(rc => rc.Company)
                 .Include(rr => rr.RequestedByNavigation)
                 .Include(rr => rr.ReleaseRequestLines)
                 .AsQueryable();
@@ -164,6 +165,9 @@ namespace Warehouse.DataAcces.Service
                     WarehouseName = rr.Warehouse != null ? rr.Warehouse.WarehouseName : null,
                     ReceiverId = rr.ReceiverId,
                     ReceiverName = rr.Receiver != null ? rr.Receiver.ReceiverName : null,
+                    CompanyId = rr.Receiver != null ? rr.Receiver.CompanyId : null,
+                    CompanyName = (rr.Receiver != null && rr.Receiver.Company != null) ? rr.Receiver.Company.CompanyName : null,
+                    ReceiverAddress = rr.Receiver != null ? rr.Receiver.Address : null,
                     RequestedBy = rr.RequestedBy,
                     RequestedByName = rr.RequestedByNavigation != null ? rr.RequestedByNavigation.FullName : null,
                     TotalItems = rr.ReleaseRequestLines.Count,
@@ -217,6 +221,8 @@ namespace Warehouse.DataAcces.Service
                     ReceiverName = rr.Receiver.ReceiverName,
                     Phone = rr.Receiver.Phone,
                     Email = rr.Receiver.Email,
+                    CompanyId = rr.Receiver.CompanyId,
+                    CompanyName = rr.Receiver.Company?.CompanyName,
                     Notes = rr.Receiver.Notes,
                     Address = rr.Receiver.Address,
                     City = rr.Receiver.City,
@@ -441,23 +447,43 @@ namespace Warehouse.DataAcces.Service
       
         private async Task<string> GenerateNextRRCodeAsync()
         {
-            var codes = await _context.ReleaseRequests
-                .Where(r => r.ReleaseRequestCode.StartsWith("RR"))
+            var year = DateTime.Now.Year;
+            var prefix = $"XR-{year}-";
+            
+            var lastCode = await _context.ReleaseRequests
+                .Where(r => r.ReleaseRequestCode.StartsWith(prefix))
+                .OrderByDescending(r => r.ReleaseRequestCode)
                 .Select(r => r.ReleaseRequestCode)
-                .ToListAsync();
+                .FirstOrDefaultAsync();
 
-            var maxNumber = 0;
-            foreach (var code in codes)
+            var nextNumber = 1;
+            if (lastCode != null)
             {
-                // Hỗ trợ cả định dạng cũ (RR001) và mới (RR-001)
-                var numberStr = code.StartsWith("RR-") ? code.Substring(3) : 
-                               (code.StartsWith("RR") ? code.Substring(2) : "");
+                var parts = lastCode.Split('-');
+                if (parts.Length == 3 && int.TryParse(parts[2], out var lastNumber))
+                {
+                    nextNumber = lastNumber + 1;
+                }
+            }
+            else
+            {
+                // Fallback cho logic cũ nếu không tìm thấy prefix năm hiện tại
+                var codes = await _context.ReleaseRequests
+                    .Select(r => r.ReleaseRequestCode)
+                    .ToListAsync();
                 
-                if (int.TryParse(numberStr, out var number) && number > maxNumber)
-                    maxNumber = number;
+                var maxNumber = 0;
+                foreach (var code in codes)
+                {
+                    var parts = code.Split('-');
+                    var lastPart = parts.Last();
+                    if (int.TryParse(lastPart, out var number) && number > maxNumber)
+                        maxNumber = number;
+                }
+                nextNumber = maxNumber + 1;
             }
 
-            return $"RR-{((maxNumber + 1).ToString("D3"))}";
+            return $"{prefix}{nextNumber:D3}";
         }
 
        
