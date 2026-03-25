@@ -84,7 +84,11 @@ namespace Warehouse.DataAcces.Service
             var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? defaultMinutes.ToString());
             var expirationMinutes = rememberMe ? rememberMeMinutes : defaultMinutes;
 
-            var roleCode = await GetUserRoleCodeAsync(user.UserId);
+            var roleCode = await _context.UserRoles
+                .Where(ur => ur.UserId == user.UserId)
+                .Include(ur => ur.Role)
+                .Select(ur => ur.Role.RoleCode)
+                .FirstOrDefaultAsync();
 
             var claims = new List<Claim>
             {
@@ -450,9 +454,9 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Kiểm tra số lần nhập sai
-            if (otpData.FailedAttempts >= 5)
+            if (otpData.FailedAttempts >= 3)
             {
-                _cache.Remove(cacheKey); // Xóa cache ngay lập tức nếu vượt quá 5 lần
+                _cache.Remove(cacheKey); // Xóa cache ngay lập tức nếu vượt quá 3 lần
                 return Task.FromResult(false);
             }
 
@@ -464,9 +468,9 @@ namespace Warehouse.DataAcces.Service
                 // Tăng số lần thử nghiệm sai
                 otpData.FailedAttempts++;
 
-                if (otpData.FailedAttempts >= 5)
+                if (otpData.FailedAttempts >= 3)
                 {
-                    _cache.Remove(cacheKey); // Xóa ngay nếu sai quá 5 lần
+                    _cache.Remove(cacheKey); // Xóa ngay nếu sai quá 3 lần
                 }
                 else
                 {

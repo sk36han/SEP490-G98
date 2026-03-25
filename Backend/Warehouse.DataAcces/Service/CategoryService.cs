@@ -192,13 +192,6 @@ namespace Warehouse.DataAcces.Service
 			if (request == null)
 				throw new ArgumentNullException(nameof(request), "Dữ liệu yêu cầu không được để trống.");
 
-			ValidateUserId(currentUserId);
-			ValidateCategoryCode(request.CategoryCode);
-			ValidateCategoryName(request.CategoryName);
-
-			var categoryCode = request.CategoryCode.Trim();
-			var categoryName = request.CategoryName.Trim();
-
 			// 2️⃣ Kiểm tra tồn tại
 			var all = await _categoryRepository.GetAllAsync();
 			var category = all.FirstOrDefault(c => c.CategoryId == id);
@@ -214,10 +207,13 @@ namespace Warehouse.DataAcces.Service
 				category.IsActive
 			});
 
-			// 3️⃣ Kiểm tra mã trùng với danh mục khác
+			// 3️⃣ Kiểm tra mã trùng với danh mục khác (Lưu ý: chưa trim, cứ lấy request.CategoryCode/Name)
+			var categoryCode = (request.CategoryCode ?? "").Trim();
+			var categoryName = (request.CategoryName ?? "").Trim();
+
 			if (all.Any(c =>
 				c.CategoryId != id &&
-				c.CategoryCode.Trim().Equals(categoryCode, StringComparison.OrdinalIgnoreCase)))
+				(c.CategoryCode ?? "").Trim().Equals(categoryCode, StringComparison.OrdinalIgnoreCase)))
 			{
 				throw new InvalidOperationException($"Mã danh mục '{categoryCode}' đã tồn tại.");
 			}
@@ -226,7 +222,7 @@ namespace Warehouse.DataAcces.Service
 			if (all.Any(c =>
 				c.CategoryId != id &&
 				c.ParentId == request.ParentId &&
-				c.CategoryName.Trim().Equals(categoryName, StringComparison.OrdinalIgnoreCase)))
+				(c.CategoryName ?? "").Trim().Equals(categoryName, StringComparison.OrdinalIgnoreCase)))
 			{
 				throw new InvalidOperationException($"Tên danh mục '{categoryName}' đã tồn tại trong cùng cấp cha.");
 			}
@@ -241,6 +237,11 @@ namespace Warehouse.DataAcces.Service
 				if (parent == null)
 					throw new KeyNotFoundException($"Không tìm thấy danh mục cha với ID = {request.ParentId.Value}.");
 			}
+
+			// 6️⃣ Validate input định dạng (Xảy ra sau khi check các lỗi nghiệp vụ trên)
+			ValidateUserId(currentUserId);
+			ValidateCategoryCode(request.CategoryCode);
+			ValidateCategoryName(request.CategoryName);
 
 			// 6️⃣ Cập nhật
 			category.CategoryCode = categoryCode;

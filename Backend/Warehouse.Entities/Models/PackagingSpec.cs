@@ -14,4 +14,6 @@ public partial class PackagingSpec
     public bool IsActive { get; set; }
 
     public virtual ICollection<Item> Items { get; set; } = new List<Item>();
+
+    public virtual ICollection<ReleaseRequestLine> ReleaseRequestLines { get; set; } = new List<ReleaseRequestLine>();
 }
