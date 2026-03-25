@@ -19,6 +19,7 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
 
+// Mock GRN data - đồng nhất với ViewGoodReceiptNoteDetail
 const MOCK_GRNS = [
     {
         id: 1,
@@ -36,10 +37,9 @@ const MOCK_GRNS = [
         supplierAddressWard: 'Phường Mai Dịch',
         supplierAddressStreet: 'Số 123 Đường Nguyễn Phong Sắc',
         lines: [
-            { grnLineId: 1, productId: 1, sku: 'ONP-021', productName: 'Ống nhựa PVC Ø21', uom: 'Cây 4m', receivedQty: 30, unitPrice: 45000 },
-            { grnLineId: 2, productId: 2, sku: 'KDN-500', productName: 'Keo dán nhựa PVC 500ml', uom: 'Chai', receivedQty: 20, unitPrice: 35000 },
-            { grnLineId: 3, productId: 3, sku: 'BNR-001', productName: 'Bát nhựa rửa chén', uom: 'Cái', receivedQty: 50, unitPrice: 28000 },
-            { grnLineId: 4, productId: 4, sku: 'VND-021', productName: 'Van nhựa DN21', uom: 'Cái', receivedQty: 12, unitPrice: 120000 },
+            { grnLineId: 1, productId: 1, sku: 'PEN-001', productName: 'Bút bi Thiên Long TL-057', uom: 'Cây', receivedQty: 50, unitPrice: 3500 },
+            { grnLineId: 2, productId: 2, sku: 'NOTE-001', productName: 'Vở note 5 chấm A5', uom: 'Quyển', receivedQty: 20, unitPrice: 22000 },
+            { grnLineId: 3, productId: 3, sku: 'PAPER-001', productName: 'Giấy A4 Double A 80gsm', uom: 'Ram', receivedQty: 10, unitPrice: 62000 },
         ],
     },
     {
@@ -58,10 +58,8 @@ const MOCK_GRNS = [
         supplierAddressWard: 'Phường Bến Nghé',
         supplierAddressStreet: 'Số 456 Đường Lê Duẩn',
         lines: [
-            { grnLineId: 5, productId: 5, sku: 'CN-90-021', productName: 'Co nhựa 90 độ Ø21', uom: 'Cái', receivedQty: 100, unitPrice: 8500 },
-            { grnLineId: 6, productId: 6, sku: 'TN-021', productName: 'Tê nhựa Ø21', uom: 'Cái', receivedQty: 80, unitPrice: 7500 },
-            { grnLineId: 7, productId: 7, sku: 'ONNL-021', productName: 'Ống nước nóng lạnh PN20 Ø21', uom: 'Cây 4m', receivedQty: 25, unitPrice: 52000 },
-            { grnLineId: 8, productId: 8, sku: 'BNN-030', productName: 'Bình nước nóng 30L', uom: 'Cái', receivedQty: 10, unitPrice: 1850000 },
+            { grnLineId: 4, productId: 4, sku: 'CLIP-001', productName: 'Kẹp giấy 33mm (hộp 50 cái)', uom: 'Hộp', receivedQty: 30, unitPrice: 18000 },
+            { grnLineId: 5, productId: 5, sku: 'GLUE-001', productName: 'Keo dán thiên long 15g', uom: 'Tuýp', receivedQty: 15, unitPrice: 7000 },
         ],
     },
 ];
@@ -96,6 +94,7 @@ const CreatePurchaseReturn = () => {
                     supplierAddressStreet: foundGrn.supplierAddressStreet,
                     warehouseId: foundGrn.warehouseId,
                     warehouseName: foundGrn.warehouseName,
+                    grnReceiptDate: foundGrn.createdDate || '',
                 }));
 
                 // Auto-fill lines from GRN
@@ -139,7 +138,12 @@ const CreatePurchaseReturn = () => {
         returnDate: '',
         reason: '',
         note: '',
-        feeAmount: 0,
+        feeAmount: '',
+        deductionReason: '',
+        refundReceiveStatus: 'later',
+        refundMethod: 'cash',
+        grnReceiptDate: '',
+        refundRecordedDate: '',
     });
 
     const MAX_REASON_LENGTH = 250;
@@ -189,10 +193,55 @@ const CreatePurchaseReturn = () => {
 
         if (name === 'reason' && value.length > MAX_REASON_LENGTH) return;
         if (name === 'note' && value.length > MAX_NOTE_LENGTH) return;
+        if (name === 'deductionReason' && value.length > MAX_NOTE_LENGTH) return;
+
+        if (name === 'refundRecordedDate') {
+            const today = new Date().toISOString().slice(0, 10);
+            const minDate = formData.grnReceiptDate || '';
+
+            if (value && value > today) {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được ở tương lai' }));
+            } else if (value && minDate && value < minDate) {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến' }));
+            } else {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: '' }));
+            }
+        }
+
+        if (name === 'refundRecordedDate') {
+            const today = new Date().toISOString().slice(0, 10);
+            const minDate = formData.grnReceiptDate || '';
+
+            if (value && value > today) {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được ở tương lai' }));
+            } else if (value && minDate && value < minDate) {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến' }));
+            } else {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: '' }));
+            }
+        }
+        if (name === 'deductionReason' && value.length > MAX_NOTE_LENGTH) return;
+
+        if (name === 'feeAmount') {
+            const digitsOnly = value.replace(/\D/g, '');
+            const normalized = digitsOnly.replace(/^0+(?=\d)/, '');
+            setFormData((prev) => ({
+                ...prev,
+                feeAmount: normalized,
+            }));
+
+            if (errors.feeAmount) {
+                setErrors((prev) => ({
+                    ...prev,
+                    feeAmount: '',
+                }));
+            }
+            return;
+        }
 
         setFormData((prev) => ({
             ...prev,
-            [name]: name === 'feeAmount' ? Number(value) || 0 : value,
+            [name]: value,
         }));
 
         if (errors[name]) {
@@ -231,7 +280,6 @@ const CreatePurchaseReturn = () => {
 
         setErrors((prev) => ({
             ...prev,
-            relatedGRNCode: '',
             lines: '',
         }));
     };
@@ -293,9 +341,16 @@ const CreatePurchaseReturn = () => {
             prev.map((line, i) => {
                 if (i !== index) return line;
 
+                let processedValue = value;
+                if (field === 'returnQty') {
+                    const numValue = Number(value) || 0;
+                    // Không cho nhập quá số lượng đã nhập
+                    processedValue = Math.min(Math.max(numValue, 0), line.receivedQty);
+                }
+
                 const next = {
                     ...line,
-                    [field]: field === 'returnQty' ? Number(value) || 0 : value,
+                    [field]: field === 'returnQty' ? processedValue : value,
                 };
 
                 if (field === 'returnQty') {
@@ -344,6 +399,7 @@ const CreatePurchaseReturn = () => {
     const totalReturnQuantity = lines.reduce((sum, line) => sum + (Number(line.returnQty) || 0), 0);
     const subtotal = lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
     const feeAmount = Number(formData.feeAmount) || 0;
+    const isFeeAmountExceedSubtotal = feeAmount > subtotal;
     const estimatedRefundAmount = Math.max(subtotal - feeAmount, 0);
 
     const formatCurrency = (value) => {
@@ -355,10 +411,6 @@ const CreatePurchaseReturn = () => {
 
     const validateForm = () => {
         const newErrors = {};
-
-        if (!formData.relatedGRNId) {
-            newErrors.relatedGRNCode = 'Phiếu nhập tham chiếu là bắt buộc';
-        }
 
         if (!formData.returnDate) {
             newErrors.returnDate = 'Ngày trả hàng là bắt buộc';
@@ -386,6 +438,38 @@ const CreatePurchaseReturn = () => {
             newErrors.feeAmount = 'Phí xử lý phải lớn hơn hoặc bằng 0';
         }
 
+        if (feeAmount > subtotal) {
+            newErrors.feeAmount = 'Phí xử lý không được cao hơn Giá trị hoàn trả';
+        }
+
+        if (formData.refundReceiveStatus === 'received') {
+            if (!formData.refundRecordedDate) {
+                newErrors.refundRecordedDate = 'Ngày ghi nhận là bắt buộc';
+            } else {
+                const today = new Date().toISOString().slice(0, 10);
+                if (formData.refundRecordedDate > today) {
+                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được ở tương lai';
+                }
+                if (formData.grnReceiptDate && formData.refundRecordedDate < formData.grnReceiptDate) {
+                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến';
+                }
+            }
+        }
+
+        if (formData.refundReceiveStatus === 'received') {
+            if (!formData.refundRecordedDate) {
+                newErrors.refundRecordedDate = 'Ngày ghi nhận là bắt buộc';
+            } else {
+                const today = new Date().toISOString().slice(0, 10);
+                if (formData.refundRecordedDate > today) {
+                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được ở tương lai';
+                }
+                if (formData.grnReceiptDate && formData.refundRecordedDate < formData.grnReceiptDate) {
+                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến';
+                }
+            }
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -407,6 +491,11 @@ const CreatePurchaseReturn = () => {
                 reason: formData.reason.trim(),
                 note: formData.note.trim() || null,
                 feeAmount: feeAmount,
+                deductionReason: formData.deductionReason?.trim() || null,
+                refundReceiveStatus: formData.refundReceiveStatus,
+                refundMethod: formData.refundReceiveStatus === 'received' ? formData.refundMethod : null,
+                refundReceivedAmount: formData.refundReceiveStatus === 'received' ? estimatedRefundAmount : 0,
+                refundRecordedDate: formData.refundReceiveStatus === 'received' ? formData.refundRecordedDate : null,
                 estimatedRefundAmount,
                 lines: lines.map((line) => ({
                     grnLineId: line.grnLineId,
@@ -478,11 +567,11 @@ const CreatePurchaseReturn = () => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        <div className="info-section" style={{ margin: 0, minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', height: '760px' }}>
+                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', height: '760px' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết vật tư trả</h2>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                                     {selectedLineIds.length > 0 && (
                                         <button
                                             type="button"
@@ -499,6 +588,32 @@ const CreatePurchaseReturn = () => {
                                             Xóa ({selectedLineIds.length})
                                         </button>
                                     )}
+
+                                    <label
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#374151', fontWeight: 600 }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={lines.length > 0 && lines.every(line => line.returnQty === line.receivedQty)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setLines(prev => prev.map(line => ({
+                                                        ...line,
+                                                        returnQty: line.receivedQty,
+                                                        totalPrice: line.receivedQty * line.unitPrice,
+                                                    })));
+                                                } else {
+                                                    setLines(prev => prev.map(line => ({
+                                                        ...line,
+                                                        returnQty: 0,
+                                                        totalPrice: 0,
+                                                    })));
+                                                }
+                                            }}
+                                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                        />
+                                        Trả toàn bộ
+                                    </label>
 
                                     <button
                                         type="button"
@@ -719,59 +834,58 @@ const CreatePurchaseReturn = () => {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                                <div className="table-container" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                                     <table className="product-table">
                                         <thead>
                                             <tr>
-                                                <th style={{ width: '40px' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={lines.length > 0 && selectedLineIds.length === lines.length}
-                                                        onChange={toggleSelectAll}
-                                                        style={{ cursor: 'pointer' }}
-                                                    />
-                                                </th>
                                                 <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
-                                                <th>Mã vật tư</th>
-                                                <th>Tên vật tư</th>
-                                                <th style={{ width: '90px' }}>ĐVT</th>
-                                                <th style={{ width: '110px', textAlign: 'right' }}>SL đã nhập</th>
-                                                <th style={{ width: '110px', textAlign: 'right' }}>SL trả</th>
-                                                <th style={{ width: '130px', textAlign: 'right' }}>Đơn giá</th>
-                                                <th style={{ width: '150px', textAlign: 'right' }}>Thành tiền</th>
-                                                <th style={{ width: '60px' }}></th>
+                                                <th style={{ textAlign: 'left' }}>Vật tư</th>
+                                                <th style={{ width: '90px', textAlign: 'right' }}>SL đã nhập</th>
+                                                <th style={{ width: '120px', textAlign: 'center' }}>SL trả</th>
+                                                <th style={{ width: '120px', textAlign: 'right' }}>Đơn giá</th>
+                                                <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
+                                                <th style={{ width: '50px' }}></th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {lines.map((line, index) => (
                                                 <tr key={line.id}>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedLineIds.includes(line.id)}
-                                                            onChange={() => toggleLineSelection(line.id)}
-                                                            style={{ cursor: 'pointer' }}
-                                                        />
-                                                    </td>
                                                     <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                    <td>{line.sku}</td>
-                                                    <td>{line.productName}</td>
-                                                    <td>{line.uom}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
-                                                        {line.receivedQty}
-                                                    </td>
                                                     <td>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            max={line.receivedQty}
-                                                            value={line.returnQty}
-                                                            onChange={(e) => updateLine(index, 'returnQty', e.target.value)}
-                                                            className="form-input"
-                                                            style={{ textAlign: 'right', width: '100%' }}
-                                                        />
+                                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                            <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
+                                                                <Package size={20} color="#9ca3af" />
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                <span style={{ fontSize: 14, fontWeight: 500, color: '#2196F3' }}>
+                                                                    {line.productName}
+                                                                </span>
+                                                                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                                    Mã: {line.sku} • ĐVT: {line.uom}
+                                                                </span>
+                                                            </div>
+                                                        </div>
                                                     </td>
-                                                    <td style={{ textAlign: 'right' }}>
+                                                    <td style={{ textAlign: 'right', paddingRight: '12px' }}>
+                                                        <span style={{ fontWeight: 500, color: '#374151' }}>{line.receivedQty}</span>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                max={line.receivedQty}
+                                                                value={line.returnQty}
+                                                                onChange={(e) => updateLine(index, 'returnQty', e.target.value)}
+                                                                className="form-input"
+                                                                style={{ textAlign: 'right', width: '60px', padding: '4px 6px', fontSize: '13px' }}
+                                                            />
+                                                            <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>
+                                                                / {line.receivedQty}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 500, color: '#374151', paddingRight: '12px' }}>
                                                         {formatCurrency(line.unitPrice)}
                                                     </td>
                                                     <td style={{ textAlign: 'right', fontWeight: 600, color: '#2196F3' }}>
@@ -796,159 +910,183 @@ const CreatePurchaseReturn = () => {
                             )}
                         </div>
 
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thông tin chung</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div className="form-field">
-                                    <label className="form-label">Người tạo</label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={formData.createdByName}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '760px' }}>
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Thông tin chung</h2>
                                 </div>
 
-                                <div className="form-field">
-                                    <label className="form-label">Ngày tạo</label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={formData.createdAt}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className="form-field">
+                                        <label className="form-label">Người tạo</label>
+                                        <div className="input-wrapper">
+                                            <User className="input-icon" size={16} />
+                                            <input
+                                                type="text"
+                                                value={formData.createdByName}
+                                                readOnly
+                                                className="form-input"
+                                                style={{ backgroundColor: '#f5f5f5' }}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="form-field">
-                                    <label className="form-label">
-                                        Phiếu nhập tham chiếu <span className="required-mark">*</span>
-                                    </label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <FileText className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={grnQuery || formData.relatedGRNCode}
-                                            onChange={(e) => {
-                                                setGrnQuery(e.target.value);
-                                                setGrnDropdownOpen(true);
-                                            }}
-                                            onFocus={() => setGrnDropdownOpen(true)}
-                                            placeholder="Tìm hoặc chọn phiếu nhập"
-                                            className={`form-input ${errors.relatedGRNCode ? 'error' : ''}`}
-                                            autoComplete="off"
-                                        />
+                                    <div className="form-field">
+                                        <label className="form-label">Ngày tạo</label>
+                                        <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
+                                            <input
+                                                type="text"
+                                                value={formData.createdAt}
+                                                readOnly
+                                                className="form-input"
+                                                style={{ backgroundColor: '#f5f5f5' }}
+                                            />
+                                        </div>
+                                    </div>
 
-                                        {grnDropdownOpen && (
-                                            <ul
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '220px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredGrns.length === 0 ? (
-                                                    <li
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            color: '#6b7280',
-                                                            fontSize: '14px',
-                                                        }}
-                                                    >
-                                                        Không có phiếu nhập phù hợp
-                                                    </li>
-                                                ) : (
-                                                    filteredGrns.map((grn) => (
-                                                        <li
-                                                            key={grn.id}
-                                                            onClick={() => handleSelectGrn(grn)}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            <div style={{ fontWeight: 500 }}>{grn.grnCode}</div>
-                                                            <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                                                {grn.supplierName} • {grn.warehouseName}
-                                                            </div>
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
+                                    <div className="form-field">
+                                        <label className="form-label">
+                                            Phiếu nhập tham chiếu <span className="required-mark">*</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileText className="input-icon" size={16} />
+                                            <input
+                                                type="text"
+                                                value={formData.relatedGRNCode}
+                                                readOnly
+                                                className="form-input"
+                                                style={{ backgroundColor: '#f5f5f5', cursor: 'default' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-field">
+                                        <label className="form-label">
+                                            Ngày trả hàng <span className="required-mark">*</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
+                                            <input
+                                                type="date"
+                                                name="returnDate"
+                                                value={formData.returnDate}
+                                                onChange={handleChange}
+                                                className={`form-input ${errors.returnDate ? 'error' : ''}`}
+                                            />
+                                        </div>
+                                        {errors.returnDate && (
+                                            <span className="error-message">{errors.returnDate}</span>
                                         )}
                                     </div>
-                                    {errors.relatedGRNCode && (
-                                        <span className="error-message">{errors.relatedGRNCode}</span>
-                                    )}
-                                </div>
 
-                                <div className="form-field">
-                                    <label className="form-label">
-                                        Ngày trả hàng <span className="required-mark">*</span>
-                                    </label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input
-                                            type="date"
-                                            name="returnDate"
-                                            value={formData.returnDate}
-                                            onChange={handleChange}
-                                            className={`form-input ${errors.returnDate ? 'error' : ''}`}
-                                        />
-                                    </div>
-                                    {errors.returnDate && (
-                                        <span className="error-message">{errors.returnDate}</span>
-                                    )}
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Kho trả</label>
-                                    <div className="input-wrapper">
-                                        <MapPin className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={formData.warehouseName}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
+                                    <div className="form-field">
+                                        <label className="form-label">Kho trả</label>
+                                        <div className="input-wrapper">
+                                            <MapPin className="input-icon" size={16} />
+                                            <input
+                                                type="text"
+                                                value={formData.warehouseName}
+                                                readOnly
+                                                className="form-input"
+                                                style={{ backgroundColor: '#f5f5f5' }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Hoàn tiền</h2>
+                                </div>
+                                <div className="form-field">
+                                    <label className="form-label">Trạng thái hoàn tiền</label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#334155', fontWeight: 500 }}>
+                                            <input
+                                                type="radio"
+                                                name="refundReceiveStatus"
+                                                value="received"
+                                                checked={formData.refundReceiveStatus === 'received'}
+                                                onChange={handleChange}
+                                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                            />
+                                            Đã nhận hoàn tiền
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#334155', fontWeight: 500 }}>
+                                            <input
+                                                type="radio"
+                                                name="refundReceiveStatus"
+                                                value="later"
+                                                checked={formData.refundReceiveStatus === 'later'}
+                                                onChange={handleChange}
+                                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                            />
+                                            Nhận hoàn tiền sau
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {formData.refundReceiveStatus === 'received' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
+                                        <div className="form-field">
+                                            <label className="form-label">Hình thức thanh toán</label>
+                                            <div className="input-wrapper">
+                                                <select
+                                                    name="refundMethod"
+                                                    value={formData.refundMethod}
+                                                    onChange={handleChange}
+                                                    className="form-input"
+                                                    style={{ paddingLeft: '16px' }}
+                                                >
+                                                    <option value="cash">Tiền mặt</option>
+                                                    <option value="bank_transfer">Chuyển khoản</option>
+                                                    <option value="card">Thanh toán thẻ</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="form-label">Số tiền nhận hoàn</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    readOnly
+                                                    value={formatCurrency(estimatedRefundAmount)}
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="form-label">Ngày ghi nhận</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="date"
+                                                    name="refundRecordedDate"
+                                                    value={formData.refundRecordedDate}
+                                                    onChange={handleChange}
+                                                    max={new Date().toISOString().slice(0, 10)}
+                                                    min={formData.grnReceiptDate || ''}
+                                                    className={`form-input ${errors.refundRecordedDate ? 'error' : ''}`}
+                                                    style={{ paddingLeft: '16px' }}
+                                                />
+                                            </div>
+                                            {errors.refundRecordedDate && (
+                                                <span className="error-message">{errors.refundRecordedDate}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', marginTop: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'stretch', marginTop: '24px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            <div className="info-section" style={{ margin: 0 }}>
+                            <div className="info-section" style={{ margin: 0, flex: 1 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
                                 </div>
@@ -958,25 +1096,25 @@ const CreatePurchaseReturn = () => {
                                         style={{
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: 6,
-                                            fontSize: 13,
-                                            color: '#374151',
+                                            gap: 8,
+                                            fontSize: 14,
+                                            color: '#334155',
                                         }}
                                     >
                                         <div>
-                                            <span style={{ fontWeight: 500 }}>Tên NCC: </span>
+                                            <span style={{ fontWeight: 600 }}>Tên NCC: </span>
                                             <span>{formData.supplierName || '-'}</span>
                                         </div>
                                         <div>
-                                            <span style={{ fontWeight: 500 }}>SĐT: </span>
+                                            <span style={{ fontWeight: 600 }}>SĐT: </span>
                                             <span>{formData.supplierPhone || '-'}</span>
                                         </div>
                                         <div>
-                                            <span style={{ fontWeight: 500 }}>Email: </span>
+                                            <span style={{ fontWeight: 600 }}>Email: </span>
                                             <span>{formData.supplierEmail || '-'}</span>
                                         </div>
                                         <div>
-                                            <span style={{ fontWeight: 500 }}>Mã số thuế: </span>
+                                            <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
                                             <span>{formData.supplierTaxCode || '-'}</span>
                                         </div>
 
@@ -991,9 +1129,9 @@ const CreatePurchaseReturn = () => {
                                             <div>
                                                 <div
                                                     style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
+                                                        fontSize: 13,
+                                                        color: '#64748b',
+                                                        marginBottom: 4,
                                                         fontWeight: 600,
                                                     }}
                                                 >
@@ -1017,9 +1155,9 @@ const CreatePurchaseReturn = () => {
                                             <div>
                                                 <div
                                                     style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
+                                                        fontSize: 13,
+                                                        color: '#64748b',
+                                                        marginBottom: 4,
                                                         fontWeight: 600,
                                                     }}
                                                 >
@@ -1043,9 +1181,9 @@ const CreatePurchaseReturn = () => {
                                             <div>
                                                 <div
                                                     style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
+                                                        fontSize: 13,
+                                                        color: '#64748b',
+                                                        marginBottom: 4,
                                                         fontWeight: 600,
                                                     }}
                                                 >
@@ -1069,9 +1207,9 @@ const CreatePurchaseReturn = () => {
                                             <div>
                                                 <div
                                                     style={{
-                                                        fontSize: 12,
-                                                        color: '#6b7280',
-                                                        marginBottom: 2,
+                                                        fontSize: 13,
+                                                        color: '#64748b',
+                                                        marginBottom: 4,
                                                         fontWeight: 600,
                                                     }}
                                                 >
@@ -1141,107 +1279,75 @@ const CreatePurchaseReturn = () => {
                                     <h2 className="section-title">Tổng hợp phiếu trả</h2>
                                 </div>
 
-                                <div className="form-grid">
-                                    <div className="form-field">
-                                        <label className="form-label">Tổng số lượng trả</label>
-                                        <div
-                                            style={{
-                                                padding: '10px',
-                                                backgroundColor: '#f5f5f5',
-                                                borderRadius: '8px',
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            {totalReturnQuantity} sản phẩm
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
+                                        </div>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
                                         </div>
                                     </div>
 
-                                    <div className="form-field">
-                                        <label className="form-label">Giá trị hàng trả</label>
-                                        <div
-                                            style={{
-                                                padding: '10px',
-                                                backgroundColor: '#f5f5f5',
-                                                borderRadius: '8px',
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            {formatCurrency(subtotal)}
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field span-2" style={{ gridColumn: '1 / -1' }}>
-                                        <label className="form-label">Phí xử lý trả hàng</label>
-                                        <input
-                                            type="number"
-                                            name="feeAmount"
-                                            value={formData.feeAmount}
-                                            onChange={handleChange}
-                                            min="0"
-                                            className={`form-input ${errors.feeAmount ? 'error' : ''}`}
-                                            placeholder="Nhập phí xử lý"
-                                        />
-                                        {errors.feeAmount && (
-                                            <span className="error-message">{errors.feeAmount}</span>
-                                        )}
-                                    </div>
-
-                                    <div className="form-field span-2" style={{ gridColumn: '1 / -1' }}>
-                                        <div style={{ fontSize: '13px', color: '#666' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 600 }}>Giá trị hàng trả:</span>
-                                                <span style={{ color: '#10b981' }}>
-                                                    + {formatCurrency(subtotal)}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div className="form-field">
+                                            <label className="form-label">Phí xử lý trả hàng</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    name="feeAmount"
+                                                    value={formData.feeAmount}
+                                                    onChange={handleChange}
+                                                    className={`form-input ${errors.feeAmount ? 'error' : ''}`}
+                                                    style={{ paddingLeft: '16px', paddingRight: '34px' }}
+                                                    placeholder="Nhập phí xử lý"
+                                                />
+                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
+                                                    ₫
                                                 </span>
                                             </div>
-                                            {feeAmount > 0 && (
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        marginTop: 6,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    <span>Phí xử lý:</span>
-                                                    <span style={{ color: '#ef4444' }}>
-                                                        - {formatCurrency(feeAmount)}
-                                                    </span>
-                                                </div>
+                                            {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
+                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
+                                                <span className="error-message">Phí xử lý không được cao hơn Giá trị hoàn trả</span>
                                             )}
                                         </div>
 
-                                        <div
-                                            style={{
-                                                marginTop: '16px',
-                                                padding: '20px',
-                                                backgroundColor: '#e3f2fd',
-                                                borderRadius: '12px',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                borderLeft: '4px solid #2196F3',
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    fontSize: '18px',
-                                                    fontWeight: 700,
-                                                    color: '#2196F3',
-                                                }}
-                                            >
-                                                Số tiền hoàn dự kiến:
-                                            </span>
-                                            <span
-                                                style={{
-                                                    fontSize: '24px',
-                                                    fontWeight: 700,
-                                                    color: '#2196F3',
-                                                }}
-                                            >
-                                                {formatCurrency(estimatedRefundAmount)}
-                                            </span>
+                                        <div className="form-field">
+                                            <label className="form-label">Lý do giảm trừ</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    name="deductionReason"
+                                                    value={formData.deductionReason}
+                                                    onChange={handleChange}
+                                                    className="form-input"
+                                                    style={{ paddingLeft: '16px' }}
+                                                    placeholder="Nhập lý do giảm trừ"
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: formData.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
+                                                {formData.deductionReason.length}/{MAX_NOTE_LENGTH}
+                                            </div>
                                         </div>
+                                    </div>
+
+                                    <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
+                                            <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí xử lý</span>
+                                            <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
+                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
                                     </div>
                                 </div>
                             </div>
