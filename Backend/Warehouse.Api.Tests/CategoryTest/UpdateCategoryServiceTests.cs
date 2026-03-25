@@ -25,6 +25,9 @@ namespace Warehouse.Api.Tests.CategoryTest
         {
             _mockCategoryRepo = new Mock<IGenericRepository<ItemCategory>>();
             _mockAuditLogService = new Mock<IAuditLogService>();
+            _mockAuditLogService.Setup(s => s.LogAsync(It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(Task.CompletedTask);
+
             _categoryService = new CategoryService(_mockCategoryRepo.Object, _mockAuditLogService.Object);
         }
 
@@ -36,7 +39,7 @@ namespace Warehouse.Api.Tests.CategoryTest
             var currentUserId = 123L;
             var request = new UpdateCategoryRequest { CategoryCode = "LAPTOP-01", CategoryName = "Gaming Laptops", ParentId = 5L, IsActive = false };
             var existingCategory = new ItemCategory { CategoryId = categoryId, CategoryCode = "OLD", CategoryName = "Old Name", ParentId = 10L, IsActive = true };
-            var parentCategory = new ItemCategory { CategoryId = 5L, CategoryName = "Electronics" };
+            var parentCategory = new ItemCategory { CategoryId = 5L, CategoryCode = "PARENT", CategoryName = "Electronics" };
 
             _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory> { existingCategory, parentCategory }.AsQueryable());
             _mockCategoryRepo.Setup(repo => repo.UpdateAsync(It.IsAny<ItemCategory>())).ReturnsAsync((ItemCategory c) => c);
