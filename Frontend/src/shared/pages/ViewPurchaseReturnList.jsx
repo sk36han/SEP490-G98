@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -27,7 +27,7 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { FileText, Filter, Columns, Plus, GripVertical, RefreshCw, RotateCcw } from 'lucide-react';
+import { FileText, Filter, Columns, Plus, GripVertical, RotateCcw } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -54,35 +54,43 @@ const REFUND_STATUS_STYLE = {
 };
 
 const PURCHASE_RETURN_COLUMNS = [
-    { id: 'stt', label: 'STT', sortable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
-    { id: 'returnCode', label: 'Mã phiếu trả hàng', sortable: true, getValue: (row) => row.returnCode ?? '' },
-    { id: 'relatedGRNId', label: 'Phiếu nhập tham chiếu', sortable: true, getValue: (row) => row.relatedGRNId ?? '' },
-    { id: 'returnDate', label: 'Ngày trả hàng', sortable: true, getValue: (row) => row.returnDate ?? '' },
-    { id: 'status', label: 'Trạng thái', sortable: true, getValue: (row) => STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
-    { id: 'refundStatus', label: 'Trạng thái hoàn tiền', sortable: true, getValue: (row) => REFUND_STATUS_STYLE[row.refundStatus]?.label ?? row.refundStatus ?? '' },
-    { id: 'refundedAmount', label: 'Số tiền hoàn', sortable: true, getValue: (row) => row.refundedAmount ?? 0 },
-    
-    { id: 'createdBy', label: 'Người tạo', sortable: true, getValue: (row) => row.createdBy ?? '' },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
+    { id: 'stt', label: 'STT', sortable: false, draggable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
+    { id: 'returnCode', label: 'Mã phiếu trả hàng', sortable: true, draggable: true, getValue: (row) => row.returnCode ?? '' },
+    { id: 'relatedGRNId', label: 'Phiếu nhập tham chiếu', sortable: true, draggable: true, getValue: (row) => row.relatedGRNId ?? '' },
+    { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, draggable: true, getValue: (row) => row.supplierName ?? '' },
+    { id: 'returnDate', label: 'Ngày trả hàng', sortable: true, draggable: true, getValue: (row) => row.returnDate ?? '' },
+    { id: 'status', label: 'Trạng thái', sortable: true, draggable: true, getValue: (row) => STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
+    { id: 'refundStatus', label: 'Trạng thái hoàn tiền', sortable: true, draggable: true, getValue: (row) => REFUND_STATUS_STYLE[row.refundStatus]?.label ?? row.refundStatus ?? '' },
+    { id: 'refundQuantity', label: 'Số lượng hoàn', sortable: true, draggable: true, getValue: (row) => row.refundQuantity ?? 0 },
+    { id: 'refundedAmount', label: 'Số tiền hoàn', sortable: true, draggable: true, getValue: (row) => row.refundedAmount ?? 0 },
+    { id: 'createdBy', label: 'Người tạo', sortable: true, draggable: true, getValue: (row) => row.createdBy ?? '' },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true, getValue: (row) => row.createdAt ?? '' },
 ];
 
-const DEFAULT_VISIBLE_COLUMN_IDS = PURCHASE_RETURN_COLUMNS.map((c) => c.id);
+// Immutable defaults — NEVER mutate these
+const DEFAULT_COLUMN_ORDER = PURCHASE_RETURN_COLUMNS.map((c) => c.id);
+const DEFAULT_VISIBLE_COLUMN_IDS = DEFAULT_COLUMN_ORDER.slice();
 const SORTABLE_COLUMN_IDS = PURCHASE_RETURN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
+const COLUMN_IDS_WITH_RIGHT_ALIGN = new Set(['refundQuantity', 'refundedAmount']);
+
+// Roles allowed to create a new purchase return
+const ROLES_CAN_CREATE = new Set(['ACCOUNTANTS']);
 
 const MOCK_PURCHASE_RETURN_LIST = [
     {
         purchaseReturnId: 1,
         returnCode: 'PR-2025-001',
         relatedGRNId: 'GRN-2025-001',
+        supplierName: 'Công ty TNHH Vật tư ABC',
         returnDate: '2025-02-15T10:00:00',
         status: 'Pending',
         reason: 'Hàng bị lỗi, không đúng quy cách',
         note: 'Khách hàng phát hiện 5 sản phẩm bị trầy xước trong quá trình vận chuyển',
         feeAmount: 500000,
         refundStatus: 'Pending',
+        refundQuantity: 0,
         refundedAmount: 0,
         refundedAt: null,
-        
         refundReference: '',
         createdBy: 'Nguyễn Văn A',
         createdAt: '2025-02-14T08:30:00',
@@ -94,15 +102,16 @@ const MOCK_PURCHASE_RETURN_LIST = [
         purchaseReturnId: 2,
         returnCode: 'PR-2025-002',
         relatedGRNId: 'GRN-2025-003',
+        supplierName: 'Công ty CP Thương mại XYZ',
         returnDate: '2025-02-13T14:00:00',
         status: 'Approved',
         reason: 'Sản phẩm hết hạn sử dụng',
         note: '',
         feeAmount: 0,
         refundStatus: 'Completed',
+        refundQuantity: 20,
         refundedAmount: 25000000,
         refundedAt: '2025-02-14T16:00:00',
-        
         refundReference: 'TT-2025-001234',
         createdBy: 'Lê Văn C',
         createdAt: '2025-02-13T09:00:00',
@@ -114,15 +123,16 @@ const MOCK_PURCHASE_RETURN_LIST = [
         purchaseReturnId: 3,
         returnCode: 'PR-2025-003',
         relatedGRNId: 'GRN-2025-005',
+        supplierName: 'Công ty TNHH Kỹ thuật Minh Phát',
         returnDate: '2025-02-12T09:00:00',
         status: 'Approved',
         reason: 'Đặt nhầm sản phẩm',
         note: 'Nhân viên đặt nhầm model, cần đổi sang model khác',
         feeAmount: 200000,
         refundStatus: 'Partial',
+        refundQuantity: 12,
         refundedAmount: 15000000,
         refundedAt: '2025-02-14T10:00:00',
-        
         refundReference: 'TM-2025-00567',
         createdBy: 'Phạm Thị D',
         createdAt: '2025-02-12T08:00:00',
@@ -134,15 +144,16 @@ const MOCK_PURCHASE_RETURN_LIST = [
         purchaseReturnId: 4,
         returnCode: 'PR-2025-004',
         relatedGRNId: 'GRN-2025-007',
+        supplierName: 'Công ty TNHH Thiết bị Hòa Bình',
         returnDate: '2025-02-11T16:00:00',
         status: 'Rejected',
         reason: 'Hàng đã qua sử dụng',
         note: 'Sản phẩm đã được sử dụng, không thể trả lại theo chính sách',
         feeAmount: 0,
         refundStatus: 'NotRequired',
+        refundQuantity: 0,
         refundedAmount: 0,
         refundedAt: null,
-        
         refundReference: '',
         createdBy: 'Trần Thị B',
         createdAt: '2025-02-11T14:00:00',
@@ -154,15 +165,16 @@ const MOCK_PURCHASE_RETURN_LIST = [
         purchaseReturnId: 5,
         returnCode: 'PR-2025-005',
         relatedGRNId: 'GRN-2025-008',
+        supplierName: 'Công ty TNHH Vận tải Bắc Nam',
         returnDate: '2025-02-10T11:00:00',
         status: 'Posted',
         reason: 'Hàng giao thiếu so với đơn hàng',
         note: 'Nhà cung cấp giao thiếu 3 sản phẩm, đã xác nhận và hoàn tiền',
         feeAmount: 150000,
         refundStatus: 'Completed',
+        refundQuantity: 35,
         refundedAmount: 45000000,
         refundedAt: '2025-02-12T09:00:00',
-       
         refundReference: 'TT-2025-00890',
         createdBy: 'Nguyễn Văn A',
         createdAt: '2025-02-10T10:00:00',
@@ -174,15 +186,16 @@ const MOCK_PURCHASE_RETURN_LIST = [
         purchaseReturnId: 6,
         returnCode: 'PR-2025-006',
         relatedGRNId: 'GRN-2025-010',
+        supplierName: 'Công ty TNHH Công nghệ Trường Sơn',
         returnDate: '2025-02-09T08:00:00',
         status: 'Completed',
         reason: 'Sản phẩm không đúng quy cách kỹ thuật',
         note: 'Sản phẩm có thông số kỹ thuật không đúng như hợp đồng',
         feeAmount: 0,
         refundStatus: 'Completed',
+        refundQuantity: 18,
         refundedAmount: 12000000,
         refundedAt: '2025-02-11T15:00:00',
-        
         refundReference: 'TT-2025-01122',
         createdBy: 'Lê Văn C',
         createdAt: '2025-02-09T07:30:00',
@@ -194,15 +207,16 @@ const MOCK_PURCHASE_RETURN_LIST = [
         purchaseReturnId: 7,
         returnCode: 'PR-2025-007',
         relatedGRNId: 'GRN-2025-012',
+        supplierName: 'Công ty CP Sản xuất Ánh Dương',
         returnDate: '2025-02-08T13:00:00',
         status: 'Pending',
         reason: 'Hàng bị hư hỏng trong kho',
         note: 'Kiểm kho phát hiện một số sản phẩm bị ẩm, cần trả lại nhà cung cấp',
         feeAmount: 300000,
         refundStatus: 'Pending',
+        refundQuantity: 0,
         refundedAmount: 0,
         refundedAt: null,
-        
         refundReference: '',
         createdBy: 'Phạm Thị D',
         createdAt: '2025-02-08T12:00:00',
@@ -214,15 +228,16 @@ const MOCK_PURCHASE_RETURN_LIST = [
         purchaseReturnId: 8,
         returnCode: 'PR-2025-008',
         relatedGRNId: 'GRN-2025-015',
+        supplierName: 'Công ty TNHH Dịch vụ An Khang',
         returnDate: '2025-02-07T10:00:00',
         status: 'Approved',
         reason: 'Thay đổi quy cách sản phẩm',
         note: 'Khách hàng yêu cầu đổi sang sản phẩm khác có giá trị cao hơn',
         feeAmount: 100000,
         refundStatus: 'Failed',
+        refundQuantity: 0,
         refundedAmount: 0,
         refundedAt: '2025-02-09T11:00:00',
-        
         refundReference: 'TT-2025-00987',
         createdBy: 'Trần Thị B',
         createdAt: '2025-02-07T09:00:00',
@@ -242,9 +257,12 @@ const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 };
 
-const formatDateOnly = (dateStr) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('vi-VN');
+const safeParse = (jsonStr, fallback) => {
+    try {
+        return JSON.parse(jsonStr);
+    } catch {
+        return fallback;
+    }
 };
 
 export default function ViewPurchaseReturnList() {
@@ -252,6 +270,7 @@ export default function ViewPurchaseReturnList() {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const canCreate = ROLES_CAN_CREATE.has(permissionRole);
 
     const [list, setList] = useState(MOCK_PURCHASE_RETURN_LIST);
     const [loading, setLoading] = useState(false);
@@ -260,50 +279,49 @@ export default function ViewPurchaseReturnList() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState(() => {
         const saved = localStorage.getItem('purchaseReturnFilterValues');
-        return saved ? JSON.parse(saved) : {};
+        return saved ? safeParse(saved, {}) : {};
     });
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
         const saved = localStorage.getItem('purchaseReturnVisibleColumnIds');
-        return saved ? new Set(JSON.parse(saved)) : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        return saved ? new Set(safeParse(saved, DEFAULT_VISIBLE_COLUMN_IDS)) : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
     });
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
     const [orderBy, setOrderBy] = useState(() => {
         const saved = localStorage.getItem('purchaseReturnSortConfig');
-        return saved ? JSON.parse(saved).orderBy : null;
+        const parsed = saved ? safeParse(saved, null) : null;
+        return parsed?.orderBy ?? null;
     });
     const [order, setOrder] = useState(() => {
         const saved = localStorage.getItem('purchaseReturnSortConfig');
-        return saved ? JSON.parse(saved).order : 'asc';
+        const parsed = saved ? safeParse(saved, null) : null;
+        return parsed?.order ?? 'asc';
     });
-    const [selectedIds, setSelectedIds] = useState(new Set());
     const [columnOrder, setColumnOrder] = useState(() => {
         const saved = localStorage.getItem('purchaseReturnColumnOrder');
-        return saved ? JSON.parse(saved) : PURCHASE_RETURN_COLUMNS.map(c => c.id);
+        return saved ? safeParse(saved, DEFAULT_COLUMN_ORDER) : [...DEFAULT_COLUMN_ORDER];
     });
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
-    const [sortConfig, setSortConfig] = useState(() => {
-        const saved = localStorage.getItem('purchaseReturnSortConfig');
-        return saved ? JSON.parse(saved) : { orderBy: null, order: 'asc' };
-    });
 
+    // Ref to signal Reset was called so cleanup skips syncing tempColumnOrder
+    const resetRef = useRef(false);
+
+    // Sync tempColumnOrder when popup opens; cancel pending changes when popup closes.
+    // Cleanup only syncs tempColumnOrder = columnOrder when NOT resetting.
     useEffect(() => {
-        if (sortConfig.orderBy) {
-            setOrderBy(sortConfig.orderBy);
-            setOrder(sortConfig.order);
+        if (columnSelectorAnchor) {
+            setTempColumnOrder(columnOrder);
         }
-    }, []);
-
-    const handleRefresh = () => {
-        setLoading(true);
-        setTimeout(() => {
-            setList(MOCK_PURCHASE_RETURN_LIST);
-            setLoading(false);
-        }, 300);
-    };
+        return () => {
+            if (!resetRef.current) {
+                setTempColumnOrder(columnOrder);
+            }
+            resetRef.current = false;
+        };
+    }, [columnSelectorAnchor]);
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
@@ -317,6 +335,7 @@ export default function ViewPurchaseReturnList() {
 
     const handleSelectAllColumns = (checked) => {
         const newSet = checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set();
+        newSet.add('stt');
         setVisibleColumnIds(newSet);
         localStorage.setItem('purchaseReturnVisibleColumnIds', JSON.stringify([...newSet]));
     };
@@ -328,14 +347,6 @@ export default function ViewPurchaseReturnList() {
             if (b.id === 'stt' && a.id !== 'stt') return 1;
             return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
         });
-
-    const columnSelectorOpen = Boolean(columnSelectorAnchor);
-
-    useEffect(() => {
-        if (columnSelectorOpen) {
-            setTempColumnOrder(columnOrder);
-        }
-    }, [columnSelectorOpen, columnOrder]);
 
     const handleSortRequest = (columnId) => {
         if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
@@ -357,10 +368,10 @@ export default function ViewPurchaseReturnList() {
         setOrderBy(newOrderBy);
         setOrder(newOrder);
         setPage(0);
-
         localStorage.setItem('purchaseReturnSortConfig', JSON.stringify({ orderBy: newOrderBy, order: newOrder }));
     };
 
+    // Table column drag-drop: fix index adjustment after splice
     const handleDragStart = (e, columnId) => {
         setDraggedColumn(columnId);
         e.dataTransfer.effectAllowed = 'move';
@@ -376,20 +387,22 @@ export default function ViewPurchaseReturnList() {
         if (!draggedColumn || draggedColumn === targetColumnId) return;
 
         const newOrder = [...columnOrder];
-        const draggedIndex = newOrder.indexOf(draggedColumn);
-        const targetIndex = newOrder.indexOf(targetColumnId);
+        const dragIdx = newOrder.indexOf(draggedColumn);
+        const targetIdx = newOrder.indexOf(targetColumnId);
+        if (dragIdx === -1 || targetIdx === -1) return;
 
-        newOrder.splice(draggedIndex, 1);
-        newOrder.splice(targetIndex, 0, draggedColumn);
+        // Remove dragged item first
+        newOrder.splice(dragIdx, 1);
+        // Adjust target index: if moving left, subtract 1 because array shifted
+        const adjustedTargetIdx = dragIdx < targetIdx ? targetIdx : targetIdx;
+        newOrder.splice(adjustedTargetIdx, 0, draggedColumn);
 
         setColumnOrder(newOrder);
         localStorage.setItem('purchaseReturnColumnOrder', JSON.stringify(newOrder));
         setDraggedColumn(null);
     };
 
-    const handleDragEnd = () => {
-        setDraggedColumn(null);
-    };
+    const handleDragEnd = () => setDraggedColumn(null);
 
     const BODY_CELL_SX = {
         py: 1.75,
@@ -401,13 +414,7 @@ export default function ViewPurchaseReturnList() {
         color: '#374151',
     };
 
-    const CHECKBOX_CELL_SX = {
-        ...BODY_CELL_SX,
-        width: 48,
-        minWidth: 48,
-        maxWidth: 48,
-    };
-
+    // Popup drag-drop: fix index adjustment after splice
     const handlePopupDragStart = (e, columnId) => {
         setDraggedPopupColumn(columnId);
         e.dataTransfer.effectAllowed = 'move';
@@ -423,18 +430,31 @@ export default function ViewPurchaseReturnList() {
         if (!draggedPopupColumn || draggedPopupColumn === targetColumnId) return;
 
         const newOrder = [...tempColumnOrder];
-        const draggedIndex = newOrder.indexOf(draggedPopupColumn);
-        const targetIndex = newOrder.indexOf(targetColumnId);
+        const dragIdx = newOrder.indexOf(draggedPopupColumn);
+        const targetIdx = newOrder.indexOf(targetColumnId);
+        if (dragIdx === -1 || targetIdx === -1) return;
 
-        newOrder.splice(draggedIndex, 1);
-        newOrder.splice(targetIndex, 0, draggedPopupColumn);
+        newOrder.splice(dragIdx, 1);
+        const adjustedTargetIdx = dragIdx < targetIdx ? targetIdx : targetIdx;
+        newOrder.splice(adjustedTargetIdx, 0, draggedPopupColumn);
 
         setTempColumnOrder(newOrder);
         setDraggedPopupColumn(null);
     };
 
-    const handlePopupDragEnd = () => {
-        setDraggedPopupColumn(null);
+    const handlePopupDragEnd = () => setDraggedPopupColumn(null);
+
+    const handleResetColumns = () => {
+        const defaultOrder = [...DEFAULT_COLUMN_ORDER];
+        const defaultVisible = new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+
+        resetRef.current = true;
+        setTempColumnOrder(defaultOrder);
+        setColumnOrder(defaultOrder);
+        setVisibleColumnIds(defaultVisible);
+        localStorage.setItem('purchaseReturnColumnOrder', JSON.stringify(defaultOrder));
+        localStorage.setItem('purchaseReturnVisibleColumnIds', JSON.stringify([...defaultVisible]));
+        setColumnSelectorAnchor(null);
     };
 
     const handleSaveColumnOrder = () => {
@@ -457,7 +477,8 @@ export default function ViewPurchaseReturnList() {
             result = result.filter((row) =>
                 normalize(row.returnCode ?? '').includes(term) ||
                 normalize(row.relatedGRNId ?? '').includes(term) ||
-                normalize(row.createdBy ?? '').includes(term)
+                normalize(row.createdBy ?? '').includes(term) ||
+                normalize(row.supplierName ?? '').includes(term)
             );
         }
 
@@ -467,38 +488,53 @@ export default function ViewPurchaseReturnList() {
         if (filterValues.refundStatus) {
             result = result.filter((row) => row.refundStatus === filterValues.refundStatus);
         }
-       
-        if (filterValues.fromDate) {
+        if (filterValues.relatedGRNId) {
+            result = result.filter((row) => normalize(row.relatedGRNId ?? '').includes(normalize(filterValues.relatedGRNId)));
+        }
+        if (filterValues.createdBy) {
+            result = result.filter((row) => normalize(row.createdBy ?? '').includes(normalize(filterValues.createdBy)));
+        }
+        if (filterValues.supplierName) {
+            result = result.filter((row) => normalize(row.supplierName ?? '').includes(normalize(filterValues.supplierName)));
+        }
+        if (filterValues.returnFromDate) {
             result = result.filter((row) => {
                 const d = row.returnDate;
-                return d && String(d).slice(0, 10) >= filterValues.fromDate;
+                return d && String(d).slice(0, 10) >= filterValues.returnFromDate;
             });
         }
-        if (filterValues.toDate) {
+        if (filterValues.returnToDate) {
             result = result.filter((row) => {
                 const d = row.returnDate;
-                return d && String(d).slice(0, 10) <= filterValues.toDate;
+                return d && String(d).slice(0, 10) <= filterValues.returnToDate;
+            });
+        }
+        if (filterValues.createdFromDate) {
+            result = result.filter((row) => {
+                const d = row.createdAt;
+                return d && String(d).slice(0, 10) >= filterValues.createdFromDate;
+            });
+        }
+        if (filterValues.createdToDate) {
+            result = result.filter((row) => {
+                const d = row.createdAt;
+                return d && String(d).slice(0, 10) <= filterValues.createdToDate;
             });
         }
 
         result.sort((a, b) => {
             if (!orderBy) return 0;
-
             const aVal = a[orderBy];
             const bVal = b[orderBy];
             const isDate = ['returnDate', 'createdAt'].includes(orderBy);
-            const isNumber = ['refundedAmount'].includes(orderBy);
+            const isNumber = ['refundQuantity', 'refundedAmount'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
-                const tA = aVal ? new Date(aVal).getTime() : 0;
-                const tB = bVal ? new Date(bVal).getTime() : 0;
-                cmp = tA - tB;
+                cmp = (aVal ? new Date(aVal).getTime() : 0) - (bVal ? new Date(bVal).getTime() : 0);
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else {
-                const strA = String(aVal ?? '').toLowerCase();
-                const strB = String(bVal ?? '').toLowerCase();
-                cmp = strA.localeCompare(strB);
+                cmp = String(aVal ?? '').toLowerCase().localeCompare(String(bVal ?? '').toLowerCase());
             }
             return order === 'asc' ? cmp : -cmp;
         });
@@ -520,34 +556,15 @@ export default function ViewPurchaseReturnList() {
         setPage(0);
     };
 
+    const relatedGRNOptions = useMemo(() => [...new Set(list.map((x) => x.relatedGRNId).filter(Boolean))], [list]);
+    const createdByOptions = useMemo(() => [...new Set(list.map((x) => x.createdBy).filter(Boolean))], [list]);
+    const supplierOptions = useMemo(() => [...new Set(list.map((x) => x.supplierName).filter(Boolean))], [list]);
+
     const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
         setPageSize(Number(e.target.value));
         setPage(0);
     };
-
-    const handleSelectAll = (checked) => {
-        if (checked) {
-            setSelectedIds(new Set(rows.map(row => row.purchaseReturnId)));
-        } else {
-            setSelectedIds(new Set());
-        }
-    };
-
-    const handleSelectRow = (id, checked) => {
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            if (checked) {
-                next.add(id);
-            } else {
-                next.delete(id);
-            }
-            return next;
-        });
-    };
-
-    const isAllSelected = rows.length > 0 && rows.every(row => selectedIds.has(row.purchaseReturnId));
-    const isSomeSelected = rows.some(row => selectedIds.has(row.purchaseReturnId)) && !isAllSelected;
 
     return (
         <Box sx={{
@@ -574,9 +591,17 @@ export default function ViewPurchaseReturnList() {
                 </Typography>
             </Box>
 
-            <PurchaseReturnFilterPopup open={filterOpen} onClose={() => setFilterOpen(false)} initialValues={filterValues} onApply={handleFilterApply} />
+            <PurchaseReturnFilterPopup
+                open={filterOpen}
+                onClose={() => setFilterOpen(false)}
+                initialValues={filterValues}
+                onApply={handleFilterApply}
+                relatedGRNOptions={relatedGRNOptions}
+                createdByOptions={createdByOptions}
+                supplierOptions={supplierOptions}
+            />
 
-            {/* Main Content Wrapper with Border */}
+            {/* Main Content Wrapper */}
             <Box sx={{ flex: 1, px: { xs: 2, sm: 2 }, pb: 2, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <Paper
                     className="list-view"
@@ -596,7 +621,7 @@ export default function ViewPurchaseReturnList() {
                     <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #f3f4f6' }}>
                         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
                             <SearchInput
-                                placeholder="Tìm theo mã trả hàng, GRN liên quan, người tạo..."
+                                placeholder="Tìm theo mã trả hàng, GRN, người tạo, nhà cung cấp..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 sx={{
@@ -608,22 +633,14 @@ export default function ViewPurchaseReturnList() {
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '10px',
                                         fontSize: '13px',
-                                        '& fieldset': {
-                                            border: 'none',
-                                        },
-                                        '&:hover': {
-                                            bgcolor: '#f9fafb',
-                                            borderColor: '#d1d5db',
-                                        },
+                                        '& fieldset': { border: 'none' },
+                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
                                         '&.Mui-focused': {
                                             bgcolor: '#ffffff',
                                             borderColor: '#3b82f6',
                                             boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
                                         },
-                                        '& input::placeholder': {
-                                            color: '#9ca3af',
-                                            fontSize: '13px',
-                                        },
+                                        '& input::placeholder': { color: '#9ca3af', fontSize: '13px' },
                                     },
                                 }}
                             />
@@ -636,10 +653,7 @@ export default function ViewPurchaseReturnList() {
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
                                         borderRadius: '10px',
-                                        '&:hover': {
-                                            bgcolor: '#f9fafb',
-                                            borderColor: '#d1d5db',
-                                        },
+                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
                                     }}
                                 >
                                     <Filter size={18} />
@@ -654,35 +668,13 @@ export default function ViewPurchaseReturnList() {
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
                                         borderRadius: '10px',
-                                        '&:hover': {
-                                            bgcolor: '#f9fafb',
-                                            borderColor: '#d1d5db',
-                                        },
+                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
                                     }}
                                 >
                                     <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
-                            <Tooltip title="Làm mới">
-                                <IconButton
-                                    color="primary"
-                                    onClick={handleRefresh}
-                                    aria-label="Làm mới"
-                                    disabled={loading}
-                                    sx={{
-                                        border: '1px solid #e5e7eb',
-                                        bgcolor: '#ffffff',
-                                        borderRadius: '10px',
-                                        '&:hover': {
-                                            bgcolor: '#f9fafb',
-                                            borderColor: '#d1d5db',
-                                        },
-                                    }}
-                                >
-                                    <RefreshCw size={18} className={loading ? 'spin' : ''} />
-                                </IconButton>
-                            </Tooltip>
-                            {permissionRole !== 'ACCOUNTANTS' && (
+                            {canCreate && (
                                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                     <Button
                                         className="list-page-btn"
@@ -711,8 +703,9 @@ export default function ViewPurchaseReturnList() {
                         </Box>
                     </Box>
 
+                    {/* Column Selector Popover */}
                     <Popover
-                        open={columnSelectorOpen}
+                        open={Boolean(columnSelectorAnchor)}
                         anchorEl={columnSelectorAnchor}
                         onClose={handleCancelColumnOrder}
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -734,38 +727,21 @@ export default function ViewPurchaseReturnList() {
                             }
                         }}
                     >
-                        {/* Header */}
-                        <Box sx={{
-                            px: 2.5,
-                            py: 2,
-                            borderBottom: '1px solid #f3f4f6',
-                            flexShrink: 0,
-                        }}>
+                        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
                             <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
                                 Chọn cột & Sắp xếp
                             </Typography>
                         </Box>
 
-                        {/* Body */}
                         <Box sx={{
                             px: 2.5,
                             py: 2,
                             flex: 1,
                             minHeight: 0,
                             overflowY: 'auto',
-                            '&::-webkit-scrollbar': {
-                                width: '6px',
-                            },
-                            '&::-webkit-scrollbar-track': {
-                                bgcolor: 'transparent',
-                            },
-                            '&::-webkit-scrollbar-thumb': {
-                                bgcolor: '#d1d5db',
-                                borderRadius: '3px',
-                                '&:hover': {
-                                    bgcolor: '#9ca3af',
-                                },
-                            },
+                            '&::-webkit-scrollbar': { width: '6px' },
+                            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+                            '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px', '&:hover': { bgcolor: '#9ca3af' } },
                         }}>
                             <FormGroup>
                                 <FormControlLabel
@@ -774,63 +750,56 @@ export default function ViewPurchaseReturnList() {
                                             checked={visibleColumnIds.size === PURCHASE_RETURN_COLUMNS.length}
                                             indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PURCHASE_RETURN_COLUMNS.length}
                                             onChange={(e) => handleSelectAllColumns(e.target.checked)}
-                                            sx={{
-                                                color: '#9ca3af',
-                                                '&.Mui-checked': { color: '#3b82f6' },
-                                                '&.MuiCheckbox-indeterminate': { color: '#3b82f6' },
-                                            }}
+                                            sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#3b82f6' }, '&.MuiCheckbox-indeterminate': { color: '#3b82f6' } }}
                                         />
                                     }
                                     label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
                                     sx={{ mb: 1, py: 0.5 }}
                                 />
-                                {PURCHASE_RETURN_COLUMNS.sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
+                                {[...PURCHASE_RETURN_COLUMNS].sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
                                     <Box
                                         key={col.id}
                                         sx={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 1,
-                                            bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
-                                            opacity: draggedPopupColumn === col.id ? 0.5 : 1,
-                                            transition: 'all 0.2s',
                                             borderRadius: '8px',
                                             px: 0.75,
                                             py: 0.25,
-                                            '&:hover': {
-                                                bgcolor: '#f9fafb',
-                                            },
+                                            '&:hover': { bgcolor: '#f9fafb' },
                                         }}
-                                        onDragOver={handlePopupDragOver}
-                                        onDrop={(e) => handlePopupDrop(e, col.id)}
+                                        onDragOver={(e) => { if (col.draggable !== false) e.preventDefault(); }}
+                                        onDrop={(e) => { if (col.draggable !== false) { e.preventDefault(); handlePopupDrop(e, col.id); } }}
                                     >
-                                        <Box
-                                            draggable
-                                            onDragStart={(e) => handlePopupDragStart(e, col.id)}
-                                            onDragEnd={handlePopupDragEnd}
-                                            sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                cursor: 'grab',
-                                                '&:active': { cursor: 'grabbing' },
-                                                color: '#9ca3af',
-                                                '&:hover': { color: '#6b7280' }
-                                            }}
-                                        >
-                                            <GripVertical size={14} />
-                                        </Box>
+                                        {col.draggable !== false ? (
+                                            <Box
+                                                draggable
+                                                onDragStart={(e) => handlePopupDragStart(e, col.id)}
+                                                onDragEnd={handlePopupDragEnd}
+                                                sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', '&:active': { cursor: 'grabbing' }, color: '#9ca3af', '&:hover': { color: '#6b7280' } }}
+                                            >
+                                                <GripVertical size={14} />
+                                            </Box>
+                                        ) : (
+                                            <Box sx={{ width: 14, height: 14 }} />
+                                        )}
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
                                                     checked={visibleColumnIds.has(col.id)}
+                                                    disabled={col.id === 'stt'}
                                                     onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                                    sx={{
-                                                        color: '#9ca3af',
-                                                        '&.Mui-checked': { color: '#3b82f6' },
-                                                    }}
+                                                    sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#3b82f6' }, '&.Mui-disabled': { color: '#d1d5db' } }}
                                                 />
                                             }
-                                            label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
+                                            label={
+                                                <Typography sx={{ fontSize: '13px', color: col.id === 'stt' ? '#9ca3af' : '#374151' }}>
+                                                    {col.label}
+                                                    {col.id === 'stt' && (
+                                                        <Typography component="span" sx={{ fontSize: '11px', color: '#9ca3af', ml: 0.5 }}>(cố định)</Typography>
+                                                    )}
+                                                </Typography>
+                                            }
                                             sx={{ flex: 1, m: 0, py: 0.5 }}
                                         />
                                     </Box>
@@ -838,31 +807,24 @@ export default function ViewPurchaseReturnList() {
                             </FormGroup>
                         </Box>
 
-                        {/* Footer */}
-                        <Box sx={{
-                            px: 2.5,
-                            py: 2,
-                            display: 'flex',
-                            gap: 1.5,
-                            borderTop: '1px solid #f3f4f6',
-                            flexShrink: 0,
-                        }}>
+                        <Box sx={{ px: 2.5, py: 2, display: 'flex', gap: 1.5, borderTop: '1px solid #f3f4f6', flexShrink: 0, alignItems: 'center' }}>
+                            <Button
+                                variant="text"
+                                onClick={handleResetColumns}
+                                startIcon={<RotateCcw size={14} />}
+                                sx={{
+                                    textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', color: '#6b7280', mr: 'auto',
+                                    '&:hover': { bgcolor: '#f9fafb', color: '#374151' },
+                                }}
+                            >
+                                Đặt lại
+                            </Button>
                             <Button
                                 variant="outlined"
                                 onClick={handleCancelColumnOrder}
                                 sx={{
-                                    flex: 1,
-                                    textTransform: 'none',
-                                    fontSize: '13px',
-                                    fontWeight: 500,
-                                    height: 38,
-                                    borderRadius: '10px',
-                                    borderColor: '#e5e7eb',
-                                    color: '#6b7280',
-                                    '&:hover': {
-                                        borderColor: '#d1d5db',
-                                        bgcolor: '#f9fafb',
-                                    },
+                                    textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', borderColor: '#e5e7eb', color: '#6b7280',
+                                    '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
                                 }}
                             >
                                 Hủy
@@ -871,18 +833,8 @@ export default function ViewPurchaseReturnList() {
                                 variant="contained"
                                 onClick={handleSaveColumnOrder}
                                 sx={{
-                                    flex: 1,
-                                    textTransform: 'none',
-                                    fontSize: '13px',
-                                    fontWeight: 500,
-                                    height: 38,
-                                    borderRadius: '10px',
-                                    bgcolor: '#0284c7',
-                                    boxShadow: 'none',
-                                    '&:hover': {
-                                        bgcolor: '#0369a1',
-                                        boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
-                                    },
+                                    textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', bgcolor: '#0284c7', boxShadow: 'none',
+                                    '&:hover': { bgcolor: '#0369a1', boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)' },
                                 }}
                             >
                                 Lưu
@@ -891,17 +843,9 @@ export default function ViewPurchaseReturnList() {
                     </Popover>
 
                     {/* Table Section */}
-                    <Box sx={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                    }}>
+                    <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         {error && (
-                            <Alert severity="error" onClose={() => setError(null)} sx={{ m: 2, mb: 0 }}>
-                                {error}
-                            </Alert>
+                            <Alert severity="error" onClose={() => setError(null)} sx={{ m: 2, mb: 0 }}>{error}</Alert>
                         )}
                         {loading ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
@@ -917,26 +861,6 @@ export default function ViewPurchaseReturnList() {
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell
-                                                padding="checkbox"
-                                                sx={{
-                                                    fontWeight: 600,
-                                                    bgcolor: '#fafafa',
-                                                    width: 56,
-                                                    minWidth: 56,
-                                                    maxWidth: 56,
-                                                    borderBottom: '2px solid #e5e7eb',
-                                                    fontSize: '12px',
-                                                    px: 2,
-                                                }}
-                                            >
-                                                <Checkbox
-                                                    checked={isAllSelected}
-                                                    indeterminate={isSomeSelected}
-                                                    onChange={(e) => handleSelectAll(e.target.checked)}
-                                                    size="small"
-                                                />
-                                            </TableCell>
                                             {visibleColumns.map((col) => (
                                                 <TableCell
                                                     key={col.id}
@@ -951,19 +875,23 @@ export default function ViewPurchaseReturnList() {
                                                         color: '#6b7280',
                                                         py: 1.5,
                                                         px: 2,
+                                                        ...(col.id === 'stt' && { width: 70, minWidth: 70, maxWidth: 70 }),
+                                                        ...(col.id === 'returnCode' && { minWidth: 150 }),
+                                                        ...(col.id === 'relatedGRNId' && { minWidth: 150 }),
+                                                        ...(col.id === 'supplierName' && { minWidth: 170 }),
+                                                        ...(col.id === 'returnDate' && { minWidth: 145 }),
+                                                        ...(col.id === 'status' && { minWidth: 120 }),
+                                                        ...(col.id === 'refundStatus' && { minWidth: 140 }),
+                                                        ...(col.id === 'refundQuantity' && { minWidth: 110 }),
+                                                        ...(col.id === 'refundedAmount' && { minWidth: 140 }),
+                                                        ...(col.id === 'createdBy' && { minWidth: 120 }),
+                                                        ...(col.id === 'createdAt' && { minWidth: 145 }),
                                                     }}
-                                                    align={['feeAmount', 'refundedAmount'].includes(col.id) ? 'right' : 'left'}
+                                                    align={COLUMN_IDS_WITH_RIGHT_ALIGN.has(col.id) ? 'right' : 'left'}
                                                     onDragOver={handleDragOver}
                                                     onDrop={(e) => handleDrop(e, col.id)}
                                                 >
-                                                    <Box sx={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 0.5,
-                                                        '&:hover .drag-icon': {
-                                                            opacity: 0.6,
-                                                        },
-                                                    }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                         {col.sortable && (
                                                             <Box
                                                                 draggable
@@ -976,7 +904,7 @@ export default function ViewPurchaseReturnList() {
                                                                     cursor: 'grab',
                                                                     '&:active': { cursor: 'grabbing' },
                                                                     color: '#9ca3af',
-                                                                    opacity: 0,
+                                                                    opacity: 1,
                                                                     transition: 'opacity 0.2s',
                                                                 }}
                                                             >
@@ -990,19 +918,14 @@ export default function ViewPurchaseReturnList() {
                                                                 onClick={() => handleSortRequest(col.id)}
                                                                 sx={{
                                                                     flex: 1,
-                                                                    '& .MuiTableSortLabel-icon': {
-                                                                        fontSize: '14px',
-                                                                        opacity: orderBy === col.id ? 1 : 0,
-                                                                    },
+                                                                    '& .MuiTableSortLabel-icon': { fontSize: '14px', opacity: orderBy === col.id ? 1 : 0 },
                                                                 }}
                                                                 hideSortIcon={false}
                                                             >
                                                                 {col.label}
                                                             </TableSortLabel>
                                                         ) : (
-                                                            <Typography variant="inherit" sx={{ flex: 1 }}>
-                                                                {col.label}
-                                                            </Typography>
+                                                            <Typography variant="inherit" sx={{ flex: 1 }}>{col.label}</Typography>
                                                         )}
                                                     </Box>
                                                 </TableCell>
@@ -1017,37 +940,21 @@ export default function ViewPurchaseReturnList() {
                                                 sx={{
                                                     height: 56,
                                                     '&:last-child td': { borderBottom: 0 },
-                                                    '&:hover': {
-                                                        bgcolor: '#f9fafb',
-                                                    },
+                                                    '&:hover': { bgcolor: '#f9fafb' },
                                                     '& .MuiTableCell-root': BODY_CELL_SX,
-                                                    '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
                                                 }}
                                             >
-                                                <TableCell padding="checkbox">
-                                                    <Checkbox
-                                                        checked={selectedIds.has(row.purchaseReturnId)}
-                                                        onChange={(e) => handleSelectRow(row.purchaseReturnId, e.target.checked)}
-                                                        size="small"
-                                                    />
-                                                </TableCell>
                                                 {visibleColumns.map((col) => {
                                                     const opts = { pageNumber: page + 1, pageSize };
 
-                                                    // STT column
                                                     if (col.id === 'stt') {
                                                         return (
-                                                            <TableCell
-                                                                key={col.id}
-                                                                align="center"
-                                                                sx={{ fontVariantNumeric: 'tabular-nums' }}
-                                                            >
+                                                            <TableCell key={col.id} align="center" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                                                                 {col.getValue(row, index, opts)}
                                                             </TableCell>
                                                         );
                                                     }
 
-                                                    // Return Code column (link)
                                                     if (col.id === 'returnCode') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
@@ -1055,21 +962,11 @@ export default function ViewPurchaseReturnList() {
                                                                     <Box
                                                                         component="a"
                                                                         href={`/purchase-returns/${row.purchaseReturnId}`}
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault();
-                                                                            navigate(`/purchase-returns/${row.purchaseReturnId}`);
-                                                                        }}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/purchase-returns/${row.purchaseReturnId}`); }}
                                                                         sx={{
-                                                                            color: '#3b82f6',
-                                                                            textDecoration: 'none',
-                                                                            fontWeight: 500,
-                                                                            cursor: 'pointer',
-                                                                            overflow: 'hidden',
-                                                                            textOverflow: 'ellipsis',
-                                                                            whiteSpace: 'nowrap',
-                                                                            '&:hover': {
-                                                                                textDecoration: 'underline',
-                                                                            },
+                                                                            color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
+                                                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                                            '&:hover': { textDecoration: 'underline' },
                                                                         }}
                                                                         title={col.getValue(row, index, opts)}
                                                                     >
@@ -1079,41 +976,29 @@ export default function ViewPurchaseReturnList() {
                                                             </TableCell>
                                                         );
                                                     }
-                                                     
-                                                    // Related GRN column (link)
-if (col.id === 'relatedGRNId') {
-    return (
-        <TableCell key={col.id} align="left">
-            <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                <Box
-                    component="a"
-                    href={`/goods-receipts/${encodeURIComponent(row.relatedGRNId)}`}
-                    onClick={(e) => {
-                        e.preventDefault();
-                        navigate(`/goods-receipts/${encodeURIComponent(row.relatedGRNId)}`);
-                    }}
-                    sx={{
-                        color: '#3b82f6',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        '&:hover': {
-                            textDecoration: 'underline',
-                        },
-                    }}
-                    title={col.getValue(row, index, opts)}
-                >
-                    {col.getValue(row, index, opts) || '-'}
-                </Box>
-            </Box>
-        </TableCell>
-    );
-}
 
-                                                    // Status chip
+                                                    if (col.id === 'relatedGRNId') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Box
+                                                                        component="a"
+                                                                        href={`/goods-receipts/${encodeURIComponent(row.relatedGRNId)}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-receipts/${encodeURIComponent(row.relatedGRNId)}`); }}
+                                                                        sx={{
+                                                                            color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
+                                                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                                            '&:hover': { textDecoration: 'underline' },
+                                                                        }}
+                                                                        title={col.getValue(row, index, opts)}
+                                                                    >
+                                                                        {col.getValue(row, index, opts) || '-'}
+                                                                    </Box>
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
+
                                                     if (col.id === 'status') {
                                                         const style = STATUS_STYLE[row.status] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.status ?? '', dot: '•' };
                                                         return (
@@ -1123,23 +1008,10 @@ if (col.id === 'relatedGRNId') {
                                                                         label={`${style.dot} ${style.label}`}
                                                                         size="small"
                                                                         sx={{
-                                                                            fontWeight: 500,
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 100,
-                                                                            height: '26px',
-                                                                            bgcolor: style.bgColor,
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': {
-                                                                                px: 1.5,
-                                                                                py: 0,
-                                                                                textAlign: 'left',
-                                                                                display: 'block',
-                                                                                width: '100%',
-                                                                            }
+                                                                            fontWeight: 500, fontSize: '12px', lineHeight: '16px', borderRadius: '999px',
+                                                                            minWidth: 100, height: '26px', bgcolor: style.bgColor, color: '#374151',
+                                                                            border: 'none', boxShadow: 'none',
+                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
                                                                         }}
                                                                     />
                                                                 </Box>
@@ -1147,7 +1019,6 @@ if (col.id === 'relatedGRNId') {
                                                         );
                                                     }
 
-                                                    // Refund Status chip
                                                     if (col.id === 'refundStatus') {
                                                         const style = REFUND_STATUS_STYLE[row.refundStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.refundStatus ?? '', dot: '•' };
                                                         return (
@@ -1157,23 +1028,10 @@ if (col.id === 'relatedGRNId') {
                                                                         label={`${style.dot} ${style.label}`}
                                                                         size="small"
                                                                         sx={{
-                                                                            fontWeight: 500,
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 120,
-                                                                            height: '26px',
-                                                                            bgcolor: style.bgColor,
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': {
-                                                                                px: 1.5,
-                                                                                py: 0,
-                                                                                textAlign: 'left',
-                                                                                display: 'block',
-                                                                                width: '100%',
-                                                                            }
+                                                                            fontWeight: 500, fontSize: '12px', lineHeight: '16px', borderRadius: '999px',
+                                                                            minWidth: 120, height: '26px', bgcolor: style.bgColor, color: '#374151',
+                                                                            border: 'none', boxShadow: 'none',
+                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
                                                                         }}
                                                                     />
                                                                 </Box>
@@ -1181,67 +1039,35 @@ if (col.id === 'relatedGRNId') {
                                                         );
                                                     }
 
-                                                    // Fee Amount (currency)
-                                                    if (col.id === 'feeAmount') {
+                                                    if (col.id === 'refundQuantity') {
                                                         return (
-                                                            <TableCell
-                                                                key={col.id}
-                                                                align="right"
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    fontVariantNumeric: 'tabular-nums',
-                                                                    pr: 3,
-                                                                }}
-                                                            >
-                                                                {formatCurrency(col.getValue(row))}
+                                                            <TableCell key={col.id} align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', pr: 3 }}>
+                                                                {Number(col.getValue(row) || 0).toLocaleString('vi-VN')}
                                                             </TableCell>
                                                         );
                                                     }
 
-                                                    // Refunded Amount (currency)
                                                     if (col.id === 'refundedAmount') {
                                                         return (
-                                                            <TableCell
-                                                                key={col.id}
-                                                                align="right"
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    fontVariantNumeric: 'tabular-nums',
-                                                                    pr: 3,
-                                                                }}
-                                                            >
+                                                            <TableCell key={col.id} align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', pr: 3 }}>
                                                                 {formatCurrency(col.getValue(row))}
                                                             </TableCell>
                                                         );
                                                     }
 
-                                                    // Date columns
-                                                    if (['returnDate', 'createdAt', 'approvedAt', 'refundedAt', 'postedAt'].includes(col.id)) {
+                                                    if (['returnDate', 'createdAt'].includes(col.id)) {
                                                         return (
-                                                            <TableCell
-                                                                key={col.id}
-                                                                align="left"
-                                                                sx={{
-                                                                    color: '#6b7280',
-                                                                    fontVariantNumeric: 'tabular-nums',
-                                                                }}
-                                                            >
+                                                            <TableCell key={col.id} align="left" sx={{ color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>
                                                                 {formatDate(row[col.id])}
                                                             </TableCell>
                                                         );
                                                     }
 
-                                                    // Text columns with ellipsis
                                                     return (
                                                         <TableCell
                                                             key={col.id}
                                                             align="left"
-                                                            sx={{
-                                                                maxWidth: 200,
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                            }}
+                                                            sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                                             title={col.getValue(row)}
                                                         >
                                                             {col.getValue(row)}
@@ -1258,73 +1084,33 @@ if (col.id === 'relatedGRNId') {
 
                     {/* Pagination Section */}
                     <Box sx={{
-                        flexShrink: 0,
-                        px: 2,
-                        py: 2,
-                        borderTop: '1px solid #f3f4f6',
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        gap: 2
+                        flexShrink: 0, px: 2, py: 2, borderTop: '1px solid #f3f4f6',
+                        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2
                     }}>
                         <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>Số dòng / trang:</Typography>
                         <FormControl size="small" sx={{ minWidth: 72 }}>
-    <Select
-        value={pageSize}
-        onChange={handlePageSizeChange}
-        sx={{
-            height: 32,
-            fontSize: '13px',
-            borderRadius: '8px',
-            '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(0, 0, 0, 0.1)',
-            },
-        }}
-    >
-        {ROWS_PER_PAGE_OPTIONS.map((n) => (
-            <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>
-                {n}
-            </MenuItem>
-        ))}
-    </Select>
-</FormControl>
+                            <Select
+                                value={pageSize}
+                                onChange={handlePageSizeChange}
+                                sx={{ height: 32, fontSize: '13px', borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0, 0, 0, 0.1)' } }}
+                            >
+                                {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                         <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
                             {start}–{end} / {totalCount} (Tổng {totalPages} trang)
                         </Typography>
                         <Button
-                            size="small"
-                            variant="outlined"
-                            disabled={page <= 0}
-                            onClick={() => handlePageChange(page - 1)}
-                            sx={{
-                                minWidth: 36,
-                                textTransform: 'none',
-                                fontSize: '13px',
-                                borderRadius: '8px',
-                                borderColor: 'rgba(0, 0, 0, 0.1)',
-                                '&:hover': {
-                                    borderColor: 'rgba(0, 0, 0, 0.2)',
-                                },
-                            }}
+                            size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)}
+                            sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0, 0, 0, 0.1)', '&:hover': { borderColor: 'rgba(0, 0, 0, 0.2)' } }}
                         >
                             Trước
                         </Button>
                         <Button
-                            size="small"
-                            variant="outlined"
-                            disabled={end >= totalCount || totalCount === 0}
-                            onClick={() => handlePageChange(page + 1)}
-                            sx={{
-                                minWidth: 36,
-                                textTransform: 'none',
-                                fontSize: '13px',
-                                borderRadius: '8px',
-                                borderColor: 'rgba(0, 0, 0, 0.1)',
-                                '&:hover': {
-                                    borderColor: 'rgba(0, 0, 0, 0.2)',
-                                },
-                            }}
+                            size="small" variant="outlined" disabled={end >= totalCount || totalCount === 0} onClick={() => handlePageChange(page + 1)}
+                            sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0, 0, 0, 0.1)', '&:hover': { borderColor: 'rgba(0, 0, 0, 0.2)' } }}
                         >
                             Sau
                         </Button>

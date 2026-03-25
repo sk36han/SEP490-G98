@@ -28,19 +28,24 @@ const REFUND_STATUS_OPTIONS = [
     { value: 'NotRequired', label: 'Không cần hoàn tiền' },
 ];
 
-const REFUND_METHOD_OPTIONS = [
-    { value: '', label: 'Tất cả' },
-    { value: 'Tiền mặt', label: 'Tiền mặt' },
-    { value: 'Chuyển khoản', label: 'Chuyển khoản' },
-    { value: 'Ví điện tử', label: 'Ví điện tử' },
-];
-
-export default function PurchaseReturnFilterPopup({ open, onClose, initialValues = {}, onApply }) {
+export default function PurchaseReturnFilterPopup({
+    open,
+    onClose,
+    initialValues = {},
+    onApply,
+    relatedGRNOptions = [],
+    createdByOptions = [],
+    supplierOptions = [],
+}) {
     const [statusOption, setStatusOption] = useState(STATUS_OPTIONS[0]);
     const [refundStatusOption, setRefundStatusOption] = useState(REFUND_STATUS_OPTIONS[0]);
-    const [refundMethodOption, setRefundMethodOption] = useState(REFUND_METHOD_OPTIONS[0]);
-    const [fromDate, setFromDate] = useState('');
-    const [toDate, setToDate] = useState('');
+    const [relatedGRNOption, setRelatedGRNOption] = useState('');
+    const [createdByOption, setCreatedByOption] = useState('');
+    const [supplierOption, setSupplierOption] = useState('');
+    const [returnFromDate, setReturnFromDate] = useState('');
+    const [returnToDate, setReturnToDate] = useState('');
+    const [createdFromDate, setCreatedFromDate] = useState('');
+    const [createdToDate, setCreatedToDate] = useState('');
 
     const boxRef = useRef(null);
     const dragRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
@@ -53,20 +58,14 @@ export default function PurchaseReturnFilterPopup({ open, onClose, initialValues
         overflow: 'hidden',
         '& .MuiAutocomplete-listbox': {
             fontSize: '13px',
-            fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             padding: '4px 0',
             maxHeight: '240px',
         },
         '& .MuiAutocomplete-option': {
             fontSize: '13px',
-            fontFamily: "'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             padding: '8px 12px',
-            '&:hover': {
-                bgcolor: '#f3f4f6',
-            },
-            '&[aria-selected="true"]': {
-                bgcolor: '#e0f2fe',
-            },
+            '&:hover': { bgcolor: '#f3f4f6' },
+            '&[aria-selected="true"]': { bgcolor: '#e0f2fe' },
         },
     };
 
@@ -97,40 +96,65 @@ export default function PurchaseReturnFilterPopup({ open, onClose, initialValues
     useEffect(() => {
         if (!open) return;
 
-        const status = initialValues.status ?? '';
-        const refundStatus = initialValues.refundStatus ?? '';
-        const refundMethod = initialValues.refundMethod ?? '';
-
-        setStatusOption(STATUS_OPTIONS.find((o) => o.value === status) || STATUS_OPTIONS[0]);
-        setRefundStatusOption(REFUND_STATUS_OPTIONS.find((o) => o.value === refundStatus) || REFUND_STATUS_OPTIONS[0]);
-        setRefundMethodOption(REFUND_METHOD_OPTIONS.find((o) => o.value === refundMethod) || REFUND_METHOD_OPTIONS[0]);
-        setFromDate(initialValues.fromDate ?? '');
-        setToDate(initialValues.toDate ?? '');
+        setStatusOption(STATUS_OPTIONS.find((o) => o.value === (initialValues.status ?? '')) || STATUS_OPTIONS[0]);
+        setRefundStatusOption(REFUND_STATUS_OPTIONS.find((o) => o.value === (initialValues.refundStatus ?? '')) || REFUND_STATUS_OPTIONS[0]);
+        setRelatedGRNOption(initialValues.relatedGRNId ?? '');
+        setCreatedByOption(initialValues.createdBy ?? '');
+        setSupplierOption(initialValues.supplierName ?? '');
+        setReturnFromDate(initialValues.returnFromDate ?? '');
+        setReturnToDate(initialValues.returnToDate ?? '');
+        setCreatedFromDate(initialValues.createdFromDate ?? '');
+        setCreatedToDate(initialValues.createdToDate ?? '');
     }, [open, initialValues]);
 
     const handleApply = useCallback(() => {
         onApply({
             status: statusOption.value || undefined,
             refundStatus: refundStatusOption.value || undefined,
-            refundMethod: refundMethodOption.value || undefined,
-            fromDate: fromDate || undefined,
-            toDate: toDate || undefined,
+            relatedGRNId: relatedGRNOption || undefined,
+            createdBy: createdByOption || undefined,
+            supplierName: supplierOption || undefined,
+            returnFromDate: returnFromDate || undefined,
+            returnToDate: returnToDate || undefined,
+            createdFromDate: createdFromDate || undefined,
+            createdToDate: createdToDate || undefined,
         });
         onClose();
-    }, [statusOption, refundStatusOption, refundMethodOption, fromDate, toDate, onApply, onClose]);
+    }, [
+        statusOption,
+        refundStatusOption,
+        relatedGRNOption,
+        createdByOption,
+        supplierOption,
+        returnFromDate,
+        returnToDate,
+        createdFromDate,
+        createdToDate,
+        onApply,
+        onClose,
+    ]);
 
     const handleClear = useCallback(() => {
         setStatusOption(STATUS_OPTIONS[0]);
         setRefundStatusOption(REFUND_STATUS_OPTIONS[0]);
-        setRefundMethodOption(REFUND_METHOD_OPTIONS[0]);
-        setFromDate('');
-        setToDate('');
+        setRelatedGRNOption('');
+        setCreatedByOption('');
+        setSupplierOption('');
+        setReturnFromDate('');
+        setReturnToDate('');
+        setCreatedFromDate('');
+        setCreatedToDate('');
+
         onApply({
             status: undefined,
             refundStatus: undefined,
-            refundMethod: undefined,
-            fromDate: undefined,
-            toDate: undefined,
+            relatedGRNId: undefined,
+            createdBy: undefined,
+            supplierName: undefined,
+            returnFromDate: undefined,
+            returnToDate: undefined,
+            createdFromDate: undefined,
+            createdToDate: undefined,
         });
         onClose();
     }, [onApply, onClose]);
@@ -170,7 +194,8 @@ export default function PurchaseReturnFilterPopup({ open, onClose, initialValues
                 position: 'fixed',
                 left: 300,
                 top: 110,
-                width: 320,
+                width: 360,
+                maxHeight: '80vh',
                 borderRadius: '12px',
                 border: '1px solid rgba(0, 0, 0, 0.08)',
                 boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
@@ -197,39 +222,14 @@ export default function PurchaseReturnFilterPopup({ open, onClose, initialValues
                 <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
                     Bộ lọc
                 </Typography>
-                <IconButton
-                    size="small"
-                    onClick={onClose}
-                    aria-label="Đóng"
-                    sx={{
-                        p: 0.5,
-                        color: '#6b7280',
-                        '&:hover': {
-                            bgcolor: '#f3f4f6',
-                            color: '#111827',
-                        },
-                    }}
-                >
+                <IconButton size="small" onClick={onClose} aria-label="Đóng" sx={{ p: 0.5, color: '#6b7280', '&:hover': { bgcolor: '#f3f4f6', color: '#111827' } }}>
                     <X size={18} />
                 </IconButton>
             </Box>
 
-            <Box
-                sx={{
-                    p: 2.5,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    overflowY: 'auto',
-                    flex: 1,
-                    minHeight: 0,
-                    '&::-webkit-scrollbar': { width: '6px' },
-                    '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                    '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px' },
-                }}
-            >
+            <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 <Box>
-                    <Typography variant="body2" sx={labelSx}>Trạng thái phiếu trả hàng</Typography>
+                    <Typography variant="body2" sx={labelSx}>Trạng thái</Typography>
                     <Autocomplete
                         size="small"
                         options={STATUS_OPTIONS}
@@ -238,13 +238,7 @@ export default function PurchaseReturnFilterPopup({ open, onClose, initialValues
                         onChange={(_, v) => setStatusOption(v || STATUS_OPTIONS[0])}
                         isOptionEqualToValue={(a, b) => a.value === b.value}
                         PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                placeholder="Chọn trạng thái"
-                                sx={inputSx}
-                            />
-                        )}
+                        renderInput={(params) => <TextField {...params} placeholder="Chọn trạng thái" sx={inputSx} />}
                     />
                 </Box>
 
@@ -258,91 +252,71 @@ export default function PurchaseReturnFilterPopup({ open, onClose, initialValues
                         onChange={(_, v) => setRefundStatusOption(v || REFUND_STATUS_OPTIONS[0])}
                         isOptionEqualToValue={(a, b) => a.value === b.value}
                         PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                placeholder="Chọn trạng thái hoàn tiền"
-                                sx={inputSx}
-                            />
-                        )}
+                        renderInput={(params) => <TextField {...params} placeholder="Chọn trạng thái hoàn tiền" sx={inputSx} />}
                     />
                 </Box>
 
-                
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Phiếu nhập tham chiếu</Typography>
+                    <Autocomplete
+                        freeSolo
+                        size="small"
+                        options={relatedGRNOptions}
+                        value={relatedGRNOption}
+                        onInputChange={(_, v) => setRelatedGRNOption(v || '')}
+                        PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
+                        renderInput={(params) => <TextField {...params} placeholder="Tìm GRN" sx={inputSx} />}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Người tạo</Typography>
+                    <Autocomplete
+                        freeSolo
+                        size="small"
+                        options={createdByOptions}
+                        value={createdByOption}
+                        onInputChange={(_, v) => setCreatedByOption(v || '')}
+                        PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
+                        renderInput={(params) => <TextField {...params} placeholder="Tìm người tạo" sx={inputSx} />}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Nhà cung cấp</Typography>
+                    <Autocomplete
+                        freeSolo
+                        size="small"
+                        options={supplierOptions}
+                        value={supplierOption}
+                        onInputChange={(_, v) => setSupplierOption(v || '')}
+                        PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
+                        renderInput={(params) => <TextField {...params} placeholder="Tìm nhà cung cấp" sx={inputSx} />}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Ngày trả hàng</Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <TextField size="small" type="date" value={returnFromDate} onChange={(e) => setReturnFromDate(e.target.value)} fullWidth sx={inputSx} />
+                        <TextField size="small" type="date" value={returnToDate} onChange={(e) => setReturnToDate(e.target.value)} fullWidth sx={inputSx} />
+                    </Box>
+                </Box>
 
                 <Box>
                     <Typography variant="body2" sx={labelSx}>Ngày tạo</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                        <TextField
-                            size="small"
-                            type="date"
-                            value={fromDate}
-                            onChange={(e) => setFromDate(e.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                            placeholder="Từ ngày"
-                            fullWidth
-                            sx={inputSx}
-                        />
-                        <TextField
-                            size="small"
-                            type="date"
-                            value={toDate}
-                            onChange={(e) => setToDate(e.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                            placeholder="Đến ngày"
-                            fullWidth
-                            sx={inputSx}
-                        />
+                        <TextField size="small" type="date" value={createdFromDate} onChange={(e) => setCreatedFromDate(e.target.value)} fullWidth sx={inputSx} />
+                        <TextField size="small" type="date" value={createdToDate} onChange={(e) => setCreatedToDate(e.target.value)} fullWidth sx={inputSx} />
                     </Box>
                 </Box>
             </Box>
 
-            <Box
-                sx={{
-                    px: 2.5,
-                    py: 2,
-                    borderTop: '1px solid #f3f4f6',
-                    display: 'flex',
-                    gap: 1,
-                }}
-            >
-                <Button
-                    fullWidth
-                    size="small"
-                    onClick={handleClear}
-                    sx={{
-                        fontSize: '13px',
-                        fontWeight: 500,
-                        textTransform: 'none',
-                        height: 36,
-                        borderRadius: '8px',
-                        border: '1px solid #d1d5db',
-                        color: '#374151',
-                        '&:hover': {
-                            bgcolor: '#f3f4f6',
-                            borderColor: '#9ca3af',
-                        },
-                    }}
-                >
+            <Box sx={{ px: 2.5, py: 2, borderTop: '1px solid #f3f4f6', display: 'flex', gap: 1 }}>
+                <Button fullWidth size="small" onClick={handleClear} sx={{ fontSize: '13px', fontWeight: 500, textTransform: 'none', height: 36, borderRadius: '8px', border: '1px solid #d1d5db', color: '#374151', '&:hover': { bgcolor: '#f3f4f6', borderColor: '#9ca3af' } }}>
                     Xóa lọc
                 </Button>
-                <Button
-                    fullWidth
-                    size="small"
-                    onClick={handleApply}
-                    sx={{
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        height: 36,
-                        borderRadius: '8px',
-                        bgcolor: '#3b82f6',
-                        color: '#ffffff',
-                        '&:hover': {
-                            bgcolor: '#2563eb',
-                        },
-                    }}
-                >
+                <Button fullWidth size="small" onClick={handleApply} sx={{ fontSize: '13px', fontWeight: 600, textTransform: 'none', height: 36, borderRadius: '8px', bgcolor: '#3b82f6', color: '#ffffff', '&:hover': { bgcolor: '#2563eb' } }}>
                     Áp dụng
                 </Button>
             </Box>

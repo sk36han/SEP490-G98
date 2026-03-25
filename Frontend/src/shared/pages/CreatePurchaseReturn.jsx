@@ -4,7 +4,6 @@ import {
     ArrowLeft,
     Plus,
     X,
-    User,
     Save,
     Loader,
     Calendar,
@@ -13,13 +12,11 @@ import {
     Search,
     FileText,
     MapPin,
-    Building2,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
 
-// Mock GRN data - đồng nhất với ViewGoodReceiptNoteDetail
 const MOCK_GRNS = [
     {
         id: 1,
@@ -64,60 +61,28 @@ const MOCK_GRNS = [
     },
 ];
 
+const MAX_REASON_LENGTH = 250;
+const MAX_NOTE_LENGTH = 250;
+const TODAY = new Date().toISOString().slice(0, 10);
+
+const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+const toNumber = (val) => {
+    const n = Number(val);
+    return isNaN(n) ? 0 : n;
+};
+
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(toNumber(value));
+};
+
 const CreatePurchaseReturn = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
-    const currentUser = { userId: 1, fullName: 'Nguyễn Văn A' };
 
-    // Load GRN data from URL params on mount
-    useEffect(() => {
-        const grnId = searchParams.get('grnId');
-        const grnCode = searchParams.get('grnCode');
-
-        if (grnId && grnCode) {
-            const foundGrn = MOCK_GRNS.find((g) => g.id === Number(grnId) && g.grnCode === grnCode);
-            if (foundGrn) {
-                setFormData((prev) => ({
-                    ...prev,
-                    relatedGRNId: foundGrn.id,
-                    relatedGRNCode: foundGrn.grnCode,
-                    supplierId: foundGrn.supplierId,
-                    supplierName: foundGrn.supplierName,
-                    supplierPhone: foundGrn.supplierPhone,
-                    supplierEmail: foundGrn.supplierEmail,
-                    supplierTaxCode: foundGrn.supplierTaxCode,
-                    supplierAddressProvince: foundGrn.supplierAddressProvince,
-                    supplierAddressDistrict: foundGrn.supplierAddressDistrict,
-                    supplierAddressWard: foundGrn.supplierAddressWard,
-                    supplierAddressStreet: foundGrn.supplierAddressStreet,
-                    warehouseId: foundGrn.warehouseId,
-                    warehouseName: foundGrn.warehouseName,
-                    grnReceiptDate: foundGrn.createdDate || '',
-                }));
-
-                // Auto-fill lines from GRN
-                const autoLines = foundGrn.lines.map((item) => ({
-                    id: Date.now() + Math.random() + item.grnLineId,
-                    grnLineId: item.grnLineId,
-                    productId: item.productId,
-                    sku: item.sku,
-                    productName: item.productName,
-                    uom: item.uom,
-                    receivedQty: Number(item.receivedQty) || 0,
-                    returnQty: 1,
-                    unitPrice: Number(item.unitPrice) || 0,
-                    totalPrice: Number(item.unitPrice) || 0,
-                }));
-                setLines(autoLines);
-                setSelectedProductIds(foundGrn.lines.map((item) => item.productId));
-                setGrnQuery(foundGrn.grnCode);
-                showToast('Đã tải thông tin từ phiếu nhập kho', 'success');
-            }
-        }
-    }, []);
-
+    // --- State definitions (all before useEffect) ---
     const [formData, setFormData] = useState({
         relatedGRNId: '',
         relatedGRNCode: '',
@@ -132,35 +97,77 @@ const CreatePurchaseReturn = () => {
         supplierAddressProvince: '',
         warehouseId: '',
         warehouseName: '',
-        createdById: currentUser.userId,
-        createdByName: currentUser.fullName,
-        createdAt: new Date().toISOString().slice(0, 10),
+        createdById: 1,
+        createdByName: 'Nguyễn Văn A',
+        createdAt: TODAY,
         returnDate: '',
         reason: '',
-        note: '',
         feeAmount: '',
         deductionReason: '',
         refundReceiveStatus: 'later',
         refundMethod: 'cash',
         grnReceiptDate: '',
-        refundRecordedDate: '',
+        refundRecordedDate: TODAY,
     });
 
-    const MAX_REASON_LENGTH = 250;
-    const MAX_NOTE_LENGTH = 250;
-
     const [lines, setLines] = useState([]);
-    const [selectedLineIds, setSelectedLineIds] = useState([]);
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedProductIds, setSelectedProductIds] = useState([]);
+    const [selectedSearchProductIds, setSelectedSearchProductIds] = useState([]);
     const [grnQuery, setGrnQuery] = useState('');
-    const [grnDropdownOpen, setGrnDropdownOpen] = useState(false);
     const [errors, setErrors] = useState({});
 
-    const selectedGrn = useMemo(() => {
-        return MOCK_GRNS.find((g) => g.id === formData.relatedGRNId) || null;
-    }, [formData.relatedGRNId]);
+    // Load GRN from URL params
+    useEffect(() => {
+        const grnId = searchParams.get('grnId');
+        const grnCode = searchParams.get('grnCode');
+        if (!grnId || !grnCode) return;
+
+        const foundGrn = MOCK_GRNS.find((g) => g.id === Number(grnId) && g.grnCode === grnCode);
+        if (!foundGrn) return;
+
+        setFormData((prev) => ({
+            ...prev,
+            relatedGRNId: foundGrn.id,
+            relatedGRNCode: foundGrn.grnCode,
+            supplierId: foundGrn.supplierId,
+            supplierName: foundGrn.supplierName,
+            supplierPhone: foundGrn.supplierPhone ?? '',
+            supplierEmail: foundGrn.supplierEmail ?? '',
+            supplierTaxCode: foundGrn.supplierTaxCode ?? '',
+            supplierAddressProvince: foundGrn.supplierAddressProvince ?? '',
+            supplierAddressDistrict: foundGrn.supplierAddressDistrict ?? '',
+            supplierAddressWard: foundGrn.supplierAddressWard ?? '',
+            supplierAddressStreet: foundGrn.supplierAddressStreet ?? '',
+            warehouseId: foundGrn.warehouseId,
+            warehouseName: foundGrn.warehouseName,
+            grnReceiptDate: foundGrn.createdDate || '',
+        }));
+
+        const autoLines = foundGrn.lines.map((item) => ({
+            id: generateLineId(),
+            grnLineId: item.grnLineId,
+            productId: item.productId,
+            sku: item.sku,
+            productName: item.productName,
+            uom: item.uom,
+            receivedQty: toNumber(item.receivedQty),
+            returnQty: 1,
+            unitPrice: toNumber(item.unitPrice),
+            totalPrice: toNumber(item.unitPrice),
+        }));
+        setLines(autoLines);
+        setSelectedProductIds(foundGrn.lines.map((item) => item.productId));
+        setGrnQuery(foundGrn.grnCode);
+        showToast('Đã tải thông tin từ phiếu nhập kho', 'success');
+    }, []);
+
+    // --- Derived ---
+    const selectedGrn = useMemo(
+        () => MOCK_GRNS.find((g) => g.id === formData.relatedGRNId) || null,
+        [formData.relatedGRNId]
+    );
 
     const filteredGrns = useMemo(() => {
         const q = grnQuery.trim().toLowerCase();
@@ -174,8 +181,7 @@ const CreatePurchaseReturn = () => {
     }, [grnQuery]);
 
     const availableProducts = useMemo(() => {
-        const source = selectedGrn?.lines || [];
-        return source.filter((item) => !selectedProductIds.includes(item.productId));
+        return (selectedGrn?.lines || []).filter((item) => !selectedProductIds.includes(item.productId));
     }, [selectedGrn, selectedProductIds]);
 
     const filteredProducts = useMemo(() => {
@@ -188,67 +194,88 @@ const CreatePurchaseReturn = () => {
         );
     }, [availableProducts, searchKeyword]);
 
+    const allFilteredSelected = filteredProducts.length > 0 && filteredProducts.every((p) => selectedSearchProductIds.includes(p.productId));
+    const someFilteredSelected = filteredProducts.some((p) => selectedSearchProductIds.includes(p.productId));
+
+    const totalReturnQuantity = lines.reduce((sum, line) => sum + toNumber(line.returnQty), 0);
+    const subtotal = lines.reduce((sum, line) => sum + toNumber(line.totalPrice), 0);
+    const feeAmount = toNumber(formData.feeAmount);
+    const isFeeAmountExceedSubtotal = feeAmount > subtotal;
+    const estimatedRefundAmount = Math.max(subtotal - feeAmount, 0);
+
+    // --- Handlers ---
     const handleChange = (e) => {
         const { name, value } = e.target;
 
+        // Enforce max length for text fields
         if (name === 'reason' && value.length > MAX_REASON_LENGTH) return;
-        if (name === 'note' && value.length > MAX_NOTE_LENGTH) return;
         if (name === 'deductionReason' && value.length > MAX_NOTE_LENGTH) return;
 
-        if (name === 'refundRecordedDate') {
-            const today = new Date().toISOString().slice(0, 10);
-            const minDate = formData.grnReceiptDate || '';
-
-            if (value && value > today) {
-                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được ở tương lai' }));
-            } else if (value && minDate && value < minDate) {
-                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến' }));
+        // Validate returnDate on change
+        if (name === 'returnDate') {
+            if (value && formData.grnReceiptDate && value < formData.grnReceiptDate) {
+                setErrors((prev) => ({ ...prev, returnDate: 'Ngày trả hàng không được trước ngày nhập của GRN' }));
             } else {
-                setErrors((prev) => ({ ...prev, refundRecordedDate: '' }));
+                setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.returnDate;
+                    return next;
+                });
             }
         }
 
-        if (name === 'refundRecordedDate') {
-            const today = new Date().toISOString().slice(0, 10);
-            const minDate = formData.grnReceiptDate || '';
-
-            if (value && value > today) {
-                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được ở tương lai' }));
-            } else if (value && minDate && value < minDate) {
-                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến' }));
+        // Validate returnDate on change
+        if (name === 'returnDate') {
+            if (value && formData.grnReceiptDate && value < formData.grnReceiptDate) {
+                setErrors((prev) => ({ ...prev, returnDate: 'Ngày trả hàng không được trước ngày nhập của GRN' }));
             } else {
-                setErrors((prev) => ({ ...prev, refundRecordedDate: '' }));
+                setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.returnDate;
+                    return next;
+                });
             }
         }
-        if (name === 'deductionReason' && value.length > MAX_NOTE_LENGTH) return;
 
+        // Validate refundRecordedDate on change
+        if (name === 'refundRecordedDate') {
+            if (value && value > TODAY) {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được ở tương lai' }));
+            } else if (value && formData.grnReceiptDate && value < formData.grnReceiptDate) {
+                setErrors((prev) => ({ ...prev, refundRecordedDate: 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến' }));
+            } else {
+                setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.refundRecordedDate;
+                    return next;
+                });
+            }
+        }
+
+        // feeAmount: digits only
         if (name === 'feeAmount') {
             const digitsOnly = value.replace(/\D/g, '');
             const normalized = digitsOnly.replace(/^0+(?=\d)/, '');
-            setFormData((prev) => ({
-                ...prev,
-                feeAmount: normalized,
-            }));
-
+            setFormData((prev) => ({ ...prev, feeAmount: normalized }));
             if (errors.feeAmount) {
-                setErrors((prev) => ({
-                    ...prev,
-                    feeAmount: '',
-                }));
+                setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.feeAmount;
+                    return next;
+                });
             }
             return;
         }
 
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
 
+        // Clear field error on change
         if (errors[name]) {
-            setErrors((prev) => ({
-                ...prev,
-                [name]: '',
-            }));
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[name];
+                return next;
+            });
         }
     };
 
@@ -259,80 +286,110 @@ const CreatePurchaseReturn = () => {
             relatedGRNCode: grn.grnCode,
             supplierId: grn.supplierId,
             supplierName: grn.supplierName,
-            supplierPhone: grn.supplierPhone,
-            supplierEmail: grn.supplierEmail,
-            supplierTaxCode: grn.supplierTaxCode,
-            supplierAddressProvince: grn.supplierAddressProvince,
-            supplierAddressDistrict: grn.supplierAddressDistrict,
-            supplierAddressWard: grn.supplierAddressWard,
-            supplierAddressStreet: grn.supplierAddressStreet,
+            supplierPhone: grn.supplierPhone ?? '',
+            supplierEmail: grn.supplierEmail ?? '',
+            supplierTaxCode: grn.supplierTaxCode ?? '',
+            supplierAddressProvince: grn.supplierAddressProvince ?? '',
+            supplierAddressDistrict: grn.supplierAddressDistrict ?? '',
+            supplierAddressWard: grn.supplierAddressWard ?? '',
+            supplierAddressStreet: grn.supplierAddressStreet ?? '',
             warehouseId: grn.warehouseId,
             warehouseName: grn.warehouseName,
+            refundRecordedDate: TODAY,
         }));
 
         setGrnQuery(grn.grnCode);
         setGrnDropdownOpen(false);
         setLines([]);
-        setSelectedLineIds([]);
         setSelectedProductIds([]);
         setShowProductSearch(false);
         setSearchKeyword('');
-
-        setErrors((prev) => ({
-            ...prev,
-            lines: '',
-        }));
+        setErrors((prev) => {
+            const next = { ...prev };
+            delete next.lines;
+            delete next.relatedGRNCode;
+            return next;
+        });
     };
 
     const openProductSearch = () => {
         if (!formData.relatedGRNId) {
             showToast('Vui lòng chọn phiếu nhập tham chiếu trước.', 'warning');
-            setErrors((prev) => ({
-                ...prev,
-                relatedGRNCode: 'Phiếu nhập tham chiếu là bắt buộc',
-            }));
+            setErrors((prev) => ({ ...prev, relatedGRNCode: 'Phiếu nhập tham chiếu là bắt buộc' }));
             return;
         }
-
         setShowProductSearch(true);
         setSearchKeyword('');
+        setSelectedSearchProductIds([]);
+        setSelectedSearchProductIds([]);
     };
 
     const closeProductSearch = () => {
         setShowProductSearch(false);
         setSearchKeyword('');
+        setSelectedSearchProductIds([]);
     };
 
     const addLine = (product) => {
-        const existed = lines.some((line) => line.productId === product.productId);
-        if (existed) {
+        if (lines.some((line) => line.productId === product.productId)) {
             showToast('Vật tư đã có trong danh sách trả.', 'warning');
             return;
         }
 
+        const unitPrice = toNumber(product.unitPrice);
         const newLine = {
-            id: Date.now() + Math.random(),
+            id: generateLineId(),
             grnLineId: product.grnLineId,
             productId: product.productId,
             sku: product.sku,
             productName: product.productName,
             uom: product.uom,
-            receivedQty: Number(product.receivedQty) || 0,
+            receivedQty: toNumber(product.receivedQty),
             returnQty: 1,
-            unitPrice: Number(product.unitPrice) || 0,
-            totalPrice: Number(product.unitPrice) || 0,
+            unitPrice,
+            totalPrice: unitPrice,
         };
 
         setLines((prev) => [...prev, newLine]);
         setSelectedProductIds((prev) => [...prev, product.productId]);
-        setShowProductSearch(false);
-        setSearchKeyword('');
 
         if (errors.lines) {
-            setErrors((prev) => ({
-                ...prev,
-                lines: '',
-            }));
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next.lines;
+                return next;
+            });
+        }
+    };
+
+    const toggleSearchProductSelection = (productId) => {
+        setSelectedSearchProductIds((prev) =>
+            prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+        );
+    };
+
+    const addSelectedProducts = () => {
+        if (!selectedSearchProductIds.length) return;
+
+        const productsToAdd = filteredProducts.filter((p) => selectedSearchProductIds.includes(p.productId));
+        if (!productsToAdd.length) return;
+
+        productsToAdd.forEach((product) => addLine(product));
+        setShowProductSearch(false);
+        setSearchKeyword('');
+        setSelectedSearchProductIds([]);
+    };
+
+    const toggleSelectAllFilteredProducts = (checked) => {
+        if (checked) {
+            setSelectedSearchProductIds((prev) => {
+                const set = new Set(prev);
+                filteredProducts.forEach((p) => set.add(p.productId));
+                return [...set];
+            });
+        } else {
+            const filteredIds = new Set(filteredProducts.map((p) => p.productId));
+            setSelectedSearchProductIds((prev) => prev.filter((id) => !filteredIds.has(id)));
         }
     };
 
@@ -341,23 +398,19 @@ const CreatePurchaseReturn = () => {
             prev.map((line, i) => {
                 if (i !== index) return line;
 
-                let processedValue = value;
                 if (field === 'returnQty') {
-                    const numValue = Number(value) || 0;
-                    // Không cho nhập quá số lượng đã nhập
-                    processedValue = Math.min(Math.max(numValue, 0), line.receivedQty);
+                    const numValue = toNumber(value);
+                    const processedValue = Math.min(Math.max(numValue, 0), line.receivedQty);
+                    const safeQty = isNaN(processedValue) ? 0 : processedValue;
+                    const safeUnit = isNaN(line.unitPrice) ? 0 : line.unitPrice;
+                    return {
+                        ...line,
+                        returnQty: safeQty,
+                        totalPrice: safeQty * safeUnit,
+                    };
                 }
 
-                const next = {
-                    ...line,
-                    [field]: field === 'returnQty' ? processedValue : value,
-                };
-
-                if (field === 'returnQty') {
-                    next.totalPrice = (Number(next.returnQty) || 0) * (Number(next.unitPrice) || 0);
-                }
-
-                return next;
+                return { ...line, [field]: value };
             })
         );
     };
@@ -365,70 +418,35 @@ const CreatePurchaseReturn = () => {
     const removeLine = (index) => {
         const removed = lines[index];
         setLines((prev) => prev.filter((_, i) => i !== index));
-        setSelectedLineIds((prev) => prev.filter((id) => id !== removed.id));
         setSelectedProductIds((prev) => prev.filter((id) => id !== removed.productId));
     };
 
-    const toggleLineSelection = (lineId) => {
-        setSelectedLineIds((prev) =>
-            prev.includes(lineId) ? prev.filter((id) => id !== lineId) : [...prev, lineId]
-        );
-    };
-
-    const toggleSelectAll = () => {
-        if (!lines.length) return;
-        if (selectedLineIds.length === lines.length) {
-            setSelectedLineIds([]);
-        } else {
-            setSelectedLineIds(lines.map((line) => line.id));
-        }
-    };
-
-    const removeSelectedLines = () => {
-        if (!selectedLineIds.length) return;
-
+    const removeSelectedLines = (selectedIds) => {
+        if (!selectedIds?.length) return;
         const removedProductIds = lines
-            .filter((line) => selectedLineIds.includes(line.id))
+            .filter((line) => selectedIds.includes(line.id))
             .map((line) => line.productId);
 
-        setLines((prev) => prev.filter((line) => !selectedLineIds.includes(line.id)));
+        setLines((prev) => prev.filter((line) => !selectedIds.includes(line.id)));
         setSelectedProductIds((prev) => prev.filter((id) => !removedProductIds.includes(id)));
-        setSelectedLineIds([]);
     };
 
-    const totalReturnQuantity = lines.reduce((sum, line) => sum + (Number(line.returnQty) || 0), 0);
-    const subtotal = lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
-    const feeAmount = Number(formData.feeAmount) || 0;
-    const isFeeAmountExceedSubtotal = feeAmount > subtotal;
-    const estimatedRefundAmount = Math.max(subtotal - feeAmount, 0);
-
-    const formatCurrency = (value) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-        }).format(Number(value) || 0);
-    };
-
+    // --- Validation ---
     const validateForm = () => {
         const newErrors = {};
 
         if (!formData.returnDate) {
             newErrors.returnDate = 'Ngày trả hàng là bắt buộc';
-        }
-
-        if (!formData.reason.trim()) {
-            newErrors.reason = 'Lý do trả hàng là bắt buộc';
+        } else if (formData.grnReceiptDate && formData.returnDate < formData.grnReceiptDate) {
+            newErrors.returnDate = 'Ngày trả hàng không được trước ngày nhập của GRN';
         }
 
         if (!lines.length) {
             newErrors.lines = 'Vui lòng thêm ít nhất 1 vật tư trả';
         } else {
             const invalidLine = lines.find(
-                (line) =>
-                    Number(line.returnQty) <= 0 ||
-                    Number(line.returnQty) > Number(line.receivedQty)
+                (line) => toNumber(line.returnQty) <= 0 || toNumber(line.returnQty) > toNumber(line.receivedQty)
             );
-
             if (invalidLine) {
                 newErrors.lines = 'Số lượng trả phải lớn hơn 0 và không vượt quá số lượng đã nhập';
             }
@@ -436,37 +454,17 @@ const CreatePurchaseReturn = () => {
 
         if (feeAmount < 0) {
             newErrors.feeAmount = 'Phí xử lý phải lớn hơn hoặc bằng 0';
-        }
-
-        if (feeAmount > subtotal) {
+        } else if (feeAmount > subtotal) {
             newErrors.feeAmount = 'Phí xử lý không được cao hơn Giá trị hoàn trả';
         }
 
         if (formData.refundReceiveStatus === 'received') {
             if (!formData.refundRecordedDate) {
                 newErrors.refundRecordedDate = 'Ngày ghi nhận là bắt buộc';
-            } else {
-                const today = new Date().toISOString().slice(0, 10);
-                if (formData.refundRecordedDate > today) {
-                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được ở tương lai';
-                }
-                if (formData.grnReceiptDate && formData.refundRecordedDate < formData.grnReceiptDate) {
-                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến';
-                }
-            }
-        }
-
-        if (formData.refundReceiveStatus === 'received') {
-            if (!formData.refundRecordedDate) {
-                newErrors.refundRecordedDate = 'Ngày ghi nhận là bắt buộc';
-            } else {
-                const today = new Date().toISOString().slice(0, 10);
-                if (formData.refundRecordedDate > today) {
-                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được ở tương lai';
-                }
-                if (formData.grnReceiptDate && formData.refundRecordedDate < formData.grnReceiptDate) {
-                    newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến';
-                }
+            } else if (formData.refundRecordedDate > TODAY) {
+                newErrors.refundRecordedDate = 'Ngày ghi nhận không được ở tương lai';
+            } else if (formData.grnReceiptDate && formData.refundRecordedDate < formData.grnReceiptDate) {
+                newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập dự kiến';
             }
         }
 
@@ -474,6 +472,7 @@ const CreatePurchaseReturn = () => {
         return Object.keys(newErrors).length === 0;
     };
 
+    // --- Submit ---
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -482,6 +481,8 @@ const CreatePurchaseReturn = () => {
             return;
         }
 
+        if (submitting) return;
+
         try {
             setSubmitting(true);
 
@@ -489,8 +490,8 @@ const CreatePurchaseReturn = () => {
                 relatedGRNId: formData.relatedGRNId,
                 returnDate: formData.returnDate,
                 reason: formData.reason.trim(),
-                note: formData.note.trim() || null,
-                feeAmount: feeAmount,
+                note: formData.reason.trim() || null,
+                feeAmount,
                 deductionReason: formData.deductionReason?.trim() || null,
                 refundReceiveStatus: formData.refundReceiveStatus,
                 refundMethod: formData.refundReceiveStatus === 'received' ? formData.refundMethod : null,
@@ -500,8 +501,8 @@ const CreatePurchaseReturn = () => {
                 lines: lines.map((line) => ({
                     grnLineId: line.grnLineId,
                     itemId: line.productId,
-                    returnQty: Number(line.returnQty) || 0,
-                    unitPrice: Number(line.unitPrice) || 0,
+                    returnQty: toNumber(line.returnQty),
+                    unitPrice: toNumber(line.unitPrice),
                 })),
             };
 
@@ -551,7 +552,7 @@ const CreatePurchaseReturn = () => {
                         ) : (
                             <>
                                 <Save size={15} />
-                                Lưu phiếu trả
+                                Tạo phiếu trả
                             </>
                         )}
                     </button>
@@ -568,42 +569,26 @@ const CreatePurchaseReturn = () => {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', height: '760px' }}>
+                        {/* LEFT COLUMN: Product lines */}
                         <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', height: '760px' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết vật tư trả</h2>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    {selectedLineIds.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={removeSelectedLines}
-                                            className="btn btn-sm"
-                                            style={{
-                                                fontWeight: 600,
-                                                backgroundColor: '#ef4444',
-                                                color: 'white',
-                                                border: 'none',
-                                            }}
-                                        >
-                                            <Trash2 size={16} />
-                                            Xóa ({selectedLineIds.length})
-                                        </button>
-                                    )}
-
                                     <label
                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#374151', fontWeight: 600 }}
                                     >
                                         <input
                                             type="checkbox"
-                                            checked={lines.length > 0 && lines.every(line => line.returnQty === line.receivedQty)}
+                                            checked={lines.length > 0 && lines.every((line) => line.returnQty === line.receivedQty)}
                                             onChange={(e) => {
                                                 if (e.target.checked) {
-                                                    setLines(prev => prev.map(line => ({
+                                                    setLines((prev) => prev.map((line) => ({
                                                         ...line,
                                                         returnQty: line.receivedQty,
                                                         totalPrice: line.receivedQty * line.unitPrice,
                                                     })));
                                                 } else {
-                                                    setLines(prev => prev.map(line => ({
+                                                    setLines((prev) => prev.map((line) => ({
                                                         ...line,
                                                         returnQty: 0,
                                                         totalPrice: 0,
@@ -710,103 +695,104 @@ const CreatePurchaseReturn = () => {
                                         }}
                                     >
                                         {filteredProducts.length === 0 ? (
-                                            <div
-                                                style={{
-                                                    padding: '24px',
-                                                    textAlign: 'center',
-                                                    color: '#9ca3af',
-                                                }}
-                                            >
+                                            <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>
                                                 <Package size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-                                                <p style={{ margin: 0, fontSize: '13px' }}>
-                                                    Không tìm thấy vật tư phù hợp
-                                                </p>
+                                                <p style={{ margin: 0, fontSize: '13px' }}>Không tìm thấy vật tư phù hợp</p>
                                             </div>
                                         ) : (
-                                            filteredProducts.map((product) => (
-                                                <div
-                                                    key={product.grnLineId}
-                                                    style={{
-                                                        padding: '12px 16px',
-                                                        borderBottom: '1px solid #f3f4f6',
-                                                        transition: 'background-color 0.15s',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '12px',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                    onClick={() => addLine(product)}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.backgroundColor = '#f9fafb';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            width: '40px',
-                                                            height: '40px',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            borderRadius: '6px',
-                                                            border: '1px solid #e5e7eb',
-                                                            backgroundColor: '#f3f4f6',
-                                                            flexShrink: 0,
-                                                        }}
-                                                    >
-                                                        <Package size={20} color="#9ca3af" />
-                                                    </div>
-
-                                                    <div style={{ flex: 1 }}>
-                                                        <div
-                                                            style={{
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                alignItems: 'start',
-                                                                marginBottom: '4px',
+                                            <>
+                                                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#f8fafc' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#334155', fontWeight: 600 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={allFilteredSelected}
+                                                            ref={(el) => {
+                                                                if (el) el.indeterminate = !allFilteredSelected && someFilteredSelected;
                                                             }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    fontSize: '14px',
-                                                                    fontWeight: 500,
-                                                                    color: '#1f2937',
-                                                                }}
-                                                            >
-                                                                {product.productName}
-                                                            </span>
-                                                            <span
-                                                                style={{
-                                                                    fontSize: '14px',
-                                                                    fontWeight: 600,
-                                                                    color: '#2196F3',
-                                                                    marginLeft: '12px',
-                                                                }}
-                                                            >
-                                                                {formatCurrency(product.unitPrice)}
-                                                            </span>
-                                                        </div>
-
-                                                        <div
-                                                            style={{
-                                                                display: 'flex',
-                                                                gap: '12px',
-                                                                fontSize: '12px',
-                                                                color: '#6b7280',
-                                                                flexWrap: 'wrap',
-                                                            }}
-                                                        >
-                                                            <span>Mã: {product.sku}</span>
-                                                            <span>•</span>
-                                                            <span>ĐVT: {product.uom}</span>
-                                                            <span>•</span>
-                                                            <span>Đã nhập: {product.receivedQty}</span>
-                                                        </div>
-                                                    </div>
+                                                            onChange={(e) => toggleSelectAllFilteredProducts(e.target.checked)}
+                                                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                        />
+                                                        Chọn tất cả ({filteredProducts.length})
+                                                    </label>
                                                 </div>
-                                            ))
+                                                {filteredProducts.map((product) => {
+                                                    const isChecked = selectedSearchProductIds.includes(product.productId);
+                                                    return (
+                                                        <div
+                                                            key={product.grnLineId}
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                borderBottom: '1px solid #f3f4f6',
+                                                                transition: 'background-color 0.15s',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '12px',
+                                                                cursor: 'pointer',
+                                                                backgroundColor: isChecked ? '#eff6ff' : 'transparent',
+                                                            }}
+                                                            onClick={() => toggleSearchProductSelection(product.productId)}
+                                                            onMouseEnter={(e) => {
+                                                                if (!isChecked) e.currentTarget.style.backgroundColor = '#f9fafb';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = isChecked ? '#eff6ff' : 'transparent';
+                                                            }}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => toggleSearchProductSelection(product.productId)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                style={{ cursor: 'pointer', width: '16px', height: '16px', flexShrink: 0 }}
+                                                            />
+                                                            <div
+                                                                style={{
+                                                                    width: '40px',
+                                                                    height: '40px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid #e5e7eb',
+                                                                    backgroundColor: '#f3f4f6',
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            >
+                                                                <Package size={20} color="#9ca3af" />
+                                                            </div>
+                                                            <div style={{ flex: 1 }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '4px' }}>
+                                                                    <span style={{ fontSize: '14px', fontWeight: 500, color: '#1f2937' }}>{product.productName}</span>
+                                                                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#2196F3', marginLeft: '12px' }}>
+                                                                        {formatCurrency(product.unitPrice)}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#6b7280', flexWrap: 'wrap' }}>
+                                                                    <span>Mã: {product.sku}</span>
+                                                                    <span>•</span>
+                                                                    <span>ĐVT: {product.uom}</span>
+                                                                    <span>•</span>
+                                                                    <span>Đã nhập: {product.receivedQty}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' }}>
+                                                    <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
+                                                        Đã chọn: {selectedSearchProductIds.length} vật tư
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm"
+                                                        onClick={addSelectedProducts}
+                                                        disabled={selectedSearchProductIds.length === 0}
+                                                        style={{ fontSize: '13px', fontWeight: 600 }}
+                                                    >
+                                                        Thêm đã chọn
+                                                    </button>
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -826,12 +812,8 @@ const CreatePurchaseReturn = () => {
                                     }}
                                 >
                                     <Package size={64} strokeWidth={1.5} />
-                                    <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>
-                                        Chưa có vật tư trả nào
-                                    </p>
-                                    <p style={{ fontSize: '14px', margin: 0 }}>
-                                        Chọn phiếu nhập tham chiếu rồi bấm &quot;Thêm vật tư&quot;
-                                    </p>
+                                    <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư trả nào</p>
+                                    <p style={{ fontSize: '14px', margin: 0 }}>Chọn phiếu nhập tham chiếu rồi bấm &quot;Thêm vật tư&quot;</p>
                                 </div>
                             ) : (
                                 <div className="table-container" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -857,9 +839,7 @@ const CreatePurchaseReturn = () => {
                                                                 <Package size={20} color="#9ca3af" />
                                                             </div>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                                <span style={{ fontSize: 14, fontWeight: 500, color: '#2196F3' }}>
-                                                                    {line.productName}
-                                                                </span>
+                                                                <span style={{ fontSize: 14, fontWeight: 500, color: '#2196F3' }}>{line.productName}</span>
                                                                 <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
                                                                     Mã: {line.sku} • ĐVT: {line.uom}
                                                                 </span>
@@ -880,9 +860,7 @@ const CreatePurchaseReturn = () => {
                                                                 className="form-input"
                                                                 style={{ textAlign: 'right', width: '60px', padding: '4px 6px', fontSize: '13px' }}
                                                             />
-                                                            <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>
-                                                                / {line.receivedQty}
-                                                            </span>
+                                                            <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>/ {line.receivedQty}</span>
                                                         </div>
                                                     </td>
                                                     <td style={{ textAlign: 'right', fontWeight: 500, color: '#374151', paddingRight: '12px' }}>
@@ -910,6 +888,7 @@ const CreatePurchaseReturn = () => {
                             )}
                         </div>
 
+                        {/* RIGHT COLUMN: General info + Refund */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '760px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
@@ -920,7 +899,6 @@ const CreatePurchaseReturn = () => {
                                     <div className="form-field">
                                         <label className="form-label">Người tạo</label>
                                         <div className="input-wrapper">
-                                            <User className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.createdByName}
@@ -934,7 +912,6 @@ const CreatePurchaseReturn = () => {
                                     <div className="form-field">
                                         <label className="form-label">Ngày tạo</label>
                                         <div className="input-wrapper">
-                                            <Calendar className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.createdAt}
@@ -950,7 +927,6 @@ const CreatePurchaseReturn = () => {
                                             Phiếu nhập tham chiếu <span className="required-mark">*</span>
                                         </label>
                                         <div className="input-wrapper">
-                                            <FileText className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.relatedGRNCode}
@@ -966,24 +942,21 @@ const CreatePurchaseReturn = () => {
                                             Ngày trả hàng <span className="required-mark">*</span>
                                         </label>
                                         <div className="input-wrapper">
-                                            <Calendar className="input-icon" size={16} />
                                             <input
                                                 type="date"
                                                 name="returnDate"
                                                 value={formData.returnDate}
                                                 onChange={handleChange}
+                                                min={formData.grnReceiptDate || ''}
                                                 className={`form-input ${errors.returnDate ? 'error' : ''}`}
                                             />
                                         </div>
-                                        {errors.returnDate && (
-                                            <span className="error-message">{errors.returnDate}</span>
-                                        )}
+                                        {errors.returnDate && <span className="error-message">{errors.returnDate}</span>}
                                     </div>
 
                                     <div className="form-field">
                                         <label className="form-label">Kho trả</label>
                                         <div className="input-wrapper">
-                                            <MapPin className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.warehouseName}
@@ -1068,7 +1041,7 @@ const CreatePurchaseReturn = () => {
                                                     name="refundRecordedDate"
                                                     value={formData.refundRecordedDate}
                                                     onChange={handleChange}
-                                                    max={new Date().toISOString().slice(0, 10)}
+                                                    max={TODAY}
                                                     min={formData.grnReceiptDate || ''}
                                                     className={`form-input ${errors.refundRecordedDate ? 'error' : ''}`}
                                                     style={{ paddingLeft: '16px' }}
@@ -1084,151 +1057,35 @@ const CreatePurchaseReturn = () => {
                         </div>
                     </div>
 
+                    {/* BOTTOM ROW: Supplier + Notes + Summary */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'stretch', marginTop: '24px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            <div className="info-section" style={{ margin: 0, flex: 1 }}>
+                            {/* Supplier info */}
+                            <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
                                 </div>
 
                                 {formData.supplierName ? (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: 8,
-                                            fontSize: 14,
-                                            color: '#334155',
-                                        }}
-                                    >
-                                        <div>
-                                            <span style={{ fontWeight: 600 }}>Tên NCC: </span>
-                                            <span>{formData.supplierName || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 600 }}>SĐT: </span>
-                                            <span>{formData.supplierPhone || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 600 }}>Email: </span>
-                                            <span>{formData.supplierEmail || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
-                                            <span>{formData.supplierTaxCode || '-'}</span>
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                                gap: 8,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 13,
-                                                        color: '#64748b',
-                                                        marginBottom: 4,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Tỉnh/Thành phố
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, color: '#334155' }}>
+                                        <div><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{formData.supplierName}</span></div>
+                                        <div><span style={{ fontWeight: 600 }}>SĐT: </span><span>{formData.supplierPhone}</span></div>
+                                        <div><span style={{ fontWeight: 600 }}>Email: </span><span>{formData.supplierEmail}</span></div>
+                                        <div><span style={{ fontWeight: 600 }}>Mã số thuế: </span><span>{formData.supplierTaxCode}</span></div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 4 }}>
+                                            {[
+                                                { label: 'Tỉnh/Thành phố', value: formData.supplierAddressProvince },
+                                                { label: 'Quận/Huyện', value: formData.supplierAddressDistrict },
+                                                { label: 'Phường/Xã', value: formData.supplierAddressWard },
+                                                { label: 'Địa chỉ cụ thể', value: formData.supplierAddressStreet },
+                                            ].map(({ label, value }) => (
+                                                <div key={label}>
+                                                    <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                                                    <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
+                                                        {value || '—'}
+                                                    </div>
                                                 </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressProvince || '—'}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 13,
-                                                        color: '#64748b',
-                                                        marginBottom: 4,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Quận/Huyện
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressDistrict || '—'}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 13,
-                                                        color: '#64748b',
-                                                        marginBottom: 4,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Phường/Xã
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressWard || '—'}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        fontSize: 13,
-                                                        color: '#64748b',
-                                                        marginBottom: 4,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Địa chỉ cụ thể
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        borderRadius: 8,
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: '#f9fafb',
-                                                        minHeight: 32,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {formData.supplierAddressStreet || '—'}
-                                                </div>
-                                            </div>
+                                            ))}
                                         </div>
                                     </div>
                                 ) : (
@@ -1238,47 +1095,36 @@ const CreatePurchaseReturn = () => {
                                 )}
                             </div>
 
+                            {/* Notes */}
                             <div className="info-section" style={{ margin: 0 }}>
-    <div className="section-header-with-toggle">
-        <h2 className="section-title">Ghi chú trả hàng</h2>
-    </div>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Ghi chú trả hàng</h2>
+                                </div>
+                                <div className="form-field">
+                                    <label className="form-label">
+                                        Ghi chú trả hàng
+                                    </label>
+                                    <textarea
+                                        name="reason"
+                                        value={formData.reason}
+                                        onChange={handleChange}
+                                        placeholder="Nhập ghi chú / lý do trả hàng"
+                                        rows={4}
+                                        className={`form-input ${errors.reason ? 'error' : ''}`}
+                                        style={{ resize: 'vertical' }}
+                                    />
+                                    {errors.reason && <span className="error-message">{errors.reason}</span>}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: formData.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: '4px', fontWeight: 500 }}>
+                                        {formData.reason.length}/{MAX_REASON_LENGTH} ký tự
+                                    </div>
+                                </div>
+                            </div>
 
-    <div className="form-field">
-        <label className="form-label">
-            Ghi chú trả hàng <span className="required-mark">*</span>
-        </label>
-        <textarea
-            name="reason"
-            value={formData.reason}
-            onChange={handleChange}
-            placeholder="Nhập ghi chú / lý do trả hàng"
-            rows={4}
-            className={`form-input ${errors.reason ? 'error' : ''}`}
-            style={{ resize: 'vertical' }}
-        />
-        {errors.reason && (
-            <span className="error-message">{errors.reason}</span>
-        )}
-        <div
-            style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                fontSize: '12px',
-                color: formData.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280',
-                marginTop: '4px',
-                fontWeight: 500,
-            }}
-        >
-            {formData.reason.length}/{MAX_REASON_LENGTH} ký tự
-        </div>
-    </div>
-</div>
-
+                            {/* Summary */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Tổng hợp phiếu trả</h2>
                                 </div>
-
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                         <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
@@ -1305,13 +1151,14 @@ const CreatePurchaseReturn = () => {
                                                     style={{ paddingLeft: '16px', paddingRight: '34px' }}
                                                     placeholder="Nhập phí xử lý"
                                                 />
-                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
-                                                    ₫
-                                                </span>
+                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>₫</span>
                                             </div>
                                             {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
                                             {!errors.feeAmount && isFeeAmountExceedSubtotal && (
-                                                <span className="error-message">Phí xử lý không được cao hơn Giá trị hoàn trả</span>
+                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
+                                            )}
+                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
+                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
                                             )}
                                         </div>
 
