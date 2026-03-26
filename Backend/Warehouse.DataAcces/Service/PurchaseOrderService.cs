@@ -182,6 +182,12 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy người tạo đơn.");
             }
 
+            // Validate ExpectedDeliveryDate
+            if (request.ExpectedDeliveryDate.HasValue && request.ExpectedDeliveryDate.Value < DateOnly.FromDateTime(DateTime.Today))
+            {
+                throw new InvalidOperationException("Ngày giao hàng dự kiến không được trong quá khứ.");
+            }
+
             var itemIds = request.Lines.Select(x => x.ItemId).Distinct().ToList();
             var items = await _context.Items
                 .Where(i => itemIds.Contains(i.ItemId))

@@ -71,6 +71,8 @@ public partial class Item
 
     public virtual ICollection<PurchaseOrderLine> PurchaseOrderLines { get; set; } = new List<PurchaseOrderLine>();
 
+    public virtual ICollection<PurchaseReturnNoteLine> PurchaseReturnNoteLines { get; set; } = new List<PurchaseReturnNoteLine>();
+
     public virtual ICollection<ReleaseRequestLine> ReleaseRequestLines { get; set; } = new List<ReleaseRequestLine>();
 
     public virtual ICollection<StocktakeLine> StocktakeLines { get; set; } = new List<StocktakeLine>();
