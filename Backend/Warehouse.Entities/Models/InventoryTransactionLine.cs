@@ -17,9 +17,13 @@ public partial class InventoryTransactionLine
 
     public string? Note { get; set; }
 
+    public long? LotId { get; set; }
+
     public virtual InventoryTransaction InventoryTxn { get; set; } = null!;
 
     public virtual Item Item { get; set; } = null!;
+
+    public virtual InventoryLot? Lot { get; set; }
 
     public virtual UnitOfMeasure Uom { get; set; } = null!;
 }

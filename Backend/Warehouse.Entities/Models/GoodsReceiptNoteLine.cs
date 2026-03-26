@@ -29,6 +29,8 @@ public partial class GoodsReceiptNoteLine
 
     public virtual GoodsReceiptNote Grn { get; set; } = null!;
 
+    public virtual ICollection<InventoryLot> InventoryLots { get; set; } = new List<InventoryLot>();
+
     public virtual Item Item { get; set; } = null!;
 
     public virtual PurchaseOrderLine? PurchaseOrderLine { get; set; }
