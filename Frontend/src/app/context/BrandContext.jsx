@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getBrandList } from '../../shared/lib/brandService';
 import authService from '../../shared/lib/authService';
+import { getBrandList } from '../../shared/lib/brandService';
 
 const BrandContext = createContext(null);
 
@@ -11,7 +11,6 @@ export function BrandProvider({ children }) {
 
   const fetchBrands = useCallback(async (force = false) => {
     if (!force && brands.length > 0) return;
-    if (!authService.isAuthenticated()) return;
     setLoading(true);
     setError(null);
     try {
@@ -25,9 +24,8 @@ export function BrandProvider({ children }) {
   }, [brands.length]);
 
   useEffect(() => {
-    if (authService.isAuthenticated()) {
-      fetchBrands();
-    }
+    if (!authService.getToken()) return;
+    fetchBrands();
   }, []);
 
   const value = {

@@ -43,6 +43,17 @@ const directorItems = [
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
     {
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: <Warehouse size={22} />,
+        label: 'Quản lý kho',
+        children: [
+            { path: '/inventory', label: 'Danh sách kho' },
+            { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
+            { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
+        ],
+    },
+    {
         id: 'reports-mgmt',
         path: '/reports',
         icon: <BarChart3 size={22} />,
@@ -132,6 +143,15 @@ const warehouseKeeperItems = [
             { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
+    {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+        ],
+    },
 ];
 
 const saleSupportItems = [
@@ -189,6 +209,15 @@ const saleSupportItems = [
             { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
+    {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+        ],
+    },
 ];
 
 const saleEngineerItems = [
@@ -215,6 +244,15 @@ const saleEngineerItems = [
             { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
+    {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+        ],
+    },
 ];
 
 const accountantItems = [
@@ -223,11 +261,44 @@ const accountantItems = [
         path: '/products',
         icon: <BoxIcon size={22} />,
         label: 'Vật tư',
-        matchPaths: BASIC_PRODUCT_MATCH_PATHS,
+        matchPaths: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands', '/items/create', '/items/edit', '/items'],
         children: [
             { path: '/products', label: 'Danh sách vật tư' },
+            { path: '/categories', label: 'Danh mục' },
             { path: '/uom', label: 'Đơn vị tính' },
+            { path: '/packaging-spec', label: 'Quy cách đóng gói' },
+            { path: '/specs', label: 'Thông số' },
             { path: '/brands', label: 'Thương hiệu' },
+        ],
+    },
+    {
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: <Warehouse size={22} />,
+        label: 'Quản lý kho',
+        children: [
+            { path: '/inventory', label: 'Danh sách kho' },
+            { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
+            { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
+        ],
+    },
+    {
+        id: 'suppliers-mgmt',
+        path: '/suppliers',
+        icon: <Truck size={22} />,
+        label: 'Nhà cung cấp',
+        children: [
+            { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
+            { path: '/suppliers/create', label: 'Tạo nhà cung cấp' },
+        ],
+    },
+    {
+        id: 'receivers-mgmt',
+        path: '/receivers',
+        icon: <Users size={22} />,
+        label: 'Người nhận',
+        children: [
+            { path: '/receivers', label: 'Danh sách người nhận' },
         ],
     },
     {
@@ -253,6 +324,7 @@ const accountantItems = [
         label: 'Trả hàng',
         children: [
             { path: '/purchase-returns', label: 'Danh sách phiếu trả hàng' },
+            { path: '/purchase-returns/create', label: 'Tạo phiếu trả hàng' },
         ],
     },
     {
@@ -265,6 +337,25 @@ const accountantItems = [
         ],
     },
     {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+        ],
+    },
+    { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Giá vật tư' },
+    {
+        id: 'policy-mgmt',
+        icon: <Bell size={22} />,
+        label: 'Chính sách',
+        children: [
+            { path: '/mockup/inventory-alert', label: 'Chính sách tồn kho' },
+            { path: '/mockup/sales-target', label: 'Chính sách tài chính' },
+        ],
+    },
+    {
         id: 'reports-mgmt',
         path: '/reports',
         icon: <BarChart3 size={22} />,
@@ -273,9 +364,6 @@ const accountantItems = [
             { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
         ],
     },
-    { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Quản lý giá sản phẩm' },
-    { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Chính sách tồn kho' },
-    { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Chính sách tài chính' },
 ];
 
 export const getMenuItems = (role) => {

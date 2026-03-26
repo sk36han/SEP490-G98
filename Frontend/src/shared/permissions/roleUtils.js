@@ -10,6 +10,9 @@ export const getRawRoleFromUser = (userInfo) => {
 };
 
 export const isAccountantView = (permissionRole) => permissionRole === 'ACCOUNTANTS';
+export const isDirector = (permissionRole) => permissionRole === 'DIRECTOR';
+export const isWarehouseKeeper = (permissionRole) => permissionRole === 'WAREHOUSE_KEEPER';
+export const isAccountant = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
 export const isPermissionRoleValid = (role) => {
     return !!role && VALID_PERMISSION_ROLES.includes(role);

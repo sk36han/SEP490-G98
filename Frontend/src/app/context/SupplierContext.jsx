@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSuppliers } from '../../shared/lib/supplierService';
 import authService from '../../shared/lib/authService';
+import { getSuppliers } from '../../shared/lib/supplierService';
 
 const SupplierContext = createContext(null);
 
@@ -11,7 +11,6 @@ export function SupplierProvider({ children }) {
 
   const fetchSuppliers = useCallback(async (force = false) => {
     if (!force && suppliers.length > 0) return;
-    if (!authService.isAuthenticated()) return;
     setLoading(true);
     setError(null);
     try {
@@ -25,9 +24,8 @@ export function SupplierProvider({ children }) {
   }, [suppliers.length]);
 
   useEffect(() => {
-    if (authService.isAuthenticated()) {
-      fetchSuppliers();
-    }
+    if (!authService.getToken()) return;
+    fetchSuppliers();
   }, []);
 
   const value = {

@@ -12,40 +12,40 @@ import { X } from 'lucide-react';
 
 const STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
-    { value: 'Pending', label: 'Chờ xử lý' },
+    { value: 'Draft', label: 'Nháp' },
+    { value: 'PendingAcc', label: 'Chờ kế toán duyệt' },
+    { value: 'PendingDir', label: 'Chờ giám đốc duyệt' },
     { value: 'Approved', label: 'Đã duyệt' },
+    { value: 'Dispatched', label: 'Đã xuất hàng' },
+    { value: 'Signed', label: 'Đã ký nhận' },
+    { value: 'Posted', label: 'Đã ghi sổ' },
     { value: 'Rejected', label: 'Từ chối' },
-    { value: 'Posted', label: 'Đã hạch toán' },
-    { value: 'Completed', label: 'Hoàn tất' },
 ];
 
-const REFUND_STATUS_OPTIONS = [
+const PAYMENT_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
-    { value: 'Pending', label: 'Chờ hoàn tiền' },
-    { value: 'Partial', label: 'Hoàn một phần' },
-    { value: 'Completed', label: 'Đã hoàn tiền' },
-    { value: 'Failed', label: 'Hoàn tiền thất bại' },
-    { value: 'NotRequired', label: 'Không cần hoàn tiền' },
+    { value: 'paid', label: 'Đã thanh toán' },
+    { value: 'unpaid', label: 'Chưa thanh toán' },
 ];
 
-export default function PurchaseReturnFilterPopup({
+export default function GoodDeliveryNoteFilterPopup({
     open,
     onClose,
     initialValues = {},
     onApply,
-    relatedGRNOptions = [],
+    releaseRequestCodeOptions = [],
+    receiverOptions = [],
+    warehouseOptions = [],
     createdByOptions = [],
-    supplierOptions = [],
 }) {
     const [statusOption, setStatusOption] = useState(STATUS_OPTIONS[0]);
-    const [refundStatusOption, setRefundStatusOption] = useState(REFUND_STATUS_OPTIONS[0]);
-    const [relatedGRNOption, setRelatedGRNOption] = useState('');
+    const [paymentStatusOption, setPaymentStatusOption] = useState(PAYMENT_STATUS_OPTIONS[0]);
+    const [releaseRequestCodeOption, setReleaseRequestCodeOption] = useState('');
+    const [receiverOption, setReceiverOption] = useState('');
+    const [warehouseOption, setWarehouseOption] = useState('');
     const [createdByOption, setCreatedByOption] = useState('');
-    const [supplierOption, setSupplierOption] = useState('');
-    const [returnFromDate, setReturnFromDate] = useState('');
-    const [returnToDate, setReturnToDate] = useState('');
-    const [createdFromDate, setCreatedFromDate] = useState('');
-    const [createdToDate, setCreatedToDate] = useState('');
+    const [issueFromDate, setIssueFromDate] = useState('');
+    const [issueToDate, setIssueToDate] = useState('');
 
     const boxRef = useRef(null);
     const dragRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
@@ -97,64 +97,59 @@ export default function PurchaseReturnFilterPopup({
         if (!open) return;
 
         setStatusOption(STATUS_OPTIONS.find((o) => o.value === (initialValues.status ?? '')) || STATUS_OPTIONS[0]);
-        setRefundStatusOption(REFUND_STATUS_OPTIONS.find((o) => o.value === (initialValues.refundStatus ?? '')) || REFUND_STATUS_OPTIONS[0]);
-        setRelatedGRNOption(initialValues.relatedGRNId ?? '');
+        setPaymentStatusOption(PAYMENT_STATUS_OPTIONS.find((o) => o.value === (initialValues.paymentStatus ?? '')) || PAYMENT_STATUS_OPTIONS[0]);
+        setReleaseRequestCodeOption(initialValues.releaseRequestCode ?? '');
+        setReceiverOption(initialValues.receiverName ?? '');
+        setWarehouseOption(initialValues.warehouseName ?? '');
         setCreatedByOption(initialValues.createdBy ?? '');
-        setSupplierOption(initialValues.supplierName ?? '');
-        setReturnFromDate(initialValues.returnFromDate ?? '');
-        setReturnToDate(initialValues.returnToDate ?? '');
-        setCreatedFromDate(initialValues.createdFromDate ?? '');
-        setCreatedToDate(initialValues.createdToDate ?? '');
+        setIssueFromDate(initialValues.issueFromDate ?? '');
+        setIssueToDate(initialValues.issueToDate ?? '');
     }, [open, initialValues]);
 
     const handleApply = useCallback(() => {
         onApply({
             status: statusOption.value || undefined,
-            refundStatus: refundStatusOption.value || undefined,
-            relatedGRNId: relatedGRNOption || undefined,
+            paymentStatus: paymentStatusOption.value || undefined,
+            releaseRequestCode: releaseRequestCodeOption || undefined,
+            receiverName: receiverOption || undefined,
+            warehouseName: warehouseOption || undefined,
             createdBy: createdByOption || undefined,
-            supplierName: supplierOption || undefined,
-            returnFromDate: returnFromDate || undefined,
-            returnToDate: returnToDate || undefined,
-            createdFromDate: createdFromDate || undefined,
-            createdToDate: createdToDate || undefined,
+            issueFromDate: issueFromDate || undefined,
+            issueToDate: issueToDate || undefined,
         });
         onClose();
     }, [
         statusOption,
-        refundStatusOption,
-        relatedGRNOption,
+        paymentStatusOption,
+        releaseRequestCodeOption,
+        receiverOption,
+        warehouseOption,
         createdByOption,
-        supplierOption,
-        returnFromDate,
-        returnToDate,
-        createdFromDate,
-        createdToDate,
+        issueFromDate,
+        issueToDate,
         onApply,
         onClose,
     ]);
 
     const handleClear = useCallback(() => {
         setStatusOption(STATUS_OPTIONS[0]);
-        setRefundStatusOption(REFUND_STATUS_OPTIONS[0]);
-        setRelatedGRNOption('');
+        setPaymentStatusOption(PAYMENT_STATUS_OPTIONS[0]);
+        setReleaseRequestCodeOption('');
+        setReceiverOption('');
+        setWarehouseOption('');
         setCreatedByOption('');
-        setSupplierOption('');
-        setReturnFromDate('');
-        setReturnToDate('');
-        setCreatedFromDate('');
-        setCreatedToDate('');
+        setIssueFromDate('');
+        setIssueToDate('');
 
         onApply({
             status: undefined,
-            refundStatus: undefined,
-            relatedGRNId: undefined,
+            paymentStatus: undefined,
+            releaseRequestCode: undefined,
+            receiverName: undefined,
+            warehouseName: undefined,
             createdBy: undefined,
-            supplierName: undefined,
-            returnFromDate: undefined,
-            returnToDate: undefined,
-            createdFromDate: undefined,
-            createdToDate: undefined,
+            issueFromDate: undefined,
+            issueToDate: undefined,
         });
         onClose();
     }, [onApply, onClose]);
@@ -243,29 +238,55 @@ export default function PurchaseReturnFilterPopup({
                 </Box>
 
                 <Box>
-                    <Typography variant="body2" sx={labelSx}>Trạng thái hoàn tiền</Typography>
+                    <Typography variant="body2" sx={labelSx}>Trạng thái thanh toán</Typography>
                     <Autocomplete
                         size="small"
-                        options={REFUND_STATUS_OPTIONS}
+                        options={PAYMENT_STATUS_OPTIONS}
                         getOptionLabel={(opt) => opt.label}
-                        value={refundStatusOption}
-                        onChange={(_, v) => setRefundStatusOption(v || REFUND_STATUS_OPTIONS[0])}
+                        value={paymentStatusOption}
+                        onChange={(_, v) => setPaymentStatusOption(v || PAYMENT_STATUS_OPTIONS[0])}
                         isOptionEqualToValue={(a, b) => a.value === b.value}
                         PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
-                        renderInput={(params) => <TextField {...params} placeholder="Chọn trạng thái hoàn tiền" sx={inputSx} />}
+                        renderInput={(params) => <TextField {...params} placeholder="Chọn trạng thái thanh toán" sx={inputSx} />}
                     />
                 </Box>
 
                 <Box>
-                    <Typography variant="body2" sx={labelSx}>Phiếu nhập tham chiếu</Typography>
+                    <Typography variant="body2" sx={labelSx}>Yêu cầu xuất tham chiếu</Typography>
                     <Autocomplete
                         freeSolo
                         size="small"
-                        options={relatedGRNOptions}
-                        value={relatedGRNOption}
-                        onInputChange={(_, v) => setRelatedGRNOption(v || '')}
+                        options={releaseRequestCodeOptions}
+                        value={releaseRequestCodeOption}
+                        onInputChange={(_, v) => setReleaseRequestCodeOption(v || '')}
                         PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
-                        renderInput={(params) => <TextField {...params} placeholder="Tìm GRN" sx={inputSx} />}
+                        renderInput={(params) => <TextField {...params} placeholder="Tìm mã yêu cầu xuất" sx={inputSx} />}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Người nhận</Typography>
+                    <Autocomplete
+                        freeSolo
+                        size="small"
+                        options={receiverOptions}
+                        value={receiverOption}
+                        onInputChange={(_, v) => setReceiverOption(v || '')}
+                        PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
+                        renderInput={(params) => <TextField {...params} placeholder="Tìm người nhận" sx={inputSx} />}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={labelSx}>Kho xuất</Typography>
+                    <Autocomplete
+                        freeSolo
+                        size="small"
+                        options={warehouseOptions}
+                        value={warehouseOption}
+                        onInputChange={(_, v) => setWarehouseOption(v || '')}
+                        PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
+                        renderInput={(params) => <TextField {...params} placeholder="Tìm kho xuất" sx={inputSx} />}
                     />
                 </Box>
 
@@ -283,31 +304,10 @@ export default function PurchaseReturnFilterPopup({
                 </Box>
 
                 <Box>
-                    <Typography variant="body2" sx={labelSx}>Nhà cung cấp</Typography>
-                    <Autocomplete
-                        freeSolo
-                        size="small"
-                        options={supplierOptions}
-                        value={supplierOption}
-                        onInputChange={(_, v) => setSupplierOption(v || '')}
-                        PaperComponent={(props) => <Paper {...props} sx={dropdownPaperSx} />}
-                        renderInput={(params) => <TextField {...params} placeholder="Tìm nhà cung cấp" sx={inputSx} />}
-                    />
-                </Box>
-
-                <Box>
-                    <Typography variant="body2" sx={labelSx}>Ngày trả hàng</Typography>
+                    <Typography variant="body2" sx={labelSx}>Ngày xuất</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                        <TextField size="small" type="date" value={returnFromDate} onChange={(e) => setReturnFromDate(e.target.value)} fullWidth sx={inputSx} />
-                        <TextField size="small" type="date" value={returnToDate} onChange={(e) => setReturnToDate(e.target.value)} fullWidth sx={inputSx} />
-                    </Box>
-                </Box>
-
-                <Box>
-                    <Typography variant="body2" sx={labelSx}>Ngày tạo</Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        <TextField size="small" type="date" value={createdFromDate} onChange={(e) => setCreatedFromDate(e.target.value)} fullWidth sx={inputSx} />
-                        <TextField size="small" type="date" value={createdToDate} onChange={(e) => setCreatedToDate(e.target.value)} fullWidth sx={inputSx} />
+                        <TextField size="small" type="date" value={issueFromDate} onChange={(e) => setIssueFromDate(e.target.value)} fullWidth sx={inputSx} />
+                        <TextField size="small" type="date" value={issueToDate} onChange={(e) => setIssueToDate(e.target.value)} fullWidth sx={inputSx} />
                     </Box>
                 </Box>
             </Box>

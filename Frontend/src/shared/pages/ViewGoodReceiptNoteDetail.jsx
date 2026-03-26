@@ -42,6 +42,78 @@ import '../styles/CreateSupplier.css';
 
 const MAX_REASON_LENGTH = 250;
 
+// Mock GRN data for "Trả hàng" flow
+const MOCK_GRNS_FOR_RETURN = [
+    {
+        id: 1,
+        grnCode: 'GRN-2026-001',
+        supplierId: 101,
+        supplierName: 'Công ty TNHH Vật tư ABC',
+        warehouseId: 11,
+        warehouseName: 'Kho Hà Nội',
+        createdDate: '2026-02-15',
+        supplierPhone: '024.12345678',
+        supplierEmail: 'abc@vattu.com',
+        supplierTaxCode: '0101234567',
+        supplierAddressProvince: 'Hà Nội',
+        supplierAddressDistrict: 'Quận Cầu Giấy',
+        supplierAddressWard: 'Phường Mai Dịch',
+        supplierAddressStreet: 'Số 123 Đường Nguyễn Phong Sắc',
+        lines: [
+            { grnLineId: 1, productId: 1, sku: 'PEN-001', productName: 'Bút bi Thiên Long TL-057', uom: 'Cây', receivedQty: 50, unitPrice: 3500 },
+            { grnLineId: 2, productId: 2, sku: 'NOTE-001', productName: 'Vở note 5 chấm A5', uom: 'Quyển', receivedQty: 20, unitPrice: 22000 },
+            { grnLineId: 3, productId: 3, sku: 'PAPER-001', productName: 'Giấy A4 Double A 80gsm', uom: 'Ram', receivedQty: 10, unitPrice: 62000 },
+        ],
+    },
+    {
+        id: 2,
+        grnCode: 'GRN-2026-002',
+        supplierId: 102,
+        supplierName: 'Công ty CP Thương mại XYZ',
+        warehouseId: 12,
+        warehouseName: 'Kho TP.HCM',
+        createdDate: '2026-02-20',
+        supplierPhone: '028.98765432',
+        supplierEmail: 'xyz@thuongmai.com',
+        supplierTaxCode: '0109876543',
+        supplierAddressProvince: 'TP.HCM',
+        supplierAddressDistrict: 'Quận 1',
+        supplierAddressWard: 'Phường Bến Nghé',
+        supplierAddressStreet: 'Số 456 Đường Lê Duẩn',
+        lines: [
+            { grnLineId: 4, productId: 4, sku: 'CLIP-001', productName: 'Kẹp giấy 33mm (hộp 50 cái)', uom: 'Hộp', receivedQty: 30, unitPrice: 18000 },
+            { grnLineId: 5, productId: 5, sku: 'GLUE-001', productName: 'Keo dán thiên long 15g', uom: 'Tuýp', receivedQty: 15, unitPrice: 7000 },
+        ],
+    },
+];
+
+// Mock GRN detail for view
+const MOCK_GRN_DETAIL = {
+    grnId: 1,
+    grnCode: 'GRN-2026-001',
+    purchaseOrderCode: 'PO-2026-001',
+    warehouseName: 'Kho Hà Nội',
+    supplierName: 'Công ty TNHH Vật tư ABC',
+    receiptDate: '2026-02-15',
+    createdByName: 'Nguyễn Văn A',
+    createdAt: '2026-02-15T08:00:00',
+    status: 'POSTED',
+    purchaseOrderLifecycleStatus: 'FullRcv',
+    isPaid: true,
+    paymentMethod: 'bank_transfer',
+    note: 'Nhập hàng đúng quy cách',
+    shippingFee: 50000,
+    totalAmount: 0,
+    netAmount: 0,
+    lines: [
+        { grnlineId: 1, itemId: 1, itemName: 'Bút bi Thiên Long TL-057', itemCode: 'PEN-001', uomName: 'Cây', expectedQty: 50, actualQty: 50, unitPrice: 3500, hasCO: true, hasCQ: true, note: '' },
+        { grnlineId: 2, itemId: 2, itemName: 'Vở note 5 chấm A5', itemCode: 'NOTE-001', uomName: 'Quyển', expectedQty: 20, actualQty: 20, unitPrice: 22000, hasCO: false, hasCQ: true, note: '' },
+        { grnlineId: 3, itemId: 3, itemName: 'Giấy A4 Double A 80gsm', itemCode: 'PAPER-001', uomName: 'Ram', expectedQty: 10, actualQty: 10, unitPrice: 62000, hasCO: true, hasCQ: false, note: '' },
+    ],
+    postedAt: '2026-02-15T10:00:00',
+    submittedAt: '2026-02-15T09:00:00',
+};
+
 const formatCurrency = (value) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 
@@ -106,7 +178,12 @@ const ViewGoodReceiptNoteDetail = () => {
             }
         setLoading(true);
             try {
-                const data = await getGRNDetail(id);
+                // TODO: Uncomment when backend is ready
+                // const data = await getGRNDetail(id);
+
+                // Mock data fallback
+                const data = MOCK_GRN_DETAIL;
+
                 if (data) {
             setGrnData({
                         grnId: data.grnId,
@@ -215,6 +292,8 @@ const ViewGoodReceiptNoteDetail = () => {
     const isPOFullyReceived = grnData?.purchaseOrderLifecycleStatus === 'FullRcv';
     const showReturnButton = isAccountant && isGRNFinalized && isPOFullyReceived;
     const showApproveButton = isAccountant && !isGRNFinalized;
+    // Hiện nút Trả hàng cho mọi role (nếu chưa có nút Trả hàng ở trên)
+    const showGeneralReturnButton = !showReturnButton && grnData?.grnId;
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
@@ -415,6 +494,20 @@ const ViewGoodReceiptNoteDetail = () => {
                             <RotateCcw size={16} className="btn-icon" />
                             Trả hàng
                             </button>
+                    )}
+
+                    {/* Nút Trả hàng cho các role khác */}
+                    {showGeneralReturnButton && (
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => navigate(`/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
+                            disabled={submitting}
+                            style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
+                        >
+                            <RotateCcw size={16} className="btn-icon" />
+                            Trả hàng
+                        </button>
                     )}
                     {/* Neu la Thủ Kho - hien thi thong bao */}
                     {isWarehouseKeeper && (

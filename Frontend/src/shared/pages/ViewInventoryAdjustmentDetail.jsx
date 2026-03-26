@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/CreateSupplier.css';
 
 // Mock adjustment data
@@ -90,6 +92,12 @@ const ViewInventoryAdjustmentDetail = () => {
     const [varianceFilter, setVarianceFilter] = useState('all');
     const [searchKeyword, setSearchKeyword] = useState('');
 
+    // Permission: Only Director can approve/reject
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const canApprove = permissionRole === 'DIRECTOR';
+    // Show approve/reject buttons only when status is PENDING_DIR
+    const showApprovalActions = canApprove && adjustment.status === 'PENDING_DIR';
+
     const adjustment = MOCK_ADJUSTMENT;
     const statusConfig = STATUS_CONFIG[adjustment.status] || STATUS_CONFIG.DRAFT;
     const StatusIcon = statusConfig.Icon;
@@ -138,6 +146,28 @@ const ViewInventoryAdjustmentDetail = () => {
                     </button>
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {showApprovalActions && (
+                        <>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => showToast('Đã duyệt điều chỉnh tồn kho', 'success')}
+                                style={{ backgroundColor: '#16a34a', boxShadow: '0 2px 8px rgba(22, 163, 74, 0.3)' }}
+                            >
+                                <CheckCircle size={15} />
+                                Duyệt
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => showToast('Đã từ chối điều chỉnh tồn kho', 'warning')}
+                                style={{ color: '#dc2626', borderColor: '#dc2626' }}
+                            >
+                                <XCircle size={15} />
+                                Từ chối
+                            </button>
+                        </>
+                    )}
                     <button type="button" className="btn btn-secondary" onClick={() => showToast('Đang in...', 'info')}>
                         <Printer size={15} />
                         In PDF

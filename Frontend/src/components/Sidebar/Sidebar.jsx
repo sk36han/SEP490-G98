@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
@@ -13,7 +13,6 @@ import Collapse from '@mui/material/Collapse';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import authService from '../../shared/lib/authService';
 import logo from '../../shared/assets/logo.png';
 import { getMenuItems } from './menuConfig';
@@ -78,7 +77,24 @@ const getExtraMatchPaths = (item) => {
         return ['/items'];
     }
     if (item.id === 'inventory-mgmt') {
-        return ['/inventory', '/inventory/adjustments', '/inventory/stocktakes', '/inventory/stocktakes/create'];
+        return [
+            '/inventory',
+            '/inventory/create',
+            '/inventory/:id',
+            '/inventory/adjustments',
+            '/inventory/adjustments/create',
+            '/inventory/adjustments/:id',
+            '/inventory/stocktakes',
+            '/inventory/stocktakes/create',
+            '/inventory/stocktakes/:id',
+            '/inventory/stocktakes/report/:id',
+        ];
+    }
+    if (item.id === 'good-delivery-notes-mgmt') {
+        return ['/good-delivery-notes', '/good-delivery-notes/create', '/goods-delivery-notes', '/goods-delivery-notes/create'];
+    }
+    if (item.id === 'goods-delivery-notes-mgmt') {
+        return ['/goods-delivery-notes', '/goods-delivery-notes/create'];
     }
     return [];
 };
@@ -97,22 +113,9 @@ const isItemMatched = (item, pathname) => {
     return getExtraMatchPaths(item).some((path) => matchesPath(pathname, path));
 };
 
-const getSectionLabel = (item) => {
-    if (item.id === 'purchase-orders-mgmt' || item.path?.startsWith('/purchase-orders')) {
-        return null;
-    }
-    if (item.id === 'good-receipt-notes-mgmt' || item.path?.startsWith('/good-receipt-notes')) {
-        return null;
-    }
-    if (item.path === '/good-delivery-notes') {
-        return null;
-    }
-    return 'Danh mục';
-};
-
 const Sidebar = () => {
     const [open, setOpen] = useState(true);
-    const [collapsedGroups, setCollapsedGroups] = useState({});
+    const [expandedGroups, setExpandedGroups] = useState({});
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -123,41 +126,38 @@ const Sidebar = () => {
     const permissionRole = getPermissionRole(roleFromBackend);
     const menuItems = getMenuItems(permissionRole);
 
-    const sectionLabels = useMemo(() => menuItems.map(getSectionLabel), [menuItems]);
-
     const isGroupExpanded = (item) => {
         if (!open || !item?.id || !item?.children?.length) return false;
-        return isItemMatched(item, pathname) && !collapsedGroups[item.id];
+        if (typeof expandedGroups[item.id] === 'boolean') return expandedGroups[item.id];
+        return isItemMatched(item, pathname);
     };
 
     const handleParentClick = (item) => {
         const hasChildren = Array.isArray(item.children) && item.children.length > 0;
 
         if (!hasChildren) {
-            navigate(item.path);
+            if (item.path) {
+                navigate(item.path);
+            }
             return;
         }
 
-        const isOnCurrentGroup = isItemMatched(item, pathname);
-
-        if (isOnCurrentGroup) {
-            setCollapsedGroups((prev) => ({
-                ...prev,
-                [item.id]: !prev[item.id],
-            }));
-            return;
+        if (!open) {
+            setOpen(true);
         }
 
-        navigate(item.path);
-        setCollapsedGroups({});
+        setExpandedGroups((prev) => ({
+            ...prev,
+            [item.id]: !isGroupExpanded(item),
+        }));
     };
 
     const handleChildClick = (child, parentId) => {
         navigate(child.path, { state: child.state ?? undefined });
         if (parentId) {
-            setCollapsedGroups((prev) => ({
+            setExpandedGroups((prev) => ({
                 ...prev,
-                [parentId]: false,
+                [parentId]: true,
             }));
         }
     };
@@ -192,7 +192,6 @@ const Sidebar = () => {
     const TXT_HOVER = '#1e3a5f';
     const TXT_MUTED = 'rgba(75,106,136,0.55)';
     const TXT_MUTED_HVR = '#4b6a88';
-    const CAPTION = 'rgba(75,106,136,0.55)';
     const ICN = 'rgba(75,106,136,0.72)';
     const DIVIDER_CLR = 'rgba(2,132,199,0.10)';
     const HOVER_BG = 'rgba(2,132,199,0.06)';
@@ -274,15 +273,11 @@ const Sidebar = () => {
                         '&::-webkit-scrollbar': { width: 0 },
                     }}
                 >
-                    {menuItems.map((item, index) => {
+                    {menuItems.map((item) => {
                         const hasChildren = Array.isArray(item.children) && item.children.length > 0;
                         const parentActive = isParentActive(item);
                         const expanded = hasChildren && isGroupExpanded(item);
                         const hasActiveChild = hasChildren && item.children.some((c) => isChildActive(c));
-
-                        const currentSection = sectionLabels[index];
-                        const prevSection = sectionLabels[index - 1];
-                        const showLabel = open && Boolean(currentSection) && (index === 0 || currentSection !== prevSection);
 
                         const isLeafActive = parentActive && !hasChildren;
                         const parentBg = isLeafActive ? ACTIVE_PILL : 'transparent';
@@ -301,25 +296,6 @@ const Sidebar = () => {
 
                         return (
                             <React.Fragment key={item.id || item.path}>
-                                {showLabel && (
-                                    <Box sx={{ mt: index === 0 ? '10px' : '16px', mb: '6px' }}>
-                                        <Typography
-                                            sx={{
-                                                px: '4px',
-                                                fontSize: '11px',
-                                                lineHeight: 1,
-                                                fontWeight: 600,
-                                                color: CAPTION,
-                                                letterSpacing: '0.08em',
-                                                textTransform: 'uppercase',
-                                                userSelect: 'none',
-                                            }}
-                                        >
-                                            {currentSection}
-                                        </Typography>
-                                    </Box>
-                                )}
-
                                 <ListItem disablePadding sx={{ display: 'block', mb: '4px' }}>
                                     <Tooltip title={!open ? item.label : ''} placement="right" arrow>
                                         <ListItemButton

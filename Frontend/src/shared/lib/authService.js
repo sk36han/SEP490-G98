@@ -9,6 +9,9 @@ const authService = {
                 password,
                 rememberMe,
             });
+         
+            console.log(response.data);
+            console.log(response.status);
 
             const { requiresOtp, userId, accessToken, expiresAt, user, message } = response.data;
 
