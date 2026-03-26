@@ -18,9 +18,6 @@ namespace Warehouse.DataAcces.Service.Interface
         /// Cập nhật yêu cầu xuất kho
         Task<ReleaseRequestDetailResponse> UpdateReleaseRequestAsync(long id, long userId, UpdateReleaseRequestRequest request);
 
-        /// Gửi (Submit) yêu cầu xuất kho và chốt AllocatedQty
-        Task<ReleaseRequestDetailResponse> SubmitReleaseRequestAsync(long id, long userId);
-
         /// Hủy yêu cầu xuất kho
         Task<bool> CancelReleaseRequestAsync(long id);
     }

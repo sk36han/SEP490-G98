@@ -6,7 +6,7 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Controllers
+namespace Warehouse.Api.ApiController
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -27,7 +27,7 @@ namespace Warehouse.Api.Controllers
             {
                 return userId;
             }
-            throw new System.UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
+            throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
         }
 
         [HttpGet]
