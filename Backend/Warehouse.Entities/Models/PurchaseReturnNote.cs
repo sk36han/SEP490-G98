@@ -41,6 +41,14 @@ public partial class PurchaseReturnNote
 
     public DateTime? PostedAt { get; set; }
 
+    public long? SupplierId { get; set; }
+
+    public long? WarehouseId { get; set; }
+
+    public decimal TotalReturnedQty { get; set; }
+
+    public decimal TotalReturnedAmount { get; set; }
+
     public virtual User? ApprovedByNavigation { get; set; }
 
     public virtual User CreatedByNavigation { get; set; } = null!;
@@ -48,4 +56,8 @@ public partial class PurchaseReturnNote
     public virtual ICollection<PurchaseReturnNoteLine> PurchaseReturnNoteLines { get; set; } = new List<PurchaseReturnNoteLine>();
 
     public virtual GoodsReceiptNote? RelatedGrn { get; set; }
+
+    public virtual Supplier? Supplier { get; set; }
+
+    public virtual Warehouse? Warehouse { get; set; }
 }

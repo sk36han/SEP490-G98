@@ -19,5 +19,7 @@ public partial class TransportInfo
 
     public string? Note { get; set; }
 
+    public bool IsActive { get; set; }
+
     public virtual GoodsDeliveryNote Gdn { get; set; } = null!;
 }

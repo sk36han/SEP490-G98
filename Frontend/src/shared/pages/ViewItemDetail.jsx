@@ -8,9 +8,10 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Box, Card, CardContent, Typography, Button, Grid, IconButton, Chip, Container, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Box, Card, CardContent, Typography, Button, Grid, IconButton, Chip, Container, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress } from '@mui/material';
 import { ArrowLeft, Package, Edit3 } from 'lucide-react';
 import authService from '../lib/authService';
+import { getItemDetail } from '../lib/itemService';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 
 const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
@@ -18,8 +19,8 @@ const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
 const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(role);
 /** Chỉ Accountant và Director được xem Giá nhập, Giá trung bình kho, Giá xuất kho; role khác chỉ thấy Giá trung bình trong kho. */
 const canSeeFullPrices = (role) => role === 'ACCOUNTANTS' || role === 'DIRECTOR';
-/** SP (SALE_SUPPORT) và SE (SALE_ENGINEER) cũng xem được số lượng tồn (block Thông tin tồn kho). */
-const showStockBlockForRole = (role) => role === 'WAREHOUSE_KEEPER' || role === 'SALE_SUPPORT' || role === 'SALE_ENGINEER';
+/** Bảng lịch sử item hiển thị cho toàn bộ role nghiệp vụ có quyền xem item detail. */
+const showStockBlockForRole = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS', 'DIRECTOR'].includes(role);
 import '../styles/ListView.css';
 
 const formatPrice = (value) => {
@@ -40,51 +41,6 @@ const getSellableQty = (row) => {
     const onHand = row.onHandQty != null ? Number(row.onHandQty) : 0;
     const reserved = row.reservedQty != null ? Number(row.reservedQty) : 0;
     return Math.max(0, onHand - reserved);
-};
-
-/** Mock – khớp ViewItemList (Item + ItemPrices, InventoryOnHand). */
-const MOCK_ITEMS = [
-    { itemId: 1, itemCode: 'SP001', itemName: 'iPhone 15 Pro Max 256GB', itemType: 'Product', description: 'Điện thoại iPhone 15 Pro Max bản 256GB', categoryId: 1, brandId: 1, baseUomId: 1, packagingSpecId: 1, packagingSpecName: 'Hộp', requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, defaultWarehouseName: 'Kho chính', inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 26500000, salePrice: 28500000, onHandQty: 42, reservedQty: 2, categoryName: 'Điện thoại', brandName: 'Apple', baseUomName: 'Cái', createdAt: '2025-02-14T08:30:00', updatedAt: '2025-02-14T08:30:00' },
-    { itemId: 2, itemCode: 'SP002', itemName: 'Samsung Galaxy S24 Ultra', itemType: 'Product', description: 'Điện thoại Samsung Galaxy S24 Ultra', categoryId: 1, brandId: 2, baseUomId: 1, packagingSpecId: 1, packagingSpecName: 'Hộp', requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, defaultWarehouseName: 'Kho chính', inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 24900000, salePrice: 26900000, onHandQty: 28, reservedQty: 0, categoryName: 'Điện thoại', brandName: 'Samsung', baseUomName: 'Cái', createdAt: '2025-02-13T14:20:00', updatedAt: '2025-02-13T14:20:00' },
-    { itemId: 3, itemCode: 'SP003', itemName: 'MacBook Pro 14" M3', itemType: 'Product', description: 'Laptop MacBook Pro 14 inch chip M3', categoryId: 2, brandId: 1, baseUomId: 1, packagingSpecId: 2, packagingSpecName: 'Thùng', requiresCO: true, requiresCQ: true, isActive: true, defaultWarehouseId: 1, defaultWarehouseName: 'Kho chính', inventoryAccount: '1561', revenueAccount: '5111', purchasePrice: 39900000, salePrice: 42900000, onHandQty: 15, reservedQty: 1, categoryName: 'Laptop', brandName: 'Apple', baseUomName: 'Cái', createdAt: '2025-02-12T09:15:00', updatedAt: '2025-02-12T09:15:00' },
-];
-
-/** Mock lịch sử tồn kho theo ItemId (Mã phiếu, phép tính, số lượng, thời gian, người thay đổi). */
-const MOCK_STOCK_HISTORY = {
-    1: [
-        { id: 'HIS-1', docCode: 'GRN-0001', sign: '+', quantity: 20, timestamp: '2025-02-10T10:15:30', changedBy: 'Nguyễn Văn A' },
-        { id: 'HIS-2', docCode: 'GDN-0005', sign: '-', quantity: 5, timestamp: '2025-02-12T14:05:10', changedBy: 'Trần Thị B' },
-        { id: 'HIS-3', docCode: 'GRN-0008', sign: '+', quantity: 10, timestamp: '2025-02-14T09:45:05', changedBy: 'Lê Văn C' },
-        { id: 'HIS-7', docCode: 'GRN-0012', sign: '+', quantity: 8, timestamp: '2025-02-15T08:10:00', changedBy: 'Nguyễn Văn A' },
-        { id: 'HIS-8', docCode: 'GDN-0014', sign: '-', quantity: 3, timestamp: '2025-02-16T13:25:40', changedBy: 'Trần Thị B' },
-        { id: 'HIS-9', docCode: 'GDN-0016', sign: '-', quantity: 4, timestamp: '2025-02-17T17:55:12', changedBy: 'Lê Văn C' },
-        { id: 'HIS-10', docCode: 'GRN-0018', sign: '+', quantity: 12, timestamp: '2025-02-18T09:05:05', changedBy: 'Nguyễn Văn A' },
-        { id: 'HIS-11', docCode: 'ADJ-0003', sign: '+', quantity: 2, timestamp: '2025-02-19T11:45:30', changedBy: 'Admin hệ thống' },
-        { id: 'HIS-12', docCode: 'GDN-0020', sign: '-', quantity: 6, timestamp: '2025-02-20T15:20:18', changedBy: 'Hoàng Văn E' },
-        { id: 'HIS-13', docCode: 'GRN-0022', sign: '+', quantity: 9, timestamp: '2025-02-21T10:40:55', changedBy: 'Phạm Thị D' },
-    ],
-    2: [
-        { id: 'HIS-4', docCode: 'GRN-0010', sign: '+', quantity: 15, timestamp: '2025-02-11T08:20:00', changedBy: 'Phạm Thị D' },
-        { id: 'HIS-5', docCode: 'GDN-0012', sign: '-', quantity: 3, timestamp: '2025-02-13T16:30:45', changedBy: 'Hoàng Văn E' },
-    ],
-    3: [
-        { id: 'HIS-6', docCode: 'GRN-0015', sign: '+', quantity: 5, timestamp: '2025-02-09T11:10:20', changedBy: 'Nguyễn Thị F' },
-    ],
-};
-
-/** Mock tồn theo từng kho cho từng item (1 mặt hàng có thể ở nhiều kho). */
-const MOCK_ITEM_WAREHOUSES = {
-    1: [
-        { warehouseName: 'Kho chính', onHandQty: 42, reservedQty: 2 },
-        { warehouseName: 'Kho phụ', onHandQty: 10, reservedQty: 0 },
-    ],
-    2: [
-        { warehouseName: 'Kho chính', onHandQty: 28, reservedQty: 0 },
-        { warehouseName: 'Kho phụ', onHandQty: 5, reservedQty: 1 },
-    ],
-    3: [
-        { warehouseName: 'Kho chính', onHandQty: 15, reservedQty: 1 },
-    ],
 };
 
 /** Trường hiển thị chung (tất cả role) – bám bảng Item, nhãn tiếng Việt. */
@@ -175,13 +131,55 @@ const ViewItemDetail = () => {
     const isWhKeeper = isWarehouseKeeper(permissionRole);
     const canEdit = canEditItem(permissionRole);
     const showStockBlock = showStockBlockForRole(permissionRole);
+    const canViewItemHistory = showStockBlock || isAccountant;
     const showFullPrices = canSeeFullPrices(permissionRole);
     const [item, setItem] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
 
     useEffect(() => {
-        const found = MOCK_ITEMS.find((i) => String(i.itemId) === String(id));
-        setItem(found || null);
+        setLoading(true);
+        setFetchError(null);
+        setItem(null);
+        getItemDetail(Number(id))
+            .then((data) => setItem(data))
+            .catch((err) => {
+                console.error('[ViewItemDetail] fetch error:', err);
+                setFetchError(err?.response?.data?.message || err.message || 'Không thể tải chi tiết vật tư');
+            })
+            .finally(() => setLoading(false));
     }, [id]);
+
+    if (loading) {
+        return (
+            <Box sx={{ bgcolor: 'grey.50', minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (fetchError) {
+        return (
+            <Box sx={{ bgcolor: 'grey.50', minHeight: 320, py: 6 }}>
+                <Container maxWidth="md">
+                    <Stack alignItems="center" spacing={2} textAlign="center">
+                        <Box sx={{ width: 64, height: 64, borderRadius: 2, bgcolor: 'error.light', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Package size={32} color="var(--mui-palette-text-disabled)" />
+                        </Box>
+                        <Typography variant="h6" color="error">{fetchError}</Typography>
+                        <Button
+                            variant="outlined"
+                            startIcon={<ArrowLeft size={18} />}
+                            onClick={() => navigate('/products')}
+                            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
+                        >
+                            Quay lại danh sách
+                        </Button>
+                    </Stack>
+                </Container>
+            </Box>
+        );
+    }
 
     if (item == null) {
         return (
@@ -202,12 +200,13 @@ const ViewItemDetail = () => {
         );
     }
 
-    const stockHistory = MOCK_STOCK_HISTORY[item.itemId] ?? [];
+    const stockHistory = item.inventoryHistory ?? [];
     const itemWarehouses =
-        MOCK_ITEM_WAREHOUSES[item.itemId] ??
-        [
-            { warehouseName: item.defaultWarehouseName || 'Kho chính', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 },
-        ];
+        (item.inventoryByWarehouse ?? []).length > 0
+            ? item.inventoryByWarehouse
+            : [
+                { warehouseName: item.defaultWarehouseName || 'Kho chính', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 },
+              ];
     const formatPriceShort = (v) => (v != null && v !== '') ? Number(v).toLocaleString('vi-VN') : '–';
 
     return (
@@ -433,7 +432,9 @@ const ViewItemDetail = () => {
                                     {itemWarehouses.map((wh, idx) => {
                                         const onHand = wh.onHandQty ?? 0;
                                         const reserved = wh.reservedQty ?? 0;
-                                        const sellable = Math.max(0, onHand - reserved);
+                                        const available = wh.availableQty ?? Math.max(0, onHand - reserved);
+                                        const preOrder = wh.preOrderQty ?? 0;
+                                        const isDefault = wh.isDefaultWarehouse ?? false;
                                         return (
                                             <TableRow key={idx} hover>
                                                 <TableCell>
@@ -441,18 +442,25 @@ const ViewItemDetail = () => {
                                                         <Package size={20} color="var(--mui-palette-text-disabled)" />
                                                     </Box>
                                                 </TableCell>
-                                                <TableCell>{item.itemCode}</TableCell>
+                                                <TableCell>{wh.sku || item.itemCode}</TableCell>
                                                 <TableCell>
-                                                    <Typography component="span" sx={{ color: 'primary.main', fontWeight: 500, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>{item.itemName}</Typography>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        <Typography component="span" sx={{ color: 'primary.main', fontWeight: 500 }}>{wh.variantName || item.itemName}</Typography>
+                                                        {isDefault && (
+                                                            <Chip label="Mặc định" size="small" sx={{ height: 16, fontSize: '10px', fontWeight: 600, bgcolor: 'primary.light', color: 'primary.dark' }} />
+                                                        )}
+                                                    </Box>
                                                 </TableCell>
-                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
                                                     {onHand.toLocaleString('vi-VN')}
                                                 </TableCell>
-                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{sellable.toLocaleString('vi-VN')}</TableCell>
-                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                                                    {reserved.toLocaleString('vi-VN')}
+                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', color: '#16a34a', fontWeight: 600 }}>
+                                                    {available.toLocaleString('vi-VN')}
                                                 </TableCell>
-                                                <TableCell>{wh.warehouseName ?? '–'}</TableCell>
+                                                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', color: '#d97706', fontWeight: 600 }}>
+                                                    {preOrder > 0 ? preOrder.toLocaleString('vi-VN') : (reserved > 0 ? reserved.toLocaleString('vi-VN') : '–')}
+                                                </TableCell>
+                                                <TableCell>{wh.warehouseName}</TableCell>
                                             </TableRow>
                                         );
                                     })}
@@ -483,58 +491,107 @@ const ViewItemDetail = () => {
                     </Card>
                 )}
 
-                {showStockBlock && (
-                    <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1], border: '1px solid', borderColor: 'info.light' }}>
+                {canViewItemHistory && (
+                <Card sx={{ mb: 2, borderRadius: 2, overflow: 'hidden', boxShadow: (t) => t.shadows[1], border: '1px solid', borderColor: 'info.light' }}>
                         <Box sx={{ px: 2, py: 1.5, bgcolor: 'info.50', borderBottom: '1px solid', borderColor: 'info.light' }}>
-                            <Typography variant="subtitle1" fontWeight="700" sx={{ color: 'info.dark' }}>Lịch sử tồn kho</Typography>
+                            <Typography variant="subtitle1" fontWeight="700" sx={{ color: 'info.dark' }}>Lịch sử item</Typography>
                         </Box>
                         <CardContent sx={{ p: 2.5 }}>
                             {stockHistory.length === 0 ? (
                                 <Typography variant="body2" color="text.secondary">
-                                    Chưa có lịch sử xuất/nhập kho.
+                                    Chưa có lịch sử item.
                                 </Typography>
                             ) : (
-                                <TableContainer sx={{ maxHeight: 260, overflowY: 'auto' }}>
-                                    <Table
-                                        size="small"
-                                        stickyHeader
-                                        sx={{
-                                            '& .MuiTableCell-root': {
-                                                borderRight: '1px solid',
-                                                borderColor: 'divider',
-                                            },
-                                            '& .MuiTableCell-root:last-of-type': {
-                                                borderRight: 'none',
-                                            },
-                                            '& .MuiTableHead-root .MuiTableCell-root': {
-                                                bgcolor: 'grey.50',
-                                            },
-                                        }}
-                                    >
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell sx={{ fontWeight: 600 }}>Mã phiếu xuất/nhập kho</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }} align="center"></TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }} align="right">Số lượng</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>Người thay đổi</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>Thời gian</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {stockHistory.map((h) => (
-                                                <TableRow key={h.id} hover>
-                                                    <TableCell>{h.docCode}</TableCell>
-                                                    <TableCell align="center" sx={{ fontWeight: 600 }}>{h.sign}</TableCell>
-                                                    <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                                                        {Number(h.quantity).toLocaleString('vi-VN')}
-                                                    </TableCell>
-                                                    <TableCell>{h.changedBy ?? '–'}</TableCell>
-                                                    <TableCell>{formatDateTimeFull(h.timestamp)}</TableCell>
+                                <>
+                                    <TableContainer sx={{ maxHeight: 320, overflowY: 'auto' }}>
+                                        <Table
+                                            size="small"
+                                            stickyHeader
+                                            sx={{
+                                                '& .MuiTableCell-root': {
+                                                    borderRight: '1px solid',
+                                                    borderColor: 'divider',
+                                                },
+                                                '& .MuiTableCell-root:last-of-type': {
+                                                    borderRight: 'none',
+                                                },
+                                                '& .MuiTableHead-root .MuiTableCell-root': {
+                                                    bgcolor: 'grey.50',
+                                                },
+                                            }}
+                                        >
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Mã phiếu</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Loại phiếu</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>+/-</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Số lượng</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Người thực hiện</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Thời gian</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Ghi chú</TableCell>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
+                                            </TableHead>
+                                            <TableBody>
+                                                {stockHistory.map((h, idx) => {
+                                                    const sign = h.movementSign ?? '+';
+                                                    const isIn = sign === '+' || sign === 'IN';
+                                                    const isOut = sign === '-' || sign === 'OUT';
+                                                    const signColor = isIn ? '#16a34a' : isOut ? '#dc2626' : 'text.primary';
+                                                    const signBg = isIn ? '#f0fdf4' : isOut ? '#fef2f2' : 'transparent';
+
+                                                    const sourceLabel = {
+                                                        'GRN': 'Nhập kho',
+                                                        'GDN': 'Xuất kho',
+                                                        'ADJ': 'Điều chỉnh',
+                                                        'STK': 'Kiểm kê',
+                                                    }[h.sourceType] ?? h.sourceType ?? '–';
+
+                                                    const sourceColor = {
+                                                        'GRN': '#2563eb',
+                                                        'GDN': '#d97706',
+                                                        'ADJ': '#7c3aed',
+                                                        'STK': '#0891b2',
+                                                    }[h.sourceType] ?? 'text.secondary';
+
+                                                    return (
+                                                        <TableRow key={idx} hover>
+                                                            <TableCell sx={{ fontWeight: 500, color: 'primary.main' }}>{h.docNo ?? '–'}</TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    label={sourceLabel}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 600,
+                                                                        bgcolor: `${sourceColor}15`,
+                                                                        color: sourceColor,
+                                                                        border: `1px solid ${sourceColor}40`,
+                                                                        height: '20px',
+                                                                    }}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell align="center" sx={{ fontWeight: 700, color: signColor, bgcolor: signBg }}>
+                                                                {sign}
+                                                            </TableCell>
+                                                            <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                                                                {Number(h.qty ?? 0).toLocaleString('vi-VN')}
+                                                            </TableCell>
+                                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{h.actorName ?? '–'}</TableCell>
+                                                            <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '12px' }}>{formatDateTimeFull(h.transactionAt)}</TableCell>
+                                                            <TableCell sx={{ fontSize: '12px', color: 'text.secondary', maxWidth: 160 }}>
+                                                                {h.note ? (
+                                                                    <Typography variant="body2" sx={{ fontSize: '12px', color: 'text.secondary', wordBreak: 'break-word' }}>
+                                                                        {h.note}
+                                                                    </Typography>
+                                                                ) : '–'}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </>
                             )}
                         </CardContent>
                     </Card>

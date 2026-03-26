@@ -104,5 +104,6 @@ namespace Warehouse.Entities.ModelResponse
         public decimal AllocatedQty { get; set; }
         public decimal IssuedQty { get; set; }
         public string LineStatus { get; set; } = null!;
+        public decimal StockQty { get; set; }
     }
 }

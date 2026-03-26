@@ -1,10 +1,10 @@
 /*
- * Form chỉnh sửa vật tư – MOCKUP THEO BẢNG [dbo].[Items] (WAREHOUSE_KEEPER).
+ * Form chỉnh sửa vật tư – kết nối API [dbo].[Items] (WAREHOUSE_KEEPER).
  * Đã kiểm duyệt với DB: Item.ItemCode, ItemName, ItemType, Description, CategoryId, BrandId, BaseUomId,
  * PackagingSpecId, RequiresCo, RequiresCq, IsActive, DefaultWarehouseId, InventoryAccount, RevenueAccount.
  * Không có trường ngoài bảng Item. Không nhập: ItemId (PK), CreatedAt, UpdatedAt (system).
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
@@ -28,52 +28,16 @@ import {
   InputAdornment,
   Autocomplete,
   Divider,
+  CircularProgress,
 } from "@mui/material";
 import { ArrowLeft, Save, ImagePlus, Plus } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
+import { getItemDetail, updateItem } from "../lib/itemService";
+import { useMasterData } from "../../app/context/MasterDataContext";
 import CreateUomDialog from "../components/CreateUomDialog";
 import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
-
-/** Đơn vị tính – UnitOfMeasure (BaseUomId) */
-const UOM_OPTIONS = [
-  { id: 1, code: "CAI", name: "Cái" },
-  { id: 2, code: "HOP", name: "Hộp" },
-  { id: 3, code: "KG", name: "kg" },
-  { id: 4, code: "G", name: "g" },
-  { id: 5, code: "THUNG", name: "Thùng" },
-];
-
-/** Quy cách đóng gói – PackagingSpec */
-const PACKAGING_OPTIONS = [
-  { id: 1, name: "Hộp" },
-  { id: 2, name: "Thùng" },
-  { id: 3, name: "Túi" },
-  { id: 4, name: "Khác" },
-];
-
-/** Danh mục – ItemCategory (map với ItemCategories.CategoryId, CategoryCode, CategoryName) */
-const CATEGORY_OPTIONS = [
-  { id: 1, code: "DT", name: "Điện thoại" },
-  { id: 2, code: "LT", name: "Laptop" },
-  { id: 3, code: "DL", name: "Điện lạnh" },
-  { id: 4, code: "PK", name: "Phụ kiện" },
-];
-
-/** Nhãn hiệu – Brand */
-const BRAND_OPTIONS = [
-  { id: 1, name: "Apple" },
-  { id: 2, name: "Samsung" },
-  { id: 3, name: "Khác" },
-];
-
-/** Kho – Warehouse (DefaultWarehouseId) */
-const WAREHOUSE_OPTIONS = [
-  { id: 1, name: "Kho chính" },
-  { id: 2, name: "Kho phụ" },
-  { id: 3, name: "Kho lạnh" },
-];
 
 /** Tài khoản kho – InventoryAccount */
 const INVENTORY_ACCOUNT_OPTIONS = [
@@ -89,12 +53,10 @@ const REVENUE_ACCOUNT_OPTIONS = [
   { code: "5113", label: "5113 - Doanh thu cung cấp dịch vụ" },
 ];
 
-/** Thông số sản phẩm – Spec (cấu trúc giống ViewSpecList) */
-const SPEC_OPTIONS = [
-  { specId: 1, specCode: "MICROONG_01", specName: "microong" },
-  { specId: 2, specCode: "MICROONG_02", specName: "microong" },
-  { specId: 3, specCode: "MICROONG_03", specName: "microong" },
-  { specId: 4, specCode: "MICROONG_04", specName: "microong" },
+/** "Là thông số" – boolean dưới dạng options cho Select */
+const LA_THONG_SO_OPTIONS = [
+  { value: false, label: "Không" },
+  { value: true, label: "Có" },
 ];
 
 const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tạo mới đơn vị tính" };
@@ -191,41 +153,52 @@ const EditItem = () => {
     reservedQty: "",
   });
   const [notFound, setNotFound] = useState(false);
-  const [uomOptions, setUomOptions] = useState([...UOM_OPTIONS]);
-  const [packagingOptions, setPackagingOptions] = useState([...PACKAGING_OPTIONS]);
-  const [specOptions, setSpecOptions] = useState([...SPEC_OPTIONS]);
+  const [loading, setLoading] = useState(true);
+  const [uomOptions, setUomOptions] = useState([]);
+  const [packagingOptions, setPackagingOptions] = useState([]);
+  const [specOptions, setSpecOptions] = useState([]);
   const [createUomOpen, setCreateUomOpen] = useState(false);
   const [createPackOpen, setCreatePackOpen] = useState(false);
   const [createSpecOpen, setCreateSpecOpen] = useState(false);
 
+  const { uoms, categories, brands, warehouses } = useMasterData() || {};
+  const masterWarehouses = warehouses || [];
+  const masterCategories = categories || [];
+  const masterBrands = brands || [];
+
   useEffect(() => {
-    const item = MOCK_ITEMS.find((i) => String(i.itemId) === String(id));
-    if (!item) {
-      setNotFound(true);
-      return;
-    }
+    setLoading(true);
     setNotFound(false);
-    setForm({
-      itemCode: item.itemCode ?? "",
-      itemName: item.itemName ?? "",
-      itemType: item.itemType || "Product",
-      description: item.description ?? "",
-      categoryId: item.categoryId ?? "",
-      brandId: item.brandId ?? "",
-      baseUomId: item.baseUomId ?? 1,
-      packagingSpecId: item.packagingSpecId ?? "",
-      specId: item.specId ?? "",
-      laThongSo: item.laThongSo ?? false,
-      requiresCO: item.requiresCO ?? false,
-      requiresCQ: item.requiresCQ ?? false,
-      isActive: item.isActive ?? true,
-      defaultWarehouseId: item.defaultWarehouseId ?? "",
-      inventoryAccount: item.inventoryAccount ?? "",
-      revenueAccount: item.revenueAccount ?? "",
-      purchasePrice: item.purchasePrice ?? "",
-      onHandQty: item.onHandQty ?? "",
-      reservedQty: item.reservedQty ?? "",
-    });
+    getItemDetail(id)
+      .then((item) => {
+        setNotFound(false);
+        setForm({
+          itemCode: item.itemCode ?? "",
+          itemName: item.itemName ?? "",
+          itemType: item.itemType || "Product",
+          description: item.description ?? "",
+          categoryId: item.categoryId ?? "",
+          brandId: item.brandId ?? "",
+          baseUomId: item.baseUomId ?? 1,
+          packagingSpecId: item.packagingSpecId ?? "",
+          specId: item.specId ?? "",
+          laThongSo: item.hasSpecifications ?? false,
+          requiresCO: item.requiresCO ?? false,
+          requiresCQ: item.requiresCQ ?? false,
+          isActive: item.isActive ?? true,
+          defaultWarehouseId: item.defaultWarehouseId ?? "",
+          inventoryAccount: item.inventoryAccount ?? "",
+          revenueAccount: item.revenueAccount ?? "",
+          purchasePrice: item.purchasePrice ?? "",
+          onHandQty: item.onHandQty ?? "",
+          reservedQty: item.reservedQty ?? "",
+        });
+      })
+      .catch((err) => {
+        console.error('[EditItem] load error:', err);
+        setNotFound(true);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -251,13 +224,30 @@ const EditItem = () => {
     setForm((prev) => ({ ...prev, [name]: nextValue }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    showToast(
-      "Mock: Cập nhật thành công. Kết nối API khi backend sẵn sàng.",
-      "success",
-    );
-    timerRef.current = setTimeout(() => navigate("/products"), 1500);
+    try {
+      await updateItem(id, {
+        itemCode: form.itemCode,
+        itemName: form.itemName,
+        itemType: form.itemType,
+        description: form.description,
+        categoryId: form.categoryId,
+        brandId: form.brandId || null,
+        baseUomId: form.baseUomId,
+        packagingSpecId: form.packagingSpecId || null,
+        requiresCo: form.requiresCO,
+        requiresCq: form.requiresCQ,
+        isActive: form.isActive,
+        defaultWarehouseId: form.defaultWarehouseId || null,
+        inventoryAccount: form.inventoryAccount || null,
+        revenueAccount: form.revenueAccount || null,
+      });
+      showToast("Cập nhật vật tư thành công!", "success");
+      timerRef.current = setTimeout(() => navigate("/products"), 1500);
+    } catch (err) {
+      showToast(err?.response?.data?.message || err.message || "Không thể cập nhật vật tư", "error");
+    }
   };
 
   const handleBack = () => {
@@ -267,6 +257,14 @@ const EditItem = () => {
   const handleCancel = () => {
     navigate("/products");
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ bgcolor: "grey.50", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   if (notFound) {
     return (
@@ -285,7 +283,7 @@ const EditItem = () => {
     );
   }
 
-  const defaultWarehouseName = WAREHOUSE_OPTIONS.find((w) => String(w.id) === String(form.defaultWarehouseId))?.name ?? "";
+  const defaultWarehouseName = masterWarehouses.find((w) => String(w.warehouseId) === String(form.defaultWarehouseId))?.warehouseName ?? "";
 
   return (
     <Box sx={{ bgcolor: "grey.50", minHeight: "100vh", pb: 4 }}>
@@ -474,10 +472,10 @@ const EditItem = () => {
 
               <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
                 <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Thông tin kho</Typography>
-                <TextField select fullWidth size="small" label="Lưu kho tại" name="defaultWarehouseId" value={String(form.defaultWarehouseId ?? "")} onChange={handleChange} sx={{ ...inputSx, mb: 2 }} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "Chọn kho" : WAREHOUSE_OPTIONS.find((o) => String(o.id) === String(v))?.name ?? "Chọn kho"), MenuProps: { PaperProps: { sx: { borderRadius: 2 } } } }} InputLabelProps={{ shrink: true }}>
+                <TextField select fullWidth size="small" label="Lưu kho tại" name="defaultWarehouseId" value={String(form.defaultWarehouseId ?? "")} onChange={handleChange} sx={{ ...inputSx, mb: 2 }} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "Chọn kho" : masterWarehouses.find((o) => String(o.warehouseId) === String(v))?.warehouseName ?? "Chọn kho"), MenuProps: { PaperProps: { sx: { borderRadius: 2 } } } }} InputLabelProps={{ shrink: true }}>
                   <MenuItem value="">Chọn kho</MenuItem>
-                  {WAREHOUSE_OPTIONS.map((opt) => (
-                    <MenuItem key={opt.id} value={String(opt.id)}>{opt.name}</MenuItem>
+                  {masterWarehouses.map((opt) => (
+                    <MenuItem key={opt.warehouseId} value={String(opt.warehouseId)}>{opt.warehouseName}</MenuItem>
                   ))}
                 </TextField>
                 <Typography variant="subtitle2" fontWeight="600" color="text.secondary" sx={{ mb: 1 }}>Bảng phân bổ tồn kho</Typography>
@@ -551,8 +549,8 @@ const EditItem = () => {
                       displayEmpty: true,
                       renderValue: (v) => {
                         if (v === "") return "\u00A0";
-                        const found = CATEGORY_OPTIONS.find(
-                          (o) => String(o.id) === String(v),
+                        const found = masterCategories.find(
+                          (o) => String(o.categoryId) === String(v),
                         );
                         if (!found) return "\u00A0";
                         return found.code
@@ -564,16 +562,16 @@ const EditItem = () => {
                     InputLabelProps={{ shrink: true }}
                   >
                     <MenuItem value="">Chọn danh mục</MenuItem>
-                    {CATEGORY_OPTIONS.map((o) => (
-                      <MenuItem key={o.id} value={String(o.id)}>
-                        {o.code ? `${o.code} - ${o.name}` : o.name}
+                    {masterCategories.map((o) => (
+                      <MenuItem key={o.categoryId} value={String(o.categoryId)}>
+                        {o.categoryCode ? `${o.categoryCode} - ${o.categoryName}` : o.categoryName}
                       </MenuItem>
                     ))}
                   </TextField>
-                  <TextField select fullWidth size="small" label="Nhãn hiệu" name="brandId" value={String(form.brandId ?? "")} onChange={handleChange} sx={selectInputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "\u00A0" : BRAND_OPTIONS.find((o) => String(o.id) === String(v))?.name ?? "\u00A0"), MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
+                  <TextField select fullWidth size="small" label="Nhãn hiệu" name="brandId" value={String(form.brandId ?? "")} onChange={handleChange} sx={selectInputSx} SelectProps={{ displayEmpty: true, renderValue: (v) => (v === "" ? "\u00A0" : masterBrands.find((o) => String(o.brandId) === String(v))?.brandName ?? "\u00A0"), MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
                     <MenuItem value="">Chọn nhãn hiệu</MenuItem>
-                    {BRAND_OPTIONS.map((o) => (
-                      <MenuItem key={o.id} value={String(o.id)}>{o.name}</MenuItem>
+                    {masterBrands.map((o) => (
+                      <MenuItem key={o.brandId} value={String(o.brandId)}>{o.brandName}</MenuItem>
                     ))}
                   </TextField>
                   <TextField select fullWidth size="small" label="Loại sản phẩm" name="itemType" value={form.itemType} onChange={handleChange} sx={selectInputSx} SelectProps={{ MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>

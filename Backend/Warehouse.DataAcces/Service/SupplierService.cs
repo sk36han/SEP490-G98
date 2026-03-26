@@ -325,13 +325,39 @@ namespace Warehouse.DataAcces.Service
 					$"Nhà cung cấp '{supplier.SupplierName}' hiện tại {statusText}. Không cần thay đổi.");
 			}
 
+			// Lưu giá trị cũ
+			var oldStatus = supplier.IsActive;
+			var actionName = isActive ? "Kích hoạt" : "Vô hiệu hóa";
+			var logStatusText = isActive ? "hoạt động" : "vô hiệu hóa";
+
 			// 3️⃣ Update only IsActive (keep all other fields unchanged)
 			supplier.IsActive = isActive;
 
 			// 4️⃣ Save
 			await _supplierRepository.UpdateAsync(supplier);
 
-			// 5️⃣ Return response
+			// 5️⃣ Gửi thông báo
+			await _notificationService.CreateForRolesAsync(
+				_notifyRoleCodes,
+				$"{actionName} nhà cung cấp",
+				$"Nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode}) đã được {logStatusText}.",
+				"SUPPLIER",
+				supplier.SupplierId,
+				excludeUserId: null // Toggle status might be done by system or admin
+			);
+
+			// 6️⃣ Ghi audit log
+			await _auditLogService.LogAsync(
+				0, // Default system user or we could add currentUserId to param
+				AuditAction.Update,
+				AuditEntity.Supplier,
+				supplier.SupplierId,
+				$"{actionName} nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode})",
+				JsonSerializer.Serialize(new { IsActive = oldStatus }),
+				JsonSerializer.Serialize(new { IsActive = isActive })
+			);
+
+			// 7️⃣ Return response
 			return new SupplierResponse
 			{
 				SupplierId = supplier.SupplierId,

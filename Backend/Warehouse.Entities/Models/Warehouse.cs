@@ -35,6 +35,8 @@ public partial class Warehouse
 
     public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
 
+    public virtual ICollection<PurchaseReturnNote> PurchaseReturnNotes { get; set; } = new List<PurchaseReturnNote>();
+
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 
     public virtual ICollection<StocktakeSession> StocktakeSessions { get; set; } = new List<StocktakeSession>();

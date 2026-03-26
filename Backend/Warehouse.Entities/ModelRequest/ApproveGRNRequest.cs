@@ -6,4 +6,13 @@ namespace Warehouse.Entities.ModelRequest
     {
         public string? Note { get; set; }
     }
+
+    public class RefundPRNRequest
+    {
+        public decimal RefundedAmount { get; set; }
+        public string? RefundMethod { get; set; }
+        public string? RefundReference { get; set; }
+        public string? RefundStatus { get; set; }
+        public string? Note { get; set; }
+    }
 }

@@ -68,6 +68,15 @@ public class PurchaseOrderServiceTests : IDisposable
             IsActive = true,
             PasswordHash = "hash123"
         });
+        _context.Users.Add(new WarehouseModel.User
+        {
+            UserId = 3,
+            Username = "user3",
+            FullName = "Người dùng không hoạt động",
+            Email = "user3@test.com",
+            IsActive = false,
+            PasswordHash = "hash123"
+        });
 
         // Item
         _context.Items.Add(new WarehouseModel.Item
@@ -620,5 +629,115 @@ public class PurchaseOrderServiceTests : IDisposable
         var act = async () => await _service.UpdatePurchaseOrderAsync(po.PurchaseOrderId, 1, updateRequest);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*chờ duyệt*");
+    }
+
+    // =========================================================
+    // CreatePurchaseOrderAsync - Bổ sung test cases
+    // =========================================================
+
+    [Fact]
+    public async Task CreatePO_ResponsibleUserKhongTonTai_ThrowException()
+    {
+        // Arrange
+        var request = new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            ResponsibleUserId = 999,
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        };
+
+        // Act & Assert
+        var act = async () => await _service.CreatePurchaseOrderAsync(1, request);
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("*nhân viên phụ trách*");
+    }
+
+    [Fact]
+    public async Task CreatePO_ResponsibleUserKhongActive_ThrowException()
+    {
+        // Arrange
+        var request = new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            ResponsibleUserId = 3, // UserId = 3, IsActive = false
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        };
+
+        // Act & Assert
+        var act = async () => await _service.CreatePurchaseOrderAsync(1, request);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*không hoạt động*");
+    }
+
+    [Fact]
+    public async Task CreatePO_OrderedQtyAm_ThrowException()
+    {
+        // Arrange
+        var request = new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = -10, UnitPrice = 100000 }
+            }
+        };
+
+        // Act & Assert
+        var act = async () => await _service.CreatePurchaseOrderAsync(1, request);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*lớn hơn 0*");
+    }
+
+    [Fact]
+    public async Task CreatePO_ExpectedDeliveryDateQuaKhu_ThrowException()
+    {
+        // Arrange - ExpectedDeliveryDate trong quá khứ
+        var request = new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            ExpectedDeliveryDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        };
+
+        // Act & Assert
+        var act = async () => await _service.CreatePurchaseOrderAsync(1, request);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Ngày giao hàng dự kiến không được trong quá khứ*");
+    }
+
+    [Fact]
+    public async Task CreatePO_ExpectedDeliveryDateNull_ThanhCong()
+    {
+        // Arrange - ExpectedDeliveryDate = null
+        var request = new CreatePurchaseOrderRequest
+        {
+            SupplierId = 1,
+            WarehouseId = 1,
+            ExpectedDeliveryDate = null,
+            Lines = new List<CreatePurchaseOrderLineRequest>
+            {
+                new CreatePurchaseOrderLineRequest { ItemId = 1, OrderedQty = 10, UnitPrice = 100000 }
+            }
+        };
+
+        // Act
+        var result = await _service.CreatePurchaseOrderAsync(1, request);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.ExpectedDeliveryDate.Should().BeNull();
     }
 }

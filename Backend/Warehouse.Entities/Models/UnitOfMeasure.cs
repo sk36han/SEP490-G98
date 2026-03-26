@@ -21,5 +21,7 @@ public partial class UnitOfMeasure
 
     public virtual ICollection<PurchaseOrderLine> PurchaseOrderLines { get; set; } = new List<PurchaseOrderLine>();
 
+    public virtual ICollection<PurchaseReturnNoteLine> PurchaseReturnNoteLines { get; set; } = new List<PurchaseReturnNoteLine>();
+
     public virtual ICollection<ReleaseRequestLine> ReleaseRequestLines { get; set; } = new List<ReleaseRequestLine>();
 }
