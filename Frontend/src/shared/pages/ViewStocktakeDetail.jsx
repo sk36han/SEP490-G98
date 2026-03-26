@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
-import { formatDateTimeFull, parseDate } from '../lib/dateUtils';
+import { parseDate } from '../lib/dateUtils';
 import {
     getStocktakeDetail,
     getStocktakeLines,
@@ -805,7 +805,7 @@ const ViewStocktakeDetail = () => {
                                     <label className="form-label">Ngày giờ tạo</label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
-                                        <input type="text" value={stocktakeData.createdAt ? new Date(stocktakeData.createdAt).toLocaleString('vi-VN') : ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        <input type="text" value={stocktakeData.createdAt ? new Date(stocktakeData.createdAt + (stocktakeData.createdAt.endsWith('Z') ? '' : 'Z')).toLocaleString('vi-VN') : ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                     </div>
                                 </div>
 
@@ -840,7 +840,7 @@ const ViewStocktakeDetail = () => {
                                                 className="form-input"
                                             />
                                         ) : (
-                                            <input type="text" value={stocktakeData.plannedAt ? new Date(stocktakeData.plannedAt).toLocaleString('vi-VN') : ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                            <input type="text" value={stocktakeData.plannedAt ? new Date(stocktakeData.plannedAt + (stocktakeData.plannedAt.endsWith('Z') ? '' : 'Z')).toLocaleString('vi-VN') : ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         )}
                                     </div>
                                 </div>

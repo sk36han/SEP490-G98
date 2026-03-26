@@ -78,7 +78,7 @@ const formatCurrency = (amount) => {
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const date = new Date(dateStr);
+    const date = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
     return date.toLocaleDateString('vi-VN');
 };
 

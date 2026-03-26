@@ -50,6 +50,16 @@ export function formatDateTimeFull(dateStr) {
 }
 
 /**
+ * Format datetime: dd/MM/yyyy HH:mm (locale string)
+ */
+export function formatDate(dateStr) {
+    if (!dateStr) return '–';
+    const d = parseDate(dateStr);
+    if (!d) return String(dateStr);
+    return d.toLocaleString('vi-VN');
+}
+
+/**
  * Format date only: dd/MM/yyyy
  */
 export function formatDateOnly(dateStr) {
@@ -89,33 +99,9 @@ export function parseUtc(dateStr) {
 }
 
 /**
- * Get UTC-safe timestamp (ms) for sorting/filtering.
- * Returns null for invalid/null dates.
+ * Get UTC timestamp (ms) for sorting. Returns 0 for null/invalid.
  */
 export function utcTimestamp(dateStr) {
     const d = parseDate(dateStr);
     return d ? d.getTime() : 0;
-}
-
-/**
- * Format datetime: dd/MM/yyyy HH:mm
- * Used in table display cells.
- */
-export function formatDateTimeShort(dateStr) {
-    if (!dateStr) return '-';
-    const d = parseDate(dateStr);
-    if (!d) return String(dateStr);
-    const date = d.toLocaleDateString('vi-VN');
-    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    return `${date} ${time}`;
-}
-
-/**
- * Format date: dd/MM/yyyy (with locale options)
- */
-export function formatDateLocale(dateStr, options) {
-    if (!dateStr) return '-';
-    const d = parseDate(dateStr);
-    if (!d) return String(dateStr);
-    return d.toLocaleDateString('vi-VN', options);
 }
