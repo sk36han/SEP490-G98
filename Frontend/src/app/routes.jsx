@@ -38,6 +38,7 @@ import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
+import CreateGoodDeliveryNote from '../shared/pages/CreateGoodDeliveryNote';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
 import ViewCategoryList from '../shared/pages/ViewCategoryList';
@@ -491,9 +492,9 @@ const AppRoutes = () => (
         <Route
             path="/goods-delivery-notes/create"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
                     <MainLayout>
-                        <ViewGoodDeliveryNoteList />
+                        <CreateGoodDeliveryNote />
                     </MainLayout>
                 </ProtectedRoute>
             }
