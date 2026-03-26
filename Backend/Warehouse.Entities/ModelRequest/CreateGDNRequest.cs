@@ -28,6 +28,11 @@ namespace Warehouse.Entities.ModelRequest
         // Status (optional: default DRAFT, can be set to PENDING_ACCOUNTANT to submit immediately)
         public string? Status { get; set; }
 
+        /// <summary>
+        /// Chiến lược xuất kho: "FIFO" (mặc định) hoặc "LIFO"
+        /// </summary>
+        public string? PickingStrategy { get; set; }
+
         // Transport Info (optional)
         public CreateGDNTransportInfoRequest? TransportInfo { get; set; }
 

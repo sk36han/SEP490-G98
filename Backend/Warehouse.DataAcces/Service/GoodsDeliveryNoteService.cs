@@ -222,17 +222,24 @@ namespace Warehouse.DataAcces.Service
             if (!string.IsNullOrEmpty(request.PaymentMethod) && request.PaymentMethod.Length > 30)
                 throw new InvalidOperationException("Phương thức thanh toán không được vượt quá 30 ký tự.");
 
+            // 12b. Validate PickingStrategy
+            var pickingStrategy = (request.PickingStrategy ?? "FIFO").ToUpperInvariant();
+            if (pickingStrategy != "FIFO" && pickingStrategy != "LIFO")
+                throw new InvalidOperationException("Chiến lược xuất kho chỉ chấp nhận 'FIFO' hoặc 'LIFO'.");
+
             // 13. Generate GDN Code
             var gdnCode = await GenerateNextGdnCodeAsync();
 
-            // 14. Calculate totals
+            // 14. Calculate totals – UnitPrice lấy từ InventoryOnHand.UnitCost
             decimal totalDeliveredQty = 0;
             decimal totalDeliveredAmount = 0;
 
             foreach (var line in request.Lines)
             {
+                var inv = inventories[line.ItemId];
+                var unitPrice = inv.UnitCost;
                 totalDeliveredQty += line.ActualQty;
-                totalDeliveredAmount += line.ActualQty * (line.UnitPrice ?? 0);
+                totalDeliveredAmount += line.ActualQty * unitPrice;
             }
 
             var shippingFee = request.ShippingFee ?? 0;
@@ -246,7 +253,7 @@ namespace Warehouse.DataAcces.Service
                 IssueDate = request.IssueDate,
                 CreatedBy = userId,
                 Status = request.Status ?? "PENDING_ACC",
-                Note = request.Note,
+                Note = $"[{pickingStrategy}] {request.Note ?? ""}".Trim(),
                 ShippingFee = shippingFee,
                 IsPaid = request.IsPaid,
                 PaymentMethod = request.PaymentMethod,
@@ -263,9 +270,10 @@ namespace Warehouse.DataAcces.Service
             _context.GoodsDeliveryNotes.Add(gdn);
             await _context.SaveChangesAsync();
 
-            // 16. Create GDN Lines
+            // 16. Create GDN Lines – gán UnitPrice = InventoryOnHand.UnitCost
             foreach (var line in request.Lines)
             {
+                var inv = inventories[line.ItemId];
                 var gdnLine = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
@@ -274,7 +282,7 @@ namespace Warehouse.DataAcces.Service
                     ActualQty = line.ActualQty,
                     UomId = line.UomId,
                     ReleaseRequestLineId = line.ReleaseRequestLineId,
-                    UnitPrice = line.UnitPrice,
+                    UnitPrice = inv.UnitCost,
                     RequiresCertificateCopy = line.RequiresCertificateCopy,
                     Note = line.Note
                 };
@@ -499,6 +507,7 @@ namespace Warehouse.DataAcces.Service
                 LineTotal = l.LineTotal,
                 RequiresCertificateCopy = l.RequiresCertificateCopy,
                 ReleaseRequestLineId = l.ReleaseRequestLineId,
+                LotId = l.LotId,
                 Note = l.Note
             }).ToList();
 
@@ -577,12 +586,23 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        // ==================== INVENTORY PROCESSING ON APPROVAL ====================
+        // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO/LIFO) ====================
         private async Task ProcessGDNApprovalInventoryAsync(GoodsDeliveryNote gdn, long userId)
         {
+            // Xác định chiến lược xuất kho từ Note (hoặc mặc định FIFO)
+            var pickingStrategy = "FIFO";
+            if (!string.IsNullOrEmpty(gdn.Note))
+            {
+                var noteUpper = gdn.Note.ToUpperInvariant();
+                if (noteUpper.Contains("[LIFO]"))
+                    pickingStrategy = "LIFO";
+                else if (noteUpper.Contains("[FIFO]"))
+                    pickingStrategy = "FIFO";
+            }
+
             var txn = new InventoryTransaction
             {
-                TxnType = "ISSUE",
+                TxnType = "OUTBOUND",
                 TxnDate = DateTime.UtcNow,
                 WarehouseId = gdn.WarehouseId,
                 ReferenceType = "GDN",
@@ -596,6 +616,7 @@ namespace Warehouse.DataAcces.Service
 
             foreach (var line in gdn.GoodsDeliveryNoteLines)
             {
+                // 1. Cập nhật InventoryOnHand
                 var inv = await _context.InventoryOnHands
                     .FirstOrDefaultAsync(i => i.WarehouseId == gdn.WarehouseId && i.ItemId == line.ItemId);
 
@@ -609,15 +630,51 @@ namespace Warehouse.DataAcces.Service
                     inv.UpdatedAt = DateTime.UtcNow;
                 }
 
-                _context.InventoryTransactionLines.Add(new InventoryTransactionLine
-                {
-                    InventoryTxnId = txn.InventoryTxnId,
-                    ItemId = line.ItemId,
-                    QtyChange = -line.ActualQty,
-                    UomId = line.UomId,
-                    Note = $"Xuất kho theo GDN {gdn.Gdncode}"
-                });
+                // 2. Trừ tồn kho từ InventoryLots theo FIFO hoặc LIFO
+                var lotsQuery = _context.InventoryLots
+                    .Where(lot => lot.ItemId == line.ItemId
+                               && lot.WarehouseId == gdn.WarehouseId
+                               && lot.IsActive
+                               && lot.Quantity > 0);
 
+                var lots = pickingStrategy == "LIFO"
+                    ? await lotsQuery.OrderByDescending(lot => lot.ReceiptDate).ToListAsync()
+                    : await lotsQuery.OrderBy(lot => lot.ReceiptDate).ToListAsync();
+
+                decimal remainingQty = line.ActualQty;
+                long? firstLotId = null;
+
+                foreach (var lot in lots)
+                {
+                    if (remainingQty <= 0) break;
+
+                    var deductQty = Math.Min(lot.Quantity, remainingQty);
+                    lot.Quantity -= deductQty;
+                    remainingQty -= deductQty;
+
+                    if (lot.Quantity == 0)
+                        lot.IsActive = false;
+
+                    // Ghi nhận lot đầu tiên cho GDN line
+                    if (firstLotId == null)
+                        firstLotId = lot.LotId;
+
+                    // Tạo InventoryTransactionLine cho mỗi lot
+                    _context.InventoryTransactionLines.Add(new InventoryTransactionLine
+                    {
+                        InventoryTxnId = txn.InventoryTxnId,
+                        ItemId = line.ItemId,
+                        QtyChange = -deductQty,
+                        UomId = line.UomId,
+                        LotId = lot.LotId,
+                        Note = $"Xuất kho theo GDN {gdn.Gdncode} ({pickingStrategy}) - Lot #{lot.LotId}"
+                    });
+                }
+
+                // Gán LotId đầu tiên vào GDN line (tham chiếu lot chính)
+                line.LotId = firstLotId;
+
+                // 3. Cập nhật ReleaseRequestLine.IssuedQty
                 if (line.ReleaseRequestLineId.HasValue)
                 {
                     var rrLine = await _context.ReleaseRequestLines
@@ -630,6 +687,7 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
+            // 4. Cập nhật LifecycleStatus của ReleaseRequest
             var rr = gdn.ReleaseRequest;
             if (rr != null)
             {

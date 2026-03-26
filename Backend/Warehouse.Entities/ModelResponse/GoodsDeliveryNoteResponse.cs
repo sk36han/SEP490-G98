@@ -115,6 +115,7 @@ namespace Warehouse.Entities.ModelResponse
         public bool RequiresCertificateCopy { get; set; }
 
         public long? ReleaseRequestLineId { get; set; }
+        public long? LotId { get; set; }
         public string? Note { get; set; }
     }
 

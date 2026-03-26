@@ -106,7 +106,8 @@ namespace Warehouse.DataAcces.Service
                 DriverName = request.DriverName?.Trim(),
                 DriverPhone = request.DriverPhone?.Trim(),
                 LicensePlate = request.LicensePlate?.Trim(),
-                Note = request.Note?.Trim()
+                Note = request.Note?.Trim(),
+                IsActive = true
             };
 
             await _transportRepository.CreateAsync(info);
@@ -155,6 +156,33 @@ namespace Warehouse.DataAcces.Service
             return ToResponse(info);
         }
 
+        public async Task<TransportInfoResponse> UpdateTransportActiveStatusAsync(long transportId, bool isActive, long currentUserId)
+        {
+            if (transportId <= 0) throw new ArgumentException("ID không hợp lệ.");
+            if (currentUserId <= 0) throw new ArgumentException("User ID không hợp lệ.");
+
+            var info = await _transportRepository.GetByIdAsync(transportId);
+            if (info == null) throw new KeyNotFoundException($"Không tìm thấy thông tin vận chuyển ID={transportId}.");
+
+            if (info.IsActive == isActive) return ToResponse(info);
+
+            var oldStatus = info.IsActive ? "Hoạt động" : "Ngừng hoạt động";
+            var newStatus = isActive ? "Hoạt động" : "Ngừng hoạt động";
+
+            info.IsActive = isActive;
+            await _transportRepository.UpdateAsync(info);
+
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.Update,
+                AuditEntity.TransportInfo,
+                info.TransportId,
+                $"Thay đổi trạng thái hoạt động của thông tin vận chuyển ID={transportId} từ {oldStatus} thành {newStatus}"
+            );
+
+            return ToResponse(info);
+        }
+
         private static TransportInfoResponse ToResponse(TransportInfo t) => new TransportInfoResponse
         {
             TransportId = t.TransportId,
@@ -163,7 +191,8 @@ namespace Warehouse.DataAcces.Service
             DriverName = t.DriverName,
             DriverPhone = t.DriverPhone,
             LicensePlate = t.LicensePlate,
-            Note = t.Note
+            Note = t.Note,
+            IsActive = t.IsActive
         };
     }
 }

@@ -66,5 +66,13 @@ namespace Warehouse.Api.ApiController
             var result = await _transportInfoService.UpdateTransportInfoAsync(id, request, userId);
             return Ok(ApiResponse<TransportInfoResponse>.SuccessResponse(result, "Cập nhật thông vị trí/vận chuyển thành công."));
         }
+
+        [HttpPatch("{id}/active")]
+        public async Task<IActionResult> ChangeActive(long id, [FromBody] ChangeTransportActiveRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _transportInfoService.UpdateTransportActiveStatusAsync(id, request.IsActive, userId);
+            return Ok(ApiResponse<TransportInfoResponse>.SuccessResponse(result, "Thay đổi trạng thái hoạt động thành công."));
+        }
     }
 }

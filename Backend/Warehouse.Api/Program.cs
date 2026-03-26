@@ -109,11 +109,7 @@ namespace Warehouse.Api
 			// JWT Authentication
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 
-            builder.Services.AddScoped<IPurchaseReturnNoteService, PurchaseReturnNoteService>();
-
-            // JWT Authentication
-            var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-
+            builder.Services.AddScoped<IPurchaseReturnNoteService, PurchaseReturnNoteService>();    
 
 			var secretKey = jwtSettings["SecretKey"];
 
