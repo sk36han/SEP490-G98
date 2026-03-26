@@ -222,14 +222,14 @@ const isPaymentSectionLocked = (paymentConfirmed) => paymentConfirmed;
 // --- Formatting helpers ---
 const formatDate = (dateStr) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
     if (Number.isNaN(d.getTime())) return dateStr;
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 };
 
 const formatDateTime = (dateStr) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
     if (Number.isNaN(d.getTime())) return dateStr;
     return `${formatDate(dateStr)} ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
 };

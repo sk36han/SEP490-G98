@@ -28,6 +28,7 @@ import {
 import { Filter, Columns, GripVertical, Package } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import InventoryAdjustmentFilterPopup from '../components/InventoryAdjustmentFilterPopup';
+import { formatDateTimeLines } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // Mock data
@@ -282,13 +283,20 @@ const ViewInventoryAdjustmentList = () => {
                 filteredData = filteredData.filter((item) => item.status === filterValues.status);
             }
             if (filterValues.fromDate) {
-                const from = new Date(filterValues.fromDate);
-                filteredData = filteredData.filter((item) => item.submittedAt && new Date(item.submittedAt) >= from);
+                const from = new Date(filterValues.fromDate + 'T00:00:00Z').getTime();
+                filteredData = filteredData.filter((item) => {
+                    if (!item.submittedAt) return false;
+                    const d = new Date(item.submittedAt + (item.submittedAt.endsWith('Z') ? '' : 'Z'));
+                    return d.getTime() >= from;
+                });
             }
             if (filterValues.toDate) {
-                const to = new Date(filterValues.toDate);
-                to.setHours(23, 59, 59, 999);
-                filteredData = filteredData.filter((item) => item.submittedAt && new Date(item.submittedAt) <= to);
+                const to = new Date(filterValues.toDate + 'T23:59:59.999Z').getTime();
+                filteredData = filteredData.filter((item) => {
+                    if (!item.submittedAt) return false;
+                    const d = new Date(item.submittedAt + (item.submittedAt.endsWith('Z') ? '' : 'Z'));
+                    return d.getTime() <= to;
+                });
             }
 
             // Apply search
@@ -420,16 +428,14 @@ const ViewInventoryAdjustmentList = () => {
         setPage(0);
     };
 
-    // Format date with time on new line
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
-        const d = new Date(dateStr);
-        const datePart = d.toLocaleDateString('vi-VN');
-        const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const parts = formatDateTimeLines(dateStr);
+        if (!parts) return '-';
         return (
             <Box sx={{ lineHeight: 1.3 }}>
-                <Box>{datePart}</Box>
-                <Box>{timePart}</Box>
+                <Box>{parts.datePart}</Box>
+                <Box>{parts.timePart}</Box>
             </Box>
         );
     };

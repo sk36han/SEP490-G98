@@ -36,6 +36,7 @@ import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils'
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import { getPurchaseOrders } from '../lib/purchaseOrderService';
+import { formatDateTime, formatDateOnly, utcTimestamp } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -116,19 +117,23 @@ const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id
 
 /** Danh sách đơn mua - dữ liệu từ API */
 
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
-
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 };
 
+// UTC-safe: parse ISO string as UTC to avoid browser timezone shift
+const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
 const formatDateOnly = (dateStr) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('vi-VN');
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN');
 };
 
 export default function ViewPurchaseOrderList() {
@@ -449,8 +454,8 @@ export default function ViewPurchaseOrderList() {
             const isNumber = ['orderValue', 'totalReceivedQuantity'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
-                const tA = aVal ? new Date(aVal).getTime() : 0;
-                const tB = bVal ? new Date(bVal).getTime() : 0;
+                const tA = utcTimestamp(aVal);
+                const tB = utcTimestamp(bVal);
                 cmp = tA - tB;
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
@@ -1142,8 +1147,9 @@ export default function ViewPurchaseOrderList() {
                                                     // Date column
                                                     if (col.id === 'createdAt') {
                                                         const dateValue = row[col.id];
-                                                        const datePart = dateValue ? new Date(dateValue).toLocaleDateString('vi-VN') : '-';
-                                                        const timePart = dateValue ? new Date(dateValue).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+                                                        const d = dateValue ? (dateValue.endsWith('Z') ? new Date(dateValue) : new Date(dateValue + 'Z')) : null;
+                                                        const datePart = d ? d.toLocaleDateString('vi-VN') : '-';
+                                                        const timePart = d ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
                                                         return (
                                                             <TableCell
                                                                 key={col.id}

@@ -249,7 +249,8 @@ const MOCK_PURCHASE_RETURN_LIST = [
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return String(dateStr);
     return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
@@ -530,7 +531,9 @@ export default function ViewPurchaseReturnList() {
             const isNumber = ['refundQuantity', 'refundedAmount'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
-                cmp = (aVal ? new Date(aVal).getTime() : 0) - (bVal ? new Date(bVal).getTime() : 0);
+                const tA = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                const tB = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                cmp = tA - tB;
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else {

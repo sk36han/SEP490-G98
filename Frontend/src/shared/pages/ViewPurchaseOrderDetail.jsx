@@ -46,10 +46,11 @@ const STATUS_MAP = {
     REJECTED: { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' },
 };
 
+// UTC-safe: parse ISO string as UTC to avoid browser timezone shift
 const formatDate = (dateStr) => {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return dateStr;
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();

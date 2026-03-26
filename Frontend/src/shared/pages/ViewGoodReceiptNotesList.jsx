@@ -37,6 +37,7 @@ import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import GoodReceiptNoteFilterPopup from '../components/GoodReceiptNoteFilterPopup';
 import { getGoodReceiptNotes } from '../lib/goodReceiptNoteService';
+import { formatDate, formatDateTime } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -117,23 +118,6 @@ const MOCK_GRN = [
         createdByName: 'Trần Thị B', createdAt: '2025-02-19T10:00:00',
     },
 ];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN');
-};
-
-const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return (
-        d.toLocaleDateString('vi-VN') +
-        '\n' +
-        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    );
-};
 
 // ── Shared cell sx (matches ViewPurchaseOrderList) ────────────────────────────
 const BODY_CELL_SX = {
@@ -347,7 +331,7 @@ export default function ViewGoodReceiptNotes() {
             } else if (NUMBER_COLUMN_IDS.includes(orderBy)) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else if (DATE_COLUMN_IDS.includes(orderBy)) {
-                cmp = new Date(aVal || 0).getTime() - new Date(bVal || 0).getTime();
+                cmp = (aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0) - (bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0);
             } else {
                 cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
             }

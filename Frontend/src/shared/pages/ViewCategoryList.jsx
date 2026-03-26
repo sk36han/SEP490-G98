@@ -2,6 +2,7 @@
  * Danh sách Danh mục sản phẩm – kết nối API CategoryController.
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { formatDateOnly } from '../lib/dateUtils';
 import {
     Box,
     Button,
@@ -773,7 +774,7 @@ const ViewCategoryList = () => {
                                                                     </Box>
                                                                 )}
                                                                 {colId === 'itemCount' && '0'}
-                                                                {colId === 'createdAt' && (c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')}
+                                                                {colId === 'createdAt' && (c.createdAt ? formatDateOnly(c.createdAt) : '—')}
                                                                 {colId === 'isActive' && (
                                                                     <Chip
                                                                         label={c.isActive ? '• Hoạt động' : '• Tạm dừng'}
@@ -1238,13 +1239,7 @@ const ViewCategoryList = () => {
                                 }}
                             >
                                 <Typography sx={{ fontSize: '14px', color: '#374151' }}>
-                                    {editForm.createdAt
-                                        ? new Date(editForm.createdAt).toLocaleDateString('vi-VN', {
-                                              day: '2-digit',
-                                              month: '2-digit',
-                                              year: 'numeric',
-                                          })
-                                        : '—'}
+                                    {editForm.createdAt ? formatDateOnly(editForm.createdAt) : '—'}
                                 </Typography>
                             </Box>
                         </>
