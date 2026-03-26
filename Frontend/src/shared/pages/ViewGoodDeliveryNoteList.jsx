@@ -65,6 +65,8 @@ const GDN_COLUMNS = [
     { id: 'totalDeliveredAmount', label: 'Tổng tiền xuất', sortable: true, draggable: true },
     { id: 'paymentDisplay', label: 'Thanh toán', sortable: true, draggable: true },
     { id: 'createdBy', label: 'Người tạo', sortable: true, draggable: true },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
 ];
 
 const DEFAULT_COLUMN_ORDER = GDN_COLUMNS.map((c) => c.id);
@@ -468,7 +470,7 @@ export default function ViewGoodDeliveryNoteList() {
             if (!orderBy) return 0;
             const aVal = a[orderBy];
             const bVal = b[orderBy];
-            const isDate = ['issueDate'].includes(orderBy);
+            const isDate = ['issueDate', 'createdAt'].includes(orderBy);
             const isNumber = ['totalDeliveredQty', 'totalDeliveredAmount'].includes(orderBy);
             const isPaymentDisplay = orderBy === 'paymentDisplay';
             let cmp = 0;
@@ -834,7 +836,7 @@ export default function ViewGoodDeliveryNoteList() {
                                                         ...(col.id === 'totalDeliveredAmount' && { minWidth: 160 }),
                                                         ...(col.id === 'paymentDisplay' && { minWidth: 180 }),
                                                         ...(col.id === 'createdBy' && { minWidth: 130 }),
-                                                        ...(col.id === 'actions' && { minWidth: 100 }),
+                                                        ...(col.id === 'createdAt' && { minWidth: 145 }),
                                                     }}
                                                     align={COLUMN_IDS_WITH_RIGHT_ALIGN.has(col.id) ? 'right' : 'left'}
                                                     onDragOver={handleDragOver}
@@ -974,6 +976,14 @@ export default function ViewGoodDeliveryNoteList() {
                                                         );
                                                     }
 
+                                                    if (col.id === 'createdAt') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left" sx={{ color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>
+                                                                {formatDate(row.createdAt)}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
                                                     if (col.id === 'totalDeliveredQty') {
                                                         return (
                                                             <TableCell key={col.id} align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', pr: 3 }}>
@@ -1011,32 +1021,6 @@ export default function ViewGoodDeliveryNoteList() {
                                                         );
                                                     }
 
-                                                    if (col.id === 'actions') {
-                                                        return (
-                                                            <TableCell key={col.id} align="right">
-                                                                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                                                                    <Tooltip title="Xem">
-                                                                        <IconButton
-                                                                            size="small"
-                                                                            onClick={() => navigate(`/goods-delivery-notes/${row.goodsDeliveryNoteId}`)}
-                                                                            sx={{ color: '#6b7280', '&:hover': { color: '#3b82f6', bgcolor: 'rgba(59, 130, 246, 0.08)' } }}
-                                                                        >
-                                                                            <Eye size={18} />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                    <Tooltip title="Sửa">
-                                                                        <IconButton
-                                                                            size="small"
-                                                                            onClick={() => navigate(`/goods-delivery-notes/${row.goodsDeliveryNoteId}`)}
-                                                                            sx={{ color: '#6b7280', '&:hover': { color: '#3b82f6', bgcolor: 'rgba(59, 130, 246, 0.08)' } }}
-                                                                        >
-                                                                            <Edit size={18} />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                </Box>
-                                                            </TableCell>
-                                                        );
-                                                    }
 
                                                     return (
                                                         <TableCell
