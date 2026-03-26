@@ -109,7 +109,7 @@ const getColumnWeight = (colId) => {
 
 const formatDateTime = (dateStr) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
     if (isNaN(d.getTime())) return dateStr;
     return (
         <Box sx={{ lineHeight: 1.3 }}>

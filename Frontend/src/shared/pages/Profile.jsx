@@ -22,6 +22,7 @@ import ChangePasswordDialog from '../../components/profile/ChangePasswordDialog'
 import authService from '../lib/authService';
 import { useToast } from '../hooks/useToast';
 import { validatePhoneWithMessage } from '../utils/validation';
+import { parseDate } from '../lib/dateUtils';
 import { ROLE_OPTIONS } from '../constants/roles';
 
 const Profile = () => {
@@ -130,7 +131,9 @@ const Profile = () => {
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '—';
-        return new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', {
+        const d = parseDate(dateStr);
+        if (!d) return '—';
+        return d.toLocaleDateString('vi-VN', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',

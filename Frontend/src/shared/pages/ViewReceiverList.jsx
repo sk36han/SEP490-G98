@@ -79,7 +79,7 @@ const getColumnCellSx = (colId, widthPct) => {
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
     if (Number.isNaN(d.getTime())) return String(dateStr);
     return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };

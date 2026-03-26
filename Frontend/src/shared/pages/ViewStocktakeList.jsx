@@ -452,7 +452,7 @@ const ViewStocktakeList = () => {
     // Format date with time on new line
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
-        const d = new Date(dateStr);
+        const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
         const datePart = d.toLocaleDateString('vi-VN');
         const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
         return (

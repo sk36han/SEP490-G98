@@ -2,6 +2,7 @@
  * Danh sách Thương hiệu – kết nối BrandController.
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { parseDate } from '../lib/dateUtils';
 import { getBrandList, createBrand, updateBrand } from '../lib/brandService';
 import { formatDateOnly } from '../lib/dateUtils';
 import {

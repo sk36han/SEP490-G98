@@ -55,7 +55,13 @@ import SearchInput from '../components/SearchInput';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { parseDate } from '../lib/dateUtils';
 import '../styles/ListView.css';
+
+const fDate = (v) => {
+    const d = parseDate(v);
+    return d ? d.toLocaleDateString('vi-VN') : '-';
+};
 
 const formatCurrency = (value, currency = 'VND') =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency }).format(Number(value) || 0);
@@ -543,7 +549,7 @@ const ViewItemPriceList = () => {
             if (orderBy === 'amount') {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else if (orderBy === 'effectiveFrom' || orderBy === 'effectiveTo') {
-                cmp = new Date(aVal || 0) - new Date(bVal || 0);
+                cmp = (aVal ? parseDate(aVal)?.getTime() : 0) - (bVal ? parseDate(bVal)?.getTime() : 0);
             } else {
                 cmp = String(aVal ?? '').localeCompare(String(bVal ?? ''));
             }
@@ -925,10 +931,10 @@ const ViewItemPriceList = () => {
                                                     {row.currency}
                                                 </TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: '#6b7280', fontSize: '12px' }}>
-                                                    {row.effectiveFrom ? new Date(row.effectiveFrom).toLocaleDateString('vi-VN') : '-'}
+                                                    {row.effectiveFrom ? fDate(row.effectiveFrom) : '-'}
                                                 </TableCell>
                                                 <TableCell sx={{ ...bodyCellSx, color: '#6b7280', fontSize: '12px' }}>
-                                                    {row.effectiveTo ? new Date(row.effectiveTo).toLocaleDateString('vi-VN') : '—'}
+                                                    {row.effectiveTo ? fDate(row.effectiveTo) : '—'}
                                                 </TableCell>
                                                 <TableCell align="center" sx={{ ...bodyCellSx }}>
                                                     <Chip

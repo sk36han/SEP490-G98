@@ -988,7 +988,7 @@ const ViewPackagingSpecList = () => {
                                                                     {p.packagingSpecName}
                                                                 </Box>
                                                             )}
-                                                            {colId === 'createdAt' && (p.createdAt ? (p.createdAt ? (() => { const d = new Date(p.createdAt + (p.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })() : '-') : '—')}
+                                                            {colId === 'createdAt' && (p.createdAt ? (() => { const d = new Date(p.createdAt + (p.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })() : '—')}
                                                             {colId === 'isActive' && (
                                                                 <Chip
                                                                     label={p.isActive ? '• Hoạt động' : '• Tạm dừng'}
@@ -1454,11 +1454,7 @@ const ViewPackagingSpecList = () => {
                             >
                                 <Typography sx={{ fontSize: '14px', color: '#374151' }}>
                                     {editForm.createdAt
-                                        ? new Date(editForm.createdAt).toLocaleDateString('vi-VN', {
-                                              day: '2-digit',
-                                              month: '2-digit',
-                                              year: 'numeric',
-                                          })
+                                        ? (() => { const d = new Date(editForm.createdAt + (editForm.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })()
                                         : '—'}
                                 </Typography>
                             </Box>

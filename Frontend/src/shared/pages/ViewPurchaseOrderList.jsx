@@ -36,7 +36,6 @@ import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils'
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import { getPurchaseOrders } from '../lib/purchaseOrderService';
-import { formatDateTime, formatDateOnly, utcTimestamp } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -127,13 +126,6 @@ const formatDate = (dateStr) => {
     const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
     if (Number.isNaN(d.getTime())) return String(dateStr);
     return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
-
-const formatDateOnly = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN');
 };
 
 export default function ViewPurchaseOrderList() {

@@ -77,17 +77,24 @@ const WAREHOUSE_KEEPER_DETAIL_FIELDS = [
     { id: 'reservedQty', label: 'Số lượng đặt trước', getValue: (item) => item.reservedQty != null ? Number(item.reservedQty).toLocaleString('vi-VN') : '–' },
 ];
 
+// UTC-safe: parse API datetime strings as UTC to avoid timezone shift
+const parseUtcDate = (v) => {
+    if (v == null || v === '') return null;
+    const d = new Date(v + (v.endsWith('Z') ? '' : 'Z'));
+    return Number.isNaN(d.getTime()) ? null : d;
+};
+
 const formatDateTime = (v) => {
     if (v == null || v === '') return '–';
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const d = parseUtcDate(v);
+    return !d ? String(v) : d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
 /** Định dạng đầy đủ cho lịch sử tồn kho: dd/MM/yyyy - HH:mm:ss */
 const formatDateTimeFull = (v) => {
     if (v == null || v === '') return '–';
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return String(v);
+    const d = parseUtcDate(v);
+    if (!d) return String(v);
     const date = d.toLocaleDateString('vi-VN');
     const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     return `${date} - ${time}`;

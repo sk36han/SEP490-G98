@@ -787,7 +787,7 @@ export default function ViewSupplierList() {
                                                     if (col.id === 'createdDate') {
                                                         const dateValue = row.createdDate;
                                                         const displayValue = dateValue
-                                                            ? new Date(dateValue).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                                            ? new Date(dateValue + 'Z').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
                                                             : '';
                                                         return (
                                                             <TableCell

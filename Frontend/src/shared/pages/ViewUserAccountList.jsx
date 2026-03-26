@@ -164,7 +164,7 @@ const UserAccountList = () => {
         }
         if (filterValues.fromDate || filterValues.toDate) {
             result = result.filter((user) => {
-                const createdAt = user.createdAt ? new Date(user.createdAt) : null;
+                const createdAt = user.createdAt ? new Date(user.createdAt + 'Z') : null;
                 if (!createdAt || isNaN(createdAt.getTime())) return false;
                 if (filterValues.fromDate) {
                     const from = new Date(filterValues.fromDate);
