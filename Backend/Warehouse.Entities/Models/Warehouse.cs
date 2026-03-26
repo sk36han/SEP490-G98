@@ -25,6 +25,8 @@ public partial class Warehouse
 
     public virtual ICollection<InventoryAdjustmentRequest> InventoryAdjustmentRequests { get; set; } = new List<InventoryAdjustmentRequest>();
 
+    public virtual ICollection<InventoryLot> InventoryLots { get; set; } = new List<InventoryLot>();
+
     public virtual ICollection<InventoryOnHand> InventoryOnHands { get; set; } = new List<InventoryOnHand>();
 
     public virtual ICollection<InventoryTransaction> InventoryTransactions { get; set; } = new List<InventoryTransaction>();
@@ -34,6 +36,8 @@ public partial class Warehouse
     public virtual ICollection<Item> Items { get; set; } = new List<Item>();
 
     public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
+
+    public virtual ICollection<PurchaseReturnNote> PurchaseReturnNotes { get; set; } = new List<PurchaseReturnNote>();
 
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 

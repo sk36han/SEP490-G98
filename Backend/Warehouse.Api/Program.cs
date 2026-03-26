@@ -99,6 +99,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IItemParameterService, ItemParameterService>();
             builder.Services.AddScoped<IItemParameterValueService, ItemParameterValueService>();
             builder.Services.AddScoped<IPackagingSpecService, PackagingSpecService>();
+
             builder.Services.AddScoped<ITransportInfoService, TransportInfoService>();
             builder.Services.AddScoped<ICompanyService, CompanyService>();
             builder.Services.AddScoped<IAddressService, AddressService>();
@@ -107,6 +108,12 @@ namespace Warehouse.Api
 
 			// JWT Authentication
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+
+            builder.Services.AddScoped<IPurchaseReturnNoteService, PurchaseReturnNoteService>();
+
+            // JWT Authentication
+            var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+
 
 			var secretKey = jwtSettings["SecretKey"];
 

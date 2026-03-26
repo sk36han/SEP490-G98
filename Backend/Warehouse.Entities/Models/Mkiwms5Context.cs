@@ -41,6 +41,8 @@ public partial class Mkiwms5Context : DbContext
 
     public virtual DbSet<InventoryAdjustmentRequest> InventoryAdjustmentRequests { get; set; }
 
+    public virtual DbSet<InventoryLot> InventoryLots { get; set; }
+
     public virtual DbSet<InventoryOnHand> InventoryOnHands { get; set; }
 
     public virtual DbSet<InventoryTransaction> InventoryTransactions { get; set; }
@@ -116,7 +118,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<AuditLog>(entity =>
         {
-            entity.HasKey(e => e.AuditLogId).HasName("PK__AuditLog__EB5F6CBD3B86E5DF");
+            entity.HasKey(e => e.AuditLogId).HasName("PK__AuditLog__EB5F6CBDA6A7DF26");
 
             entity.Property(e => e.Action).HasMaxLength(100);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
@@ -131,9 +133,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<Brand>(entity =>
         {
-            entity.HasKey(e => e.BrandId).HasName("PK__Brands__DAD4F05E8763703D");
+            entity.HasKey(e => e.BrandId).HasName("PK__Brands__DAD4F05E7E52896B");
 
-            entity.HasIndex(e => e.BrandName, "UQ__Brands__2206CE9BD9480339").IsUnique();
+            entity.HasIndex(e => e.BrandName, "UQ__Brands__2206CE9B51A7D5A9").IsUnique();
 
             entity.Property(e => e.BrandName).HasMaxLength(200);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
@@ -141,7 +143,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<Certificate>(entity =>
         {
-            entity.HasKey(e => e.CertificateId).HasName("PK__Certific__BBF8A7C1B39E1606");
+            entity.HasKey(e => e.CertificateId).HasName("PK__Certific__BBF8A7C1B51156B0");
 
             entity.Property(e => e.CertNo).HasMaxLength(100);
             entity.Property(e => e.CertType).HasMaxLength(10);
@@ -171,7 +173,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<DocumentApproval>(entity =>
         {
-            entity.HasKey(e => e.ApprovalId).HasName("PK__Document__328477F464AC98AE");
+            entity.HasKey(e => e.ApprovalId).HasName("PK__Document__328477F4F4C3D936");
 
             entity.ToTable("DocumentApproval");
 
@@ -189,7 +191,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<DocumentAttachment>(entity =>
         {
-            entity.HasKey(e => e.AttachmentId).HasName("PK__Document__442C64BEF514924E");
+            entity.HasKey(e => e.AttachmentId).HasName("PK__Document__442C64BE282C5843");
 
             entity.Property(e => e.AttachmentType)
                 .HasMaxLength(30)
@@ -207,9 +209,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<GoodsDeliveryNote>(entity =>
         {
-            entity.HasKey(e => e.Gdnid).HasName("PK__GoodsDel__9FDAF9A7900AEB88");
+            entity.HasKey(e => e.Gdnid).HasName("PK__GoodsDel__9FDAF9A7F4900C6C");
 
-            entity.HasIndex(e => e.Gdncode, "UQ__GoodsDel__1DA6F0E9C027C77C").IsUnique();
+            entity.HasIndex(e => e.Gdncode, "UQ__GoodsDel__1DA6F0E94D528900").IsUnique();
 
             entity.Property(e => e.Gdnid).HasColumnName("GDNId");
             entity.Property(e => e.Gdncode)
@@ -244,7 +246,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<GoodsDeliveryNoteLine>(entity =>
         {
-            entity.HasKey(e => e.GdnlineId).HasName("PK__GoodsDel__0E39BC6120A5115E");
+            entity.HasKey(e => e.GdnlineId).HasName("PK__GoodsDel__0E39BC61E40520A5");
 
             entity.Property(e => e.GdnlineId).HasColumnName("GDNLineId");
             entity.Property(e => e.ActualQty).HasColumnType("decimal(18, 3)");
@@ -266,6 +268,10 @@ public partial class Mkiwms5Context : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_GDNL_Item");
 
+            entity.HasOne(d => d.Lot).WithMany(p => p.GoodsDeliveryNoteLines)
+                .HasForeignKey(d => d.LotId)
+                .HasConstraintName("FK_GDNLines_InventoryLots");
+
             entity.HasOne(d => d.ReleaseRequestLine).WithMany(p => p.GoodsDeliveryNoteLines)
                 .HasForeignKey(d => d.ReleaseRequestLineId)
                 .HasConstraintName("FK_GDNLines_RRLines");
@@ -278,9 +284,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<GoodsReceiptNote>(entity =>
         {
-            entity.HasKey(e => e.Grnid).HasName("PK__GoodsRec__BC0E8C42018324FA");
+            entity.HasKey(e => e.Grnid).HasName("PK__GoodsRec__BC0E8C425BA73154");
 
-            entity.HasIndex(e => e.Grncode, "UQ__GoodsRec__F1E8DDCB2BE0F202").IsUnique();
+            entity.HasIndex(e => e.Grncode, "UQ__GoodsRec__F1E8DDCBC97003C4").IsUnique();
 
             entity.Property(e => e.Grnid).HasColumnName("GRNId");
             entity.Property(e => e.Grncode)
@@ -319,7 +325,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<GoodsReceiptNoteLine>(entity =>
         {
-            entity.HasKey(e => e.GrnlineId).HasName("PK__GoodsRec__433F1E90A3876592");
+            entity.HasKey(e => e.GrnlineId).HasName("PK__GoodsRec__433F1E907C103FCF");
 
             entity.Property(e => e.GrnlineId).HasColumnName("GRNLineId");
             entity.Property(e => e.ActualQty).HasColumnType("decimal(18, 3)");
@@ -353,7 +359,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<InventoryAdjustmentLine>(entity =>
         {
-            entity.HasKey(e => e.AdjustmentLineId).HasName("PK__Inventor__A70FA5C18A056171");
+            entity.HasKey(e => e.AdjustmentLineId).HasName("PK__Inventor__A70FA5C1A9448232");
 
             entity.Property(e => e.CountedQty).HasColumnType("decimal(18, 3)");
             entity.Property(e => e.Note).HasMaxLength(500);
@@ -375,9 +381,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<InventoryAdjustmentRequest>(entity =>
         {
-            entity.HasKey(e => e.AdjustmentId).HasName("PK__Inventor__E60DB893DE37D203");
+            entity.HasKey(e => e.AdjustmentId).HasName("PK__Inventor__E60DB893BDE25522");
 
-            entity.HasIndex(e => e.AdjustmentCode, "UQ__Inventor__292CC6CF69BCC18D").IsUnique();
+            entity.HasIndex(e => e.AdjustmentCode, "UQ__Inventor__292CC6CF78843438").IsUnique();
 
             entity.Property(e => e.AdjustmentCode).HasMaxLength(50);
             entity.Property(e => e.Reason).HasMaxLength(1000);
@@ -400,9 +406,37 @@ public partial class Mkiwms5Context : DbContext
                 .HasConstraintName("FK_ADJ_WH");
         });
 
+        modelBuilder.Entity<InventoryLot>(entity =>
+        {
+            entity.HasKey(e => e.LotId);
+
+            entity.Property(e => e.ExpiryDate).HasPrecision(0);
+            entity.Property(e => e.GrnlineId).HasColumnName("GRNLineId");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.Quantity).HasColumnType("decimal(18, 3)");
+            entity.Property(e => e.ReceiptDate)
+                .HasPrecision(0)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.UnitCost).HasColumnType("decimal(18, 2)");
+
+            entity.HasOne(d => d.Grnline).WithMany(p => p.InventoryLots)
+                .HasForeignKey(d => d.GrnlineId)
+                .HasConstraintName("FK_InventoryLots_GRNLines");
+
+            entity.HasOne(d => d.Item).WithMany(p => p.InventoryLots)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_InventoryLots_Items");
+
+            entity.HasOne(d => d.Warehouse).WithMany(p => p.InventoryLots)
+                .HasForeignKey(d => d.WarehouseId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_InventoryLots_Warehouses");
+        });
+
         modelBuilder.Entity<InventoryOnHand>(entity =>
         {
-            entity.HasKey(e => e.InventoryId).HasName("PK__Inventor__F5FDE6B399018A93");
+            entity.HasKey(e => e.InventoryId).HasName("PK__Inventor__F5FDE6B3BA07AE32");
 
             entity.ToTable("InventoryOnHand");
 
@@ -426,7 +460,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<InventoryTransaction>(entity =>
         {
-            entity.HasKey(e => e.InventoryTxnId).HasName("PK__Inventor__F692919B3D638D03");
+            entity.HasKey(e => e.InventoryTxnId).HasName("PK__Inventor__F692919BCB57F96B");
 
             entity.Property(e => e.ReferenceType).HasMaxLength(20);
             entity.Property(e => e.Status)
@@ -447,7 +481,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<InventoryTransactionLine>(entity =>
         {
-            entity.HasKey(e => e.InventoryTxnLineId).HasName("PK__Inventor__EE94D3FA8EEAE1FE");
+            entity.HasKey(e => e.InventoryTxnLineId).HasName("PK__Inventor__EE94D3FA542C2252");
 
             entity.Property(e => e.Note).HasMaxLength(500);
             entity.Property(e => e.QtyChange).HasColumnType("decimal(18, 3)");
@@ -462,6 +496,10 @@ public partial class Mkiwms5Context : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ITL_Item");
 
+            entity.HasOne(d => d.Lot).WithMany(p => p.InventoryTransactionLines)
+                .HasForeignKey(d => d.LotId)
+                .HasConstraintName("FK_InvTxnLines_InventoryLots");
+
             entity.HasOne(d => d.Uom).WithMany(p => p.InventoryTransactionLines)
                 .HasForeignKey(d => d.UomId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -470,9 +508,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<Item>(entity =>
         {
-            entity.HasKey(e => e.ItemId).HasName("PK__Items__727E838BBBF0573A");
+            entity.HasKey(e => e.ItemId).HasName("PK__Items__727E838B430F59C8");
 
-            entity.HasIndex(e => e.ItemCode, "UQ__Items__3ECC0FEACF79D70A").IsUnique();
+            entity.HasIndex(e => e.ItemCode, "UQ__Items__3ECC0FEA1EC598EC").IsUnique();
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.Description).HasMaxLength(1000);
@@ -511,9 +549,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<ItemCategory>(entity =>
         {
-            entity.HasKey(e => e.CategoryId).HasName("PK__ItemCate__19093A0BB69799AE");
+            entity.HasKey(e => e.CategoryId).HasName("PK__ItemCate__19093A0B7155E252");
 
-            entity.HasIndex(e => e.CategoryCode, "UQ__ItemCate__371BA955933DC3C5").IsUnique();
+            entity.HasIndex(e => e.CategoryCode, "UQ__ItemCate__371BA955DADB966F").IsUnique();
 
             entity.Property(e => e.CategoryCode).HasMaxLength(50);
             entity.Property(e => e.CategoryName).HasMaxLength(200);
@@ -526,9 +564,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<ItemParameter>(entity =>
         {
-            entity.HasKey(e => e.ParamId).HasName("PK__ItemPara__C132B12428CED4B3");
+            entity.HasKey(e => e.ParamId).HasName("PK__ItemPara__C132B124FA0B13DE");
 
-            entity.HasIndex(e => e.ParamCode, "UQ__ItemPara__2232AFCBD067DCE6").IsUnique();
+            entity.HasIndex(e => e.ParamCode, "UQ__ItemPara__2232AFCB96DB1ABD").IsUnique();
 
             entity.Property(e => e.DataType)
                 .HasMaxLength(30)
@@ -540,7 +578,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<ItemParameterValue>(entity =>
         {
-            entity.HasKey(e => e.ItemParamValueId).HasName("PK__ItemPara__B90EB55FBD6FE776");
+            entity.HasKey(e => e.ItemParamValueId).HasName("PK__ItemPara__B90EB55F539E644F");
 
             entity.HasIndex(e => new { e.ItemId, e.ParamId }, "UQ_IPV").IsUnique();
 
@@ -559,7 +597,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<ItemPrice>(entity =>
         {
-            entity.HasKey(e => e.ItemPriceId).HasName("PK__ItemPric__7E70A2628BDD8542");
+            entity.HasKey(e => e.ItemPriceId).HasName("PK__ItemPric__7E70A262C4B313F5");
 
             entity.Property(e => e.Amount).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.Currency).HasMaxLength(10);
@@ -573,7 +611,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<ItemWarehousePolicy>(entity =>
         {
-            entity.HasKey(e => e.ItemWarehousePolicyId).HasName("PK__ItemWare__6813183E2784DE14");
+            entity.HasKey(e => e.ItemWarehousePolicyId).HasName("PK__ItemWare__6813183E69E030F9");
 
             entity.ToTable("ItemWarehousePolicy");
 
@@ -595,7 +633,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<Notification>(entity =>
         {
-            entity.HasKey(e => e.NotificationId).HasName("PK__Notifica__20CF2E126BF494F9");
+            entity.HasKey(e => e.NotificationId).HasName("PK__Notifica__20CF2E12154BADAF");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.ExpiresAt).HasPrecision(0);
@@ -613,7 +651,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<PackagingSpec>(entity =>
         {
-            entity.HasKey(e => e.PackagingSpecId).HasName("PK__Packagin__DAD5791CAF69E352");
+            entity.HasKey(e => e.PackagingSpecId).HasName("PK__Packagin__DAD5791C7B069AB7");
 
             entity.Property(e => e.Description).HasMaxLength(400);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
@@ -622,7 +660,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<PasswordResetToken>(entity =>
         {
-            entity.HasKey(e => e.TokenId).HasName("PK__Password__658FEEEA21192FAF");
+            entity.HasKey(e => e.TokenId).HasName("PK__Password__658FEEEA3A332C6B");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.TokenHash).HasMaxLength(256);
@@ -635,9 +673,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<PurchaseOrder>(entity =>
         {
-            entity.HasKey(e => e.PurchaseOrderId).HasName("PK__Purchase__036BACA40B40597B");
+            entity.HasKey(e => e.PurchaseOrderId).HasName("PK__Purchase__036BACA45B9E164E");
 
-            entity.HasIndex(e => e.Pocode, "UQ__Purchase__40ACF5B8A4350260").IsUnique();
+            entity.HasIndex(e => e.Pocode, "UQ__Purchase__40ACF5B8FB4D1F1F").IsUnique();
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.DiscountAmount).HasColumnType("decimal(18, 2)");
@@ -678,7 +716,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<PurchaseOrderLine>(entity =>
         {
-            entity.HasKey(e => e.PurchaseOrderLineId).HasName("PK__Purchase__2100B038BC8B8125");
+            entity.HasKey(e => e.PurchaseOrderLineId).HasName("PK__Purchase__2100B038AFD518D1");
 
             entity.Property(e => e.Currency).HasMaxLength(10);
             entity.Property(e => e.LineStatus)
@@ -744,6 +782,8 @@ public partial class Mkiwms5Context : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasDefaultValue("DRAFT");
+            entity.Property(e => e.TotalReturnedAmount).HasColumnType("decimal(18, 3)");
+            entity.Property(e => e.TotalReturnedQty).HasColumnType("decimal(18, 3)");
 
             entity.HasOne(d => d.ApprovedByNavigation).WithMany(p => p.PurchaseReturnNoteApprovedByNavigations).HasForeignKey(d => d.ApprovedBy);
 
@@ -754,6 +794,14 @@ public partial class Mkiwms5Context : DbContext
             entity.HasOne(d => d.RelatedGrn).WithMany(p => p.PurchaseReturnNotes)
                 .HasForeignKey(d => d.RelatedGrnid)
                 .HasConstraintName("FK_PurchaseReturnNotes_GoodsReceiptNotes");
+
+            entity.HasOne(d => d.Supplier).WithMany(p => p.PurchaseReturnNotes)
+                .HasForeignKey(d => d.SupplierId)
+                .HasConstraintName("FK_PRN_Suppliers");
+
+            entity.HasOne(d => d.Warehouse).WithMany(p => p.PurchaseReturnNotes)
+                .HasForeignKey(d => d.WarehouseId)
+                .HasConstraintName("FK_PRN_Warehouses");
         });
 
         modelBuilder.Entity<PurchaseReturnNoteLine>(entity =>
@@ -769,6 +817,11 @@ public partial class Mkiwms5Context : DbContext
             entity.Property(e => e.ReturnQty).HasColumnType("decimal(18, 3)");
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
 
+            entity.HasOne(d => d.Item).WithMany(p => p.PurchaseReturnNoteLines)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PRNLine_Items");
+
             entity.HasOne(d => d.PurchaseReturn).WithMany(p => p.PurchaseReturnNoteLines)
                 .HasForeignKey(d => d.PurchaseReturnId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -777,13 +830,18 @@ public partial class Mkiwms5Context : DbContext
             entity.HasOne(d => d.RelatedGrnline).WithMany(p => p.PurchaseReturnNoteLines)
                 .HasForeignKey(d => d.RelatedGrnlineId)
                 .HasConstraintName("FK_PurchaseReturnNoteLines_GRNLines");
+
+            entity.HasOne(d => d.Uom).WithMany(p => p.PurchaseReturnNoteLines)
+                .HasForeignKey(d => d.UomId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PRNLine_Uom");
         });
 
         modelBuilder.Entity<Receiver>(entity =>
         {
-            entity.HasKey(e => e.ReceiverId).HasName("PK__Receiver__FEBB5F275653BFD5");
+            entity.HasKey(e => e.ReceiverId).HasName("PK__Receiver__FEBB5F274B01318E");
 
-            entity.HasIndex(e => e.ReceiverCode, "UQ__Receiver__A918ECE93D5031CB").IsUnique();
+            entity.HasIndex(e => e.ReceiverCode, "UQ__Receiver__A918ECE96FA9EED5").IsUnique();
 
             entity.Property(e => e.Address).HasMaxLength(500);
             entity.Property(e => e.City).HasMaxLength(100);
@@ -805,9 +863,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<ReleaseRequest>(entity =>
         {
-            entity.HasKey(e => e.ReleaseRequestId).HasName("PK__ReleaseR__2901DDA4DA0B7C3D");
+            entity.HasKey(e => e.ReleaseRequestId).HasName("PK__ReleaseR__2901DDA4A7A6F50E");
 
-            entity.HasIndex(e => e.ReleaseRequestCode, "UQ__ReleaseR__380806C5E3E64FE0").IsUnique();
+            entity.HasIndex(e => e.ReleaseRequestCode, "UQ__ReleaseR__380806C5237171EE").IsUnique();
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.LifecycleStatus)
@@ -838,7 +896,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<ReleaseRequestLine>(entity =>
         {
-            entity.HasKey(e => e.ReleaseRequestLineId).HasName("PK__ReleaseR__B16BBFF51CF7A62D");
+            entity.HasKey(e => e.ReleaseRequestLineId).HasName("PK__ReleaseR__B16BBFF56BA22C33");
 
             entity.Property(e => e.AllocatedQty).HasColumnType("decimal(18, 3)");
             entity.Property(e => e.ApprovedQty).HasColumnType("decimal(18, 3)");
@@ -876,9 +934,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<Role>(entity =>
         {
-            entity.HasKey(e => e.RoleId).HasName("PK__Roles__8AFACE1A5C6431F2");
+            entity.HasKey(e => e.RoleId).HasName("PK__Roles__8AFACE1A763E1E60");
 
-            entity.HasIndex(e => e.RoleCode, "UQ__Roles__D62CB59CA201132A").IsUnique();
+            entity.HasIndex(e => e.RoleCode, "UQ__Roles__D62CB59C09892170").IsUnique();
 
             entity.Property(e => e.RoleCode).HasMaxLength(50);
             entity.Property(e => e.RoleName).HasMaxLength(100);
@@ -886,7 +944,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<StocktakeLine>(entity =>
         {
-            entity.HasKey(e => e.StocktakeLineId).HasName("PK__Stocktak__CE77AE36F33EEB91");
+            entity.HasKey(e => e.StocktakeLineId).HasName("PK__Stocktak__CE77AE36FD119539");
 
             entity.HasIndex(e => new { e.StocktakeId, e.ItemId }, "UQ_STL").IsUnique();
 
@@ -910,9 +968,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<StocktakeSession>(entity =>
         {
-            entity.HasKey(e => e.StocktakeId).HasName("PK__Stocktak__5874C465420D37B1");
+            entity.HasKey(e => e.StocktakeId).HasName("PK__Stocktak__5874C465602B6ED9");
 
-            entity.HasIndex(e => e.StocktakeCode, "UQ__Stocktak__66FC5709A4A6EBD4").IsUnique();
+            entity.HasIndex(e => e.StocktakeCode, "UQ__Stocktak__66FC570999EB9A5C").IsUnique();
 
             entity.Property(e => e.Mode).HasMaxLength(20);
             entity.Property(e => e.Note).HasMaxLength(1000);
@@ -934,9 +992,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<Supplier>(entity =>
         {
-            entity.HasKey(e => e.SupplierId).HasName("PK__Supplier__4BE666B46A4D5E4B");
+            entity.HasKey(e => e.SupplierId).HasName("PK__Supplier__4BE666B4EFDFB69F");
 
-            entity.HasIndex(e => e.SupplierCode, "UQ__Supplier__44BE981B900E7752").IsUnique();
+            entity.HasIndex(e => e.SupplierCode, "UQ__Supplier__44BE981BEE2145D2").IsUnique();
 
             entity.Property(e => e.Address).HasMaxLength(500);
             entity.Property(e => e.City).HasMaxLength(100);
@@ -961,6 +1019,7 @@ public partial class Mkiwms5Context : DbContext
             entity.Property(e => e.DriverName).HasMaxLength(200);
             entity.Property(e => e.DriverPhone).HasMaxLength(20);
             entity.Property(e => e.Gdnid).HasColumnName("GDNId");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.LicensePlate).HasMaxLength(50);
             entity.Property(e => e.Note).HasMaxLength(500);
 
@@ -972,7 +1031,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<UnitOfMeasure>(entity =>
         {
-            entity.HasKey(e => e.UomId).HasName("PK__UnitOfMe__F6F8D47E91E8C342");
+            entity.HasKey(e => e.UomId).HasName("PK__UnitOfMe__F6F8D47E9A634B77");
 
             entity.ToTable("UnitOfMeasure");
 
@@ -982,11 +1041,11 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.UserId).HasName("PK__Users__1788CC4CF3664B22");
+            entity.HasKey(e => e.UserId).HasName("PK__Users__1788CC4C45DCF244");
 
-            entity.HasIndex(e => e.Username, "UQ__Users__536C85E41B0A3A33").IsUnique();
+            entity.HasIndex(e => e.Username, "UQ__Users__536C85E4DCDDD52E").IsUnique();
 
-            entity.HasIndex(e => e.Email, "UQ__Users__A9D10534D0C16F11").IsUnique();
+            entity.HasIndex(e => e.Email, "UQ__Users__A9D10534247242FF").IsUnique();
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.Dob).HasColumnName("DOB");
@@ -1004,7 +1063,7 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<UserRole>(entity =>
         {
-            entity.HasKey(e => e.UserRoleId).HasName("PK__UserRole__3D978A35E6E71957");
+            entity.HasKey(e => e.UserRoleId).HasName("PK__UserRole__3D978A356388F446");
 
             entity.HasIndex(e => e.UserId, "UQ_UserRoles_User").IsUnique();
 
@@ -1027,9 +1086,9 @@ public partial class Mkiwms5Context : DbContext
 
         modelBuilder.Entity<Warehouse>(entity =>
         {
-            entity.HasKey(e => e.WarehouseId).HasName("PK__Warehous__2608AFF996F64BCC");
+            entity.HasKey(e => e.WarehouseId).HasName("PK__Warehous__2608AFF9AF2BC6BE");
 
-            entity.HasIndex(e => e.WarehouseCode, "UQ__Warehous__1686A056F7FB5BAE").IsUnique();
+            entity.HasIndex(e => e.WarehouseCode, "UQ__Warehous__1686A0561FF78273").IsUnique();
 
             entity.Property(e => e.Address).HasMaxLength(400);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
