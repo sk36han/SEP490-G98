@@ -66,7 +66,11 @@ const ITEM_LIST_COLUMNS = [
     { id: 'purchasePrice', label: 'Giá nhập', sortable: true, getValue: (row) => formatPrice(row.purchasePrice) },
     { id: 'salePrice', label: 'Giá xuất', sortable: true, getValue: (row) => formatPrice(row.salePrice) },
     { id: 'isActive', label: 'Trạng thái', sortable: true, getValue: (row) => (row.isActive ? 'Đang giao dịch' : 'Tạm dừng') },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : '-' },
+    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => {
+        if (!row.createdAt) return '-';
+        const d = new Date(row.createdAt + (row.createdAt.endsWith('Z') ? '' : 'Z'));
+        return d.toLocaleDateString('vi-VN');
+    } },
 ];
 
 const ACCOUNTANT_ONLY_COLUMN_IDS = ['purchasePrice', 'salePrice'];
@@ -471,15 +475,21 @@ const ViewItemList = () => {
         }
 
         if (filterValues.fromDate) {
-            const from = new Date(filterValues.fromDate).getTime();
-            result = result.filter((it) => (it.createdAt ? new Date(it.createdAt).getTime() : 0) >= from);
+            const from = new Date(filterValues.fromDate + 'T00:00:00Z').getTime();
+            result = result.filter((it) => {
+                if (!it.createdAt) return false;
+                const d = new Date(it.createdAt + (it.createdAt.endsWith('Z') ? '' : 'Z'));
+                return d.getTime() >= from;
+            });
         }
 
         if (filterValues.toDate) {
-            const to = new Date(filterValues.toDate);
-            to.setHours(23, 59, 59, 999);
-            const toMs = to.getTime();
-            result = result.filter((it) => (it.createdAt ? new Date(it.createdAt).getTime() : 0) <= toMs);
+            const to = new Date(filterValues.toDate + 'T23:59:59.999Z').getTime();
+            result = result.filter((it) => {
+                if (!it.createdAt) return false;
+                const d = new Date(it.createdAt + (it.createdAt.endsWith('Z') ? '' : 'Z'));
+                return d.getTime() <= to;
+            });
         }
 
         return { filteredItems: result, totalCount: result.length };
@@ -560,8 +570,8 @@ const ViewItemList = () => {
             const isNumber = ['availableQty', 'onHandQty', 'purchasePrice', 'salePrice'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
-                const tA = aVal ? new Date(aVal).getTime() : 0;
-                const tB = bVal ? new Date(bVal).getTime() : 0;
+                const tA = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                const tB = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
                 cmp = tA - tB;
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
@@ -599,7 +609,8 @@ const ViewItemList = () => {
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
-        const d = new Date(dateStr);
+        const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+        if (Number.isNaN(d.getTime())) return String(dateStr);
         return (
             d.toLocaleDateString('vi-VN') +
             '\n' +

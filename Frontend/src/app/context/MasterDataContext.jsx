@@ -3,9 +3,9 @@ import authService from '../../shared/lib/authService';
 import { getCategoryList } from '../../shared/lib/categoryService';
 import { getSuppliers } from '../../shared/lib/supplierService';
 import { getWarehouses } from '../../shared/lib/warehouseService';
-import { getBrands } from '../../shared/lib/brandService';
-import { getUoms } from '../../shared/lib/uomService';
-import { getUsers } from '../../shared/lib/userService';
+import { getBrandList } from '../../shared/lib/brandService';
+import { getUomList } from '../../shared/lib/uomService';
+import { getAccountants } from '../../shared/lib/userService';
 import { getReceivers } from '../../shared/lib/receiverService';
 
 const MasterDataContext = createContext(null);
@@ -94,7 +94,7 @@ export function MasterDataProvider({ children }) {
     setBrandsLoading(true);
     setBrandsError(null);
     try {
-      const result = await getBrands({ page: 1, pageSize: 100 });
+      const result = await getBrandList({ page: 1, pageSize: 100 });
       setBrands(result.items || []);
     } catch (err) {
       setBrandsError(err.message);
@@ -108,7 +108,7 @@ export function MasterDataProvider({ children }) {
     setUomsLoading(true);
     setUomsError(null);
     try {
-      const result = await getUoms({ page: 1, pageSize: 100 });
+      const result = await getUomList({ page: 1, pageSize: 100 });
       setUoms(result.items || []);
     } catch (err) {
       setUomsError(err.message);
@@ -122,8 +122,8 @@ export function MasterDataProvider({ children }) {
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const result = await getUsers();
-      setUsers(result.items || []);
+      const result = await getAccountants();
+      setUsers(Array.isArray(result) ? result : (result?.items || []));
     } catch (err) {
       setUsersError(err.message);
     } finally {

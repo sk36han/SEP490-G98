@@ -240,13 +240,20 @@ const ViewPackagingSpecList = () => {
         }
 
         if (filterDateFrom) {
-            const from = new Date(filterDateFrom);
-            result = result.filter(r => new Date(r.createdAt) >= from);
+            const from = new Date(filterDateFrom + 'T00:00:00Z').getTime();
+            result = result.filter(r => {
+                if (!r.createdAt) return false;
+                const d = new Date(r.createdAt + (r.createdAt.endsWith('Z') ? '' : 'Z'));
+                return d.getTime() >= from;
+            });
         }
         if (filterDateTo) {
-            const to = new Date(filterDateTo);
-            to.setHours(23, 59, 59, 999);
-            result = result.filter(r => new Date(r.createdAt) <= to);
+            const to = new Date(filterDateTo + 'T23:59:59.999Z').getTime();
+            result = result.filter(r => {
+                if (!r.createdAt) return false;
+                const d = new Date(r.createdAt + (r.createdAt.endsWith('Z') ? '' : 'Z'));
+                return d.getTime() <= to;
+            });
         }
 
         // Sort
@@ -255,8 +262,8 @@ const ViewPackagingSpecList = () => {
                 let aVal = a[orderBy];
                 let bVal = b[orderBy];
                 if (orderBy === 'createdAt') {
-                    aVal = aVal ? new Date(aVal).getTime() : 0;
-                    bVal = bVal ? new Date(bVal).getTime() : 0;
+                    aVal = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                    bVal = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
                 } else {
                     if (typeof aVal === 'string') aVal = aVal.toLowerCase();
                     if (typeof bVal === 'string') bVal = bVal.toLowerCase();
@@ -981,7 +988,7 @@ const ViewPackagingSpecList = () => {
                                                                     {p.packagingSpecName}
                                                                 </Box>
                                                             )}
-                                                            {colId === 'createdAt' && (p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')}
+                                                            {colId === 'createdAt' && (p.createdAt ? (p.createdAt ? (() => { const d = new Date(p.createdAt + (p.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })() : '-') : '—')}
                                                             {colId === 'isActive' && (
                                                                 <Chip
                                                                     label={p.isActive ? '• Hoạt động' : '• Tạm dừng'}

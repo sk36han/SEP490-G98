@@ -3,6 +3,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { getBrandList, createBrand, updateBrand } from '../lib/brandService';
+import { formatDateOnly } from '../lib/dateUtils';
 import {
     Box,
     Button,
@@ -795,7 +796,7 @@ const ViewBrandList = () => {
                                                                     {b.brandName}
                                                                 </Box>
                                                             )}
-                                                            {colId === 'createdAt' && (b.createdAt ? new Date(b.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')}
+                                                            {colId === 'createdAt' && (b.createdAt ? formatDateOnly(b.createdAt) : '—')}
                                                             {colId === 'isActive' && (
                                                                 <Chip
                                                                     label={b.isActive ? '• Hoạt động' : '• Tạm dừng'}
@@ -1255,13 +1256,7 @@ const ViewBrandList = () => {
                             }}
                         >
                             <Typography sx={{ fontSize: '14px', color: '#374151' }}>
-                                {editForm.createdAt
-                                    ? new Date(editForm.createdAt).toLocaleDateString('vi-VN', {
-                                          day: '2-digit',
-                                          month: '2-digit',
-                                          year: 'numeric',
-                                      })
-                                    : '—'}
+                                {editForm.createdAt ? formatDateOnly(editForm.createdAt) : '—'}
                             </Typography>
                         </Box>
                     </>

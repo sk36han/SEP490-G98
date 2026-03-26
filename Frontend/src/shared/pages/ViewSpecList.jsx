@@ -244,13 +244,20 @@ const ViewSpecList = () => {
 
         // Date filters
         if (filterDateFrom) {
-            const from = new Date(filterDateFrom);
-            data = data.filter(item => new Date(item.createdAt) >= from);
+            const from = new Date(filterDateFrom + 'T00:00:00Z').getTime();
+            data = data.filter(item => {
+                if (!item.createdAt) return false;
+                const d = new Date(item.createdAt + (item.createdAt.endsWith('Z') ? '' : 'Z'));
+                return d.getTime() >= from;
+            });
         }
         if (filterDateTo) {
-            const to = new Date(filterDateTo);
-            to.setHours(23, 59, 59, 999);
-            data = data.filter(item => new Date(item.createdAt) <= to);
+            const to = new Date(filterDateTo + 'T23:59:59.999Z').getTime();
+            data = data.filter(item => {
+                if (!item.createdAt) return false;
+                const d = new Date(item.createdAt + (item.createdAt.endsWith('Z') ? '' : 'Z'));
+                return d.getTime() <= to;
+            });
         }
 
         // Sort
@@ -259,8 +266,8 @@ const ViewSpecList = () => {
                 let aVal = a[orderBy];
                 let bVal = b[orderBy];
                 if (orderBy === 'createdAt') {
-                    aVal = new Date(aVal);
-                    bVal = new Date(bVal);
+                    aVal = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')) : new Date(0);
+                    bVal = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')) : new Date(0);
                 } else if (typeof aVal === 'string') {
                     aVal = aVal.toLowerCase();
                     bVal = bVal.toLowerCase();
@@ -890,7 +897,7 @@ const ViewSpecList = () => {
                                                             )}
                                                             {colId === 'createdAt' && (
                                                                 <Typography sx={{ fontSize: '13px', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                    {s.createdAt ? new Date(s.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
+                                                                    {s.createdAt ? (() => { const d = new Date(s.createdAt + (s.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })() : '—'}
                                                                 </Typography>
                                                             )}
                                                             {colId === 'isActive' && (
@@ -1414,11 +1421,7 @@ const ViewSpecList = () => {
                     >
                         <Typography sx={{ fontSize: '14px', color: '#374151' }}>
                             {editForm.createdAt
-                                ? new Date(editForm.createdAt).toLocaleDateString('vi-VN', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                  })
+                                ? (() => { const d = new Date(editForm.createdAt + (editForm.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })()
                                 : '—'}
                         </Typography>
                     </Box>

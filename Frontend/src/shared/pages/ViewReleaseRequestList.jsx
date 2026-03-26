@@ -102,12 +102,15 @@ const MOCK_RELEASE_REQUESTS = [
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('vi-VN');
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN');
 };
 
 const formatDateTime = (dateStr) => {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return String(dateStr);
     return d.toLocaleDateString('vi-VN') + '\n' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
@@ -266,7 +269,9 @@ export default function ViewReleaseRequestList() {
             let bVal = b[orderBy] ?? '';
             let cmp = 0;
             if (DATE_COLUMN_IDS.includes(orderBy)) {
-                cmp = new Date(aVal || 0).getTime() - new Date(bVal || 0).getTime();
+                const tA = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                const tB = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                cmp = tA - tB;
             } else {
                 cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
             }

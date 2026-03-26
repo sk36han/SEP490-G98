@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatDateTime, parseDate } from '../lib/dateUtils';
 import {
     Box,
     Paper,
@@ -195,11 +196,7 @@ const MOCK_GDN_LIST = [
     },
 ];
 
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
+const formatDate = (dateStr) => formatDateTime(dateStr);
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
@@ -473,7 +470,7 @@ export default function ViewGoodDeliveryNoteList() {
             const isPaymentDisplay = orderBy === 'paymentDisplay';
             let cmp = 0;
             if (isDate) {
-                cmp = (aVal ? new Date(aVal).getTime() : 0) - (bVal ? new Date(bVal).getTime() : 0);
+                cmp = (parseDate(aVal)?.getTime() ?? 0) - (parseDate(bVal)?.getTime() ?? 0);
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else if (isPaymentDisplay) {

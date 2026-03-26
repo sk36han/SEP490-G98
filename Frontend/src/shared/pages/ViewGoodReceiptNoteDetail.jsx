@@ -6,6 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { formatDateTime, formatDateOnly, formatTimeOnly } from '../lib/dateUtils';
 import {
     Dialog,
     DialogTitle,
@@ -193,7 +194,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         supplierName: data.supplierName,
                         receiptDate: data.receiptDate,
                         creatorName: data.createdByName,
-                        createdAt: data.createdAt ? new Date(data.createdAt).toLocaleString('vi-VN') : '',
+                        createdAt: formatDateTime(data.createdAt),
                         status: data.status,
                         purchaseOrderLifecycleStatus: data.purchaseOrderLifecycleStatus || data.purchaseOrder?.lifecycleStatus,
                         isPaid: data.isPaid ?? false,
@@ -216,9 +217,9 @@ const ViewGoodReceiptNoteDetail = () => {
                             note: line.note || '',
                         })),
                 history: [
-                            data.postedAt ? { action: 'Đã ghi sổ phiếu nhập kho', date: new Date(data.postedAt).toLocaleDateString('vi-VN'), time: new Date(data.postedAt).toLocaleTimeString('vi-VN') } : null,
-                            data.submittedAt ? { action: 'Gửi yêu cầu duyệt phiếu', date: new Date(data.submittedAt).toLocaleDateString('vi-VN'), time: new Date(data.submittedAt).toLocaleTimeString('vi-VN') } : null,
-                            { action: `Tạo mới phiếu nhập kho ${data.grnCode}`, date: new Date(data.createdAt).toLocaleDateString('vi-VN'), time: new Date(data.createdAt).toLocaleTimeString('vi-VN') },
+                            data.postedAt ? { action: 'Đã ghi sổ phiếu nhập kho', date: formatDateOnly(data.postedAt), time: formatTimeOnly(data.postedAt) } : null,
+                            data.submittedAt ? { action: 'Gửi yêu cầu duyệt phiếu', date: formatDateOnly(data.submittedAt), time: formatTimeOnly(data.submittedAt) } : null,
+                            { action: `Tạo mới phiếu nhập kho ${data.grnCode}`, date: formatDateOnly(data.createdAt), time: formatTimeOnly(data.createdAt) },
                         ].filter(Boolean),
                     });
                 }

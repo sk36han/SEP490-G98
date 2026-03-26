@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import { formatDateTimeFull, parseDate } from '../lib/dateUtils';
 import {
     getStocktakeDetail,
     getStocktakeLines,
@@ -234,15 +235,15 @@ const ViewStocktakeDetail = () => {
 
     // Calculate summary
     const summary = useMemo(() => {
-        if (!stocktakeData.lines || stocktakeData.lines.length === 0) {
+        if (!stocktakeData?.lines || stocktakeData?.lines?.length === 0) {
             return { totalItems: 0, totalSystemQty: 0, totalCountedQty: 0, totalVariance: 0, totalCounted: 0, missing: 0, excess: 0, sufficient: 0 };
         }
 
         const hasValue = (val) => val !== null && val !== undefined && val !== '';
 
-        const totalSystemQty = stocktakeData.lines.reduce((sum, line) => sum + (line.systemQty || 0), 0);
+        const totalSystemQty = (stocktakeData?.lines || []).reduce((sum, line) => sum + (line.systemQty || 0), 0);
         // Chỉ tính items đã nhập countedQty
-        const countedLines = stocktakeData.lines.filter(l => hasValue(l.countedQty));
+        const countedLines = (stocktakeData?.lines || []).filter(l => hasValue(l.countedQty));
         const totalCountedQty = countedLines.reduce((sum, line) => sum + (parseFloat(line.countedQty) || 0), 0);
         const totalVariance = countedLines.reduce((sum, line) => sum + (line.varianceQty || 0), 0);
 
@@ -251,7 +252,7 @@ const ViewStocktakeDetail = () => {
         const sufficient = countedLines.filter(l => l.varianceQty === 0).length;
 
         return {
-            totalItems: stocktakeData.lines.length,
+            totalItems: stocktakeData?.lines?.length ?? 0,
             totalSystemQty,
             totalCountedQty,
             totalVariance,
@@ -260,11 +261,11 @@ const ViewStocktakeDetail = () => {
             excess,
             sufficient
         };
-    }, [stocktakeData.lines]);
+    }, [stocktakeData?.lines]);
 
     // Filtered lines based on variance filter and search
     const filteredLines = useMemo(() => {
-        let lines = stocktakeData.lines || [];
+        let lines = stocktakeData?.lines || [];
 
         // Apply variance filter
         if (varianceFilter === 'negative') {
@@ -314,7 +315,7 @@ const ViewStocktakeDetail = () => {
         });
 
         return lines;
-    }, [stocktakeData.lines, varianceFilter, lineSearchKeyword, selectedLineIds]);
+    }, [stocktakeData?.lines, varianceFilter, lineSearchKeyword, selectedLineIds]);
 
     if (loading) {
         return (
@@ -390,7 +391,7 @@ const ViewStocktakeDetail = () => {
                             className="btn btn-primary"
                             onClick={() => {
                                 if (!reportSent) {
-                                    const hasEmpty = stocktakeData.lines.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
+                                    const hasEmpty = stocktakeData?.lines?.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
                                     if (hasEmpty) {
                                         showToast('Vui lòng nhập đầy đủ số lượng kiểm kê cho tất cả vật tư trước khi gửi báo cáo', 'warning');
                                         return;
@@ -490,7 +491,7 @@ const ViewStocktakeDetail = () => {
                                                     return;
                                                 }
                                                 const now = new Date();
-                                                const planned = stocktakeData.plannedAt ? new Date(stocktakeData.plannedAt) : null;
+                                                const planned = stocktakeData.plannedAt ? parseDate(stocktakeData.plannedAt) : null;
                                                 if (!planned || now >= planned) {
                                                     setConfirmDialogOpen(true);
                                                 } else {
@@ -526,7 +527,7 @@ const ViewStocktakeDetail = () => {
                                                         Hủy
                                                     </button>
                                                     <button type="button" onClick={() => {
-                                                        const hasEmptyCounted = stocktakeData.lines.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
+                                                        const hasEmptyCounted = stocktakeData?.lines?.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
                                                         if (hasEmptyCounted) {
                                                             showToast('Vui lòng nhập đầy đủ số lượng kiểm kê cho tất cả vật tư trước khi lưu', 'warning');
                                                             return;
@@ -604,7 +605,7 @@ const ViewStocktakeDetail = () => {
                                 </div>
 
                                 {/* Empty state - no lines at all */}
-                                {(!stocktakeData.lines || stocktakeData.lines.length === 0) && (
+                                {(!stocktakeData?.lines || stocktakeData?.lines?.length === 0) && (
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px', padding: '60px 20px', color: '#9ca3af' }}>
                                         <Package size={64} strokeWidth={1.5} />
                                         <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư nào</p>
@@ -612,7 +613,7 @@ const ViewStocktakeDetail = () => {
                                 )}
 
                                 {/* Lines table */}
-                                {stocktakeData.lines && stocktakeData.lines.length > 0 && (
+                                {stocktakeData?.lines && stocktakeData?.lines?.length > 0 && (
                                     <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
                                         <table className="product-table">
                                             <thead>

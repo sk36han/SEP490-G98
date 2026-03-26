@@ -18,6 +18,7 @@ import {
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
+import { formatDateTime } from '../lib/dateUtils';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/CreateSupplier.css';
 
@@ -124,11 +125,7 @@ const ViewInventoryAdjustmentDetail = () => {
         return a.varianceQty - b.varianceQty;
     });
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '—';
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    };
+    const formatDate = (dateStr) => formatDateTime(dateStr);
 
     const totalLines = MOCK_LINES.length;
     const negativeLines = MOCK_LINES.filter(l => l.varianceQty < 0).length;
