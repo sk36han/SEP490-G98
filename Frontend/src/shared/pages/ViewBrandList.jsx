@@ -1,7 +1,8 @@
 /*
- * Danh sách Thương hiệu – mock data, không gọi API thực.
+ * Danh sách Thương hiệu – kết nối BrandController.
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { getBrandList, createBrand, updateBrand } from '../lib/brandService';
 import {
     Box,
     Button,
@@ -32,9 +33,10 @@ import {
     TextField,
     FormGroup,
 } from '@mui/material';
-import { Plus, Filter, Columns, Package, X, GripVertical } from 'lucide-react';
+import { Plus, Filter, Columns, Package, X, GripVertical, AlertCircle } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import BrandFilterPopup from '../components/BrandFilterPopup';
+import { useToast } from '../hooks/useToast';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -59,25 +61,6 @@ const bodyCellBaseSx = {
     borderBottom: '1px solid #f3f4f6',
 };
 
-// Mock data
-const MOCK_BRANDS = [
-    { brandId: 1, brandCode: 'BR001', brandName: 'Apple', isActive: true, createdAt: '2024-01-15T10:30:00' },
-    { brandId: 2, brandCode: 'BR002', brandName: 'Samsung', isActive: true, createdAt: '2024-01-20T14:20:00' },
-    { brandId: 3, brandCode: 'BR003', brandName: 'Sony', isActive: false, createdAt: '2024-02-05T09:00:00' },
-    { brandId: 4, brandCode: 'BR004', brandName: 'LG', isActive: true, createdAt: '2024-02-10T11:45:00' },
-    { brandId: 5, brandCode: 'BR005', brandName: 'Panasonic', isActive: true, createdAt: '2024-02-15T16:00:00' },
-    { brandId: 6, brandCode: 'BR006', brandName: 'Xiaomi', isActive: false, createdAt: '2024-03-01T08:30:00' },
-    { brandId: 7, brandCode: 'BR007', brandName: 'Dell', isActive: true, createdAt: '2024-03-10T13:15:00' },
-    { brandId: 8, brandCode: 'BR008', brandName: 'HP', isActive: true, createdAt: '2024-03-20T10:00:00' },
-    { brandId: 9, brandCode: 'BR009', brandName: 'Lenovo', isActive: false, createdAt: '2024-04-05T15:30:00' },
-    { brandId: 10, brandCode: 'BR010', brandName: 'Asus', isActive: true, createdAt: '2024-04-12T09:45:00' },
-    { brandId: 11, brandCode: 'BR011', brandName: 'Acer', isActive: true, createdAt: '2024-04-20T14:00:00' },
-    { brandId: 12, brandCode: 'BR012', brandName: 'Canon', isActive: false, createdAt: '2024-05-01T11:20:00' },
-    { brandId: 13, brandCode: 'BR013', brandName: 'Nikon', isActive: true, createdAt: '2024-05-10T10:10:00' },
-    { brandId: 14, brandCode: 'BR014', brandName: 'Logitech', isActive: true, createdAt: '2024-05-15T16:40:00' },
-    { brandId: 15, brandCode: 'BR015', brandName: 'Corsair', isActive: true, createdAt: '2024-05-25T08:00:00' },
-];
-
 const ViewBrandList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -101,6 +84,8 @@ const ViewBrandList = () => {
     const [editBrandId, setEditBrandId] = useState(null);
     const [editForm, setEditForm] = useState({ brandCode: '', brandName: '', isActive: true, createdAt: '' });
     const [editSubmitting, setEditSubmitting] = useState(false);
+    const [fetchError, setFetchError] = useState(null);
+    const { toast, showToast, clearToast } = useToast();
 
     // Column management
     const allColumns = [
@@ -220,72 +205,30 @@ const ViewBrandList = () => {
         setPage(0);
     }, []);
 
-    const currentPage = page + 1;
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-    const fetchList = useCallback(() => {
+    const fetchList = useCallback(async () => {
         setLoading(true);
-        // Simulate async mock data fetch
-        setTimeout(() => {
-            let filtered = [...MOCK_BRANDS];
-
-            // Filter by search term
-            if (searchTerm.trim()) {
-                const term = searchTerm.toLowerCase();
-                filtered = filtered.filter(b =>
-                    b.brandCode.toLowerCase().includes(term) ||
-                    b.brandName.toLowerCase().includes(term)
-                );
-            }
-
-            // Filter by status
-            if (filterStatus === 'active') {
-                filtered = filtered.filter(b => b.isActive === true);
-            } else if (filterStatus === 'inactive') {
-                filtered = filtered.filter(b => b.isActive === false);
-            }
-
-            // Filter by date range
-            if (filterDateFrom) {
-                filtered = filtered.filter(b => {
-                    const created = new Date(b.createdAt);
-                    const from = new Date(filterDateFrom);
-                    return created >= from;
-                });
-            }
-            if (filterDateTo) {
-                filtered = filtered.filter(b => {
-                    const created = new Date(b.createdAt);
-                    const to = new Date(filterDateTo);
-                    to.setHours(23, 59, 59, 999);
-                    return created <= to;
-                });
-            }
-
-            // Sort
-            if (orderBy) {
-                filtered.sort((a, b) => {
-                    let aVal = a[orderBy];
-                    let bVal = b[orderBy];
-                    if (orderBy === 'createdAt') {
-                        aVal = new Date(aVal);
-                        bVal = new Date(bVal);
-                    }
-                    if (aVal < bVal) return order === 'asc' ? -1 : 1;
-                    if (aVal > bVal) return order === 'asc' ? 1 : -1;
-                    return 0;
-                });
-            }
-
-            setTotalItems(filtered.length);
-
-            // Paginate
-            const start = page * pageSize;
-            const end = start + pageSize;
-            setRows(filtered.slice(start, end));
+        setFetchError(null);
+        try {
+            const result = await getBrandList({
+                page: page + 1,
+                pageSize,
+                brandName: searchTerm.trim() || undefined,
+                isActive:
+                    filterStatus === 'active' ? true :
+                    filterStatus === 'inactive' ? false : undefined,
+            });
+            setRows(result.items || []);
+            setTotalItems(result.totalItems || 0);
+        } catch (err) {
+            setRows([]);
+            setTotalItems(0);
+            setFetchError(err?.response?.data?.message || err.message || 'Không thể tải danh sách thương hiệu');
+        } finally {
             setLoading(false);
-        }, 400);
-    }, [currentPage, pageSize, searchTerm, filterStatus, filterDateFrom, filterDateTo, orderBy, order]);
+        }
+    }, [page, pageSize, searchTerm, filterStatus]);
 
     useEffect(() => {
         fetchList();
@@ -586,6 +529,31 @@ const ViewBrandList = () => {
                             flexDirection: 'column',
                         }}
                     >
+                        {/* Error Banner */}
+                        {fetchError && (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                    px: 3,
+                                    py: 1.5,
+                                    bgcolor: 'rgba(239, 68, 68, 0.08)',
+                                    borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
+                                }}
+                            >
+                                <AlertCircle size={16} style={{ color: '#ef4444', flexShrink: 0 }} />
+                                <Typography sx={{ fontSize: '13px', color: '#dc2626' }}>{fetchError}</Typography>
+                                <Button
+                                    size="small"
+                                    onClick={() => { setFetchError(null); fetchList(); }}
+                                    sx={{ ml: 'auto', textTransform: 'none', fontSize: '12px', color: '#2563eb' }}
+                                >
+                                    Thử lại
+                                </Button>
+                            </Box>
+                        )}
+
                         {/* Loading State */}
                         {loading ? (
                             <Box
@@ -1353,50 +1321,42 @@ const ViewBrandList = () => {
         </Box>
     );
 
-    function handleAddBrand() {
+    async function handleAddBrand() {
         const name = (addForm.brandName || '').trim();
-        if (!name || name.length < 2) {
-            return;
-        }
+        if (!name || name.length < 2) return;
         setAddSubmitting(true);
-        setTimeout(() => {
-            const newId = Math.max(...MOCK_BRANDS.map(b => b.brandId)) + 1;
-            const newBrand = {
-                brandId: newId,
-                brandCode: `BR${String(newId).padStart(3, '0')}`,
-                brandName: name,
-                isActive: true,
-                createdAt: new Date().toISOString(),
-            };
-            MOCK_BRANDS.unshift(newBrand);
+        try {
+            await createBrand({ brandName: name });
             setAddDialogOpen(false);
             setAddForm({ brandName: '' });
             fetchList();
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không thể tạo thương hiệu';
+            showToast(msg, 'error');
+        } finally {
             setAddSubmitting(false);
-        }, 300);
+        }
     }
 
-    function handleEditBrand() {
+    async function handleEditBrand() {
         const name = (editForm.brandName || '').trim();
-        if (!name || name.length < 2) {
-            return;
-        }
+        if (!name || name.length < 2) return;
         setEditSubmitting(true);
-        setTimeout(() => {
-            const idx = MOCK_BRANDS.findIndex(b => b.brandId === editBrandId);
-            if (idx !== -1) {
-                MOCK_BRANDS[idx] = {
-                    ...MOCK_BRANDS[idx],
-                    brandName: name,
-                    isActive: editForm.isActive,
-                };
-            }
+        try {
+            await updateBrand(editBrandId, {
+                brandName: name,
+                isActive: editForm.isActive,
+            });
             setEditDialogOpen(false);
             setEditForm({ brandCode: '', brandName: '', isActive: true, createdAt: '' });
             setEditBrandId(null);
             fetchList();
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không thể cập nhật thương hiệu';
+            showToast(msg, 'error');
+        } finally {
             setEditSubmitting(false);
-        }, 300);
+        }
     }
 };
 

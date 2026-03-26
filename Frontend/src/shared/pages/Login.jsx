@@ -17,6 +17,7 @@ import Toast from '../../components/Toast/Toast';
 import AuthLayout from '../../components/Layout/AuthLayout';
 import OtpDialog from '../../components/auth/OtpDialog';
 import authService from '../lib/authService';
+import { useAuth } from '../../app/context/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { getPermissionRole, getRawRoleFromUser, isPermissionRoleValid } from '../permissions/roleUtils';
 
@@ -29,6 +30,7 @@ const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { toast, showToast, clearToast } = useToast();
+    const { login, refreshUser } = useAuth();
 
     useEffect(() => {
         if (location.state?.roleError) {
@@ -65,7 +67,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const result = await authService.login(formData.email, formData.password, formData.rememberMe);
+            const result = await login(formData.email, formData.password, formData.rememberMe);
 
             // Check if OTP is required
             if (result.requiresOtp) {

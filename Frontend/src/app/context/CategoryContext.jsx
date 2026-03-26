@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCategoryList } from '../../shared/lib/categoryService';
+import authService from '../../shared/lib/authService';
 
 const CategoryContext = createContext(null);
 
@@ -10,6 +11,7 @@ export function CategoryProvider({ children }) {
 
   const fetchCategories = useCallback(async (force = false) => {
     if (!force && categories.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setLoading(true);
     setError(null);
     try {
@@ -22,7 +24,11 @@ export function CategoryProvider({ children }) {
     }
   }, [categories.length]);
 
-  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      fetchCategories();
+    }
+  }, []);
 
   const value = {
     categories,

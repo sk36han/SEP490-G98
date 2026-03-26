@@ -15,6 +15,7 @@ const authService = {
             if (requiresOtp) {
                 localStorage.setItem('pendingUserId', userId);
                 localStorage.setItem('pendingEmail', identifier);
+                // Do NOT store token here — wait for OTP verification to complete
                 return {
                     requiresOtp: true,
                     userId: userId,
@@ -166,7 +167,15 @@ const authService = {
     },
 
     isAuthenticated() {
+        // If OTP is pending, user is NOT fully authenticated yet — do not allow API calls
+        if (localStorage.getItem('pendingUserId')) {
+            return false;
+        }
         return this.isLoggedIn();
+    },
+
+    isFullyAuthenticated() {
+        return this.isLoggedIn() && !localStorage.getItem('pendingUserId');
     },
 
     isTokenExpired() {

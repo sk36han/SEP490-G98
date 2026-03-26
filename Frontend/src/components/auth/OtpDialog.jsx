@@ -62,9 +62,15 @@ const OtpDialog = ({ open, onClose, onSuccess }) => {
     };
 
     return (
-        <Dialog 
-            open={open} 
-            onClose={onClose}
+        <Dialog
+            open={open}
+            onClose={(e, reason) => {
+                // Chỉ đóng khi được gọi từ nút "Hủy" hoặc verify thành công
+                if (reason !== 'backdropClick' && reason !== 'escapeKeyDown') {
+                    onClose();
+                }
+            }}
+            disableEscapeKeyDown
             maxWidth="xs"
             fullWidth
             PaperProps={{

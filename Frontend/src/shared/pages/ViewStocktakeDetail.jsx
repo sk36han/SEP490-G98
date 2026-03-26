@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
+    CircularProgress,
 } from '@mui/material';
 import {
     ArrowLeft,
@@ -25,12 +26,22 @@ import {
     RotateCcw,
     Printer,
     Send,
+    RefreshCw,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import {
+    getStocktakeDetail,
+    getStocktakeLines,
+    updateCountedQty,
+    bulkMatchSystemQty,
+    submitStocktakeResults,
+    approveStocktakeStep1,
+    cancelStocktakeExecution,
+} from '../lib/stocktakeService';
 import '../styles/CreateSupplier.css';
 
-// Mock items for product selection
+// Mock items for product selection (thay bằng getItemsForDisplay khi cần)
 const MOCK_ITEMS = [
     { id: 1, code: 'ITEM-001', name: 'Vật tư A', uom: 'Cái', image: null, systemQty: 150 },
     { id: 2, code: 'ITEM-002', name: 'Vật tư B', uom: 'Cái', image: null, systemQty: 85 },
@@ -38,45 +49,6 @@ const MOCK_ITEMS = [
     { id: 4, code: 'ITEM-004', name: 'Vật tư D', uom: 'Thùng', image: null, systemQty: 50 },
     { id: 5, code: 'ITEM-005', name: 'Vật tư E', uom: 'Cái', image: null, systemQty: 120 },
 ];
-
-// Mock data for stocktake detail
-const MOCK_STOCKTAKE = {
-    id: 1,
-    code: 'KK-20240315-001',
-    warehouseId: 1,
-    warehouseName: 'Kho HCM',
-    warehouseCode: 'WH-HCM',
-    mode: 'PERIODIC',
-    modeLabel: 'Định kỳ',
-    plannedAt: '2026-04-01T08:00:00',
-    note: 'Kiểm kê định kỳ hàng tháng',
-    creatorName: 'Nguyễn Văn A',
-    status: 'APPROVED',
-    statusLabel: 'Bản nháp',
-    createdAt: '2024-03-15T08:00:00',
-    lines: [
-        { id: 1, itemId: 1, itemName: 'Vật tư A', itemCode: 'ITEM-001', uom: 'Cái', systemQty: 150, countedQty: null, varianceQty: 0 },
-        { id: 2, itemId: 2, itemName: 'Vật tư B', itemCode: 'ITEM-002', uom: 'Cái', systemQty: 85, countedQty: null, varianceQty: 0 },
-        { id: 3, itemId: 3, itemName: 'Vật tư C', itemCode: 'ITEM-003', uom: 'Kg', systemQty: 200, countedQty: null, varianceQty: 0 },
-        { id: 4, itemId: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', systemQty: 50, countedQty: null, varianceQty: 0 },
-        { id: 5, itemId: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', systemQty: 120, countedQty: null, varianceQty: 0 },
-        { id: 6, itemId: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', systemQty: 75, countedQty: null, varianceQty: 0 },
-        { id: 7, itemId: 7, itemName: 'Vật tư G', itemCode: 'ITEM-007', uom: 'Hộp', systemQty: 300, countedQty: null, varianceQty: 0 },
-        { id: 8, itemId: 8, itemName: 'Vật tư H', itemCode: 'ITEM-008', uom: 'Kg', systemQty: 180, countedQty: null, varianceQty: 0 },
-        { id: 9, itemId: 9, itemName: 'Vật tư I', itemCode: 'ITEM-009', uom: 'Cái', systemQty: 95, countedQty: null, varianceQty: 0 },
-        { id: 10, itemId: 10, itemName: 'Vật tư J', itemCode: 'ITEM-010', uom: 'Thùng', systemQty: 45, countedQty: null, varianceQty: 0 },
-        { id: 11, itemId: 11, itemName: 'Vật tư K', itemCode: 'ITEM-011', uom: 'Cái', systemQty: 220, countedQty: null, varianceQty: 0 },
-        { id: 12, itemId: 12, itemName: 'Vật tư L', itemCode: 'ITEM-012', uom: 'Kg', systemQty: 160, countedQty: null, varianceQty: 0 },
-        { id: 13, itemId: 13, itemName: 'Vật tư M', itemCode: 'ITEM-013', uom: 'Hộp', systemQty: 88, countedQty: null, varianceQty: 0 },
-        { id: 14, itemId: 14, itemName: 'Vật tư N', itemCode: 'ITEM-014', uom: 'Cái', systemQty: 112, countedQty: null, varianceQty: 0 },
-        { id: 15, itemId: 15, itemName: 'Vật tư O', itemCode: 'ITEM-015', uom: 'Thùng', systemQty: 60, countedQty: null, varianceQty: 0 },
-        { id: 16, itemId: 16, itemName: 'Vật tư P', itemCode: 'ITEM-016', uom: 'Cái', systemQty: 135, countedQty: null, varianceQty: 0 },
-        { id: 17, itemId: 17, itemName: 'Vật tư Q', itemCode: 'ITEM-017', uom: 'Kg', systemQty: 99, countedQty: null, varianceQty: 0 },
-        { id: 18, itemId: 18, itemName: 'Vật tư R', itemCode: 'ITEM-018', uom: 'Hộp', systemQty: 250, countedQty: null, varianceQty: 0 },
-        { id: 19, itemId: 19, itemName: 'Vật tư S', itemCode: 'ITEM-019', uom: 'Cái', systemQty: 42, countedQty: null, varianceQty: 0 },
-        { id: 20, itemId: 20, itemName: 'Vật tư T', itemCode: 'ITEM-020', uom: 'Thùng', systemQty: 78, countedQty: null, varianceQty: 0 },
-    ]
-};
 
 const STATUS_MAP = {
     'DRAFT': { label: 'Bản nháp', color: '#6b7280', bgColor: 'rgba(107, 114, 128, 0.2)' },
@@ -96,14 +68,18 @@ const ViewStocktakeDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
-    const [loading] = useState(false);
+
+    // ── API data ───────────────────────────────────────────────────────────
+    const [loading, setLoading] = useState(true);
+    const [detailData, setDetailData] = useState(null);
+    const [lines, setLines] = useState([]);
+    const [totalLines, setTotalLines] = useState(0);
+    const [submitting, setSubmitting] = useState(false);
     const [basicEditing, setBasicEditing] = useState(false);
     const [isCounting, setIsCounting] = useState(false);
     const [countingCompleted, setCountingCompleted] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
     const [reportSent, setReportSent] = useState(false);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
-
 
     // Variance filter state
     const [varianceFilter, setVarianceFilter] = useState('all'); // 'all' | 'negative' | 'positive' | 'sufficient'
@@ -111,8 +87,53 @@ const ViewStocktakeDetail = () => {
     const [pendingMarkSufficient, setPendingMarkSufficient] = useState(false); // confirm mode
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
-    // Mock data - trong thực tế sẽ gọi API
-    const [stocktakeData, setStocktakeData] = useState(MOCK_STOCKTAKE);
+    // ── Derive stocktakeData from detail + lines ──────────────────────────
+    const stocktakeData = useMemo(() => {
+        if (!detailData) return null;
+        return {
+            ...detailData,
+            lines,
+            totalLines,
+        };
+    }, [detailData, lines, totalLines]);
+
+    // ── Load header + lines ───────────────────────────────────────────────
+    const fetchData = useCallback(async () => {
+        if (!id) return;
+        setLoading(true);
+        try {
+            const [detail, lineResult] = await Promise.all([
+                getStocktakeDetail(id),
+                getStocktakeLines(id),
+            ]);
+            setDetailData(detail);
+            setLines(lineResult.items ?? []);
+            setTotalLines(lineResult.totalItems ?? 0);
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không tải được chi tiết phiếu kiểm kê.';
+            showToast(msg, 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, [id, showToast]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // Reload lines after any count action
+    const reloadLines = useCallback(async () => {
+        try {
+            const lineResult = await getStocktakeLines(id);
+            setLines(lineResult.items ?? []);
+            setTotalLines(lineResult.totalItems ?? 0);
+            // Also refresh header for updated progress
+            const detail = await getStocktakeDetail(id);
+            setDetailData(detail);
+        } catch {
+            // silent reload
+        }
+    }, [id]);
 
     const isValidImageUrl = (url) => {
         if (!url || typeof url !== 'string') return false;
@@ -133,11 +154,11 @@ const ViewStocktakeDetail = () => {
         setIsCounting(true);
     };
 
-    const stopCounting = () => {
-        setStocktakeData(MOCK_STOCKTAKE);
+    const stopCounting = async () => {
         setIsCounting(false);
         setSelectedLineIds([]);
         setPendingMarkSufficient(false);
+        await reloadLines();
     };
 
     const toggleLineSelection = (lineId) => {
@@ -161,16 +182,16 @@ const ViewStocktakeDetail = () => {
         setPendingMarkSufficient(true);
     };
 
-    const confirmMarkSufficient = () => {
-        setStocktakeData(prev => ({
-            ...prev,
-            lines: prev.lines.map(line => {
-                if (!selectedLineIds.includes(line.id)) return line;
-                return { ...line, countedQty: line.systemQty, varianceQty: 0 };
-            })
-        }));
-        setSelectedLineIds([]);
-        setPendingMarkSufficient(false);
+    const confirmMarkSufficient = async () => {
+        try {
+            await bulkMatchSystemQty(id);
+            await reloadLines();
+            setSelectedLineIds([]);
+            setPendingMarkSufficient(false);
+            showToast('Đã khớp số lượng hàng loạt!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi khớp số lượng.', 'error');
+        }
     };
 
     const cancelMarkSufficient = () => {
@@ -179,21 +200,21 @@ const ViewStocktakeDetail = () => {
 
     // Update line data by line id
     const updateLine = (lineId, field, value) => {
-        setStocktakeData(prev => {
-            const newLines = prev.lines.map(line => {
-                if (line.id !== lineId) return line;
+        setLines(prevLines => {
+            const newLines = prevLines.map(line => {
+                if (line.stocktakeLineId !== lineId && line.id !== lineId) return line;
                 const updated = { ...line, [field]: value };
 
-                // Auto calculate variance
-                if (field === 'systemQty' || field === 'countedQty') {
-                    const sysQty = parseFloat(updated.systemQty) || 0;
-                    const cntQty = parseFloat(updated.countedQty) || 0;
+                // Auto calculate variance locally
+                if (field === 'countedQty') {
+                    const sysQty = parseFloat(updated.systemQtySnapshot) || 0;
+                    const cntQty = parseFloat(value) || 0;
                     updated.varianceQty = cntQty - sysQty;
                 }
 
                 return updated;
             });
-            return { ...prev, lines: newLines };
+            return newLines;
         });
     };
 

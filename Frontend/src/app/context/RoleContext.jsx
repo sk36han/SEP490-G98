@@ -5,7 +5,12 @@ import { getPermissionRole, getRawRoleFromUser } from '../../shared/permissions/
 const RoleContext = createContext(null);
 
 export function RoleProvider({ children }) {
-  const { user } = useAuth();
+  let user = null;
+  try {
+    ({ user } = useAuth());
+  } catch {
+    // AuthProvider not yet mounted (e.g., during HMR)
+  }
 
   const permissions = useMemo(() => {
     if (!user) return null;

@@ -2,10 +2,11 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { getCategoryList } from '../../shared/lib/categoryService';
 import { getSuppliers } from '../../shared/lib/supplierService';
 import { getWarehouses } from '../../shared/lib/warehouseService';
-import { getBrands } from '../../shared/lib/brandService';
-import { getUoms } from '../../shared/lib/uomService';
-import { getUsers } from '../../shared/lib/userService';
+import { getBrandList } from '../../shared/lib/brandService';
+import { getUomList } from '../../shared/lib/uomService';
+import { getAccountants } from '../../shared/lib/userService';
 import { getReceivers } from '../../shared/lib/receiverService';
+import authService from '../../shared/lib/authService';
 
 const MasterDataContext = createContext(null);
 
@@ -45,9 +46,9 @@ export function MasterDataProvider({ children }) {
   const [receiversLoading, setReceiversLoading] = useState(false);
   const [receiversError, setReceiversError] = useState(null);
 
-  // Fetch functions
   const fetchCategories = useCallback(async (force = false) => {
     if (!force && categories.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setCategoriesLoading(true);
     setCategoriesError(null);
     try {
@@ -62,6 +63,7 @@ export function MasterDataProvider({ children }) {
 
   const fetchSuppliers = useCallback(async (force = false) => {
     if (!force && suppliers.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setSuppliersLoading(true);
     setSuppliersError(null);
     try {
@@ -76,6 +78,7 @@ export function MasterDataProvider({ children }) {
 
   const fetchWarehouses = useCallback(async (force = false) => {
     if (!force && warehouses.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setWarehousesLoading(true);
     setWarehousesError(null);
     try {
@@ -90,10 +93,11 @@ export function MasterDataProvider({ children }) {
 
   const fetchBrands = useCallback(async (force = false) => {
     if (!force && brands.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setBrandsLoading(true);
     setBrandsError(null);
     try {
-      const result = await getBrands({ page: 1, pageSize: 100 });
+      const result = await getBrandList({ page: 1, pageSize: 100 });
       setBrands(result.items || []);
     } catch (err) {
       setBrandsError(err.message);
@@ -104,10 +108,11 @@ export function MasterDataProvider({ children }) {
 
   const fetchUoms = useCallback(async (force = false) => {
     if (!force && uoms.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setUomsLoading(true);
     setUomsError(null);
     try {
-      const result = await getUoms({ page: 1, pageSize: 100 });
+      const result = await getUomList({ page: 1, pageSize: 100 });
       setUoms(result.items || []);
     } catch (err) {
       setUomsError(err.message);
@@ -118,11 +123,12 @@ export function MasterDataProvider({ children }) {
 
   const fetchUsers = useCallback(async (force = false) => {
     if (!force && users.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const result = await getUsers();
-      setUsers(result.items || []);
+      const result = await getAccountants();
+      setUsers(Array.isArray(result) ? result : []);
     } catch (err) {
       setUsersError(err.message);
     } finally {
@@ -132,6 +138,7 @@ export function MasterDataProvider({ children }) {
 
   const fetchReceivers = useCallback(async (force = false) => {
     if (!force && receivers.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setReceiversLoading(true);
     setReceiversError(null);
     try {
@@ -144,15 +151,17 @@ export function MasterDataProvider({ children }) {
     }
   }, [receivers.length]);
 
-  // Initial load
+  // Initial load - only fetch when user is authenticated (token + no OTP pending)
   useEffect(() => {
-    fetchCategories();
-    fetchSuppliers();
-    fetchWarehouses();
-    fetchBrands();
-    fetchUoms();
-    fetchUsers();
-    fetchReceivers();
+    if (authService.isAuthenticated()) {
+      fetchCategories();
+      fetchSuppliers();
+      fetchWarehouses();
+      fetchBrands();
+      fetchUoms();
+      fetchUsers();
+      fetchReceivers();
+    }
   }, []);
 
   const refreshAll = useCallback(() => {
@@ -166,42 +175,13 @@ export function MasterDataProvider({ children }) {
   }, [fetchCategories, fetchSuppliers, fetchWarehouses, fetchBrands, fetchUoms, fetchUsers, fetchReceivers]);
 
   const value = {
-    // Categories
-    categories,
-    categoriesLoading,
-    categoriesError,
-    fetchCategories,
-    // Suppliers
-    suppliers,
-    suppliersLoading,
-    suppliersError,
-    fetchSuppliers,
-    // Warehouses
-    warehouses,
-    warehousesLoading,
-    warehousesError,
-    fetchWarehouses,
-    // Brands
-    brands,
-    brandsLoading,
-    brandsError,
-    fetchBrands,
-    // UOMs
-    uoms,
-    uomsLoading,
-    uomsError,
-    fetchUoms,
-    // Users
-    users,
-    usersLoading,
-    usersError,
-    fetchUsers,
-    // Receivers
-    receivers,
-    receiversLoading,
-    receiversError,
-    fetchReceivers,
-    // Refresh all
+    categories, categoriesLoading, categoriesError, fetchCategories,
+    suppliers, suppliersLoading, suppliersError, fetchSuppliers,
+    warehouses, warehousesLoading, warehousesError, fetchWarehouses,
+    brands, brandsLoading, brandsError, fetchBrands,
+    uoms, uomsLoading, uomsError, fetchUoms,
+    users, usersLoading, usersError, fetchUsers,
+    receivers, receiversLoading, receiversError, fetchReceivers,
     refreshAll,
   };
 
@@ -214,13 +194,10 @@ export function MasterDataProvider({ children }) {
 
 export function useMasterData() {
   const context = useContext(MasterDataContext);
-  if (!context) {
-    throw new Error('useMasterData must be used within a MasterDataProvider');
-  }
+  if (!context) throw new Error('useMasterData must be used within a MasterDataProvider');
   return context;
 }
 
-// Re-export individual hooks for backward compatibility
 export function useCategories() {
   const { categories, categoriesLoading, categoriesError, fetchCategories } = useMasterData();
   return { categories, loading: categoriesLoading, error: categoriesError, fetchCategories };

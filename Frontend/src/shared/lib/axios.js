@@ -41,8 +41,9 @@ apiClient.interceptors.response.use(
             localStorage.removeItem('user');
             localStorage.removeItem('userInfo');
 
-            // Redirect to login if not already there
-            if (window.location.pathname !== '/login') {
+            // Do NOT redirect if OTP is pending (user is in the middle of verification)
+            const isOtpPending = localStorage.getItem('pendingUserId');
+            if (!isOtpPending && window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }
         }

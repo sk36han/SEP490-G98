@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getWarehouseList } from '../../shared/lib/warehouseService';
+import authService from '../../shared/lib/authService';
 
 const WarehouseContext = createContext(null);
 
@@ -10,6 +11,7 @@ export function WarehouseProvider({ children }) {
 
   const fetchWarehouses = useCallback(async (force = false) => {
     if (!force && warehouses.length > 0) return;
+    if (!authService.isAuthenticated()) return;
     setLoading(true);
     setError(null);
     try {
@@ -22,7 +24,11 @@ export function WarehouseProvider({ children }) {
     }
   }, [warehouses.length]);
 
-  useEffect(() => { fetchWarehouses(); }, []);
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      fetchWarehouses();
+    }
+  }, []);
 
   const value = {
     warehouses,

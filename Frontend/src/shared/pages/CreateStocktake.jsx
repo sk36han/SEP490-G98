@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -16,23 +16,12 @@ import {
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
+import { getWarehouseList } from '../lib/warehouseService';
+import { getItemsForDisplay } from '../lib/itemService';
+import { createStocktakeDraft } from '../lib/stocktakeService';
 import '../styles/CreateSupplier.css';
 
-// Mock data for warehouses
-const MOCK_WAREHOUSES = [
-    { id: 1, code: 'WH-HCM', name: 'Kho HCM' },
-    { id: 2, code: 'WH-HN', name: 'Kho Hà Nội' },
-    { id: 3, code: 'WH-DN', name: 'Kho Đà Nẵng' },
-];
-
-// Mock data for items
-const MOCK_ITEMS = [
-    { id: 1, code: 'ITEM-001', name: 'Vật tư A', uom: 'Cái', image: null, systemQty: 150 },
-    { id: 2, code: 'ITEM-002', name: 'Vật tư B', uom: 'Cái', image: null, systemQty: 85 },
-    { id: 3, code: 'ITEM-003', name: 'Vật tư C', uom: 'Kg', image: null, systemQty: 200 },
-    { id: 4, code: 'ITEM-004', name: 'Vật tư D', uom: 'Thùng', image: null, systemQty: 50 },
-    { id: 5, code: 'ITEM-005', name: 'Vật tư E', uom: 'Cái', image: null, systemQty: 120 },
-];
+// Warehouse list — loaded from API
 
 const MODE_OPTIONS = [
     { value: 'PERIODIC', label: 'Định kỳ' },
@@ -46,6 +35,24 @@ const CreateStocktake = () => {
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
     const currentUser = authService.getUser();
+
+    // ── API data: warehouses + items ──────────────────────────────────────
+    const [warehouses, setWarehouses] = useState([]);
+    const [items, setItems] = useState([]);
+    const [loadingWarehouses, setLoadingWarehouses] = useState(true);
+    const [loadingItems, setLoadingItems] = useState(true);
+
+    useEffect(() => {
+        getWarehouseList({ pageSize: 100 })
+            .then((res) => setWarehouses(res.items ?? []))
+            .catch(() => showToast('Không tải được danh sách kho.', 'error'))
+            .finally(() => setLoadingWarehouses(false));
+
+        getItemsForDisplay()
+            .then((list) => setItems(list))
+            .catch(() => showToast('Không tải được danh sách vật tư.', 'error'))
+            .finally(() => setLoadingItems(false));
+    }, [showToast]);
 
     // Form data
     const [formData, setFormData] = useState({
@@ -64,8 +71,6 @@ const CreateStocktake = () => {
     // Product search
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
-    const [products] = useState(MOCK_ITEMS);
-    const [filteredProducts, setFilteredProducts] = useState(MOCK_ITEMS);
     const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     // Dropdown states
@@ -78,11 +83,21 @@ const CreateStocktake = () => {
     // Filtered data
     const filteredWarehouses = useMemo(() => {
         const q = warehouseQuery.trim().toLowerCase();
-        if (!q) return MOCK_WAREHOUSES;
-        return MOCK_WAREHOUSES.filter(w =>
-            w.name.toLowerCase().includes(q) || w.code.toLowerCase().includes(q)
+        if (!q) return warehouses;
+        return warehouses.filter(w =>
+            (w.warehouseName ?? '').toLowerCase().includes(q) ||
+            (w.warehouseCode ?? '').toLowerCase().includes(q)
         );
-    }, [warehouseQuery]);
+    }, [warehouses, warehouseQuery]);
+
+    const filteredProducts = useMemo(() => {
+        const q = searchKeyword.trim().toLowerCase();
+        if (!q) return items;
+        return items.filter(p =>
+            (p.itemName ?? '').toLowerCase().includes(q) ||
+            (p.itemCode ?? '').toLowerCase().includes(q)
+        );
+    }, [items, searchKeyword]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -99,8 +114,8 @@ const CreateStocktake = () => {
     const handleWarehouseSelect = (warehouse) => {
         setFormData(prev => ({
             ...prev,
-            warehouseId: warehouse.id,
-            warehouseName: warehouse.name,
+            warehouseId: warehouse.warehouseId,
+            warehouseName: warehouse.warehouseName,
         }));
         setWarehouseQuery('');
         setWarehouseDropdownOpen(false);
@@ -109,21 +124,21 @@ const CreateStocktake = () => {
         }
 
         // Auto-import all items from the selected warehouse
-        const newLines = products.map(product => ({
+        const newLines = items.map(item => ({
             id: Date.now() + Math.random(),
-            itemId: product.id,
-            itemName: product.name,
-            itemCode: product.code,
-            itemImage: product.image,
-            uom: product.uom,
-            systemQty: product.systemQty || 0,
+            itemId: item.itemId,
+            itemName: item.itemName,
+            itemCode: item.itemCode,
+            itemImage: item.itemImage ?? null,
+            uom: item.baseUomName ?? '-',
+            systemQty: item.onHandQty ?? 0,
             countedQty: '',
             variance: '',
             note: ''
         }));
 
         setLines(newLines);
-        showToast(`Đã tự động thêm ${newLines.length} vật tư từ kho ${warehouse.name}`, 'success');
+        showToast(`Đã tự động thêm ${newLines.length} vật tư từ kho ${warehouse.warehouseName}`, 'success');
     };
 
     const handleModeSelect = (mode) => {
@@ -142,7 +157,6 @@ const CreateStocktake = () => {
     const openProductSearch = () => {
         setShowProductSearch(true);
         setSearchKeyword('');
-        setFilteredProducts(products);
     };
 
     const closeProductSearch = () => {
@@ -151,19 +165,7 @@ const CreateStocktake = () => {
     };
 
     const handleSearchChange = (e) => {
-        const keyword = e.target.value;
-        setSearchKeyword(keyword);
-
-        if (keyword.trim() === '') {
-            setFilteredProducts(products);
-            return;
-        }
-
-        const filtered = products.filter(product =>
-            (product.name || '').toLowerCase().includes(keyword.toLowerCase()) ||
-            (product.code || '').toLowerCase().includes(keyword.toLowerCase())
-        );
-        setFilteredProducts(filtered);
+        setSearchKeyword(e.target.value);
     };
 
     // Checkbox selection for products
@@ -259,23 +261,17 @@ const CreateStocktake = () => {
                 mode: formData.mode,
                 plannedAt: formData.plannedAt,
                 note: formData.note || null,
-                lines: lines.map(line => ({
-                    itemId: line.itemId,
-                    systemQtySnapshot: parseFloat(line.systemQty) || 0,
-                    countedQty: line.countedQty ? parseFloat(line.countedQty) : null,
-                    varianceQty: line.varianceQty || 0,
-                    note: line.note || null,
-                })),
             };
 
-            console.log('Creating stocktake (draft):', payload);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
+            await createStocktakeDraft(payload);
             showToast('Tạo phiếu kiểm kê thành công!', 'success');
             setTimeout(() => navigate('/inventory/stocktakes'), 1500);
         } catch (error) {
-            console.error('Error:', error);
-            showToast('Có lỗi xảy ra khi tạo phiếu kiểm kê', 'error');
+            const msg =
+                error?.response?.data?.message ||
+                error?.message ||
+                'Có lỗi xảy ra khi tạo phiếu kiểm kê';
+            showToast(msg, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -293,28 +289,25 @@ const CreateStocktake = () => {
             setSubmitting(true);
 
             const payload = {
-                warehouseId: formData.warehouseId,
-                mode: formData.mode,
+                warehouseId: Number(formData.warehouseId),
                 plannedAt: formData.plannedAt,
+                mode: formData.mode,
                 note: formData.note || null,
-                status: 'PENDING_APPROVAL',
-                lines: lines.map(line => ({
+                lineItems: lines.map((line) => ({
                     itemId: line.itemId,
-                    systemQtySnapshot: parseFloat(line.systemQty) || 0,
-                    countedQty: line.countedQty ? parseFloat(line.countedQty) : null,
-                    varianceQty: line.varianceQty || 0,
-                    note: line.note || null,
+                    warehouseId: Number(formData.warehouseId),
                 })),
             };
 
-            console.log('Creating stocktake (for approval):', payload);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            showToast('Tạo phiếu kiểm kê thành công!', 'success');
+            const created = await createStocktakeDraft(payload);
+            showToast('Tạo và gửi duyệt phiếu kiểm kê thành công!', 'success');
             setTimeout(() => navigate('/inventory/stocktakes'), 1500);
         } catch (error) {
-            console.error('Error:', error);
-            showToast('Có lỗi xảy ra khi tạo phiếu kiểm kê', 'error');
+            const msg =
+                error?.response?.data?.message ||
+                error?.message ||
+                'Có lỗi xảy ra khi tạo phiếu kiểm kê';
+            showToast(msg, 'error');
         } finally {
             setSubmitting(false);
         }
