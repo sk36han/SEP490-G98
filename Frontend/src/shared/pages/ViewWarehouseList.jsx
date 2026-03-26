@@ -27,6 +27,8 @@ import { Plus, Columns, GripVertical, Warehouse as WarehouseIcon } from 'lucide-
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import { getWarehouses } from '../lib/warehouseService';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/ListView.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -122,6 +124,10 @@ const ViewWarehouseList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+
+    // Permission: Director and Accountant can create warehouses
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'ACCOUNTANTS';
 
     // State
     const [loading, setLoading] = useState(true);
@@ -428,28 +434,30 @@ const ViewWarehouseList = () => {
                                 ml: isMobile ? 0 : 'auto',
                             }}
                         >
-                            <Button
-                                className="list-page-btn"
-                                variant="contained"
-                                startIcon={<Plus size={18} />}
-                                onClick={() => navigate('/inventory/create')}
-                                sx={{
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    textTransform: 'none',
-                                    borderRadius: 10,
-                                    minHeight: 38,
-                                    px: 2.5,
-                                    bgcolor: '#0284c7',
-                                    boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
-                                    '&:hover': {
-                                        bgcolor: '#0369a1',
-                                        boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
-                                    },
-                                }}
-                            >
-                                Tạo kho
-                            </Button>
+                            {canCreate && (
+                                <Button
+                                    className="list-page-btn"
+                                    variant="contained"
+                                    startIcon={<Plus size={18} />}
+                                    onClick={() => navigate('/inventory/create')}
+                                    sx={{
+                                        fontSize: 13,
+                                        fontWeight: 500,
+                                        textTransform: 'none',
+                                        borderRadius: 10,
+                                        minHeight: 38,
+                                        px: 2.5,
+                                        bgcolor: '#0284c7',
+                                        boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                        '&:hover': {
+                                            bgcolor: '#0369a1',
+                                            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                        },
+                                    }}
+                                >
+                                    Tạo kho
+                                </Button>
+                            )}
                         </Box>
                     </Box>
 

@@ -43,6 +43,17 @@ const directorItems = [
     { path: '/suppliers', icon: <Truck size={22} />, label: 'Nhà cung cấp' },
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
     {
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: <Warehouse size={22} />,
+        label: 'Quản lý kho',
+        children: [
+            { path: '/inventory', label: 'Danh sách kho' },
+            { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
+            { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
+        ],
+    },
+    {
         id: 'reports-mgmt',
         path: '/reports',
         icon: <BarChart3 size={22} />,
@@ -234,6 +245,17 @@ const accountantItems = [
         ],
     },
     {
+        id: 'inventory-mgmt',
+        path: '/inventory',
+        icon: <Warehouse size={22} />,
+        label: 'Quản lý kho',
+        children: [
+            { path: '/inventory', label: 'Danh sách kho' },
+            { path: '/inventory/stocktakes', label: 'Kiểm kê kho' },
+            { path: '/inventory/adjustments', label: 'Điều chỉnh tồn kho' },
+        ],
+    },
+    {
         id: 'suppliers-mgmt',
         path: '/suppliers',
         icon: <Truck size={22} />,
@@ -287,6 +309,16 @@ const accountantItems = [
             { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
         ],
     },
+    { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Giá vật tư' },
+    {
+        id: 'policy-mgmt',
+        icon: <Bell size={22} />,
+        label: 'Chính sách',
+        children: [
+            { path: '/mockup/inventory-alert', label: 'Chính sách tồn kho' },
+            { path: '/mockup/sales-target', label: 'Chính sách tài chính' },
+        ],
+    },
     {
         id: 'reports-mgmt',
         path: '/reports',
@@ -296,9 +328,6 @@ const accountantItems = [
             { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
         ],
     },
-    { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Quản lý giá sản phẩm' },
-    { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Chính sách tồn kho' },
-    { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Chính sách tài chính' },
 ];
 
 export const getMenuItems = (role) => {

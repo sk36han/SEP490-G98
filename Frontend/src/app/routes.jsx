@@ -338,7 +338,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/adjustments"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewInventoryAdjustmentList />
                     </MainLayout>
@@ -358,7 +358,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/adjustments/:id"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewInventoryAdjustmentDetail />
                     </MainLayout>
@@ -368,7 +368,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/stocktakes/create"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateStocktake />
                     </MainLayout>
@@ -378,7 +378,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/stocktakes/:id"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewStocktakeDetail />
                     </MainLayout>
@@ -388,7 +388,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/stocktakes/report/:id"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <StocktakeReport />
                     </MainLayout>
@@ -398,7 +398,7 @@ const AppRoutes = () => (
         <Route
             path="/inventory/stocktakes"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewStocktakeList />
                     </MainLayout>

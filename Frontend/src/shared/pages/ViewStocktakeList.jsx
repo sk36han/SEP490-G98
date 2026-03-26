@@ -220,7 +220,8 @@ const ViewStocktakeList = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    const canCreate = permissionRole === 'WAREHOUSE_KEEPER';
+    // Permission: Director and Accountant can create stocktakes
+    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'ACCOUNTANTS';
 
     // Data state
     const [list, setList] = useState([]);
