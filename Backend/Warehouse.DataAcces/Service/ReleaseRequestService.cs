@@ -102,7 +102,7 @@ namespace Warehouse.DataAcces.Service
                 RequestedDate = DateOnly.FromDateTime(now),
                 ExpectedDate = request.ExpectedDate,
                 Purpose = request.Purpose,
-                Status = "DRAFT",
+                Status = request.Status ?? "PENDING_ACC",
                 LifecycleStatus = "IssuePending",
                 CreatedAt = now,
                 SubmittedAt = now
@@ -470,6 +470,11 @@ namespace Warehouse.DataAcces.Service
 
             return await GetReleaseRequestByIdAsync(id)
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
+        }
+
+        public Task<bool> CancelReleaseRequestAsync(long id)
+        {
+            throw new NotImplementedException();
         }
 
         // ──────────────────────────── HELPERS ────────────────────────────
