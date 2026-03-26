@@ -51,8 +51,8 @@ const directorItems = [
             { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
         ],
     },
-    { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Cảnh báo tồn kho' },
-    { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Cảnh báo tài chính' },
+    { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Chính sách tồn kho' },
+    { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Chính sách tài chính' },
     { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Quản lý giá sản phẩm' },
 ];
 
@@ -297,6 +297,8 @@ const accountantItems = [
         ],
     },
     { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Quản lý giá sản phẩm' },
+    { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Chính sách tồn kho' },
+    { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Chính sách tài chính' },
 ];
 
 export const getMenuItems = (role) => {

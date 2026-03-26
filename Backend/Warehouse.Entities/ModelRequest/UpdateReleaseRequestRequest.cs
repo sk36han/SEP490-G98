@@ -14,10 +14,19 @@ namespace Warehouse.Entities.ModelRequest
         /// </summary>
         public long? WarehouseId { get; set; }
 
-        /// <summary>
         /// Người nhận (nếu muốn đổi người nhận)
         /// </summary>
         public long? ReceiverId { get; set; }
+
+        /// <summary>
+        /// ID Công ty (Cập nhật cho Người nhận)
+        /// </summary>
+        public long? CompanyId { get; set; }
+
+        /// <summary>
+        /// ID Địa chỉ (Từ bảng Addresses)
+        /// </summary>
+        public long? AddressId { get; set; }
 
         /// <summary>
         /// Ngày xuất dự kiến
