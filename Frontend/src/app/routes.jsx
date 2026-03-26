@@ -48,6 +48,7 @@ import ViewSpecList from '../shared/pages/ViewSpecList';
 import ViewBrandList from '../shared/pages/ViewBrandList';
 import ViewUomList from '../shared/pages/ViewUomList';
 import ViewReleaseRequestList from '../shared/pages/ViewReleaseRequestList';
+import ViewGoodDeliveryNoteList from '../shared/pages/ViewGoodDeliveryNoteList';
 import CreateReleaseRequest from '../shared/pages/CreateReleaseRequest';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
@@ -460,7 +461,7 @@ const AppRoutes = () => (
         <Route
             path="/good-delivery-notes"
             element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewReleaseRequestList />
                     </MainLayout>
@@ -473,6 +474,26 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
                     <MainLayout>
                         <CreateReleaseRequest />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/goods-delivery-notes"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewGoodDeliveryNoteList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/goods-delivery-notes/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
+                    <MainLayout>
+                        <ViewGoodDeliveryNoteList />
                     </MainLayout>
                 </ProtectedRoute>
             }

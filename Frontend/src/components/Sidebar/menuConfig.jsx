@@ -143,6 +143,15 @@ const warehouseKeeperItems = [
             { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
+    {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+        ],
+    },
 ];
 
 const saleSupportItems = [
@@ -200,6 +209,15 @@ const saleSupportItems = [
             { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
+    {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+        ],
+    },
 ];
 
 const saleEngineerItems = [
@@ -224,6 +242,15 @@ const saleEngineerItems = [
         children: [
             { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
             { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
+        ],
+    },
+    {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
         ],
     },
 ];
@@ -307,6 +334,15 @@ const accountantItems = [
         label: 'Yêu cầu xuất hàng',
         children: [
             { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
+        ],
+    },
+    {
+        id: 'goods-delivery-notes-mgmt',
+        path: '/goods-delivery-notes',
+        icon: <FileText size={22} />,
+        label: 'Phiếu xuất hàng',
+        children: [
+            { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
         ],
     },
     { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Giá vật tư' },

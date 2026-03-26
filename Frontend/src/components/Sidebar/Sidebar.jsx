@@ -90,6 +90,12 @@ const getExtraMatchPaths = (item) => {
             '/inventory/stocktakes/report/:id',
         ];
     }
+    if (item.id === 'good-delivery-notes-mgmt') {
+        return ['/good-delivery-notes', '/good-delivery-notes/create', '/goods-delivery-notes', '/goods-delivery-notes/create'];
+    }
+    if (item.id === 'goods-delivery-notes-mgmt') {
+        return ['/goods-delivery-notes', '/goods-delivery-notes/create'];
+    }
     return [];
 };
 
