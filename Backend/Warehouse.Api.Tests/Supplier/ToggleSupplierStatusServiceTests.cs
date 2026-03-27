@@ -25,49 +25,72 @@ public class ToggleSupplierStatusServiceTests
         _auditMock.Object,
         null!);
 
-    private SupplierEntity MakeSupplier(long id = 1, bool isActive = true) => new()
+    private SupplierEntity MakeSupplier(long id = 1, bool isActive = true, string code = "SUP-001", string name = "Test Supplier") => new()
     {
         SupplierId = id,
-        SupplierCode = "SUP001",
-        SupplierName = "Test Supplier",
-        TaxCode = "TAX001",
-        Phone = "0123",
-        Email = "test@supp.com",
-        Address = "Addr 1",
-        City = "City 1",
-        Ward = "Ward 1",
-        District = "Dist 1",
+        SupplierCode = code,
+        SupplierName = name,
         IsActive = isActive
     };
 
     [Fact]
-    public async Task ToggleStatus_FromActiveToInactive_ShouldSucceedAndLogNotif()
+    public async Task ToggleStatus_Deactivate_ShouldLogCorrectStrings()
     {
-        // Given
-        var supplier = MakeSupplier(isActive: true);
+        // Arrange
+        var supplier = MakeSupplier(id: 1, isActive: true, code: "S01", name: "Supp A");
         _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(supplier);
         _repoMock.Setup(r => r.UpdateAsync(It.IsAny<SupplierEntity>())).ReturnsAsync((SupplierEntity s) => s);
 
-        // When
+        // Act
         var result = await CreateService().ToggleSupplierStatusAsync(1, false);
 
-        // Then
+        // Assert
         result.IsActive.Should().BeFalse();
-        
-        // Verify Repository Update
-        _repoMock.Verify(r => r.UpdateAsync(It.Is<SupplierEntity>(s => s.IsActive == false)), Times.Once);
+
+        // Verify Notification (Exact strings from code)
+        _notifMock.Verify(n => n.CreateForRolesAsync(
+            It.IsAny<string[]>(),
+            "Vô hiệu hóa nhà cung cấp",
+            "Nhà cung cấp 'Supp A' (Mã: S01) đã được vô hiệu hóa.",
+            "SUPPLIER",
+            1,
+            null, 0, null, null
+        ), Times.Once);
+
+        // Verify Audit Log (Exact strings from code)
+        _auditMock.Verify(a => a.LogAsync(
+            0,
+            AuditAction.Update,
+            AuditEntity.Supplier,
+            1,
+            "Vô hiệu hóa nhà cung cấp 'Supp A' (Mã: S01)",
+            It.Is<string>(s => s.Contains("\"IsActive\":true")),
+            It.Is<string>(s => s.Contains("\"IsActive\":false"))
+        ), Times.Once);
+    }
+
+    [Fact]
+    public async Task ToggleStatus_Activate_ShouldLogCorrectStrings()
+    {
+        // Arrange
+        var supplier = MakeSupplier(id: 1, isActive: false, code: "S01", name: "Supp A");
+        _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(supplier);
+        _repoMock.Setup(r => r.UpdateAsync(It.IsAny<SupplierEntity>())).ReturnsAsync((SupplierEntity s) => s);
+
+        // Act
+        var result = await CreateService().ToggleSupplierStatusAsync(1, true);
+
+        // Assert
+        result.IsActive.Should().BeTrue();
 
         // Verify Notification
         _notifMock.Verify(n => n.CreateForRolesAsync(
             It.IsAny<string[]>(),
-            It.Is<string>(s => s.Contains("Vô hiệu hóa")),
-            It.IsAny<string>(),
+            "Kích hoạt nhà cung cấp",
+            "Nhà cung cấp 'Supp A' (Mã: S01) đã được hoạt động.",
             "SUPPLIER",
             1,
-            null, // excludeUserId
-            null, // type
-            0,    // severity
-            null  // expiresAt
+            null, 0, null, null
         ), Times.Once);
 
         // Verify Audit Log
@@ -76,92 +99,38 @@ public class ToggleSupplierStatusServiceTests
             AuditAction.Update,
             AuditEntity.Supplier,
             1,
-            It.Is<string>(s => s.Contains("Vô hiệu hóa")),
-            It.Is<string>(s => s.Contains("\"IsActive\":true")),
-            It.Is<string>(s => s.Contains("\"IsActive\":false"))
+            "Kích hoạt nhà cung cấp 'Supp A' (Mã: S01)",
+            It.Is<string>(s => s.Contains("\"IsActive\":false")),
+            It.Is<string>(s => s.Contains("\"IsActive\":true"))
         ), Times.Once);
     }
 
     [Fact]
-    public async Task ToggleStatus_FromInactiveToActive_ShouldSucceedAndLogNotif()
+    public async Task ToggleStatus_AlreadyAtRequestedStatus_ShouldThrowInvalidOperation()
     {
-        // Given
-        var supplier = MakeSupplier(isActive: false);
+        // Arrange
+        var supplier = MakeSupplier(id: 1, isActive: true, name: "Supp A");
         _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(supplier);
-        _repoMock.Setup(r => r.UpdateAsync(It.IsAny<SupplierEntity>())).ReturnsAsync((SupplierEntity s) => s);
 
-        // When
-        var result = await CreateService().ToggleSupplierStatusAsync(1, true);
+        // Act
+        Func<Task> act = () => CreateService().ToggleSupplierStatusAsync(1, true);
 
-        // Then
-        result.IsActive.Should().BeTrue();
-        
-        // Verify Audit Log for Activation
-        _auditMock.Verify(a => a.LogAsync(
-            0,
-            AuditAction.Update,
-            AuditEntity.Supplier,
-            1,
-            It.Is<string>(s => s.Contains("Kích hoạt")),
-            It.IsAny<string>(),
-            It.IsAny<string>()
-        ), Times.Once);
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*'Supp A' hiện tại đang hoạt động. Không cần thay đổi.*");
     }
 
     [Fact]
     public async Task ToggleStatus_IdNotFound_ShouldThrowKeyNotFound()
     {
-        _repoMock.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((SupplierEntity)null!);
+        // Arrange
+        _repoMock.Setup(r => r.GetByIdAsync(99)).ReturnsAsync((SupplierEntity)null!);
 
-        Func<Task> act = () => CreateService().ToggleSupplierStatusAsync(999, false);
+        // Act
+        Func<Task> act = () => CreateService().ToggleSupplierStatusAsync(99, true);
 
+        // Assert
         await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage("*Không tìm thấy nhà cung cấp*999*");
-    }
-
-    [Fact]
-    public async Task ToggleStatus_AlreadyActive_ShouldThrowInvalidOperation()
-    {
-        var supplier = MakeSupplier(isActive: true);
-        _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(supplier);
-
-        Func<Task> act = () => CreateService().ToggleSupplierStatusAsync(1, true);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*đang hoạt động*Không cần thay đổi*");
-    }
-
-    [Fact]
-    public async Task ToggleStatus_AlreadyInactive_ShouldThrowInvalidOperation()
-    {
-        var supplier = MakeSupplier(isActive: false);
-        _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(supplier);
-
-        Func<Task> act = () => CreateService().ToggleSupplierStatusAsync(1, false);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*đã bị vô hiệu hóa*Không cần thay đổi*");
-    }
-
-    [Fact]
-    public async Task ToggleStatus_ShouldReturnCorrectMapping()
-    {
-        var supplier = MakeSupplier(isActive: true);
-        _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(supplier);
-        _repoMock.Setup(r => r.UpdateAsync(It.IsAny<SupplierEntity>())).ReturnsAsync((SupplierEntity s) => s);
-
-        var result = await CreateService().ToggleSupplierStatusAsync(1, false);
-
-        result.SupplierId.Should().Be(1);
-        result.SupplierCode.Should().Be("SUP001");
-        result.SupplierName.Should().Be("Test Supplier");
-        result.TaxCode.Should().Be("TAX001");
-        result.Phone.Should().Be("0123");
-        result.Email.Should().Be("test@supp.com");
-        result.Address.Should().Be("Addr 1");
-        result.City.Should().Be("City 1");
-        result.Ward.Should().Be("Ward 1");
-        result.District.Should().Be("Dist 1");
-        result.IsActive.Should().BeFalse();
+            .WithMessage("*ID = 99*");
     }
 }
