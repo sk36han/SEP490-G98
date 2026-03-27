@@ -1,14 +1,15 @@
+﻿extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Moq;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class AuthControllerResetPasswordTests
 {
@@ -40,7 +41,7 @@ public class AuthControllerResetPasswordTests
 		var response = ok.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Đặt lại mật khẩu thành công. Bạn có thể đăng nhập với mật khẩu mới.");
+		response.Message.Should().Be("Äáº·t láº¡i máº­t kháº©u thÃ nh cÃ´ng. Báº¡n cÃ³ thá»ƒ Ä‘Äƒng nháº­p vá»›i máº­t kháº©u má»›i.");
 	}
 
 	[Fact]
@@ -64,7 +65,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Token không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.");
+		response.Message.Should().Be("Token khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng yÃªu cáº§u Ä‘áº·t láº¡i máº­t kháº©u má»›i.");
 	}
 
 	[Fact]
@@ -88,7 +89,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Token không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.");
+		response.Message.Should().Be("Token khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng yÃªu cáº§u Ä‘áº·t láº¡i máº­t kháº©u má»›i.");
 	}
 
 	[Fact]
@@ -104,7 +105,7 @@ public class AuthControllerResetPasswordTests
 
 		_authServiceMock
 			.Setup(x => x.ResetPasswordAsync(request.Token, request.NewPassword))
-			.ThrowsAsync(new InvalidOperationException("Không tìm thấy tài khoản."));
+			.ThrowsAsync(new InvalidOperationException("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n."));
 
 		var result = await controller.ResetPassword(request);
 
@@ -112,7 +113,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Không tìm thấy tài khoản.");
+		response.Message.Should().Be("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n.");
 	}
 
 	[Fact]
@@ -176,6 +177,6 @@ public class AuthControllerResetPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Có lỗi xảy ra khi đặt lại mật khẩu.");
+		response.Message.Should().Be("CÃ³ lá»—i xáº£y ra khi Ä‘áº·t láº¡i máº­t kháº©u.");
 	}
 }

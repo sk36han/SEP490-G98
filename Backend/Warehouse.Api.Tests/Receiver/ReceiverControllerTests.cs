@@ -1,15 +1,16 @@
+﻿extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class ReceiverControllerTests
 {
@@ -53,12 +54,12 @@ public class ReceiverControllerTests
         var request = new CreateReceiverRequest { ReceiverCode = "RCV01", ReceiverName = "Receiver" };
         _receiverServiceMock
             .Setup(x => x.CreateReceiverAsync(request))
-            .ThrowsAsync(new InvalidOperationException("Mã người nhận đã tồn tại"));
+            .ThrowsAsync(new InvalidOperationException("MÃ£ ngÆ°á»i nháº­n Ä‘Ã£ tá»“n táº¡i"));
 
         var result = await controller.CreateReceiver(request);
 
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.Value.Should().BeEquivalentTo(new { message = "Mã người nhận đã tồn tại" });
+        badRequestResult.Value.Should().BeEquivalentTo(new { message = "MÃ£ ngÆ°á»i nháº­n Ä‘Ã£ tá»“n táº¡i" });
     }
 
     [Fact]

@@ -25,16 +25,26 @@ namespace Warehouse.DataAcces.Service
 		// Các role sẽ nhận thông báo về supplier
 		private static readonly string[] _notifyRoleCodes = { "ADMIN", "GD", "SALE SP" };
 
-		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService)
+		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService, Mkiwms5Context context)
 		{
 			_supplierRepository = supplierRepository;
 			_notificationService = notificationService;
 			_auditLogService = auditLogService;
-
+			_context = context;
 		}
 
 		public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
 		{
+			// 0️⃣ Validate required fields (in addition to DataAnnotations)
+			if (string.IsNullOrWhiteSpace(request.SupplierCode))
+			{
+				throw new InvalidOperationException("Mã nhà cung cấp là bắt buộc.");
+			}
+			if (string.IsNullOrWhiteSpace(request.SupplierName))
+			{
+				throw new InvalidOperationException("Tên nhà cung cấp là bắt buộc.");
+			}
+
 			// 1️⃣ Check duplicate SupplierCode
 			var suppliers = await _supplierRepository.GetAllAsync();
 			if (suppliers.Any(s => s.SupplierCode == request.SupplierCode))
@@ -130,20 +140,20 @@ namespace Warehouse.DataAcces.Service
 			{
 				query = query.Where(s =>
 					s.SupplierCode != null &&
-					s.SupplierCode.Contains(supplierCode));
+					s.SupplierCode.Contains(supplierCode, StringComparison.OrdinalIgnoreCase));
 			}
 
 			if (!string.IsNullOrWhiteSpace(supplierName))
 			{
 				query = query.Where(s =>
-					s.SupplierName.Contains(supplierName));
+					s.SupplierName.Contains(supplierName, StringComparison.OrdinalIgnoreCase));
 			}
 
 			if (!string.IsNullOrWhiteSpace(taxCode))
 			{
 				query = query.Where(s =>
 					s.TaxCode != null &&
-					s.TaxCode.Contains(taxCode));
+					s.TaxCode.Contains(taxCode, StringComparison.OrdinalIgnoreCase));
 			}
 
 			// 3. FILTER
@@ -315,13 +325,39 @@ namespace Warehouse.DataAcces.Service
 					$"Nhà cung cấp '{supplier.SupplierName}' hiện tại {statusText}. Không cần thay đổi.");
 			}
 
+			// Lưu giá trị cũ
+			var oldStatus = supplier.IsActive;
+			var actionName = isActive ? "Kích hoạt" : "Vô hiệu hóa";
+			var logStatusText = isActive ? "hoạt động" : "vô hiệu hóa";
+
 			// 3️⃣ Update only IsActive (keep all other fields unchanged)
 			supplier.IsActive = isActive;
 
 			// 4️⃣ Save
 			await _supplierRepository.UpdateAsync(supplier);
 
-			// 5️⃣ Return response
+			// 5️⃣ Gửi thông báo
+			await _notificationService.CreateForRolesAsync(
+				_notifyRoleCodes,
+				$"{actionName} nhà cung cấp",
+				$"Nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode}) đã được {logStatusText}.",
+				"SUPPLIER",
+				supplier.SupplierId,
+				excludeUserId: null // Toggle status might be done by system or admin
+			);
+
+			// 6️⃣ Ghi audit log
+			await _auditLogService.LogAsync(
+				0, // Default system user or we could add currentUserId to param
+				AuditAction.Update,
+				AuditEntity.Supplier,
+				supplier.SupplierId,
+				$"{actionName} nhà cung cấp '{supplier.SupplierName}' (Mã: {supplier.SupplierCode})",
+				JsonSerializer.Serialize(new { IsActive = oldStatus }),
+				JsonSerializer.Serialize(new { IsActive = isActive })
+			);
+
+			// 7️⃣ Return response
 			return new SupplierResponse
 			{
 				SupplierId = supplier.SupplierId,
