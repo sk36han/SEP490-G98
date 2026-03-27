@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Box,
@@ -26,49 +26,72 @@ import {
     Chip,
     TableSortLabel,
     Paper,
+    CircularProgress,
+    Alert,
 } from '@mui/material';
-import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical } from 'lucide-react';
+import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical, RefreshCw } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
+import { getPurchaseOrders } from '../lib/purchaseOrderService';
 import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const APPROVAL_STATUS_STYLE = {
-    Pending: { 
-        bgColor: 'rgba(251, 191, 36, 0.2)', 
-        label: 'Chờ duyệt',
+    DRAFT: {
+        bgColor: 'rgba(107, 114, 128, 0.2)',
+        label: 'Bản nháp',
         dot: '•'
     },
-    Approved: { 
-        bgColor: 'rgba(16, 185, 129, 0.2)', 
+    PENDING_ACC: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        label: 'Đợi duyệt',
+        dot: '•'
+    },
+    PENDING_DIR: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        label: 'Đợi duyệt',
+        dot: '•'
+    },
+    APPROVED: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
         label: 'Đã duyệt',
         dot: '•'
     },
-    Rejected: { 
-        bgColor: 'rgba(239, 68, 68, 0.2)', 
+    REJECTED: {
+        bgColor: 'rgba(239, 68, 68, 0.2)',
         label: 'Từ chối',
         dot: '•'
     },
 };
 
 const RECEIVING_STATUS_STYLE = {
-    Pending: { 
-        bgColor: 'rgba(59, 130, 246, 0.2)', 
-        label: 'Chờ nhập',
+    PendingRcv: {
+        bgColor: 'rgba(59, 130, 246, 0.2)',
+        label: 'Đang đợi hàng về',
         dot: '•'
     },
-    Partial: { 
-        bgColor: 'rgba(251, 191, 36, 0.2)', 
-        label: 'Nhập một phần',
+    PartialRcv: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        label: 'Đã về một phần hàng',
         dot: '•'
     },
-    Completed: { 
-        bgColor: 'rgba(16, 185, 129, 0.2)', 
-        label: 'Nhập toàn bộ',
+    Received: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
+        label: 'Đã về đủ hàng',
+        dot: '•'
+    },
+    FullRcv: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
+        label: 'Đã về đủ hàng',
+        dot: '•'
+    },
+    PartRcv: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        label: 'Đã về một phần hàng',
         dot: '•'
     },
 };
@@ -77,8 +100,8 @@ const PO_COLUMNS = [
     { id: 'stt', label: 'STT', sortable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
     { id: 'orderCode', label: 'Mã đơn đặt hàng nhập', sortable: true, getValue: (row) => row.orderCode ?? '' },
     { id: 'warehouseName', label: 'Kho nhận', sortable: true, getValue: (row) => row.warehouseName ?? '' },
-    { id: 'approvalStatus', label: 'Trạng thái duyệt', sortable: true, getValue: (row) => APPROVAL_STATUS_STYLE[row.approvalStatus]?.label ?? row.approvalStatus ?? '' },
-    { id: 'receivingStatus', label: 'Trạng thái nhập hàng', sortable: true, getValue: (row) => RECEIVING_STATUS_STYLE[row.receivingStatus]?.label ?? row.receivingStatus ?? '' },
+    { id: 'approvalStatus', label: 'Trạng thái duyệt', sortable: true, getValue: (row) => APPROVAL_STATUS_STYLE[row.approvalStatus?.toUpperCase()]?.label ?? row.approvalStatus ?? '' },
+    { id: 'receivingStatus', label: 'Trạng thái nhập hàng', sortable: true, getValue: (row) => RECEIVING_STATUS_STYLE[row.receivingStatus?.toUpperCase()]?.label ?? row.receivingStatus ?? '' },
     { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, getValue: (row) => row.supplierName ?? '' },
     { id: 'creator', label: 'Nhân viên tạo', sortable: true, getValue: (row) => row.creator ?? '' },
     { id: 'responsiblePerson', label: 'Nhân viên phụ trách', sortable: true, getValue: (row) => row.responsiblePerson ?? '' },
@@ -91,75 +114,18 @@ const PO_COLUMNS = [
 const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 
-/** Mock danh sách đơn mua – đủ cột theo yêu cầu (UI only). */
-const MOCK_PO_LIST = [
-    { 
-        purchaseOrderId: 1, 
-        orderCode: 'PO-2025-001', 
-        warehouseName: 'Kho Hà Nội', 
-        approvalStatus: 'Pending', 
-        receivingStatus: 'Pending', 
-        supplierName: 'Công ty TNHH ABC', 
-        creator: 'Nguyễn Văn A', 
-        responsiblePerson: 'Trần Thị B', 
-        totalReceivedQuantity: 0,
-        orderValue: 125000000, 
-        createdAt: '2025-02-09T08:00:00' 
-    },
-    { 
-        purchaseOrderId: 2, 
-        orderCode: 'PO-2025-002', 
-        warehouseName: 'Kho Đà Nẵng', 
-        approvalStatus: 'Approved', 
-        receivingStatus: 'Partial', 
-        supplierName: 'Công ty CP XYZ', 
-        creator: 'Lê Văn C', 
-        responsiblePerson: 'Phạm Thị D', 
-        totalReceivedQuantity: 350,
-        orderValue: 98000000, 
-        createdAt: '2025-02-11T09:00:00' 
-    },
-    { 
-        purchaseOrderId: 3, 
-        orderCode: 'PO-2025-003', 
-        warehouseName: 'Kho Hồ Chí Minh', 
-        approvalStatus: 'Approved', 
-        receivingStatus: 'Completed', 
-        supplierName: 'Công ty TNHH ABC', 
-        creator: 'Nguyễn Văn A', 
-        responsiblePerson: 'Trần Thị B', 
-        totalReceivedQuantity: 300,
-        orderValue: 45000000, 
-        createdAt: '2025-02-13T14:00:00' 
-    },
-    { 
-        purchaseOrderId: 4, 
-        orderCode: 'PO-2025-004', 
-        warehouseName: 'Kho Hà Nội', 
-        approvalStatus: 'Rejected', 
-        receivingStatus: 'Pending', 
-        supplierName: 'Công ty CP XYZ', 
-        creator: 'Phạm Thị D', 
-        responsiblePerson: 'Lê Văn C', 
-        totalReceivedQuantity: 0,
-        orderValue: 30500000, 
-        createdAt: '2025-02-14T16:00:00' 
-    },
-];
-
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
+/** Danh sách đơn mua - dữ liệu từ API */
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 };
 
-const formatDateOnly = (dateStr) => {
+// UTC-safe: parse ISO string as UTC to avoid browser timezone shift
+const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('vi-VN');
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
 export default function ViewPurchaseOrderList() {
@@ -168,17 +134,33 @@ export default function ViewPurchaseOrderList() {
     const navigate = useNavigate();
     const location = useLocation();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const currentUserId = authService.getUser()?.userId ?? authService.getUser()?.UserId ?? null;
 
     const [list, setList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [totalItems, setTotalItems] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
-    const [filterValues, setFilterValues] = useState({});
+    const [filterValues, setFilterValues] = useState(() => {
+        const saved = localStorage.getItem('poFilterValues');
+        return saved ? JSON.parse(saved) : {};
+    });
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
+    const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
+        const saved = localStorage.getItem('poVisibleColumnIds');
+        return saved ? new Set(JSON.parse(saved)) : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+    });
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [orderBy, setOrderBy] = useState(null);
-    const [order, setOrder] = useState('asc');
+    const [orderBy, setOrderBy] = useState(() => {
+        const saved = localStorage.getItem('poSortConfig');
+        return saved ? JSON.parse(saved).orderBy : null;
+    });
+    const [order, setOrder] = useState(() => {
+        const saved = localStorage.getItem('poSortConfig');
+        return saved ? JSON.parse(saved).order : 'asc';
+    });
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [columnOrder, setColumnOrder] = useState(() => {
         const saved = localStorage.getItem('poColumnOrder');
@@ -207,18 +189,71 @@ export default function ViewPurchaseOrderList() {
         }
     }, []);
 
-    useEffect(() => setList(MOCK_PO_LIST), []);
+    // Fetch data từ API
+    const fetchList = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const apiPage = page + 1; // API dùng 1-based
+            const result = await getPurchaseOrders({
+                page: apiPage,
+                pageSize,
+                poCode: searchTerm.trim() || undefined,
+                supplierName: filterValues.supplier || undefined,
+                status: filterValues.approvalStatus || undefined,
+                fromDate: filterValues.fromDate || undefined,
+                toDate: filterValues.toDate || undefined,
+                requestedByName: filterValues.creator || undefined,
+            });
+            
+            // Map dữ liệu từ API sang format UI
+            const mappedList = (result.items ?? []).map((item) => ({
+                purchaseOrderId: item.purchaseOrderId ?? item.purchaseOrderId ?? 0,
+                orderCode: item.poCode ?? item.orderCode ?? '',
+                warehouseName: item.warehouseName ?? item.WarehouseName ?? '',
+                approvalStatus: item.status ?? item.Status ?? 'DRAFT',
+                receivingStatus: item.lifecycleStatus ?? item.LifecycleStatus ?? item.receivingStatus ?? 'PendingRcv',
+                supplierName: item.supplierName ?? item.SupplierName ?? '',
+                creator: item.requestedByName ?? item.RequestedByName ?? item.creator ?? '',
+                creatorId: item.requestedBy ?? item.RequestedBy ?? null,
+                responsiblePerson: item.responsibleUserName ?? item.ResponsibleUserName ?? item.responsiblePerson ?? '',
+                totalReceivedQuantity: item.totalReceivedQty ?? item.TotalReceivedQty ?? 0,
+                orderValue: item.totalAmount ?? item.TotalAmount ?? 0,
+                createdAt: item.createdAt ?? item.CreatedAt ?? '',
+            }));
+            
+            setList(mappedList);
+            setTotalItems(result.totalItems ?? 0);
+        } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách đơn mua.');
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [page, pageSize, searchTerm, filterValues]);
+
+    useEffect(() => {
+        fetchList();
+    }, [fetchList]);
+
+    const handleRefresh = () => {
+        fetchList();
+    };
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {
             const next = new Set(prev);
             if (checked) next.add(columnId);
             else next.delete(columnId);
+            // Lưu vào localStorage
+            localStorage.setItem('poVisibleColumnIds', JSON.stringify([...next]));
             return next;
         });
     };
     const handleSelectAllColumns = (checked) => {
-        setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
+        const newSet = checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set();
+        setVisibleColumnIds(newSet);
+        localStorage.setItem('poVisibleColumnIds', JSON.stringify([...newSet]));
     };
     const visibleColumns = PO_COLUMNS
         .filter((col) => visibleColumnIds.has(col.id))
@@ -355,6 +390,13 @@ export default function ViewPurchaseOrderList() {
         const term = searchTerm.trim() ? normalize(searchTerm.trim()) : '';
         let result = [...list];
 
+        // Ẩn PO DRAFT mà người dùng không phải người tạo
+        result = result.filter((row) => {
+            const isDraft = (row.approvalStatus || '').toUpperCase() === 'DRAFT';
+            const isCreator = row.creatorId != null && String(row.creatorId) === String(currentUserId);
+            return !isDraft || isCreator;
+        });
+
         if (term) {
             result = result.filter((row) =>
                 normalize(row.orderCode ?? '').includes(term) ||
@@ -365,10 +407,10 @@ export default function ViewPurchaseOrderList() {
             );
         }
         if (filterValues.approvalStatus) {
-            result = result.filter((row) => row.approvalStatus === filterValues.approvalStatus);
+            result = result.filter((row) => row.approvalStatus?.toUpperCase() === filterValues.approvalStatus.toUpperCase());
         }
         if (filterValues.receivingStatus) {
-            result = result.filter((row) => row.receivingStatus === filterValues.receivingStatus);
+            result = result.filter((row) => row.receivingStatus?.toUpperCase() === filterValues.receivingStatus.toUpperCase());
         }
         if (filterValues.supplier) {
             result = result.filter((row) => normalize(row.supplierName ?? '').includes(normalize(filterValues.supplier)));
@@ -404,8 +446,8 @@ export default function ViewPurchaseOrderList() {
             const isNumber = ['orderValue', 'totalReceivedQuantity'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
-                const tA = aVal ? new Date(aVal).getTime() : 0;
-                const tB = bVal ? new Date(bVal).getTime() : 0;
+                const tA = utcTimestamp(aVal);
+                const tB = utcTimestamp(bVal);
                 cmp = tA - tB;
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
@@ -429,6 +471,7 @@ export default function ViewPurchaseOrderList() {
 
     const handleFilterApply = (values) => {
         setFilterValues(values);
+        localStorage.setItem('poFilterValues', JSON.stringify(values));
         setPage(0);
     };
     const handlePageChange = (newPage) => setPage(newPage);
@@ -574,7 +617,26 @@ export default function ViewPurchaseOrderList() {
                                     <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
-                            {permissionRole !== 'ACCOUNTANTS' && (
+                            <Tooltip title="Làm mới">
+                                <IconButton 
+                                    color="primary" 
+                                    onClick={handleRefresh} 
+                                    aria-label="Làm mới" 
+                                    disabled={loading}
+                                    sx={{ 
+                                        border: '1px solid #e5e7eb',
+                                        bgcolor: '#ffffff',
+                                        borderRadius: '10px',
+                                        '&:hover': {
+                                            bgcolor: '#f9fafb',
+                                            borderColor: '#d1d5db',
+                                        },
+                                    }}
+                                >
+                                    <RefreshCw size={18} className={loading ? 'spin' : ''} />
+                                </IconButton>
+                            </Tooltip>
+                            {permissionRole === 'SALE_SUPPORT' && (
                                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                     <Button 
                                         className="list-page-btn" 
@@ -790,7 +852,16 @@ export default function ViewPurchaseOrderList() {
                     display: 'flex', 
                     flexDirection: 'column',
                 }}>
-                    {rows.length === 0 ? (
+                    {error && (
+                        <Alert severity="error" onClose={() => setError(null)} sx={{ m: 2, mb: 0 }}>
+                            {error}
+                        </Alert>
+                    )}
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+                            <CircularProgress size={32} />
+                        </Box>
+                    ) : rows.length === 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, px: 2, color: 'text.secondary' }}>
                             <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
                             <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu đơn mua hàng</Typography>
@@ -965,7 +1036,7 @@ export default function ViewPurchaseOrderList() {
                                                     
                                                     // Approval Status chip (wrapped in flex box)
                                                     if (col.id === 'approvalStatus') {
-                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.approvalStatus ?? '', dot: '•' };
+                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus?.toUpperCase()] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.approvalStatus ?? '', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
@@ -1067,16 +1138,23 @@ export default function ViewPurchaseOrderList() {
                                                     
                                                     // Date column
                                                     if (col.id === 'createdAt') {
+                                                        const dateValue = row[col.id];
+                                                        const d = dateValue ? (dateValue.endsWith('Z') ? new Date(dateValue) : new Date(dateValue + 'Z')) : null;
+                                                        const datePart = d ? d.toLocaleDateString('vi-VN') : '-';
+                                                        const timePart = d ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
                                                         return (
-                                                            <TableCell 
-                                                                key={col.id} 
+                                                            <TableCell
+                                                                key={col.id}
                                                                 align="left"
                                                                 sx={{
                                                                     color: '#6b7280',
                                                                     fontVariantNumeric: 'tabular-nums',
                                                                 }}
                                                             >
-                                                                {formatDate(row[col.id])}
+                                                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                                                                    <span>Ngày tạo: {datePart}</span>
+                                                                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>Thời gian tạo: {timePart}</span>
+                                                                </div>
                                                             </TableCell>
                                                         );
                                                     }

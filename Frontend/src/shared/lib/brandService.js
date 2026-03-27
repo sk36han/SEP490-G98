@@ -9,8 +9,10 @@ function mapBrandRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
         brandId: row.brandId ?? row.BrandId,
+        brandCode: row.brandCode ?? row.BrandCode ?? '',
         brandName: row.brandName ?? row.BrandName ?? '',
         isActive: row.isActive ?? row.IsActive ?? true,
+        createdAt: row.createdAt ?? row.CreatedAt ?? null,
     };
 }
 

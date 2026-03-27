@@ -87,7 +87,7 @@ namespace Warehouse.Api.Tests.CategoryTest
                 ParentId = parentId
             };
             
-            var parentCategory = new ItemCategory { CategoryId = parentId, CategoryName = "Computers" };
+            var parentCategory = new ItemCategory { CategoryId = parentId, CategoryCode = "CODE", CategoryName = "Computers" };
             
             // GetAllAsync is called twice: once for duplicate check, once at the end to map ParentName
             _mockCategoryRepo.Setup(repo => repo.GetAllAsync())
@@ -156,161 +156,99 @@ namespace Warehouse.Api.Tests.CategoryTest
 
         // --- CategoryCode Validation ---
 
-        [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeIsNull()
+        private async Task AssertCreateCategoryCodeThrowsAsync(string code, string expectedMessage)
         {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = null!, CategoryName = "Name" };
-
-            // Act
+            var request = new CreateCategoryRequest { CategoryCode = code, CategoryName = "Name" };
             Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Mã danh mục không được để trống.");
+            await act.Should().ThrowAsync<ArgumentException>().WithMessage(expectedMessage);
         }
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeIsEmpty()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "", CategoryName = "Name" };
-
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Mã danh mục không được để trống.");
-        }
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsNull() =>
+            AssertCreateCategoryCodeThrowsAsync(null!, "Mã danh mục không được để trống.");
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeIsTooShort()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "A", CategoryName = "Name" };
-
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Mã danh mục phải có ít nhất 2 ký tự.");
-        }
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsEmpty() =>
+            AssertCreateCategoryCodeThrowsAsync("", "Mã danh mục không được để trống.");
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeIsTooLong()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = new string('A', 51), CategoryName = "Name" };
-
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Mã danh mục không được vượt quá 50 ký tự.");
-        }
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsOnlySpace() =>
+            AssertCreateCategoryCodeThrowsAsync(" ", "Mã danh mục không được để trống.");
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsTooShort() =>
+            AssertCreateCategoryCodeThrowsAsync("A", "Mã danh mục phải có ít nhất 2 ký tự.");
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeContainsInvalidChars_Space()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE 1", CategoryName = "Name" };
-
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
-        }
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsTooShortAfterTrim() =>
+            AssertCreateCategoryCodeThrowsAsync(" a ", "Mã danh mục phải có ít nhất 2 ký tự.");
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeContainsInvalidChars_Special()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE@1", CategoryName = "Name" };
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeIsTooLong() =>
+            AssertCreateCategoryCodeThrowsAsync(new string('A', 51), "Mã danh mục không được vượt quá 50 ký tự.");
 
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsSpaceInBetween() =>
+            AssertCreateCategoryCodeThrowsAsync("CODE 1", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
-        }
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsAtSymbol() =>
+            AssertCreateCategoryCodeThrowsAsync("CODE@1", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
+
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsSpaceAndAtSymbol() =>
+            AssertCreateCategoryCodeThrowsAsync("bad @", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
+
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsExclamationMark() =>
+            AssertCreateCategoryCodeThrowsAsync("CODE!", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
+
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryCodeContainsUnicodeCharacters() =>
+            AssertCreateCategoryCodeThrowsAsync("MãMới", "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
 
         // --- CategoryName Validation ---
 
-        [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryNameIsNull()
+        private async Task AssertCreateCategoryNameThrowsAsync(string name, string expectedMessage)
         {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = null! };
-
-            // Act
+            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = name };
             Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Tên danh mục không được để trống.");
+            await act.Should().ThrowAsync<ArgumentException>().WithMessage(expectedMessage);
         }
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryNameIsEmpty()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = "   " };
-
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Tên danh mục không được để trống.");
-        }
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameIsNull() =>
+            AssertCreateCategoryNameThrowsAsync(null!, "Tên danh mục không được để trống.");
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryNameIsTooShort()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = "A" };
-
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Tên danh mục phải có ít nhất 2 ký tự.");
-        }
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameIsEmpty() =>
+            AssertCreateCategoryNameThrowsAsync("", "Tên danh mục không được để trống.");
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameIsWhitespace() =>
+            AssertCreateCategoryNameThrowsAsync("   ", "Tên danh mục không được để trống.");
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryNameIsTooLong()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = new string('A', 256) };
-
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
-
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Tên danh mục không được vượt quá 255 ký tự.");
-        }
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameIsTooShort() =>
+            AssertCreateCategoryNameThrowsAsync("A", "Tên danh mục phải có ít nhất 2 ký tự.");
 
         [Fact]
-        public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenCategoryNameContainsInvalidChars()
-        {
-            // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = "Name@1" };
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameIsTooShortAfterTrim() =>
+            AssertCreateCategoryNameThrowsAsync(" a ", "Tên danh mục phải có ít nhất 2 ký tự.");
 
-            // Act
-            Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameIsTooLong() =>
+            AssertCreateCategoryNameThrowsAsync(new string('A', 256), "Tên danh mục không được vượt quá 255 ký tự.");
 
-            // Assert
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("Tên danh mục chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.), ký tự & và /.");
-        }
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameContainsAtSymbol() =>
+            AssertCreateCategoryNameThrowsAsync("Name@1", "Tên danh mục chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.), ký tự & và /.");
+
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameContainsSpaceAndAtSymbol() =>
+            AssertCreateCategoryNameThrowsAsync("bad @", "Tên danh mục chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.), ký tự & và /.");
+
+        [Fact]
+        public Task CreateCategoryAsync_ShouldThrow_WhenCategoryNameContainsHashMark() =>
+            AssertCreateCategoryNameThrowsAsync("Name#", "Tên danh mục chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu gạch ngang (-), dấu chấm (.), ký tự & và /.");
 
         // =====================================================================
         // BUSINESS LOGIC FAILURES

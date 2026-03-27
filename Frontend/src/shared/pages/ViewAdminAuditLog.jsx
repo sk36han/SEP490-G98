@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { formatDateTime } from '../lib/dateUtils';
 import {
     Container,
     Paper,
@@ -49,11 +50,7 @@ const actionColor = (action) => {
     return 'default';
 };
 
-const formatDateTime = (iso) => {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return d.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-};
+
 
 const ViewAdminAuditLog = () => {
     const [filterEntityType, setFilterEntityType] = useState('');

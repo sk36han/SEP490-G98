@@ -36,6 +36,8 @@ import {
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import GoodReceiptNoteFilterPopup from '../components/GoodReceiptNoteFilterPopup';
+import { getGoodReceiptNotes } from '../lib/goodReceiptNoteService';
+import { formatDate, formatDateTime } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -45,11 +47,11 @@ const LS_SORT       = 'grnSortConfig';
 
 // ── Status styles ─────────────────────────────────────────────────────────────
 const STATUS_STYLE = {
-    Draft:     { bgColor: 'rgba(107,114,128,0.15)', label: 'Nháp',         dot: '•' },
-    Submitted: { bgColor: 'rgba(59,130,246,0.15)',  label: 'Đã gửi duyệt', dot: '•' },
-    Approved:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã duyệt',     dot: '•' },
-    Rejected:  { bgColor: 'rgba(239,68,68,0.15)',   label: 'Từ chối',      dot: '•' },
-    Posted:    { bgColor: 'rgba(139,92,246,0.15)',  label: 'Đã ghi sổ',    dot: '•' },
+    DRAFT:        { bgColor: 'rgba(107,114,128,0.15)', label: 'Bản nháp',    dot: '•' },
+    PENDING_ACC: { bgColor: 'rgba(251,191,36,0.20)',  label: 'Đợi duyệt',   dot: '•' },
+    APPROVED:     { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã duyệt',    dot: '•' },
+    REJECTED:     { bgColor: 'rgba(239,68,68,0.15)',   label: 'Từ chối',     dot: '•' },
+    POSTED:       { bgColor: 'rgba(139,92,246,0.15)',  label: 'Đã ghi sổ',   dot: '•' },
 };
 
 const RECEIVING_STATUS_STYLE = {
@@ -65,7 +67,7 @@ const GRN_COLUMNS = [
     { id: 'receiptDate',      label: 'Ngày nhập',        sortable: true,  getValue: (row) => row.receiptDate    ?? '' },
     { id: 'warehouseName',    label: 'Kho nhập',         sortable: true,  getValue: (row) => row.warehouseName  ?? '' },
     { id: 'supplierName',     label: 'Nhà cung cấp',     sortable: true,  getValue: (row) => row.supplierName   ?? '' },
-    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
+    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => STATUS_STYLE[row.status?.toUpperCase()]?.label ?? row.status ?? '' },
     { id: 'actualQtyTotal',   label: 'Số lượng nhập',    sortable: true,  getValue: (row) => row.actualQtyTotal ?? 0 },
     { id: 'totalValue',       label: 'Giá trị đơn',      sortable: true,  getValue: (row) => row.totalValue     ?? 0 },
     { id: 'createdByName',    label: 'Nhân viên tạo',    sortable: true,  getValue: (row) => row.createdByName  ?? '' },
@@ -117,23 +119,6 @@ const MOCK_GRN = [
     },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN');
-};
-
-const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return (
-        d.toLocaleDateString('vi-VN') +
-        '\n' +
-        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    );
-};
-
 // ── Shared cell sx (matches ViewPurchaseOrderList) ────────────────────────────
 const BODY_CELL_SX = {
     py: 1.75,
@@ -154,7 +139,7 @@ const CHECKBOX_CELL_SX = {
 
 // ── Status Chip ───────────────────────────────────────────────────────────────
 const StatusChip = ({ status }) => {
-    const style = STATUS_STYLE[status] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-', dot: '•' };
+    const style = STATUS_STYLE[status?.toUpperCase()] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-', dot: '•' };
     return (
         <Chip
             label={`${style.dot} ${style.label}`}
@@ -201,7 +186,9 @@ export default function ViewGoodReceiptNotes() {
     const [draggedColumn, setDraggedColumn]       = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
-    // Restore saved sort
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
     useEffect(() => {
         const saved = localStorage.getItem(LS_SORT);
         if (saved) {
@@ -210,7 +197,31 @@ export default function ViewGoodReceiptNotes() {
         }
     }, []);
 
-    useEffect(() => { setList(MOCK_GRN); }, []);
+    // Fetch data from API
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await getGoodReceiptNotes({ page: page + 1, pageSize });
+                // Map dữ liệu từ API sang format UI
+                const mappedList = (response.items ?? []).map((item) => ({
+                    ...item,
+                    actualQtyTotal: item.totalReceivedQty ?? item.TotalReceivedQty ?? item.actualQtyTotal ?? 0,
+                    totalValue: item.totalAmount ?? item.TotalAmount ?? item.netAmount ?? item.NetAmount ?? item.totalValue ?? 0,
+                    createdAt: item.createdAt ?? item.CreatedAt ?? '',
+                }));
+                setList(mappedList);
+            } catch (err) {
+                console.error('Error fetching GRN list:', err);
+                setError('Không thể tải danh sách phiếu nhập kho');
+                setList([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [page, pageSize]);
 
     // Sync temp order when popup opens
     useEffect(() => {
@@ -297,7 +308,7 @@ export default function ViewGoodReceiptNotes() {
         if (term) {
             result = result.filter((r) =>
                 norm(r.grnCode).includes(term) ||
-                norm(r.poCode).includes(term) ||
+                norm(r.purchaseOrderCode).includes(term) ||
                 norm(r.supplierName).includes(term) ||
                 norm(r.warehouseName).includes(term) ||
                 norm(r.createdByName).includes(term)
@@ -307,7 +318,6 @@ export default function ViewGoodReceiptNotes() {
         if (filterValues.warehouse)  result = result.filter((r) => norm(r.warehouseName).includes(norm(filterValues.warehouse)));
         if (filterValues.supplier)   result = result.filter((r) => norm(r.supplierName).includes(norm(filterValues.supplier)));
         if (filterValues.createdBy)  result = result.filter((r) => norm(r.createdByName).includes(norm(filterValues.createdBy)));
-        // if (filterValues.receivingStatus) result = result.filter((r) => r.receivingStatus === filterValues.receivingStatus);
         if (filterValues.fromDate)   result = result.filter((r) => r.receiptDate && r.receiptDate >= filterValues.fromDate);
         if (filterValues.toDate)     result = result.filter((r) => r.receiptDate && r.receiptDate <= filterValues.toDate);
 
@@ -317,11 +327,11 @@ export default function ViewGoodReceiptNotes() {
             const bVal = b[orderBy] ?? (NUMBER_COLUMN_IDS.includes(orderBy) ? 0 : '');
             let cmp = 0;
             if (orderBy === 'variance') {
-                cmp = ((a.actualQtyTotal ?? 0) - (a.expectedQtyTotal ?? 0)) - ((b.actualQtyTotal ?? 0) - (b.expectedQtyTotal ?? 0));
+                cmp = ((a.totalReceivedQty ?? 0) - (a.totalReceivedQty ?? 0)) - ((b.totalReceivedQty ?? 0) - (b.totalReceivedQty ?? 0));
             } else if (NUMBER_COLUMN_IDS.includes(orderBy)) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else if (DATE_COLUMN_IDS.includes(orderBy)) {
-                cmp = new Date(aVal || 0).getTime() - new Date(bVal || 0).getTime();
+                cmp = (aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0) - (bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0);
             } else {
                 cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
             }
@@ -557,7 +567,7 @@ export default function ViewGoodReceiptNotes() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box component="a"
                                                                         href={`/good-receipt-notes/${row.grnId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/good-receipt-notes/${row.grnId}`); }}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/good-receipt-notes/confirmation/${row.grnId}`); }}
                                                                         sx={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
                                                                         title={row.grnCode}>
                                                                         {row.grnCode}

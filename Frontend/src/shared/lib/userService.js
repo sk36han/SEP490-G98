@@ -1,5 +1,28 @@
 import apiClient from './axios';
 
+/**
+ * User API – lấy danh sách Kế toán (role \"Kế Toán\").
+ * GET /User/list-user-role-accountants
+ */
+
+export async function getAccountants() {
+    const response = await apiClient.get('/User/list-user-role-accountants');
+    const body = response?.data ?? {};
+    const raw = body.data ?? body.Data ?? body;
+    const list = Array.isArray(raw) ? raw : [];
+    return list
+        .filter((u) => u && typeof u === 'object')
+        .map((u) => ({
+            email: u.email ?? u.Email ?? '',
+            username: u.username ?? u.Username ?? '',
+            fullName: u.fullName ?? u.FullName ?? '',
+            phone: u.phone ?? u.Phone ?? '',
+            roleName: u.roleName ?? u.RoleName ?? '',
+            isActive: u.isActive ?? u.IsActive ?? true,
+            lastLoginAt: u.lastLoginAt ?? u.LastLoginAt ?? null,
+        }));
+}
+
 const userService = {
     /**
      * Get current user profile

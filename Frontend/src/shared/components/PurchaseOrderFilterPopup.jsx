@@ -12,6 +12,7 @@ import { X } from 'lucide-react';
 
 const APPROVAL_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
+    { value: 'Draft', label: 'Bản nháp' },
     { value: 'Pending', label: 'Chờ duyệt' },
     { value: 'Approved', label: 'Đã duyệt' },
     { value: 'Rejected', label: 'Từ chối' },
@@ -41,6 +42,8 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
 
     useEffect(() => {
         if (!open) return;
+        // Khi mở popup, sử dụng giá trị từ initialValues (là filterValues từ parent)
+        // Nếu initialValues rỗng thì dùng mặc định
         const approvalStatus = initialValues.approvalStatus ?? '';
         const receivingStatus = initialValues.receivingStatus ?? '';
         setApprovalStatusOption(

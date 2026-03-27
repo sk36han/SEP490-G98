@@ -608,6 +608,66 @@ select.form-input:disabled {
     cursor: not-allowed;
 }
 
+/* Variance Filter Chips */
+.variance-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--slate-200, #e5e7eb);
+    background-color: #ffffff;
+    color: var(--slate-600, #6b7280);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.variance-chip:hover:not(.active) {
+    background-color: var(--slate-50, #f9fafb);
+    border-color: var(--slate-300, #d1d5db);
+    color: var(--slate-700, #374151);
+}
+
+.variance-chip.active[data-variance="all"] {
+    background-color: rgba(14, 165, 233, 0.1);
+    border-color: var(--sky-500, #0ea5e9);
+    color: var(--sky-600, #0284c7);
+    font-weight: 600;
+}
+
+.variance-chip.active[data-variance="negative"] {
+    background-color: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.variance-chip.active[data-variance="positive"] {
+    background-color: rgba(14, 165, 233, 0.08);
+    border-color: rgba(14, 165, 233, 0.4);
+    color: var(--sky-600, #0284c7);
+    font-weight: 600;
+}
+
+.variance-chip.active[data-variance="sufficient"] {
+    background-color: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #16a34a;
+    font-weight: 600;
+}
+
+/* Line search input in stocktake detail */
+.line-search-input {
+    padding-left: 36px !important;
+    padding-right: 36px !important;
+    font-size: 13px !important;
+    height: 38px;
+    background-color: #f9fafb;
+}
+
 /* Table styles */
 .table-container {
     width: 100%;
@@ -650,6 +710,18 @@ select.form-input:disabled {
 
 .product-table tbody tr:last-child td {
     border-bottom: none;
+}
+
+/* Sticky table header */
+.product-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--slate-100, #f1f5f9);
+    z-index: 10;
+}
+
+.product-table thead th:first-child {
+    z-index: 11;
 }
 
 /* Input in table */

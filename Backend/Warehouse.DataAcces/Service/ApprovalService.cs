@@ -267,7 +267,7 @@ namespace Warehouse.DataAcces.Service
                     Decision = dbDecision,
                     Reason = reason,
                     ActionBy = currentUserId,
-                    ActionAt = DateTime.UtcNow
+                    ActionAt = DateTime.UtcNow,
                 };
 
                 _context.DocumentApprovals.Add(log);

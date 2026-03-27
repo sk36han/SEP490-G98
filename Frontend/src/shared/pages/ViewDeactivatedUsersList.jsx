@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseDate } from '../lib/dateUtils';
 import {
     Table,
     TableBody,
@@ -22,6 +23,7 @@ import {
     FormControl,
     Select,
     MenuItem,
+    Chip,
 } from '@mui/material';
 import { Search, Edit, Power, Download, Columns, RefreshCw, Filter } from 'lucide-react';
 import adminService from '../lib/adminService';
@@ -152,16 +154,14 @@ const DeactivatedUsersList = () => {
         }
         if (filterValues.fromDate || filterValues.toDate) {
             result = result.filter((user) => {
-                const createdAt = user.createdAt ? new Date(user.createdAt) : null;
-                if (!createdAt || isNaN(createdAt.getTime())) return false;
+                const createdAt = user.createdAt ? parseDate(user.createdAt) : null;
+                if (!createdAt || Number.isNaN(createdAt.getTime())) return false;
                 if (filterValues.fromDate) {
-                    const from = new Date(filterValues.fromDate);
-                    from.setHours(0, 0, 0, 0);
+                    const from = new Date(filterValues.fromDate + 'T00:00:00Z');
                     if (createdAt < from) return false;
                 }
                 if (filterValues.toDate) {
-                    const to = new Date(filterValues.toDate);
-                    to.setHours(23, 59, 59, 999);
+                    const to = new Date(filterValues.toDate + 'T23:59:59.999Z');
                     if (createdAt > to) return false;
                 }
                 return true;

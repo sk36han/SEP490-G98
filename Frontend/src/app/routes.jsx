@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Login from '../shared/pages/Login';
 import ForgotPassword from '../shared/pages/ForgotPassword';
 import ResetPassword from '../shared/pages/ResetPassword';
@@ -14,12 +14,26 @@ import ViewItemDetail from '../shared/pages/ViewItemDetail';
 import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
 import CreatePurchaseOrder from '../shared/pages/CreatePurchaseOrder';
+import ViewPurchaseReturnList from '../shared/pages/ViewPurchaseReturnList';
+import CreatePurchaseReturn from '../shared/pages/CreatePurchaseReturn';
+import ViewPurchaseReturnDetail from '../shared/pages/ViewPurchaseReturnDetail';
+import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import ViewNotifications from '../shared/pages/ViewNotifications';
 import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 import ViewSupplierList from '../shared/pages/ViewSupplierList';
+import ViewSupplierDetail from '../shared/pages/ViewSupplierDetail';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
+import ViewWarehouseDetail from '../shared/pages/ViewWarehouseDetail';
+import ViewInventoryAdjustmentList from '../shared/pages/ViewInventoryAdjustmentList';
+import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
+import CreateStocktake from '../shared/pages/CreateStocktake';
+import ViewStocktakeDetail from '../shared/pages/ViewStocktakeDetail';
+import StocktakeReport from '../shared/pages/StocktakeReport';
+import CreateInventoryAdjustment from '../shared/pages/CreateInventoryAdjustment';
+import ViewInventoryAdjustmentDetail from '../shared/pages/ViewInventoryAdjustmentDetail';
+import CreateWarehouse from '../shared/pages/CreateWarehouse';
 import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
@@ -33,8 +47,13 @@ import ViewPackagingSpecList from '../shared/pages/ViewPackagingSpecList';
 import ViewSpecList from '../shared/pages/ViewSpecList';
 import ViewBrandList from '../shared/pages/ViewBrandList';
 import ViewUomList from '../shared/pages/ViewUomList';
+import ViewReleaseRequestList from '../shared/pages/ViewReleaseRequestList';
+import ViewGoodDeliveryNoteList from '../shared/pages/ViewGoodDeliveryNoteList';
+import CreateReleaseRequest from '../shared/pages/CreateReleaseRequest';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
+import InventoryAlertSetup from '../Mockup/InventoryAlertSetup';
+import SalesRevenueTarget from '../Mockup/SalesRevenueTarget';
 
 const AppRoutes = () => (
     <Routes>
@@ -44,7 +63,6 @@ const AppRoutes = () => (
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Home Dashboard: chỉ Giám đốc (DIRECTOR) mới có quyền truy cập */}
         <Route
             path="/home"
             element={
@@ -55,7 +73,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Home dashboard chỉ dành cho Giám đốc; Admin không có đường /admin/home tới dashboard */}
         <Route
             path="/admin/home"
             element={
@@ -116,7 +133,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Thông báo dùng chung cho mọi role (mockup theo role) */}
         <Route
             path="/notifications"
             element={
@@ -127,7 +143,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Cài đặt thông báo (chỉ Admin) */}
         <Route
             path="/admin/notifications"
             element={
@@ -148,7 +163,6 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Items – full quyền: tất cả role trừ ADMIN và Giám đốc (WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER, ACCOUNTANTS) */}
         <Route
             path="/products"
             element={
@@ -162,7 +176,7 @@ const AppRoutes = () => (
         <Route
             path="/items/create"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateItem />
                     </MainLayout>
@@ -172,7 +186,7 @@ const AppRoutes = () => (
         <Route
             path="/items/edit/:id"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <EditItem />
                     </MainLayout>
@@ -182,7 +196,7 @@ const AppRoutes = () => (
         <Route
             path="/items/:id"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewItemDetail />
                     </MainLayout>
@@ -192,7 +206,7 @@ const AppRoutes = () => (
         <Route
             path="/categories"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewCategoryList />
                     </MainLayout>
@@ -202,7 +216,7 @@ const AppRoutes = () => (
         <Route
             path="/categories/create"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateCategory />
                     </MainLayout>
@@ -212,7 +226,7 @@ const AppRoutes = () => (
         <Route
             path="/categories/edit/:id"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <EditCategory />
                     </MainLayout>
@@ -222,7 +236,7 @@ const AppRoutes = () => (
         <Route
             path="/packaging-spec"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewPackagingSpecList />
                     </MainLayout>
@@ -232,7 +246,7 @@ const AppRoutes = () => (
         <Route
             path="/specs"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewSpecList />
                     </MainLayout>
@@ -243,7 +257,7 @@ const AppRoutes = () => (
         <Route
             path="/uom"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'SALE_SUPPORT', 'SALE_ENGINEER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'ACCOUNTANTS', 'SALE_ENGINEER']}>
                     <MainLayout>
                         <ViewUomList />
                     </MainLayout>
@@ -265,7 +279,7 @@ const AppRoutes = () => (
         <Route
             path="/suppliers"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewSupplierList />
                     </MainLayout>
@@ -275,27 +289,139 @@ const AppRoutes = () => (
         <Route
             path="/suppliers/create"
             element={
-                <MainLayout>
-                    <CreateSupplier />
-                </MainLayout>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <CreateSupplier />
+                    </MainLayout>
+                </ProtectedRoute>
             }
         />
-        {/* Quản lý kho – Director, Thủ kho */}
+        <Route
+            path="/suppliers/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewSupplierDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
         <Route
             path="/inventory"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewWarehouseList />
                     </MainLayout>
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu nhập hàng (GRN) – Kế toán, Thủ kho */}
+        <Route
+            path="/inventory/create"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <CreateWarehouse />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewWarehouseDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/adjustments"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewInventoryAdjustmentList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/adjustments/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER']}>
+                    <MainLayout>
+                        <CreateInventoryAdjustment />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/adjustments/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewInventoryAdjustmentDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/stocktakes/create"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <CreateStocktake />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/stocktakes/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewStocktakeDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/stocktakes/report/:id"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <StocktakeReport />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/inventory/stocktakes"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewStocktakeList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/reports"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <Outlet />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        >
+            <Route path="stocktakes" element={<ViewStocktakeList />} />
+        </Route>
         <Route
             path="/good-receipt-notes"
             element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewGoodReceiptNotes />
                     </MainLayout>
@@ -305,7 +431,7 @@ const AppRoutes = () => (
         <Route
             path="/good-receipt-notes/:id"
             element={
-                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT']}>
                     <MainLayout>
                         <ViewGoodReceiptNoteDetail />
                     </MainLayout>
@@ -322,13 +448,52 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Yêu cầu xuất hàng (GDN) – Kế toán, Thủ kho */}
         <Route
-            path="/good-delivery-notes"
+            path="/good-receipt-notes/confirmation/:id"
             element={
                 <ProtectedRoute allowedRoles={['ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
-                        <ViewGoodDeliveryNotes />
+                        <ViewGoodReceiptNoteDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/good-delivery-notes"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewReleaseRequestList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/good-delivery-notes/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
+                    <MainLayout>
+                        <CreateReleaseRequest />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/goods-delivery-notes"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewGoodDeliveryNoteList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/goods-delivery-notes/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
+                    <MainLayout>
+                        <ViewGoodDeliveryNoteList />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -336,7 +501,7 @@ const AppRoutes = () => (
         <Route
             path="/receivers"
             element={
-                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <ViewReceiver />
                     </MainLayout>
@@ -353,11 +518,10 @@ const AppRoutes = () => (
                 </ProtectedRoute>
             }
         />
-        {/* Purchase order: Sale Support, Kế toán (Quản lý đơn mua trong Yêu Cầu) */}
         <Route
             path="/purchase-orders"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewPurchaseOrderList />
                     </MainLayout>
@@ -367,7 +531,7 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/create"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT']}>
                     <MainLayout>
                         <CreatePurchaseOrder />
                     </MainLayout>
@@ -377,9 +541,73 @@ const AppRoutes = () => (
         <Route
             path="/purchase-orders/:id"
             element={
-                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS']}>
+                <ProtectedRoute allowedRoles={['SALE_SUPPORT', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER']}>
                     <MainLayout>
                         <ViewPurchaseOrderDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/purchase-returns"
+            element={
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewPurchaseReturnList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/purchase-returns/create"
+            element={
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS']}>
+                    <MainLayout>
+                        <CreatePurchaseReturn />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/purchase-returns/:id"
+            element={
+                <ProtectedRoute allowedRoles={['ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewPurchaseReturnDetail />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/item-prices"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewItemPriceList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+
+        {/* ── Mockup: Inventory Alert Setup ── */}
+        <Route
+            path="/mockup/inventory-alert"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <InventoryAlertSetup />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+
+        {/* ── Mockup: Sales Revenue Target (Finance Alert) ── */}
+        <Route
+            path="/mockup/sales-target"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'DIRECTOR', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <SalesRevenueTarget />
                     </MainLayout>
                 </ProtectedRoute>
             }
