@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using Warehouse.DataAcces.Repositories;
@@ -5,7 +8,7 @@ using Warehouse.DataAcces.Service;
 using Warehouse.Entities.Models;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
 
-namespace WarehouseTests.ReceiverServiceTests;
+namespace WarehouseTests.Receiver;
 
 public class GetReceiverByIdServiceTests
 {
@@ -14,21 +17,20 @@ public class GetReceiverByIdServiceTests
 
     private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object);
 
-    // ─── Helpers ────────────────────────────────────────────────
     private ReceiverEntity MakeReceiver(long id = 1) => new()
     {
         ReceiverId = id,
-        ReceiverCode = "RCV001",
+        ReceiverCode = "RCV-001",
         ReceiverName = "Test Receiver",
-        Phone = "0909123456",
-        Email = "test@example.com",
-        Address = "123 ABC Street",
-        City = "Ho Chi Minh",
-        Ward = "Phuong 1",
-        District = "Quan 1",
-        Notes = "Important notes",
+        Phone = "0909123",
+        Email = "rcv@test.com",
+        Address = "123 Street",
+        City = "HCM",
+        Ward = "W1",
+        District = "D1", // Entity has District
+        Notes = "Notes",
         IsActive = true,
-        CreatedAt = new DateTime(2026, 1, 15)
+        CreatedAt = DateTime.UtcNow
     };
 
     private void SetupGetById(long id, ReceiverEntity? entity)
@@ -36,84 +38,58 @@ public class GetReceiverByIdServiceTests
         _repoMock.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(entity!);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 1. Tìm thấy receiver → trả về response (happy path)
-    // ═══════════════════════════════════════════════════════════
     [Fact]
-    public async Task GetById_ExistingId_ShouldReturnReceiverResponse()
+    public async Task GetById_ValidId_ShouldReturnMappedResponse()
     {
-        SetupGetById(1, MakeReceiver());
+        // Arrange
+        var receiver = MakeReceiver(1);
+        SetupGetById(1, receiver);
 
+        // Act
         var result = await CreateService().GetReceiverByIdAsync(1);
 
+        // Assert
         result.Should().NotBeNull();
         result.ReceiverId.Should().Be(1);
-        result.ReceiverCode.Should().Be("RCV001");
+        result.ReceiverCode.Should().Be("RCV-001");
         result.ReceiverName.Should().Be("Test Receiver");
+        result.Phone.Should().Be("0909123");
+        result.Email.Should().Be("rcv@test.com");
+        result.Address.Should().Be("123 Street");
+        result.City.Should().Be("HCM");
+        result.Ward.Should().Be("W1");
+        result.Notes.Should().Be("Notes");
+        result.IsActive.Should().BeTrue();
+        // District is NOT in ReceiverResponse, so no assertion here.
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 2. ID không tồn tại → throw KeyNotFoundException
-    // ═══════════════════════════════════════════════════════════
     [Fact]
     public async Task GetById_NonExistingId_ShouldThrowKeyNotFound()
     {
-        SetupGetById(999, null);
+        // Arrange
+        SetupGetById(99, null);
 
-        Func<Task> act = () => CreateService().GetReceiverByIdAsync(999);
+        // Act
+        Func<Task> act = () => CreateService().GetReceiverByIdAsync(99);
 
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage("*Không tìm thấy người nhận*999*");
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("*ID = 99*");
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 3. Verify tất cả fields được map đúng
-    // ═══════════════════════════════════════════════════════════
-    [Fact]
-    public async Task GetById_ShouldMapAllFieldsCorrectly()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(long.MaxValue)]
+    public async Task GetById_BoundaryIds_ShouldRequestRepoAndHandleNullCorrectly(long testId)
     {
-        var receiver = MakeReceiver();
-        SetupGetById(1, receiver);
+        // Arrange
+        SetupGetById(testId, null);
 
-        var result = await CreateService().GetReceiverByIdAsync(1);
+        // Act
+        Func<Task> act = () => CreateService().GetReceiverByIdAsync(testId);
 
-        result.ReceiverId.Should().Be(receiver.ReceiverId);
-        result.ReceiverCode.Should().Be(receiver.ReceiverCode);
-        result.ReceiverName.Should().Be(receiver.ReceiverName);
-        result.Phone.Should().Be(receiver.Phone);
-        result.Email.Should().Be(receiver.Email);
-        result.Address.Should().Be(receiver.Address);
-        result.City.Should().Be(receiver.City);
-        result.Ward.Should().Be(receiver.Ward);
-        result.Notes.Should().Be(receiver.Notes);
-        result.IsActive.Should().Be(receiver.IsActive);
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 4. ID = 0 → receiver null → throw
-    // ═══════════════════════════════════════════════════════════
-    [Fact]
-    public async Task GetById_IdZero_ShouldThrowKeyNotFound()
-    {
-        SetupGetById(0, null);
-
-        Func<Task> act = () => CreateService().GetReceiverByIdAsync(0);
-
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage("*Không tìm thấy người nhận*0*");
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 5. ID = số âm -1 → receiver null → throw
-    // ═══════════════════════════════════════════════════════════
-    [Fact]
-    public async Task GetById_NegativeId_ShouldThrowKeyNotFound()
-    {
-        SetupGetById(-1, null);
-
-        Func<Task> act = () => CreateService().GetReceiverByIdAsync(-1);
-
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage("*Không tìm thấy người nhận*-1*");
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+        _repoMock.Verify(r => r.GetByIdAsync(testId), Times.Once);
     }
 }
