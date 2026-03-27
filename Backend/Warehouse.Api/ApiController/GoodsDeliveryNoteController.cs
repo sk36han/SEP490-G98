@@ -31,12 +31,12 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
-        /// Lấy danh sách phiếu xuất kho (phân trang)
+        /// Lấy danh sách phiếu xuất kho (phân trang + lọc + tìm kiếm)
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> GetList([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetList([FromQuery] GDNListRequest request)
         {
-            var result = await _gdnService.GetGoodsDeliveryNotesAsync(page, pageSize);
+            var result = await _gdnService.GetGoodsDeliveryNotesAsync(request);
             return Ok(ApiResponse<PagedResponse<GoodsDeliveryNoteResponse>>.SuccessResponse(result));
         }
 
@@ -62,6 +62,28 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
+        /// Cập nhật phiếu xuất kho (chỉ khi đang ở trạng thái chờ duyệt)
+        /// </summary>
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(long id, [FromBody] CreateGDNRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _gdnService.UpdateGDNAsync(id, userId, request);
+            return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, "Cập nhật phiếu xuất kho thành công."));
+        }
+
+        /// <summary>
+        /// Hủy phiếu xuất kho
+        /// </summary>
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Cancel(long id, [FromQuery] string reason)
+        {
+            var userId = GetCurrentUserId();
+            await _gdnService.CancelGDNAsync(id, userId, reason);
+            return Ok(ApiResponse<bool>.SuccessResponse(true, "Đã hủy phiếu xuất kho."));
+        }
+
+        /// <summary>
         /// Duyệt/Từ chối phiếu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
         /// </summary>
         [HttpPut("{id}/approve")]
@@ -71,6 +93,17 @@ namespace Warehouse.Api.ApiController
             var result = await _gdnService.ApproveGDNAsync(id, userId, request);
             var msg = request.IsApproved ? "Duyệt phiếu xuất kho thành công." : "Đã từ chối phiếu xuất kho.";
             return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, msg));
+        }
+
+        /// <summary>
+        /// Thủ kho xác nhận xuất hàng thực tế (Trừ tồn kho)
+        /// </summary>
+        [HttpPut("{id}/issue")]
+        public async Task<IActionResult> Issue(long id, [FromBody] WarehouseIssueRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _gdnService.IssueGDNAsync(id, userId, request);
+            return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, "Xác nhận xuất hàng thành công."));
         }
     }
 }

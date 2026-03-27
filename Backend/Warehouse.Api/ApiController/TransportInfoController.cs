@@ -74,5 +74,12 @@ namespace Warehouse.Api.ApiController
             var result = await _transportInfoService.UpdateTransportActiveStatusAsync(id, request.IsActive, userId);
             return Ok(ApiResponse<TransportInfoResponse>.SuccessResponse(result, "Thay đổi trạng thái hoạt động thành công."));
         }
+
+        [HttpGet("history")]
+        public async Task<IActionResult> GetHistory()
+        {
+            var result = await _transportInfoService.GetTransportHistoryAsync();
+            return Ok(ApiResponse<System.Collections.Generic.List<TransportHistoryResponse>>.SuccessResponse(result, "Lấy danh sách lịch sử vận chuyển thành công."));
+        }
     }
 }

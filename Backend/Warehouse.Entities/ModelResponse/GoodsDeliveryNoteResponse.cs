@@ -82,6 +82,11 @@ namespace Warehouse.Entities.ModelResponse
         public DateTime? PostedAt { get; set; }
 
         public string? Note { get; set; }
+        
+        // Info from Release Request
+        public string? RequesterName { get; set; }
+        public DateOnly? RequestDate { get; set; }
+        public DateOnly? ExpectedDate { get; set; }
 
         // Transport Info
         public GDNTransportInfoResponse? TransportInfo { get; set; }
@@ -104,7 +109,14 @@ namespace Warehouse.Entities.ModelResponse
         public string? ItemName { get; set; }
 
         public decimal? RequestedQty { get; set; }
-        public decimal ActualQty { get; set; }
+        public decimal ActualQty { get; set; } // Current GDN quantity
+
+        // Fulfillment info (compared to ReleaseRequest)
+        public decimal? ApprovedQty { get; set; }
+        public decimal? PreviouslyDeliveredQty { get; set; }
+        public decimal? RemainingQty { get; set; }
+
+        public decimal? StockQty { get; set; } // Current stock in warehouse
 
         public long UomId { get; set; }
         public string? UomName { get; set; }

@@ -12,5 +12,6 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<TransportInfoResponse> CreateTransportInfoAsync(CreateTransportInfoRequest request, long currentUserId);
         Task<TransportInfoResponse> UpdateTransportInfoAsync(long id, UpdateTransportInfoRequest request, long currentUserId);
         Task<TransportInfoResponse> UpdateTransportActiveStatusAsync(long transportId, bool isActive, long currentUserId);
+        Task<System.Collections.Generic.List<TransportHistoryResponse>> GetTransportHistoryAsync();
     }
 }

@@ -183,6 +183,31 @@ namespace Warehouse.DataAcces.Service
             return ToResponse(info);
         }
 
+        public async Task<List<TransportHistoryResponse>> GetTransportHistoryAsync()
+        {
+            var all = await _transportRepository.GetAllAsync();
+            if (all == null) return new List<TransportHistoryResponse>();
+
+            // Lấy các tổ hợp CarrierName, DriverName, DriverPhone, LicensePlate duy nhất đã từng nhập
+            return all
+                .Where(x => !string.IsNullOrWhiteSpace(x.CarrierName))
+                .GroupBy(x => new 
+                { 
+                    CarrierName = x.CarrierName?.Trim(), 
+                    DriverName = x.DriverName?.Trim(), 
+                    DriverPhone = x.DriverPhone?.Trim(), 
+                    LicensePlate = x.LicensePlate?.Trim() 
+                })
+                .Select(g => new TransportHistoryResponse
+                {
+                    CarrierName = g.Key.CarrierName,
+                    DriverName = g.Key.DriverName,
+                    DriverPhone = g.Key.DriverPhone,
+                    LicensePlate = g.Key.LicensePlate
+                })
+                .ToList();
+        }
+
         private static TransportInfoResponse ToResponse(TransportInfo t) => new TransportInfoResponse
         {
             TransportId = t.TransportId,

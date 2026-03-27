@@ -12,10 +12,12 @@ namespace Warehouse.DataAcces.Service
     public class ReleaseRequestService : IReleaseRequestService
     {
         private readonly Mkiwms5Context _context;
+        private readonly IStocktakeService _stocktakeService;
 
-        public ReleaseRequestService(Mkiwms5Context context)
+        public ReleaseRequestService(Mkiwms5Context context, IStocktakeService stocktakeService)
         {
             _context = context;
+            _stocktakeService = stocktakeService;
         }
 
         // ──────────────────────────── CREATE ────────────────────────────
@@ -35,6 +37,10 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy kho xuất.");
             if (!warehouse.IsActive)
                 throw new InvalidOperationException("Kho xuất đang không hoạt động.");
+
+            // Kiểm tra kho có đang bị khóa (kiểm kê) không
+            if (await _stocktakeService.IsWarehouseFrozenAsync(request.WarehouseId))
+                throw new InvalidOperationException($"Kho '{warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể tạo yêu cầu xuất kho.");
 
             var receiver = await _context.Receivers
                 .Include(r => r.Company)
@@ -117,8 +123,8 @@ namespace Warehouse.DataAcces.Service
                     RequestedQty = line.RequestedQty,
                     UomId = line.UomId,
                     Note = line.Note,
-                    ApprovedQty = line.RequestedQty, // Mặc định số lượng duyệt = số lượng yêu cầu
-                    AllocatedQty = line.RequestedQty, // Gán AllocatedQty = RequestedQty (giữ riêng cấp dòng)
+                    ApprovedQty = 0, // Mặc định 0, sẽ được cập nhật khi duyệt
+                    AllocatedQty = line.RequestedQty, // Gán AllocatedQty = RequestedQty (đã cộng vào ReservedQty của kho)
                     IssuedQty = 0,
                     LineStatus = "Open"
                 };
@@ -298,9 +304,13 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy yêu cầu xuất kho.");
 
             // 2. Chỉ cho phép sửa khi trạng thái PENDING hoặc DRAFT
-            var editableStatuses = new[] { "DRAFT", "PENDING", "PENDING_APPROVAL" };
+            var editableStatuses = new[] { "DRAFT", "PENDING_ACC" };
             if (!editableStatuses.Contains(rr.Status))
-                throw new InvalidOperationException("Chỉ có thể sửa yêu cầu xuất kho đang ở trạng thái chờ duyệt.");
+                throw new InvalidOperationException("Chỉ có thể sửa yêu cầu xuất kho đang ở trạng thái chờ duyệt hoặc nháp.");
+
+            // Kiểm tra kho hiện tại có đang bị khóa không
+            if (await _stocktakeService.IsWarehouseFrozenAsync(rr.WarehouseId))
+                throw new InvalidOperationException($"Kho '{rr.Warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể cập nhật yêu cầu xuất kho.");
 
             // 3. Không cho sửa nếu đã có phiếu xuất kho (GDN)
             var hasGdn = await _context.GoodsDeliveryNotes
@@ -451,7 +461,7 @@ namespace Warehouse.DataAcces.Service
 
                         existingLine.ItemId = lineReq.ItemId;
                         existingLine.RequestedQty = lineReq.RequestedQty;
-                        existingLine.ApprovedQty = lineReq.RequestedQty; // Cập nhật số lượng duyệt khớp với số lượng mới
+                        existingLine.ApprovedQty = 0; // Luôn reset về 0 để chờ duyệt lại nếu có thay đổi
                         existingLine.AllocatedQty = lineReq.RequestedQty; // Cập nhật AllocatedQty = Số_mới
                         existingLine.UomId = lineReq.UomId;
                         existingLine.Note = lineReq.Note;
@@ -465,7 +475,7 @@ namespace Warehouse.DataAcces.Service
                             RequestedQty = lineReq.RequestedQty,
                             UomId = lineReq.UomId,
                             Note = lineReq.Note,
-                            ApprovedQty = lineReq.RequestedQty, // Mặc định số lượng duyệt = số lượng yêu cầu
+                            ApprovedQty = 0, // Mặc định 0, sẽ được cập nhật khi duyệt
                             AllocatedQty = lineReq.RequestedQty, // Gán AllocatedQty cho dòng mới
                             IssuedQty = 0,
                             LineStatus = "Open"
@@ -518,7 +528,7 @@ namespace Warehouse.DataAcces.Service
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
         }  
 
-        public async Task<bool> CancelReleaseRequestAsync(long id)
+        public async Task<bool> CancelReleaseRequestAsync(long id, long userId)
         {
             var rr = await _context.ReleaseRequests
                 .Include(r => r.ReleaseRequestLines)
@@ -529,25 +539,223 @@ namespace Warehouse.DataAcces.Service
             // 1. Giải phóng hàng đã giữ (ReservedQty) trong kho nếu trạng thái trước đó không phải DRAFT
             if (rr.Status != "DRAFT")
             {
-                foreach (var line in rr.ReleaseRequestLines)
-                {
-                    var inventory = await _context.InventoryOnHands
-                        .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == line.ItemId);
-                    
-                    if (inventory != null)
-                    {
-                        inventory.ReservedQty -= line.AllocatedQty;
-                        inventory.UpdatedAt = DateTime.UtcNow;
-                    }
-                }
+                await ReleaseReservedQtyAsync(rr);
             }
 
             // 2. Chuyển trạng thái đơn thành CANCELLED
             rr.Status = "CANCELLED";
             rr.LifecycleStatus = "Cancelled";
 
+            // 3. Ghi audit log
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = userId,
+                Action = "CANCEL",
+                EntityType = "ReleaseRequest",
+                EntityId = rr.ReleaseRequestId,
+                Detail = $"Hủy yêu cầu xuất kho {rr.ReleaseRequestCode}",
+                CreatedAt = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        // ──────────────────────────── CLOSE ────────────────────────────
+
+        public async Task<bool> CloseReleaseRequestAsync(long id, long userId)
+        {
+            var rr = await _context.ReleaseRequests
+                .Include(r => r.ReleaseRequestLines)
+                .FirstOrDefaultAsync(r => r.ReleaseRequestId == id);
+
+            if (rr == null) return false;
+
+            // Chỉ cho phép đóng khi đã APPROVED
+            if (rr.Status != "APPROVED")
+                throw new InvalidOperationException("Chỉ có thể đóng yêu cầu xuất kho đang ở trạng thái đã duyệt (APPROVED).");
+                
+            if (rr.LifecycleStatus == "IssueFull" || rr.LifecycleStatus == "Closed" || rr.LifecycleStatus == "Cancelled")
+                throw new InvalidOperationException($"Không thể đóng yêu cầu xuất kho ở trạng thái '{rr.LifecycleStatus}'.");
+
+            // Giải phóng hàng còn dư (ReservedQty)
+            foreach (var line in rr.ReleaseRequestLines)
+            {
+                // Lượng dư chưa xuất: AllocatedQty (lượng đã giữ) - IssuedQty (lượng thực tế đã xuất)
+                decimal remainingReserve = line.AllocatedQty - line.IssuedQty;
+                
+                if (remainingReserve > 0)
+                {
+                    var inventory = await _context.InventoryOnHands
+                        .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == line.ItemId);
+                    
+                    if (inventory != null)
+                    {
+                        if (inventory.ReservedQty >= remainingReserve)
+                            inventory.ReservedQty -= remainingReserve;
+                        else
+                            inventory.ReservedQty = 0;
+                            
+                        inventory.UpdatedAt = DateTime.UtcNow;
+                    }
+                    
+                    // Cập nhật lại AllocatedQty bằng IssuedQty để phản ánh không còn giữ hàng dư
+                    line.AllocatedQty = line.IssuedQty;
+                }
+            }
+
+            // Chuyển trạng thái đơn thành CLOSED
+            rr.Status = "CLOSED";
+            rr.LifecycleStatus = "Closed";
+
+            // Ghi audit log
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = userId,
+                Action = "CLOSE",
+                EntityType = "ReleaseRequest",
+                EntityId = rr.ReleaseRequestId,
+                Detail = $"Đóng yêu cầu xuất kho {rr.ReleaseRequestCode} và giải phóng tồn kho đã giữ",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // ──────────────────────────── APPROVE (2-stage: Kế toán → Giám đốc) ────────────────────────────
+
+       private const string ROLE_ACCOUNTANT = "KT";
+		//private const string ROLE_ACCOUNTANT = "SE";
+
+
+		public async Task<ReleaseRequestDetailResponse> ApproveReleaseRequestAsync(
+            long id, long userId, ApproveReleaseRequest request)
+        {
+            // 1. Lấy RR kèm lines
+            var rr = await _context.ReleaseRequests
+                .Include(r => r.ReleaseRequestLines)
+                .Include(r => r.Warehouse)
+                .FirstOrDefaultAsync(r => r.ReleaseRequestId == id);
+
+            if (rr == null)
+                throw new KeyNotFoundException("Không tìm thấy yêu cầu xuất kho.");
+
+            // 2. Lấy user và role
+            var user = await _context.Users
+                .Include(u => u.UserRoleUser)
+                    .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+                throw new KeyNotFoundException("Không tìm thấy người dùng.");
+
+            var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
+            string decision = request.IsApproved ? "APPROVE" : "REJECT";
+
+            // 3. Xử lý theo trạng thái hiện tại (Chỉ 1 bước: Kế toán duyệt)
+            if (rr.Status == "PENDING_ACC")
+            {
+                // Chỉ Kế toán mới có quyền duyệt RR
+                if (userRoleCode != ROLE_ACCOUNTANT)
+                    throw new InvalidOperationException(
+                        "Chỉ Kế toán mới có quyền duyệt yêu cầu xuất kho.");
+
+                if (request.IsApproved)
+                {
+                    rr.Status = "APPROVED";
+
+                    var approvedQtyMap = request.Lines?.ToDictionary(l => l.ReleaseRequestLineId, l => l.ApprovedQty) 
+                                         ?? new Dictionary<long, decimal>();
+
+                    foreach (var rrLine in rr.ReleaseRequestLines)
+                    {
+                        decimal approvedQty = approvedQtyMap.ContainsKey(rrLine.ReleaseRequestLineId) 
+                            ? approvedQtyMap[rrLine.ReleaseRequestLineId] 
+                            : rrLine.RequestedQty;
+
+                        if (approvedQty > rrLine.RequestedQty)
+                            throw new InvalidOperationException(
+                                $"Số lượng duyệt ({approvedQty}) không được vượt quá số lượng yêu cầu.");
+
+                        decimal oldAllocated = rrLine.AllocatedQty;
+                        rrLine.ApprovedQty = approvedQty;
+                        rrLine.AllocatedQty = approvedQty;
+
+                        decimal delta = approvedQty - oldAllocated;
+                        if (delta != 0)
+                        {
+                            var inventory = await _context.InventoryOnHands
+                                .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == rrLine.ItemId);
+
+                            if (inventory != null)
+                            {
+                                inventory.ReservedQty += delta;
+                                if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
+                                inventory.UpdatedAt = DateTime.UtcNow;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    rr.Status = "REJECTED";
+                    // Giải phóng hàng đã giữ khi từ chối
+                    await ReleaseReservedQtyAsync(rr);
+                }
+
+                _context.DocumentApprovals.Add(new DocumentApproval
+                {
+                    DocType = "GIR",
+                    DocId = rr.ReleaseRequestId,
+                    StageNo = 1,
+                    Decision = decision,
+                    Reason = request.Reason,
+                    ActionBy = userId,
+                    ActionAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Yêu cầu xuất kho không ở trạng thái chờ duyệt. Trạng thái hiện tại: {rr.Status}.");
+            }
+
+            // Audit log
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = userId,
+                Action = request.IsApproved ? "APPROVE" : "REJECT",
+                EntityType = "ReleaseRequest",
+                EntityId = rr.ReleaseRequestId,
+                Detail = $"{(request.IsApproved ? "Duyệt" : "Từ chối")} yêu cầu xuất kho {rr.ReleaseRequestCode}" +
+                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"),
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            return await GetReleaseRequestByIdAsync(id)
+                ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
+        }
+
+        /// <summary>
+        /// Giải phóng toàn bộ ReservedQty đã giữ cho RR (dùng khi reject/cancel)
+        /// </summary>
+        private async Task ReleaseReservedQtyAsync(ReleaseRequest rr)
+        {
+            foreach (var line in rr.ReleaseRequestLines)
+            {
+                var inventory = await _context.InventoryOnHands
+                    .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == line.ItemId);
+
+                if (inventory != null)
+                {
+                    inventory.ReservedQty -= line.AllocatedQty;
+                    if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
+                    inventory.UpdatedAt = DateTime.UtcNow;
+                }
+            }
         }
 
         // ──────────────────────────── HELPERS ────────────────────────────
