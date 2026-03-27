@@ -152,6 +152,14 @@ const Sidebar = () => {
         }));
     };
 
+    const handleParentMiddleClick = (e, item) => {
+        if (e.button !== 1) return; // Chỉ xử lý chuột giữa
+        e.preventDefault();
+        if (item.path) {
+            window.open(item.path, '_blank', 'noopener,noreferrer');
+        }
+    };
+
     const handleChildClick = (child, parentId) => {
         navigate(child.path, { state: child.state ?? undefined });
         if (parentId) {
@@ -159,6 +167,14 @@ const Sidebar = () => {
                 ...prev,
                 [parentId]: true,
             }));
+        }
+    };
+
+    const handleChildMiddleClick = (e, child) => {
+        if (e.button !== 1) return;
+        e.preventDefault();
+        if (child.path) {
+            window.open(child.path, '_blank', 'noopener,noreferrer');
         }
     };
 
@@ -300,6 +316,7 @@ const Sidebar = () => {
                                     <Tooltip title={!open ? item.label : ''} placement="right" arrow>
                                         <ListItemButton
                                             onClick={() => handleParentClick(item)}
+                                            onAuxClick={(e) => handleParentMiddleClick(e, item)}
                                             sx={{
                                                 height: `${ITEM_H}px`,
                                                 px: `${ITEM_PX * 8}px`,
@@ -377,6 +394,7 @@ const Sidebar = () => {
                                                         >
                                                             <ListItemButton
                                                                 onClick={() => handleChildClick(child, item.id)}
+                                                                onAuxClick={(e) => handleChildMiddleClick(e, child)}
                                                                 sx={{
                                                                     height: `${SUB_H}px`,
                                                                     pl: '10px',

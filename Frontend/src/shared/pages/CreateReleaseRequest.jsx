@@ -1,4 +1,4 @@
-// Create Release Request – Mock UI (giống CreateGoodReceiptNote)
+// Create Release Request
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Tooltip from '@mui/material/Tooltip';
@@ -7,43 +7,16 @@ import {
     Calendar, Package, ImageIcon, Search, PackageOpen, Trash2, Globe,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
+import { useToast } from '../hooks/useToast';
+import authService from '../lib/authService';
+import { getWarehouseList } from '../lib/warehouseService';
+import { getReceivers } from '../lib/receiverService';
+import { getItemsForDisplay } from '../lib/itemService';
+import { createReleaseRequest } from '../lib/releaseRequestService';
 import { getProvinces, getProvinceWithWards, getProvincesV2, getProvinceWardsDirectV2 } from '../lib/locationService';
 import '../styles/CreateSupplier.css';
 
 const MAX_NOTE_LENGTH = 250;
-
-const MOCK_WAREHOUSES = [
-    { value: 1, label: 'Kho Hà Nội' },
-    { value: 2, label: 'Kho TP.HCM' },
-    { value: 3, label: 'Kho Đà Nẵng' },
-    { value: 4, label: 'Kho Cần Thơ' },
-];
-
-const MOCK_RECEIVERS = [
-    { value: 1, label: 'Trần Thị B',   phone: '0901 234 567', email: 'tranb@example.com', note: '' },
-    { value: 2, label: 'Lê Văn C',      phone: '0902 345 678', email: 'levanc@example.com', note: '' },
-    { value: 3, label: 'Hoàng Văn E',   phone: '0903 456 789', email: 'hoangve@example.com', note: '' },
-    { value: 4, label: 'Đặng Thị F',    phone: '0904 567 890', email: 'dangtf@example.com', note: '' },
-    { value: 5, label: 'Bùi Thị H',     phone: '0905 678 901', email: 'buith@example.com', note: '' },
-    { value: 6, label: 'Đỗ Văn I',      phone: '0906 789 012', email: 'dovi@example.com', note: '' },
-    { value: 7, label: 'Lý Văn L',      phone: '0907 890 123', email: 'lyvl@example.com', note: '' },
-    { value: 8, label: 'Mai Thị M',     phone: '0908 901 234', email: 'maitm@example.com', note: '' },
-    { value: 9, label: 'Phạm Thị P',    phone: '0909 012 345', email: 'phamtp@example.com', note: '' },
-    { value: 10, label: 'Vũ Thị Q',     phone: '0910 123 456', email: 'vutq@example.com', note: '' },
-    { value: 11, label: 'Nguyễn Thị S', phone: '0911 234 567', email: 'nguyents@example.com', note: '' },
-    { value: 12, label: 'Chu Thị T',    phone: '0912 345 678', email: 'chutt@example.com', note: '' },
-];
-
-const MOCK_PRODUCTS = [
-    { id: 1,  name: 'Bút bi Thiên Long TL-057',      sku: 'PEN-001',   uom: 'Cây',    price: 3500,  stockQty: 500 },
-    { id: 2,  name: 'Vở note 5 chấm A5',            sku: 'NOTE-001',  uom: 'Quyển',  price: 22000, stockQty: 120 },
-    { id: 3,  name: 'Bìa còng A4 10mm',             sku: 'COVER-001', uom: 'Cái',    price: 8500,  stockQty: 80 },
-    { id: 4,  name: 'Giấy A4 Double A 80gsm',       sku: 'PAPER-001', uom: 'Ram',    price: 62000, stockQty: 45 },
-    { id: 5,  name: 'Kẹp giấy 33mm (hộp 50 cái)',  sku: 'CLIP-001',  uom: 'Hộp',   price: 18000, stockQty: 200 },
-    { id: 6,  name: 'Keo dán thiên long 15g',       sku: 'GLUE-001',  uom: 'Tuýp',   price: 7000,  stockQty: 350 },
-    { id: 7,  name: 'Thước kẻ 30cm nhựa trong',     sku: 'RULER-001', uom: 'Cái',    price: 5000,  stockQty: 150 },
-    { id: 8,  name: 'Tẩy thiên long 7122',           sku: 'ERASER-001', uom: 'Cái',   price: 4000,  stockQty: 400 },
-];
 
 const formatCurrency = (val) => {
     if (!val && val !== 0) return '—';
@@ -52,12 +25,37 @@ const formatCurrency = (val) => {
 
 export default function CreateReleaseRequest() {
     const navigate = useNavigate();
-    const [toast, setToast] = useState(null);
+    const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
     const [useNewAddress, setUseNewAddress] = useState(false);
 
-    const currentUser = { fullName: 'Nguyễn Văn A', userId: 1 };
+    // ── API data ──────────────────────────────────────────────────────────────
+    const [warehouses, setWarehouses] = useState([]);
+    const [receivers, setReceivers] = useState([]);
+    const [items, setItems] = useState([]);
+    const [loadingWarehouses, setLoadingWarehouses] = useState(true);
+    const [loadingReceivers, setLoadingReceivers] = useState(true);
+    const [loadingItems, setLoadingItems] = useState(true);
 
+    useEffect(() => {
+        getWarehouseList({ pageSize: 100 })
+            .then(res => setWarehouses(res.items ?? []))
+            .catch(() => showToast('Không tải được danh sách kho.', 'error'))
+            .finally(() => setLoadingWarehouses(false));
+
+        getReceivers()
+            .then(list => setReceivers(list ?? []))
+            .catch(() => showToast('Không tải được danh sách người nhận.', 'error'))
+            .finally(() => setLoadingReceivers(false));
+
+        getItemsForDisplay()
+            .then(list => setItems(list ?? []))
+            .catch(() => showToast('Không tải được danh sách vật tư.', 'error'))
+            .finally(() => setLoadingItems(false));
+    }, [showToast]);
+
+    // ── Form state ────────────────────────────────────────────────────────────
+    const currentUser = authService.getUser();
     const [formData, setFormData] = useState({
         warehouseId: '',
         warehouseName: '',
@@ -66,8 +64,7 @@ export default function CreateReleaseRequest() {
         receiverPhone: '',
         receiverEmail: '',
         receiverNote: '',
-        expectedExportDate: new Date().toISOString().slice(0, 10),
-        creatorName: currentUser.fullName,
+        expectedDate: new Date().toISOString().slice(0, 10),
         note: '',
         address: '',
         country: 'Việt Nam',
@@ -103,11 +100,6 @@ export default function CreateReleaseRequest() {
     const [selectedProductIds, setSelectedProductIds] = useState([]);
     const [imageErrors, setImageErrors] = useState({});
 
-    const showToast = (message, type = 'info') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
-    };
-
     const handleChange = (e) => {
         const { name, value } = e.target;
         if (name === 'note' && value.length > MAX_NOTE_LENGTH) return;
@@ -116,24 +108,24 @@ export default function CreateReleaseRequest() {
 
     const handleWarehouseChange = (e) => {
         const id = Number(e.target.value);
-        const found = MOCK_WAREHOUSES.find((w) => w.value === id);
+        const found = warehouses.find((w) => (w.warehouseId ?? w.WarehouseId) === id);
         setFormData((prev) => ({
             ...prev,
             warehouseId: id,
-            warehouseName: found?.label ?? '',
+            warehouseName: found?.warehouseName ?? '',
         }));
     };
 
     const handleReceiverChange = (e) => {
         const id = Number(e.target.value);
-        const found = MOCK_RECEIVERS.find((r) => r.value === id);
+        const found = receivers.find((r) => (r.receiverId ?? r.ReceiverId) === id);
         setFormData((prev) => ({
             ...prev,
             receiverId: id,
-            receiverName: found?.label ?? '',
+            receiverName: found?.receiverName ?? '',
             receiverPhone: found?.phone ?? '',
             receiverEmail: found?.email ?? '',
-            receiverNote: found?.note ?? '',
+            receiverNote: found?.notes ?? '',
         }));
     };
 
@@ -191,32 +183,27 @@ export default function CreateReleaseRequest() {
         const keyword = e.target.value;
         setSearchKeyword(keyword);
         if (keyword.trim() === '') { setFilteredProducts([]); return; }
-        const filtered = MOCK_PRODUCTS.filter(
-            (p) => p.name.toLowerCase().includes(keyword.toLowerCase()) || p.sku.toLowerCase().includes(keyword.toLowerCase())
+        const filtered = items.filter(
+            (p) => (p.itemName ?? '').toLowerCase().includes(keyword.toLowerCase()) || (p.itemCode ?? '').toLowerCase().includes(keyword.toLowerCase())
         );
         setFilteredProducts(filtered);
     };
 
-    const isValidImageUrl = (url) => {
-        if (!url || typeof url !== 'string') return false;
-        try { new URL(url); return true; } catch { return false; }
-    };
-
-    const handleImageError = (id) => setImageErrors((prev) => ({ ...prev, [id]: true }));
-
     const handleSelectProduct = (product) => {
-        if (lines.find((l) => l.itemId === product.id)) {
+        const itemId = product.itemId ?? product.ItemId;
+        if (lines.find((l) => (l.itemId ?? l.ItemId) === itemId)) {
             showToast('Vật tư đã có trong danh sách!', 'warning');
             return;
         }
         setLines((prev) => [...prev, {
             id: Date.now(),
-            itemId: product.id,
-            itemName: product.name,
-            itemSku: product.sku,
-            itemImage: null,
-            uom: product.uom,
-            stockQty: product.stockQty ?? 0,
+            itemId: itemId,
+            itemName: product.itemName ?? '',
+            itemCode: product.itemCode ?? '',
+            itemImage: product.itemImage ?? null,
+            uomName: product.uomName ?? product.baseUomName ?? '',
+            uomId: product.uomId ?? null,
+            stockQty: 0,
             quantity: 1,
             note: '',
         }]);
@@ -224,17 +211,29 @@ export default function CreateReleaseRequest() {
         showToast('Đã thêm vật tư', 'success');
     };
 
-    const toggleProductSelection = (id) => {
-        setSelectedProductIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    const toggleProductSelection = (itemId) => {
+        setSelectedProductIds((prev) => prev.includes(itemId) ? prev.filter((x) => x !== itemId) : [...prev, itemId]);
     };
 
     const addSelectedProducts = () => {
         if (selectedProductIds.length === 0) { showToast('Chọn ít nhất 1 vật tư', 'warning'); return; }
-        const productsToAdd = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id));
+        const productsToAdd = items.filter((p) => selectedProductIds.includes(p.itemId ?? p.ItemId));
         const newLines = [];
         productsToAdd.forEach((p) => {
-            if (!lines.find((l) => l.itemId === p.id)) {
-                newLines.push({ id: Date.now() + Math.random(), itemId: p.id, itemName: p.name, itemSku: p.sku, itemImage: null, uom: p.uom, stockQty: p.stockQty ?? 0, quantity: 1, note: '' });
+            const itemId = p.itemId ?? p.ItemId;
+            if (!lines.find((l) => (l.itemId ?? l.ItemId) === itemId)) {
+                newLines.push({
+                    id: Date.now() + Math.random(),
+                    itemId: itemId,
+                    itemName: p.itemName ?? '',
+                    itemCode: p.itemCode ?? '',
+                    itemImage: p.itemImage ?? null,
+                    uomName: p.uomName ?? p.baseUomName ?? '',
+                    uomId: p.uomId ?? null,
+                    stockQty: 0,
+                    quantity: 1,
+                    note: '',
+                });
             }
         });
         if (newLines.length > 0) setLines((prev) => [...prev, ...newLines]);
@@ -259,17 +258,34 @@ export default function CreateReleaseRequest() {
         return { totalQty };
     }, [lines]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.warehouseName) { showToast('Vui lòng chọn kho xuất', 'error'); return; }
         if (!formData.receiverName) { showToast('Vui lòng chọn người nhận', 'error'); return; }
         if (lines.length === 0) { showToast('Vui lòng thêm ít nhất 1 vật tư', 'error'); return; }
+
         setSubmitting(true);
-        setTimeout(() => {
+        try {
+            await createReleaseRequest({
+                warehouseId: formData.warehouseId,
+                receiverId: formData.receiverId,
+                expectedDate: formData.expectedDate || null,
+                purpose: formData.note || null,
+                lines: lines.map(l => ({
+                    itemId: l.itemId,
+                    requestedQty: l.quantity,
+                    uomId: l.uomId,
+                    note: l.note || null,
+                })),
+            });
             showToast('Tạo yêu cầu xuất hàng thành công!', 'success');
-            setSubmitting(false);
             setTimeout(() => navigate('/good-delivery-notes'), 1500);
-        }, 1000);
+        } catch (err) {
+            const msg = err?.message || err?.response?.data?.message || 'Tạo yêu cầu xuất hàng thất bại';
+            showToast(msg, 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleCancel = () => navigate(-1);
@@ -364,27 +380,27 @@ export default function CreateReleaseRequest() {
                                                 ) : (
                                                     <>
                                                         {filteredProducts.map((product) => (
-                                                            <div key={product.id}
+                                                            <div key={product.itemId ?? product.ItemId}
                                                                 style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', transition: 'background-color 0.15s', display: 'flex', alignItems: 'center', gap: '12px' }}
                                                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
                                                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                                                <input type="checkbox" checked={selectedProductIds.includes(product.id)}
-                                                                    onChange={(e) => { e.stopPropagation(); toggleProductSelection(product.id); }}
+                                                                <input type="checkbox" checked={selectedProductIds.includes(product.itemId ?? product.ItemId)}
+                                                                    onChange={(e) => { e.stopPropagation(); toggleProductSelection(product.itemId ?? product.ItemId); }}
                                                                     style={{ cursor: 'pointer', width: '16px', height: '16px', flexShrink: 0 }} />
                                                                 <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
                                                                     <ImageIcon size={20} color="#9ca3af" />
                                                                 </div>
                                                                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => handleSelectProduct(product)}>
                                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '4px' }}>
-                                                                        <span style={{ fontSize: '14px', fontWeight: 500, color: '#1f2937' }}>{product.name}</span>
+                                                                        <span style={{ fontSize: '14px', fontWeight: 500, color: '#1f2937' }}>{product.itemName}</span>
                                                                         <span style={{ fontSize: '14px', fontWeight: 600, color: '#2196F3', marginLeft: '12px' }}>
-                                                                            {formatCurrency(product.price)}
+                                                                            {formatCurrency(product.price ?? product.latestPrice ?? 0)}
                                                                         </span>
                                                                     </div>
                                                                     <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#6b7280' }}>
-                                                                        <span>Mã: {product.sku}</span>
+                                                                        <span>Mã: {product.itemCode}</span>
                                                                         <span>•</span>
-                                                                        <span>ĐVT: {product.uom}</span>
+                                                                        <span>ĐVT: {product.uomName}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -442,7 +458,7 @@ export default function CreateReleaseRequest() {
                                                                         {line.itemName}
                                                                     </a>
                                                                     <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                                                                        Mã: {line.itemSku} • ĐVT: {line.uom}
+                                                                        Mã: {line.itemCode} • ĐVT: {line.uomName}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -502,8 +518,8 @@ export default function CreateReleaseRequest() {
                                             <select name="receiverId" value={formData.receiverId} onChange={handleReceiverChange}
                                                 className="form-input" style={{ paddingLeft: '40px' }}>
                                                 <option value="">Chọn người nhận</option>
-                                                {MOCK_RECEIVERS.map((r) => (
-                                                    <option key={r.value} value={r.value}>{r.label}</option>
+                                                {receivers.map((r) => (
+                                                    <option key={r.receiverId ?? r.ReceiverId} value={r.receiverId ?? r.ReceiverId}>{r.receiverName ?? r.ReceiverName}</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -739,8 +755,8 @@ export default function CreateReleaseRequest() {
                                             <select name="warehouseId" value={formData.warehouseId} onChange={handleWarehouseChange}
                                                 className="form-input" style={{ paddingLeft: '40px' }}>
                                                 <option value="">Chọn kho xuất</option>
-                                                {MOCK_WAREHOUSES.map((w) => (
-                                                    <option key={w.value} value={w.value}>{w.label}</option>
+                                                {warehouses.map((w) => (
+                                                    <option key={w.warehouseId ?? w.WarehouseId} value={w.warehouseId ?? w.WarehouseId}>{w.warehouseName ?? w.WarehouseName}</option>
                                                 ))}
                                             </select>
                                         </div>

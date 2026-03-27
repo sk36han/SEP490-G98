@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { getStocktakeList } from '../lib/stocktakeService';
 import {
     Box,
     Card,
@@ -31,65 +32,6 @@ import { Plus, Filter, Columns, GripVertical, Package } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import StocktakeFilterPopup from '../components/StocktakeFilterPopup';
 import '../styles/ListView.css';
-
-// Mock data
-const MOCK_DATA = [
-    {
-        stocktakeId: 1,
-        stocktakeCode: 'STK-0001',
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        mode: 'PERIODIC',
-        status: 'COMPLETED',
-        plannedAt: '2026-02-01T08:00:00.0000000',
-        createdByName: 'Nguyễn Văn A',
-        createdAt: '2026-01-28T10:00:00.0000000',
-    },
-    {
-        stocktakeId: 2,
-        stocktakeCode: 'STK-0002',
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        mode: 'ADHOC',
-        status: 'PENDING_APPROVAL',
-        plannedAt: '2026-03-10T08:00:00.0000000',
-        createdByName: 'Trần Thị B',
-        createdAt: '2026-03-08T14:30:00.0000000',
-    },
-    {
-        stocktakeId: 3,
-        stocktakeCode: 'STK-0003',
-        warehouseCode: 'WH-HN',
-        warehouseName: 'Kho Hà Nội',
-        mode: 'PERIODIC',
-        status: 'IN_PROGRESS',
-        plannedAt: '2026-03-15T08:00:00.0000000',
-        createdByName: 'Lê Văn C',
-        createdAt: '2026-03-12T09:00:00.0000000',
-    },
-    {
-        stocktakeId: 4,
-        stocktakeCode: 'STK-0004',
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        mode: 'PERIODIC',
-        status: 'DRAFT',
-        plannedAt: '2026-03-20T08:00:00.0000000',
-        createdByName: 'Phạm Thị D',
-        createdAt: '2026-03-16T11:00:00.0000000',
-    },
-    {
-        stocktakeId: 5,
-        stocktakeCode: 'STK-0005',
-        warehouseCode: 'WH-DN',
-        warehouseName: 'Kho Đà Nẵng',
-        mode: 'ADHOC',
-        status: 'CANCELLED',
-        plannedAt: '2026-03-05T08:00:00.0000000',
-        createdByName: 'Nguyễn Văn E',
-        createdAt: '2026-03-01T16:00:00.0000000',
-    },
-];
 
 // LocalStorage keys
 const LS_COL_ORDER = 'stocktakeColumnOrder';
@@ -281,61 +223,32 @@ const ViewStocktakeList = () => {
         [columnOrder, visibleColumnIds],
     );
 
-    // Fetch data
+    // Fetch data from API
     const fetchData = async () => {
         setLoading(true);
         setError(null);
-        await new Promise((resolve) => setTimeout(resolve, 500));
 
         try {
-            let filteredData = [...MOCK_DATA];
-
-            // Apply filter from popup
-            if (filterValues.warehouseCode) {
-                filteredData = filteredData.filter((item) => item.warehouseCode === filterValues.warehouseCode);
-            }
-            if (filterValues.mode) {
-                filteredData = filteredData.filter((item) => item.mode === filterValues.mode);
-            }
-            if (filterValues.status) {
-                filteredData = filteredData.filter((item) => item.status === filterValues.status);
-            }
-            if (filterValues.createdByName) {
-                filteredData = filteredData.filter((item) => item.createdByName === filterValues.createdByName);
-            }
-            if (filterValues.plannedFromDate) {
-                const from = new Date(filterValues.plannedFromDate);
-                filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) >= from);
-            }
-            if (filterValues.plannedToDate) {
-                const to = new Date(filterValues.plannedToDate);
-                to.setHours(23, 59, 59, 999);
-                filteredData = filteredData.filter((item) => item.plannedAt && new Date(item.plannedAt) <= to);
-            }
-            if (filterValues.createdFromDate) {
-                const from = new Date(filterValues.createdFromDate);
-                filteredData = filteredData.filter((item) => item.createdAt && new Date(item.createdAt) >= from);
-            }
-            if (filterValues.createdToDate) {
-                const to = new Date(filterValues.createdToDate);
-                to.setHours(23, 59, 59, 999);
-                filteredData = filteredData.filter((item) => item.createdAt && new Date(item.createdAt) <= to);
-            }
-
-            // Apply search
-            if (searchTerm) {
-                const term = searchTerm.toLowerCase();
-                filteredData = filteredData.filter(
-                    (item) =>
-                        item.stocktakeCode?.toLowerCase().includes(term) ||
-                        item.warehouseName?.toLowerCase().includes(term) ||
-                        item.createdByName?.toLowerCase().includes(term),
-                );
-            }
-            setList(filteredData);
-            setTotalRows(filteredData.length);
+            const result = await getStocktakeList({
+                page: page + 1,
+                pageSize,
+                stocktakeCode: searchTerm || null,
+                warehouseName: searchTerm || null,
+                status: filterValues.status || null,
+                mode: filterValues.mode || null,
+                createdByName: filterValues.createdByName || null,
+                plannedFrom: filterValues.plannedFromDate || null,
+                plannedTo: filterValues.plannedToDate || null,
+                startedFrom: filterValues.startedFromDate || null,
+                startedTo: filterValues.startedToDate || null,
+                endedFrom: filterValues.endedFromDate || null,
+                endedTo: filterValues.endedToDate || null,
+            });
+            setList(result.items || []);
+            setTotalRows(result.totalItems || 0);
         } catch (err) {
-            setError(err.message || 'Không thể kết nối đến server');
+            const msg = err?.response?.data?.message || err?.message || 'Không thể tải danh sách kiểm kê';
+            setError(msg);
             setList([]);
             setTotalRows(0);
         } finally {
@@ -345,14 +258,14 @@ const ViewStocktakeList = () => {
 
     useEffect(() => {
         fetchData();
-    }, [searchTerm, filterValues]);
+    }, [searchTerm, filterValues, page, pageSize]);
 
-    // Pagination helpers
+    // Pagination helpers (API returns paginated data)
     const totalCount = totalRows;
-    const start = totalCount === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalCount);
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
-    const paginatedList = list.slice(page * pageSize, (page + 1) * pageSize);
+    const paginatedList = list;
+    const start = totalCount > 0 ? page * pageSize + 1 : 0;
+    const end = Math.min((page + 1) * pageSize, totalCount);
 
     const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
