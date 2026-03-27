@@ -26,7 +26,7 @@ public class ReceiverTransactionsServiceTests
 
     private async Task SeedDataAsync(Mkiwms5Context context, long receiverId)
     {
-        var uom = new UnitOfMeasure { UomId = 1, UomCode = "PCS", UomName = "Pieces" };
+        var uom = new UnitOfMeasure { UomId = 1, UomName = "Pieces" };
         context.UnitOfMeasures.Add(uom);
         var item = new Item { ItemId = 1, ItemCode = "ITM01", ItemName = "Item 01", BaseUomId = 1 };
         context.Items.Add(item);
