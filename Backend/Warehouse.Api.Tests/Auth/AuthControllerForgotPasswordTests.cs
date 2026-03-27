@@ -1,13 +1,14 @@
+﻿extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class AuthControllerForgotPasswordTests
 {
@@ -34,7 +35,7 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu đến email của bạn.");
+		response.Message.Should().Be("Náº¿u email tá»“n táº¡i trong há»‡ thá»‘ng, chÃºng tÃ´i Ä‘Ã£ gá»­i link Ä‘áº·t láº¡i máº­t kháº©u Ä‘áº¿n email cá»§a báº¡n.");
 	}
 
 	[Fact]
@@ -53,7 +54,7 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu đến email của bạn.");
+		response.Message.Should().Be("Náº¿u email tá»“n táº¡i trong há»‡ thá»‘ng, chÃºng tÃ´i Ä‘Ã£ gá»­i link Ä‘áº·t láº¡i máº­t kháº©u Ä‘áº¿n email cá»§a báº¡n.");
 	}
 
 	[Fact]
@@ -121,7 +122,7 @@ public class AuthControllerForgotPasswordTests
 
 		_authServiceMock
 			.Setup(x => x.SendResetPasswordEmailAsync(request.Email))
-			.ThrowsAsync(new InvalidOperationException("Thiếu cấu hình SMTP trong appsettings.json"));
+			.ThrowsAsync(new InvalidOperationException("Thiáº¿u cáº¥u hÃ¬nh SMTP trong appsettings.json"));
 
 		var result = await controller.ForgotPassword(request);
 
@@ -129,7 +130,7 @@ public class AuthControllerForgotPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Thiếu cấu hình SMTP trong appsettings.json");
+		response.Message.Should().Be("Thiáº¿u cáº¥u hÃ¬nh SMTP trong appsettings.json");
 	}
 
 	[Fact]
@@ -149,6 +150,6 @@ public class AuthControllerForgotPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Có lỗi xảy ra khi gửi email đặt lại mật khẩu.");
+		response.Message.Should().Be("CÃ³ lá»—i xáº£y ra khi gá»­i email Ä‘áº·t láº¡i máº­t kháº©u.");
 	}
 }

@@ -24,7 +24,11 @@ namespace Warehouse.DataAcces.Service
                 throw new ArgumentNullException(nameof(request));
             }
 
-            var itemCode = request.ItemCode?.Trim() ?? string.Empty;
+            // Sinh ItemCode tu dong neu khong truyen len
+            var itemCode = string.IsNullOrWhiteSpace(request.ItemCode)
+                ? await GenerateNextItemCodeAsync()
+                : request.ItemCode.Trim();
+
             var itemName = request.ItemName?.Trim() ?? string.Empty;
 
             var duplicatedCode = _context.Items.Any(i => i.ItemCode == itemCode);
@@ -518,6 +522,28 @@ namespace Warehouse.DataAcces.Service
                 AvailableQty = availableQty,
                 Parameters = parameters
             };
+        }
+
+        private async Task<string> GenerateNextItemCodeAsync()
+        {
+            var itemCodes = await _context.Items
+                .Where(i => i.ItemCode.StartsWith("ITM"))
+                .Select(i => i.ItemCode)
+                .ToListAsync();
+
+            var maxNumber = 0;
+            foreach (var code in itemCodes)
+            {
+                if (code.Length <= 3) continue;
+
+                var numberPart = code.Substring(3);
+                if (int.TryParse(numberPart, out var number) && number > maxNumber)
+                {
+                    maxNumber = number;
+                }
+            }
+
+            return $"ITM{maxNumber + 1}";
         }
     }
 }

@@ -1,14 +1,15 @@
+﻿extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System.Security.Claims;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class UserControllerChangePasswordTests
 {
@@ -55,7 +56,7 @@ public class UserControllerChangePasswordTests
         var result = await controller.ChangePassword(request);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value!.ToString().Should().Contain("Đổi mật khẩu thành công");
+        ok.Value!.ToString().Should().Contain("Äá»•i máº­t kháº©u thÃ nh cÃ´ng");
         _userServiceMock.Verify(x => x.ChangePasswordAsync(1, request.OldPassword, request.NewPassword), Times.Once);
     }
 
@@ -93,7 +94,7 @@ public class UserControllerChangePasswordTests
         var result = await controller.ChangePassword(request);
 
         var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
-        unauthorized.Value!.ToString().Should().Contain("Không xác định được người dùng từ token");
+        unauthorized.Value!.ToString().Should().Contain("KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c ngÆ°á»i dÃ¹ng tá»« token");
         _userServiceMock.Verify(x => x.ChangePasswordAsync(It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -127,12 +128,12 @@ public class UserControllerChangePasswordTests
 
         _userServiceMock
             .Setup(x => x.ChangePasswordAsync(1, request.OldPassword, request.NewPassword))
-            .ThrowsAsync(new InvalidOperationException("Mật khẩu cũ không đúng."));
+            .ThrowsAsync(new InvalidOperationException("Máº­t kháº©u cÅ© khÃ´ng Ä‘Ãºng."));
 
         var result = await controller.ChangePassword(request);
 
         var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequest.Value!.ToString().Should().Contain("Mật khẩu cũ không đúng");
+        badRequest.Value!.ToString().Should().Contain("Máº­t kháº©u cÅ© khÃ´ng Ä‘Ãºng");
     }
 
     [Fact]
@@ -148,11 +149,11 @@ public class UserControllerChangePasswordTests
 
         _userServiceMock
             .Setup(x => x.ChangePasswordAsync(999, request.OldPassword, request.NewPassword))
-            .ThrowsAsync(new KeyNotFoundException("Không tìm thấy người dùng."));
+            .ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng."));
 
         var result = await controller.ChangePassword(request);
 
         var notFound = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-        notFound.Value!.ToString().Should().Contain("Không tìm thấy người dùng");
+        notFound.Value!.ToString().Should().Contain("KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng");
     }
 }
