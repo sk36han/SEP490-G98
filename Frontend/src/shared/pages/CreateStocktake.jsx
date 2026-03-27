@@ -429,7 +429,7 @@ const CreateStocktake = () => {
                                             </thead>
                                             <tbody>
                                                 {lines.map((line, index) => (
-                                                    <tr key={line.id}>
+                                                    <tr key={line.itemId ?? line.id ?? index}>
                                                         <td style={{ textAlign: 'center' }}>{index + 1}</td>
                                                         <td>
                                                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -521,11 +521,11 @@ const CreateStocktake = () => {
                                         {warehouseDropdownOpen && (
                                             <ul className="form-input" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', maxHeight: '220px', overflowY: 'auto', listStyle: 'none', padding: '8px 0', zIndex: 10, backgroundColor: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                                                 {filteredWarehouses.length === 0 ? (
-                                                    <li style={{ padding: '8px 12px', color: '#6b7280', fontSize: '14px' }}>Không có kho phù hợp</li>
+                                                    <li key="no-results" style={{ padding: '8px 12px', color: '#6b7280', fontSize: '14px' }}>Không có kho phù hợp</li>
                                                 ) : (
                                                     filteredWarehouses.map(wh => (
-                                                        <li key={wh.id} onClick={() => handleWarehouseSelect(wh)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '14px' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                                            {wh.name} ({wh.code})
+                                                        <li key={wh.warehouseId} onClick={() => handleWarehouseSelect(wh)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '14px' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                                            {wh.warehouseName} ({wh.warehouseCode})
                                                         </li>
                                                     ))
                                                 )}

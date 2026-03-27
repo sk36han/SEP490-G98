@@ -435,6 +435,19 @@ namespace Warehouse.DataAcces.Service
                         _context.InventoryOnHands.Add(newInventory);
                     }
 
+                    // Tạo InventoryLot cho FIFO
+                    var lot = new InventoryLot
+                    {
+                        ItemId = grnLine.ItemId,
+                        WarehouseId = grn.WarehouseId,
+                        GrnlineId = grnLine.GrnlineId,
+                        ReceiptDate = grn.ReceiptDate.ToDateTime(TimeOnly.MinValue),
+                        Quantity = grnLine.ActualQty,
+                        UnitCost = costPrice,
+                        IsActive = true
+                    };
+                    _context.InventoryLots.Add(lot);
+
                     // Cập nhật giá mua (Purchase) vào ItemPrice
                     if (purchasePrice.HasValue && purchasePrice > 0)
                     {

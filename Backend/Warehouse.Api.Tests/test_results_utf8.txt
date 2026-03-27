@@ -1,0 +1,1387 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Warehouse.Entities -> D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Entities\bin\Debug\net8.0\Warehouse.Entities.dll
+  Warehouse.DataAcces -> D:\CODE\14.3\SEP490-G98\Backend\Warehouse.DataAcces\bin\Debug\net8.0\Warehouse.DataAcces.dll
+  Warehouse.Api -> D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api\bin\Debug\net8.0\Warehouse.Api.dll
+  Warehouse.Api.Tests -> D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\bin\Debug\net8.0\Warehouse.Api.Tests.dll
+Test run for D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\bin\Debug\net8.0\Warehouse.Api.Tests.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.14.0 (x64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+dotnet : [xUnit.net 00:00:00.29]     WarehouseTests.AuthControllerForgotPasswordTes
+ts.FP_UTC002_NonExistingEmail_ShouldStillReturnOkSuccessResponse [FAIL]
+At line:1 char:1
++ dotnet test > test_results.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...Response [FAIL]:Str 
+   ing) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:00.30]     WarehouseTests.UserControllerChangePasswordTests.UCP_UT
+C001_ValidRequest_ShouldReturnOk [FAIL]
+[xUnit.net 00:00:00.30]     WarehouseTests.UserControllerUpdateProfileTests.UpdateP
+rofile_WhenRequestIsValid_ShouldReturnOkWithUpdatedData [FAIL]
+  Failed WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC002_NonExistingEmail_ShouldStillReturnOkSuccessResponse [120 ms]
+  Error Message:
+   Expected response.Message to be "N├í┬║┬┐u email t├í┬╗ΓÇ£n t├í┬║┬íi trong h├í┬╗ΓÇí th├í┬╗ΓÇÿng, ch├â┬║ng t├â┬┤i ├äΓÇÿ├â┬ú g├í┬╗┬¡i link ├äΓÇÿ├í┬║┬╖t l├í┬║┬íi m├í┬║┬¡t kh├í┬║┬⌐u ├äΓÇÿ├í┬║┬┐n email c├í┬╗┬ºa b├í┬║┬ín." with a length of 123, but "Nß║┐u email tß╗ôn tß║íi trong hß╗ç thß╗æng, ch├║ng t├┤i ─æ├ú gß╗¡i link ─æß║╖t lß║íi mß║¡t khß║⌐u ─æß║┐n email cß╗ºa bß║ín." has a length of 91, differs near "ß║┐u " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC002_NonExistingEmail_ShouldStillReturnOkSuccessResponse() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerForgotPasswordTests.cs:line 57
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.UserControllerChangePasswordTests.UCP_UTC001_ValidRequest_ShouldReturnOk [120 ms]
+  Error Message:
+   Expected ok.Value!.ToString() "{ success = True, message = ─Éß╗òi mß║¡t khß║⌐u th├ánh c├┤ng. }" to contain "├ä┬É├í┬╗ΓÇói m├í┬║┬¡t kh├í┬║┬⌐u th├â┬ánh c├â┬┤ng".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.UserControllerChangePasswordTests.UCP_UTC001_ValidRequest_ShouldReturnOk() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\User\UserControllerChangePasswordTests.cs:line 59
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenRequestIsValid_ShouldReturnOkWithUpdatedData [120 ms]
+  Error Message:
+   Expected okResult.Value!.ToString() "{ success = True, message = Cß║¡p nhß║¡t sß╗æ ─æiß╗çn thoß║íi th├ánh c├┤ng., data = Warehouse.Entities.ModelResponse.UserResponse }" to contain "C├í┬║┬¡p nh├í┬║┬¡t s├í┬╗ΓÇÿ ├äΓÇÿi├í┬╗ΓÇín tho├í┬║┬íi th├â┬ánh c├â┬┤ng".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenRequestIsValid_ShouldReturnOkWithUpdatedData() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\User\UserControllerUpdateProfileTests.cs:line 73
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.31]     WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC
+008_ServiceThrowsUnexpectedException_ShouldReturnInternalServerError [FAIL]
+[xUnit.net 00:00:00.31]     WarehouseTests.UserControllerUpdateProfileTests.UpdateP
+rofile_WhenServiceReturnsNull_ShouldReturnNotFound [FAIL]
+[xUnit.net 00:00:00.31]     WarehouseTests.UserControllerChangePasswordTests.UCP_UT
+C003_MissingUserIdClaim_ShouldReturnUnauthorized_AndNotCallService [FAIL]
+  Failed WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC008_ServiceThrowsUnexpectedException_ShouldReturnInternalServerError [11 ms]
+  Error Message:
+   Expected response.Message to be "C├â┬│ l├í┬╗ΓÇöi x├í┬║┬úy ra khi g├í┬╗┬¡i email ├äΓÇÿ├í┬║┬╖t l├í┬║┬íi m├í┬║┬¡t kh├í┬║┬⌐u." with a length of 61, but "C├│ lß╗ùi xß║úy ra khi gß╗¡i email ─æß║╖t lß║íi mß║¡t khß║⌐u." has a length of 45, differs near "├│ l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC008_ServiceThrowsUnexpectedException_ShouldReturnInternalServerError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerForgotPasswordTests.cs:line 153
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenServiceReturnsNull_ShouldReturnNotFound [10 ms]
+  Error Message:
+   Expected notFound.Value!.ToString() "{ message = Kh├┤ng t├¼m thß║Ñy th├┤ng tin ng╞░ß╗¥i d├╣ng. }" to contain "Kh├â┬┤ng t├â┬¼m th├í┬║┬Ñy th├â┬┤ng tin ng├å┬░├í┬╗┬¥i d├â┬╣ng".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenServiceReturnsNull_ShouldReturnNotFound() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\User\UserControllerUpdateProfileTests.cs:line 136
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.UserControllerChangePasswordTests.UCP_UTC003_MissingUserIdClaim_ShouldReturnUnauthorized_AndNotCallService [1 ms]
+  Error Message:
+   Expected unauthorized.Value!.ToString() "{ message = Kh├┤ng x├íc ─æß╗ïnh ─æ╞░ß╗úc ng╞░ß╗¥i d├╣ng tß╗½ token. }" to contain "Kh├â┬┤ng x├â┬íc ├äΓÇÿ├í┬╗ΓÇ╣nh ├äΓÇÿ├å┬░├í┬╗┬úc ng├å┬░├í┬╗┬¥i d├â┬╣ng t├í┬╗┬½ token".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.UserControllerChangePasswordTests.UCP_UTC003_MissingUserIdClaim_ShouldReturnUnauthorized_AndNotCallService() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\User\UserControllerChangePasswordTests.cs:line 97
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.31]     WarehouseTests.UserControllerUpdateProfileTests.UpdateP
+rofile_WhenUnexpectedExceptionOccurs_ShouldReturnInternalServerError [FAIL]
+[xUnit.net 00:00:00.31]     WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC
+001_ValidEmail_ShouldReturnOkSuccessResponse [FAIL]
+[xUnit.net 00:00:00.31]     WarehouseTests.UserControllerUpdateProfileTests.UpdateP
+rofile_WhenUserIdClaimMissing_ShouldReturnUnauthorized_AndNotCallService [FAIL]
+  Failed WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenUnexpectedExceptionOccurs_ShouldReturnInternalServerError [2 ms]
+  Error Message:
+   Expected objectResult.Value!.ToString() "{ message = ─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng., detail = DB down }" to contain "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenUnexpectedExceptionOccurs_ShouldReturnInternalServerError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\User\UserControllerUpdateProfileTests.cs:line 153
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC001_ValidEmail_ShouldReturnOkSuccessResponse [2 ms]
+  Error Message:
+   Expected response.Message to be "N├í┬║┬┐u email t├í┬╗ΓÇ£n t├í┬║┬íi trong h├í┬╗ΓÇí th├í┬╗ΓÇÿng, ch├â┬║ng t├â┬┤i ├äΓÇÿ├â┬ú g├í┬╗┬¡i link ├äΓÇÿ├í┬║┬╖t l├í┬║┬íi m├í┬║┬¡t kh├í┬║┬⌐u ├äΓÇÿ├í┬║┬┐n email c├í┬╗┬ºa b├í┬║┬ín." with a length of 123, but "Nß║┐u email tß╗ôn tß║íi trong hß╗ç thß╗æng, ch├║ng t├┤i ─æ├ú gß╗¡i link ─æß║╖t lß║íi mß║¡t khß║⌐u ─æß║┐n email cß╗ºa bß║ín." has a length of 91, differs near "ß║┐u " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerForgotPasswordTests.FP_UTC001_ValidEmail_ShouldReturnOkSuccessResponse() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerForgotPasswordTests.cs:line 38
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenUserIdClaimMissing_ShouldReturnUnauthorized_AndNotCallService [1 ms]
+  Error Message:
+   Expected unauthorized.Value!.ToString() "{ message = Kh├┤ng x├íc ─æß╗ïnh ─æ╞░ß╗úc ng╞░ß╗¥i d├╣ng tß╗½ token. }" to contain "Kh├â┬┤ng x├â┬íc ├äΓÇÿ├í┬╗ΓÇ╣nh ├äΓÇÿ├å┬░├í┬╗┬úc ng├å┬░├í┬╗┬¥i d├â┬╣ng t├í┬╗┬½ token".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.UserControllerUpdateProfileTests.UpdateProfile_WhenUserIdClaimMissing_ShouldReturnUnauthorized_AndNotCallService() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\User\UserControllerUpdateProfileTests.cs:line 107
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.32]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID06_Returns500_WhenSqlException [FAIL]
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID06_Returns500_WhenSqlException [6 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID06_Returns500_WhenSqlException() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 182
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID04_ReturnsBadRequest_WhenPageSizeInvalid [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID04_ReturnsBadRequest_WhenPageSizeInvalid() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 143
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID09_ReturnsBadRequest_AddressEmpty [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID09_ReturnsBadRequest_AddressEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 360
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.UpdateWarehouse_UTCID01_ReturnsOk_StandardSuccess [13 ms]
+  Error Message:
+   Expected response.Message to be "C├í┬║┬¡p nh├í┬║┬¡t kho th├â┬ánh c├â┬┤ng." with a length of 30, but "Cß║¡p nhß║¡t kho th├ánh c├┤ng." has a length of 24, differs near "ß║¡p " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.UpdateWarehouse_UTCID01_ReturnsOk_StandardSuccess() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 436
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID07_Returns500_WhenNullReference [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID07_Returns500_WhenNullReference() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 201
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.UpdateWarehouse_SystemError_Returns500 [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.UpdateWarehouse_SystemError_Returns500() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 535
+--- End of stack trace from previous location ---
+  Failed Warehouse.Api.Tests.CategoryTest.CreateCategoryServiceTests.CreateCategoryAsync_ShouldCreateChildCategory_WhenRequestIsValidAndParentExists [1 ms]
+  Error Message:
+   System.NullReferenceException : Object reference not set to an instance of an object.
+  Stack Trace:
+     at Warehouse.DataAcces.Service.CategoryService.<>c__DisplayClass5_0.<CreateCategoryAsync>b__1(ItemCategory c) in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.DataAcces\Service\CategoryService.cs:line 55
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at Warehouse.DataAcces.Service.CategoryService.CreateCategoryAsync(CreateCategoryRequest request, Int64 currentUserId) in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.DataAcces\Service\CategoryService.cs:line 55
+   at Warehouse.Api.Tests.CategoryTest.CreateCategoryServiceTests.CreateCategoryAsync_ShouldCreateChildCategory_WhenRequestIsValidAndParentExists() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\CategoryTest\CreateCategoryServiceTests.cs:line 99
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID01_ReturnsOk_WhenSuccessful [3 ms]
+  Error Message:
+   Expected response.Message to be "L├í┬║┬Ñy danh s├â┬ích kho th├â┬ánh c├â┬┤ng." with a length of 34, but "Lß║Ñy danh s├ích kho th├ánh c├┤ng." has a length of 29, differs near "ß║Ñy " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID01_ReturnsOk_WhenSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 80
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID11_Returns500_SystemError [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID11_Returns500_SystemError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 390
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID12_ReturnsBadRequest_CodeNull [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID12_ReturnsBadRequest_CodeNull() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 404
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID03_ReturnsBadRequest_WhenPageNumberInvalid [1 ms]
+  Error Message:
+   Expected response.Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID03_ReturnsBadRequest_WhenPageNumberInvalid() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 124
+--- End of stack trace from previous location ---
+  Failed Warehouse.Api.Tests.CategoryTest.UpdateCategoryServiceTests.UpdateCategoryAsync_ShouldThrowKeyNotFoundException_WhenCategoryDoesNotExist [4 ms]
+  Error Message:
+   Expected a <System.Collections.Generic.KeyNotFoundException> to be thrown, but found <System.ArgumentException>:
+System.ArgumentException: M├ú danh mß╗Ñc phß║úi c├│ ├¡t nhß║Ñt 2 k├╜ tß╗▒.
+   at Warehouse.DataAcces.Service.CategoryService.ValidateCategoryCode(String categoryCode) in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.DataAcces\Service\CategoryService.cs:line 361
+   at Warehouse.DataAcces.Service.CategoryService.UpdateCategoryAsync(Int64 id, UpdateCategoryRequest request, Int64 currentUserId) in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.DataAcces\Service\CategoryService.cs:line 196
+   at Warehouse.Api.Tests.CategoryTest.UpdateCategoryServiceTests.<>c__DisplayClass10_0.<<UpdateCategoryAsync_ShouldThrowKeyNotFoundException_WhenCategoryDoesNotExist>b__1>d.MoveNext() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\CategoryTest\UpdateCategoryServiceTests.cs:line 178
+--- End of stack trace from previous location ---
+   at FluentAssertions.Specialized.AsyncFunctionAssertions`2.InvokeWithInterceptionAsync(Func`1 action).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Specialized.DelegateAssertionsBase`2.ThrowInternal[TException](Exception exception, String because, Object[] becauseArgs)
+   at FluentAssertions.Specialized.AsyncFunctionAssertions`2.ThrowAsync[TException](String because, Object[] becauseArgs)
+   at FluentAssertions.ExceptionAssertionsExtensions.WithMessage[TException](Task`1 task, String expectedWildcardPattern, String because, Object[] becauseArgs)
+   at Warehouse.Api.Tests.CategoryTest.UpdateCategoryServiceTests.UpdateCategoryAsync_ShouldThrowKeyNotFoundException_WhenCategoryDoesNotExist() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\CategoryTest\UpdateCategoryServiceTests.cs:line 181
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID01_ReturnsOk_StandardSuccess [1 ms]
+  Error Message:
+   Expected ((ApiResponse<WarehouseResponse>)ok.Value!).Message to be "T├í┬║┬ío kho th├â┬ánh c├â┬┤ng." with a length of 23, but "Tß║ío kho th├ánh c├┤ng." has a length of 19, differs near "ß║ío " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID01_ReturnsOk_StandardSuccess() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 244
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.ToggleWarehouseStatus_UTCID01_ReturnsEnableMessage_WhenSuccess [2 ms]
+  Error Message:
+   Expected response.Message to be "├ä┬É├â┬ú chuy├í┬╗╞Æn tr├í┬║┬íng th├â┬íi kho th├â┬ánh Enable." with a length of 46, but "─É├ú chuyß╗ân trß║íng th├íi kho th├ánh Enable." has a length of 38, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.ToggleWarehouseStatus_UTCID01_ReturnsEnableMessage_WhenSuccess() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 562
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID08_Returns500_WhenGeneralException [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID08_Returns500_WhenGeneralException() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 219
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsBadRequest_WhenMultipleFieldsInvalid [8 ms]
+  Error Message:
+   Expected apiResponse.Message to be "D? li?u kh├┤ng h?p l?.", but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsBadRequest_WhenMultipleFieldsInvalid() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 206
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.UpdateWarehouse_UTCID05_ReturnsBadRequest_WhenNameEmpty [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+[xUnit.net 00:00:00.32]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID04_ReturnsBadRequest_WhenPageSizeInvalid [FAIL]
+[xUnit.net 00:00:00.33]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.CreateWarehouse_UTCID09_ReturnsBadRequest_AddressEmpty [FAIL]
+[xUnit.net 00:00:00.34]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.UpdateWarehouse_UTCID01_ReturnsOk_StandardSuccess [FAIL]
+[xUnit.net 00:00:00.35]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID07_Returns500_WhenNullReference [FAIL]
+[xUnit.net 00:00:00.35]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.UpdateWarehouse_SystemError_Returns500 [FAIL]
+[xUnit.net 00:00:00.35]     Warehouse.Api.Tests.CategoryTest.CreateCategoryServiceT
+ests.CreateCategoryAsync_ShouldCreateChildCategory_WhenRequestIsValidAndParentExist
+s [FAIL]
+[xUnit.net 00:00:00.36]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID01_ReturnsOk_WhenSuccessful [FAIL]
+[xUnit.net 00:00:00.36]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.CreateWarehouse_UTCID11_Returns500_SystemError [FAIL]
+[xUnit.net 00:00:00.36]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.CreateWarehouse_UTCID12_ReturnsBadRequest_CodeNull [FAIL]
+[xUnit.net 00:00:00.37]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID03_ReturnsBadRequest_WhenPageNumberInvalid [FAIL]
+[xUnit.net 00:00:00.37]     Warehouse.Api.Tests.CategoryTest.UpdateCategoryServiceT
+ests.UpdateCategoryAsync_ShouldThrowKeyNotFoundException_WhenCategoryDoesNotExist 
+[FAIL]
+[xUnit.net 00:00:00.37]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.CreateWarehouse_UTCID01_ReturnsOk_StandardSuccess [FAIL]
+[xUnit.net 00:00:00.37]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.ToggleWarehouseStatus_UTCID01_ReturnsEnableMessage_WhenSuccess [FAIL]
+[xUnit.net 00:00:00.37]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID08_Returns500_WhenGeneralException [FAIL]
+[xUnit.net 00:00:00.38]     WarehouseTests.Admin.AdminControllerTests.CreateUser_Re
+turnsBadRequest_WhenMultipleFieldsInvalid [FAIL]
+[xUnit.net 00:00:00.38]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.UpdateWarehouse_UTCID05_ReturnsBadRequest_WhenNameEmpty [FAIL]
+[xUnit.net 00:00:00.38]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.CreateWarehouse_UTCID06_ReturnsBadRequest_NameEmpty [FAIL]
+[xUnit.net 00:00:00.39]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.CreateWarehouse_UTCID03_ReturnsBadRequest_InvalidCodeFormat [FAIL]
+[xUnit.net 00:00:00.39]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID05_ReturnsOkWithEmpty_WhenPageExceedsRange [FAIL]
+[xUnit.net 00:00:00.39]     WarehouseTests.Admin.AdminControllerTests.UpdateUser_UT
+CID05_ReturnsUnauthorized_WhenNoToken [FAIL]
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.UpdateWarehouse_UTCID05_ReturnsBadRequest_WhenNameEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 497
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID06_ReturnsBadRequest_NameEmpty [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID06_ReturnsBadRequest_NameEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 318
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID03_ReturnsBadRequest_InvalidCodeFormat [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.CreateWarehouse_UTCID03_ReturnsBadRequest_InvalidCodeFormat() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 275
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID05_ReturnsOkWithEmpty_WhenPageExceedsRange [1 ms]
+  Error Message:
+   Expected ((ApiResponse<PagedResult<WarehouseResponse>>)ok.Value!).Message to be "L├í┬║┬Ñy danh s├â┬ích kho th├â┬ánh c├â┬┤ng." with a length of 34, but "Lß║Ñy danh s├ích kho th├ánh c├┤ng." has a length of 29, differs near "ß║Ñy " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID05_ReturnsOkWithEmpty_WhenPageExceedsRange() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 163
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID05_ReturnsUnauthorized_WhenNoToken [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)unauth.Value!).Message to be "Kh├┤ng x├íc d?nh du?c danh t├¡nh ngu?i d├╣ng.", but "Kh├┤ng x├íc ─æß╗ïnh ─æ╞░ß╗úc danh t├¡nh ng╞░ß╗¥i d├╣ng." differs near "─æß╗ïn" (index 10).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID05_ReturnsUnauthorized_WhenNoToken() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 744
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID08_Returns500_WhenSystemError [7 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID08_Returns500_WhenSystemError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 356
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID02_ReturnsOk_WhenDatabaseEmpty [1 ms]
+  Error Message:
+   Expected response.Message to be "L├í┬║┬Ñy danh s├â┬ích kho th├â┬ánh c├â┬┤ng." with a length of 34, but "Lß║Ñy danh s├ích kho th├ánh c├┤ng." has a length of 29, differs near "ß║Ñy " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.GetWarehouseList_UTCID02_ReturnsOk_WhenDatabaseEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 103
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.GetAllRoles_UTCID03_Returns500_WhenSqlException [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)statusCode.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+[xUnit.net 00:00:00.39]     WarehouseTests.Role.RoleControllerTests.CreateRole_UTCI
+D08_Returns500_WhenSystemError [FAIL]
+[xUnit.net 00:00:00.39]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.GetWarehouseList_UTCID02_ReturnsOk_WhenDatabaseEmpty [FAIL]
+[xUnit.net 00:00:00.39]     WarehouseTests.Role.RoleControllerTests.GetAllRoles_UTC
+ID03_Returns500_WhenSqlException [FAIL]
+[xUnit.net 00:00:00.39]     
+WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsCreated_WhenSuccessful 
+[FAIL]
+[xUnit.net 00:00:00.39]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.ToggleWarehouseStatus_UTCID02_ReturnsDisableMessage_WhenSuccess [FAIL]
+   at WarehouseTests.Role.RoleControllerTests.GetAllRoles_UTCID03_Returns500_WhenSqlException() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 136
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsCreated_WhenSuccessful [2 ms]
+  Error Message:
+   Expected apiResponse.Message to be "T?o t├ái kho?n th├ánh c├┤ng.", but "Tß║ío t├ái khoß║ún th├ánh c├┤ng." differs near "ß║ío " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsCreated_WhenSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 111
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.ToggleWarehouseStatus_UTCID02_ReturnsDisableMessage_WhenSuccess [1 ms]
+  Error Message:
+   Expected response.Message to be "├ä┬É├â┬ú chuy├í┬╗╞Æn tr├í┬║┬íng th├â┬íi kho th├â┬ánh Disable." with a length of 47, but "─É├ú chuyß╗ân trß║íng th├íi kho th├ánh Disable." has a length of 39, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.ToggleWarehouseStatus_UTCID02_ReturnsDisableMessage_WhenSuccess() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 585
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.40]     WarehouseTests.Role.RoleControllerTests.AssignRoleToUse
+r_UTCID07_Returns500_WhenSystemError [FAIL]
+[xUnit.net 00:00:00.40]     WarehouseTests.WarehouseFolderFolder.WarehouseControlle
+rTests.ToggleWarehouseStatus_UTCID05_06_Returns500_WhenSystemError [FAIL]
+[xUnit.net 00:00:00.40]     WarehouseTests.Role.RoleControllerTests.AssignRoleToUse
+r_UTCID01_ReturnsOk_WhenAssignNewSuccessful [FAIL]
+[xUnit.net 00:00:00.41]     WarehouseTests.Admin.AdminControllerTests.UpdateUser_UT
+CID01_ReturnsOk_WhenSuccessful [FAIL]
+[xUnit.net 00:00:00.41]     WarehouseTests.Role.RoleControllerTests.CreateRole_UTCI
+D01_ReturnsOk_WhenSuccessful [FAIL]
+  Failed WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID07_Returns500_WhenSystemError [3 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID07_Returns500_WhenSystemError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 675
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.ToggleWarehouseStatus_UTCID05_06_Returns500_WhenSystemError [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.WarehouseFolderFolder.WarehouseControllerTests.ToggleWarehouseStatus_UTCID05_06_Returns500_WhenSystemError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\WarehouseFolder\WarehouseControllerTests.cs:line 643
+[xUnit.net 00:00:00.41]     WarehouseTests.Admin.AdminControllerTests.UpdateUser_UT
+CID10_Returns500_WhenSystemError [FAIL]
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID01_ReturnsOk_WhenAssignNewSuccessful [2 ms]
+  Error Message:
+   Expected response.Message to be "G├â┬ín role cho ng├å┬░├í┬╗┬¥i d├â┬╣ng th├â┬ánh c├â┬┤ng." with a length of 42, but "G├ín role cho ng╞░ß╗¥i d├╣ng th├ánh c├┤ng." has a length of 35, differs near "├ín " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID01_ReturnsOk_WhenAssignNewSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 560
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID01_ReturnsOk_WhenSuccessful [6 ms]
+  Error Message:
+   Expected response.Message to be "C?p nh?t th├┤ng tin ngu?i d├╣ng th├ánh c├┤ng.", but "Cß║¡p nhß║¡t th├┤ng tin ng╞░ß╗¥i d├╣ng th├ánh c├┤ng." differs near "ß║¡p " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID01_ReturnsOk_WhenSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 669
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID01_ReturnsOk_WhenSuccessful [2 ms]
+  Error Message:
+   Expected response.Message to be "T├í┬║┬ío role th├â┬ánh c├â┬┤ng." with a length of 24, but "Tß║ío role th├ánh c├┤ng." has a length of 20, differs near "ß║ío " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID01_ReturnsOk_WhenSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 223
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID10_Returns500_WhenSystemError [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├É├ú x?y ra l?i h? th?ng.", but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID10_Returns500_WhenSystemError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 835
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID04_ReturnsBadRequest_WhenSpecialChars [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D? li?u kh├┤ng h?p l?.", but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID04_ReturnsBadRequest_WhenSpecialChars() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 728
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID04_ReturnsBadRequest_WhenDataEmpty [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID04_ReturnsBadRequest_WhenDataEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 440
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID02_ReturnsOk_WhenUpdateSuccessful [2 ms]
+  Error Message:
+   Expected ((ApiResponse<AdminUserResponse>)ok.Value!).Message to be "G├â┬ín role cho ng├å┬░├í┬╗┬¥i d├â┬╣ng th├â┬ánh c├â┬┤ng." with a length of 42, but "G├ín role cho ng╞░ß╗¥i d├╣ng th├ánh c├┤ng." has a length of 35, differs near "├ín " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID02_ReturnsOk_WhenUpdateSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 581
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID09_Returns500_WhenSystemError [2 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)error.Value!).Message to be "├ä┬É├â┬ú x├í┬║┬úy ra l├í┬╗ΓÇöi h├í┬╗ΓÇí th├í┬╗ΓÇÿng." with a length of 33, but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." has a length of 23, differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID09_Returns500_WhenSystemError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 531
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID05_ReturnsBadRequest_WhenCodeTooLong [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID05_ReturnsBadRequest_WhenCodeTooLong() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 459
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID07_ReturnsBadRequest_WhenSpecialChars [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID07_ReturnsBadRequest_WhenSpecialChars() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 495
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID03_ReturnsBadRequest_WhenRoleCodeEmpty [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID03_ReturnsBadRequest_WhenRoleCodeEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 264
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsBadRequest_WhenEmailMissing [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "D? li?u kh├┤ng h?p l?.", but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsBadRequest_WhenEmailMissing() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 179
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsUnauthorized_WhenClaimValueNotNumeric [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "Kh├┤ng x├íc d?nh du?c danh t├¡nh ngu?i d├╣ng.", but "Kh├┤ng x├íc ─æß╗ïnh ─æ╞░ß╗úc danh t├¡nh ng╞░ß╗¥i d├╣ng." differs near "─æß╗ïn" (index 10).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsUnauthorized_WhenClaimValueNotNumeric() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 277
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID04_ReturnsUnauthorized_WhenClaimMissing [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)unauthorized.Value!).Message to be "Kh├â┬┤ng x├â┬íc ├äΓÇÿ├í┬╗ΓÇ╣nh ├äΓÇÿ├å┬░├í┬╗┬úc danh t├â┬¡nh ng├å┬░├í┬╗┬¥i d├â┬╣ng." with a length of 55, but "Kh├┤ng x├íc ─æß╗ïnh ─æ╞░ß╗úc danh t├¡nh ng╞░ß╗¥i d├╣ng." has a length of 41, differs near "├┤ng" (index 2).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID04_ReturnsUnauthorized_WhenClaimMissing() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 616
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID03_ReturnsBadRequest_WhenModelStateInvalid [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.AssignRoleToUser_UTCID03_ReturnsBadRequest_WhenModelStateInvalid() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 598
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.ToggleUserStatus_UTCID06_Returns500_WhenUnexpectedException [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "├É├ú x?y ra l?i h? th?ng.", but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.ToggleUserStatus_UTCID06_Returns500_WhenUnexpectedException() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 989
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID04_ReturnsBadRequest_WhenRoleCodeTooLong [< 1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID04_ReturnsBadRequest_WhenRoleCodeTooLong() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 283
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID05_ReturnsBadRequest_WhenSpecialChars [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID05_ReturnsBadRequest_WhenSpecialChars() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 301
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.GetUsers_ReturnsOk_WhenEmptyList [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "L?y danh s├ích ngu?i d├╣ng th├ánh c├┤ng.", but "Lß║Ñy danh s├ích ng╞░ß╗¥i d├╣ng th├ánh c├┤ng." differs near "ß║Ñy " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+[xUnit.net 00:00:00.41]     WarehouseTests.Admin.AdminControllerTests.UpdateUser_UT
+CID04_ReturnsBadRequest_WhenSpecialChars [FAIL]
+[xUnit.net 00:00:00.41]     WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCI
+D04_ReturnsBadRequest_WhenDataEmpty [FAIL]
+[xUnit.net 00:00:00.42]     WarehouseTests.Role.RoleControllerTests.AssignRoleToUse
+r_UTCID02_ReturnsOk_WhenUpdateSuccessful [FAIL]
+[xUnit.net 00:00:00.42]     WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCI
+D09_Returns500_WhenSystemError [FAIL]
+[xUnit.net 00:00:00.42]     WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCI
+D05_ReturnsBadRequest_WhenCodeTooLong [FAIL]
+[xUnit.net 00:00:00.42]     WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCI
+D07_ReturnsBadRequest_WhenSpecialChars [FAIL]
+[xUnit.net 00:00:00.42]     WarehouseTests.Role.RoleControllerTests.CreateRole_UTCI
+D03_ReturnsBadRequest_WhenRoleCodeEmpty [FAIL]
+[xUnit.net 00:00:00.42]     WarehouseTests.Admin.AdminControllerTests.CreateUser_Re
+turnsBadRequest_WhenEmailMissing [FAIL]
+[xUnit.net 00:00:00.43]     WarehouseTests.Admin.AdminControllerTests.CreateUser_Re
+turnsUnauthorized_WhenClaimValueNotNumeric [FAIL]
+[xUnit.net 00:00:00.43]     WarehouseTests.Role.RoleControllerTests.AssignRoleToUse
+r_UTCID04_ReturnsUnauthorized_WhenClaimMissing [FAIL]
+[xUnit.net 00:00:00.43]     WarehouseTests.Role.RoleControllerTests.AssignRoleToUse
+r_UTCID03_ReturnsBadRequest_WhenModelStateInvalid [FAIL]
+[xUnit.net 00:00:00.43]     WarehouseTests.Admin.AdminControllerTests.ToggleUserSta
+tus_UTCID06_Returns500_WhenUnexpectedException [FAIL]
+[xUnit.net 00:00:00.43]     WarehouseTests.Role.RoleControllerTests.CreateRole_UTCI
+D04_ReturnsBadRequest_WhenRoleCodeTooLong [FAIL]
+[xUnit.net 00:00:00.43]     WarehouseTests.Role.RoleControllerTests.CreateRole_UTCI
+D05_ReturnsBadRequest_WhenSpecialChars [FAIL]
+[xUnit.net 00:00:00.43]     
+WarehouseTests.Admin.AdminControllerTests.GetUsers_ReturnsOk_WhenEmptyList [FAIL]
+[xUnit.net 00:00:00.43]     WarehouseTests.Role.RoleControllerTests.CreateRole_UTCI
+D07_ReturnsBadRequest_WhenRoleNameWhitespace [FAIL]
+[xUnit.net 00:00:00.44]     WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCI
+D08_ReturnsBadRequest_WhenNameWhitespace [FAIL]
+[xUnit.net 00:00:00.44]     
+WarehouseTests.Admin.AdminControllerTests.GetUsers_Returns500_WhenException [FAIL]
+[xUnit.net 00:00:00.44]     WarehouseTests.AuthControllerResetPasswordTests.UTC001_
+ValidTokenAndPassword_ShouldReturnOkSuccessResponse [FAIL]
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.GetUsers_ReturnsOk_WhenEmptyList() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 518
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID07_ReturnsBadRequest_WhenRoleNameWhitespace [4 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID07_ReturnsBadRequest_WhenRoleNameWhitespace() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 337
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID08_ReturnsBadRequest_WhenNameWhitespace [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID08_ReturnsBadRequest_WhenNameWhitespace() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 512
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.GetUsers_Returns500_WhenException [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "├É├ú x?y ra l?i h? th?ng.", but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.GetUsers_Returns500_WhenException() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 635
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.AuthControllerResetPasswordTests.UTC001_ValidTokenAndPassword_ShouldReturnOkSuccessResponse [4 ms]
+  Error Message:
+   Expected response.Message to be "├ä┬É├í┬║┬╖t l├í┬║┬íi m├í┬║┬¡t kh├í┬║┬⌐u th├â┬ánh c├â┬┤ng. B├í┬║┬ín c├â┬│ th├í┬╗╞Æ ├äΓÇÿ├ä╞Æng nh├í┬║┬¡p v├í┬╗ΓÇ║i m├í┬║┬¡t kh├í┬║┬⌐u m├í┬╗ΓÇ║i." with a length of 95, but "─Éß║╖t lß║íi mß║¡t khß║⌐u th├ánh c├┤ng. Bß║ín c├│ thß╗â ─æ─âng nhß║¡p vß╗¢i mß║¡t khß║⌐u mß╗¢i." has a length of 67, differs near "─Éß║╖t" (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerResetPasswordTests.UTC001_ValidTokenAndPassword_ShouldReturnOkSuccessResponse() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerResetPasswordTests.cs:line 44
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.GetUsers_ReturnsOk_WhenSuccessful [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "L?y danh s├ích ngu?i d├╣ng th├ánh c├┤ng.", but "Lß║Ñy danh s├ích ng╞░ß╗¥i d├╣ng th├ánh c├┤ng." differs near "ß║Ñy " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+[xUnit.net 00:00:00.44]     
+WarehouseTests.Admin.AdminControllerTests.GetUsers_ReturnsOk_WhenSuccessful [FAIL]
+[xUnit.net 00:00:00.44]     WarehouseTests.Role.RoleControllerTests.GetAllRoles_UTC
+ID01_ReturnsOk_WhenSuccessful [FAIL]
+[xUnit.net 00:00:00.44]     WarehouseTests.AuthControllerResetPasswordTests.UTC002_
+InvalidToken_ShouldReturnBadRequestWithTokenMessage [FAIL]
+[xUnit.net 00:00:00.44]     WarehouseTests.Admin.AdminControllerTests.CreateUser_Re
+turnsUnauthorized_WhenClaimMissing [FAIL]
+[xUnit.net 00:00:00.49]     WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCI
+D01_ReturnsOk_WhenSuccessful [FAIL]
+[xUnit.net 00:00:00.49]     WarehouseTests.AuthControllerResetPasswordTests.UTC003_
+ExpiredToken_ShouldReturnBadRequestWithTokenMessage [FAIL]
+[xUnit.net 00:00:00.49]     WarehouseTests.Admin.AdminControllerTests.CreateUser_Re
+turns500_WhenUnexpectedException [FAIL]
+[xUnit.net 00:00:00.49]     WarehouseTests.Role.RoleControllerTests.CreateRole_UTCI
+D06_ReturnsBadRequest_WhenRoleNameEmpty [FAIL]
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.GetUsers_ReturnsOk_WhenSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 493
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.GetAllRoles_UTCID01_ReturnsOk_WhenSuccessful [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "L├í┬║┬Ñy danh s├â┬ích role th├â┬ánh c├â┬┤ng." with a length of 35, but "Lß║Ñy danh s├ích role th├ánh c├┤ng." has a length of 30, differs near "ß║Ñy " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.GetAllRoles_UTCID01_ReturnsOk_WhenSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 93
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.AuthControllerResetPasswordTests.UTC002_InvalidToken_ShouldReturnBadRequestWithTokenMessage [1 ms]
+  Error Message:
+   Expected response.Message to be "Token kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí ho├í┬║┬╖c ├äΓÇÿ├â┬ú h├í┬║┬┐t h├í┬║┬ín. Vui l├â┬▓ng y├â┬¬u c├í┬║┬ºu ├äΓÇÿ├í┬║┬╖t l├í┬║┬íi m├í┬║┬¡t kh├í┬║┬⌐u m├í┬╗ΓÇ║i." with a length of 102, but "Token kh├┤ng hß╗úp lß╗ç hoß║╖c ─æ├ú hß║┐t hß║ín. Vui l├▓ng y├¬u cß║ºu ─æß║╖t lß║íi mß║¡t khß║⌐u mß╗¢i." has a length of 74, differs near "├┤ng" (index 8).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerResetPasswordTests.UTC002_InvalidToken_ShouldReturnBadRequestWithTokenMessage() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerResetPasswordTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsUnauthorized_WhenClaimMissing [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "Kh├┤ng x├íc d?nh du?c danh t├¡nh ngu?i d├╣ng.", but "Kh├┤ng x├íc ─æß╗ïnh ─æ╞░ß╗úc danh t├¡nh ng╞░ß╗¥i d├╣ng." differs near "─æß╗ïn" (index 10).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.CreateUser_ReturnsUnauthorized_WhenClaimMissing() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 235
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID01_ReturnsOk_WhenSuccessful [1 ms]
+  Error Message:
+   Expected response.Message to be "C├í┬║┬¡p nh├í┬║┬¡t role th├â┬ánh c├â┬┤ng." with a length of 31, but "Cß║¡p nhß║¡t role th├ánh c├┤ng." has a length of 25, differs near "ß║¡p " (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.UpdateRole_UTCID01_ReturnsOk_WhenSuccessful() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 382
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.AuthControllerResetPasswordTests.UTC003_ExpiredToken_ShouldReturnBadRequestWithTokenMessage [2 ms]
+  Error Message:
+   Expected response.Message to be "Token kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí ho├í┬║┬╖c ├äΓÇÿ├â┬ú h├í┬║┬┐t h├í┬║┬ín. Vui l├â┬▓ng y├â┬¬u c├í┬║┬ºu ├äΓÇÿ├í┬║┬╖t l├í┬║┬íi m├í┬║┬¡t kh├í┬║┬⌐u m├í┬╗ΓÇ║i." with a length of 102, but "Token kh├┤ng hß╗úp lß╗ç hoß║╖c ─æ├ú hß║┐t hß║ín. Vui l├▓ng y├¬u cß║ºu ─æß║╖t lß║íi mß║¡t khß║⌐u mß╗¢i." has a length of 74, differs near "├┤ng" (index 8).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerResetPasswordTests.UTC003_ExpiredToken_ShouldReturnBadRequestWithTokenMessage() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerResetPasswordTests.cs:line 92
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.CreateUser_Returns500_WhenUnexpectedException [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "├É├ú x?y ra l?i h? th?ng.", but "─É├ú xß║úy ra lß╗ùi hß╗ç thß╗æng." differs near "─É├ú " (index 0).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+[xUnit.net 00:00:00.49]     WarehouseTests.AuthControllerResetPasswordTests.UTC007_
+UnexpectedException_ShouldReturnInternalServerError [FAIL]
+[xUnit.net 00:00:00.49]     WarehouseTests.Admin.AdminControllerTests.ToggleUserSta
+tus_UTCID03_ReturnsUnauthorized_WhenClaimMissing [FAIL]
+[xUnit.net 00:00:00.50]     WarehouseTests.Admin.AdminControllerTests.UpdateUser_UT
+CID03_ReturnsBadRequest_WhenNameEmpty [FAIL]
+   at WarehouseTests.Admin.AdminControllerTests.CreateUser_Returns500_WhenUnexpectedException() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 394
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID06_ReturnsBadRequest_WhenRoleNameEmpty [1 ms]
+  Error Message:
+   Expected ((ApiResponse<object>)bad.Value!).Message to be "D├í┬╗┬» li├í┬╗ΓÇíu kh├â┬┤ng h├í┬╗┬úp l├í┬╗ΓÇí." with a length of 30, but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." has a length of 21, differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Role.RoleControllerTests.CreateRole_UTCID06_ReturnsBadRequest_WhenRoleNameEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Role\RoleControllerTests.cs:line 319
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.AuthControllerResetPasswordTests.UTC007_UnexpectedException_ShouldReturnInternalServerError [2 ms]
+  Error Message:
+   Expected response.Message to be "C├â┬│ l├í┬╗ΓÇöi x├í┬║┬úy ra khi ├äΓÇÿ├í┬║┬╖t l├í┬║┬íi m├í┬║┬¡t kh├í┬║┬⌐u." with a length of 49, but "C├│ lß╗ùi xß║úy ra khi ─æß║╖t lß║íi mß║¡t khß║⌐u." has a length of 35, differs near "├│ l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstLengthDifferences()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerResetPasswordTests.UTC007_UnexpectedException_ShouldReturnInternalServerError() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerResetPasswordTests.cs:line 180
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.ToggleUserStatus_UTCID03_ReturnsUnauthorized_WhenClaimMissing [1 ms]
+  Error Message:
+   Expected apiResponse.Message to be "Kh├┤ng x├íc d?nh du?c danh t├¡nh ngu?i d├╣ng.", but "Kh├┤ng x├íc ─æß╗ïnh ─æ╞░ß╗úc danh t├¡nh ng╞░ß╗¥i d├╣ng." differs near "─æß╗ïn" (index 10).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.ToggleUserStatus_UTCID03_ReturnsUnauthorized_WhenClaimMissing() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 919
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID03_ReturnsBadRequest_WhenNameEmpty [1 ms]
+  Error Message:
+   Expected response.Message to be "D? li?u kh├┤ng h?p l?.", but "Dß╗» liß╗çu kh├┤ng hß╗úp lß╗ç." differs near "ß╗» l" (index 1).
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringEqualityValidator.ValidateAgainstMismatch()
+   at FluentAssertions.Primitives.StringValidator.Validate()
+   at FluentAssertions.Primitives.StringAssertions`1.Be(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.Admin.AdminControllerTests.UpdateUser_UTCID03_ReturnsBadRequest_WhenNameEmpty() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Admin\AdminControllerTests.cs:line 708
+--- End of stack trace from previous location ---
+  Failed WarehouseTests.AuthControllerLoginTests.UTC002_NonExistingEmail_ShouldReturnUnauthorized_WithGroupedMessage [1 ms]
+  Error Message:
+   Expected unauthorized.Value!.ToString() "{ message = Email/Username hoß║╖c mß║¡t khß║⌐u kh├┤ng ─æ├║ng }" to contain "Email/Username ho├í┬║┬╖c m├í┬║┬¡t kh├í┬║┬⌐u kh├â┬┤ng ├äΓÇÿ├â┬║ng".
+  Stack Trace:
+     at FluentAssertions.Execution.XUnit2TestFramework.Throw(String message)
+   at FluentAssertions.Execution.TestFrameworkProvider.Throw(String message)
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(Func`1 failReasonFunc)
+   at FluentAssertions.Execution.AssertionScope.FailWith(String message, Object[] args)
+   at FluentAssertions.Primitives.StringAssertions`1.Contain(String expected, String because, Object[] becauseArgs)
+   at WarehouseTests.AuthControllerLoginTests.UTC002_NonExistingEmail_ShouldReturnUnauthorized_WithGroupedMessage() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Auth\AuthControllerLoginTests.cs:line 102
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.50]     WarehouseTests.AuthControllerLoginTests.UTC002_NonExist
+ingEmail_ShouldReturnUnauthorized_WithGroupedMessage [FAIL]
+[xUnit.net 00:00:01.09]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_PageZero_ShouldDefaultToOne [FAIL]
+[xUnit.net 00:00:01.09]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_History_ShouldReturnMergedList [FAIL]
+[xUnit.net 00:00:01.10]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_DetailModeRR_ShouldReturnDetail [FAIL]
+[xUnit.net 00:00:01.10]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_FilterByDateRange_ShouldReturnInRange [FAIL]
+[xUnit.net 00:00:01.10]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_FilterByTypeRR_ShouldReturnOnlyRR [FAIL]
+[xUnit.net 00:00:01.10]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_DetailModeNonExistingDoc_ShouldReturnNullDetail 
+[FAIL]
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_PageZero_ShouldDefaultToOne [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_History_ShouldReturnMergedList [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_DetailModeRR_ShouldReturnDetail [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_FilterByDateRange_ShouldReturnInRange [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_FilterByTypeRR_ShouldReturnOnlyRR [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_DetailModeNonExistingDoc_ShouldReturnNullDetail [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+[xUnit.net 00:00:01.10]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_DetailModeGDN_ShouldReturnDetail [FAIL]
+[xUnit.net 00:00:01.10]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_Summary_ShouldReturnCorrectStats [FAIL]
+[xUnit.net 00:00:01.10]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_Paging_ShouldReturnCorrectPage [FAIL]
+[xUnit.net 00:00:01.11]     WarehouseTests.ReceiverServiceTests.GetReceiverTransact
+ionsServiceTests.GetTransactions_FilterByStatus_ShouldReturnApprovedOnly [FAIL]
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_DetailModeGDN_ShouldReturnDetail [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_Summary_ShouldReturnCorrectStats [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_Paging_ShouldReturnCorrectPage [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.GetTransactions_FilterByStatus_ShouldReturnApprovedOnly [1 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : Required properties '{'LifecycleStatus'}' are missing for the instance of entity type 'ReleaseRequest'. Consider using 'DbContextOptionsBuilder.EnableSensitiveDataLogging' to see the entity key value.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.ThrowNullabilityErrorException(IUpdateEntry entry, IList`1 nullabilityErrors)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryTable`1.Create(IUpdateEntry entry, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryStore.ExecuteTransaction(IList`1 entries, IDiagnosticsLogger`1 updateLogger)
+   at Microsoft.EntityFrameworkCore.InMemory.Storage.Internal.InMemoryDatabase.SaveChanges(IList`1 entries)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(IList`1 entriesToSave)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(StateManager stateManager, Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.<>c.<SaveChanges>b__112_0(DbContext _, ValueTuple`2 t)
+   at Microsoft.EntityFrameworkCore.Storage.NonRetryingExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges(Boolean acceptAllChangesOnSuccess)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChanges()
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests.SeedDatabase() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 136
+   at WarehouseTests.ReceiverServiceTests.GetReceiverTransactionsServiceTests..ctor() in D:\CODE\14.3\SEP490-G98\Backend\Warehouse.Api.Tests\Receiver\GetReceiverTransactionsServiceTests.cs:line 25
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+
+Failed!  - Failed:    82, Passed:   451, Skipped:     0, Total:   533, Duration: 1 s - Warehouse.Api.Tests.dll (net8.0)

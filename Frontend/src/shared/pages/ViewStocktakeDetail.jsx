@@ -327,6 +327,16 @@ const ViewStocktakeDetail = () => {
         );
     }
 
+    if (!stocktakeData) {
+        return (
+            <div className="create-supplier-page">
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                    <div style={{ fontSize: '16px', color: '#ef4444' }}>Không tìm thấy dữ liệu phiếu kiểm kê.</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="create-supplier-page">
             {/* Header */}
@@ -338,7 +348,7 @@ const ViewStocktakeDetail = () => {
                     </button>
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {!isCounting && !basicEditing && stocktakeData.status === 'DRAFT' && !countingCompleted && (
+                    {!isCounting && !basicEditing && stocktakeData?.status === 'DRAFT' && !countingCompleted && (
                         <button type="button" className="btn btn-secondary" onClick={() => setBasicEditing(true)}>
                             <Edit size={15} />
                             Chỉnh sửa

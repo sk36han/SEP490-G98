@@ -57,6 +57,8 @@ public partial class Item
 
     public virtual ICollection<InventoryAdjustmentLine> InventoryAdjustmentLines { get; set; } = new List<InventoryAdjustmentLine>();
 
+    public virtual ICollection<InventoryLot> InventoryLots { get; set; } = new List<InventoryLot>();
+
     public virtual ICollection<InventoryOnHand> InventoryOnHands { get; set; } = new List<InventoryOnHand>();
 
     public virtual ICollection<InventoryTransactionLine> InventoryTransactionLines { get; set; } = new List<InventoryTransactionLine>();

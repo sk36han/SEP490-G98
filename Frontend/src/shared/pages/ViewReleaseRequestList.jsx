@@ -1,7 +1,7 @@
 /*
- * Danh sách Yêu cầu xuất hàng – mock data.
+ * Danh sách Yêu cầu xuất hàng.
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -31,6 +31,7 @@ import {
 import { Plus, Filter, Columns, GripVertical, PackageOpen } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
+import { getReleaseRequests } from '../lib/releaseRequestService';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 const LS_COL_ORDER = 'rrColumnOrder';
@@ -76,29 +77,14 @@ const RR_COLUMNS = [
     { id: 'releaseRequestCode',   label: 'Mã yêu cầu xuất hàng',  sortable: true,  getValue: (row) => row.releaseRequestCode ?? '' },
     { id: 'createdByName',        label: 'Nhân viên tạo',           sortable: true,  getValue: (row) => row.createdByName ?? '' },
     { id: 'receiverName',         label: 'Người nhận',              sortable: true,  getValue: (row) => row.receiverName ?? '' },
-    { id: 'expectedExportDate',   label: 'Ngày xuất dự kiến',      sortable: true,  getValue: (row) => row.expectedExportDate ?? '' },
+    { id: 'expectedDate',   label: 'Ngày xuất dự kiến',      sortable: true,  getValue: (row) => row.expectedDate ?? '' },
     { id: 'status',               label: 'Trạng thái',              sortable: true,  getValue: (row) => row.status ?? '' },
     { id: 'createdAt',            label: 'Ngày tạo',                sortable: true,  getValue: (row) => row.createdAt ?? '' },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = RR_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = RR_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
-const DATE_COLUMN_IDS = ['expectedExportDate', 'createdAt'];
-
-const MOCK_RELEASE_REQUESTS = [
-    { releaseRequestId: 1, releaseRequestCode: 'XR-2025-001', createdByName: 'Nguyễn Văn A', receiverName: 'Trần Thị B', expectedExportDate: '2025-01-15', status: 'PENDING', createdAt: '2025-01-14T08:00:00' },
-    { releaseRequestId: 2, releaseRequestCode: 'XR-2025-002', createdByName: 'Nguyễn Văn A', receiverName: 'Lê Văn C', expectedExportDate: '2025-01-20', status: 'APPROVED', createdAt: '2025-01-19T09:00:00' },
-    { releaseRequestId: 3, releaseRequestCode: 'XR-2025-003', createdByName: 'Phạm Thị D', receiverName: 'Hoàng Văn E', expectedExportDate: '2025-02-05', status: 'REJECTED', createdAt: '2025-02-04T10:00:00' },
-    { releaseRequestId: 4, releaseRequestCode: 'XR-2025-004', createdByName: 'Phạm Thị D', receiverName: 'Đặng Thị F', expectedExportDate: '2025-02-10', status: 'PENDING', createdAt: '2025-02-09T11:00:00' },
-    { releaseRequestId: 5, releaseRequestCode: 'XR-2025-005', createdByName: 'Vũ Văn G', receiverName: 'Bùi Thị H', expectedExportDate: '2025-02-15', status: 'COMPLETED', createdAt: '2025-02-14T14:00:00' },
-    { releaseRequestId: 6, releaseRequestCode: 'XR-2025-006', createdByName: 'Vũ Văn G', receiverName: 'Đỗ Văn I', expectedExportDate: '2025-03-01', status: 'PENDING', createdAt: '2025-02-28T15:00:00' },
-    { releaseRequestId: 7, releaseRequestCode: 'XR-2025-007', createdByName: 'Ngô Thị K', receiverName: 'Lý Văn L', expectedExportDate: '2025-03-10', status: 'APPROVED', createdAt: '2025-03-09T08:30:00' },
-    { releaseRequestId: 8, releaseRequestCode: 'XR-2025-008', createdByName: 'Ngô Thị K', receiverName: 'Mai Thị M', expectedExportDate: '2025-03-20', status: 'PENDING', createdAt: '2025-03-19T16:00:00' },
-    { releaseRequestId: 9, releaseRequestCode: 'XR-2025-009', createdByName: 'Trịnh Văn N', receiverName: 'Phạm Thị P', expectedExportDate: '2025-04-05', status: 'COMPLETED', createdAt: '2025-04-04T09:00:00' },
-    { releaseRequestId: 10, releaseRequestCode: 'XR-2025-010', createdByName: 'Trịnh Văn N', receiverName: 'Vũ Thị Q', expectedExportDate: '2025-04-12', status: 'REJECTED', createdAt: '2025-04-11T10:30:00' },
-    { releaseRequestId: 11, releaseRequestCode: 'XR-2025-011', createdByName: 'Đinh Văn R', receiverName: 'Nguyễn Thị S', expectedExportDate: '2025-04-20', status: 'PENDING', createdAt: '2025-04-19T11:00:00' },
-    { releaseRequestId: 12, releaseRequestCode: 'XR-2025-012', createdByName: 'Đinh Văn R', receiverName: 'Chu Thị T', expectedExportDate: '2025-05-01', status: 'APPROVED', createdAt: '2025-04-30T13:00:00' },
-];
+const DATE_COLUMN_IDS = ['expectedDate', 'createdAt'];
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -160,6 +146,8 @@ export default function ViewReleaseRequestList() {
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const saved = localStorage.getItem(LS_SORT);
@@ -169,9 +157,22 @@ export default function ViewReleaseRequestList() {
         }
     }, []);
 
-    useEffect(() => {
-        setList(MOCK_RELEASE_REQUESTS);
-    }, []);
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await getReleaseRequests({ page: page + 1, pageSize });
+            setList(result.items || []);
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không tải được danh sách yêu cầu xuất hàng';
+            setError(msg);
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [page, pageSize]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     useEffect(() => {
         if (Boolean(columnSelectorAnchor)) setTempColumnOrder(columnOrder);
@@ -258,8 +259,8 @@ export default function ViewReleaseRequestList() {
         if (filterValues.status) result = result.filter((r) => r.status === filterValues.status);
         if (filterValues.createdBy) result = result.filter((r) => (r.createdByName ?? '').toLowerCase().includes(filterValues.createdBy.toLowerCase()));
         if (filterValues.receiverName) result = result.filter((r) => (r.receiverName ?? '').toLowerCase().includes(filterValues.receiverName.toLowerCase()));
-        if (filterValues.fromExportDate) result = result.filter((r) => r.expectedExportDate && r.expectedExportDate >= filterValues.fromExportDate);
-        if (filterValues.toExportDate) result = result.filter((r) => r.expectedExportDate && r.expectedExportDate <= filterValues.toExportDate);
+        if (filterValues.fromExportDate) result = result.filter((r) => r.expectedDate && r.expectedDate >= filterValues.fromExportDate);
+        if (filterValues.toExportDate) result = result.filter((r) => r.expectedDate && r.expectedDate <= filterValues.toExportDate);
         if (filterValues.fromCreatedDate) result = result.filter((r) => r.createdAt && r.createdAt.substring(0, 10) >= filterValues.fromCreatedDate);
         if (filterValues.toCreatedDate) result = result.filter((r) => r.createdAt && r.createdAt.substring(0, 10) <= filterValues.toCreatedDate);
 
@@ -526,7 +527,7 @@ export default function ViewReleaseRequestList() {
                                                         if (DATE_COLUMN_IDS.includes(col.id)) {
                                                             return (
                                                                 <TableCell key={col.id} align="left" sx={{ color: '#6b7280', whiteSpace: col.id === 'createdAt' ? 'pre-line' : 'nowrap' }}>
-                                                                    {col.id === 'createdAt' ? formatDateTime(row.createdAt) : formatDate(row.expectedExportDate)}
+                                                                    {col.id === 'createdAt' ? formatDateTime(row.createdAt) : formatDate(row.expectedDate)}
                                                                 </TableCell>
                                                             );
                                                         }
