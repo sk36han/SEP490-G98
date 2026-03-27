@@ -54,7 +54,10 @@ public class ToggleSupplierStatusServiceTests
             "Nhà cung cấp 'Supp A' (Mã: S01) đã được vô hiệu hóa.",
             "SUPPLIER",
             1,
-            null, 0, null, null
+            null, // excludeUserId
+            null, // type
+            0,    // severity (byte)
+            null  // expiresAt
         ), Times.Once);
 
         // Verify Audit Log (Exact strings from code)
@@ -90,7 +93,10 @@ public class ToggleSupplierStatusServiceTests
             "Nhà cung cấp 'Supp A' (Mã: S01) đã được hoạt động.",
             "SUPPLIER",
             1,
-            null, 0, null, null
+            null, // excludeUserId
+            null, // type
+            0,    // severity (byte)
+            null  // expiresAt
         ), Times.Once);
 
         // Verify Audit Log
