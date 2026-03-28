@@ -18,8 +18,8 @@ namespace Warehouse.DataAcces.Service
 		// Role codes for approval stages
 		// private const string ROLE_ACCOUNTANT = "ACCOUNTANT";   // Kế toán - Stage 1
 		// private const string ROLE_DIRECTOR = "DIRECTOR";       // Giám đốc - Stage 2
-		private const string ROLE_ACCOUNTANT = "SE"; 
-        private const string ROLE_DIRECTOR = "SE";
+		private const string ROLE_ACCOUNTANT = "KT"; 
+        private const string ROLE_DIRECTOR = "GD";
 		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService)
         {
             _context = context;
@@ -1060,7 +1060,7 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
-            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "SE";// || userRoleCode == "WAREHOUSE_KEEPER"
+            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "TK" || userRoleCode == "WAREHOUSE_KEEPER";// || userRoleCode == "WAREHOUSE_KEEPER"
 			bool isAdmin = userRoleCode == "ADMIN";
 
             if (!isWarehouseKeeper && !isAdmin)
