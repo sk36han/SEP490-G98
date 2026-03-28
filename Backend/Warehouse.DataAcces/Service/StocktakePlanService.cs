@@ -39,15 +39,16 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException(
                     $"Kho '{warehouse.WarehouseName}' đang bị vô hiệu hóa, không thể tạo phiếu kiểm kê.");
 
-            // 2️⃣ Validate – không có phiên kiểm kê đang chạy (IN_PROGRESS) trên kho này
-            var hasPendingSession = await _context.StocktakeSessions
+            // 2️⃣ Validate – không có phiên kiểm kê đang thực thi (IN_PROGRESS) trên kho này
+            // Lưu ý: Cho phép tạo nhiều phiếu DRAFT trên cùng một kho
+            var hasActiveSession = await _context.StocktakeSessions
                 .AnyAsync(s => s.WarehouseId == warehouse.WarehouseId
-                            && (s.Status == "IN_PROGRESS" || s.Status == "DRAFT"));
+                            && s.Status == "IN_PROGRESS");
 
-            if (hasPendingSession)
+            if (hasActiveSession)
                 throw new InvalidOperationException(
-                    $"Kho '{warehouse.WarehouseName}' đang có phiên kiểm kê chưa hoàn thành " +
-                    "(DRAFT hoặc IN_PROGRESS). Vui lòng hủy hoặc hoàn tất phiên đó trước.");
+                    $"Kho '{warehouse.WarehouseName}' đang có phiên kiểm kê đang thực thi (IN_PROGRESS). " +
+                    "Vui lòng hoàn tất hoặc hủy phiên đó trước khi tạo mới.");
 
             // 3️⃣ Validate – ngày kiểm kê dự kiến không được ở quá khứ
             if (request.PlannedAt.HasValue && request.PlannedAt.Value.Date < DateTime.UtcNow.Date)

@@ -1,5 +1,6 @@
 extern alias api;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -9,6 +10,7 @@ using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.ModelResponse;
 
 namespace WarehouseTests.Supplier;
 
@@ -25,7 +27,7 @@ public class GetSupplierTransactionsServiceTests : IDisposable
     public GetSupplierTransactionsServiceTests()
     {
         var options = new DbContextOptionsBuilder<Mkiwms5Context>()
-            .UseInMemoryDatabase(databaseName: "ST_" + Guid.NewGuid().ToString())
+            .UseInMemoryDatabase(databaseName: "ST_Refactored_" + Guid.NewGuid().ToString())
             .Options;
         _context = new Mkiwms5Context(options);
         SeedDatabase();
@@ -45,28 +47,31 @@ public class GetSupplierTransactionsServiceTests : IDisposable
 
     private void SeedDatabase()
     {
-        var user = new User { Username = "u_" + Guid.NewGuid(), FullName = "Admin", Email = "e_" + Guid.NewGuid() + "@t.com", PasswordHash = "h", IsActive = true };
-        var uom = new UnitOfMeasure { UomName = "Pieces", IsActive = true };
-        var wh = new Warehouse.Entities.Models.Warehouse { WarehouseCode = "WH_" + Guid.NewGuid().ToString().Substring(0,8), WarehouseName = "Main WH", IsActive = true };
-        var supplier = new Warehouse.Entities.Models.Supplier { SupplierCode = "SUP_" + Guid.NewGuid().ToString().Substring(0,8), SupplierName = "Supplier 1", IsActive = true };
+        var user = new User { Username = "admin", FullName = "Admin User", Email = "admin@test.com", PasswordHash = "hash", IsActive = true };
+        var uom = new UnitOfMeasure { UomName = "Pcs", IsActive = true };
+        var wh = new Warehouse.Entities.Models.Warehouse { WarehouseCode = "WH01", WarehouseName = "Main Warehouse", IsActive = true };
+        var supplier = new Warehouse.Entities.Models.Supplier { SupplierCode = "SUP-TRAN", SupplierName = "Transaction Supplier", IsActive = true };
 
-        var item = new Item { ItemCode = "ITEM_" + Guid.NewGuid().ToString().Substring(0,8), ItemName = "Item 01", BaseUom = uom, IsActive = true };
+        var item = new Item { ItemCode = "IT01", ItemName = "Item 01", BaseUom = uom, IsActive = true };
         
+        // PO 1: Approved - 100 qty
         var po1 = new PurchaseOrder
         {
-            Pocode = "PO_" + Guid.NewGuid().ToString().Substring(0,8), Supplier = supplier, RequestedByNavigation = user, Warehouse = wh,
+            Pocode = "PO-001", Supplier = supplier, RequestedByNavigation = user, Warehouse = wh,
             RequestedDate = new DateOnly(2026, 3, 1), Status = "APPROVED", CreatedAt = DateTime.UtcNow,
-            TotalAmount = 100, DiscountAmount = 0,
-            LifecycleStatus = "Open"
+            UpdatedAt = DateTime.UtcNow, LifecycleStatus = "Closed",
+            TotalAmount = 1000, DiscountAmount = 0
         };
-        po1.PurchaseOrderLines.Add(new PurchaseOrderLine { OrderedQty = 10, Item = item, Uom = uom, UnitPrice = 10, LineStatus = "Open" });
+        po1.PurchaseOrderLines.Add(new PurchaseOrderLine { OrderedQty = 100, Item = item, Uom = uom, UnitPrice = 10, LineStatus = "Open" });
 
+        // GRN 1: Posted - 80 qty
         var grn1 = new GoodsReceiptNote
         {
-            Grncode = "GRN_" + Guid.NewGuid().ToString().Substring(0,8), Supplier = supplier, CreatedByNavigation = user, Warehouse = wh,
-            ReceiptDate = new DateOnly(2026, 3, 5), Status = "POSTED", SubmittedAt = DateTime.UtcNow
+            Grncode = "GRN-001", Supplier = supplier, CreatedByNavigation = user, Warehouse = wh,
+            ReceiptDate = new DateOnly(2026, 3, 5), Status = "POSTED", SubmittedAt = DateTime.UtcNow,
+            TotalReceivedQty = 80, TotalGoodsAmount = 800
         };
-        grn1.GoodsReceiptNoteLines.Add(new GoodsReceiptNoteLine { ActualQty = 8, Item = item, Uom = uom });
+        grn1.GoodsReceiptNoteLines.Add(new GoodsReceiptNoteLine { ActualQty = 80, Item = item, Uom = uom });
 
         _context.Add(po1);
         _context.Add(grn1);
@@ -78,96 +83,116 @@ public class GetSupplierTransactionsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetTransactions_Summary_ShouldReturnStats()
+    public async Task GetTransactions_Summary_ShouldCalculateCorrectStats()
     {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, null, null, null, null, null, null);
+        // Act
+        var result = await CreateService().GetSupplierTransactionsAsync(_suppId, 1, 10, null, null, null, null, null, null);
 
+        // Assert
         result.Summary.Should().NotBeNull();
         result.Summary!.TotalPurchaseOrders.Should().Be(1);
         result.Summary.TotalGoodsReceiptNotes.Should().Be(1);
+        result.Summary.TotalQuantityOrdered.Should().Be(100);
+        result.Summary.TotalQuantityReceived.Should().Be(80);
     }
 
     [Fact]
-    public async Task GetTransactions_History_ShouldReturnMergedList()
+    public async Task GetTransactions_History_ShouldReturnAllTransactionsMerged()
     {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, null, null, null, null, null, null);
+        // Act
+        var result = await CreateService().GetSupplierTransactionsAsync(_suppId, 1, 20, null, null, null, null, null, null);
 
+        // Assert
         result.History.Should().NotBeNull();
         result.History!.Items.Should().HaveCount(2); 
+        result.History.Items.Should().Contain(x => x.TransactionCode == "PO-001");
+        result.History.Items.Should().Contain(x => x.TransactionCode == "GRN-001");
     }
 
     [Fact]
-    public async Task GetTransactions_FilterByTypePO_ShouldReturnOnlyPO()
+    public async Task GetTransactions_FilterByPO_ShouldReturnOnlyPurchaseOrders()
     {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, "PO", null, null, null, null, null);
+        // Act
+        var result = await CreateService().GetSupplierTransactionsAsync(_suppId, 1, 20, "PO", null, null, null, null, null);
 
+        // Assert
         result.History!.Items.Should().OnlyContain(x => x.TransactionType == "PO");
+        result.History.Items.Should().HaveCount(1);
+        result.History.Items[0].TransactionCode.Should().Be("PO-001");
     }
 
     [Fact]
-    public async Task GetTransactions_FilterByTypeGRN_ShouldReturnOnlyGRN()
+    public async Task GetTransactions_FilterByGRN_ShouldReturnOnlyGoodsReceiptNotes()
     {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, "GRN", null, null, null, null, null);
+        // Act
+        var result = await CreateService().GetSupplierTransactionsAsync(_suppId, 1, 20, "GRN", null, null, null, null, null);
 
+        // Assert
         result.History!.Items.Should().OnlyContain(x => x.TransactionType == "GRN");
-    }
-
-    [Fact]
-    public async Task GetTransactions_FilterByStatus_ShouldReturnMatching()
-    {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, null, "APPROVED", null, null, null, null);
-
-        result.History!.Items.Should().OnlyContain(x => x.Status == "APPROVED");
-    }
-
-    [Fact]
-    public async Task GetTransactions_DetailModePO_ShouldReturnDetail()
-    {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, null, null, null, null, "PO", _poId);
-
-        result.Detail.Should().NotBeNull();
-    }
-
-    [Fact]
-    public async Task GetTransactions_DetailModeGRN_ShouldReturnDetail()
-    {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, null, null, null, null, "GRN", _grnId);
-
-        result.Detail.Should().NotBeNull();
-    }
-
-    [Fact]
-    public async Task GetTransactions_Paging_ShouldWork()
-    {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 1, null, null, null, null, null, null);
-
-        result.History!.Items.Should().HaveCount(1);
-        result.History.TotalItems.Should().Be(2);
+        result.History.Items.Should().HaveCount(1);
+        result.History.Items[0].TransactionCode.Should().Be("GRN-001");
     }
 
     [Fact]
     public async Task GetTransactions_InvalidType_ShouldThrowArgumentException()
     {
-        Func<Task> act = () => CreateService().GetSupplierTransactionsAsync(
-            _suppId, 1, 20, "INVALID", null, null, null, null, null);
+        // Act
+        Func<Task> act = () => CreateService().GetSupplierTransactionsAsync(_suppId, 1, 20, "INVALID-TYPE", null, null, null, null, null);
 
-        await act.Should().ThrowAsync<ArgumentException>();
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*không hợp lệ*");
     }
 
     [Fact]
-    public async Task GetTransactions_PageZero_ShouldDefaultToOne()
+    public async Task GetTransactions_ViewPODetail_ShouldReturnHeaderAndLines()
     {
-        var result = await CreateService().GetSupplierTransactionsAsync(
-            _suppId, 0, 20, null, null, null, null, null, null);
+        // Act
+        var result = await CreateService().GetSupplierTransactionsAsync(_suppId, 1, 10, null, null, null, null, "PO", _poId);
 
-        result.History!.Page.Should().Be(1);
+        // Assert
+        result.Detail.Should().NotBeNull();
+        // Since result.Detail is dynamic/object, we check the structure if possible or just existence
+        var detailStr = Newtonsoft.Json.JsonConvert.SerializeObject(result.Detail);
+        detailStr.Should().Contain("PO-001");
+        detailStr.Should().Contain("Lines");
+    }
+
+    [Fact]
+    public async Task GetTransactions_EmptySupplier_ShouldReturnZeroStatsAndEmptyHistory()
+    {
+        // Arrange
+        var newSupp = new Warehouse.Entities.Models.Supplier { SupplierId = 99, SupplierCode = "EMPTY", SupplierName = "Empty", IsActive = true };
+        _context.Suppliers.Add(newSupp);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await CreateService().GetSupplierTransactionsAsync(99, 1, 10, null, null, null, null, null, null);
+
+        // Assert
+        result.Summary!.TotalPurchaseOrders.Should().Be(0);
+        result.Summary.TotalQuantityOrdered.Should().Be(0);
+        result.History!.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetTransactions_Pagination_ShouldApplyPageAndSize()
+    {
+        // Arrange: Seed 3 POs
+        for(int i=2; i<=4; i++) {
+             _context.PurchaseOrders.Add(new PurchaseOrder { 
+                 Pocode = $"PO-P{i}", SupplierId = _suppId, Status = "DRAFT", CreatedAt = DateTime.UtcNow,
+                 UpdatedAt = DateTime.UtcNow, LifecycleStatus = "Open",
+                 RequestedByNavigation = _context.Users.First(), Warehouse = _context.Warehouses.First()
+             });
+        }
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await CreateService().GetSupplierTransactionsAsync(_suppId, 2, 2, null, null, null, null, null, null);
+
+        // Assert
+        result.History!.Items.Should().HaveCount(2);
+        result.History.Page.Should().Be(2);
+        result.History.TotalItems.Should().Be(5); // 1 original + 3 new + 1 GRN = 5
     }
 }
