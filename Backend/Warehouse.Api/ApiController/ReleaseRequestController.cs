@@ -121,10 +121,10 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
-        /// Gửi (Submit) yêu cầu xuất kho và chốt AllocatedQty
+        /// Đóng yêu cầu xuất kho (giải phóng tồn kho đã giữ)
         /// </summary>
-        [HttpPut("submit/{id:long}")]
-        public async Task<IActionResult> SubmitReleaseRequest(long id)
+        [HttpPut("close/{id:long}")]
+        public async Task<IActionResult> CloseReleaseRequest(long id)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
@@ -132,12 +132,71 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var result = await _releaseRequestService.SubmitReleaseRequestAsync(id, currentUserId);
-                return Ok(result);
+                var success = await _releaseRequestService.CloseReleaseRequestAsync(id, currentUserId);
+                if (!success)
+                    return NotFound(new { message = "Không tìm thấy yêu cầu xuất kho." });
+
+                return Ok(new { message = "Đóng yêu cầu xuất kho thành công." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Duyệt/Từ chối yêu cầu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
+        /// </summary>
+        [HttpPut("approve/{id:long}")]
+        public async Task<IActionResult> ApproveReleaseRequest(long id, [FromBody] ApproveReleaseRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var result = await _releaseRequestService.ApproveReleaseRequestAsync(id, currentUserId, request);
+                var msg = request.IsApproved ? "Duyệt yêu cầu xuất kho thành công." : "Đã từ chối yêu cầu xuất kho.";
+                return Ok(new { message = msg, data = result });
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Hủy yêu cầu xuất kho (giải phóng tồn kho đã giữ)
+        /// </summary>
+        [HttpPut("cancel/{id:long}")]
+        public async Task<IActionResult> CancelReleaseRequest(long id)
+        {
+            try
+            {
+                var currentUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                long currentUserId = (currentUserIdClaim != null && long.TryParse(currentUserIdClaim.Value, out var idVal)) ? idVal : 0;
+
+                var success = await _releaseRequestService.CancelReleaseRequestAsync(id, currentUserId);
+                if (!success)
+                    return NotFound(new { message = "Không tìm thấy yêu cầu xuất kho." });
+
+                return Ok(new { message = "Hủy yêu cầu xuất kho thành công." });
             }
             catch (InvalidOperationException ex)
             {

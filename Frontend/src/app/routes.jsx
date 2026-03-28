@@ -53,8 +53,8 @@ import ViewGoodDeliveryNoteList from '../shared/pages/ViewGoodDeliveryNoteList';
 import CreateReleaseRequest from '../shared/pages/CreateReleaseRequest';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MainLayout from '../components/Layout/MainLayout';
-import InventoryAlertSetup from '../Mockup/InventoryAlertSetup';
-import SalesRevenueTarget from '../Mockup/SalesRevenueTarget';
+import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
+import SalesRevenueTarget from '../shared/pages/mockup/SalesRevenueTarget';
 
 const AppRoutes = () => (
     <Routes>

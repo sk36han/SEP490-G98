@@ -177,7 +177,6 @@ const selectMenuProps = {
 };
 
 const INITIAL_FORM = {
-  itemCode: "",
   itemName: "",
   itemType: "Product",
   description: "",
@@ -323,12 +322,7 @@ const CreateItem = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const code = (form.itemCode ?? "").trim();
     const name = (form.itemName ?? "").trim();
-    if (!code) {
-      showToast("Vui lòng nhập mã sản phẩm.", "error");
-      return;
-    }
     if (!name) {
       showToast("Vui lòng nhập tên sản phẩm.", "error");
       return;
@@ -348,7 +342,6 @@ const CreateItem = () => {
       const specId = form.specId !== "" && form.specId != null ? Number(form.specId) : null;
       
       const payload = {
-        itemCode: code,
         itemName: name,
         itemType: form.itemType || null,
         description: form.description?.trim() || null,
@@ -476,21 +469,7 @@ const CreateItem = () => {
                     width: "100%",
                   }}
                 >
-                  <Box sx={{ width: "100%" }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Mã sản phẩm"
-                      name="itemCode"
-                      value={form.itemCode}
-                      onChange={handleChange}
-                      placeholder="VD: SKU112"
-                      InputLabelProps={{ shrink: true }}
-                      sx={inputSx}
-                    />
-                  </Box>
-
-                  <Box sx={{ width: "100%" }}>
+                    <Box sx={{ width: "100%" }}>
                     <TextField
                       fullWidth
                       size="small"

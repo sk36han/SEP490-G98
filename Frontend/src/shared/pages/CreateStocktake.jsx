@@ -293,6 +293,7 @@ const CreateStocktake = () => {
                 plannedAt: formData.plannedAt,
                 mode: formData.mode,
                 note: formData.note || null,
+                status: 'PENDING_APPROVAL',
                 lineItems: lines.map((line) => ({
                     itemId: line.itemId,
                     warehouseId: Number(formData.warehouseId),

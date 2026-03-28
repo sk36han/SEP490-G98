@@ -1,180 +1,72 @@
 /**
- * ViewItemPriceList - Quản lý giá sản phẩm
- * Kế toán: xem, thêm, sửa, xóa giá
- * Thủ Kho / Sale: chỉ xem
+ * ViewItemPriceList - Giá bình quân gia quyền & Giá nhập
+ * Dành cho: Kế Toán, Giám Đốc
+ * Xem giá nhập và giá bình quân gia quyền theo từng vật tư trong kho
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
     Box,
-    Card,
-    CardContent,
-    Button,
     Typography,
-    IconButton,
-    Tooltip,
     Table,
     TableBody,
     TableCell,
     TableContainer,
     TableHead,
     TableRow,
-    TableSortLabel,
-    Chip,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    FormControl,
+    Paper,
     Select,
     MenuItem,
-    CircularProgress,
-    Alert,
-    Switch,
+    FormControl,
+    InputLabel,
+    Chip,
+    InputAdornment,
 } from '@mui/material';
-import {
-    DollarSign,
-    Plus,
-    Download,
-    Filter,
-    RefreshCw,
-    Edit2,
-    Trash2,
-    X,
-    TrendingUp,
-    TrendingDown,
-    Package,
-    Calendar,
-    CheckCircle,
-} from 'lucide-react';
-import Toast from '../../components/Toast/Toast';
-import { useToast } from '../hooks/useToast';
+import { DollarSign, TrendingUp, Package, Warehouse, RefreshCw } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
-import { removeDiacritics } from '../utils/stringUtils';
-import authService from '../lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
-import { parseDate } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
-const fDate = (v) => {
-    const d = parseDate(v);
-    return d ? d.toLocaleDateString('vi-VN') : '-';
-};
+const formatCurrency = (value) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 
-const formatCurrency = (value, currency = 'VND') =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency }).format(Number(value) || 0);
-
-const PRICE_TYPE_LABELS = {
-    Purchase: 'Giá nhập',
-    Sale: 'Giá xuất',
-    Wholesale: 'Giá sỉ',
-    Retail: 'Giá lẻ',
-    Special: 'Giá đặc biệt',
-};
-
-const PRICE_TYPE_COLORS = {
-    Purchase: { bg: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '#93c5fd' },
-    Sale: { bg: 'rgba(16, 185, 129, 0.1)', color: '#047857', border: '#6ee7b7' },
-    Wholesale: { bg: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '#fcd34d' },
-    Retail: { bg: 'rgba(139, 92, 246, 0.1)', color: '#6d28d9', border: '#c4b5fd' },
-    Special: { bg: 'rgba(239, 68, 68, 0.1)', color: '#b91c1c', border: '#fca5a5' },
-};
-
-const ITEM_PRICE_COLUMNS = [
-    { id: 'stt', label: 'STT', sortable: false },
-    { id: 'itemCode', label: 'Mã vật tư', sortable: true },
-    { id: 'itemName', label: 'Tên vật tư', sortable: true },
-    { id: 'priceType', label: 'Loại giá', sortable: true },
-    { id: 'amount', label: 'Giá', sortable: true },
-    { id: 'currency', label: 'Tiền tệ', sortable: true },
-    { id: 'effectiveFrom', label: 'Từ ngày', sortable: true },
-    { id: 'effectiveTo', label: 'Đến ngày', sortable: true },
-    { id: 'isActive', label: 'Trạng thái', sortable: true },
-    { id: 'actions', label: 'Thao tác', sortable: false },
+const COLUMNS = [
+    { id: 'stt',           label: 'STT',          width: 60  },
+    { id: 'itemCode',      label: 'Mã vật tư',    width: 140 },
+    { id: 'itemName',      label: 'Tên vật tư',   width: 280 },
+    { id: 'warehouseName', label: 'Kho',           width: 180 },
+    { id: 'purchasePrice', label: 'Giá nhập mới nhất', width: 160 },
+    { id: 'avgPrice',      label: 'Giá bình quân gia quyền', width: 180 },
+    { id: 'totalQty',      label: 'Tổng tồn',     width: 120 },
+    { id: 'totalValue',    label: 'Giá trị tồn kho', width: 160 },
 ];
 
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
-
-/** ─── Mock data ─── */
-const MOCK_ITEM_PRICES = [
-    { itemPriceId: 1, itemId: 1, itemCode: 'SP001', itemName: 'Bóng đèn LED 9W', priceType: 'Purchase', amount: 15000, currency: 'VND', effectiveFrom: '2026-01-01', effectiveTo: null, isActive: true, createdAt: '2026-01-01' },
-    { itemPriceId: 2, itemId: 1, itemCode: 'SP001', itemName: 'Bóng đèn LED 9W', priceType: 'Sale', amount: 35000, currency: 'VND', effectiveFrom: '2026-01-01', effectiveTo: null, isActive: true, createdAt: '2026-01-01' },
-    { itemPriceId: 3, itemId: 1, itemCode: 'SP001', itemName: 'Bóng đèn LED 9W', priceType: 'Purchase', amount: 14500, currency: 'VND', effectiveFrom: '2025-10-01', effectiveTo: '2025-12-31', isActive: false, createdAt: '2025-10-01' },
-    { itemPriceId: 4, itemId: 2, itemCode: 'SP002', itemName: 'Dây cáp điện 2.5mm', priceType: 'Purchase', amount: 8500, currency: 'VND', effectiveFrom: '2026-01-15', effectiveTo: null, isActive: true, createdAt: '2026-01-15' },
-    { itemPriceId: 5, itemId: 2, itemCode: 'SP002', itemName: 'Dây cáp điện 2.5mm', priceType: 'Sale', amount: 18000, currency: 'VND', effectiveFrom: '2026-01-15', effectiveTo: null, isActive: true, createdAt: '2026-01-15' },
-    { itemPriceId: 6, itemId: 2, itemCode: 'SP002', itemName: 'Dây cáp điện 2.5mm', priceType: 'Wholesale', amount: 16000, currency: 'VND', effectiveFrom: '2026-01-15', effectiveTo: null, isActive: true, createdAt: '2026-01-15' },
-    { itemPriceId: 7, itemId: 3, itemCode: 'SP003', itemName: 'Ổ cắm điện Panasonic', priceType: 'Purchase', amount: 42000, currency: 'VND', effectiveFrom: '2026-02-01', effectiveTo: null, isActive: true, createdAt: '2026-02-01' },
-    { itemPriceId: 8, itemId: 3, itemCode: 'SP003', itemName: 'Ổ cắm điện Panasonic', priceType: 'Sale', amount: 85000, currency: 'VND', effectiveFrom: '2026-02-01', effectiveTo: null, isActive: true, createdAt: '2026-02-01' },
-    { itemPriceId: 9, itemId: 4, itemCode: 'SP004', itemName: 'Công tắc 1 chiều', priceType: 'Purchase', amount: 22000, currency: 'VND', effectiveFrom: '2025-12-01', effectiveTo: null, isActive: true, createdAt: '2025-12-01' },
-    { itemPriceId: 10, itemId: 4, itemCode: 'SP004', itemName: 'Công tắc 1 chiều', priceType: 'Sale', amount: 55000, currency: 'VND', effectiveFrom: '2025-12-01', effectiveTo: null, isActive: true, createdAt: '2025-12-01' },
-    { itemPriceId: 11, itemId: 5, itemCode: 'SP005', itemName: 'CB 10A 1P', priceType: 'Purchase', amount: 35000, currency: 'VND', effectiveFrom: '2026-03-01', effectiveTo: null, isActive: true, createdAt: '2026-03-01' },
-    { itemPriceId: 12, itemId: 5, itemCode: 'SP005', itemName: 'CB 10A 1P', priceType: 'Sale', amount: 75000, currency: 'VND', effectiveFrom: '2026-03-01', effectiveTo: null, isActive: true, createdAt: '2026-03-01' },
-    { itemPriceId: 13, itemId: 6, itemCode: 'SP006', itemName: 'Ống luồng PVC 20mm', priceType: 'Purchase', amount: 12000, currency: 'VND', effectiveFrom: '2026-01-10', effectiveTo: null, isActive: true, createdAt: '2026-01-10' },
-    { itemPriceId: 14, itemId: 6, itemCode: 'SP006', itemName: 'Ống luồng PVC 20mm', priceType: 'Sale', amount: 25000, currency: 'VND', effectiveFrom: '2026-01-10', effectiveTo: null, isActive: true, createdAt: '2026-01-10' },
-    { itemPriceId: 15, itemId: 7, itemCode: 'SP007', itemName: 'Băng keo cách điện', priceType: 'Purchase', amount: 8000, currency: 'VND', effectiveFrom: '2026-02-15', effectiveTo: null, isActive: true, createdAt: '2026-02-15' },
-    { itemPriceId: 16, itemId: 7, itemCode: 'SP007', itemName: 'Băng keo cách điện', priceType: 'Sale', amount: 18000, currency: 'VND', effectiveFrom: '2026-02-15', effectiveTo: null, isActive: true, createdAt: '2026-02-15' },
-    { itemPriceId: 17, itemId: 8, itemCode: 'SP008', itemName: 'Đầu cos đồng 4mm', priceType: 'Purchase', amount: 5500, currency: 'VND', effectiveFrom: '2026-01-20', effectiveTo: null, isActive: true, createdAt: '2026-01-20' },
-    { itemPriceId: 18, itemId: 8, itemCode: 'SP008', itemName: 'Đầu cos đồng 4mm', priceType: 'Sale', amount: 12000, currency: 'VND', effectiveFrom: '2026-01-20', effectiveTo: null, isActive: true, createdAt: '2026-01-20' },
-    { itemPriceId: 19, itemId: 9, itemCode: 'SP009', itemName: 'Thanh ray nhựa', priceType: 'Purchase', amount: 18000, currency: 'VND', effectiveFrom: '2025-11-01', effectiveTo: null, isActive: true, createdAt: '2025-11-01' },
-    { itemPriceId: 20, itemId: 9, itemCode: 'SP009', itemName: 'Thanh ray nhựa', priceType: 'Sale', amount: 38000, currency: 'VND', effectiveFrom: '2025-11-01', effectiveTo: null, isActive: true, createdAt: '2025-11-01' },
-    { itemPriceId: 21, itemId: 10, itemCode: 'SP010', itemName: 'Domino điện 6 lỗ', priceType: 'Purchase', amount: 15000, currency: 'VND', effectiveFrom: '2026-03-10', effectiveTo: null, isActive: true, createdAt: '2026-03-10' },
-    { itemPriceId: 22, itemId: 10, itemCode: 'SP010', itemName: 'Domino điện 6 lỗ', priceType: 'Sale', amount: 32000, currency: 'VND', effectiveFrom: '2026-03-10', effectiveTo: null, isActive: true, createdAt: '2026-03-10' },
+// Mock data — thay bằng API khi backend sẵn sàng
+const MOCK_DATA = [
+    { itemId: 1,  itemCode: 'PEN-001',  itemName: 'Bút bi Thiên Long TL-057',  warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 3500,  avgPrice: 3420, totalQty: 500,  totalValue: 1710000  },
+    { itemId: 2,  itemCode: 'NOTE-001', itemName: 'Vở note 5 chấm A5',        warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 22000, avgPrice: 21500, totalQty: 120,  totalValue: 2580000  },
+    { itemId: 3,  itemCode: 'COVER-001', itemName: 'Bìa còng A4 10mm',       warehouseId: 2, warehouseName: 'Kho TP.HCM',  purchasePrice: 8500,  avgPrice: 8200, totalQty: 80,   totalValue: 656000   },
+    { itemId: 4,  itemCode: 'PAPER-001', itemName: 'Giấy A4 Double A 80gsm', warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 62000, avgPrice: 60000, totalQty: 45,   totalValue: 2700000  },
+    { itemId: 5,  itemCode: 'CLIP-001',  itemName: 'Kẹp giấy 33mm (hộp 50)', warehouseId: 3, warehouseName: 'Kho Đà Nẵng', purchasePrice: 18000, avgPrice: 17500, totalQty: 200,  totalValue: 3500000  },
+    { itemId: 6,  itemCode: 'GLUE-001',  itemName: 'Keo dán thiên long 15g',  warehouseId: 2, warehouseName: 'Kho TP.HCM',  purchasePrice: 7000,  avgPrice: 6800, totalQty: 350,  totalValue: 2380000  },
+    { itemId: 7,  itemCode: 'RULER-001', itemName: 'Thước kẻ 30cm nhựa trong',warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 5000,  avgPrice: 4900, totalQty: 150,  totalValue: 735000   },
+    { itemId: 8,  itemCode: 'ERASER-001', itemName: 'Tẩy thiên long 7122',     warehouseId: 3, warehouseName: 'Kho Đà Nẵng', purchasePrice: 4000,  avgPrice: 3900, totalQty: 400,  totalValue: 1560000  },
+    { itemId: 9,  itemCode: 'PEN-002',   itemName: 'Bút chì 2B Thiên Long',    warehouseId: 1, warehouseName: 'Kho Hà Nội',  purchasePrice: 5000,  avgPrice: 4800, totalQty: 300,  totalValue: 1440000  },
+    { itemId: 10, itemCode: 'NOTE-002',  itemName: 'Sổ tay A5 200 trang',     warehouseId: 2, warehouseName: 'Kho TP.HCM',  purchasePrice: 35000, avgPrice: 34000, totalQty: 60,   totalValue: 2040000  },
 ];
 
-/** ─── Style helpers ─── */
-const headCellSx = {
-    fontWeight: 600,
-    bgcolor: '#fafafa',
-    borderBottom: '1px solid #e5e7eb',
-    fontSize: '12px',
-    color: '#6b7280',
-    height: 48,
-    py: 0,
-    px: 2,
-    verticalAlign: 'middle',
-    whiteSpace: 'nowrap',
-};
+const ROWS_PER_PAGE_OPTIONS = [20, 50, 100];
 
-const bodyCellSx = {
-    color: '#374151',
-    fontSize: '13px',
-    py: 1.5,
-    px: 2,
-    verticalAlign: 'middle',
-    borderBottom: '1px solid #f3f4f6',
-    whiteSpace: 'nowrap',
-};
-
-/** ─── Summary Card ─── */
-const SummaryCard = ({ icon: Icon, label, value, subValue, color, bgColor }) => (
-    <Box
-        sx={{
-            flex: '1 1 200px',
-            minWidth: 200,
-            bgcolor: '#fff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '14px',
-            p: 2.5,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        }}
-    >
-        <Box
-            sx={{
-                width: 48,
-                height: 48,
-                borderRadius: '12px',
-                bgcolor: bgColor,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-            }}
-        >
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
             <Icon size={22} color={color} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
@@ -182,895 +74,269 @@ const SummaryCard = ({ icon: Icon, label, value, subValue, color, bgColor }) => 
             <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
                 {value}
             </Typography>
-            {subValue && (
-                <Typography sx={{ fontSize: '11px', color: '#9ca3af', mt: 0.25 }}>{subValue}</Typography>
-            )}
         </Box>
     </Box>
 );
 
-/** ─── Add/Edit Dialog ─── */
-const PriceDialog = ({ open, onClose, onSave, editingRow, onEdit }) => {
-    const [form, setForm] = useState({
-        itemCode: '',
-        itemName: '',
-        priceType: 'Purchase',
-        amount: '',
-        currency: 'VND',
-        effectiveFrom: new Date().toISOString().split('T')[0],
-        effectiveTo: '',
-        isActive: true,
-    });
-
-    useEffect(() => {
-        if (editingRow) {
-            setForm({
-                itemCode: editingRow.itemCode || '',
-                itemName: editingRow.itemName || '',
-                priceType: editingRow.priceType || 'Purchase',
-                amount: editingRow.amount || '',
-                currency: editingRow.currency || 'VND',
-                effectiveFrom: editingRow.effectiveFrom || '',
-                effectiveTo: editingRow.effectiveTo || '',
-                isActive: editingRow.isActive ?? true,
-            });
-        } else {
-            setForm({
-                itemCode: '',
-                itemName: '',
-                priceType: 'Purchase',
-                amount: '',
-                currency: 'VND',
-                effectiveFrom: new Date().toISOString().split('T')[0],
-                effectiveTo: '',
-                isActive: true,
-            });
-        }
-    }, [editingRow, open]);
-
-    const handleSave = () => {
-        if (!form.itemCode || !form.itemName || !form.amount) {
-            return;
-        }
-        onSave({ ...form, amount: Number(form.amount) });
-    };
-
-    return (
-        <Dialog
-            open={open}
-            onClose={onClose}
-            maxWidth="sm"
-            fullWidth
-            PaperProps={{
-                sx: {
-                    borderRadius: '16px',
-                    border: '1px solid #e5e7eb',
-                    boxShadow: '0 8px 32px rgba(15, 23, 42, 0.12)',
-                },
-            }}
-        >
-            <DialogTitle
-                sx={{
-                    fontWeight: 700,
-                    fontSize: '17px',
-                    color: '#111827',
-                    borderBottom: '1px solid #f3f4f6',
-                    px: 3,
-                    py: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                }}
-            >
-                {editingRow ? 'Sửa giá sản phẩm' : 'Thêm giá sản phẩm'}
-                <IconButton size="small" onClick={onClose} sx={{ color: '#9ca3af' }}>
-                    <X size={18} />
-                </IconButton>
-            </DialogTitle>
-
-            <DialogContent sx={{ px: 3, py: 2.5 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    {/* Item */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                        <TextField
-                            label="Mã vật tư"
-                            size="small"
-                            value={form.itemCode}
-                            onChange={(e) => setForm((f) => ({ ...f, itemCode: e.target.value }))}
-                            fullWidth
-                            placeholder="VD: SP001"
-                            sx={{
-                                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                                '& .MuiInputLabel-root': { fontSize: '14px' },
-                            }}
-                        />
-                        <TextField
-                            label="Tên vật tư"
-                            size="small"
-                            value={form.itemName}
-                            onChange={(e) => setForm((f) => ({ ...f, itemName: e.target.value }))}
-                            fullWidth
-                            placeholder="VD: Bóng đèn LED 9W"
-                            sx={{
-                                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                                '& .MuiInputLabel-root': { fontSize: '14px' },
-                            }}
-                        />
-                    </Box>
-
-                    {/* Price Type & Amount */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                        <FormControl size="small" fullWidth>
-                            <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#374151', mb: 0.75 }}>
-                                Loại giá
-                            </Typography>
-                            <Select
-                                value={form.priceType}
-                                onChange={(e) => setForm((f) => ({ ...f, priceType: e.target.value }))}
-                                sx={{ borderRadius: '10px', fontSize: '14px' }}
-                            >
-                                {Object.entries(PRICE_TYPE_LABELS).map(([key, label]) => (
-                                    <MenuItem key={key} value={key} sx={{ fontSize: '14px' }}>
-                                        {label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-
-                        <TextField
-                            label="Giá"
-                            size="small"
-                            type="number"
-                            value={form.amount}
-                            onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-                            fullWidth
-                            placeholder="VD: 15000"
-                            InputProps={{
-                                endAdornment: (
-                                    <Typography sx={{ fontSize: '13px', color: '#9ca3af', mr: 1 }}>VND</Typography>
-                                ),
-                            }}
-                            sx={{
-                                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                                '& .MuiInputLabel-root': { fontSize: '14px' },
-                            }}
-                        />
-                    </Box>
-
-                    {/* Dates */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                        <TextField
-                            label="Từ ngày"
-                            size="small"
-                            type="date"
-                            value={form.effectiveFrom}
-                            onChange={(e) => setForm((f) => ({ ...f, effectiveFrom: e.target.value }))}
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            sx={{
-                                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                                '& .MuiInputLabel-root': { fontSize: '14px' },
-                            }}
-                        />
-                        <TextField
-                            label="Đến ngày (không bắt buộc)"
-                            size="small"
-                            type="date"
-                            value={form.effectiveTo}
-                            onChange={(e) => setForm((f) => ({ ...f, effectiveTo: e.target.value }))}
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            sx={{
-                                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                                '& .MuiInputLabel-root': { fontSize: '14px' },
-                            }}
-                        />
-                    </Box>
-
-                    {/* Active */}
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            px: 1.5,
-                            py: 1.5,
-                            bgcolor: '#f9fafb',
-                            borderRadius: '10px',
-                            border: '1px solid #e5e7eb',
-                        }}
-                    >
-                        <Box>
-                            <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>
-                                Đang hoạt động
-                            </Typography>
-                            <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>
-                                Giá này sẽ được sử dụng làm giá mặc định
-                            </Typography>
-                        </Box>
-                        <Switch
-                            checked={form.isActive}
-                            onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                            size="medium"
-                        />
-                    </Box>
-                </Box>
-            </DialogContent>
-
-            <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #f3f4f6' }}>
-                <Button
-                    onClick={onClose}
-                    sx={{ textTransform: 'none', fontWeight: 600, color: '#6b7280', borderRadius: '10px' }}
-                >
-                    Hủy
-                </Button>
-                <Button
-                    variant="contained"
-                    onClick={handleSave}
-                    disabled={!form.itemCode || !form.itemName || !form.amount}
-                    sx={{
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        borderRadius: '10px',
-                        bgcolor: '#0284c7',
-                        '&:hover': { bgcolor: '#0369a1' },
-                    }}
-                >
-                    {editingRow ? 'Lưu thay đổi' : 'Thêm giá'}
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-};
-
-/** ─── Delete Confirmation Dialog ─── */
-const DeleteDialog = ({ open, onClose, onConfirm, deletingRow }) => (
-    <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{
-            sx: {
-                borderRadius: '16px',
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 8px 32px rgba(15, 23, 42, 0.12)',
-            },
-        }}
-    >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '17px', color: '#111827', px: 3, py: 2.5 }}>
-            Xác nhận xóa
-        </DialogTitle>
-        <DialogContent sx={{ px: 3, pb: 1 }}>
-            <Alert
-                severity="warning"
-                sx={{ borderRadius: '10px', fontSize: '13px', mb: 1 }}
-            >
-                Hành động này không thể hoàn tác.
-            </Alert>
-            <Typography sx={{ fontSize: '14px', color: '#374151', mt: 1.5 }}>
-                Bạn có chắc muốn xóa giá{' '}
-                <strong>
-                    {PRICE_TYPE_LABELS[deletingRow?.priceType]} — {formatCurrency(deletingRow?.amount)}
-                </strong>{' '}
-                của vật tư{' '}
-                <strong>{deletingRow?.itemName}</strong>?
-            </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button
-                onClick={onClose}
-                sx={{ textTransform: 'none', fontWeight: 600, color: '#6b7280', borderRadius: '10px' }}
-            >
-                Hủy
-            </Button>
-            <Button
-                variant="contained"
-                color="error"
-                onClick={onConfirm}
-                sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '10px' }}
-            >
-                Xóa
-            </Button>
-        </DialogActions>
-    </Dialog>
-);
-
-/** ─── Main Component ─── */
-const ViewItemPriceList = () => {
-    const navigate = useNavigate();
-    const { toast, showToast, clearToast } = useToast();
-    const userInfo = authService.getUser();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
-
-    const isAccountant = permissionRole === 'ACCOUNTANTS';
-    const canEdit = isAccountant;
-
-    const [loading, setLoading] = useState(true);
-    const [prices, setPrices] = useState([]);
-    const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+export default function ViewItemPriceList() {
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterPriceType, setFilterPriceType] = useState('All');
-    const [filterActive, setFilterActive] = useState('All');
-    const [orderBy, setOrderBy] = useState('itemCode');
-    const [order, setOrder] = useState('asc');
+    const [selectedWarehouse, setSelectedWarehouse] = useState('all');
+    const [page, setPage] = useState(0);
+    const [pageSize, setPageSize] = useState(20);
 
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingRow, setEditingRow] = useState(null);
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [deletingRow, setDeletingRow] = useState(null);
-
-    // Simulate loading
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setPrices(MOCK_ITEM_PRICES);
-            setLoading(false);
-        }, 800);
-        return () => clearTimeout(timer);
+    const uniqueWarehouses = useMemo(() => {
+        const seen = new Set();
+        return MOCK_DATA.filter(d => { if (seen.has(d.warehouseId)) return false; seen.add(d.warehouseId); return true; })
+            .map(d => ({ warehouseId: d.warehouseId, warehouseName: d.warehouseName }));
     }, []);
 
-    // Filter
-    const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
-
-    const filteredPrices = useMemo(() => {
-        let result = prices;
-
+    const filteredData = useMemo(() => {
+        let result = [...MOCK_DATA];
+        if (selectedWarehouse !== 'all') {
+            result = result.filter(d => d.warehouseId === Number(selectedWarehouse));
+        }
         if (searchTerm.trim()) {
-            const term = normalize(searchTerm.trim());
-            result = result.filter(
-                (p) =>
-                    normalize(p.itemCode).includes(term) ||
-                    normalize(p.itemName).includes(term) ||
-                    normalize(p.priceType).includes(term)
+            const term = searchTerm.toLowerCase();
+            result = result.filter(d =>
+                (d.itemCode ?? '').toLowerCase().includes(term) ||
+                (d.itemName ?? '').toLowerCase().includes(term)
             );
         }
-
-        if (filterPriceType !== 'All') {
-            result = result.filter((p) => p.priceType === filterPriceType);
-        }
-
-        if (filterActive === 'Active') {
-            result = result.filter((p) => p.isActive);
-        } else if (filterActive === 'Inactive') {
-            result = result.filter((p) => !p.isActive);
-        }
-
         return result;
-    }, [prices, searchTerm, filterPriceType, filterActive]);
+    }, [searchTerm, selectedWarehouse]);
 
-    // Sort
-    const sortedPrices = useMemo(() => {
-        const sorted = [...filteredPrices];
-        sorted.sort((a, b) => {
-            let cmp = 0;
-            const aVal = a[orderBy];
-            const bVal = b[orderBy];
-            if (orderBy === 'amount') {
-                cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
-            } else if (orderBy === 'effectiveFrom' || orderBy === 'effectiveTo') {
-                cmp = (aVal ? parseDate(aVal)?.getTime() : 0) - (bVal ? parseDate(bVal)?.getTime() : 0);
-            } else {
-                cmp = String(aVal ?? '').localeCompare(String(bVal ?? ''));
-            }
-            return order === 'asc' ? cmp : -cmp;
-        });
-        return sorted;
-    }, [filteredPrices, orderBy, order]);
+    const summary = useMemo(() => {
+        const totalItems = filteredData.length;
+        const totalQty = filteredData.reduce((s, d) => s + d.totalQty, 0);
+        const totalValue = filteredData.reduce((s, d) => s + d.totalValue, 0);
+        const avgPrice = totalQty > 0 ? Math.round(totalValue / totalQty) : 0;
+        return { totalItems, totalQty, totalValue, avgPrice };
+    }, [filteredData]);
 
-    const rows = sortedPrices.slice(page * pageSize, (page + 1) * pageSize);
-    const totalCount = sortedPrices.length;
-    const totalPages = Math.max(0, Math.ceil(totalCount / pageSize));
-    const start = totalCount === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalCount);
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+    const start = filteredData.length > 0 ? page * pageSize + 1 : 0;
+    const end = Math.min((page + 1) * pageSize, filteredData.length);
+    const paginatedData = filteredData.slice(page * pageSize, (page + 1) * pageSize);
 
-    // Summary stats
-    const stats = useMemo(() => {
-        const total = prices.length;
-        const activeCount = prices.filter((p) => p.isActive).length;
-        const purchaseCount = prices.filter((p) => p.priceType === 'Purchase').length;
-        const saleCount = prices.filter((p) => p.priceType === 'Sale').length;
-        const uniqueItems = new Set(prices.map((p) => p.itemId)).size;
-        return { total, activeCount, purchaseCount, saleCount, uniqueItems };
-    }, [prices]);
-
-    const handleSort = (colId) => {
-        if (!ITEM_PRICE_COLUMNS.find((c) => c.id === colId)?.sortable) return;
-        if (orderBy === colId) {
-            setOrder(order === 'asc' ? 'desc' : 'asc');
-        } else {
-            setOrderBy(colId);
-            setOrder('asc');
-        }
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+        setPage(0);
     };
 
-    const handleAddNew = () => {
-        setEditingRow(null);
-        setDialogOpen(true);
+    const handleWarehouseChange = (e) => {
+        setSelectedWarehouse(e.target.value);
+        setPage(0);
     };
 
-    const handleEdit = (row) => {
-        setEditingRow(row);
-        setDialogOpen(true);
+    const handlePageSizeChange = (e) => {
+        setPageSize(Number(e.target.value));
+        setPage(0);
     };
-
-    const handleDelete = (row) => {
-        setDeletingRow(row);
-        setDeleteDialogOpen(true);
-    };
-
-    const handleConfirmDelete = () => {
-        setPrices((prev) => prev.filter((p) => p.itemPriceId !== deletingRow.itemPriceId));
-        showToast(`Đã xóa giá ${PRICE_TYPE_LABELS[deletingRow.priceType]} của ${deletingRow.itemName}.`, 'success');
-        setDeleteDialogOpen(false);
-        setDeletingRow(null);
-    };
-
-    const handleSavePrice = (formData) => {
-        if (editingRow) {
-            setPrices((prev) =>
-                prev.map((p) =>
-                    p.itemPriceId === editingRow.itemPriceId ? { ...p, ...formData } : p
-                )
-            );
-            showToast('Đã cập nhật giá thành công.', 'success');
-        } else {
-            const newRow = {
-                ...formData,
-                itemPriceId: Date.now(),
-                itemId: Date.now(),
-                createdAt: new Date().toISOString().split('T')[0],
-                effectiveTo: formData.effectiveTo || null,
-            };
-            setPrices((prev) => [newRow, ...prev]);
-            showToast('Đã thêm giá mới thành công.', 'success');
-        }
-        setDialogOpen(false);
-        setEditingRow(null);
-    };
-
-    const handleExport = () => showToast('Chức năng xuất Excel sẽ được triển khai sớm.', 'info');
-
-    const isCenterAligned = (colId) => ['stt', 'amount', 'isActive', 'actions'].includes(colId);
 
     return (
-        <Box
-            sx={{
-                height: '100%',
-                minHeight: 0,
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                bgcolor: '#fafafa',
-            }}
-        >
-            {/* Header */}
-            <Box sx={{ flexShrink: 0, px: 3, py: 2.5, bgcolor: '#fafafa' }}>
-                <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', fontSize: '22px' }}>
-                    Quản lý giá sản phẩm
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5 }}>
-                    Quản lý giá nhập, giá xuất và các loại giá khác của vật tư
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+            {/* Page Header */}
+            <Box sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <DollarSign size={20} color="#6b7280" />
+                    <Typography variant="h5" fontWeight={600} sx={{ fontSize: '20px', color: '#111827' }}>
+                        Giá bình quân gia quyền
+                    </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.25 }}>
+                    Giá nhập & giá bình quân gia quyền theo vật tư trong kho
                 </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', px: 3, pb: 2 }}>
-                {/* Summary cards */}
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2.5, flexShrink: 0 }}>
+            {/* Main Content */}
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: 2.5, gap: 2 }}>
+                {/* Summary Cards */}
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <SummaryCard
-                        icon={DollarSign}
-                        label="Tổng bản ghi"
-                        value={stats.total}
-                        subValue={`${stats.uniqueItems} vật tư`}
+                        icon={Package}
+                        label="Tổng vật tư"
+                        value={summary.totalItems.toLocaleString()}
+                        color="#6b7280"
+                        bgColor="rgba(107,114,128,0.1)"
+                    />
+                    <SummaryCard
+                        icon={TrendingUp}
+                        label="Tổng tồn kho"
+                        value={summary.totalQty.toLocaleString()}
                         color="#0284c7"
                         bgColor="rgba(2,132,199,0.1)"
                     />
                     <SummaryCard
-                        icon={CheckCircle}
-                        label="Đang hoạt động"
-                        value={stats.activeCount}
-                        subValue="giá hiệu lực"
-                        color="#16a34a"
-                        bgColor="rgba(22,163,74,0.1)"
+                        icon={DollarSign}
+                        label="Giá BQGQ trung bình"
+                        value={formatCurrency(summary.avgPrice)}
+                        color="#059669"
+                        bgColor="rgba(5,150,105,0.1)"
                     />
                     <SummaryCard
-                        icon={TrendingDown}
-                        label="Giá nhập (Purchase)"
-                        value={stats.purchaseCount}
-                        subValue="bản ghi"
-                        color="#2563eb"
-                        bgColor="rgba(37,99,235,0.1)"
-                    />
-                    <SummaryCard
-                        icon={TrendingUp}
-                        label="Giá xuất (Sale)"
-                        value={stats.saleCount}
-                        subValue="bản ghi"
-                        color="#16a34a"
-                        bgColor="rgba(22,163,74,0.1)"
+                        icon={Warehouse}
+                        label="Tổng giá trị tồn kho"
+                        value={formatCurrency(summary.totalValue)}
+                        color="#d97706"
+                        bgColor="rgba(217,119,6,0.1)"
                     />
                 </Box>
 
-                {/* Main table card */}
-                <Box
-                    sx={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '14px',
-                        bgcolor: '#fff',
-                    }}
-                >
-                    {/* Filter bar */}
-                    <Box
+                {/* Filter Bar */}
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <SearchInput
+                        placeholder="Tìm theo mã, tên vật tư…"
+                        value={searchTerm}
+                        onChange={handleSearch}
                         sx={{
-                            px: 2.5,
-                            py: 2,
-                            borderBottom: '1px solid #f3f4f6',
-                            display: 'flex',
-                            gap: 2,
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                            flexShrink: 0,
+                            flex: '1 1 240px', minWidth: 200, maxWidth: 420,
+                            '& .MuiOutlinedInput-root': {
+                                bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '10px',
+                                fontSize: '13px', '& fieldset': { border: 'none' },
+                                '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
+                                '&.Mui-focused': { bgcolor: '#fff', borderColor: '#3b82f6', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
+                                '& input::placeholder': { color: '#9ca3af', fontSize: '13px' },
+                            },
                         }}
-                    >
-                        <SearchInput
-                            placeholder="Tìm theo mã, tên vật tư, loại giá…"
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setPage(0);
-                            }}
+                    />
+
+                    <FormControl size="small" sx={{ minWidth: 180 }}>
+                        <Select
+                            value={selectedWarehouse}
+                            onChange={handleWarehouseChange}
                             sx={{
-                                flex: '1 1 200px',
-                                minWidth: 200,
-                                maxWidth: 420,
-                                '& .MuiOutlinedInput-root': {
-                                    bgcolor: '#f3f4f6',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '10px',
-                                    fontSize: '13px',
-                                    '& fieldset': { border: 'none' },
-                                },
+                                borderRadius: '10px', fontSize: '13px', bgcolor: '#f3f4f6',
+                                border: '1px solid #e5e7eb',
+                                '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
+                                '&.Mui-focused': { bgcolor: '#fff', borderColor: '#3b82f6', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
                             }}
-                        />
+                        >
+                            <MenuItem value="all" sx={{ fontSize: '13px' }}>Tất cả kho</MenuItem>
+                            {uniqueWarehouses.map(w => (
+                                <MenuItem key={w.warehouseId} value={w.warehouseId} sx={{ fontSize: '13px' }}>
+                                    {w.warehouseName}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </Box>
 
-                        {/* Filter: Price type */}
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <Select
-                                value={filterPriceType}
-                                onChange={(e) => {
-                                    setFilterPriceType(e.target.value);
-                                    setPage(0);
-                                }}
-                                sx={{
-                                    borderRadius: '10px',
-                                    fontSize: '13px',
-                                    bgcolor: '#f3f4f6',
-                                    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                                }}
-                            >
-                                <MenuItem value="All" sx={{ fontSize: '13px' }}>Tất cả loại giá</MenuItem>
-                                {Object.entries(PRICE_TYPE_LABELS).map(([key, label]) => (
-                                    <MenuItem key={key} value={key} sx={{ fontSize: '13px' }}>{label}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-
-                        {/* Filter: Active */}
-                        <FormControl size="small" sx={{ minWidth: 140 }}>
-                            <Select
-                                value={filterActive}
-                                onChange={(e) => {
-                                    setFilterActive(e.target.value);
-                                    setPage(0);
-                                }}
-                                sx={{
-                                    borderRadius: '10px',
-                                    fontSize: '13px',
-                                    bgcolor: '#f3f4f6',
-                                    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                                }}
-                            >
-                                <MenuItem value="All" sx={{ fontSize: '13px' }}>Tất cả trạng thái</MenuItem>
-                                <MenuItem value="Active" sx={{ fontSize: '13px' }}>Đang hoạt động</MenuItem>
-                                <MenuItem value="Inactive" sx={{ fontSize: '13px' }}>Không hoạt động</MenuItem>
-                            </Select>
-                        </FormControl>
-
-                        <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
-                            <Tooltip title="Xuất danh sách">
-                                <IconButton
-                                    onClick={handleExport}
-                                    sx={{
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '10px',
-                                        '&:hover': { bgcolor: '#f9fafb' },
-                                    }}
-                                >
-                                    <Download size={18} />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Tải lại">
-                                <IconButton
-                                    onClick={() => {
-                                        setLoading(true);
-                                        setTimeout(() => {
-                                            setPrices(MOCK_ITEM_PRICES);
-                                            setLoading(false);
-                                            setPage(0);
-                                        }, 600);
-                                    }}
-                                    sx={{
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '10px',
-                                        '&:hover': { bgcolor: '#f9fafb' },
-                                    }}
-                                >
-                                    <RefreshCw size={18} />
-                                </IconButton>
-                            </Tooltip>
-                            {canEdit && (
-                                <Button
-                                    variant="contained"
-                                    startIcon={<Plus size={16} />}
-                                    onClick={handleAddNew}
-                                    sx={{
-                                        textTransform: 'none',
-                                        fontWeight: 600,
-                                        borderRadius: '10px',
-                                        fontSize: '13px',
-                                        bgcolor: '#0284c7',
-                                        '&:hover': { bgcolor: '#0369a1' },
-                                        height: 38,
-                                        px: 2,
-                                    }}
-                                >
-                                    Thêm giá
-                                </Button>
-                            )}
+                {/* Table */}
+                <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                    {paginatedData.length === 0 ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, color: 'text.secondary' }}>
+                            <Package size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
+                            <Typography sx={{ fontSize: '14px' }}>Không có dữ liệu</Typography>
                         </Box>
-                    </Box>
-
-                    {/* Table */}
-                    <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                        <Table size="small" stickyHeader>
+                    ) : (
+                        <Table size="small" stickyHeader sx={{ minWidth: '100%', tableLayout: 'fixed' }}>
                             <TableHead>
                                 <TableRow>
-                                    {ITEM_PRICE_COLUMNS.map((col) => (
+                                    {COLUMNS.map(col => (
                                         <TableCell
                                             key={col.id}
-                                            align={isCenterAligned(col.id) ? 'center' : 'left'}
-                                            sx={{ ...headCellSx }}
+                                            sx={{
+                                                fontWeight: 600, fontSize: '12px', color: '#6b7280',
+                                                bgcolor: '#fafafa', borderBottom: '1px solid #e5e7eb',
+                                                width: col.width, whiteSpace: 'nowrap', py: 1.5, px: 2,
+                                            }}
                                         >
-                                            {col.sortable ? (
-                                                <TableSortLabel
-                                                    active={orderBy === col.id}
-                                                    direction={orderBy === col.id ? order : 'asc'}
-                                                    onClick={() => handleSort(col.id)}
-                                                    sx={{ '& .MuiTableSortLabel-icon': { fontSize: '13px' } }}
-                                                >
-                                                    {col.label}
-                                                </TableSortLabel>
-                                            ) : (
-                                                col.label
-                                            )}
+                                            {col.label}
                                         </TableCell>
                                     ))}
                                 </TableRow>
                             </TableHead>
-
                             <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={ITEM_PRICE_COLUMNS.length} sx={{ textAlign: 'center', py: 8 }}>
-                                            <CircularProgress size={36} />
-                                            <Typography sx={{ mt: 1.5, color: '#9ca3af', fontSize: '13px' }}>
-                                                Đang tải dữ liệu…
-                                            </Typography>
+                                {paginatedData.map((row, index) => (
+                                    <TableRow
+                                        key={`${row.itemId}-${row.warehouseId}`}
+                                        hover
+                                        sx={{ '&:hover': { bgcolor: '#f9fafb' }, '&:last-child td': { borderBottom: 0 } }}
+                                    >
+                                        <TableCell sx={{ textAlign: 'center', color: '#9ca3af', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            {(page * pageSize) + index + 1}
                                         </TableCell>
-                                    </TableRow>
-                                ) : rows.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={ITEM_PRICE_COLUMNS.length} sx={{ textAlign: 'center', py: 8 }}>
-                                            <Package size={48} style={{ color: '#d1d5db', marginBottom: 12 }} />
-                                            <Typography sx={{ color: '#9ca3af', fontSize: '14px' }}>
-                                                Không tìm thấy bản ghi nào
-                                            </Typography>
+                                        <TableCell sx={{ fontWeight: 500, color: '#374151', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            {row.itemCode}
                                         </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    rows.map((row, index) => {
-                                        const typeStyle = PRICE_TYPE_COLORS[row.priceType] || PRICE_TYPE_COLORS.Sale;
-                                        return (
-                                            <TableRow
-                                                key={row.itemPriceId}
-                                                hover
+                                        <TableCell sx={{ color: '#374151', fontSize: '13px', py: 1.5, px: 2, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {row.itemName}
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#6b7280', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            <Chip
+                                                label={row.warehouseName}
+                                                size="small"
                                                 sx={{
-                                                    height: 56,
-                                                    '&:hover': { bgcolor: '#f9fafb' },
-                                                    ...(!row.isActive ? { opacity: 0.6 } : {}),
+                                                    fontSize: '11px', height: '22px', bgcolor: '#f3f4f6',
+                                                    color: '#374151', border: 'none', borderRadius: '999px',
                                                 }}
-                                            >
-                                                <TableCell align="center" sx={{ ...bodyCellSx, color: '#9ca3af', fontSize: '12px' }}>
-                                                    {(page) * pageSize + index + 1}
-                                                </TableCell>
-                                                <TableCell sx={{ ...bodyCellSx, fontWeight: 600, color: '#2563eb' }}>
-                                                    {row.itemCode}
-                                                </TableCell>
-                                                <TableCell sx={{ ...bodyCellSx }}>
-                                                    {row.itemName}
-                                                </TableCell>
-                                                <TableCell sx={{ ...bodyCellSx }}>
-                                                    <Chip
-                                                        label={PRICE_TYPE_LABELS[row.priceType] || row.priceType}
-                                                        size="small"
-                                                        sx={{
-                                                            fontSize: '11px',
-                                                            fontWeight: 600,
-                                                            height: '24px',
-                                                            borderRadius: '6px',
-                                                            bgcolor: typeStyle.bg,
-                                                            color: typeStyle.color,
-                                                            border: `1px solid ${typeStyle.border}`,
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell
-                                                    align="center"
-                                                    sx={{ ...bodyCellSx, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
-                                                >
-                                                    <span style={{ color: row.priceType === 'Purchase' ? '#2563eb' : '#047857' }}>
-                                                        {formatCurrency(row.amount)}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell align="center" sx={{ ...bodyCellSx, color: '#6b7280', fontSize: '12px' }}>
-                                                    {row.currency}
-                                                </TableCell>
-                                                <TableCell sx={{ ...bodyCellSx, color: '#6b7280', fontSize: '12px' }}>
-                                                    {row.effectiveFrom ? fDate(row.effectiveFrom) : '-'}
-                                                </TableCell>
-                                                <TableCell sx={{ ...bodyCellSx, color: '#6b7280', fontSize: '12px' }}>
-                                                    {row.effectiveTo ? fDate(row.effectiveTo) : '—'}
-                                                </TableCell>
-                                                <TableCell align="center" sx={{ ...bodyCellSx }}>
-                                                    <Chip
-                                                        label={row.isActive ? '● Hoạt động' : '● Hết hiệu lực'}
-                                                        size="small"
-                                                        sx={{
-                                                            fontSize: '11px',
-                                                            height: '24px',
-                                                            borderRadius: '6px',
-                                                            bgcolor: row.isActive ? 'rgba(22,163,74,0.1)' : 'rgba(107,114,128,0.1)',
-                                                            color: row.isActive ? '#16a34a' : '#6b7280',
-                                                            '& .MuiChip-label': { px: 1 },
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell align="center" sx={{ ...bodyCellSx }}>
-                                                    {canEdit && (
-                                                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                            <Tooltip title="Sửa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handleEdit(row)}
-                                                                    sx={{
-                                                                        color: '#6b7280',
-                                                                        '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' },
-                                                                        borderRadius: '8px',
-                                                                    }}
-                                                                >
-                                                                    <Edit2 size={15} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Xóa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handleDelete(row)}
-                                                                    sx={{
-                                                                        color: '#6b7280',
-                                                                        '&:hover': { color: '#dc2626', bgcolor: 'rgba(220,38,38,0.08)' },
-                                                                        borderRadius: '8px',
-                                                                    }}
-                                                                >
-                                                                    <Trash2 size={15} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </Box>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#2563eb', fontWeight: 500, fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                            {formatCurrency(row.purchasePrice)}
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#059669', fontWeight: 600, fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                            {formatCurrency(row.avgPrice)}
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#374151', fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                            {row.totalQty.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#d97706', fontWeight: 600, fontSize: '13px', py: 1.5, px: 2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                            {formatCurrency(row.totalValue)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
                             </TableBody>
                         </Table>
-                    </TableContainer>
+                    )}
+                </Box>
 
-                    {/* Pagination */}
-                    <Box
-                        sx={{
-                            flexShrink: 0,
-                            px: 2.5,
-                            py: 1.5,
-                            borderTop: '1px solid #f3f4f6',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 1,
-                        }}
-                    >
-                        <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>
-                            {start}–{end} / {totalCount} bản ghi
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <FormControl size="small">
-                                <Select
-                                    value={pageSize}
-                                    onChange={(e) => {
-                                        setPageSize(Number(e.target.value));
-                                        setPage(0);
-                                    }}
-                                    sx={{ height: 32, fontSize: '12px', borderRadius: '8px' }}
-                                >
-                                    {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                        <MenuItem key={n} value={n} sx={{ fontSize: '12px' }}>{n} dòng</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                disabled={page <= 0}
-                                onClick={() => setPage((p) => p - 1)}
-                                sx={{ textTransform: 'none', fontSize: '12px', borderRadius: '8px', minWidth: 60 }}
-                            >
-                                Trước
-                            </Button>
-                            <Typography sx={{ fontSize: '12px', color: '#374151', minWidth: 60, textAlign: 'center' }}>
-                                {page + 1} / {totalPages || 1}
-                            </Typography>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                disabled={end >= totalCount || totalCount === 0}
-                                onClick={() => setPage((p) => p + 1)}
-                                sx={{ textTransform: 'none', fontSize: '12px', borderRadius: '8px', minWidth: 60 }}
-                            >
-                                Sau
-                            </Button>
-                        </Box>
+                {/* Pagination */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2, flexShrink: 0 }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                        Số dòng / trang:
+                    </Typography>
+                    <FormControl size="small" sx={{ minWidth: 72 }}>
+                        <Select
+                            value={pageSize}
+                            onChange={handlePageSizeChange}
+                            sx={{ height: 32, fontSize: '13px', borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' } }}
+                        >
+                            {ROWS_PER_PAGE_OPTIONS.map(n => (
+                                <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                        {start}–{end} / {filteredData.length}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <button
+                            disabled={page <= 0}
+                            onClick={() => setPage(p => p - 1)}
+                            style={{
+                                minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
+                                backgroundColor: page <= 0 ? '#f9fafb' : '#fff', cursor: page <= 0 ? 'default' : 'pointer',
+                                color: page <= 0 ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
+                            }}
+                        >
+                            ‹
+                        </button>
+                        <button
+                            disabled={end >= filteredData.length || filteredData.length === 0}
+                            onClick={() => setPage(p => p + 1)}
+                            style={{
+                                minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
+                                backgroundColor: (end >= filteredData.length || filteredData.length === 0) ? '#f9fafb' : '#fff',
+                                cursor: (end >= filteredData.length || filteredData.length === 0) ? 'default' : 'pointer',
+                                color: (end >= filteredData.length || filteredData.length === 0) ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
+                            }}
+                        >
+                            ›
+                        </button>
                     </Box>
                 </Box>
             </Box>
-
-            {/* Dialogs */}
-            <PriceDialog
-                open={dialogOpen}
-                onClose={() => {
-                    setDialogOpen(false);
-                    setEditingRow(null);
-                }}
-                onSave={handleSavePrice}
-                editingRow={editingRow}
-            />
-            <DeleteDialog
-                open={deleteDialogOpen}
-                onClose={() => {
-                    setDeleteDialogOpen(false);
-                    setDeletingRow(null);
-                }}
-                onConfirm={handleConfirmDelete}
-                deletingRow={deletingRow}
-            />
-
-            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </Box>
     );
-};
-
-export default ViewItemPriceList;
+}

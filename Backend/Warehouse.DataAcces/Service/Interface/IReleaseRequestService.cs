@@ -18,10 +18,13 @@ namespace Warehouse.DataAcces.Service.Interface
         /// Cập nhật yêu cầu xuất kho
         Task<ReleaseRequestDetailResponse> UpdateReleaseRequestAsync(long id, long userId, UpdateReleaseRequestRequest request);
 
-        /// Gửi (Submit) yêu cầu xuất kho và chốt AllocatedQty
-        Task<ReleaseRequestDetailResponse> SubmitReleaseRequestAsync(long id, long userId);
-
         /// Hủy yêu cầu xuất kho
-        Task<bool> CancelReleaseRequestAsync(long id);
+        Task<bool> CancelReleaseRequestAsync(long id, long userId);
+
+        /// Đóng yêu cầu xuất kho (giải phóng giữ kho còn dư)
+        Task<bool> CloseReleaseRequestAsync(long id, long userId);
+
+        /// Duyệt/Từ chối yêu cầu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
+        Task<ReleaseRequestDetailResponse> ApproveReleaseRequestAsync(long id, long userId, ApproveReleaseRequest request);
     }
 }
