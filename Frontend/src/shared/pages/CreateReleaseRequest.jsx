@@ -44,7 +44,7 @@ export default function CreateReleaseRequest() {
             .finally(() => setLoadingWarehouses(false));
 
         getReceivers()
-            .then(list => setReceivers(list ?? []))
+            .then(list => setReceivers(Array.isArray(list) ? list : (list?.items ?? [])))
             .catch(() => showToast('Không tải được danh sách người nhận.', 'error'))
             .finally(() => setLoadingReceivers(false));
 
