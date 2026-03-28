@@ -4,7 +4,8 @@
       "Bash(npx vite:*)",
       "Read(//d/SEP490 SP26/SEP490-G98/Frontend/**)",
       "Bash(npm run:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

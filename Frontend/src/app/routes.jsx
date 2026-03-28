@@ -9,7 +9,6 @@ import UserAccountList from '../shared/pages/ViewUserAccountList';
 import DeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
 import ItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
-import EditItem from '../shared/pages/EditItem';
 import ViewItemDetail from '../shared/pages/ViewItemDetail';
 import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
@@ -181,16 +180,6 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateItem />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/items/edit/:id"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <EditItem />
                     </MainLayout>
                 </ProtectedRoute>
             }
