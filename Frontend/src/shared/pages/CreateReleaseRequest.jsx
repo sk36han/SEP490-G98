@@ -43,8 +43,8 @@ export default function CreateReleaseRequest() {
             .catch(() => showToast('Không tải được danh sách kho.', 'error'))
             .finally(() => setLoadingWarehouses(false));
 
-        getReceivers()
-            .then(list => setReceivers(list ?? []))
+        getReceivers({ pageSize: 1000 })
+            .then(res => setReceivers(res.items ?? []))
             .catch(() => showToast('Không tải được danh sách người nhận.', 'error'))
             .finally(() => setLoadingReceivers(false));
 
@@ -260,8 +260,8 @@ export default function CreateReleaseRequest() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.warehouseName) { showToast('Vui lòng chọn kho xuất', 'error'); return; }
-        if (!formData.receiverName) { showToast('Vui lòng chọn người nhận', 'error'); return; }
+        if (!formData.warehouseId) { showToast('Vui lòng chọn kho xuất', 'error'); return; }
+        if (!formData.receiverId) { showToast('Vui lòng chọn người nhận', 'error'); return; }
         if (lines.length === 0) { showToast('Vui lòng thêm ít nhất 1 vật tư', 'error'); return; }
 
         setSubmitting(true);

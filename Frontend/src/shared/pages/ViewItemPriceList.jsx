@@ -311,33 +311,29 @@ export default function ViewItemPriceList() {
                         {start}–{end} / {filteredData.length}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Box
-                            component="button"
+                        <button
                             disabled={page <= 0}
                             onClick={() => setPage(p => p - 1)}
-                            sx={{
+                            style={{
                                 minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
-                                bgcolor: page <= 0 ? '#f9fafb' : '#fff', cursor: page <= 0 ? 'default' : 'pointer',
-                                color: page <= 0 ? '#d1d5db' : '#374151', fontSize: '13px',
-                                '&:hover': page <= 0 ? {} : { borderColor: 'rgba(0,0,0,0.2)' },
+                                backgroundColor: page <= 0 ? '#f9fafb' : '#fff', cursor: page <= 0 ? 'default' : 'pointer',
+                                color: page <= 0 ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
                             }}
                         >
                             ‹
-                        </Box>
-                        <Box
-                            component="button"
+                        </button>
+                        <button
                             disabled={end >= filteredData.length || filteredData.length === 0}
                             onClick={() => setPage(p => p + 1)}
-                            sx={{
+                            style={{
                                 minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
-                                bgcolor: (end >= filteredData.length || filteredData.length === 0) ? '#f9fafb' : '#fff',
+                                backgroundColor: (end >= filteredData.length || filteredData.length === 0) ? '#f9fafb' : '#fff',
                                 cursor: (end >= filteredData.length || filteredData.length === 0) ? 'default' : 'pointer',
-                                color: (end >= filteredData.length || filteredData.length === 0) ? '#d1d5db' : '#374151', fontSize: '13px',
-                                '&:hover': (end >= filteredData.length || filteredData.length === 0) ? {} : { borderColor: 'rgba(0,0,0,0.2)' },
+                                color: (end >= filteredData.length || filteredData.length === 0) ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
                             }}
                         >
                             ›
-                        </Box>
+                        </button>
                     </Box>
                 </Box>
             </Box>

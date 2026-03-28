@@ -931,7 +931,7 @@ const ViewCategoryList = () => {
                     }}
                 >
                     <Typography
-                        variant="h6"
+                        component="span"
                         sx={{
                             fontWeight: 600,
                             fontSize: '18px',

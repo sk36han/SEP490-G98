@@ -22,8 +22,8 @@ import {
 } from '@mui/material';
 import { Save, Edit, TrendingUp, CheckCircle2 } from 'lucide-react';
 
-import { useSalesTarget } from './hooks/useSalesTarget';
-import { MOCK_TARGETS } from './data/mockData';
+import { useSalesTarget } from '../../../Mockup/hooks/useSalesTarget';
+import { MOCK_TARGETS } from '../../../Mockup/data/mockData';
 
 /**
  * Định dạng số sang tiền VND
