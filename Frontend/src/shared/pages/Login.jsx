@@ -57,7 +57,6 @@ const Login = () => {
     };
 
     const handleSubmit = async (e) => {
-        console.log('handleSubmit');
         e.preventDefault();
 
         if (!formData.email || !formData.password) {

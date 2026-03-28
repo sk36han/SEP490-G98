@@ -225,6 +225,7 @@ export async function createStocktakeDraft(data) {
             mode: data.mode?.toUpperCase(),
             plannedAt: data.plannedAt ?? null,
             note: data.note ?? null,
+            status: data.status ?? null,
         });
         return mapStocktakeRow(extractBody(response));
     } catch (error) {

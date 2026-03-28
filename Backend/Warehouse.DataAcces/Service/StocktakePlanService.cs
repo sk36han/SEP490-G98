@@ -66,7 +66,7 @@ namespace Warehouse.DataAcces.Service
                 StocktakeCode = newCode,
                 WarehouseId   = request.WarehouseId,
                 Mode          = request.Mode.ToUpper(),
-                Status        = "DRAFT", // Trạng thái bắt đầu
+                Status        = request.Status?.ToUpper() ?? "DRAFT",
                 PlannedAt     = request.PlannedAt,
                 Note          = request.Note,
                 CreatedBy     = currentUserId
