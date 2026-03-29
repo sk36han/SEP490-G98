@@ -2,8 +2,8 @@
  * ViewPurchaseReturnDetail - Chi tiết phiếu trả hàng (xem + chỉnh sửa tại chỗ)
  * Hỗ trợ 2 trạng thái độc lập: Trạng thái hoàn & Trạng thái thanh toán
  */
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
     CheckCircle,
@@ -18,21 +18,9 @@ import {
     Loader,
     Truck,
     CheckCheck,
-    User,
-    Calendar,
-    FileText,
-    MapPin,
-    Phone,
-    Mail,
-    ReceiptText,
-    Building2,
-    CreditCard,
-    Send,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
-import { getPurchaseReturnDetail, approvePurchaseReturn, refundPurchaseReturn } from '../lib/purchaseReturnNoteService';
-import { getGRNDetail } from '../lib/goodReceiptNoteService';
 import '../styles/CreateSupplier.css';
 
 const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
@@ -41,10 +29,9 @@ const MAX_NOTE_LENGTH = 250;
 
 // --- Return status constants ---
 const RETURN_STATUS = {
-    DRAFT: 'draft_return',
-    SUBMITTED: 'submitted_return', // Chờ hoàn hàng
-    PARTIAL: 'partial_return',  // Hoàn hàng một phần
-    COMPLETE: 'complete_return', // Hoàn hàng toàn bộ
+    PENDING: 'pending_return',   // Chờ trả hàng — chưa xác nhận
+    PARTIAL: 'partial_return',  // Hoàn một phần
+    COMPLETE: 'complete_return', // Hoàn toàn bộ
 };
 
 // --- Payment status constants ---
@@ -55,10 +42,9 @@ const PAYMENT_STATUS = {
 
 // --- Return status config ---
 const RETURN_STATUS_CONFIG = {
-    [RETURN_STATUS.DRAFT]:     { label: 'Nháp', color: '#6b7280', bg: '#e5e7eb', icon: <Clock size={16} /> },
-    [RETURN_STATUS.SUBMITTED]: { label: 'Chờ hoàn hàng', color: '#d97706', bg: '#fef3c7', icon: <Clock size={16} /> },
-    [RETURN_STATUS.PARTIAL]:   { label: 'Hoàn hàng một phần', color: '#7c3aed', bg: '#ede9fe', icon: <Truck size={16} /> },
-    [RETURN_STATUS.COMPLETE]:  { label: 'Hoàn hàng toàn bộ', color: '#10b981', bg: '#d1fae5', icon: <CheckCheck size={16} /> },
+    [RETURN_STATUS.PENDING]:  { label: 'Chờ trả hàng', color: '#d97706', bg: '#fef3c7', icon: <Clock size={16} /> },
+    [RETURN_STATUS.PARTIAL]:   { label: 'Hoàn một phần', color: '#7c3aed', bg: '#ede9fe', icon: <Truck size={16} /> },
+    [RETURN_STATUS.COMPLETE]:  { label: 'Hoàn toàn bộ', color: '#10b981', bg: '#d1fae5', icon: <CheckCheck size={16} /> },
 };
 
 // --- Payment status config ---
@@ -117,6 +103,7 @@ const MOCK_DETAIL = {
     refundReceiveStatus: 'later',
     refundMethod: 'cash',
     refundRecordedDate: null,
+    refundReceivedAmount: 113500,
 
     lines: [
         { grnLineId: 1, productId: 1, sku: 'PEN-001', productName: 'Bút bi Thiên Long TL-057', uom: 'Cây', receivedQty: 50, returnQty: 5, unitPrice: 3500, totalPrice: 17500 },
@@ -131,86 +118,6 @@ const toNumber = (val) => {
 };
 
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-const mapApiToLegacyState = (api) => {
-    const lines = (api?.lines || []).map((line) => ({
-        grnLineId: line.relatedGrnlineId,
-        productId: line.itemId,
-        sku: line.itemCode || '-',
-        productName: line.itemName || '-',
-        uom: line.uomName || '-',
-        receivedQty: toNumber(line.receivedQty || line.expectedQty || line.returnQty || 0),
-        returnQty: toNumber(line.returnQty),
-        unitPrice: toNumber(line.unitPrice),
-        totalPrice: toNumber(line.lineTotal ?? toNumber(line.returnQty) * toNumber(line.unitPrice)),
-    }));
-
-    const status = api?.status || 'DRAFT';
-    const refundStatus = (api?.refundStatus || 'NotRefunded').toLowerCase();
-
-    return {
-        purchaseReturnId: api?.purchaseReturnId,
-        returnCode: api?.returnCode || '',
-        relatedGRNId: api?.relatedGrnId,
-        relatedGRNCode: api?.relatedGrnCode || '',
-        grnReceiptDate: '',
-
-        supplierId: api?.supplierId,
-        supplierName: api?.supplierName || '',
-        supplierPhone: api?.supplierPhone || '',
-        supplierEmail: api?.supplierEmail || '',
-        supplierTaxCode: api?.supplierTaxCode || '',
-        supplierAddressProvince: api?.supplierAddressProvince || '',
-        supplierAddressDistrict: api?.supplierAddressDistrict || '',
-        supplierAddressWard: api?.supplierAddressWard || '',
-        supplierAddressStreet: api?.supplierAddressStreet || '',
-
-        warehouseId: api?.warehouseId,
-        warehouseName: api?.warehouseName || '',
-
-        returnConfirmed: status === 'APPROVED', // APPROVED = đã xác nhận trả (Hoàn một phần / Hoàn toàn bộ)
-        paymentConfirmed: refundStatus === 'refunded',
-        workflowStatus: status,
-
-        createdById: api?.createdBy,
-        createdByName: api?.createdByName || '',
-        createdAt: api?.createdAt,
-        approvedBy: api?.approvedByName || null,
-        approvedAt: api?.approvedAt || null,
-
-        returnDate: api?.returnDate ? String(api.returnDate).slice(0, 10) : '',
-        reason: api?.reason || '',
-
-        feeAmount: toNumber(api?.feeAmount),
-        deductionReason: api?.note || '',
-
-        refundReceiveStatus: refundStatus === 'refunded' ? 'received' : 'later',
-        refundMethod: api?.refundMethod === 'bank_transfer' || api?.refundMethod === 'card' || api?.refundMethod === 'cash'
-            ? api.refundMethod
-            : 'cash',
-        refundRecordedDate: api?.refundedAt ? new Date(api.refundedAt).toLocaleDateString('en-CA') : null,
-
-        lines,
-    };
-};
-
-const mapGrnToProductSource = (grn) => {
-    const code = grn?.grnCode || grn?.GrnCode || '';
-    const lines = grn?.lines || grn?.Lines || [];
-    return {
-        code,
-        lines: lines.map((item) => ({
-            grnLineId: item.grnlineId ?? item.GrnlineId,
-            productId: item.itemId ?? item.ItemId,
-            sku: item.itemCode ?? item.ItemCode ?? '-',
-            productName: item.itemName ?? item.ItemName ?? '-',
-            uom: item.uomName ?? item.UomName ?? '-',
-            receivedQty: toNumber(item.actualQty ?? item.ActualQty ?? item.expectedQty ?? item.ExpectedQty ?? 0),
-            unitPrice: toNumber(item.unitPrice ?? item.UnitPrice ?? 0),
-        })),
-        receiptDate: grn?.receiptDate || grn?.ReceiptDate || '',
-    };
-};
 
 // --- Validation helpers (mirrors CreatePurchaseReturn) ---
 
@@ -254,18 +161,15 @@ const validateLines = (lines) => {
 // --- Business helpers ---
 
 /**
- * Tính trạng thái hoàn dựa trên workflowStatus.
+ * Tính trạng thái hoàn dựa trên lines + returnConfirmed.
  * Quy tắc:
- * - workflowStatus === DRAFT => Nháp
- * - workflowStatus === SUBMITTED => Chờ hoàn hàng
- * - workflowStatus === APPROVED:
- *   - totalReturnQty < totalReceivedQty => Hoàn hàng một phần
- *   - totalReturnQty >= totalReceivedQty => Hoàn hàng toàn bộ
+ * - returnConfirmed === false => Chờ trả hàng
+ * - returnConfirmed === true:
+ *   - totalReturnQty < totalReceivedQty => Hoàn một phần
+ *   - totalReturnQty >= totalReceivedQty => Hoàn toàn bộ
  */
-const getReturnStatus = (lines, isDraft = false, isSubmitted = false) => {
-    if (isDraft) return RETURN_STATUS.DRAFT;
-    if (isSubmitted) return RETURN_STATUS.SUBMITTED;
-    // APPROVED: phân biệt theo số lượng
+const getReturnStatus = (lines, returnConfirmed) => {
+    if (!returnConfirmed) return RETURN_STATUS.PENDING;
     const totalReceived = lines.reduce((s, l) => s + toNumber(l.receivedQty), 0);
     const totalReturn = lines.reduce((s, l) => s + toNumber(l.returnQty), 0);
     if (totalReturn >= totalReceived) return RETURN_STATUS.COMPLETE;
@@ -277,6 +181,19 @@ const getReturnStatus = (lines, isDraft = false, isSubmitted = false) => {
  */
 const getPaymentStatus = (paymentConfirmed) => {
     return paymentConfirmed ? PAYMENT_STATUS.RECEIVED : PAYMENT_STATUS.PENDING;
+};
+
+/**
+ * Có thể xác nhận trả hàng khi:
+ * - Phần trả hàng chưa được xác nhận
+ * - Có ít nhất 1 line với returnQty > 0 và <= receivedQty
+ * - returnDate hợp lệ (required + >= grnReceiptDate)
+ */
+const canConfirmReturn = (lines, returnDate, grnReceiptDate, returnConfirmed) => {
+    if (returnConfirmed) return false;
+    if (validateReturnDate(returnDate, grnReceiptDate)) return false;
+    if (validateLines(lines)) return false;
+    return true;
 };
 
 /**
@@ -430,7 +347,6 @@ const StatusBadge = ({ config }) => (
 
 export default function ViewPurchaseReturnDetail() {
     const navigate = useNavigate();
-    const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
 
     const [detailData, setDetailData] = useState(MOCK_DETAIL);
@@ -439,94 +355,41 @@ export default function ViewPurchaseReturnDetail() {
     const [draft, setDraft] = useState(() => getInitialDraftFromData(MOCK_DETAIL));
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState('');
-    const [grnSource, setGrnSource] = useState(MOCK_GRN_SOURCE);
 
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedSearchProductIds, setSelectedSearchProductIds] = useState([]);
     const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm, confirmLabel }
 
-    const fetchDetail = useCallback(async () => {
-        if (!id) {
-            setLoading(false);
-            return;
-        }
-
-        try {
-            setLoading(true);
-            setLoadError('');
-
-            const detail = await getPurchaseReturnDetail(Number(id));
-            const mapped = mapApiToLegacyState(detail);
-
-            if (detail?.relatedGrnId) {
-                try {
-                    const grn = await getGRNDetail(detail.relatedGrnId);
-                    const mappedGrn = mapGrnToProductSource(grn);
-
-                    // Đồng bộ "SL đã nhập" từ GRN thật theo RelatedGrnlineId
-                    const grnLineQtyMap = new Map(mappedGrn.lines.map((x) => [Number(x.grnLineId), toNumber(x.receivedQty)]));
-                    mapped.lines = mapped.lines.map((line) => {
-                        const qtyFromGrn = grnLineQtyMap.get(Number(line.grnLineId));
-                        return {
-                            ...line,
-                            receivedQty: qtyFromGrn ?? line.receivedQty,
-                        };
-                    });
-
-                    setGrnSource((prev) => ({
-                        ...prev,
-                        [mapped.relatedGRNCode || mappedGrn.code]: mappedGrn.lines,
-                    }));
-                    mapped.grnReceiptDate = mappedGrn.receiptDate ? new Date(mappedGrn.receiptDate).toLocaleDateString('en-CA') : '';
-                } catch {
-                    // keep legacy source fallback
-                }
-            }
-
-            setDetailData(mapped);
-            setDraft(getInitialDraftFromData(mapped));
-        } catch (err) {
-            setLoadError(err?.response?.data?.message || err?.message || 'Không tải được chi tiết phiếu trả hàng');
-        } finally {
-            setLoading(false);
-        }
-    }, [id]);
-
-    useEffect(() => {
-        fetchDetail();
-    }, [fetchDetail]);
-
     // --- Derived state ---
     const returnConfirmed = detailData.returnConfirmed;
     const paymentConfirmed = detailData.paymentConfirmed;
-    const isDraftStatus = detailData.workflowStatus === 'DRAFT';
-    const isSubmittedStatus = detailData.workflowStatus === 'SUBMITTED';
 
     const returnStatus = useMemo(
-        () => getReturnStatus(detailData.lines, isDraftStatus, isSubmittedStatus),
-        [detailData.lines, isDraftStatus, isSubmittedStatus]
+        () => getReturnStatus(detailData.lines, returnConfirmed),
+        [detailData.lines, returnConfirmed]
     );
     const paymentStatus = useMemo(
         () => getPaymentStatus(paymentConfirmed),
         [paymentConfirmed]
     );
 
-    const returnStatusConfig = RETURN_STATUS_CONFIG[returnStatus] || RETURN_STATUS_CONFIG[RETURN_STATUS.SUBMITTED];
+    const returnStatusConfig = RETURN_STATUS_CONFIG[returnStatus] || RETURN_STATUS_CONFIG[RETURN_STATUS.PENDING];
     const paymentStatusConfig = PAYMENT_STATUS_CONFIG[paymentStatus] || PAYMENT_STATUS_CONFIG[PAYMENT_STATUS.PENDING];
 
-    const isReturnLocked = !isDraftStatus && !isSubmittedStatus; // APPROVED => khóa phần trả hàng
+    const isReturnLocked = isReturnSectionLocked(returnConfirmed);
     const isPaymentLocked = isPaymentSectionLocked(paymentConfirmed);
 
-    // Nút "Tạo phiếu trả hàng" chỉ hiện khi trạng thái Draft
-    const canCreateReturnBtn = isDraftStatus;
-    // Nút "Bắt đầu trả hàng" chỉ hiện khi trạng thái SUBMITTED (Chờ hoàn hàng)
-    const canStartReturnBtn = isSubmittedStatus;
+    // Nút "Xác nhận trả hàng": hiện khi chưa xác nhận, có data hợp lệ
+    const canConfirmReturnBtn = canConfirmReturn(
+        detailData.lines,
+        detailData.returnDate,
+        detailData.grnReceiptDate,
+        returnConfirmed
+    );
 
-    // Nút "Xác nhận thanh toán": hiện khi SUBMITTED/APPROVED và payment chưa confirm
-    const canConfirmPaymentBtn = !isDraftStatus && canConfirmPayment(paymentConfirmed);
+    // Nút "Xác nhận thanh toán": hiện khi return đã confirm, payment chưa confirm
+    const canConfirmPaymentBtn = canConfirmPayment(paymentConfirmed);
 
     const activeLines = isEditing ? draft.lines : detailData.lines;
     const subtotal = activeLines.reduce((sum, line) => sum + toNumber(line.totalPrice), 0);
@@ -536,10 +399,10 @@ export default function ViewPurchaseReturnDetail() {
     const estimatedRefundAmount = Math.max(subtotal - feeAmount, 0);
 
     const availableProducts = useMemo(() => {
-        const source = grnSource[detailData.relatedGRNCode] || [];
+        const source = MOCK_GRN_SOURCE[detailData.relatedGRNCode] || [];
         const selectedIds = new Set(draft.lines.map((line) => line.productId));
         return source.filter((item) => !selectedIds.has(item.productId));
-    }, [grnSource, detailData.relatedGRNCode, draft.lines]);
+    }, [detailData.relatedGRNCode, draft.lines]);
 
     const filteredProducts = useMemo(() => {
         const q = searchKeyword.trim().toLowerCase();
@@ -779,60 +642,75 @@ export default function ViewPurchaseReturnDetail() {
         }
         try {
             setSubmitting(true);
-            // Backend chưa có endpoint update riêng -> giữ behavior cũ + reload detail thật
-            await fetchDetail();
+            const payload = buildUpdatePayload(detailData, draft, estimatedRefundAmount);
+            console.log('Update Purchase Return payload:', payload);
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            setDetailData((prev) => ({
+                ...prev,
+                returnDate: draft.returnDate,
+                reason: draft.reason,
+                feeAmount: toNumber(draft.feeAmount),
+                deductionReason: draft.deductionReason,
+                refundReceiveStatus: draft.refundReceiveStatus,
+                refundMethod: draft.refundReceiveStatus === 'received' ? draft.refundMethod : null,
+                refundRecordedDate: draft.refundReceiveStatus === 'received' ? draft.refundRecordedDate : null,
+                refundReceivedAmount: draft.refundReceiveStatus === 'received' ? estimatedRefundAmount : 0,
+                lines: draft.lines.map((line) => ({
+                    grnLineId: line.grnLineId,
+                    productId: line.productId,
+                    sku: line.sku,
+                    productName: line.productName,
+                    uom: line.uom,
+                    receivedQty: line.receivedQty,
+                    returnQty: line.returnQty,
+                    unitPrice: line.unitPrice,
+                    totalPrice: line.totalPrice,
+                })),
+            }));
             setIsEditing(false);
             setShowProductSearch(false);
             showToast('Cập nhật phiếu trả hàng thành công!', 'success');
         } catch (err) {
-            showToast(err?.response?.data?.message || err?.message || 'Có lỗi xảy ra', 'error');
+            showToast(err?.message || 'Có lỗi xảy ra', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    // --- "Tạo phiếu trả hàng" (chuyển từ Nháp sang SUBMITTED) ---
-    const handleCreateReturn = () => {
-        setConfirmDialog({
-            title: 'Tạo phiếu trả hàng',
-            message: 'Xác nhận tạo phiếu trả hàng? Trạng thái sẽ chuyển từ Nháp sang Chờ hoàn hàng.',
-            confirmLabel: 'Tạo phiếu trả hàng',
-            confirmDanger: false,
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setSubmitting(true);
-                try {
-                    await approvePurchaseReturn(detailData.purchaseReturnId);
-                    await fetchDetail();
-                    showToast('Đã tạo phiếu trả hàng thành công!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể tạo phiếu trả hàng', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
-            },
-        });
-    };
+    // --- "Xác nhận trả hàng" ---
+    const handleConfirmReturn = () => {
+        // Validate trước khi confirm
+        const errs = {};
+        const returnDateError = validateReturnDate(detailData.returnDate, detailData.grnReceiptDate);
+        if (returnDateError) errs.returnDate = returnDateError;
+        const linesError = validateLines(detailData.lines);
+        if (linesError) errs.lines = linesError;
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            showToast('Vui lòng kiểm tra lại thông tin trả hàng trước khi xác nhận.', 'error');
+            return;
+        }
 
-    // --- "Bắt đầu trả hàng" (SUBMITTED -> APPROVED) ---
-    const handleStartReturn = () => {
         setConfirmDialog({
-            title: 'Bắt đầu trả hàng',
-            message: 'Xác nhận bắt đầu quy trình trả hàng? Sau bước này, phần thông tin trả hàng (vật tư trả, ngày trả, ghi chú) sẽ bị khóa và không thể chỉnh sửa.',
-            confirmLabel: 'Bắt đầu trả hàng',
+            title: 'Xác nhận trả hàng',
+            message: 'Xác nhận đã nhận/trả hàng? Sau khi xác nhận, phần thông tin trả hàng (vật tư trả, ngày trả, ghi chú) sẽ không thể chỉnh sửa nữa.',
+            confirmLabel: 'Xác nhận trả hàng',
             onConfirm: async () => {
                 setConfirmDialog(null);
                 setSubmitting(true);
-                try {
-                    // Dùng endpoint approve hiện có để chuyển khỏi Draft
-                    await approvePurchaseReturn(detailData.purchaseReturnId);
-                    await fetchDetail();
-                    showToast('Đã bắt đầu trả hàng!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể bắt đầu trả hàng', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
+                await new Promise((r) => setTimeout(r, 800));
+                const totalReceived = detailData.lines.reduce((s, l) => s + toNumber(l.receivedQty), 0);
+                const totalReturn = detailData.lines.reduce((s, l) => s + toNumber(l.returnQty), 0);
+                const newReturnConfirmed = totalReturn >= totalReceived;
+                setDetailData((prev) => ({
+                    ...prev,
+                    returnConfirmed: true,
+                    // Tự động chuyển refundReceiveStatus sang 'received' khi confirm trả hàng
+                    refundReceiveStatus: newReturnConfirmed ? 'received' : prev.refundReceiveStatus,
+                    refundRecordedDate: newReturnConfirmed && !prev.refundRecordedDate ? TODAY : prev.refundRecordedDate,
+                }));
+                setSubmitting(false);
+                showToast(newReturnConfirmed ? 'Đã xác nhận trả hàng và hoàn toàn bộ!' : 'Đã xác nhận trả hàng một phần!', 'success');
             },
         });
     };
@@ -845,13 +723,13 @@ export default function ViewPurchaseReturnDetail() {
                 refundReceiveStatus: 'received',
                 refundRecordedDate: detailData.refundRecordedDate || TODAY,
             }));
-
+    
             setErrors((prev) => {
                 const next = { ...prev };
                 delete next.refundRecordedDate;
                 return next;
             });
-
+    
             setIsEditingPayment(true);
         };
 
@@ -876,19 +754,16 @@ export default function ViewPurchaseReturnDetail() {
             onConfirm: async () => {
                 setConfirmDialog(null);
                 setSubmitting(true);
-                try {
-                    await refundPurchaseReturn(detailData.purchaseReturnId, {
-                        RefundMethod: draft.refundMethod,
-                        RefundReference: detailData.refundReference || '',
-                    });
-                    await fetchDetail();
-                    setIsEditingPayment(false);
-                    showToast('Đã xác nhận hoàn tiền!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận hoàn tiền', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
+                await new Promise((r) => setTimeout(r, 800));
+                setDetailData((prev) => ({
+                    ...prev,
+                    paymentConfirmed: true,
+                    refundReceiveStatus: 'received',
+                    refundRecordedDate: draft.refundRecordedDate || TODAY,
+                }));
+                setIsEditingPayment(false);
+                setSubmitting(false);
+                showToast('Đã xác nhận hoàn tiền!', 'success');
             },
         });
     };
@@ -912,28 +787,6 @@ export default function ViewPurchaseReturnDetail() {
     const currentRefundStatus = paymentConfirmed ? 'received' : 'later';
     const currentRefundDisplay = currentRefundStatus === 'received' ? 'Đã nhận hoàn tiền' : 'Nhận hoàn tiền sau';
 
-    if (loading) {
-        return (
-            <div className="create-supplier-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280' }}>
-                    <Loader size={18} className="spinner" />
-                    Đang tải chi tiết phiếu trả hàng...
-                </div>
-            </div>
-        );
-    }
-
-    if (loadError) {
-        return (
-            <div className="create-supplier-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-                <div style={{ color: '#dc2626', textAlign: 'center' }}>
-                    <XCircle size={28} style={{ marginBottom: 8 }} />
-                    <div>{loadError}</div>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="create-supplier-page">
             {confirmDialog && (
@@ -956,10 +809,17 @@ export default function ViewPurchaseReturnDetail() {
                 </div>
 
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {!isEditing && !isReturnLocked && (
+                        <button type="button" className="btn btn-primary" onClick={enterEditMode}>
+                            Chỉnh sửa
+                        </button>
+                    )}
+
                     {isEditing && (
                         <>
                             <button type="button" className="btn btn-cancel" onClick={cancelEditMode} disabled={submitting}>
-                                Hủy
+                                <X size={15} />
+                                Hủy chỉnh sửa
                             </button>
                             <button type="button" className="btn btn-primary" onClick={saveUpdate} disabled={submitting}>
                                 {submitting ? (
@@ -970,30 +830,11 @@ export default function ViewPurchaseReturnDetail() {
                                 ) : (
                                     <>
                                         <Save size={15} />
-                                        Lưu
+                                        Lưu cập nhật
                                     </>
                                 )}
                             </button>
                         </>
-                    )}
-
-                    {!isEditing && !isReturnLocked && (
-                        <button type="button" className="btn btn-primary" onClick={enterEditMode}>
-                            Chỉnh sửa
-                        </button>
-                    )}
-
-                    {!isEditing && canCreateReturnBtn && (
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={handleCreateReturn}
-                            disabled={submitting}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                        >
-                            <Send size={16} />
-                            Tạo phiếu trả hàng
-                        </button>
                     )}
                 </div>
             </div>
@@ -1049,12 +890,11 @@ export default function ViewPurchaseReturnDetail() {
                                         </button>
                                         </>
                                     )}
-                                    {canStartReturnBtn && !isEditing && (
+                                    {canConfirmReturnBtn && !isEditing && (
                                         <button
                                             type="button"
                                             className="btn btn-sm"
-                                            onClick={handleStartReturn}
-                                            disabled={submitting}
+                                            onClick={handleConfirmReturn}
                                             style={{
                                                 fontSize: '14px', fontWeight: 600,
                                                 backgroundColor: '#10b981', color: '#fff',
@@ -1062,7 +902,7 @@ export default function ViewPurchaseReturnDetail() {
                                             }}
                                         >
                                             <CheckCheck size={16} />
-                                            Bắt đầu trả hàng
+                                            Xác nhận trả hàng
                                         </button>
                                     )}
                                 </div>
@@ -1283,7 +1123,6 @@ export default function ViewPurchaseReturnDetail() {
                                     <div className="form-field">
                                         <label className="form-label">Người tạo</label>
                                         <div className="input-wrapper">
-                                            <User className="input-icon" size={16} />
                                             <input type="text" value={detailData.createdByName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
                                     </div>
@@ -1291,7 +1130,6 @@ export default function ViewPurchaseReturnDetail() {
                                     <div className="form-field">
                                         <label className="form-label">Ngày tạo</label>
                                         <div className="input-wrapper">
-                                            <Calendar className="input-icon" size={16} />
                                             <input type="text" value={formatDateTime(detailData.createdAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
                                     </div>
@@ -1299,7 +1137,6 @@ export default function ViewPurchaseReturnDetail() {
                                     <div className="form-field">
                                         <label className="form-label">Phiếu nhập tham chiếu</label>
                                         <div className="input-wrapper">
-                                            <FileText className="input-icon" size={16} />
                                             <input type="text" value={detailData.relatedGRNCode || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
                                     </div>
@@ -1307,7 +1144,6 @@ export default function ViewPurchaseReturnDetail() {
                                     <div className="form-field">
                                         <label className="form-label">Ngày trả hàng <span className="required-mark">*</span></label>
                                         <div className="input-wrapper">
-                                            <Calendar className="input-icon" size={16} />
                                             <input
                                                 type={isEditing && !isReturnLocked ? 'date' : 'text'}
                                                 name="returnDate"
@@ -1325,17 +1161,20 @@ export default function ViewPurchaseReturnDetail() {
                                     <div className="form-field">
                                         <label className="form-label">Kho trả</label>
                                         <div className="input-wrapper">
-                                            <MapPin className="input-icon" size={16} />
                                             <input type="text" value={detailData.warehouseName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
                                     </div>
 
-                                    
+                                    <div className="form-field">
+                                        <label className="form-label">Người duyệt</label>
+                                        <div className="input-wrapper">
+                                            <input type="text" value={detailData.approvedBy || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
 
                                     <div className="form-field">
                                         <label className="form-label">Ngày duyệt</label>
                                         <div className="input-wrapper">
-                                            <Calendar className="input-icon" size={16} />
                                             <input type="text" value={formatDateTime(detailData.approvedAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
                                     </div>
@@ -1391,7 +1230,6 @@ export default function ViewPurchaseReturnDetail() {
                                 <div className="form-field">
                                     <label className="form-label">Trạng thái hoàn tiền</label>
                                     <div className="input-wrapper">
-                                        <CreditCard className="input-icon" size={16} />
                                         <input
                                             type="text"
                                             value={isEditingPayment ? 'Đã nhận hoàn tiền' : currentRefundDisplay}
@@ -1407,7 +1245,6 @@ export default function ViewPurchaseReturnDetail() {
                                         <div className="form-field">
                                             <label className="form-label">Hình thức thanh toán</label>
                                             <div className="input-wrapper">
-                                                <CreditCard className="input-icon" size={16} />
                                                 <select
                                                     name="refundMethod"
                                                     value={draft.refundMethod}
@@ -1425,13 +1262,12 @@ export default function ViewPurchaseReturnDetail() {
                                         <div className="form-field">
                                             <label className="form-label">Số tiền nhận hoàn</label>
                                             <div className="input-wrapper">
-                                                <ReceiptText className="input-icon" size={16} />
                                                 <input
                                                     type="text"
                                                     value={formatCurrency(estimatedRefundAmount)}
                                                     readOnly
                                                     className="form-input"
-                                                    style={{ backgroundColor: '#f5f5f5', paddingLeft: '40px' }}
+                                                    style={{ backgroundColor: '#f5f5f5' }}
                                                 />
                                             </div>
                                         </div>
@@ -1439,7 +1275,6 @@ export default function ViewPurchaseReturnDetail() {
                                         <div className="form-field">
                                             <label className="form-label">Ngày ghi nhận</label>
                                             <div className="input-wrapper">
-                                                <Calendar className="input-icon" size={16} />
                                                 <input
                                                     type="date"
                                                     name="refundRecordedDate"
@@ -1448,7 +1283,7 @@ export default function ViewPurchaseReturnDetail() {
                                                     max={TODAY}
                                                     min={detailData.grnReceiptDate || ''}
                                                     className={`form-input ${errors.refundRecordedDate ? 'error' : ''}`}
-                                                    style={{ backgroundColor: '#fff', paddingLeft: '40px' }}
+                                                    style={{ backgroundColor: '#fff', paddingLeft: '16px' }}
                                                 />
                                             </div>
                                             {errors.refundRecordedDate && <span className="error-message">{errors.refundRecordedDate}</span>}
@@ -1461,7 +1296,6 @@ export default function ViewPurchaseReturnDetail() {
                                         <div className="form-field">
                                             <label className="form-label">Hình thức thanh toán</label>
                                             <div className="input-wrapper">
-                                                <CreditCard className="input-icon" size={16} />
                                                 <input
                                                     type="text"
                                                     value={
@@ -1479,7 +1313,6 @@ export default function ViewPurchaseReturnDetail() {
                                         <div className="form-field">
                                             <label className="form-label">Số tiền nhận hoàn</label>
                                             <div className="input-wrapper">
-                                                <ReceiptText className="input-icon" size={16} />
                                                 <input
                                                     type="text"
                                                     value={formatCurrency(estimatedRefundAmount)}
@@ -1493,13 +1326,12 @@ export default function ViewPurchaseReturnDetail() {
                                         <div className="form-field">
                                             <label className="form-label">Ngày ghi nhận</label>
                                             <div className="input-wrapper">
-                                                <Calendar className="input-icon" size={16} />
                                                 <input
                                                     type="text"
                                                     value={formatDate(detailData.refundRecordedDate)}
                                                     readOnly
                                                     className="form-input"
-                                                    style={{ backgroundColor: '#f5f5f5', paddingLeft: '40px' }}
+                                                    style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
                                                 />
                                             </div>
                                         </div>
@@ -1518,10 +1350,10 @@ export default function ViewPurchaseReturnDetail() {
                                 </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, color: '#334155' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Building2 size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{detailData.supplierName || '—'}</span></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Phone size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>SĐT: </span><span>{detailData.supplierPhone || '—'}</span></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Mail size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>Email: </span><span>{detailData.supplierEmail || '—'}</span></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ReceiptText size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>Mã số thuế: </span><span>{detailData.supplierTaxCode || '—'}</span></div>
+                                    <div><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{detailData.supplierName || '—'}</span></div>
+                                    <div><span style={{ fontWeight: 600 }}>SĐT: </span><span>{detailData.supplierPhone || '—'}</span></div>
+                                    <div><span style={{ fontWeight: 600 }}>Email: </span><span>{detailData.supplierEmail || '—'}</span></div>
+                                    <div><span style={{ fontWeight: 600 }}>Mã số thuế: </span><span>{detailData.supplierTaxCode || '—'}</span></div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 4 }}>
                                         {[
