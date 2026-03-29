@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -13,11 +14,14 @@ namespace Warehouse.DataAcces.Service
 {
     public class ItemService : GenericRepository<Item>, IItemService
     {
-        public ItemService(Mkiwms5Context context) : base(context)
+        private readonly IAuditLogService _auditLogService;
+
+        public ItemService(Mkiwms5Context context, IAuditLogService auditLogService) : base(context)
         {
+            _auditLogService = auditLogService;
         }
 
-        public async Task<Item> CreateItemAsync(CreateItemRequest request)
+        public async Task<Item> CreateItemAsync(CreateItemRequest request, long userId = 0)
         {
             if (request == null)
             {
@@ -132,6 +136,17 @@ namespace Warehouse.DataAcces.Service
             }
 
             await _context.SaveChangesAsync();
+
+            // Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Create,
+                    AuditEntity.Item,
+                    entity.ItemId,
+                    $"Tạo sản phẩm {entity.ItemCode} - {entity.ItemName}");
+            }
 
             return entity;
         }
@@ -286,7 +301,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request)
+        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request, long userId = 0)
         {
             if (request == null)
             {
@@ -414,10 +429,21 @@ namespace Warehouse.DataAcces.Service
 
             await _context.SaveChangesAsync();
 
+            // Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Update,
+                    AuditEntity.Item,
+                    item.ItemId,
+                    $"Cập nhật sản phẩm {item.ItemCode} - {item.ItemName}");
+            }
+
             return item;
         }
 
-        public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive)
+        public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive, long userId = 0)
         {
             var item = await GetByIdAsync(itemId);
             if (item == null)
@@ -427,9 +453,23 @@ namespace Warehouse.DataAcces.Service
 
             if (item.IsActive != isActive)
             {
+                var oldStatus = item.IsActive;
                 item.IsActive = isActive;
                 item.UpdatedAt = DateTime.UtcNow;
                 await UpdateAsync(item);
+
+                // Audit log
+                if (userId > 0)
+                {
+                    await _auditLogService.LogAsync(
+                        userId,
+                        AuditAction.Update,
+                        AuditEntity.Item,
+                        item.ItemId,
+                        $"{(isActive ? "Kích hoạt" : "Vô hiệu hóa")} sản phẩm {item.ItemCode}",
+                        $"IsActive: {oldStatus}",
+                        $"IsActive: {isActive}");
+                }
             }
 
             return item;

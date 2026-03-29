@@ -8,11 +8,11 @@ namespace Warehouse.DataAcces.Service.Interface
 {
     public interface IItemService
     {
-        Task<Item> CreateItemAsync(CreateItemRequest request);
+        Task<Item> CreateItemAsync(CreateItemRequest request, long userId = 0);
         Task<List<ItemDisplayResponse>> GetAllItemsDisplayAsync();
         Task<ItemDisplayResponse?> GetItemDisplayByIdAsync(long itemId);
         Task<ItemDetailResponse?> GetItemDetailByIdAsync(long itemId, int historyPage = 1, int historyPageSize = 20);
-        Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request);
-        Task<Item> UpdateItemStatusAsync(long itemId, bool isActive);
+        Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request, long userId = 0);
+        Task<Item> UpdateItemStatusAsync(long itemId, bool isActive, long userId = 0);
     }
 }

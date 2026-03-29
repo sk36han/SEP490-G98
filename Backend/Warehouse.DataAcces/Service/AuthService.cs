@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
@@ -22,11 +23,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly IConfiguration _configuration;
         private readonly IMemoryCache _cache;
+        private readonly IAuditLogService _auditLogService;
 
-        public AuthService(Mkiwms5Context context, IConfiguration configuration, IMemoryCache cache) : base(context)
+        public AuthService(Mkiwms5Context context, IConfiguration configuration, IMemoryCache cache, IAuditLogService auditLogService) : base(context)
         {
             _configuration = configuration;
             _cache = cache;
+            _auditLogService = auditLogService;
         }
 
         public async Task<User?> ValidateLoginAsync(string identifier, string password)
@@ -43,16 +46,40 @@ namespace Warehouse.DataAcces.Service
 
             if (user == null || !user.IsActive)
             {
+                // Log failed login - user not found or inactive
+                if (user != null)
+                {
+                    await _auditLogService.LogAsync(
+                        user.UserId,
+                        AuditAction.LoginFailed,
+                        AuditEntity.User,
+                        user.UserId,
+                        "Đăng nhập thất bại: tài khoản bị vô hiệu hóa");
+                }
                 return null;
             }
 
             if (!VerifyPasswordHash(password, user.PasswordHash))
             {
+                await _auditLogService.LogAsync(
+                    user.UserId,
+                    AuditAction.LoginFailed,
+                    AuditEntity.User,
+                    user.UserId,
+                    "Đăng nhập thất bại: sai mật khẩu");
                 return null;
             }
 
             user.LastLoginAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            // Log successful login
+            await _auditLogService.LogAsync(
+                user.UserId,
+                AuditAction.Login,
+                AuditEntity.User,
+                user.UserId,
+                $"Đăng nhập thành công từ {user.Email}");
 
             return user;
         }
@@ -243,6 +270,14 @@ namespace Warehouse.DataAcces.Service
 
             mail.To.Add(account.Email);
             await smtp.SendMailAsync(mail);
+
+            // Audit log for password reset request
+            await _auditLogService.LogAsync(
+                account.UserId,
+                AuditAction.PasswordResetRequest,
+                AuditEntity.User,
+                account.UserId,
+                $"Yêu cầu đặt lại mật khẩu cho {account.Email}");
         }
 
         public async Task ResetPasswordAsync(string token, string newPassword)
@@ -293,6 +328,14 @@ namespace Warehouse.DataAcces.Service
 
                 _context.Update(account);
                 await _context.SaveChangesAsync();
+
+                // Audit log for password reset
+                await _auditLogService.LogAsync(
+                    accountId,
+                    AuditAction.PasswordReset,
+                    AuditEntity.User,
+                    accountId,
+                    $"Đặt lại mật khẩu thành công cho {account.Email}");
             }
             catch (SecurityTokenExpiredException)
             {

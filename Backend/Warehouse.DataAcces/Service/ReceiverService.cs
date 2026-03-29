@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.ModelRequest;
@@ -16,14 +17,16 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly IGenericRepository<Receiver> _receiverRepository;
         private readonly Mkiwms5Context _context;
+        private readonly IAuditLogService _auditLogService;
 
-        public ReceiverService(IGenericRepository<Receiver> receiverRepository, Mkiwms5Context context)
+        public ReceiverService(IGenericRepository<Receiver> receiverRepository, Mkiwms5Context context, IAuditLogService auditLogService)
         {
             _receiverRepository = receiverRepository;
             _context = context;
+            _auditLogService = auditLogService;
         }
 
-        public async Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request)
+        public async Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request, long userId = 0)
         {
             // 1. Check duplicate ReceiverCode
             var receivers = await _receiverRepository.GetAllAsync();
@@ -50,7 +53,18 @@ namespace Warehouse.DataAcces.Service
             // 3. Save
             await _receiverRepository.CreateAsync(receiver);
 
-            // 4. Return response
+            // 4. Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Create,
+                    AuditEntity.Receiver,
+                    receiver.ReceiverId,
+                    $"Tạo người nhận {receiver.ReceiverCode} - {receiver.ReceiverName}");
+            }
+
+            // 5. Return response
             return new ReceiverResponse
             {
                 ReceiverId = receiver.ReceiverId,
@@ -146,7 +160,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<ReceiverResponse> UpdateReceiverAsync(long id, UpdateReceiverRequest request)
+        public async Task<ReceiverResponse> UpdateReceiverAsync(long id, UpdateReceiverRequest request, long userId = 0)
         {
             // 1. Check receiver exists
             var receiver = await _receiverRepository.GetByIdAsync(id);
@@ -183,7 +197,18 @@ namespace Warehouse.DataAcces.Service
             // 4. Save
             await _receiverRepository.UpdateAsync(receiver);
 
-            // 5. Return response
+            // 5. Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Update,
+                    AuditEntity.Receiver,
+                    receiver.ReceiverId,
+                    $"Cập nhật người nhận {receiver.ReceiverCode} - {receiver.ReceiverName}");
+            }
+
+            // 6. Return response
             return new ReceiverResponse
             {
                 ReceiverId = receiver.ReceiverId,
@@ -199,7 +224,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<ReceiverResponse> ToggleReceiverStatusAsync(long id, bool isActive)
+        public async Task<ReceiverResponse> ToggleReceiverStatusAsync(long id, bool isActive, long userId = 0)
         {
             // 1. Check receiver exists
             var receiver = await _receiverRepository.GetByIdAsync(id);
@@ -222,7 +247,20 @@ namespace Warehouse.DataAcces.Service
             // 4. Save
             await _receiverRepository.UpdateAsync(receiver);
 
-            // 5. Return response
+            // 5. Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Update,
+                    AuditEntity.Receiver,
+                    receiver.ReceiverId,
+                    $"{(isActive ? "Kích hoạt" : "Vô hiệu hóa")} người nhận {receiver.ReceiverCode}",
+                    $"IsActive: {!isActive}",
+                    $"IsActive: {isActive}");
+            }
+
+            // 6. Return response
             return new ReceiverResponse
             {
                 ReceiverId = receiver.ReceiverId,
