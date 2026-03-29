@@ -9,14 +9,15 @@ using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
+using Warehouse.DataAcces.Service.Interface;
 
 namespace WarehouseTests.Receiver;
 
 public class ReceiverTransactionsServiceTests
 {
     private readonly Mock<IGenericRepository<Warehouse.Entities.Models.Receiver>> _repoMock = new();
-    
-    private Mkiwms5Context GetContext()
+	private readonly Mock<IAuditLogService> _auditLogMock = new();
+	private Mkiwms5Context GetContext()
     {
         var options = new DbContextOptionsBuilder<Mkiwms5Context>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -88,7 +89,7 @@ public class ReceiverTransactionsServiceTests
     {
         using var context = GetContext();
         await SeedDataAsync(context, 1);
-        var service = new ReceiverService(_repoMock.Object, context);
+        var service = new ReceiverService(_repoMock.Object, context,_auditLogMock.Object);
         var result = await service.GetReceiverTransactionsAsync(1, 1, 10, null, null, null, null, null, null);
         result.Summary.Should().NotBeNull();
         result.Summary!.TotalReleaseRequests.Should().Be(1);
@@ -99,7 +100,7 @@ public class ReceiverTransactionsServiceTests
     {
         using var context = GetContext();
         await SeedDataAsync(context, 1);
-        var service = new ReceiverService(_repoMock.Object, context);
+        var service = new ReceiverService(_repoMock.Object, context, _auditLogMock.Object);
         var result = await service.GetReceiverTransactionsAsync(1, 1, 10, null, null, null, null, null, null);
         result.History.TotalItems.Should().Be(2);
     }

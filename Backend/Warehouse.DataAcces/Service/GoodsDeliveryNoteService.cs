@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -14,16 +15,18 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IStocktakeService _stocktakeService;
+        private readonly IAuditLogService _auditLogService;
 
 		// Role codes for approval stages
 		// private const string ROLE_ACCOUNTANT = "ACCOUNTANT";   // Kế toán - Stage 1
 		// private const string ROLE_DIRECTOR = "DIRECTOR";       // Giám đốc - Stage 2
-		private const string ROLE_ACCOUNTANT = "SE"; 
-        private const string ROLE_DIRECTOR = "SE";
-		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService)
+		private const string ROLE_ACCOUNTANT = "KT"; 
+        private const string ROLE_DIRECTOR = "GD";
+		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
+            _auditLogService = auditLogService;
         }
 
         // ==================== LIST ====================
@@ -418,16 +421,12 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 18. Audit log
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CREATE",
-                EntityType = "GoodsDeliveryNote",
-                EntityId = gdn.Gdnid,
-                Detail = $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                AuditAction.Create,
+                AuditEntity.GoodsDeliveryNote,
+                gdn.Gdnid,
+                $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}");
 
             await _context.SaveChangesAsync();
 
@@ -570,17 +569,14 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Audit log
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = request.IsApproved ? "APPROVE" : "REJECT",
-                EntityType = "GoodsDeliveryNote",
-                EntityId = gdn.Gdnid,
-                Detail = $"{(request.IsApproved ? "Duyệt" : "Từ chối")} phiếu xuất kho {gdn.Gdncode}" +
+            await _auditLogService.LogAsync(
+                userId,
+                request.IsApproved ? AuditAction.Approve : AuditAction.Reject,
+                AuditEntity.GoodsDeliveryNote,
+                gdn.Gdnid,
+                $"{(request.IsApproved ? "Duyệt" : "Từ chối")} phiếu xuất kho {gdn.Gdncode}" +
                          $" (Stage: {(gdn.Status == "APPROVED" || gdn.Status == "REJECTED" ? "Final" : "Accountant")})" +
-                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"),
-                CreatedAt = DateTime.UtcNow
-            });
+                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"));
 
             await _context.SaveChangesAsync();
 
@@ -1060,7 +1056,7 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
-            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "SE";// || userRoleCode == "WAREHOUSE_KEEPER"
+            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "TK" || userRoleCode == "WAREHOUSE_KEEPER";// || userRoleCode == "WAREHOUSE_KEEPER"
 			bool isAdmin = userRoleCode == "ADMIN";
 
             if (!isWarehouseKeeper && !isAdmin)
