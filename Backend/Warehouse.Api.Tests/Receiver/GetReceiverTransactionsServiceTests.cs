@@ -7,6 +7,7 @@ using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelResponse;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
 using WarehouseEntity = Warehouse.Entities.Models.Warehouse;
+using Warehouse.DataAcces.Service.Interface;
 
 namespace WarehouseTests.ReceiverServiceTests;
 
@@ -14,6 +15,7 @@ public class GetReceiverTransactionsServiceTests : IDisposable
 {
     private readonly Mock<IGenericRepository<ReceiverEntity>> _repoMock = new();
     private readonly Mkiwms5Context _context;
+    private readonly Mock<IAuditLogService> _mockAuditLogService = new();
 
     public GetReceiverTransactionsServiceTests()
     {
@@ -31,7 +33,7 @@ public class GetReceiverTransactionsServiceTests : IDisposable
         _context.Dispose();
     }
 
-    private ReceiverService CreateService() => new(_repoMock.Object, _context);
+    private ReceiverService CreateService() => new(_repoMock.Object, _context, _mockAuditLogService.Object);
 
     // ─── Seed Data ──────────────────────────────────────────────
     private void SeedDatabase()
