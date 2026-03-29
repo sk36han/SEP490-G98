@@ -20,36 +20,32 @@ import {
     Edit,
     Save,
     X,
-    Plus,
     Search,
-    Trash2,
-    RotateCcw,
     Printer,
-    Send,
-    RefreshCw,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
-import { parseDate } from '../lib/dateUtils';
+
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import {
     getStocktakeDetail,
     getStocktakeLines,
     updateCountedQty,
     bulkMatchSystemQty,
     submitStocktakeResults,
-    approveStocktakeStep1,
-    cancelStocktakeExecution,
+    approveStocktakePlan,
+    startStocktakeExecution,
 } from '../lib/stocktakeService';
+import { getItemsForDisplay } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
 
-// Mock items for product selection (thay bằng getItemsForDisplay khi cần)
-const MOCK_ITEMS = [
-    { id: 1, code: 'ITEM-001', name: 'Vật tư A', uom: 'Cái', image: null, systemQty: 150 },
-    { id: 2, code: 'ITEM-002', name: 'Vật tư B', uom: 'Cái', image: null, systemQty: 85 },
-    { id: 3, code: 'ITEM-003', name: 'Vật tư C', uom: 'Kg', image: null, systemQty: 200 },
-    { id: 4, code: 'ITEM-004', name: 'Vật tư D', uom: 'Thùng', image: null, systemQty: 50 },
-    { id: 5, code: 'ITEM-005', name: 'Vật tư E', uom: 'Cái', image: null, systemQty: 120 },
-];
+// Format date string as UTC to avoid timezone shift
+const formatUTC = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+    return d.toLocaleString('vi-VN', { timeZone: 'UTC' });
+};
 
 const STATUS_MAP = {
     'DRAFT': { label: 'Bản nháp', color: '#6b7280', bgColor: 'rgba(107, 114, 128, 0.2)' },
@@ -69,8 +65,21 @@ const ViewStocktakeDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
+    const currentUserId = (() => {
+        try {
+            const raw = localStorage.getItem('userInfo');
+            if (!raw) return null;
+            const info = JSON.parse(raw);
+            return info?.fullName ?? null;
+        } catch {
+            return null;
+        }
+    })();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const isDirector = permissionRole === 'DIRECTOR';
+    const isAccountant = permissionRole === 'ACCOUNTANTS';
 
-    // ── API data ───────────────────────────────────────────────────────────
+    // API data
     const [loading, setLoading] = useState(true);
     const [detailData, setDetailData] = useState(null);
     const [lines, setLines] = useState([]);
@@ -78,17 +87,15 @@ const ViewStocktakeDetail = () => {
     const [submitting, setSubmitting] = useState(false);
     const [basicEditing, setBasicEditing] = useState(false);
     const [isCounting, setIsCounting] = useState(false);
-    const [countingCompleted, setCountingCompleted] = useState(false);
-    const [reportSent, setReportSent] = useState(false);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
 
     // Variance filter state
-    const [varianceFilter, setVarianceFilter] = useState('all'); // 'all' | 'negative' | 'positive' | 'sufficient'
+    const [varianceFilter, setVarianceFilter] = useState('all');
     const [lineSearchKeyword, setLineSearchKeyword] = useState('');
-    const [pendingMarkSufficient, setPendingMarkSufficient] = useState(false); // confirm mode
+    const [pendingMarkSufficient, setPendingMarkSufficient] = useState(false);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
-    // ── Derive stocktakeData from detail + lines ──────────────────────────
+    // Derive stocktakeData from detail + lines
     const stocktakeData = useMemo(() => {
         if (!detailData) return null;
         return {
@@ -98,27 +105,50 @@ const ViewStocktakeDetail = () => {
         };
     }, [detailData, lines, totalLines]);
 
-    // ── Load header + lines ───────────────────────────────────────────────
+    // Load header + lines
     const fetchData = useCallback(async () => {
-        console.log('[StocktakeDetail] fetchData called, id:', id);
-        if (!id) {
-            console.log('[StocktakeDetail] No id, skipping fetch');
-            return;
-        }
+        if (!id) return;
         setLoading(true);
         try {
-            console.log('[StocktakeDetail] Calling getStocktakeDetail and getStocktakeLines...');
-            const [detail, lineResult] = await Promise.all([
-                getStocktakeDetail(id),
-                getStocktakeLines(id),
-            ]);
-            console.log('[StocktakeDetail] getStocktakeDetail result:', detail);
-            console.log('[StocktakeDetail] getStocktakeLines result:', lineResult);
+            const detail = await getStocktakeDetail(id);
             setDetailData(detail);
-            setLines(lineResult.items ?? []);
-            setTotalLines(lineResult.totalItems ?? 0);
+
+            let lineItems = [];
+            let lineTotal = 0;
+            try {
+                const lineResult = await getStocktakeLines(id);
+                lineItems = lineResult.items ?? [];
+                lineTotal = lineResult.totalItems ?? 0;
+            } catch {
+                // Endpoint Execution/Lines có thể lỗi nếu phiếu chưa bắt đầu
+            }
+
+            if (lineItems.length === 0 && detail?.warehouseId) {
+                try {
+                    const allItems = await getItemsForDisplay();
+                    lineItems = allItems.map(item => ({
+                        id: item.itemId,
+                        stocktakeLineId: item.itemId,
+                        itemId: item.itemId,
+                        itemCode: item.itemCode,
+                        itemName: item.itemName,
+                        itemImage: item.itemImage ?? null,
+                        uom: item.baseUomName ?? '-',
+                        uomName: item.baseUomName ?? '-',
+                        systemQty: item.onHandQty ?? 0,
+                        countedQty: null,
+                        varianceQty: null,
+                        note: '',
+                    }));
+                    lineTotal = lineItems.length;
+                } catch {
+                    // silent
+                }
+            }
+
+            setLines(lineItems);
+            setTotalLines(lineTotal);
         } catch (err) {
-            console.error('[StocktakeDetail] API error:', err);
             const msg = err?.response?.data?.message || err?.message || 'Không tải được chi tiết phiếu kiểm kê.';
             showToast(msg, 'error');
         } finally {
@@ -136,7 +166,6 @@ const ViewStocktakeDetail = () => {
             const lineResult = await getStocktakeLines(id);
             setLines(lineResult.items ?? []);
             setTotalLines(lineResult.totalItems ?? 0);
-            // Also refresh header for updated progress
             const detail = await getStocktakeDetail(id);
             setDetailData(detail);
         } catch {
@@ -144,30 +173,32 @@ const ViewStocktakeDetail = () => {
         }
     }, [id]);
 
-    const isValidImageUrl = (url) => {
-        if (!url || typeof url !== 'string') return false;
+    // Count editing handlers
+    const startCounting = async () => {
         try {
-            const urlObj = new URL(url);
-            return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-        } catch {
-            return false;
+            const result = await startStocktakeExecution(stocktakeData.id);
+            console.log('[DEBUG] startStocktakeExecution response:', JSON.stringify(result, null, 2));
+            showToast('Đã bắt đầu kiểm kê!', 'success');
+            await fetchData();
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi bắt đầu kiểm kê.', 'error');
         }
     };
 
-    const handleCancel = () => {
-        navigate(-1);
-    };
-
-    // Count editing handlers
-    const startCounting = () => {
-        setIsCounting(true);
-    };
-
-    const stopCounting = async () => {
-        setIsCounting(false);
-        setSelectedLineIds([]);
-        setPendingMarkSufficient(false);
-        await reloadLines();
+    const endCounting = async () => {
+        try {
+            setSubmitting(true);
+            await submitStocktakeResults(id);
+            setIsCounting(false);
+            setSelectedLineIds([]);
+            setPendingMarkSufficient(false);
+            await fetchData();
+            showToast('Đã kết thúc kiểm kê!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi kết thúc kiểm kê.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const toggleLineSelection = (lineId) => {
@@ -177,7 +208,6 @@ const ViewStocktakeDetail = () => {
     };
 
     const toggleSelectAll = () => {
-        // Select items with null/empty countedQty (no auto-fill)
         const emptyIds = filteredLines.filter(l => l.countedQty === '' || l.countedQty === null || l.countedQty === undefined).map(l => l.id);
         if (selectedLineIds.length === emptyIds.length && emptyIds.every(id => selectedLineIds.includes(id))) {
             setSelectedLineIds([]);
@@ -203,54 +233,11 @@ const ViewStocktakeDetail = () => {
         }
     };
 
-    const cancelMarkSufficient = () => {
-        setPendingMarkSufficient(false);
-    };
+    const hasValue = (val) => val !== null && val !== undefined && val !== '';
 
-    // Update line data by line id
-    const updateLine = (lineId, field, value) => {
-        setLines(prevLines => {
-            const newLines = prevLines.map(line => {
-                if (line.stocktakeLineId !== lineId && line.id !== lineId) return line;
-                const updated = { ...line, [field]: value };
-
-                // Auto calculate variance locally
-                if (field === 'countedQty') {
-                    const sysQty = parseFloat(updated.systemQtySnapshot) || 0;
-                    const cntQty = parseFloat(value) || 0;
-                    updated.varianceQty = cntQty - sysQty;
-                }
-
-                return updated;
-            });
-            return newLines;
-        });
-    };
-
-    // Save basic info
-    const handleSave = async () => {
-        try {
-            setSubmitting(true);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            showToast('Lưu thay đổi thành công!', 'success');
-            setBasicEditing(false);
-        } catch (error) {
-            showToast('Có lỗi xảy ra khi lưu', 'error');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // Calculate summary
+    // Summary stats
     const summary = useMemo(() => {
-        if (!stocktakeData?.lines || stocktakeData?.lines?.length === 0) {
-            return { totalItems: 0, totalSystemQty: 0, totalCountedQty: 0, totalVariance: 0, totalCounted: 0, missing: 0, excess: 0, sufficient: 0 };
-        }
-
-        const hasValue = (val) => val !== null && val !== undefined && val !== '';
-
-        const totalSystemQty = (stocktakeData?.lines || []).reduce((sum, line) => sum + (line.systemQty || 0), 0);
-        // Chỉ tính items đã nhập countedQty
+        const totalSystemQty = (stocktakeData?.lines || []).reduce((sum, l) => sum + (parseFloat(l.systemQtySnapshot) || 0), 0);
         const countedLines = (stocktakeData?.lines || []).filter(l => hasValue(l.countedQty));
         const totalCountedQty = countedLines.reduce((sum, line) => sum + (parseFloat(line.countedQty) || 0), 0);
         const totalVariance = countedLines.reduce((sum, line) => sum + (line.varianceQty || 0), 0);
@@ -275,62 +262,138 @@ const ViewStocktakeDetail = () => {
     const filteredLines = useMemo(() => {
         let lines = stocktakeData?.lines || [];
 
-        // Apply variance filter
-        if (varianceFilter === 'negative') {
-            lines = lines.filter(l => l.varianceQty < 0);
-        } else if (varianceFilter === 'positive') {
-            lines = lines.filter(l => l.varianceQty > 0);
-        } else if (varianceFilter === 'sufficient') {
-            // Only items with countedQty entered and varianceQty = 0
-            lines = lines.filter(l => l.countedQty !== null && l.countedQty !== undefined && l.countedQty !== '' && l.varianceQty === 0);
-        }
-
-        // Apply search filter
         if (lineSearchKeyword.trim()) {
             const kw = lineSearchKeyword.toLowerCase();
             lines = lines.filter(l =>
-                l.itemName?.toLowerCase().includes(kw) ||
-                l.itemCode?.toLowerCase().includes(kw)
+                (l.itemName ?? '').toLowerCase().includes(kw) ||
+                (l.itemCode ?? '').toLowerCase().includes(kw)
             );
         }
 
-        // Sort: selected first, then Thiếu -> Thừa -> Đủ -> Null
-        lines = [...lines].sort((a, b) => {
-            // Selected items first
-            const aSelected = selectedLineIds.includes(a.id);
-            const bSelected = selectedLineIds.includes(b.id);
-            if (aSelected && !bSelected) return -1;
-            if (!aSelected && bSelected) return 1;
-
-            // Sort categories: 1=Thiếu, 2=Thừa, 3=Đủ, 4=Null
-            const getSortOrder = (line) => {
-                const hasValue = line.countedQty !== null && line.countedQty !== undefined && line.countedQty !== '';
-                if (!hasValue) return 4; // Null
-                const v = line.varianceQty || 0;
-                if (v === 0) return 3; // Đủ
-                if (v < 0) return 1; // Thiếu
-                return 2; // Thừa
-            };
-
-            const orderA = getSortOrder(a);
-            const orderB = getSortOrder(b);
-            if (orderA !== orderB) return orderA - orderB;
-
-            // Within same category, sort by variance value
-            const vA = a.varianceQty || 0;
-            const vB = b.varianceQty || 0;
-            return vA - vB;
-        });
+        if (varianceFilter === 'negative') {
+            lines = lines.filter(l => hasValue(l.varianceQty) && l.varianceQty < 0);
+        } else if (varianceFilter === 'positive') {
+            lines = lines.filter(l => hasValue(l.varianceQty) && l.varianceQty > 0);
+        } else if (varianceFilter === 'sufficient') {
+            lines = lines.filter(l => hasValue(l.varianceQty) && l.varianceQty === 0);
+        }
 
         return lines;
-    }, [stocktakeData?.lines, varianceFilter, lineSearchKeyword, selectedLineIds]);
+    }, [stocktakeData?.lines, varianceFilter, lineSearchKeyword]);
+
+    const handleCancel = () => {
+        if (isCounting) {
+            setConfirmDialogOpen(true);
+            return;
+        }
+        navigate(-1);
+    };
+
+    // Warn on browser close/refresh during counting
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (isCounting) {
+                e.preventDefault();
+                e.returnValue = 'Đang trong quá trình kiểm kê, không được thoát khỏi trang này.';
+                return e.returnValue;
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isCounting]);
+
+    // Determine counting state dựa trên backend status
+    useEffect(() => {
+        if (!detailData) return;
+        setIsCounting(detailData.status === 'IN_PROGRESS');
+    }, [detailData]);
+
+    // Duyệt phiếu kiểm kê (Director)
+    const handleApprovePlan = async () => {
+        try {
+            setSubmitting(true);
+            await approveStocktakePlan(stocktakeData.id, { decision: 'APPROVE', reason: null });
+            showToast('Phê duyệt phiếu kiểm kê thành công!', 'success');
+            await fetchData();
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi duyệt phiếu.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Từ chối phiếu kiểm kê (Director)
+    const handleRejectPlan = async () => {
+        try {
+            setSubmitting(true);
+            await approveStocktakePlan(stocktakeData.id, { decision: 'REJECT', reason: null });
+            showToast('Đã từ chối phiếu kiểm kê!', 'success');
+            setTimeout(() => navigate('/inventory/stocktakes'), 1500);
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi từ chối phiếu.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Handle count input
+    const handleCountChange = async (lineId, value) => {
+        const num = parseFloat(value);
+        if (isNaN(num) || num < 0) {
+            showToast('Số lượng không hợp lệ.', 'warning');
+            return;
+        }
+        try {
+            setLines(prev => prev.map(l => l.id === lineId ? { ...l, countedQty: value } : l));
+        } catch {
+            showToast('Lỗi khi cập nhật số lượng.', 'error');
+        }
+    };
+
+    const handleSaveLineCount = async (lineId) => {
+        const line = lines.find(l => l.id === lineId);
+        if (!line) return;
+        const num = parseFloat(line.countedQty);
+        if (isNaN(num) || num < 0) {
+            showToast('Số lượng không hợp lệ.', 'warning');
+            return;
+        }
+        try {
+            await updateCountedQty(lineId, { countedQty: num });
+            showToast('Lưu số lượng thành công!', 'success');
+            await reloadLines();
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi lưu số lượng.', 'error');
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            setSubmitting(true);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            showToast('Lưu thay đổi thành công!', 'success');
+            setBasicEditing(false);
+        } catch {
+            showToast('Lỗi khi lưu thay đổi.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const isValidImageUrl = (url) => {
+        if (!url || typeof url !== 'string') return false;
+        try {
+            const urlObj = new URL(url);
+            return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    };
 
     if (loading) {
         return (
-            <div className="create-supplier-page">
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                    <div style={{ fontSize: '16px', color: '#6b7280' }}>Đang tải dữ liệu...</div>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                <CircularProgress />
             </div>
         );
     }
@@ -356,7 +419,7 @@ const ViewStocktakeDetail = () => {
                     </button>
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {!isCounting && !basicEditing && stocktakeData?.status === 'DRAFT' && !countingCompleted && (
+                    {!isCounting && !basicEditing && stocktakeData?.status === 'DRAFT' && (
                         <button type="button" className="btn btn-secondary" onClick={() => setBasicEditing(true)}>
                             <Edit size={15} />
                             Chỉnh sửa
@@ -364,9 +427,7 @@ const ViewStocktakeDetail = () => {
                     )}
                     {basicEditing && (
                         <>
-                            <button type="button" className="btn btn-cancel" onClick={() => {
-                                setBasicEditing(false);
-                            }} disabled={submitting}>
+                            <button type="button" className="btn btn-cancel" onClick={() => setBasicEditing(false)} disabled={submitting}>
                                 <X size={15} />
                                 Hủy
                             </button>
@@ -385,13 +446,50 @@ const ViewStocktakeDetail = () => {
                             </button>
                         </>
                     )}
-                    {!isCounting && !basicEditing && stocktakeData.status !== 'DRAFT' && !countingCompleted && (
-                        <button type="button" className="btn btn-secondary" onClick={() => setBasicEditing(true)}>
-                            <Edit size={15} />
-                            Chỉnh sửa
+                    {!isCounting && !basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && isDirector && (
+                        <>
+                            <button type="button" className="btn btn-cancel" onClick={handleRejectPlan}>
+                                <XCircle size={15} />
+                                Từ chối
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={handleApprovePlan}>
+                                <CheckCircle size={15} />
+                                Duyệt
+                            </button>
+                        </>
+                    )}
+                    {!basicEditing && isCounting && (
+                        <button type="button" className="btn btn-primary" onClick={endCounting} disabled={submitting}>
+                            {submitting ? (
+                                <>
+                                    <span className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }}></span>
+                                    Đang xử lý...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle size={15} />
+                                    Gửi Kết Quả
+                                </>
+                            )}
                         </button>
                     )}
-                    {!basicEditing && (
+                    {!basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && (
+                        <>
+                            {/* Tạo phiếu điều chỉnh tồn kho */}
+                            <button type="button" className="btn btn-secondary" onClick={() => showToast('Tạo phiếu điều chỉnh tồn kho', 'info')}>
+                                <Package size={15} />
+                                Tạo phiếu điều chỉnh tồn kho
+                            </button>
+                            {/* Hoàn thành phiếu (nếu không có chênh lệch) */}
+                            {summary.varianceLines === 0 && (
+                                <button type="button" className="btn btn-primary" onClick={() => showToast('Hoàn thành phiếu kiểm kê', 'success')}>
+                                    <CheckCircle size={15} />
+                                    Hoàn thành phiếu
+                                </button>
+                            )}
+                        </>
+                    )}
+                    {!basicEditing && stocktakeData?.status === 'IN_PROGRESS' && (
                         <>
                             <button type="button" className="btn btn-secondary" onClick={() => showToast('In PDF', 'info')}>
                                 <Printer size={15} />
@@ -403,35 +501,44 @@ const ViewStocktakeDetail = () => {
                             </button>
                         </>
                     )}
-                    {!isCounting && !basicEditing && (
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => {
-                                if (!reportSent) {
-                                    const hasEmpty = stocktakeData?.lines?.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
-                                    if (hasEmpty) {
-                                        showToast('Vui lòng nhập đầy đủ số lượng kiểm kê cho tất cả vật tư trước khi gửi báo cáo', 'warning');
-                                        return;
-                                    }
-                                }
-                                navigate(`/inventory/stocktakes/report/${stocktakeData.id}`, { state: { reportSent } });
-                            }}
+                </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {stocktakeData.mode && MODE_MAP[stocktakeData.mode] && (
+                        <div
                             style={{
+                                padding: '8px 16px',
+                                borderRadius: 20,
+                                backgroundColor: MODE_MAP[stocktakeData.mode].bgColor,
+                                color: MODE_MAP[stocktakeData.mode].color,
+                                fontWeight: 600,
+                                fontSize: '13px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px',
-                                height: '42px',
-                                padding: '0 20px',
-                                fontSize: '14px',
-                                fontWeight: 700,
-                                borderRadius: '12px',
-                                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                                gap: 6,
                             }}
                         >
-                            <Send size={16} />
-                            {reportSent ? 'Xem báo cáo' : 'Gửi báo cáo'}
-                        </button>
+                            {MODE_MAP[stocktakeData.mode].label}
+                        </div>
+                    )}
+                    {stocktakeData.status && STATUS_MAP[stocktakeData.status] && (
+                        <div
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: 20,
+                                backgroundColor: STATUS_MAP[stocktakeData.status].bgColor,
+                                color: STATUS_MAP[stocktakeData.status].color,
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                            }}
+                        >
+                            {stocktakeData.status === 'COMPLETED' && <CheckCircle size={16} />}
+                            {stocktakeData.status === 'CANCELLED' && <XCircle size={16} />}
+                            {(stocktakeData.status === 'DRAFT' || stocktakeData.status === 'PENDING_APPROVAL' || stocktakeData.status === 'IN_PROGRESS') && <Clock size={16} />}
+                            {STATUS_MAP[stocktakeData.status].label}
+                        </div>
                     )}
                 </div>
             </div>
@@ -445,48 +552,8 @@ const ViewStocktakeDetail = () => {
                             <div>
                                 <h1 className="page-title">Chi tiết phiếu kiểm kê kho</h1>
                                 <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
-                                    Mã phiếu:{' '}
-                                    <span style={{ fontWeight: 600, color: '#2196F3' }}>{stocktakeData.code}</span>
+                                    Mã phiếu: <span style={{ fontWeight: 600, color: '#2196F3' }}>{stocktakeData.code}</span>
                                 </p>
-                            </div>
-                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                                {stocktakeData.mode && MODE_MAP[stocktakeData.mode] && (
-                                    <div
-                                        style={{
-                                            padding: '8px 16px',
-                                            borderRadius: 20,
-                                            backgroundColor: MODE_MAP[stocktakeData.mode].bgColor,
-                                            color: MODE_MAP[stocktakeData.mode].color,
-                                            fontWeight: 600,
-                                            fontSize: '13px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                        }}
-                                    >
-                                        {MODE_MAP[stocktakeData.mode].label}
-                                    </div>
-                                )}
-                                {stocktakeData.status && STATUS_MAP[stocktakeData.status] && (
-                                    <div
-                                        style={{
-                                            padding: '8px 16px',
-                                            borderRadius: 20,
-                                            backgroundColor: STATUS_MAP[stocktakeData.status].bgColor,
-                                            color: STATUS_MAP[stocktakeData.status].color,
-                                            fontWeight: 600,
-                                            fontSize: '13px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                        }}
-                                    >
-                                        {stocktakeData.status === 'COMPLETED' && <CheckCircle size={16} />}
-                                        {stocktakeData.status === 'CANCELLED' && <XCircle size={16} />}
-                                        {(stocktakeData.status === 'DRAFT' || stocktakeData.status === 'PENDING_APPROVAL' || stocktakeData.status === 'IN_PROGRESS') && <Clock size={16} />}
-                                        {STATUS_MAP[stocktakeData.status].label}
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -499,134 +566,95 @@ const ViewStocktakeDetail = () => {
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', minHeight: '600px' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
-                                    {!isCounting && (
+                                    {!isCounting && stocktakeData?.status === 'APPROVED' && (
                                         <button
                                             type="button"
                                             className="btn btn-secondary"
-                                            onClick={() => {
-                                                if (stocktakeData.status !== 'APPROVED') {
-                                                    showToast('Chỉ phiếu đã duyệt mới có thể bắt đầu kiểm kê', 'warning');
-                                                    return;
-                                                }
-                                                const now = new Date();
-                                                const planned = stocktakeData.plannedAt ? parseDate(stocktakeData.plannedAt) : null;
-                                                if (!planned || now >= planned) {
-                                                    setConfirmDialogOpen(true);
-                                                } else {
-                                                    showToast('Chưa đến ngày giờ dự kiến kiểm kê', 'warning');
-                                                }
-                                            }}
-                                            style={{ fontSize: '13px', height: '36px', padding: '0 16px' }}
+                                            onClick={startCounting}
                                         >
+                                            <Package size={15} />
                                             Bắt đầu kiểm kê
                                         </button>
                                     )}
-                                    {isCounting && (
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            {selectedLineIds.length > 0 && !pendingMarkSufficient && (
-                                                <button type="button" onClick={handleMarkAllSufficient} className="btn btn-sm btn-card-text" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }} title="Đánh dấu tất cả những sản phẩm chưa điền.">
-                                                    <CheckCircle size={14} />
-                                                    Đánh dấu tất cả là đã đủ
-                                                </button>
-                                            )}
-                                            {pendingMarkSufficient && (
-                                                <>
-                                                    <button type="button" onClick={cancelMarkSufficient} className="btn btn-sm btn-card-text" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }}>
-                                                        Hủy
-                                                    </button>
-                                                    <button type="button" onClick={confirmMarkSufficient} className="btn btn-sm" style={{ fontSize: '12px', height: '32px', padding: '0 12px', backgroundColor: '#16a34a', color: 'white', border: 'none' }}>
-                                                        Xác nhận
-                                                    </button>
-                                                </>
-                                            )}
-                                            {!pendingMarkSufficient && (
-                                                <>
-                                                    <button type="button" onClick={stopCounting} className="btn btn-cancel" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }}>
-                                                        Hủy
-                                                    </button>
-                                                    <button type="button" onClick={() => {
-                                                        const hasEmptyCounted = stocktakeData?.lines?.some(l => l.countedQty === null || l.countedQty === undefined || l.countedQty === '');
-                                                        if (hasEmptyCounted) {
-                                                            showToast('Vui lòng nhập đầy đủ số lượng kiểm kê cho tất cả vật tư trước khi lưu', 'warning');
-                                                            return;
-                                                        }
-                                                        showToast('Lưu số lượng kiểm kê thành công', 'success');
-                                                        setIsCounting(false);
-                                                        setCountingCompleted(true);
-                                                    }} className="btn btn-primary" style={{ fontSize: '12px', height: '32px', padding: '0 12px' }}>
-                                                        Lưu
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
 
-                                {/* Variance Filter + Search Row */}
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-                                    {/* Search Input */}
-                                    <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px' }}>
-                                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
-                                        <input
-                                            type="text"
-                                            value={lineSearchKeyword}
-                                            onChange={(e) => setLineSearchKeyword(e.target.value)}
-                                            placeholder="Tìm vật tư theo tên, mã..."
-                                            className="form-input line-search-input"
-                                        />
-                                        {lineSearchKeyword && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setLineSearchKeyword('')}
-                                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', color: '#9ca3af' }}
-                                            >
-                                                <X size={16} />
+                                {/* Search + filters */}
+                                {isCounting && (
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                                        <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                                            <input
+                                                type="text"
+                                                placeholder="Tìm vật tư..."
+                                                value={lineSearchKeyword}
+                                                onChange={e => setLineSearchKeyword(e.target.value)}
+                                                style={{ width: '100%', paddingLeft: '36px', height: '38px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px' }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            {[
+                                                { key: 'all', label: 'Tất cả' },
+                                                { key: 'negative', label: 'Thiếu' },
+                                                { key: 'positive', label: 'Thừa' },
+                                                { key: 'sufficient', label: 'Đủ' },
+                                            ].map(f => (
+                                                <button
+                                                    key={f.key}
+                                                    type="button"
+                                                    onClick={() => setVarianceFilter(f.key)}
+                                                    style={{
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid',
+                                                        borderColor: varianceFilter === f.key ? '#2196F3' : '#d1d5db',
+                                                        backgroundColor: varianceFilter === f.key ? '#e0f2fe' : '#fff',
+                                                        color: varianceFilter === f.key ? '#2196F3' : '#6b7280',
+                                                        fontSize: '13px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 500,
+                                                    }}
+                                                >
+                                                    {f.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {selectedLineIds.length > 0 && (
+                                            <button type="button" className="btn btn-secondary" onClick={handleMarkAllSufficient} style={{ fontSize: '12px', height: '38px' }}>
+                                                <CheckCircle size={15} />
+                                                Khớp ({selectedLineIds.length})
+                                            </button>
+                                        )}
+                                        {selectedLineIds.length > 0 && (
+                                            <button type="button" className="btn btn-secondary" onClick={toggleSelectAll} style={{ fontSize: '12px', height: '38px' }}>
+                                                <X size={15} />
+                                                Bỏ chọn
                                             </button>
                                         )}
                                     </div>
-
-                                    {/* Variance Filter Chips */}
-                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('all')}
-                                            className={`variance-chip ${varianceFilter === 'all' ? 'active' : ''}`}
-                                            data-variance="all"
-                                        >
-                                            Tất cả
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('negative')}
-                                            className={`variance-chip ${varianceFilter === 'negative' ? 'active' : ''}`}
-                                            data-variance="negative"
-                                        >
-                                            Thiếu
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('positive')}
-                                            className={`variance-chip ${varianceFilter === 'positive' ? 'active' : ''}`}
-                                            data-variance="positive"
-                                        >
-                                            Thừa                                
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVarianceFilter('sufficient')}
-                                            className={`variance-chip ${varianceFilter === 'sufficient' ? 'active' : ''}`}
-                                            data-variance="sufficient"
-                                        >
-                                            Đủ
-                                        </button>
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Empty state - no lines at all */}
                                 {(!stocktakeData?.lines || stocktakeData?.lines?.length === 0) && (
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px', padding: '60px 20px', color: '#9ca3af' }}>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '12px', padding: '60px 20px', color: '#9ca3af' }}>
                                         <Package size={64} strokeWidth={1.5} />
-                                        <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư nào</p>
+                                        {stocktakeData?.status === 'PENDING_APPROVAL' ? (
+                                            <>
+                                                <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Phiếu đang chờ giám đốc duyệt</p>
+                                                <p style={{ fontSize: '13px', fontWeight: 400, margin: 0, color: '#6b7280' }}>Vui lòng đợi phê duyệt trước khi bắt đầu kiểm kê</p>
+                                            </>
+                                        ) : stocktakeData?.status === 'DRAFT' ? (
+                                            <>
+                                                <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Phiếu đang ở trạng thái bản nháp</p>
+                                                <p style={{ fontSize: '13px', fontWeight: 400, margin: 0, color: '#6b7280' }}>Gửi duyệt phiếu để bắt đầu kiểm kê</p>
+                                            </>
+                                        ) : stocktakeData?.status === 'APPROVED' ? (
+                                            <>
+                                                <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Sẵn sàng kiểm kê</p>
+                                                <p style={{ fontSize: '13px', fontWeight: 400, margin: 0, color: '#6b7280' }}>Vui lòng bắt đầu kiểm kê để tải danh sách vật tư</p>
+                                            </>
+                                        ) : (
+                                            <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư nào</p>
+                                        )}
                                     </div>
                                 )}
 
@@ -642,38 +670,56 @@ const ViewStocktakeDetail = () => {
                                                                 type="checkbox"
                                                                 checked={selectedLineIds.length === filteredLines.length && filteredLines.length > 0}
                                                                 onChange={toggleSelectAll}
-                                                                style={{ cursor: 'pointer' }}
-                                                                title="Đánh dấu tất cả những sản phẩm chưa điền."
                                                             />
                                                         </th>
                                                     )}
                                                     <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
                                                     <th style={{ textAlign: 'left' }}>Vật tư</th>
                                                     <th style={{ width: '100px', textAlign: 'right' }}>SL hệ thống</th>
-                                                    <th style={{ width: '100px', textAlign: 'right' }}>SL đã kiểm kê</th>
-                                                    <th style={{ width: '80px', textAlign: 'right' }}>Chênh lệch</th>
+                                                    {isCounting && (
+                                                        <>
+                                                            <th style={{ width: '120px', textAlign: 'right' }}>SL thực tế</th>
+                                                            <th style={{ width: '100px', textAlign: 'right' }}>Chênh lệch</th>
+                                                            <th style={{ width: '80px', textAlign: 'center' }}></th>
+                                                        </>
+                                                    )}
+                                                    {!isCounting && (
+                                                        <>
+                                                            <th style={{ width: '100px', textAlign: 'right' }}>SL thực tế</th>
+                                                            <th style={{ width: '100px', textAlign: 'right' }}>Chênh lệch</th>
+                                                        </>
+                                                    )}
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {filteredLines.map((line, index) => (
-                                                    <tr key={line.id}>
-                                                        {isCounting && (
-                                                            <td style={{ textAlign: 'center' }}>
-                                                                <input type="checkbox" checked={selectedLineIds.includes(line.id)} onChange={() => toggleLineSelection(line.id)} style={{ cursor: 'pointer' }} />
-                                                            </td>
-                                                        )}
-                                                        <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                                {isValidImageUrl(line.itemImage) ? (
-                                                                    <img src={line.itemImage} alt={line.itemName} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e5e7eb', flexShrink: 0 }} />
-                                                                ) : (
-                                                                    <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
-                                                                        <ImageIcon size={20} color="#9ca3af" />
-                                                                    </div>
-                                                                )}
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                {filteredLines.map((line, index) => {
+                                                    const variance = hasValue(line.countedQty) ? (parseFloat(line.countedQty) || 0) - (parseFloat(line.systemQtySnapshot) || 0) : null;
+                                                    const isNegative = variance !== null && variance < 0;
+                                                    const isPositive = variance !== null && variance > 0;
+                                                    const isSufficient = variance !== null && variance === 0;
+
+                                                    return (
+                                                        <tr key={line.id ?? index}>
+                                                            {isCounting && (
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedLineIds.includes(line.id)}
+                                                                        onChange={() => toggleLineSelection(line.id)}
+                                                                    />
+                                                                </td>
+                                                            )}
+                                                            <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                                            <td>
+                                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                                    {isValidImageUrl(line.itemImage) ? (
+                                                                        <img src={line.itemImage} alt={line.itemName} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e5e7eb', flexShrink: 0 }} />
+                                                                    ) : (
+                                                                        <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
+                                                                            <ImageIcon size={20} color="#9ca3af" />
+                                                                        </div>
+                                                                    )}
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                                         <a
                                                                             href="#"
                                                                             onClick={(e) => {
@@ -685,50 +731,90 @@ const ViewStocktakeDetail = () => {
                                                                                 textDecoration: 'none',
                                                                                 fontSize: 14,
                                                                                 fontWeight: 500,
-                                                                                flex: 1,
                                                                             }}
-                                                                            onMouseEnter={(e) => {
-                                                                                e.target.style.textDecoration = 'underline';
-                                                                            }}
-                                                                            onMouseLeave={(e) => {
-                                                                                e.target.style.textDecoration = 'none';
-                                                                            }}
+                                                                            onMouseEnter={e => e.target.style.textDecoration = 'underline'}
+                                                                            onMouseLeave={e => e.target.style.textDecoration = 'none'}
                                                                         >
                                                                             {line.itemName}
                                                                         </a>
-                                                                    </div>
-                                                                    <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                                                                        Mã: {line.itemCode} • ĐVT: {line.uom}
+                                                                        <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                                            Mã: {line.itemCode} • ĐVT: {line.uom}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#374151' }}>
-                                                                {line.systemQty || 0}
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            {isCounting ? (
-                                                                <input
-                                                                    type="number"
-                                                                    value={line.countedQty ?? ''}
-                                                                    onChange={(e) => updateLine(line.id, 'countedQty', e.target.value)}
-                                                                    className="form-input"
-                                                                    style={{ textAlign: 'right', fontSize: '13px', width: '100%' }}
-                                                                    placeholder="0"
-                                                                />
-                                                            ) : (
+                                                            </td>
+                                                            <td>
                                                                 <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#374151' }}>
-                                                                    {line.countedQty ?? '-'}
+                                                                    {line.systemQtySnapshot || 0}
                                                                 </div>
+                                                            </td>
+                                                            {isCounting ? (
+                                                                <>
+                                                                    <td>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={line.countedQty ?? ''}
+                                                                            onChange={e => handleCountChange(line.id, e.target.value)}
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '4px 8px',
+                                                                                borderRadius: '6px',
+                                                                                border: '1px solid #d1d5db',
+                                                                                textAlign: 'right',
+                                                                                fontSize: '14px',
+                                                                            }}
+                                                                        />
+                                                                    </td>
+                                                                    <td>
+                                                                        <div style={{
+                                                                            textAlign: 'right',
+                                                                            paddingRight: '8px',
+                                                                            fontWeight: 600,
+                                                                            color: variance === null ? '#9ca3af' : isNegative ? '#dc2626' : isPositive ? '#2563eb' : '#16a34a'
+                                                                        }}>
+                                                                            {variance !== null ? (variance > 0 ? `+${variance}` : variance) : '-'}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleSaveLineCount(line.id)}
+                                                                            className="btn btn-primary"
+                                                                            style={{ fontSize: '11px', height: '30px', padding: '0 8px' }}
+                                                                        >
+                                                                            <Save size={12} />
+                                                                            Lưu
+                                                                        </button>
+                                                                    </td>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <td>
+                                                                        <div style={{
+                                                                            textAlign: 'right',
+                                                                            paddingRight: '8px',
+                                                                            fontWeight: 500,
+                                                                            color: hasValue(line.countedQty) ? '#374151' : '#9ca3af'
+                                                                        }}>
+                                                                            {hasValue(line.countedQty) ? line.countedQty : '-'}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        <div style={{
+                                                                            textAlign: 'right',
+                                                                            paddingRight: '8px',
+                                                                            fontWeight: 600,
+                                                                            color: variance === null ? '#9ca3af' : isNegative ? '#dc2626' : isPositive ? '#2563eb' : '#16a34a'
+                                                                        }}>
+                                                                            {variance !== null ? (variance > 0 ? `+${variance}` : variance) : '-'}
+                                                                        </div>
+                                                                    </td>
+                                                                </>
                                                             )}
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: (line.countedQty === null || line.countedQty === undefined || line.countedQty === '') ? '#9ca3af' : line.varianceQty > 0 ? '#2196F3' : line.varianceQty < 0 ? '#dc2626' : '#16a34a' }}>
-                                                            {line.countedQty === null || line.countedQty === undefined || line.countedQty === '' ? '-' : line.varianceQty < 0 ? `Thiếu ${Math.abs(line.varianceQty)}` : line.varianceQty > 0 ? `Thừa ${line.varianceQty}` : 'Đủ'}
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
@@ -740,24 +826,20 @@ const ViewStocktakeDetail = () => {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú</h2>
                                 </div>
-                                <div className="form-field" style={{ position: 'relative' }}>
-                                    {basicEditing && !isCounting ? (
-                                        <>
-                                            <textarea
-                                                value={stocktakeData.note || ''}
-                                                onChange={(e) => setStocktakeData(prev => ({ ...prev, note: e.target.value }))}
-                                                className="form-textarea"
-                                                rows={4}
-                                                placeholder="Nhập ghi chú (nếu có)"
-                                                style={{ width: '100%', minHeight: '100px' }}
-                                            />
-                                            <span style={{ position: 'absolute', bottom: '8px', right: '12px', fontSize: '12px', color: '#9ca3af' }}>
-                                                {(stocktakeData.note || '').length} / 500
-                                            </span>
-                                        </>
+                                <div className="form-field">
+                                    {basicEditing ? (
+                                        <textarea
+                                            name="note"
+                                            value={stocktakeData.note ?? ''}
+                                            onChange={e => setDetailData(prev => ({ ...prev, note: e.target.value }))}
+                                            className="form-textarea"
+                                            rows={4}
+                                            placeholder="Nhập ghi chú (nếu có)"
+                                            style={{ width: '100%', minHeight: '100px' }}
+                                        />
                                     ) : (
-                                        <div className="form-textarea" style={{ width: '100%', minHeight: '100px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#374151' }}>
-                                            {stocktakeData.note || '—'}
+                                        <div style={{ padding: '8px 0', color: stocktakeData.note ? '#374151' : '#9ca3af', fontSize: '14px' }}>
+                                            {stocktakeData.note || 'Không có ghi chú'}
                                         </div>
                                     )}
                                 </div>
@@ -798,14 +880,12 @@ const ViewStocktakeDetail = () => {
                                         <span style={{ fontWeight: 600 }}>{summary.totalCounted === 0 ? 'Chưa thực hiện kiểm kê kho' : summary.totalCountedQty}</span>
                                     </div>
                                     {summary.totalCounted > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #d1d5db' }}>
-                                        <span style={{ fontSize: '18px', fontWeight: 700, color: summary.totalVariance > 0 ? '#2196F3' : summary.totalVariance < 0 ? '#dc2626' : '#16a34a' }}>
-                                            Tổng chênh lệch:
-                                        </span>
-                                        <span style={{ fontSize: '24px', fontWeight: 700, color: summary.totalVariance > 0 ? '#2196F3' : summary.totalVariance < 0 ? '#dc2626' : '#16a34a' }}>
-                                            {summary.totalVariance > 0 ? `Thừa ${summary.excess} sản phẩm` : summary.totalVariance < 0 ? `Thiếu ${summary.missing} sản phẩm` : 'Đủ'}
-                                        </span>
-                                    </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #d1d5db' }}>
+                                            <span style={{ color: '#64748b' }}>Chênh lệch:</span>
+                                            <span style={{ fontWeight: 700, color: summary.totalVariance < 0 ? '#dc2626' : summary.totalVariance > 0 ? '#2563eb' : '#16a34a' }}>
+                                                {summary.totalVariance > 0 ? `+${summary.totalVariance}` : summary.totalVariance}
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -818,21 +898,12 @@ const ViewStocktakeDetail = () => {
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {/* Ngày giờ tạo */}
-                                <div className="form-field">
-                                    <label className="form-label">Ngày giờ tạo</label>
-                                    <div className="input-wrapper">
-                                        <Calendar className="input-icon" size={16} />
-                                        <input type="text" value={stocktakeData.createdAt ? new Date(stocktakeData.createdAt + (stocktakeData.createdAt.endsWith('Z') ? '' : 'Z')).toLocaleString('vi-VN') : ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                                    </div>
-                                </div>
-
                                 {/* Nhân viên tạo */}
                                 <div className="form-field">
-                                    <label className="form-label">Nhân viên tạo</label>
+                                    <label className="form-label">Người tạo</label>
                                     <div className="input-wrapper">
                                         <User className="input-icon" size={16} />
-                                        <input type="text" value={stocktakeData.creatorName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        <input type="text" value={stocktakeData.createdByName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                     </div>
                                 </div>
 
@@ -853,66 +924,71 @@ const ViewStocktakeDetail = () => {
                                         {basicEditing && !isCounting ? (
                                             <input
                                                 type="datetime-local"
+                                                name="plannedAt"
                                                 value={stocktakeData.plannedAt ? stocktakeData.plannedAt.slice(0, 16) : ''}
-                                                onChange={(e) => setStocktakeData(prev => ({ ...prev, plannedAt: e.target.value }))}
+                                                onChange={e => setDetailData(prev => ({ ...prev, plannedAt: e.target.value }))}
                                                 className="form-input"
                                             />
                                         ) : (
-                                            <input type="text" value={stocktakeData.plannedAt ? new Date(stocktakeData.plannedAt + (stocktakeData.plannedAt.endsWith('Z') ? '' : 'Z')).toLocaleString('vi-VN') : ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                            <input type="text" value={formatUTC(stocktakeData.plannedAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Ngày giờ bắt đầu */}
+                                {stocktakeData.startedAt && (
+                                    <div className="form-field">
+                                        <label className="form-label">Ngày giờ bắt đầu kiểm kê</label>
+                                        <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
+                                            <input type="text" value={formatUTC(stocktakeData.startedAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Ngày giờ kết thúc */}
+                                {stocktakeData.endedAt && (
+                                    <div className="form-field">
+                                        <label className="form-label">Ngày giờ kết thúc kiểm kê</label>
+                                        <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
+                                            <input type="text" value={formatUTC(stocktakeData.endedAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Ghi chú */}
+                                {stocktakeData.note && (
+                                    <div className="form-field">
+                                        <label className="form-label">Ghi chú</label>
+                                        <div style={{ padding: '8px 12px', backgroundColor: '#f0f9ff', borderRadius: '8px', fontSize: '14px', color: '#374151' }}>
+                                            {stocktakeData.note}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
-
                 </form>
             </div>
 
-            {/* Confirm Dialog - Bắt đầu kiểm kê */}
-            <Dialog
-                open={confirmDialogOpen}
-                onClose={() => setConfirmDialogOpen(false)}
-                fullWidth
-                maxWidth="xs"
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '480px',
-                        borderRadius: '16px',
-                        border: '1px solid var(--slate-200, #e5e7eb)',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                    },
-                }}
-            >
-                <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
-                    Xác nhận bắt đầu kiểm kê
+            {/* Confirm dialog for marking all sufficient */}
+            <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle>
+                    {pendingMarkSufficient ? 'Xác nhận khớp số lượng' : 'Không thể thoát'}
                 </DialogTitle>
-                <DialogContent sx={{ px: 3, pb: 2 }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
-                        Khi bắt đầu kiểm kê, <strong>CÁC GIAO DỊCH trong kho sẽ bị khóa</strong>. Bạn có muốn tiếp tục?
-                    </p>
+                <DialogContent>
+                    {pendingMarkSufficient ? (
+                        <>Bạn có chắc muốn đánh dấu {selectedLineIds.length} vật tư đã chọn là "đủ" (số thực tế = số hệ thống)?</>
+                    ) : isCounting ? (
+                        <>Đang trong quá trình kiểm kê, không được thoát khỏi trang này. Vui lòng kết thúc kiểm kê trước khi quay lại.</>
+                    ) : null}
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
-                    <button
-                        type="button"
-                        onClick={() => setConfirmDialogOpen(false)}
-                        className="btn btn-cancel"
-                        style={{ minWidth: '72px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => {
-                            setConfirmDialogOpen(false);
-                            startCounting();
-                        }}
-                        style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}
-                    >
-                        Xác nhận
-                    </button>
+                <DialogActions>
+                    <button type="button" className="btn btn-cancel" onClick={() => setConfirmDialogOpen(false)}>Hủy</button>
+                    {pendingMarkSufficient && (
+                        <button type="button" className="btn btn-primary" onClick={confirmMarkSufficient}>Xác nhận</button>
+                    )}
                 </DialogActions>
             </Dialog>
 

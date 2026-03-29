@@ -574,7 +574,7 @@ namespace Warehouse.DataAcces.Service
             var maxNumber = 0;
             foreach (var code in itemCodes)
             {
-                if (code.Length <= 3) continue;
+                if (code == null || code.Length <= 3) continue;
 
                 var numberPart = code.Substring(3);
                 if (int.TryParse(numberPart, out var number) && number > maxNumber)
@@ -583,7 +583,8 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            return $"ITM{maxNumber + 1}";
+            var nextNumber = maxNumber + 1;
+            return $"ITM{nextNumber:D6}";
         }
     }
 }
