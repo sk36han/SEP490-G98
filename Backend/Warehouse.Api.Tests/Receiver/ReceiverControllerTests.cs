@@ -53,13 +53,13 @@ public class ReceiverControllerTests
         var controller = new ReceiverController(_receiverServiceMock.Object);
         var request = new CreateReceiverRequest { ReceiverCode = "RCV01", ReceiverName = "Receiver" };
         _receiverServiceMock
-            .Setup(x => x.CreateReceiverAsync(request))
-            .ThrowsAsync(new InvalidOperationException("MÃ£ ngÆ°á»i nháº­n Ä‘Ã£ tá»“n táº¡i"));
+            .Setup(x => x.CreateReceiverAsync(request, It.IsAny<long>()))
+            .ThrowsAsync(new InvalidOperationException("MÃ£ ngÆ°á» i nháº­n Ä‘Ã£ tá»“n táº¡i"));
 
         var result = await controller.CreateReceiver(request);
 
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.Value.Should().BeEquivalentTo(new { message = "MÃ£ ngÆ°á»i nháº­n Ä‘Ã£ tá»“n táº¡i" });
+        badRequestResult.Value.Should().BeEquivalentTo(new { message = "MÃ£ ngÆ°á» i nháº­n Ä‘Ã£ tá»“n táº¡i" });
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class ReceiverControllerTests
         var controller = new ReceiverController(_receiverServiceMock.Object);
         var request = new CreateReceiverRequest { ReceiverCode = "RCV03", ReceiverName = "ABC", City = "Da Nang", Ward = "Hai Chau" };
         _receiverServiceMock
-            .Setup(x => x.CreateReceiverAsync(request))
+            .Setup(x => x.CreateReceiverAsync(request, It.IsAny<long>()))
             .ReturnsAsync(new ReceiverResponse { ReceiverName = "ABC" })
             .Verifiable();
 
