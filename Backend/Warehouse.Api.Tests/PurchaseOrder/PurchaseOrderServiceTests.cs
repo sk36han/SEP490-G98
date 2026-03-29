@@ -11,6 +11,7 @@ public class PurchaseOrderServiceTests : IDisposable
 {
     private readonly Mkiwms5Context _context;
     private readonly PurchaseOrderService _service;
+    private readonly Moq.Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService> _mockAuditLogService;
 
     public PurchaseOrderServiceTests()
     {
@@ -19,7 +20,11 @@ public class PurchaseOrderServiceTests : IDisposable
             .Options;
 
         _context = new Mkiwms5Context(options);
-        _service = new PurchaseOrderService(_context);
+        
+        // Mock IAuditLogService để by-pass việc gọi thật trong lúc test
+        _mockAuditLogService = new Moq.Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService>();
+        
+        _service = new PurchaseOrderService(_context, _mockAuditLogService.Object);
 
         SeedData();
     }

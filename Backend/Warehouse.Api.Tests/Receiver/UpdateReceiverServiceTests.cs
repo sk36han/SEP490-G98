@@ -13,7 +13,7 @@ public class UpdateReceiverServiceTests
     private readonly Mock<IGenericRepository<ReceiverEntity>> _repoMock = new();
     private readonly Mock<Mkiwms5Context> _contextMock = new();
 
-    private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object);
+    private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object, _mockAuditLogService.Object);
 
     // ─── Helpers ────────────────────────────────────────────────
     private ReceiverEntity MakeExisting(
