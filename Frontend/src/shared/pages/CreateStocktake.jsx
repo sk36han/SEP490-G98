@@ -179,7 +179,7 @@ const CreateStocktake = () => {
         if (selectedProductIds.length === filteredProducts.length) {
             setSelectedProductIds([]);
         } else {
-            setSelectedProductIds(filteredProducts.map(p => p.id));
+            setSelectedProductIds(filteredProducts.map(p => p.itemId));
         }
     };
 
@@ -189,22 +189,22 @@ const CreateStocktake = () => {
             return;
         }
 
-        const productsToAdd = products.filter(p => selectedProductIds.includes(p.id));
+        const productsToAdd = filteredProducts.filter(p => selectedProductIds.includes(p.itemId));
         const newLines = [];
         const existingItemIds = lines.map(l => l.itemId);
 
         productsToAdd.forEach(product => {
-            if (existingItemIds.includes(product.id)) {
+            if (existingItemIds.includes(product.itemId)) {
                 return;
             }
             newLines.push({
                 id: Date.now() + Math.random(),
-                itemId: product.id,
-                itemName: product.name,
-                itemCode: product.code,
-                itemImage: product.image,
-                uom: product.uom,
-                systemQty: product.systemQty || 0,
+                itemId: product.itemId,
+                itemName: product.itemName,
+                itemCode: product.itemCode,
+                itemImage: product.itemImage ?? null,
+                uom: product.baseUomName ?? '-',
+                systemQty: product.onHandQty ?? 0,
                 countedQty: '',
                 varianceQty: '',
                 note: ''

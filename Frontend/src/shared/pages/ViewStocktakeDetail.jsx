@@ -100,17 +100,25 @@ const ViewStocktakeDetail = () => {
 
     // ── Load header + lines ───────────────────────────────────────────────
     const fetchData = useCallback(async () => {
-        if (!id) return;
+        console.log('[StocktakeDetail] fetchData called, id:', id);
+        if (!id) {
+            console.log('[StocktakeDetail] No id, skipping fetch');
+            return;
+        }
         setLoading(true);
         try {
+            console.log('[StocktakeDetail] Calling getStocktakeDetail and getStocktakeLines...');
             const [detail, lineResult] = await Promise.all([
                 getStocktakeDetail(id),
                 getStocktakeLines(id),
             ]);
+            console.log('[StocktakeDetail] getStocktakeDetail result:', detail);
+            console.log('[StocktakeDetail] getStocktakeLines result:', lineResult);
             setDetailData(detail);
             setLines(lineResult.items ?? []);
             setTotalLines(lineResult.totalItems ?? 0);
         } catch (err) {
+            console.error('[StocktakeDetail] API error:', err);
             const msg = err?.response?.data?.message || err?.message || 'Không tải được chi tiết phiếu kiểm kê.';
             showToast(msg, 'error');
         } finally {

@@ -28,7 +28,7 @@ import {
     TableRow,
     Chip,
 } from '@mui/material';
-import { Plus, Filter, Columns, GripVertical, Package } from 'lucide-react';
+import { Plus, Filter, Columns, GripVertical, Package, ClipboardList } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import StocktakeFilterPopup from '../components/StocktakeFilterPopup';
 import '../styles/ListView.css';
@@ -38,6 +38,28 @@ const LS_COL_ORDER = 'stocktakeColumnOrder';
 
 // Constants
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
 
 const STOCKTAKE_COLUMNS = [
     { id: 'stt', label: 'STT', sortable: false },
@@ -164,6 +186,7 @@ const ViewStocktakeList = () => {
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     // Permission: Director and Accountant can create stocktakes
     const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'ACCOUNTANTS';
+    const currentUserId = authService.getCurrentUserId();
 
     // Data state
     const [list, setList] = useState([]);
@@ -244,8 +267,13 @@ const ViewStocktakeList = () => {
                 endedFrom: filterValues.endedFromDate || null,
                 endedTo: filterValues.endedToDate || null,
             });
-            setList(result.items || []);
-            setTotalRows(result.totalItems || 0);
+            // Lọc bản nháp: chỉ người tạo mới thấy bản nháp của mình
+            const allItems = result.items || [];
+            const visibleItems = allItems.filter(item =>
+                item.status !== 'DRAFT' || item.createdById === currentUserId
+            );
+            setList(visibleItems);
+            setTotalRows(visibleItems.length);
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không thể tải danh sách kiểm kê';
             setError(msg);
@@ -417,6 +445,12 @@ const ViewStocktakeList = () => {
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Stocktake request
                 </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={ClipboardList} label="Tổng phiếu kiểm kê" value={(totalCount || list.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={ClipboardList} label="Chờ duyệt" value={list.filter(r => r.status === 'PENDING_APPROVAL').length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
+                    <SummaryCard icon={ClipboardList} label="Đang thực hiện" value={list.filter(r => r.status === 'IN_PROGRESS').length.toLocaleString()} color="#7c3aed" bgColor="rgba(124,58,237,0.1)" />
+                </Box>
             </Box>
 
             {/* Main Content */}

@@ -35,6 +35,7 @@ function mapItemDetailRow(row) {
         itemId: row.itemId ?? row.ItemId,
         itemCode: row.itemCode ?? row.ItemCode ?? '',
         itemName: row.itemName ?? row.ItemName ?? '',
+        itemImage: row.itemImage ?? row.ItemImage ?? null,
         itemType: row.itemType ?? row.ItemType ?? null,
         description: row.description ?? row.Description ?? null,
         categoryName: row.categoryName ?? row.CategoryName ?? null,
