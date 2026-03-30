@@ -113,6 +113,37 @@ public class StocktakePlanServiceTests
     }
 
     [Fact]
+    public async Task CreatePlan_TwoDraftsSameWarehouse_ShouldBothSucceed()
+    {
+        // DRAFT không bị chặn khi tạo cùng kho → tạo 2 cái đều thành công
+        using var context = GetContext();
+        await SeedBaseDataAsync(context);
+
+        _stocktakeServiceMock.Setup(x => x.GetStocktakeDetailAsync(It.IsAny<long>()))
+            .ReturnsAsync(new StocktakeDetailResponse { StocktakeId = 1, StocktakeCode = "ST-X" });
+
+        var service = CreateService(context);
+        var request = new CreateStocktakeDraftRequest
+        {
+            WarehouseId = 1,
+            Mode = "PERIODIC",
+            PlannedAt = DateTime.UtcNow.AddDays(1)
+        };
+
+        // Tạo phiếu thứ nhất
+        var result1 = await service.CreateStocktakePlanAsync(request, 111);
+
+        // Tạo phiếu thứ hai trên cùng kho (không được ném exception)
+        var result2 = await service.CreateStocktakePlanAsync(request, 111);
+
+        result1.Should().NotBeNull();
+        result2.Should().NotBeNull();
+        // Cả 2 đều được lưu vào DB
+        context.StocktakeSessions.Count().Should().Be(2);
+        context.StocktakeSessions.All(s => s.Status == "DRAFT").Should().BeTrue();
+    }
+
+    [Fact]
     public async Task SubmitPlan_ShouldChangeStatus()
     {
         using var context = GetContext();
