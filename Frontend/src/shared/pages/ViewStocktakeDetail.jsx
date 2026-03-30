@@ -65,19 +65,9 @@ const ViewStocktakeDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
-    const currentUserId = (() => {
-        try {
-            const raw = localStorage.getItem('userInfo');
-            if (!raw) return null;
-            const info = JSON.parse(raw);
-            return info?.fullName ?? null;
-        } catch {
-            return null;
-        }
-    })();
+
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const isDirector = permissionRole === 'DIRECTOR';
-    const isAccountant = permissionRole === 'ACCOUNTANTS';
 
     // API data
     const [loading, setLoading] = useState(true);
@@ -245,6 +235,7 @@ const ViewStocktakeDetail = () => {
         const missing = countedLines.filter(l => l.varianceQty < 0).length;
         const excess = countedLines.filter(l => l.varianceQty > 0).length;
         const sufficient = countedLines.filter(l => l.varianceQty === 0).length;
+        const varianceLines = missing + excess;
 
         return {
             totalItems: stocktakeData?.lines?.length ?? 0,
@@ -254,7 +245,8 @@ const ViewStocktakeDetail = () => {
             totalCounted: countedLines.length,
             missing,
             excess,
-            sufficient
+            sufficient,
+            varianceLines,
         };
     }, [stocktakeData?.lines]);
 
@@ -696,7 +688,6 @@ const ViewStocktakeDetail = () => {
                                                     const variance = hasValue(line.countedQty) ? (parseFloat(line.countedQty) || 0) - (parseFloat(line.systemQtySnapshot) || 0) : null;
                                                     const isNegative = variance !== null && variance < 0;
                                                     const isPositive = variance !== null && variance > 0;
-                                                    const isSufficient = variance !== null && variance === 0;
 
                                                     return (
                                                         <tr key={line.id ?? index}>
