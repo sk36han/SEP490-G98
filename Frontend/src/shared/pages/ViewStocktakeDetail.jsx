@@ -78,6 +78,7 @@ const ViewStocktakeDetail = () => {
     const [basicEditing, setBasicEditing] = useState(false);
     const [isCounting, setIsCounting] = useState(false);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
+    const [savedLineIds, setSavedLineIds] = useState([]);
 
     // Variance filter state
     const [varianceFilter, setVarianceFilter] = useState('all');
@@ -297,7 +298,13 @@ const ViewStocktakeDetail = () => {
     // Determine counting state dựa trên backend status
     useEffect(() => {
         if (!detailData) return;
-        setIsCounting(detailData.status === 'IN_PROGRESS');
+        const wasCounting = detailData.status === 'IN_PROGRESS';
+        setIsCounting(wasCounting);
+        // Reset saved lines khi bắt đầu hoặc kết thúc kiểm kê
+        if (!wasCounting) {
+            setSavedLineIds([]);
+            setSelectedLineIds([]);
+        }
     }, [detailData]);
 
     // Duyệt phiếu kiểm kê (Director)
@@ -351,11 +358,43 @@ const ViewStocktakeDetail = () => {
             return;
         }
         try {
+            setSubmitting(true);
             await updateCountedQty(lineId, { countedQty: num });
-            showToast('Lưu số lượng thành công!', 'success');
             await reloadLines();
+            setSavedLineIds(prev => [...new Set([...prev, lineId])]);
+            showToast('Lưu số lượng thành công!', 'success');
         } catch (err) {
             showToast(err?.response?.data?.message || err?.message || 'Lỗi khi lưu số lượng.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleSaveAllLines = async () => {
+        const unsavedLines = lines.filter(l => l.countedQty !== null && l.countedQty !== undefined && l.countedQty !== '');
+        if (unsavedLines.length === 0) {
+            showToast('Không có số lượng nào để lưu.', 'warning');
+            return;
+        }
+        try {
+            setSubmitting(true);
+            let savedCount = 0;
+            const newlySaved = [];
+            for (const line of unsavedLines) {
+                const num = parseFloat(line.countedQty);
+                if (!isNaN(num) && num >= 0) {
+                    await updateCountedQty(line.id, { countedQty: num });
+                    newlySaved.push(line.id);
+                    savedCount++;
+                }
+            }
+            await reloadLines();
+            setSavedLineIds(prev => [...new Set([...prev, ...newlySaved])]);
+            showToast(`Đã lưu ${savedCount} / ${unsavedLines.length} vật tư!`, 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi lưu số lượng.', 'error');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -451,19 +490,25 @@ const ViewStocktakeDetail = () => {
                         </>
                     )}
                     {!basicEditing && isCounting && (
-                        <button type="button" className="btn btn-primary" onClick={endCounting} disabled={submitting}>
-                            {submitting ? (
-                                <>
-                                    <span className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }}></span>
-                                    Đang xử lý...
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircle size={15} />
-                                    Gửi Kết Quả
-                                </>
-                            )}
-                        </button>
+                        <>
+                            <button type="button" className="btn btn-secondary" onClick={handleSaveAllLines} disabled={submitting}>
+                                <Save size={15} />
+                                Lưu tất cả
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={endCounting} disabled={submitting}>
+                                {submitting ? (
+                                    <>
+                                        <span className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }}></span>
+                                        Đang xử lý...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle size={15} />
+                                        Gửi Kết Quả
+                                    </>
+                                )}
+                            </button>
+                        </>
                     )}
                     {!basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && (
                         <>
@@ -558,7 +603,7 @@ const ViewStocktakeDetail = () => {
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', minHeight: '600px' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
-                                    {!isCounting && stocktakeData?.status === 'APPROVED' && (
+                                    {!isCounting && stocktakeData?.status === 'APPROVED' && !submitting && (
                                         <button
                                             type="button"
                                             className="btn btn-secondary"
@@ -672,6 +717,7 @@ const ViewStocktakeDetail = () => {
                                                         <>
                                                             <th style={{ width: '120px', textAlign: 'right' }}>SL thực tế</th>
                                                             <th style={{ width: '100px', textAlign: 'right' }}>Chênh lệch</th>
+                                                            <th style={{ width: '70px', textAlign: 'center' }}>Đã lưu</th>
                                                             <th style={{ width: '80px', textAlign: 'center' }}></th>
                                                         </>
                                                     )}
@@ -766,6 +812,15 @@ const ViewStocktakeDetail = () => {
                                                                         }}>
                                                                             {variance !== null ? (variance > 0 ? `+${variance}` : variance) : '-'}
                                                                         </div>
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'center' }}>
+                                                                        {savedLineIds.includes(line.id) ? (
+                                                                            <CheckCircle size={18} color="#16a34a" />
+                                                                        ) : hasValue(line.countedQty) ? (
+                                                                            <XCircle size={18} color="#9ca3af" />
+                                                                        ) : (
+                                                                            <span style={{ color: '#9ca3af', fontSize: '12px' }}>-</span>
+                                                                        )}
                                                                     </td>
                                                                     <td>
                                                                         <button

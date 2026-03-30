@@ -135,6 +135,11 @@ const STOCKTAKE_STATUS_STYLE = {
         label: 'Bản nháp',
         dot: '•'
     },
+    APPROVED: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
+        label: 'Được duyệt',
+        dot: '•'
+    },
     IN_PROGRESS: {
         bgColor: 'rgba(59, 130, 246, 0.2)',
         label: 'Đang thực hiện',

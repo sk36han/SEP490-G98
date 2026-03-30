@@ -471,7 +471,7 @@ const AppRoutes = () => (
         <Route
             path="/good-delivery-notes/create"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateReleaseRequest />
                     </MainLayout>
@@ -511,7 +511,7 @@ const AppRoutes = () => (
         <Route
             path="/receivers/create"
             element={
-                <ProtectedRoute allowedRoles={['SALE_ENGINEER']}>
+                <ProtectedRoute allowedRoles={['SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateReceiver />
                     </MainLayout>
