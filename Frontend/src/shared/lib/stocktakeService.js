@@ -30,7 +30,9 @@ import authService from './authService';
 function mapStocktakeRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
+        id: row.id ?? row.Id ?? row.stocktakeId ?? row.StocktakeId,
         stocktakeId: row.stocktakeId ?? row.StocktakeId,
+        code: row.code ?? row.Code ?? row.stocktakeCode ?? row.StocktakeCode ?? '',
         stocktakeCode: row.stocktakeCode ?? row.StocktakeCode ?? '',
         warehouseId: row.warehouseId ?? row.WarehouseId,
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
@@ -40,7 +42,9 @@ function mapStocktakeRow(row) {
         startedAt: row.startedAt ?? row.StartedAt ?? null,
         endedAt: row.endedAt ?? row.EndedAt ?? null,
         createdBy: row.createdBy ?? row.CreatedBy,
+        createdById: row.createdBy ?? row.CreatedBy ?? null,
         createdByName: row.createdByName ?? row.CreatedByName ?? '',
+        createdAt: row.createdAt ?? row.CreatedAt ?? null,
         note: row.note ?? row.Note ?? null,
         // Progress fields
         totalLines: row.totalLines ?? row.TotalLines ?? 0,
@@ -53,10 +57,13 @@ function mapStocktakeRow(row) {
 function mapStocktakeLineRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
+        id: row.stocktakeLineId ?? row.StocktakeLineId,
         stocktakeLineId: row.stocktakeLineId ?? row.StocktakeLineId,
         itemId: row.itemId ?? row.ItemId,
         itemCode: row.itemCode ?? row.ItemCode ?? '',
         itemName: row.itemName ?? row.ItemName ?? '',
+        itemImage: row.itemImage ?? row.ItemImage ?? null,
+        uom: row.uomName ?? row.UomName ?? '',
         uomName: row.uomName ?? row.UomName ?? '',
         systemQtySnapshot: row.systemQtySnapshot ?? row.SystemQtySnapshot ?? 0,
         countedQty: row.countedQty ?? row.CountedQty ?? null,
@@ -225,6 +232,7 @@ export async function createStocktakeDraft(data) {
             mode: data.mode?.toUpperCase(),
             plannedAt: data.plannedAt ?? null,
             note: data.note ?? null,
+            status: data.status ?? null,
         });
         return mapStocktakeRow(extractBody(response));
     } catch (error) {

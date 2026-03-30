@@ -6,7 +6,7 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Controllers
+namespace Warehouse.Api.ApiController
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -27,7 +27,7 @@ namespace Warehouse.Api.Controllers
             {
                 return userId;
             }
-            throw new System.UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
+            throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
         }
 
         [HttpGet]
@@ -65,6 +65,21 @@ namespace Warehouse.Api.Controllers
             var userId = GetCurrentUserId();
             var result = await _transportInfoService.UpdateTransportInfoAsync(id, request, userId);
             return Ok(ApiResponse<TransportInfoResponse>.SuccessResponse(result, "Cập nhật thông vị trí/vận chuyển thành công."));
+        }
+
+        [HttpPatch("{id}/active")]
+        public async Task<IActionResult> ChangeActive(long id, [FromBody] ChangeTransportActiveRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _transportInfoService.UpdateTransportActiveStatusAsync(id, request.IsActive, userId);
+            return Ok(ApiResponse<TransportInfoResponse>.SuccessResponse(result, "Thay đổi trạng thái hoạt động thành công."));
+        }
+
+        [HttpGet("history")]
+        public async Task<IActionResult> GetHistory()
+        {
+            var result = await _transportInfoService.GetTransportHistoryAsync();
+            return Ok(ApiResponse<System.Collections.Generic.List<TransportHistoryResponse>>.SuccessResponse(result, "Lấy danh sách lịch sử vận chuyển thành công."));
         }
     }
 }

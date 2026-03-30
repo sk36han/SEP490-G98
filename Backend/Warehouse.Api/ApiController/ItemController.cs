@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Warehouse.DataAcces.Service.Interface;
@@ -17,6 +18,12 @@ namespace Warehouse.Api.ApiController
             _itemService = itemService;
         }
 
+        private long GetCurrentUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier);
+            return claim != null && long.TryParse(claim.Value, out var id) ? id : 0;
+        }
+
         [HttpPost("create-item")]
         public async Task<IActionResult> CreateItem([FromBody] CreateItemRequest request)
         {
@@ -27,7 +34,8 @@ namespace Warehouse.Api.ApiController
                     return ValidationProblem(ModelState);
                 }
 
-                var item = await _itemService.CreateItemAsync(request);
+                var userId = GetCurrentUserId();
+                var item = await _itemService.CreateItemAsync(request, userId);
 
                 return Ok(new
                 {
@@ -109,7 +117,8 @@ namespace Warehouse.Api.ApiController
                     return ValidationProblem(ModelState);
                 }
 
-                var item = await _itemService.UpdateItemAsync(id, request);
+                var userId = GetCurrentUserId();
+                var item = await _itemService.UpdateItemAsync(id, request, userId);
 
                 return Ok(new
                 {
@@ -143,7 +152,8 @@ namespace Warehouse.Api.ApiController
         {
             try
             {
-                var item = await _itemService.UpdateItemStatusAsync(id, isActive);
+                var userId = GetCurrentUserId();
+                var item = await _itemService.UpdateItemStatusAsync(id, isActive, userId);
                 return Ok(new
                 {
                     success = true,

@@ -45,12 +45,12 @@ import {
     GripVertical,
     AlertTriangle,
 } from 'lucide-react';
-import Toast from '../components/Toast/Toast';
-import { useToast } from '../shared/hooks/useToast';
-import SearchInput from '../shared/components/SearchInput';
-import authService from '../shared/lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../shared/permissions/roleUtils';
-import '../shared/styles/ListView.css';
+import Toast from '../../../components/Toast/Toast';
+import { useToast } from '../../hooks/useToast';
+import SearchInput from '../../components/SearchInput';
+import authService from '../../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../../permissions/roleUtils';
+import '../../styles/ListView.css';
 
 // ─── Mock data – thay bằng API khi backend sẵn sàng ────────────────────────
 const MOCK_WAREHOUSES = [

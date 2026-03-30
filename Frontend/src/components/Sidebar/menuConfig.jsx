@@ -58,9 +58,7 @@ const directorItems = [
         path: '/reports',
         icon: <BarChart3 size={22} />,
         label: 'Báo cáo',
-        children: [
-            { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
-        ],
+        
     },
     { path: '/mockup/inventory-alert', icon: <Bell size={22} />, label: 'Chính sách tồn kho' },
     { path: '/mockup/sales-target', icon: <DollarSign size={22} />, label: 'Chính sách tài chính' },
@@ -360,9 +358,7 @@ const accountantItems = [
         path: '/reports',
         icon: <BarChart3 size={22} />,
         label: 'Báo cáo',
-        children: [
-            { path: '/reports/stocktakes', label: 'Kiểm kê kho' },
-        ],
+        
     },
 ];
 

@@ -33,13 +33,35 @@ import {
     TextField,
     FormGroup,
 } from '@mui/material';
-import { Plus, Filter, Columns, Package, X, GripVertical } from 'lucide-react';
+import { Plus, Filter, Columns, Package, X, GripVertical, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SearchInput from '../components/SearchInput';
 import CategoryFilterPopup from '../components/CategoryFilterPopup';
 import { getCategoryList, createCategory, getCategoryById, updateCategory } from '../lib/categoryService';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
 
 const headCellBaseSx = {
     fontWeight: 600,
@@ -272,6 +294,31 @@ const ViewCategoryList = () => {
                 >
                     Category
                 </Typography>
+
+                {/* Summary Cards */}
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard
+                        icon={Package}
+                        label="Tổng danh mục"
+                        value={(totalItems || rows.length).toLocaleString()}
+                        color="#6b7280"
+                        bgColor="rgba(107,114,128,0.1)"
+                    />
+                    <SummaryCard
+                        icon={Layers}
+                        label="Đang hoạt động"
+                        value={rows.filter(r => r.isActive).length.toLocaleString()}
+                        color="#059669"
+                        bgColor="rgba(5,150,105,0.1)"
+                    />
+                    <SummaryCard
+                        icon={Layers}
+                        label="Ngưng hoạt động"
+                        value={rows.filter(r => !r.isActive).length.toLocaleString()}
+                        color="#d97706"
+                        bgColor="rgba(217,119,6,0.1)"
+                    />
+                </Box>
             </Box>
 
             {/* Body */}
@@ -931,7 +978,7 @@ const ViewCategoryList = () => {
                     }}
                 >
                     <Typography
-                        variant="h6"
+                        component="span"
                         sx={{
                             fontWeight: 600,
                             fontSize: '18px',

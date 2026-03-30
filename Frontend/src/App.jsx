@@ -16,13 +16,14 @@ function App() {
             <CssBaseline />
             <ToastProvider>
                 <AuthProvider>
-                    <MasterDataProvider />
-                    <RoleProvider>
-                        <ToastContainer />
-                        <Router>
-                            <AppRoutes />
-                        </Router>
-                    </RoleProvider>
+                    <MasterDataProvider>
+                        <RoleProvider>
+                            <ToastContainer />
+                            <Router>
+                                <AppRoutes />
+                            </Router>
+                        </RoleProvider>
+                    </MasterDataProvider>
                 </AuthProvider>
             </ToastProvider>
         </ThemeProvider>
