@@ -33,6 +33,7 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import { getPurchaseReturnDetail, approvePurchaseReturn, refundPurchaseReturn } from '../lib/purchaseReturnNoteService';
 import { getGRNDetail } from '../lib/goodReceiptNoteService';
+import GRNListPopup from '../components/GRNListPopup';
 import '../styles/CreateSupplier.css';
 
 const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
@@ -447,6 +448,7 @@ export default function ViewPurchaseReturnDetail() {
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedSearchProductIds, setSelectedSearchProductIds] = useState([]);
     const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm, confirmLabel }
+    const [showGRNListPopup, setShowGRNListPopup] = useState(false);
 
     const fetchDetail = useCallback(async () => {
         if (!id) {
@@ -812,6 +814,12 @@ export default function ViewPurchaseReturnDetail() {
                 }
             },
         });
+    };
+
+    // --- Xử lý chọn GRN từ popup ---
+    const handleSelectGRN = (grn) => {
+        setShowGRNListPopup(false);
+        navigate(`/purchase-returns/create?grnId=${grn.grnId || grn.GrnId}&grnCode=${grn.grnCode || grn.GrnCode || ''}`);
     };
 
     // --- "Bắt đầu trả hàng" (SUBMITTED -> APPROVED) ---

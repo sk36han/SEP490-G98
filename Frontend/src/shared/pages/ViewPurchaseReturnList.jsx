@@ -28,6 +28,7 @@ import {
     MenuItem,
 } from '@mui/material';
 import { FileText, Filter, Columns, Plus, GripVertical, RotateCcw } from 'lucide-react';
+import GRNListPopup from '../components/GRNListPopup';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -134,6 +135,13 @@ export default function ViewPurchaseReturnList() {
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
+    const [showGRNListPopup, setShowGRNListPopup] = useState(false);
+
+    // Xử lý chọn GRN từ popup
+    const handleSelectGRNFromPopup = (grn) => {
+        setShowGRNListPopup(false);
+        navigate(`/purchase-returns/create?grnId=${grn.grnId || grn.GrnId}&grnCode=${grn.grnCode || grn.GrnCode || ''}`);
+    };
 
     // Ref to signal Reset was called so cleanup skips syncing tempColumnOrder
 
@@ -532,7 +540,7 @@ export default function ViewPurchaseReturnList() {
                                         className="list-page-btn"
                                         variant="contained"
                                         startIcon={<Plus size={18} />}
-                                        onClick={() => navigate('/purchase-returns/create')}
+                                        onClick={() => setShowGRNListPopup(true)}
                                         sx={{
                                             fontSize: '13px',
                                             fontWeight: 500,
@@ -969,6 +977,12 @@ export default function ViewPurchaseReturnList() {
                     </Box>
                 </Paper>
             </Box>
+
+            <GRNListPopup
+                open={showGRNListPopup}
+                onClose={() => setShowGRNListPopup(false)}
+                onSelect={handleSelectGRNFromPopup}
+            />
         </Box>
     );
 }

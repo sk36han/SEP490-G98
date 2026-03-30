@@ -328,7 +328,6 @@ const accountantItems = [
         label: 'Trả hàng',
         children: [
             { path: '/purchase-returns', label: 'Danh sách phiếu trả hàng' },
-            { path: '/purchase-returns/create', label: 'Tạo phiếu trả hàng' },
         ],
     },
     {
