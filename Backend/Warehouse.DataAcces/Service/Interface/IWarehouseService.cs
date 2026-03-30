@@ -12,5 +12,7 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<WarehouseResponse> ToggleWarehouseStatusAsync(long id);
         /// <summary>Danh sách kho đối với dropdown (chỉ kho IsActive = true)</summary>
         Task<List<WarehouseDropdownItem>> GetWarehouseDropdownAsync();
+        /// <summary>Chi tiết kho kèm danh sách tất cả vật tư (LEFT JOIN InventoryOnHand, có HasInventoryRecord)</summary>
+        Task<WarehouseDetailResponse> GetWarehouseDetailAsync(long warehouseId);
     }
 }
