@@ -87,7 +87,6 @@ const CreateWarehouse = () => {
                 isActive: formData.isActive
             };
 
-            console.log('Sending payload to API:', payload);
 
             await createWarehouse(payload);
             showToast('Tạo kho thành công!', 'success');

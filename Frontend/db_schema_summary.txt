@@ -1,0 +1,134 @@
+=== DATABASE SCHEMA MKIWMS5 ===
+
+=== BAN CHINH ===
+- Addresses
+- AuditLogs
+- Brands
+- Certificates
+- Companies
+- DocumentApproval
+- DocumentAttachments
+- GoodsDeliveryNoteLines
+- GoodsDeliveryNotes
+- GoodsReceiptNoteLines
+- GoodsReceiptNotes
+- InventoryAdjustmentLines
+- InventoryAdjustmentRequests
+- InventoryLots
+- InventoryOnHand
+- InventoryTransactionLines
+- InventoryTransactions
+- ItemCategories
+- ItemParameters
+- ItemParameterValues
+- ItemPrices
+- Items
+- ItemWarehousePolicy
+- Notifications
+- PackagingSpecs
+- PasswordResetTokens
+- PurchaseOrderLines
+- PurchaseOrders
+- PurchaseReturnNoteLines
+- PurchaseReturnNotes
+- Receivers
+- ReleaseRequestLines
+- ReleaseRequests
+- Roles
+- StocktakeLines
+- StocktakeSessions
+- Suppliers
+- TransportInfos
+- UnitOfMeasure
+- UserRoles
+- Users
+- Warehouses
+
+=== RECEIVERS TABLE ===
+- ReceiverId (bigint, PK, IDENTITY)
+- ReceiverCode (nvarchar(50), NULL, UNIQUE)
+- ReceiverName (nvarchar(300), NOT NULL)
+- Phone (nvarchar(30), NULL)
+- Email (nvarchar(255), NULL)
+- Address (nvarchar(500), NULL)
+- Notes (nvarchar(1000), NULL)
+- IsActive (bit, NOT NULL, DEFAULT 1)
+- CreatedAt (datetime2(7), NOT NULL, DEFAULT sysutcdatetime())
+- City (nvarchar(100), NULL)
+- Ward (nvarchar(100), NULL)
+- District (nvarchar(100), NULL)
+- CompanyId (bigint, NULL, FK -> Companies.CompanyId)
+- Position (nvarchar(200), NULL)
+
+=== COMPANIES TABLE ===
+- CompanyId (bigint, PK, IDENTITY)
+- CompanyCode (varchar(50), NOT NULL, UNIQUE)
+- CompanyName (nvarchar(200), NOT NULL)
+- IsActive (bit, NOT NULL, DEFAULT 1)
+- CreatedAt (datetime2(0), NOT NULL, DEFAULT sysutcdatetime())
+
+=== ADDRESSES TABLE ===
+- AddressId (bigint, PK, IDENTITY)
+- CompanyId (bigint, NOT NULL, FK -> Companies.CompanyId)
+- AddressName (nvarchar(200), NULL)
+- AddressDetail (nvarchar(500), NOT NULL)
+- District (nvarchar(100), NULL)
+- City (nvarchar(100), NULL)
+- Ward (nvarchar(100), NULL)
+- IsDefault (bit, NOT NULL, DEFAULT 0)
+- IsActive (bit, NOT NULL, DEFAULT 1)
+
+=== SUPPLIERS TABLE ===
+- SupplierId (bigint, PK, IDENTITY)
+- SupplierCode (nvarchar(50), NULL, UNIQUE)
+- SupplierName (nvarchar(300), NOT NULL)
+- TaxCode (nvarchar(50), NULL)
+- Phone (nvarchar(30), NULL)
+- Email (nvarchar(255), NULL)
+- Address (nvarchar(500), NULL)
+- IsActive (bit, NOT NULL, DEFAULT 1)
+- CreatedAt (datetime2(7), NOT NULL, DEFAULT sysutcdatetime())
+- City (nvarchar(100), NULL)
+- Ward (nvarchar(100), NULL)
+- District (nvarchar(100), NULL)
+
+=== WAREHOUSES TABLE ===
+- WarehouseId (bigint, PK, IDENTITY)
+- WarehouseCode (nvarchar(50), NOT NULL, UNIQUE)
+- WarehouseName (nvarchar(200), NOT NULL)
+- Address (nvarchar(400), NULL)
+- IsActive (bit, NOT NULL, DEFAULT 1)
+- CreatedAt (datetime2(7), NOT NULL, DEFAULT sysutcdatetime())
+- District (nvarchar(100), NULL)
+
+=== RECEIVERS vs SUPPLIERS (cÃ¹ng pattern) ===
+| Field        | Receivers | Suppliers |
+|--------------|-----------|-----------|
+| Code         | ReceiverCode | SupplierCode |
+| Name         | ReceiverName | SupplierName |
+| TaxCode      | -          | TaxCode |
+| Phone        | Phone      | Phone |
+| Email        | Email      | Email |
+| Address      | Address    | Address |
+| IsActive     | IsActive   | IsActive |
+| CreatedAt    | CreatedAt  | CreatedAt |
+| City         | City       | City |
+| Ward         | Ward       | Ward |
+| District     | District   | District |
+| CompanyId    | CompanyId  | -         |
+| Position     | Position   | -         |
+
+=== CREATE-RECEIVER PAYLOAD HIEN TAI ===
+{
+    receiverName: formData.receiverName.trim(),
+    phone: formData.phone.trim(),
+    email: formData.email.trim() || null,
+    notes: formData.notes.trim() || null,
+    companyId: Number(formData.companyId) || null,
+    isActive: true,
+}
+
+=== CREATE-COMPANY PAYLOAD HIEN TAI ===
+{
+    companyName: companyForm.companyName.trim(),
+}

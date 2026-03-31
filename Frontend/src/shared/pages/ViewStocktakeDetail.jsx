@@ -126,7 +126,7 @@ const ViewStocktakeDetail = () => {
                         itemImage: item.itemImage ?? null,
                         uom: item.baseUomName ?? '-',
                         uomName: item.baseUomName ?? '-',
-                        systemQty: item.onHandQty ?? 0,
+                        systemQtySnapshot: item.onHandQty ?? 0,
                         countedQty: null,
                         varianceQty: null,
                         note: '',
@@ -168,7 +168,6 @@ const ViewStocktakeDetail = () => {
     const startCounting = async () => {
         try {
             const result = await startStocktakeExecution(stocktakeData.id);
-            console.log('[DEBUG] startStocktakeExecution response:', JSON.stringify(result, null, 2));
             showToast('Đã bắt đầu kiểm kê!', 'success');
             await fetchData();
         } catch (err) {
@@ -510,13 +509,15 @@ const ViewStocktakeDetail = () => {
                             </button>
                         </>
                     )}
-                    {!basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && (
+                    {!basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && !(isDirector && stocktakeData.mode === 'PERIODIC') && (
                         <>
-                            {/* Tạo phiếu điều chỉnh tồn kho */}
-                            <button type="button" className="btn btn-secondary" onClick={() => showToast('Tạo phiếu điều chỉnh tồn kho', 'info')}>
-                                <Package size={15} />
-                                Tạo phiếu điều chỉnh tồn kho
-                            </button>
+                            {/* Tạo phiếu điều chỉnh tồn kho (nếu có chênh lệch) */}
+                            {summary.varianceLines > 0 && (
+                                <button type="button" className="btn btn-secondary" onClick={() => showToast('Tạo phiếu điều chỉnh tồn kho', 'info')}>
+                                    <Package size={15} />
+                                    Tạo phiếu điều chỉnh tồn kho
+                                </button>
+                            )}
                             {/* Hoàn thành phiếu (nếu không có chênh lệch) */}
                             {summary.varianceLines === 0 && (
                                 <button type="button" className="btn btn-primary" onClick={() => showToast('Hoàn thành phiếu kiểm kê', 'success')}>

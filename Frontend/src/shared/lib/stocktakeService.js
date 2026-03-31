@@ -65,7 +65,7 @@ function mapStocktakeLineRow(row) {
         itemImage: row.itemImage ?? row.ItemImage ?? null,
         uom: row.uomName ?? row.UomName ?? '',
         uomName: row.uomName ?? row.UomName ?? '',
-        systemQtySnapshot: row.systemQtySnapshot ?? row.SystemQtySnapshot ?? 0,
+        systemQtySnapshot: row.onHandQty ?? row.OnHandQty ?? row.systemQtySnapshot ?? row.SystemQtySnapshot ?? 0,
         countedQty: row.countedQty ?? row.CountedQty ?? null,
         varianceQty: row.varianceQty ?? row.VarianceQty ?? null,
         note: row.note ?? row.Note ?? null,
