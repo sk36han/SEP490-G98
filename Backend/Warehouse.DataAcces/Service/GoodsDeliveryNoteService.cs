@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Constants;
@@ -16,17 +17,19 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly IStocktakeService _stocktakeService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDocumentAttachmentService _documentAttachmentService;
 
 		// Role codes for approval stages
 		// private const string ROLE_ACCOUNTANT = "ACCOUNTANT";   // Kế toán - Stage 1
 		// private const string ROLE_DIRECTOR = "DIRECTOR";       // Giám đốc - Stage 2
 		private const string ROLE_ACCOUNTANT = "KT"; 
         private const string ROLE_DIRECTOR = "GD";
-		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService)
+		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _auditLogService = auditLogService;
+            _documentAttachmentService = documentAttachmentService;
         }
 
         // ==================== LIST ====================
@@ -1116,6 +1119,113 @@ namespace Warehouse.DataAcces.Service
                 EntityType = "GoodsDeliveryNote",
                 EntityId = gdn.Gdnid,
                 Detail = $"Thủ kho xác nhận xuất hàng cho phiếu {gdn.Gdncode}.",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            var rr = gdn.ReleaseRequest;
+            var receiver = rr?.Receiver;
+            var company = receiver?.Company;
+            var addr = company?.Addresses?.OrderByDescending(a => a.IsDefault).ThenByDescending(a => a.IsActive).FirstOrDefault();
+
+            return new GoodsDeliveryNoteResponse
+            {
+                GdnId = gdn.Gdnid,
+                GdnCode = gdn.Gdncode,
+                IssueDate = gdn.IssueDate,
+                Status = gdn.Status,
+                IsPaid = gdn.IsPaid,
+                ReleaseRequestId = gdn.ReleaseRequestId,
+                ReleaseRequestCode = rr?.ReleaseRequestCode,
+                WarehouseId = gdn.WarehouseId,
+                WarehouseName = gdn.Warehouse?.WarehouseName,
+                CreatedBy = gdn.CreatedBy,
+                CreatedByName = gdn.CreatedByNavigation?.FullName,
+                TotalDeliveredQty = gdn.TotalDeliveredQty,
+                TotalDeliveredAmount = gdn.TotalDeliveredAmount,
+                ShippingFee = gdn.ShippingFee,
+                NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
+                SubmittedAt = gdn.SubmittedAt,
+                Note = gdn.Note,
+                ReceiverId = receiver?.ReceiverId,
+                ReceiverName = receiver?.ReceiverName,
+                CompanyId = receiver?.CompanyId,
+                CompanyName = company?.CompanyName,
+                ReceiverAddress = addr?.AddressDetail
+            };
+        }
+
+        // ==================== CONFIRM DELIVERY (POSTED) ====================
+        public async Task<GoodsDeliveryNoteResponse> ConfirmDeliveryAsync(long gdnId, long userId, IFormFile evidenceFile, string note)
+        {
+            var gdn = await _context.GoodsDeliveryNotes
+                .Include(g => g.ReleaseRequest)
+                    .ThenInclude(rr => rr.Receiver)
+                        .ThenInclude(r => r.Company)
+                            .ThenInclude(c => c.Addresses)
+                .Include(g => g.Warehouse)
+                .Include(g => g.CreatedByNavigation)
+                .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
+
+            if (gdn == null)
+                throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
+
+            if (gdn.Status != "ISSUED")
+                throw new InvalidOperationException($"Không thể xác nhận hoàn tất phiếu ở trạng thái {gdn.Status}. Cần phải ở trạng thái ISSUED.");
+
+            var user = await _context.Users
+                .Include(u => u.UserRoleUser)
+                    .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+                throw new KeyNotFoundException("Không tìm thấy người dùng.");
+
+            var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
+            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "TK";
+            bool isAccountant = userRoleCode == ROLE_ACCOUNTANT;
+            bool isAdmin = userRoleCode == "ADMIN";
+
+            if (!isWarehouseKeeper && !isAccountant && !isAdmin)
+                throw new InvalidOperationException("Chỉ Thủ kho hoặc Kế toán mới có quyền upload bằng chứng và xác nhận hoàn tất.");
+
+            // Upload the file
+            var fileUrl = await _documentAttachmentService.UploadAttachmentAsync(
+                docType: "GDN",
+                docId: gdn.Gdnid,
+                file: evidenceFile,
+                userId: userId,
+                attachmentType: "DELIVERY_EVIDENCE"
+            );
+
+            // Update GDN
+            gdn.Status = "POSTED";
+            if (!string.IsNullOrEmpty(note))
+            {
+                gdn.Note = $"{gdn.Note} | Minh chứng: {note}".Trim();
+            }
+
+            // Document Approval
+            _context.DocumentApprovals.Add(new DocumentApproval
+            {
+                DocType = "GDN",
+                DocId = gdn.Gdnid,
+                StageNo = 4,
+                Decision = "POSTED",
+                Reason = note ?? "Upload bằng chứng xuất hàng",
+                ActionBy = userId,
+                ActionAt = DateTime.UtcNow
+            });
+
+            // Audit log
+            _context.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = userId,
+                Action = AuditAction.Close,
+                EntityType = AuditEntity.GoodsDeliveryNote,
+                EntityId = gdn.Gdnid,
+                Detail = $"Xác nhận hoàn tất xuất kho phiếu {gdn.Gdncode}. Kèm file minh chứng: {fileUrl}.",
                 CreatedAt = DateTime.UtcNow
             });
 

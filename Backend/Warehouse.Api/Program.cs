@@ -106,6 +106,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IReleaseRequestService, ReleaseRequestService>();
             builder.Services.AddScoped<IGoodsDeliveryNoteService, GoodsDeliveryNoteService>();
             builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
+            builder.Services.AddScoped<IDocumentAttachmentService, DocumentAttachmentService>();
 
 			// JWT Authentication
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -169,6 +170,8 @@ namespace Warehouse.Api
             {
                 app.UseHttpsRedirection();
             }
+
+            app.UseStaticFiles();
 
             app.UseCors("AllowAll");
 
