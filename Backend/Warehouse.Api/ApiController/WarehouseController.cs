@@ -131,6 +131,32 @@ namespace Warehouse.Api.ApiController
 			}
 		}
 		/// <summary>
+		/// Lấy chi tiết kho kèm danh sách vật tư đang có tồn kho tại kho đó.
+		/// Dùng khi chọn kho để kiểm kê — chỉ trả về items thuộc kho được chọn (lọc từ InventoryOnHand).
+		/// GET: /api/Warehouse/{id}/detail
+		/// </summary>
+		[HttpGet("{id}/detail")]
+		public async Task<IActionResult> GetWarehouseDetail(long id)
+		{
+			if (id <= 0)
+				return BadRequest(ApiResponse<object>.ErrorResponse("WarehouseId phải là số nguyên dương."));
+
+			try
+			{
+				var result = await _warehouseService.GetWarehouseDetailAsync(id);
+				return Ok(ApiResponse<WarehouseDetailResponse>.SuccessResponse(result, "Lấy chi tiết kho thành công."));
+			}
+			catch (KeyNotFoundException ex)
+			{
+				return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+			}
+			catch (Exception)
+			{
+				return StatusCode(500, ApiResponse<object>.ErrorResponse("Đã xảy ra lỗi hệ thống."));
+			}
+		}
+
+		/// <summary>
 		/// Lấy danh sách kho cho Dropdown (chỉ kho đang hoạt động)
 		/// GET: /api/Warehouse/dropdown
 		/// </summary>
