@@ -5,6 +5,7 @@ using FluentAssertions;
 using Moq;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service;
+using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
 
@@ -14,8 +15,8 @@ public class GetReceiverByIdServiceTests
 {
     private readonly Mock<IGenericRepository<ReceiverEntity>> _repoMock = new();
     private readonly Mock<Mkiwms5Context> _contextMock = new();
-
-    private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object);
+	private readonly Mock<IAuditLogService> _mockAuditLogService = new();
+	private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object, _mockAuditLogService.Object);
 
     private ReceiverEntity MakeReceiver(long id = 1) => new()
     {

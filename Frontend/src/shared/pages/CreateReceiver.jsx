@@ -35,7 +35,6 @@ const CreateReceiver = () => {
         wardCode: '',
         address: '',
         notes: '',
-        isActive: true,
     });
     const [errors, setErrors] = useState({});
 
@@ -179,7 +178,7 @@ const CreateReceiver = () => {
                 phone: formData.phone.trim(),
                 email: formData.email.trim() || null,
                 address: formData.address.trim(),
-                isActive: formData.isActive,
+                isActive: true,
                 notes: formData.notes.trim() || null,
                 countryName: COUNTRIES.find((country) => country.code === formData.country)?.name ?? formData.country,
                 provinceName: selectedProvince?.name ?? '',
@@ -417,21 +416,6 @@ const CreateReceiver = () => {
                                     </select>
                                 </div>
                                 {wardError && <span className="error-message">{wardError}</span>}
-                            </div>
-
-                            <div className="form-field">
-                                <label className="toggle-container" htmlFor="isActive">
-                                    <input
-                                        id="isActive"
-                                        type="checkbox"
-                                        name="isActive"
-                                        checked={formData.isActive}
-                                        onChange={handleChange}
-                                        className="toggle-checkbox"
-                                    />
-                                    <span className="toggle-slider"></span>
-                                    <span className="toggle-label">Hoạt động</span>
-                                </label>
                             </div>
 
                             <div className="form-field span-3">

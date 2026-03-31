@@ -39,6 +39,28 @@ import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
+
 const STATUS_STYLE = {
     DRAFT: { bgColor: 'rgba(107, 114, 128, 0.2)', label: 'Nháp', dot: '•' },
     SUBMITTED: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Đã gửi duyệt', dot: '•' },
@@ -449,6 +471,12 @@ export default function ViewPurchaseReturnList() {
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Purchase Returns
                 </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={RotateCcw} label="Tổng phiếu trả" value={(totalCount || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={RotateCcw} label="Đang xử lý" value={rows.filter(r => ['PENDING', 'PROCESSING'].includes(r.status)).length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
+                    <SummaryCard icon={RotateCcw} label="Hoàn thành" value={rows.filter(r => r.status === 'COMPLETED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                </Box>
             </Box>
 
             <PurchaseReturnFilterPopup

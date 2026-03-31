@@ -179,7 +179,7 @@ const CreateStocktake = () => {
         if (selectedProductIds.length === filteredProducts.length) {
             setSelectedProductIds([]);
         } else {
-            setSelectedProductIds(filteredProducts.map(p => p.id));
+            setSelectedProductIds(filteredProducts.map(p => p.itemId));
         }
     };
 
@@ -189,22 +189,22 @@ const CreateStocktake = () => {
             return;
         }
 
-        const productsToAdd = products.filter(p => selectedProductIds.includes(p.id));
+        const productsToAdd = filteredProducts.filter(p => selectedProductIds.includes(p.itemId));
         const newLines = [];
         const existingItemIds = lines.map(l => l.itemId);
 
         productsToAdd.forEach(product => {
-            if (existingItemIds.includes(product.id)) {
+            if (existingItemIds.includes(product.itemId)) {
                 return;
             }
             newLines.push({
                 id: Date.now() + Math.random(),
-                itemId: product.id,
-                itemName: product.name,
-                itemCode: product.code,
-                itemImage: product.image,
-                uom: product.uom,
-                systemQty: product.systemQty || 0,
+                itemId: product.itemId,
+                itemName: product.itemName,
+                itemCode: product.itemCode,
+                itemImage: product.itemImage ?? null,
+                uom: product.baseUomName ?? '-',
+                systemQty: product.onHandQty ?? 0,
                 countedQty: '',
                 varianceQty: '',
                 note: ''
@@ -248,11 +248,6 @@ const CreateStocktake = () => {
     const handleSaveDraft = async (e) => {
         e.preventDefault();
 
-        if (!validateForm()) {
-            showToast('Vui lòng kiểm tra lại thông tin!', 'error');
-            return;
-        }
-
         try {
             setSubmitting(true);
 
@@ -261,10 +256,15 @@ const CreateStocktake = () => {
                 mode: formData.mode,
                 plannedAt: formData.plannedAt,
                 note: formData.note || null,
+                status: 'DRAFT',
+                lineItems: lines.map((line) => ({
+                    itemId: line.itemId,
+                    warehouseId: Number(formData.warehouseId),
+                })),
             };
 
             await createStocktakeDraft(payload);
-            showToast('Tạo phiếu kiểm kê thành công!', 'success');
+            showToast('Đã lưu nháp phiếu kiểm kê!', 'success');
             setTimeout(() => navigate('/inventory/stocktakes'), 1500);
         } catch (error) {
             const msg =
@@ -288,12 +288,14 @@ const CreateStocktake = () => {
         try {
             setSubmitting(true);
 
+            const status = formData.mode === 'PERIODIC' ? 'APPROVED' : 'PENDING_APPROVAL';
+
             const payload = {
                 warehouseId: Number(formData.warehouseId),
                 plannedAt: formData.plannedAt,
                 mode: formData.mode,
                 note: formData.note || null,
-                status: 'PENDING_APPROVAL',
+                status,
                 lineItems: lines.map((line) => ({
                     itemId: line.itemId,
                     warehouseId: Number(formData.warehouseId),
@@ -301,7 +303,7 @@ const CreateStocktake = () => {
             };
 
             const created = await createStocktakeDraft(payload);
-            showToast('Tạo và gửi duyệt phiếu kiểm kê thành công!', 'success');
+            showToast('Đã gửi duyệt phiếu kiểm kê!', 'success');
             setTimeout(() => navigate('/inventory/stocktakes'), 1500);
         } catch (error) {
             const msg =

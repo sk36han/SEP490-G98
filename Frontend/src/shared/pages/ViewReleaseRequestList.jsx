@@ -28,12 +28,34 @@ import {
     Paper,
     Tooltip,
 } from '@mui/material';
-import { Plus, Filter, Columns, GripVertical, PackageOpen } from 'lucide-react';
+import { Plus, Filter, Columns, GripVertical, PackageOpen, Send } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
 const LS_COL_ORDER = 'rrColumnOrder';
 const LS_SORT = 'rrSortConfig';
 
@@ -324,6 +346,12 @@ export default function ViewReleaseRequestList() {
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Release Request
                 </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={Send} label="Tổng yêu cầu xuất" value={(totalCount || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Send} label="Chờ duyệt" value={rows.filter(r => r.status === 'PENDING_APPROVAL').length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
+                    <SummaryCard icon={Send} label="Đã duyệt" value={rows.filter(r => r.status === 'APPROVED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                </Box>
             </Box>
 
             {/* Filter Popup */}

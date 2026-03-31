@@ -341,6 +341,7 @@ const CreateItem = () => {
     try {
       const specId = form.specId !== "" && form.specId != null ? Number(form.specId) : null;
       
+      // Không truyền itemCode → backend sẽ tự sinh
       const payload = {
         itemName: name,
         itemType: form.itemType || null,

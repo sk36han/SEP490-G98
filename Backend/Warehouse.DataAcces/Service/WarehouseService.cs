@@ -66,24 +66,35 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = warehouse.CreatedAt
             };
 
-            // Lấy danh sách vật tư trong kho
-            response.Items = await _context.InventoryOnHands
-                .AsNoTracking()
-                .Where(i => i.WarehouseId == warehouseId)
-                .Select(i => new WarehouseItemDto
+            // LEFT JOIN Items ← InventoryOnHand:
+            // Lấy TẤT CẢ active items, kể cả chưa từng nhập vào kho này
+            // HasInventoryRecord = false → chưa có row trong InventoryOnHand → cảnh báo trên UI
+            // ⚠️ KHÔNG lọc OnHandQty > 0: item hết hàng (= 0) vẫn giữ, vì đã từng được nhập
+            response.Items = await (
+                from item in _context.Items
+                where item.IsActive
+                join inv in _context.InventoryOnHands
+                                .Where(i => i.WarehouseId == warehouseId)
+                    on item.ItemId equals inv.ItemId into invGroup
+                from inv in invGroup.DefaultIfEmpty()
+                orderby item.ItemCode
+                select new WarehouseItemDto
                 {
-                    ItemId = i.ItemId,
-                    ItemCode = i.Item.ItemCode,
-                    ItemName = i.Item.ItemName,
-                    CategoryName = i.Item.Category != null ? i.Item.Category.CategoryName : null,
-                    BrandName = i.Item.Brand != null ? i.Item.Brand.BrandName : null,
-                    UnitName = i.Item.BaseUom != null ? i.Item.BaseUom.UomName : null,
-                    OnHandQty = i.OnHandQty,
-                    ReservedQty = i.ReservedQty
-                })
-                .ToListAsync();
+                    ItemId             = item.ItemId,
+                    ItemCode           = item.ItemCode,
+                    ItemName           = item.ItemName,
+                    CategoryName       = item.Category != null ? item.Category.CategoryName : null,
+                    BrandName          = item.Brand    != null ? item.Brand.BrandName       : null,
+                    UnitName           = item.BaseUom  != null ? item.BaseUom.UomName       : null,
+                    OnHandQty          = inv != null ? inv.OnHandQty    : (decimal?)null,
+                    ReservedQty        = inv != null ? inv.ReservedQty  : (decimal?)null,
+                    HasInventoryRecord = inv != null
+                }
+            ).ToListAsync();
 
-            response.ItemCount = response.Items.Count;
+            // ItemCount chỉ đếm items ĐÃ CÓ bản ghi tồn kho (không đếm items chưa nhập)
+            response.ItemCount = response.Items.Count(x => x.HasInventoryRecord);
+
 
             // Lấy giấy tờ nhập kho (GRN)
             var importPapers = await _context.GoodsReceiptNotes

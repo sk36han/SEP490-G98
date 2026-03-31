@@ -9,6 +9,7 @@ using Warehouse.DataAcces.Service;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelRequest;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
+using Warehouse.DataAcces.Service.Interface;
 
 namespace WarehouseTests.Receiver;
 
@@ -16,8 +17,8 @@ public class CreateReceiverServiceTests
 {
     private readonly Mock<IGenericRepository<ReceiverEntity>> _repoMock = new();
     private readonly Mock<Mkiwms5Context> _contextMock = new();
-
-    private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object);
+    private readonly Mock<IAuditLogService> _mockAuditLogService = new();
+	private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object, _mockAuditLogService.Object);
 
     private CreateReceiverRequest MakeRequest(
         string code = "RCV001",

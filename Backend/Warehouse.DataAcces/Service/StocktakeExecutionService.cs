@@ -47,7 +47,15 @@ namespace Warehouse.DataAcces.Service
                 if (inventory.Count == 0)
                     throw new InvalidOperationException("Kho này hiện không có sản phẩm nào có tồn kho để kiểm kê.");
 
-                // 3. Sinh StocktakeLines (Snapshot)
+                // 3. Xóa Lines cũ nếu đã tồn tại (tránh vi phạm UNIQUE constraint UQ_STL)
+                // Có thể xảy ra nếu StartExecution được gọi lại sau lần trước thất bại
+                var existingLines = await _context.StocktakeLines
+                    .Where(l => l.StocktakeId == stocktakeId)
+                    .ToListAsync();
+                if (existingLines.Any())
+                    _context.StocktakeLines.RemoveRange(existingLines);
+
+                // 4. Sinh StocktakeLines mới (Snapshot thời điểm hiện tại)
                 var lines = inventory.Select(inv => new StocktakeLine
                 {
                     StocktakeId = session.StocktakeId,
