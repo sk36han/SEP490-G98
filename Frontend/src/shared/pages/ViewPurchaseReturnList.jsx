@@ -28,11 +28,13 @@ import {
     MenuItem,
 } from '@mui/material';
 import { FileText, Filter, Columns, Plus, GripVertical, RotateCcw } from 'lucide-react';
+import GRNListPopup from '../components/GRNListPopup';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
 import PurchaseReturnFilterPopup from '../components/PurchaseReturnFilterPopup';
+import { getPurchaseReturnNotes } from '../lib/purchaseReturnNoteService';
 import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -60,32 +62,30 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
 );
 
 const STATUS_STYLE = {
-    Pending: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chờ xử lý', dot: '•' },
-    Approved: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã duyệt', dot: '•' },
-    Rejected: { bgColor: 'rgba(239, 68, 68, 0.2)', label: 'Từ chối', dot: '•' },
-    Posted: { bgColor: 'rgba(139, 92, 246, 0.2)', label: 'Đã hạch toán', dot: '•' },
-    Completed: { bgColor: 'rgba(59, 130, 246, 0.2)', label: 'Hoàn tất', dot: '•' },
+    DRAFT: { bgColor: 'rgba(107, 114, 128, 0.2)', label: 'Nháp', dot: '•' },
+    SUBMITTED: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Đã gửi duyệt', dot: '•' },
+    APPROVED: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã duyệt', dot: '•' },
+    POSTED: { bgColor: 'rgba(139, 92, 246, 0.2)', label: 'Đã hoàn thành', dot: '•' },
+    CANCELLED: { bgColor: 'rgba(239, 68, 68, 0.2)', label: 'Đã hủy', dot: '•' },
 };
 
 const REFUND_STATUS_STYLE = {
-    Pending: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chờ hoàn tiền', dot: '•' },
-    Partial: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Hoàn một phần', dot: '•' },
-    Completed: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã hoàn tiền', dot: '•' },
-    Failed: { bgColor: 'rgba(239, 68, 68, 0.2)', label: 'Hoàn tiền thất bại', dot: '•' },
-    NotRequired: { bgColor: 'rgba(107, 114, 128, 0.2)', label: 'Không cần hoàn tiền', dot: '•' },
+    Refunded: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã hoàn tiền', dot: '•' },
+    PartiallyRefunded: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Hoàn một phần', dot: '•' },
+    NotRefunded: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chưa hoàn tiền', dot: '•' },
 };
 
 const PURCHASE_RETURN_COLUMNS = [
     { id: 'stt', label: 'STT', sortable: false, draggable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
     { id: 'returnCode', label: 'Mã phiếu trả hàng', sortable: true, draggable: true, getValue: (row) => row.returnCode ?? '' },
-    { id: 'relatedGRNId', label: 'Phiếu nhập tham chiếu', sortable: true, draggable: true, getValue: (row) => row.relatedGRNId ?? '' },
+    { id: 'relatedGrnCode', label: 'Phiếu nhập tham chiếu', sortable: true, draggable: true, getValue: (row) => row.relatedGrnCode ?? '' },
     { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, draggable: true, getValue: (row) => row.supplierName ?? '' },
     { id: 'returnDate', label: 'Ngày trả hàng', sortable: true, draggable: true, getValue: (row) => row.returnDate ?? '' },
     { id: 'status', label: 'Trạng thái', sortable: true, draggable: true, getValue: (row) => STATUS_STYLE[row.status]?.label ?? row.status ?? '' },
     { id: 'refundStatus', label: 'Trạng thái hoàn tiền', sortable: true, draggable: true, getValue: (row) => REFUND_STATUS_STYLE[row.refundStatus]?.label ?? row.refundStatus ?? '' },
-    { id: 'refundQuantity', label: 'Số lượng hoàn', sortable: true, draggable: true, getValue: (row) => row.refundQuantity ?? 0 },
-    { id: 'refundedAmount', label: 'Số tiền hoàn', sortable: true, draggable: true, getValue: (row) => row.refundedAmount ?? 0 },
-    { id: 'createdBy', label: 'Người tạo', sortable: true, draggable: true, getValue: (row) => row.createdBy ?? '' },
+    { id: 'totalReturnedQty', label: 'Số lượng hoàn', sortable: true, draggable: true, getValue: (row) => row.totalReturnedQty ?? 0 },
+    { id: 'totalReturnedAmount', label: 'Số tiền hoàn', sortable: true, draggable: true, getValue: (row) => row.totalReturnedAmount ?? 0 },
+    { id: 'createdByName', label: 'Người tạo', sortable: true, draggable: true, getValue: (row) => row.createdByName ?? '' },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true, getValue: (row) => row.createdAt ?? '' },
 ];
 
@@ -93,181 +93,10 @@ const PURCHASE_RETURN_COLUMNS = [
 const DEFAULT_COLUMN_ORDER = PURCHASE_RETURN_COLUMNS.map((c) => c.id);
 const DEFAULT_VISIBLE_COLUMN_IDS = DEFAULT_COLUMN_ORDER.slice();
 const SORTABLE_COLUMN_IDS = PURCHASE_RETURN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
-const COLUMN_IDS_WITH_RIGHT_ALIGN = new Set(['refundQuantity', 'refundedAmount']);
+const COLUMN_IDS_WITH_RIGHT_ALIGN = new Set(['totalReturnedQty', 'totalReturnedAmount']);
 
 // Roles allowed to create a new purchase return
 const ROLES_CAN_CREATE = new Set(['ACCOUNTANTS']);
-
-const MOCK_PURCHASE_RETURN_LIST = [
-    {
-        purchaseReturnId: 1,
-        returnCode: 'PR-2025-001',
-        relatedGRNId: 'GRN-2025-001',
-        supplierName: 'Công ty TNHH Vật tư ABC',
-        returnDate: '2025-02-15T10:00:00',
-        status: 'Pending',
-        reason: 'Hàng bị lỗi, không đúng quy cách',
-        note: 'Khách hàng phát hiện 5 sản phẩm bị trầy xước trong quá trình vận chuyển',
-        feeAmount: 500000,
-        refundStatus: 'Pending',
-        refundQuantity: 0,
-        refundedAmount: 0,
-        refundedAt: null,
-        refundReference: '',
-        createdBy: 'Nguyễn Văn A',
-        createdAt: '2025-02-14T08:30:00',
-        approvedBy: '',
-        approvedAt: null,
-        postedAt: null,
-    },
-    {
-        purchaseReturnId: 2,
-        returnCode: 'PR-2025-002',
-        relatedGRNId: 'GRN-2025-003',
-        supplierName: 'Công ty CP Thương mại XYZ',
-        returnDate: '2025-02-13T14:00:00',
-        status: 'Approved',
-        reason: 'Sản phẩm hết hạn sử dụng',
-        note: '',
-        feeAmount: 0,
-        refundStatus: 'Completed',
-        refundQuantity: 20,
-        refundedAmount: 25000000,
-        refundedAt: '2025-02-14T16:00:00',
-        refundReference: 'TT-2025-001234',
-        createdBy: 'Lê Văn C',
-        createdAt: '2025-02-13T09:00:00',
-        approvedBy: 'Trần Thị B',
-        approvedAt: '2025-02-13T11:30:00',
-        postedAt: '2025-02-13T15:00:00',
-    },
-    {
-        purchaseReturnId: 3,
-        returnCode: 'PR-2025-003',
-        relatedGRNId: 'GRN-2025-005',
-        supplierName: 'Công ty TNHH Kỹ thuật Minh Phát',
-        returnDate: '2025-02-12T09:00:00',
-        status: 'Approved',
-        reason: 'Đặt nhầm sản phẩm',
-        note: 'Nhân viên đặt nhầm model, cần đổi sang model khác',
-        feeAmount: 200000,
-        refundStatus: 'Partial',
-        refundQuantity: 12,
-        refundedAmount: 15000000,
-        refundedAt: '2025-02-14T10:00:00',
-        refundReference: 'TM-2025-00567',
-        createdBy: 'Phạm Thị D',
-        createdAt: '2025-02-12T08:00:00',
-        approvedBy: 'Nguyễn Văn A',
-        approvedAt: '2025-02-12T10:00:00',
-        postedAt: '2025-02-12T11:00:00',
-    },
-    {
-        purchaseReturnId: 4,
-        returnCode: 'PR-2025-004',
-        relatedGRNId: 'GRN-2025-007',
-        supplierName: 'Công ty TNHH Thiết bị Hòa Bình',
-        returnDate: '2025-02-11T16:00:00',
-        status: 'Rejected',
-        reason: 'Hàng đã qua sử dụng',
-        note: 'Sản phẩm đã được sử dụng, không thể trả lại theo chính sách',
-        feeAmount: 0,
-        refundStatus: 'NotRequired',
-        refundQuantity: 0,
-        refundedAmount: 0,
-        refundedAt: null,
-        refundReference: '',
-        createdBy: 'Trần Thị B',
-        createdAt: '2025-02-11T14:00:00',
-        approvedBy: 'Lê Văn C',
-        approvedAt: '2025-02-11T17:00:00',
-        postedAt: null,
-    },
-    {
-        purchaseReturnId: 5,
-        returnCode: 'PR-2025-005',
-        relatedGRNId: 'GRN-2025-008',
-        supplierName: 'Công ty TNHH Vận tải Bắc Nam',
-        returnDate: '2025-02-10T11:00:00',
-        status: 'Posted',
-        reason: 'Hàng giao thiếu so với đơn hàng',
-        note: 'Nhà cung cấp giao thiếu 3 sản phẩm, đã xác nhận và hoàn tiền',
-        feeAmount: 150000,
-        refundStatus: 'Completed',
-        refundQuantity: 35,
-        refundedAmount: 45000000,
-        refundedAt: '2025-02-12T09:00:00',
-        refundReference: 'TT-2025-00890',
-        createdBy: 'Nguyễn Văn A',
-        createdAt: '2025-02-10T10:00:00',
-        approvedBy: 'Phạm Thị D',
-        approvedAt: '2025-02-10T13:00:00',
-        postedAt: '2025-02-10T14:00:00',
-    },
-    {
-        purchaseReturnId: 6,
-        returnCode: 'PR-2025-006',
-        relatedGRNId: 'GRN-2025-010',
-        supplierName: 'Công ty TNHH Công nghệ Trường Sơn',
-        returnDate: '2025-02-09T08:00:00',
-        status: 'Completed',
-        reason: 'Sản phẩm không đúng quy cách kỹ thuật',
-        note: 'Sản phẩm có thông số kỹ thuật không đúng như hợp đồng',
-        feeAmount: 0,
-        refundStatus: 'Completed',
-        refundQuantity: 18,
-        refundedAmount: 12000000,
-        refundedAt: '2025-02-11T15:00:00',
-        refundReference: 'TT-2025-01122',
-        createdBy: 'Lê Văn C',
-        createdAt: '2025-02-09T07:30:00',
-        approvedBy: 'Trần Thị B',
-        approvedAt: '2025-02-09T09:30:00',
-        postedAt: '2025-02-09T10:00:00',
-    },
-    {
-        purchaseReturnId: 7,
-        returnCode: 'PR-2025-007',
-        relatedGRNId: 'GRN-2025-012',
-        supplierName: 'Công ty CP Sản xuất Ánh Dương',
-        returnDate: '2025-02-08T13:00:00',
-        status: 'Pending',
-        reason: 'Hàng bị hư hỏng trong kho',
-        note: 'Kiểm kho phát hiện một số sản phẩm bị ẩm, cần trả lại nhà cung cấp',
-        feeAmount: 300000,
-        refundStatus: 'Pending',
-        refundQuantity: 0,
-        refundedAmount: 0,
-        refundedAt: null,
-        refundReference: '',
-        createdBy: 'Phạm Thị D',
-        createdAt: '2025-02-08T12:00:00',
-        approvedBy: '',
-        approvedAt: null,
-        postedAt: null,
-    },
-    {
-        purchaseReturnId: 8,
-        returnCode: 'PR-2025-008',
-        relatedGRNId: 'GRN-2025-015',
-        supplierName: 'Công ty TNHH Dịch vụ An Khang',
-        returnDate: '2025-02-07T10:00:00',
-        status: 'Approved',
-        reason: 'Thay đổi quy cách sản phẩm',
-        note: 'Khách hàng yêu cầu đổi sang sản phẩm khác có giá trị cao hơn',
-        feeAmount: 100000,
-        refundStatus: 'Failed',
-        refundQuantity: 0,
-        refundedAmount: 0,
-        refundedAt: '2025-02-09T11:00:00',
-        refundReference: 'TT-2025-00987',
-        createdBy: 'Trần Thị B',
-        createdAt: '2025-02-07T09:00:00',
-        approvedBy: 'Nguyễn Văn A',
-        approvedAt: '2025-02-07T14:00:00',
-        postedAt: null,
-    },
-];
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -295,7 +124,7 @@ export default function ViewPurchaseReturnList() {
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const canCreate = ROLES_CAN_CREATE.has(permissionRole);
 
-    const [list, setList] = useState(MOCK_PURCHASE_RETURN_LIST);
+    const [list, setList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -328,8 +157,36 @@ export default function ViewPurchaseReturnList() {
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
+    const [showGRNListPopup, setShowGRNListPopup] = useState(false);
+
+    // Xử lý chọn GRN từ popup
+    const handleSelectGRNFromPopup = (grn) => {
+        setShowGRNListPopup(false);
+        navigate(`/purchase-returns/create?grnId=${grn.grnId || grn.GrnId}&grnCode=${grn.grnCode || grn.GrnCode || ''}`);
+    };
 
     // Ref to signal Reset was called so cleanup skips syncing tempColumnOrder
+
+    // Fetch data from API
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+
+        getPurchaseReturnNotes({ page: 1, pageSize: 1000 })
+            .then((result) => {
+                if (cancelled) return;
+                setList(result.items);
+                setLoading(false);
+            })
+            .catch((err) => {
+                if (cancelled) return;
+                setError(err?.response?.data?.message || err?.message || 'Không thể tải danh sách phiếu trả hàng.');
+                setLoading(false);
+            });
+
+        return () => { cancelled = true; };
+    }, []);
     const resetRef = useRef(false);
 
     // Sync tempColumnOrder when popup opens; cancel pending changes when popup closes.
@@ -499,8 +356,8 @@ export default function ViewPurchaseReturnList() {
         if (term) {
             result = result.filter((row) =>
                 normalize(row.returnCode ?? '').includes(term) ||
-                normalize(row.relatedGRNId ?? '').includes(term) ||
-                normalize(row.createdBy ?? '').includes(term) ||
+                normalize(row.relatedGrnCode ?? '').includes(term) ||
+                normalize(row.createdByName ?? '').includes(term) ||
                 normalize(row.supplierName ?? '').includes(term)
             );
         }
@@ -511,11 +368,11 @@ export default function ViewPurchaseReturnList() {
         if (filterValues.refundStatus) {
             result = result.filter((row) => row.refundStatus === filterValues.refundStatus);
         }
-        if (filterValues.relatedGRNId) {
-            result = result.filter((row) => normalize(row.relatedGRNId ?? '').includes(normalize(filterValues.relatedGRNId)));
+        if (filterValues.relatedGrnCode) {
+            result = result.filter((row) => normalize(row.relatedGrnCode ?? '').includes(normalize(filterValues.relatedGrnCode)));
         }
-        if (filterValues.createdBy) {
-            result = result.filter((row) => normalize(row.createdBy ?? '').includes(normalize(filterValues.createdBy)));
+        if (filterValues.createdByName) {
+            result = result.filter((row) => normalize(row.createdByName ?? '').includes(normalize(filterValues.createdByName)));
         }
         if (filterValues.supplierName) {
             result = result.filter((row) => normalize(row.supplierName ?? '').includes(normalize(filterValues.supplierName)));
@@ -550,7 +407,7 @@ export default function ViewPurchaseReturnList() {
             const aVal = a[orderBy];
             const bVal = b[orderBy];
             const isDate = ['returnDate', 'createdAt'].includes(orderBy);
-            const isNumber = ['refundQuantity', 'refundedAmount'].includes(orderBy);
+            const isNumber = ['totalReturnedQty', 'totalReturnedAmount'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
                 const tA = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
@@ -581,8 +438,8 @@ export default function ViewPurchaseReturnList() {
         setPage(0);
     };
 
-    const relatedGRNOptions = useMemo(() => [...new Set(list.map((x) => x.relatedGRNId).filter(Boolean))], [list]);
-    const createdByOptions = useMemo(() => [...new Set(list.map((x) => x.createdBy).filter(Boolean))], [list]);
+    const relatedGRNOptions = useMemo(() => [...new Set(list.map((x) => x.relatedGrnCode).filter(Boolean))], [list]);
+    const createdByOptions = useMemo(() => [...new Set(list.map((x) => x.createdByName).filter(Boolean))], [list]);
     const supplierOptions = useMemo(() => [...new Set(list.map((x) => x.supplierName).filter(Boolean))], [list]);
 
     const handlePageChange = (newPage) => setPage(newPage);
@@ -711,7 +568,7 @@ export default function ViewPurchaseReturnList() {
                                         className="list-page-btn"
                                         variant="contained"
                                         startIcon={<Plus size={18} />}
-                                        onClick={() => navigate('/purchase-returns/create')}
+                                        onClick={() => setShowGRNListPopup(true)}
                                         sx={{
                                             fontSize: '13px',
                                             fontWeight: 500,
@@ -908,7 +765,7 @@ export default function ViewPurchaseReturnList() {
                                                         px: 2,
                                                         ...(col.id === 'stt' && { width: 70, minWidth: 70, maxWidth: 70 }),
                                                         ...(col.id === 'returnCode' && { minWidth: 150 }),
-                                                        ...(col.id === 'relatedGRNId' && { minWidth: 150 }),
+                                                        ...(col.id === 'relatedGrnCode' && { minWidth: 150 }),
                                                         ...(col.id === 'supplierName' && { minWidth: 170 }),
                                                         ...(col.id === 'returnDate' && { minWidth: 145 }),
                                                         ...(col.id === 'status' && { minWidth: 120 }),
@@ -1008,14 +865,14 @@ export default function ViewPurchaseReturnList() {
                                                         );
                                                     }
 
-                                                    if (col.id === 'relatedGRNId') {
+                                                    if (col.id === 'relatedGrnCode') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/goods-receipts/${encodeURIComponent(row.relatedGRNId)}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-receipts/${encodeURIComponent(row.relatedGRNId)}`); }}
+                                                                        href={`/goods-receipts/${row.relatedGrnId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-receipts/${row.relatedGrnId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -1070,7 +927,7 @@ export default function ViewPurchaseReturnList() {
                                                         );
                                                     }
 
-                                                    if (col.id === 'refundQuantity') {
+                                                    if (col.id === 'totalReturnedQty') {
                                                         return (
                                                             <TableCell key={col.id} align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', pr: 3 }}>
                                                                 {Number(col.getValue(row) || 0).toLocaleString('vi-VN')}
@@ -1078,7 +935,7 @@ export default function ViewPurchaseReturnList() {
                                                         );
                                                     }
 
-                                                    if (col.id === 'refundedAmount') {
+                                                    if (col.id === 'totalReturnedAmount') {
                                                         return (
                                                             <TableCell key={col.id} align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', pr: 3 }}>
                                                                 {formatCurrency(col.getValue(row))}
@@ -1131,7 +988,7 @@ export default function ViewPurchaseReturnList() {
                             </Select>
                         </FormControl>
                         <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                            {start}–{end} / {totalCount} (Tổng {totalPages} trang)
+                            {start}–{end} / {totalCount} (Tổng {pageSize > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 0} trang)
                         </Typography>
                         <Button
                             size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)}
@@ -1148,6 +1005,12 @@ export default function ViewPurchaseReturnList() {
                     </Box>
                 </Paper>
             </Box>
+
+            <GRNListPopup
+                open={showGRNListPopup}
+                onClose={() => setShowGRNListPopup(false)}
+                onSelect={handleSelectGRNFromPopup}
+            />
         </Box>
     );
 }

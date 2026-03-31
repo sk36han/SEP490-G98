@@ -148,6 +148,8 @@ const warehouseKeeperItems = [
         label: 'Phiếu xuất hàng',
         children: [
             { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/create', label: 'Tạo phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/detail/1001', label: 'Chi tiết phiếu xuất hàng' },
         ],
     },
 ];
@@ -214,6 +216,8 @@ const saleSupportItems = [
         label: 'Phiếu xuất hàng',
         children: [
             { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/create', label: 'Tạo phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/detail/1001', label: 'Chi tiết phiếu xuất hàng' },
         ],
     },
 ];
@@ -249,6 +253,8 @@ const saleEngineerItems = [
         label: 'Phiếu xuất hàng',
         children: [
             { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/create', label: 'Tạo phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/detail/1001', label: 'Chi tiết phiếu xuất hàng' },
         ],
     },
 ];
@@ -322,7 +328,6 @@ const accountantItems = [
         label: 'Trả hàng',
         children: [
             { path: '/purchase-returns', label: 'Danh sách phiếu trả hàng' },
-            { path: '/purchase-returns/create', label: 'Tạo phiếu trả hàng' },
         ],
     },
     {
@@ -341,6 +346,8 @@ const accountantItems = [
         label: 'Phiếu xuất hàng',
         children: [
             { path: '/goods-delivery-notes', label: 'Danh sách phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/create', label: 'Tạo phiếu xuất hàng' },
+            { path: '/goods-delivery-notes/detail/1001', label: 'Chi tiết phiếu xuất hàng' },
         ],
     },
     { path: '/item-prices', icon: <DollarSign size={22} />, label: 'Giá vật tư' },

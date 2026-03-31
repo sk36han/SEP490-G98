@@ -12,54 +12,15 @@ import {
     Search,
     FileText,
     MapPin,
+    User,
+    Send,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import { getGRNDetail } from '../lib/goodReceiptNoteService';
+import { createPurchaseReturn } from '../lib/purchaseReturnNoteService';
 import '../styles/CreateSupplier.css';
 
-const MOCK_GRNS = [
-    {
-        id: 1,
-        grnCode: 'GRN-2026-001',
-        supplierId: 101,
-        supplierName: 'Công ty TNHH Vật tư ABC',
-        warehouseId: 11,
-        warehouseName: 'Kho Hà Nội',
-        createdDate: '2026-02-15',
-        supplierPhone: '024.12345678',
-        supplierEmail: 'abc@vattu.com',
-        supplierTaxCode: '0101234567',
-        supplierAddressProvince: 'Hà Nội',
-        supplierAddressDistrict: 'Quận Cầu Giấy',
-        supplierAddressWard: 'Phường Mai Dịch',
-        supplierAddressStreet: 'Số 123 Đường Nguyễn Phong Sắc',
-        lines: [
-            { grnLineId: 1, productId: 1, sku: 'PEN-001', productName: 'Bút bi Thiên Long TL-057', uom: 'Cây', receivedQty: 50, unitPrice: 3500 },
-            { grnLineId: 2, productId: 2, sku: 'NOTE-001', productName: 'Vở note 5 chấm A5', uom: 'Quyển', receivedQty: 20, unitPrice: 22000 },
-            { grnLineId: 3, productId: 3, sku: 'PAPER-001', productName: 'Giấy A4 Double A 80gsm', uom: 'Ram', receivedQty: 10, unitPrice: 62000 },
-        ],
-    },
-    {
-        id: 2,
-        grnCode: 'GRN-2026-002',
-        supplierId: 102,
-        supplierName: 'Công ty CP Thương mại XYZ',
-        warehouseId: 12,
-        warehouseName: 'Kho TP.HCM',
-        createdDate: '2026-02-20',
-        supplierPhone: '028.98765432',
-        supplierEmail: 'xyz@thuongmai.com',
-        supplierTaxCode: '0109876543',
-        supplierAddressProvince: 'TP.HCM',
-        supplierAddressDistrict: 'Quận 1',
-        supplierAddressWard: 'Phường Bến Nghé',
-        supplierAddressStreet: 'Số 456 Đường Lê Duẩn',
-        lines: [
-            { grnLineId: 4, productId: 4, sku: 'CLIP-001', productName: 'Kẹp giấy 33mm (hộp 50 cái)', uom: 'Hộp', receivedQty: 30, unitPrice: 18000 },
-            { grnLineId: 5, productId: 5, sku: 'GLUE-001', productName: 'Keo dán thiên long 15g', uom: 'Tuýp', receivedQty: 15, unitPrice: 7000 },
-        ],
-    },
-];
 
 const MAX_REASON_LENGTH = 250;
 const MAX_NOTE_LENGTH = 250;
@@ -81,6 +42,7 @@ const CreatePurchaseReturn = () => {
     const [searchParams] = useSearchParams();
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
+    const [submittingType, setSubmittingType] = useState(null); // 'draft' | 'submit' | null
 
     // --- State definitions (all before useEffect) ---
     const [formData, setFormData] = useState({
@@ -121,64 +83,68 @@ const CreatePurchaseReturn = () => {
     // Load GRN from URL params
     useEffect(() => {
         const grnId = searchParams.get('grnId');
-        const grnCode = searchParams.get('grnCode');
-        if (!grnId || !grnCode) return;
+        if (!grnId) return;
 
-        const foundGrn = MOCK_GRNS.find((g) => g.id === Number(grnId) && g.grnCode === grnCode);
-        if (!foundGrn) return;
+        const fetchGRN = async () => {
+            try {
+                const data = await getGRNDetail(grnId);
+                if (!data) return;
 
-        setFormData((prev) => ({
-            ...prev,
-            relatedGRNId: foundGrn.id,
-            relatedGRNCode: foundGrn.grnCode,
-            supplierId: foundGrn.supplierId,
-            supplierName: foundGrn.supplierName,
-            supplierPhone: foundGrn.supplierPhone ?? '',
-            supplierEmail: foundGrn.supplierEmail ?? '',
-            supplierTaxCode: foundGrn.supplierTaxCode ?? '',
-            supplierAddressProvince: foundGrn.supplierAddressProvince ?? '',
-            supplierAddressDistrict: foundGrn.supplierAddressDistrict ?? '',
-            supplierAddressWard: foundGrn.supplierAddressWard ?? '',
-            supplierAddressStreet: foundGrn.supplierAddressStreet ?? '',
-            warehouseId: foundGrn.warehouseId,
-            warehouseName: foundGrn.warehouseName,
-            grnReceiptDate: foundGrn.createdDate || '',
-        }));
+                const grnLines = data.Lines ?? data.lines ?? [];
+                const grnCode = data.GrnCode ?? data.grnCode ?? searchParams.get('grnCode') ?? '';
+                const grnReceiptDateRaw = data.ReceiptDate ?? data.receiptDate ?? data.CreatedAt ?? data.createdAt;
+                const grnReceiptDate = grnReceiptDateRaw
+                    ? new Date(grnReceiptDateRaw).toLocaleDateString('en-CA')
+                    : '';
 
-        const autoLines = foundGrn.lines.map((item) => ({
-            id: generateLineId(),
-            grnLineId: item.grnLineId,
-            productId: item.productId,
-            sku: item.sku,
-            productName: item.productName,
-            uom: item.uom,
-            receivedQty: toNumber(item.receivedQty),
-            returnQty: 1,
-            unitPrice: toNumber(item.unitPrice),
-            totalPrice: toNumber(item.unitPrice),
-        }));
-        setLines(autoLines);
-        setSelectedProductIds(foundGrn.lines.map((item) => item.productId));
-        setGrnQuery(foundGrn.grnCode);
-        showToast('Đã tải thông tin từ phiếu nhập kho', 'success');
-    }, []);
+                setFormData((prev) => ({
+                    ...prev,
+                    relatedGRNId: Number(grnId),
+                    relatedGRNCode: grnCode,
+                    supplierId: data.SupplierId ?? data.supplierId ?? '',
+                    supplierName: data.SupplierName ?? data.supplierName ?? '-',
+                    supplierPhone: data.SupplierPhone ?? data.supplierPhone ?? '-',
+                    supplierEmail: data.SupplierEmail ?? data.supplierEmail ?? '-',
+                    supplierTaxCode: data.SupplierTaxCode ?? data.supplierTaxCode ?? '-',
+                    supplierAddressProvince: data.SupplierAddressProvince ?? data.supplierAddressProvince ?? '-',
+                    supplierAddressDistrict: data.SupplierAddressDistrict ?? data.supplierAddressDistrict ?? '-',
+                    supplierAddressWard: data.SupplierAddressWard ?? data.supplierAddressWard ?? '-',
+                    supplierAddressStreet: data.SupplierAddressStreet ?? data.supplierAddressStreet ?? '-',
+                    warehouseId: data.WarehouseId ?? data.warehouseId ?? '',
+                    warehouseName: data.WarehouseName ?? data.warehouseName ?? '-',
+                    createdByName: data.CreatedByName ?? data.createdByName ?? 'Nguyễn Văn A',
+                    grnReceiptDate: grnReceiptDate,
+                }));
+
+                const autoLines = grnLines.map((item, idx) => ({
+                    id: generateLineId(),
+                    grnLineId: item.GrnlineId ?? item.grnlineId ?? idx,
+                    productId: item.ItemId ?? item.itemId ?? idx,
+                    sku: item.ItemCode ?? item.itemCode ?? '-',
+                    productName: item.ItemName ?? item.itemName ?? '-',
+                    uom: item.UomName ?? item.uomName ?? '-',
+                    receivedQty: toNumber(item.ActualQty ?? item.actualQty ?? item.ExpectedQty ?? item.expectedQty ?? 0),
+                    returnQty: 1,
+                    unitPrice: toNumber(item.UnitPrice ?? item.unitPrice ?? 0),
+                    totalPrice: toNumber(item.UnitPrice ?? item.unitPrice ?? 0),
+                }));
+
+                setLines(autoLines);
+                setSelectedProductIds(autoLines.map((item) => item.productId));
+                setGrnQuery(grnCode);
+            } catch (error) {
+                console.error('Lỗi tải GRN:', error);
+                showToast(error?.response?.data?.message || 'Không thể tải dữ liệu GRN', 'error');
+            }
+        };
+
+        fetchGRN();
+    }, [searchParams, showToast]);
 
     // --- Derived ---
-    const selectedGrn = useMemo(
-        () => MOCK_GRNS.find((g) => g.id === formData.relatedGRNId) || null,
-        [formData.relatedGRNId]
-    );
+    const selectedGrn = { lines };
 
-    const filteredGrns = useMemo(() => {
-        const q = grnQuery.trim().toLowerCase();
-        if (!q) return MOCK_GRNS;
-        return MOCK_GRNS.filter(
-            (g) =>
-                (g.grnCode || '').toLowerCase().includes(q) ||
-                (g.supplierName || '').toLowerCase().includes(q) ||
-                (g.warehouseName || '').toLowerCase().includes(q)
-        );
-    }, [grnQuery]);
+    const filteredGrns = [];
 
     const availableProducts = useMemo(() => {
         return (selectedGrn?.lines || []).filter((item) => !selectedProductIds.includes(item.productId));
@@ -453,9 +419,9 @@ const CreatePurchaseReturn = () => {
         }
 
         if (feeAmount < 0) {
-            newErrors.feeAmount = 'Phí xử lý phải lớn hơn hoặc bằng 0';
+            newErrors.feeAmount = 'Phí giảm trừ phải lớn hơn hoặc bằng 0';
         } else if (feeAmount > subtotal) {
-            newErrors.feeAmount = 'Phí xử lý không được cao hơn Giá trị hoàn trả';
+            newErrors.feeAmount = 'Phí giảm trừ không được cao hơn Giá trị hoàn trả';
         }
 
         if (formData.refundReceiveStatus === 'received') {
@@ -472,6 +438,46 @@ const CreatePurchaseReturn = () => {
         return Object.keys(newErrors).length === 0;
     };
 
+    const buildCreatePayload = (status) => ({
+        RelatedGrnId: Number(formData.relatedGRNId),
+        ReturnDate: formData.returnDate,
+        Reason: formData.reason.trim() || null,
+        Note: formData.deductionReason?.trim() || null,
+        FeeAmount: feeAmount,
+        RefundMethod: formData.refundReceiveStatus === 'received' ? formData.refundMethod : null,
+        Status: status,
+        RefundStatus: formData.refundReceiveStatus === 'received' ? 'Refunded' : 'NotRefunded',
+        Lines: lines.map((line) => ({
+            RelatedGrnlineId: Number(line.grnLineId),
+            ReturnQty: toNumber(line.returnQty),
+            Reason: formData.reason.trim() || null,
+            Note: formData.deductionReason?.trim() || null,
+        })),
+    });
+
+    // --- Save Draft ---
+    const handleSaveDraft = async () => {
+        if (submitting) return;
+
+        if (!formData.relatedGRNId) {
+            showToast('Vui lòng chọn phiếu nhập tham chiếu trước khi lưu nháp.', 'warning');
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+            setSubmittingType('draft');
+            await createPurchaseReturn(buildCreatePayload('DRAFT'));
+            showToast('Lưu nháp thành công!', 'success');
+            setTimeout(() => navigate('/purchase-returns'), 1200);
+        } catch (error) {
+            showToast(error?.response?.data?.message || error?.message || 'Có lỗi xảy ra', 'error');
+        } finally {
+            setSubmitting(false);
+            setSubmittingType(null);
+        }
+    };
+
     // --- Submit ---
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -485,36 +491,15 @@ const CreatePurchaseReturn = () => {
 
         try {
             setSubmitting(true);
-
-            const payload = {
-                relatedGRNId: formData.relatedGRNId,
-                returnDate: formData.returnDate,
-                reason: formData.reason.trim(),
-                note: formData.reason.trim() || null,
-                feeAmount,
-                deductionReason: formData.deductionReason?.trim() || null,
-                refundReceiveStatus: formData.refundReceiveStatus,
-                refundMethod: formData.refundReceiveStatus === 'received' ? formData.refundMethod : null,
-                refundReceivedAmount: formData.refundReceiveStatus === 'received' ? estimatedRefundAmount : 0,
-                refundRecordedDate: formData.refundReceiveStatus === 'received' ? formData.refundRecordedDate : null,
-                estimatedRefundAmount,
-                lines: lines.map((line) => ({
-                    grnLineId: line.grnLineId,
-                    itemId: line.productId,
-                    returnQty: toNumber(line.returnQty),
-                    unitPrice: toNumber(line.unitPrice),
-                })),
-            };
-
-            console.log('Create Purchase Return payload:', payload);
-
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            setSubmittingType('submit');
+            await createPurchaseReturn(buildCreatePayload('SUBMITTED'));
             showToast('Tạo phiếu trả hàng thành công!', 'success');
             setTimeout(() => navigate('/purchase-returns'), 1200);
         } catch (error) {
-            showToast(error?.message || 'Có lỗi xảy ra', 'error');
+            showToast(error?.response?.data?.message || error?.message || 'Có lỗi xảy ra', 'error');
         } finally {
             setSubmitting(false);
+            setSubmittingType(null);
         }
     };
 
@@ -540,19 +525,39 @@ const CreatePurchaseReturn = () => {
 
                     <button
                         type="button"
-                        className="btn btn-primary"
+                        className="btn btn-sm"
                         disabled={submitting}
-                        onClick={handleSubmit}
+                        onClick={handleSaveDraft}
+                        style={{ fontSize: '14px', fontWeight: 600 }}
                     >
-                        {submitting ? (
+                        {submitting && submittingType === 'draft' ? (
                             <>
                                 <Loader size={15} className="spinner" />
-                                Đang xử lý...
+                                Đang lưu nháp...
                             </>
                         ) : (
                             <>
                                 <Save size={15} />
-                                Tạo phiếu trả
+                                Lưu nháp
+                            </>
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={submitting}
+                        onClick={handleSubmit}
+                    >
+                        {submitting && submittingType === 'submit' ? (
+                            <>
+                                <Loader size={15} className="spinner" />
+                                Đang tạo phiếu...
+                            </>
+                        ) : (
+                            <>
+                                <Send size={15} />
+                                Tạo phiếu trả hàng
                             </>
                         )}
                     </button>
@@ -889,7 +894,7 @@ const CreatePurchaseReturn = () => {
                         </div>
 
                         {/* RIGHT COLUMN: General info + Refund */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '760px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Thông tin chung</h2>
@@ -899,6 +904,7 @@ const CreatePurchaseReturn = () => {
                                     <div className="form-field">
                                         <label className="form-label">Người tạo</label>
                                         <div className="input-wrapper">
+                                            <User className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.createdByName}
@@ -912,6 +918,7 @@ const CreatePurchaseReturn = () => {
                                     <div className="form-field">
                                         <label className="form-label">Ngày tạo</label>
                                         <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.createdAt}
@@ -927,6 +934,7 @@ const CreatePurchaseReturn = () => {
                                             Phiếu nhập tham chiếu <span className="required-mark">*</span>
                                         </label>
                                         <div className="input-wrapper">
+                                            <FileText className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.relatedGRNCode}
@@ -942,6 +950,7 @@ const CreatePurchaseReturn = () => {
                                             Ngày trả hàng <span className="required-mark">*</span>
                                         </label>
                                         <div className="input-wrapper">
+                                            <Calendar className="input-icon" size={16} />
                                             <input
                                                 type="date"
                                                 name="returnDate"
@@ -957,6 +966,7 @@ const CreatePurchaseReturn = () => {
                                     <div className="form-field">
                                         <label className="form-label">Kho trả</label>
                                         <div className="input-wrapper">
+                                            <MapPin className="input-icon" size={16} />
                                             <input
                                                 type="text"
                                                 value={formData.warehouseName}
@@ -1139,7 +1149,7 @@ const CreatePurchaseReturn = () => {
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                         <div className="form-field">
-                                            <label className="form-label">Phí xử lý trả hàng</label>
+                                            <label className="form-label">Phí giảm trừ trả hàng</label>
                                             <div className="input-wrapper">
                                                 <input
                                                     type="text"
@@ -1149,14 +1159,11 @@ const CreatePurchaseReturn = () => {
                                                     onChange={handleChange}
                                                     className={`form-input ${errors.feeAmount ? 'error' : ''}`}
                                                     style={{ paddingLeft: '16px', paddingRight: '34px' }}
-                                                    placeholder="Nhập phí xử lý"
+                                                    placeholder="Nhập phí giảm trừ"
                                                 />
                                                 <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>₫</span>
                                             </div>
                                             {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
-                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
-                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
-                                            )}
                                             {!errors.feeAmount && isFeeAmountExceedSubtotal && (
                                                 <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
                                             )}
@@ -1187,7 +1194,7 @@ const CreatePurchaseReturn = () => {
                                             <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
-                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí xử lý</span>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí giảm trừ</span>
                                             <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
                                         </div>
                                     </div>

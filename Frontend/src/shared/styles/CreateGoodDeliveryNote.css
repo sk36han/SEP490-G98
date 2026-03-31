@@ -1,0 +1,75 @@
+.gdn-create-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 350px;
+    gap: 24px;
+    align-items: start;
+    height: 760px;
+}
+
+.gdn-create-bottom-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 350px;
+    gap: 24px;
+    align-items: stretch;
+    margin-top: 24px;
+}
+
+.gdn-product-search-panel {
+    margin-bottom: 16px;
+    position: relative;
+}
+
+.gdn-product-search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    max-height: 420px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.gdn-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.gdn-receiver-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.gdn-inline-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+@media (max-width: 1200px) {
+    .gdn-create-main-grid,
+    .gdn-create-bottom-grid {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+    }
+
+    .gdn-lines-section {
+        min-height: auto;
+        height: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .gdn-summary-cards,
+    .gdn-receiver-grid,
+    .gdn-inline-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
