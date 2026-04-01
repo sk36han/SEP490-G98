@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Warehouse.Entities.Models;
@@ -28,6 +28,10 @@ public partial class Receiver
     public string? Ward { get; set; }
 
     public string? District { get; set; }
+
+    public long? CompanyId { get; set; }       // FK → Companies (nullable)
+
+    public string? Position { get; set; }       // Chức vụ người nhận
 
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
@@ -743,9 +743,11 @@ public partial class Mkiwms5Context : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.Notes).HasMaxLength(1000);
             entity.Property(e => e.Phone).HasMaxLength(30);
+            entity.Property(e => e.Position).HasMaxLength(200);   // DB: nvarchar(200)
             entity.Property(e => e.ReceiverCode).HasMaxLength(50);
             entity.Property(e => e.ReceiverName).HasMaxLength(300);
             entity.Property(e => e.Ward).HasMaxLength(100);
+            // CompanyId: FK nullable → Companies (không bắt buộc có FK constraint trong EF)
         });
 
         modelBuilder.Entity<ReleaseRequest>(entity =>

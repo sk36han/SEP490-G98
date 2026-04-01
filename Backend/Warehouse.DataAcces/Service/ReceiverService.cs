@@ -42,7 +42,10 @@ namespace Warehouse.DataAcces.Service
                 Address = request.Address,
                 City = request.City,
                 Ward = request.Ward,
+                District = request.District,
                 Notes = request.Notes,
+                Position = request.Position,
+                CompanyId = request.CompanyId,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -51,19 +54,7 @@ namespace Warehouse.DataAcces.Service
             await _receiverRepository.CreateAsync(receiver);
 
             // 4. Return response
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
 
         public async Task<PagedResponse<ReceiverResponse>> GetReceiversAsync(
@@ -131,8 +122,12 @@ namespace Warehouse.DataAcces.Service
                     Address = r.Address,
                     City = r.City,
                     Ward = r.Ward,
+                    District = r.District,
                     Notes = r.Notes,
-                    IsActive = r.IsActive
+                    Position = r.Position,
+                    CompanyId = r.CompanyId,
+                    IsActive = r.IsActive,
+                    CreatedAt = r.CreatedAt
                 })
                 .ToList();
 
@@ -177,26 +172,17 @@ namespace Warehouse.DataAcces.Service
             receiver.Address = request.Address;
             receiver.City = request.City;
             receiver.Ward = request.Ward;
+            receiver.District = request.District;
             receiver.Notes = request.Notes;
+            receiver.Position = request.Position;
+            receiver.CompanyId = request.CompanyId;
             receiver.IsActive = request.IsActive;
 
             // 4. Save
             await _receiverRepository.UpdateAsync(receiver);
 
             // 5. Return response
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
 
         public async Task<ReceiverResponse> ToggleReceiverStatusAsync(long id, bool isActive)
@@ -223,20 +209,9 @@ namespace Warehouse.DataAcces.Service
             await _receiverRepository.UpdateAsync(receiver);
 
             // 5. Return response
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
+
         public async Task<ReceiverResponse> GetReceiverByIdAsync(long id)
         {
             var receiver = await _receiverRepository.GetByIdAsync(id);
@@ -245,20 +220,27 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException($"Không tìm thấy người nhận với ID = {id}");
             }
 
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
+
+        // ── Helper: map entity → response ──────────────────────────────────────
+        private static ReceiverResponse MapToResponse(Receiver r) => new ReceiverResponse
+        {
+            ReceiverId    = r.ReceiverId,
+            ReceiverCode  = r.ReceiverCode,
+            ReceiverName  = r.ReceiverName,
+            Phone         = r.Phone,
+            Email         = r.Email,
+            Address       = r.Address,
+            City          = r.City,
+            Ward          = r.Ward,
+            District      = r.District,
+            Notes         = r.Notes,
+            Position      = r.Position,
+            CompanyId     = r.CompanyId,
+            IsActive      = r.IsActive,
+            CreatedAt     = r.CreatedAt
+        };
 
         public async Task<ReceiverTransactionUnifiedResponse> GetReceiverTransactionsAsync(
             long receiverId,
