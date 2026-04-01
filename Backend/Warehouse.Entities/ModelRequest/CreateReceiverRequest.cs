@@ -4,11 +4,7 @@ namespace Warehouse.Entities.ModelRequest
 {
     public class CreateReceiverRequest
     {
-        [Required]
-        [MaxLength(50)]
-        public string ReceiverCode { get; set; } = null!;
-
-        [Required]
+        [Required(ErrorMessage = "Tên người nhận không được để trống")]
         [MaxLength(300)]                        // DB: nvarchar(300)
         public string ReceiverName { get; set; } = null!;
 
@@ -34,9 +30,7 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(1000)]                       // DB: nvarchar(1000)
         public string? Notes { get; set; }
 
-        public long? CompanyId { get; set; }    // FK Companies
-
-        [MaxLength(200)]                        // DB: nvarchar(200)
-        public string? Position { get; set; }
+        [Required(ErrorMessage = "Vui lòng chọn công ty (CompanyId)")]
+        public long CompanyId { get; set; }     // FK Companies
     }
 }

@@ -31,10 +31,8 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(1000, ErrorMessage = "Ghi chú tối đa 1000 ký tự")]       // DB: nvarchar(1000)
         public string? Notes { get; set; }
 
-        [MaxLength(200, ErrorMessage = "Chức vụ tối đa 200 ký tự")]         // DB: nvarchar(200)
-        public string? Position { get; set; }
-
-        public long? CompanyId { get; set; }    // FK Companies
+        [Required(ErrorMessage = "Vui lòng chọn công ty (CompanyId)")]
+        public long CompanyId { get; set; }    // FK Companies
 
         public bool IsActive { get; set; }
     }

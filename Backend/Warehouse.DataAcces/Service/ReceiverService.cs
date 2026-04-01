@@ -25,17 +25,24 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request)
         {
-            // 1. Check duplicate ReceiverCode
+            // 1. Sinh tự động ReceiverCode: RCV-XXXXX
             var receivers = await _receiverRepository.GetAllAsync();
-            if (receivers.Any(r => r.ReceiverCode == request.ReceiverCode))
-            {
-                throw new InvalidOperationException("Mã người nhận đã tồn tại");
-            }
+            var maxNumber = receivers
+                .Where(r => !string.IsNullOrEmpty(r.ReceiverCode) && r.ReceiverCode.StartsWith("RCV-"))
+                .Select(r => {
+                    if (int.TryParse(r.ReceiverCode!.Substring(4), out int number))
+                        return number;
+                    return 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            string generatedCode = $"RCV-{maxNumber + 1:D5}";
 
             // 2. Create entity
             var receiver = new Receiver
             {
-                ReceiverCode = request.ReceiverCode,
+                ReceiverCode = generatedCode,
                 ReceiverName = request.ReceiverName,
                 Phone = request.Phone,
                 Email = request.Email,
@@ -44,7 +51,7 @@ namespace Warehouse.DataAcces.Service
                 Ward = request.Ward,
                 District = request.District,
                 Notes = request.Notes,
-                Position = request.Position,
+                Position = null, // Backend mặc định
                 CompanyId = request.CompanyId,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -174,7 +181,6 @@ namespace Warehouse.DataAcces.Service
             receiver.Ward = request.Ward;
             receiver.District = request.District;
             receiver.Notes = request.Notes;
-            receiver.Position = request.Position;
             receiver.CompanyId = request.CompanyId;
             receiver.IsActive = request.IsActive;
 

@@ -1,4 +1,4 @@
-﻿extern alias api;
+extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -24,7 +24,7 @@ public class ReceiverControllerTests
     public async Task CreateReceiver_ShouldReturnOk_WhenSuccessful()
     {
         var controller = new ReceiverController(_receiverServiceMock.Object);
-        var request = new CreateReceiverRequest { ReceiverCode = "RCV01", ReceiverName = "Receiver 01" };
+        var request = new CreateReceiverRequest { ReceiverName = "Receiver 01", CompanyId = 1 };
         var expectedResponse = new ReceiverResponse { ReceiverId = 1, ReceiverCode = "RCV01", ReceiverName = "Receiver 01", IsActive = true };
 
         _receiverServiceMock.Setup(x => x.CreateReceiverAsync(request)).ReturnsAsync(expectedResponse);
@@ -51,7 +51,7 @@ public class ReceiverControllerTests
     public async Task CreateReceiver_ShouldReturnBadRequest_WhenServiceThrowsInvalidOperationException_DuplicateCode()
     {
         var controller = new ReceiverController(_receiverServiceMock.Object);
-        var request = new CreateReceiverRequest { ReceiverCode = "RCV01", ReceiverName = "Receiver" };
+        var request = new CreateReceiverRequest { ReceiverName = "Receiver", CompanyId = 1 };
         _receiverServiceMock
             .Setup(x => x.CreateReceiverAsync(request))
             .ThrowsAsync(new InvalidOperationException("MÃ£ ngÆ°á»i nháº­n Ä‘Ã£ tá»“n táº¡i"));
@@ -68,14 +68,14 @@ public class ReceiverControllerTests
         var controller = new ReceiverController(_receiverServiceMock.Object);
         var request = new CreateReceiverRequest
         {
-            ReceiverCode = "RCV02",
             ReceiverName = "Receiver 02",
             Phone = "0909",
             Email = "r2@local",
             Address = "HCM",
             City = "Ho Chi Minh",
             Ward = "Ward 1",
-            Notes = "note"
+            Notes = "note",
+            CompanyId = 1
         };
         var expectedResponse = new ReceiverResponse
         {
@@ -101,17 +101,16 @@ public class ReceiverControllerTests
     public async Task CreateReceiver_ShouldPassRequestData_ToServiceCorrectly()
     {
         var controller = new ReceiverController(_receiverServiceMock.Object);
-        var request = new CreateReceiverRequest { ReceiverCode = "RCV03", ReceiverName = "ABC", City = "Da Nang", Ward = "Hai Chau" };
+        var request = new CreateReceiverRequest { ReceiverName = "ABC", City = "Da Nang", Ward = "Hai Chau", CompanyId = 1 };
         _receiverServiceMock
             .Setup(x => x.CreateReceiverAsync(request))
-            .ReturnsAsync(new ReceiverResponse { ReceiverName = "ABC" })
+            .ReturnsAsync(new ReceiverResponse { ReceiverName = "ABC", ReceiverCode = "RCV-00001" })
             .Verifiable();
 
         await controller.CreateReceiver(request);
 
         _receiverServiceMock.Verify(
             x => x.CreateReceiverAsync(It.Is<CreateReceiverRequest>(r =>
-                r.ReceiverCode == "RCV03" &&
                 r.ReceiverName == "ABC" &&
                 r.City == "Da Nang" &&
                 r.Ward == "Hai Chau")),
