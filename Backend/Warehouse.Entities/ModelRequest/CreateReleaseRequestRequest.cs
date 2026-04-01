@@ -15,7 +15,8 @@ namespace Warehouse.Entities.ModelRequest
         [Required(ErrorMessage = "Người nhận là bắt buộc.")]
         public long ReceiverId { get; set; }
 
-        /// ID Công ty (Cập nhật cho Người nhận)
+        /// ID Công ty (bắt buộc)
+        [Required(ErrorMessage = "Công ty là bắt buộc.")]
         public long? CompanyId { get; set; }
 
         /// ID Địa chỉ (Từ bảng Addresses)

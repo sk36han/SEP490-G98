@@ -21,6 +21,26 @@ namespace Warehouse.DataAcces.Service
             _auditLogService = auditLogService;
         }
 
+        public async Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId)
+        {
+            return await _context.InventoryOnHands
+                .Include(ioh => ioh.Item)
+                .ThenInclude(i => i.BaseUom)
+                .Where(ioh => ioh.WarehouseId == warehouseId && ioh.OnHandQty > 0 && ioh.Item.IsActive)
+                .Select(ioh => new RRItemLookupResponse
+                {
+                    ItemId = ioh.ItemId,
+                    ItemCode = ioh.Item.ItemCode,
+                    ItemName = ioh.Item.ItemName,
+                    UomId = ioh.Item.BaseUomId,
+                    UomName = ioh.Item.BaseUom.UomName,
+                    OnHandQty = ioh.OnHandQty,
+                    ReservedQty = ioh.ReservedQty,
+                    AvailableQty = ioh.OnHandQty - ioh.ReservedQty
+                })
+                .ToListAsync();
+        }
+
         public async Task<Item> CreateItemAsync(CreateItemRequest request, long userId = 0)
         {
             if (request == null)

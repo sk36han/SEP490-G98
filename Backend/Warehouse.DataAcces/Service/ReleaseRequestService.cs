@@ -42,6 +42,7 @@ namespace Warehouse.DataAcces.Service
             if (await _stocktakeService.IsWarehouseFrozenAsync(request.WarehouseId))
                 throw new InvalidOperationException($"Kho '{warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể tạo yêu cầu xuất kho.");
 
+            // Kiểm tra Người nhận (Receiver)
             var receiver = await _context.Receivers
                 .Include(r => r.Company)
                 .FirstOrDefaultAsync(r => r.ReceiverId == request.ReceiverId);
@@ -50,18 +51,28 @@ namespace Warehouse.DataAcces.Service
             if (!receiver.IsActive)
                 throw new InvalidOperationException("Người nhận đang không hoạt động.");
 
-            // Cập nhật thông tin Công ty/Địa chỉ cho Người nhận nếu có truyền lên
-            if (request.CompanyId.HasValue) receiver.CompanyId = request.CompanyId.Value;
+            // Validate: Người nhận phải thuộc Công ty đã chọn (nếu có truyền CompanyId)
+            if (request.CompanyId.HasValue && receiver.CompanyId != request.CompanyId.Value)
+            {
+                throw new InvalidOperationException("Người nhận không thuộc công ty đã chọn.");
+            }
+
+            // Ghi đè địa chỉ hệ thống của người nhận nếu có chọn Address từ bảng
             if (request.AddressId.HasValue)
             {
-                var addr = await _context.Addresses.FindAsync(request.AddressId.Value);
-                if (addr != null)
-                {
-                    receiver.Address = addr.AddressDetail;
-                    receiver.City = addr.City;
-                    receiver.District = addr.District;
-                    receiver.Ward = addr.Ward;
-                }
+                var addr = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressId == request.AddressId.Value);
+                if (addr == null)
+                    throw new KeyNotFoundException("Không tìm thấy địa chỉ đã chọn.");
+                
+                // Validate địa chỉ phải thuộc công ty
+                if (request.CompanyId.HasValue && addr.CompanyId != request.CompanyId.Value)
+                    throw new InvalidOperationException("Địa chỉ không thuộc công ty đã chọn.");
+
+                // Cập nhật đè địa chỉ vào bản ghi Receiver theo đúng logic hệ thống hiện tại
+                receiver.Address = addr.AddressDetail;
+                receiver.City = addr.City;
+                receiver.District = addr.District;
+                receiver.Ward = addr.Ward;
             }
 
             // 4. Validate: Người tạo
@@ -141,6 +152,13 @@ namespace Warehouse.DataAcces.Service
                     {
                         // Nếu không tìm thấy bản ghi tồn kho, báo lỗi vì không thể xuất hàng không có trong danh mục kho
                         throw new KeyNotFoundException($"Không tìm thấy bản ghi tồn kho cho vật tư ID {line.ItemId} tại kho {warehouse.WarehouseName}.");
+                    }
+
+                    // Kiểm tra tồn kho khả dụng
+                    var availableQty = inventory.OnHandQty - inventory.ReservedQty;
+                    if (availableQty < line.RequestedQty)
+                    {
+                        throw new InvalidOperationException($"Vật tư '{items[line.ItemId].ItemName}' không đủ số lượng khả dụng. Yêu cầu: {line.RequestedQty}, Khả dụng: {availableQty}.");
                     }
 
                     inventory.ReservedQty += line.RequestedQty;
@@ -348,18 +366,28 @@ namespace Warehouse.DataAcces.Service
                 rr.Receiver = newReceiver; 
             }
 
-            // Cập nhật thông tin Công ty/Địa chỉ cho Người nhận hiện tại của đơn
-            if (request.CompanyId.HasValue) rr.Receiver.CompanyId = request.CompanyId.Value;
+            // Validate Người nhận thuộc Công ty đã chọn (nếu có truyền CompanyId)
+            if (request.CompanyId.HasValue && rr.Receiver.CompanyId != request.CompanyId.Value)
+            {
+                throw new InvalidOperationException("Người nhận không thuộc công ty đã chọn.");
+            }
+
+            // Ghi đè địa chỉ hệ thống của người nhận nếu có chọn Address từ bảng
             if (request.AddressId.HasValue)
             {
-                var addr = await _context.Addresses.FindAsync(request.AddressId.Value);
-                if (addr != null)
-                {
-                    rr.Receiver.Address = addr.AddressDetail;
-                    rr.Receiver.City = addr.City;
-                    rr.Receiver.District = addr.District;
-                    rr.Receiver.Ward = addr.Ward;
-                }
+                var addr = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressId == request.AddressId.Value);
+                if (addr == null)
+                    throw new KeyNotFoundException("Không tìm thấy địa chỉ đã chọn.");
+                
+                // Validate địa chỉ phải thuộc công ty
+                if (request.CompanyId.HasValue && addr.CompanyId != request.CompanyId.Value)
+                    throw new InvalidOperationException("Địa chỉ không thuộc công ty đã chọn.");
+
+                // Cập nhật đè địa chỉ vào bản ghi Receiver theo đúng logic hệ thống hiện tại
+                rr.Receiver.Address = addr.AddressDetail;
+                rr.Receiver.City = addr.City;
+                rr.Receiver.District = addr.District;
+                rr.Receiver.Ward = addr.Ward;
             }
 
             // 7. Cập nhật ngày xuất dự kiến
@@ -447,6 +475,11 @@ namespace Warehouse.DataAcces.Service
                                 var newInv = await _context.InventoryOnHands
                                     .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == existingLine.ItemId);
                                 if (newInv == null) throw new KeyNotFoundException($"Vật tư {existingLine.ItemId} không có trong kho mới {rr.WarehouseId}.");
+                                
+                                var availableQty = newInv.OnHandQty - newInv.ReservedQty;
+                                if (availableQty < lineReq.RequestedQty)
+                                    throw new InvalidOperationException($"Vật tư '{items[existingLine.ItemId].ItemName}' không đủ số lượng khả dụng tại kho mới. Yêu cầu: {lineReq.RequestedQty}, Khả dụng: {availableQty}.");
+                                
                                 newInv.ReservedQty += lineReq.RequestedQty;
                             }
                             else
@@ -455,7 +488,16 @@ namespace Warehouse.DataAcces.Service
                                 decimal delta = lineReq.RequestedQty - existingLine.AllocatedQty;
                                 var inv = await _context.InventoryOnHands
                                     .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == existingLine.ItemId);
-                                if (inv != null) inv.ReservedQty += delta;
+                                if (inv != null)
+                                {
+                                    if (delta > 0)
+                                    {
+                                        var availableQty = inv.OnHandQty - inv.ReservedQty;
+                                        if (availableQty < delta)
+                                            throw new InvalidOperationException($"Vật tư '{items[existingLine.ItemId].ItemName}' không đủ số lượng khả dụng. Yêu cầu thêm: {delta}, Khả dụng: {availableQty}.");
+                                    }
+                                    inv.ReservedQty += delta;
+                                }
                             }
                         }
 
@@ -488,6 +530,11 @@ namespace Warehouse.DataAcces.Service
                             var inv = await _context.InventoryOnHands
                                 .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == lineReq.ItemId);
                             if (inv == null) throw new KeyNotFoundException($"Vật tư {lineReq.ItemId} không có trong kho {rr.WarehouseId}.");
+
+                            var availableQty = inv.OnHandQty - inv.ReservedQty;
+                            if (availableQty < lineReq.RequestedQty)
+                                throw new InvalidOperationException($"Vật tư '{items[lineReq.ItemId].ItemName}' không đủ số lượng khả dụng. Yêu cầu: {lineReq.RequestedQty}, Khả dụng: {availableQty}.");
+
                             inv.ReservedQty += lineReq.RequestedQty;
                             inv.UpdatedAt = DateTime.UtcNow;
                         }
@@ -506,7 +553,18 @@ namespace Warehouse.DataAcces.Service
 
                     var newInv = await _context.InventoryOnHands
                         .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == line.ItemId);
-                    if (newInv != null) newInv.ReservedQty += line.AllocatedQty;
+                    if (newInv != null)
+                    {
+                        var availableQty = newInv.OnHandQty - newInv.ReservedQty;
+                        if (availableQty < line.AllocatedQty)
+                            throw new InvalidOperationException($"Vật tư ID {line.ItemId} không đủ số lượng ở kho mới. Yêu cầu: {line.AllocatedQty}, Khả dụng: {availableQty}.");
+
+                        newInv.ReservedQty += line.AllocatedQty;
+                    }
+                    else
+                    {
+                        throw new KeyNotFoundException($"Vật tư ID {line.ItemId} không có trong kho mới {rr.WarehouseId}.");
+                    }
                 }
             }
 

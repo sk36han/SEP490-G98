@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
@@ -24,6 +25,32 @@ namespace Warehouse.DataAcces.Service
             _receiverRepository = receiverRepository;
             _context = context;
             _auditLogService = auditLogService;
+        }
+
+        public async Task<List<ReceiverResponse>> GetReceiversByCompanyAsync(long companyId)
+        {
+            var receivers = await _context.Receivers
+                .Where(r => r.CompanyId == companyId && r.IsActive)
+                .Select(r => new ReceiverResponse
+                {
+                    ReceiverId = r.ReceiverId,
+                    ReceiverCode = r.ReceiverCode,
+                    ReceiverName = r.ReceiverName,
+                    Phone = r.Phone,
+                    Email = r.Email,
+                    Address = r.Address,
+                    City = r.City,
+                    District = r.District,
+                    Ward = r.Ward,
+                    Notes = r.Notes,
+                    Position = r.Position,
+                    CompanyId = r.CompanyId,
+                    IsActive = r.IsActive,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync();
+
+            return receivers;
         }
 
         public async Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request, long userId = 0)

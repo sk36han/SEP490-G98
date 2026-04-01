@@ -27,6 +27,11 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<ReceiverResponse> GetReceiverByIdAsync(long id);
 
         /// <summary>
+        /// Lấy danh sách Người nhận theo Công ty (Dùng cho dropdown)
+        /// </summary>
+        Task<System.Collections.Generic.List<ReceiverResponse>> GetReceiversByCompanyAsync(long companyId);
+
+        /// <summary>
         /// Xem lịch sử giao dịch của người nhận (View Transaction History)
         /// </summary>
         Task<ReceiverTransactionUnifiedResponse> GetReceiverTransactionsAsync(

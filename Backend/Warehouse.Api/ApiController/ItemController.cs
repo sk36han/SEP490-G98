@@ -24,6 +24,23 @@ namespace Warehouse.Api.ApiController
             return claim != null && long.TryParse(claim.Value, out var id) ? id : 0;
         }
 
+        /// <summary>
+        /// Lấy danh sách Vật tư có tồn kho khả dụng tại một kho
+        /// </summary>
+        [HttpGet("warehouse/{warehouseId:long}/available")]
+        public async Task<IActionResult> GetAvailableItemsByWarehouse(long warehouseId)
+        {
+            try
+            {
+                var result = await _itemService.GetAvailableItemsByWarehouseAsync(warehouseId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
         [HttpPost("create-item")]
         public async Task<IActionResult> CreateItem([FromBody] CreateItemRequest request)
         {
