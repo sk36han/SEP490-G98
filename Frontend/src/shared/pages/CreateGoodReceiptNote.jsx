@@ -1,18 +1,24 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// 1. React/External libraries
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+
+// 2. React Router
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+// 3. MUI Components
 import Tooltip from '@mui/material/Tooltip';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
+
+// 4. Icons
 import {
     ArrowLeft,
     Plus,
     X,
     MapPin,
     User,
-    Save,
     Send,
     Loader,
     Calendar,
@@ -24,13 +30,55 @@ import {
     Eye,
     Building2,
 } from 'lucide-react';
+
+// 5. Internal - Components
 import Toast from '../../components/Toast/Toast';
-import { useToast } from '../hooks/useToast';
+import GRNDiscountSection from '../components/GRN/GRNDiscountSection';
+
+// 6. Internal - Services
+import { getAllPurchaseOrdersForSelection, getPurchaseOrderDetail } from '../lib/purchaseOrderService';
+import { getItemsForDisplay } from '../lib/itemService';
+import { createGoodReceiptNote } from '../lib/goodReceiptNoteService';
 import authService from '../lib/authService';
+
+// 7. Internal - Hooks
+import { useToast } from '../hooks/useToast';
+
+// 8. Internal - Utils
+import {
+    formatCurrency,
+    validateGRNForm,
+    calculateGRNTotals,
+    MAX_JUSTIFICATION_LENGTH,
+    DISCOUNT_TYPES,
+} from '../utils/goodReceiptNoteUtils';
+
+// 9. Styles
+import '../styles/CreateGoodReceiptNote.css';
 import '../styles/CreateSupplier.css';
+
+// Helper functions cho lifecycleStatus
+const getLifecycleStatusLabel = (status) => {
+    const statusMap = {
+        'PENDINGRCV': 'Chờ nhận hàng',
+        'PARTRCV': 'Nhận một phần',
+        'FULLRCV': 'Đã nhận đủ',
+    };
+    return statusMap[status?.toUpperCase()] || status || '-';
+};
+
+const getLifecycleStatusColor = (status) => {
+    const colorMap = {
+        'PENDINGRCV': '#f59e0b',  // Vàng - chờ
+        'PARTRCV': '#3b82f6',     // Xanh dương - đang nhận
+        'FULLRCV': '#10b981',     // Xanh lá - hoàn thành
+    };
+    return colorMap[status?.toUpperCase()] || '#6b7280';
+};
 
 const CreateGoodReceiptNote = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
     const currentUser = authService.getUser();
@@ -49,9 +97,10 @@ const CreateGoodReceiptNote = () => {
         discount: 0,
         discountAmountFixed: 0,
         additionalCosts: [],
+        isPaid: false,
+        paymentMethod: '',
+        shippingFee: 0,
     });
-
-    const MAX_JUSTIFICATION_LENGTH = 250;
 
     const [lines, setLines] = useState([]);
     const [selectedLineIds, setSelectedLineIds] = useState([]);
@@ -63,16 +112,248 @@ const CreateGoodReceiptNote = () => {
     const [errors, setErrors] = useState({});
     const [poDropdownOpen, setPoDropdownOpen] = useState(false);
     const [confirmImportPoOpen, setConfirmImportPoOpen] = useState(false);
+    const [selectedPODetails, setSelectedPODetails] = useState(null);
+    const [poImportLoading, setPoImportLoading] = useState(false);
     const poDropdownRef = useRef(null);
 
-    // Mock danh sách mã PO (sẽ thay bằng API lấy từ DB sau)
-    const MOCK_PO_CODES = ['PO-2024-001', 'PO-2024-002', 'PO-2024-003', 'PO-2024-004', 'PO-2024-005', 'PO-2024-006', 'PO-2024-007'];
+    // State và effect để load danh sách PO từ API
+    const [poList, setPoList] = useState([]);
+    const [poListLoading, setPoListLoading] = useState(true);
+    const [poListError, setPoListError] = useState(null);
 
-    const filteredPoCodes = useMemo(() => {
-        const q = (formData.purchaseOrderCode || '').trim().toLowerCase();
-        if (!q) return MOCK_PO_CODES;
-        return MOCK_PO_CODES.filter((code) => code.toLowerCase().includes(q));
-    }, [formData.purchaseOrderCode]);
+    // Load danh sách PO từ API
+    useEffect(() => {
+        const fetchPOList = async () => {
+            setPoListLoading(true);
+            setPoListError(null);
+            try {
+                const items = await getAllPurchaseOrdersForSelection('Approved');
+                // Map dữ liệu từ API
+                const mappedPOs = items.map(po => ({
+                    poCode: po.poCode ?? po.PoCode ?? '',
+                    supplierName: po.supplierName ?? po.SupplierName ?? '',
+                    warehouseName: po.warehouseName ?? po.WarehouseName ?? '',
+                    status: po.status ?? po.Status ?? '',
+                    lifecycleStatus: po.lifecycleStatus ?? po.LifecycleStatus ?? '',
+                    requestedDate: po.requestedDate ?? po.RequestedDate ?? '',
+                    expectedDeliveryDate: po.expectedDeliveryDate ?? po.ExpectedDeliveryDate ?? '',
+                    supplierId: po.supplierId ?? po.SupplierId ?? null,
+                    warehouseId: po.warehouseId ?? po.WarehouseId ?? null,
+                    poId: po.purchaseOrderId ?? po.PurchaseOrderId ?? null,
+                    // Lines sẽ được lấy chi tiết khi chọn PO
+                    lines: po.lines ?? po.Lines ?? [],
+                }));
+                setPoList(mappedPOs);
+            } catch (err) {
+                console.error('Lỗi load PO list:', err);
+                setPoListError(err?.message || 'Không tải được danh sách đơn mua');
+            } finally {
+                setPoListLoading(false);
+            }
+        };
+        fetchPOList();
+    }, []);
+
+    // Tìm PO theo mã - define BEFORE the useEffect that uses it
+    const getPOByCode = useCallback((code) => {
+        return poList.find(po => po.poCode === code);
+    }, [poList]);
+
+    // Handler khi xác nhận nhập từ PO - define BEFORE the useEffect that uses it
+    const handleConfirmImportPO = async (poCodeOverride = null) => {
+        const poCode = poCodeOverride || formData.purchaseOrderCode;
+        if (!poCode) return;
+
+        const po = getPOByCode(poCode);
+        if (!po) {
+            if (!poCodeOverride) {
+                showToast('Không tìm thấy đơn mua hàng!', 'error');
+                setConfirmImportPoOpen(false);
+            }
+            return;
+        }
+
+        setPoImportLoading(true);
+
+        try {
+            // Gọi API lấy chi tiết PO nếu chưa có lines
+            let poDetail = po;
+            if (!po.lines || po.lines.length === 0) {
+                const detail = await getPurchaseOrderDetail(po.poId);
+                if (detail) {
+                    poDetail = {
+                        ...po,
+                        ...detail,
+                        lifecycleStatus: detail.lifecycleStatus ?? detail.LifecycleStatus ?? po.lifecycleStatus ?? po.LifecycleStatus ?? '',
+                        lines: detail.lines ?? detail.Lines ?? [],
+                    };
+                }
+            }
+
+            setSelectedPODetails(poDetail);
+            setConfirmImportPoOpen(false);
+
+            // Fill form data từ PO
+            setFormData(prev => ({
+                ...prev,
+                supplierId: poDetail.supplierId ?? poDetail.SupplierId ?? prev.supplierId,
+                supplierName: poDetail.supplierName ?? poDetail.SupplierName ?? '',
+                warehouseId: poDetail.warehouseId ?? poDetail.WarehouseId ?? prev.warehouseId,
+                warehouseName: poDetail.warehouseName ?? poDetail.WarehouseName ?? '',
+            }));
+
+            // Kiểm tra lifecycleStatus để xác định cách fill số lượng
+            const isPartRcv = (poDetail.lifecycleStatus ?? '').toUpperCase() === 'PARTRCV';
+
+            // Fill lines từ PO (chỉ những item chưa nhập đủ)
+            const poLines = (poDetail.lines ?? [])
+                .filter(line => (line.receivedQty ?? 0) < (line.orderedQty ?? 0))
+                .map(line => {
+                    const ordered = line.orderedQty ?? line.OrderedQty ?? 0;
+                    const received = line.receivedQty ?? 0;
+                    const remaining = ordered - received;
+                    
+                    // PartRcv: Fill = remaining (không cho sửa)
+                    // PendingRcv: Fill = ordered (cho sửa)
+                    const defaultReceivedQty = isPartRcv ? remaining : ordered;
+                    
+                    return {
+                    id: Date.now() + Math.random(),
+                    itemId: line.itemId ?? line.ItemId,
+                    itemName: line.itemName ?? line.ItemName ?? '',
+                    itemSku: line.sku ?? line.Sku ?? '',
+                    uom: line.uom ?? line.Uom ?? '',
+                        orderedQty: ordered,
+                        remainingQty: remaining,
+                        receivedQty: defaultReceivedQty,
+                    unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
+                        totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
+                    note: '',
+                    hasCO: false,
+                    hasCQ: false,
+                        isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
+                    };
+                });
+
+            setLines(prev => {
+                // Merge với lines hiện tại, tránh trùng item
+                const existingItemIds = new Set(prev.map(l => l.itemId));
+                const newLines = poLines.filter(l => !existingItemIds.has(l.itemId));
+                return [...prev, ...newLines];
+            });
+
+            showToast(`Đã nhập ${poLines.length} sản phẩm từ ${poDetail.poCode}`, 'success');
+        } catch (err) {
+            console.error('Lỗi khi import từ PO:', err);
+            showToast(err?.message || 'Lỗi khi nhập từ đơn mua', 'error');
+        } finally {
+            setPoImportLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        // Auto-fill từ query param poCode hoặc poId
+        const handleAutoFillFromQueryParams = async () => {
+            if (poList.length === 0) return;
+
+        const poCodeFromUrl = searchParams.get('poCode');
+            const poIdFromUrl = searchParams.get('poId');
+
+            // Tìm PO theo poId hoặc poCode
+            let selectedPO = null;
+            if (poIdFromUrl) {
+                selectedPO = poList.find(p => p.poId?.toString() === poIdFromUrl.toString() || p.poId === parseInt(poIdFromUrl));
+            }
+            if (!selectedPO && poCodeFromUrl) {
+                selectedPO = poList.find(p => p.poCode === poCodeFromUrl);
+            }
+
+            if (!selectedPO) return;
+
+                setFormData(prev => ({
+                    ...prev,
+                purchaseOrderCode: selectedPO.poCode,
+                }));
+
+            // Gọi API lấy chi tiết PO
+            setPoImportLoading(true);
+            try {
+                let poDetail = selectedPO;
+                if (!selectedPO.lines || selectedPO.lines.length === 0) {
+                    const detail = await getPurchaseOrderDetail(selectedPO.poId);
+                    if (detail) {
+                        poDetail = {
+                            ...selectedPO,
+                            lines: detail.lines ?? detail.Lines ?? [],
+                        };
+                    }
+                }
+
+                setSelectedPODetails(poDetail);
+
+                // Fill form data từ PO
+                setFormData(prev => ({
+                    ...prev,
+                    supplierId: poDetail.supplierId ?? prev.supplierId,
+                    supplierName: poDetail.supplierName,
+                    warehouseId: poDetail.warehouseId ?? prev.warehouseId,
+                    warehouseName: poDetail.warehouseName,
+                }));
+
+                // Kiểm tra lifecycleStatus để xác định cách fill số lượng
+                const isPartRcv = (poDetail.lifecycleStatus ?? '').toUpperCase() === 'PARTRCV';
+                
+                // Fill lines từ PO (chỉ những item chưa nhập đủ)
+                const poLines = (poDetail.lines ?? [])
+                    .filter(line => (line.receivedQty ?? 0) < (line.orderedQty ?? 0))
+                    .map(line => {
+                        const ordered = line.orderedQty ?? line.OrderedQty ?? 0;
+                        const received = line.receivedQty ?? 0;
+                        const remaining = ordered - received;
+                        
+                        // PartRcv: Fill = remaining (không cho sửa)
+                        // PendingRcv: Fill = ordered (cho sửa)
+                        const defaultReceivedQty = isPartRcv ? remaining : ordered;
+                        
+                        return {
+                            id: line.purchaseOrderLineId || line.PurchaseOrderLineId || line.id || Date.now() + Math.random(),
+                            poLineId: line.purchaseOrderLineId || line.PurchaseOrderLineId || null,
+                            itemId: line.itemId ?? line.ItemId,
+                            itemName: line.itemName ?? line.ItemName ?? '',
+                            orderedQty: ordered,
+                            remainingQty: remaining,
+                            receivedQty: defaultReceivedQty,
+                            unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
+                            totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
+                            uom: line.uomName ?? line.UomName ?? '',
+                            note: '',
+                            hasCO: false,
+                            hasCQ: false,
+                            isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
+                        };
+                    });
+
+                setLines(poLines);
+                setSelectedLineIds(poLines.map(l => l.id));
+            } catch (err) {
+                console.error('Lỗi import PO từ query:', err);
+                showToast('Không thể tải thông tin đơn mua hàng', 'error');
+            } finally {
+                setPoImportLoading(false);
+            }
+        };
+
+        handleAutoFillFromQueryParams();
+    }, [searchParams, poList, showToast]);
+
+    // Xóa PO đã chọn
+    const handleClearSelectedPO = () => {
+        setSelectedPODetails(null);
+        setFormData(prev => ({
+            ...prev,
+            purchaseOrderCode: '',
+        }));
+    };
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -84,16 +365,32 @@ const CreateGoodReceiptNote = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const MOCK_PRODUCTS = [
-        { id: 1, name: 'Sản phẩm A', sku: 'SP001', unitPrice: 100000, uom: 'Cái', image: null },
-        { id: 2, name: 'Sản phẩm B', sku: 'SP002', unitPrice: 150000, uom: 'Hộp', image: 'https://via.placeholder.com/40' },
-        { id: 3, name: 'Sản phẩm C', sku: 'SP003', unitPrice: 200000, uom: 'Cái', image: null },
-        { id: 4, name: 'Laptop Dell XPS 13', sku: 'SP004', unitPrice: 25000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 5, name: 'Màn hình LG 27 inch', sku: 'SP005', unitPrice: 5000000, uom: 'Cái', image: null },
-        { id: 6, name: 'Bàn phím cơ Keychron', sku: 'SP006', unitPrice: 2000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-        { id: 7, name: 'Chuột Logitech MX Master', sku: 'SP007', unitPrice: 1500000, uom: 'Cái', image: null },
-        { id: 8, name: 'Tai nghe Sony WH-1000XM4', sku: 'SP008', unitPrice: 7000000, uom: 'Cái', image: 'https://via.placeholder.com/40' },
-    ];
+    // Load items from API when opening product search
+    const [productList, setProductList] = useState([]);
+    const [productListLoading, setProductListLoading] = useState(false);
+
+    const loadProductList = useCallback(async () => {
+        setProductListLoading(true);
+        try {
+            const items = await getItemsForDisplay();
+            // Filter only active items and map to GRN format
+            const mappedItems = (items ?? [])
+                .filter(item => item.isActive !== false)
+                .map(item => ({
+                    id: item.itemId,
+                    name: item.itemName,
+                    sku: item.itemCode,
+                    unitPrice: item.purchasePrice || 0,
+                    uom: item.baseUomName || '',
+                    image: null,
+                }));
+            setProductList(mappedItems);
+        } catch (err) {
+            console.error('Lỗi load danh sách sản phẩm:', err);
+        } finally {
+            setProductListLoading(false);
+        }
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -104,6 +401,22 @@ const CreateGoodReceiptNote = () => {
 
     const setDiscountType = (type) => {
         setFormData((prev) => ({ ...prev, discountType: type }));
+    };
+
+    const handleShippingFeeChange = (e) => {
+        const value = e.target.value;
+        setFormData((prev) => ({ ...prev, shippingFee: value }));
+        if (errors.shippingFee) setErrors((prev) => ({ ...prev, shippingFee: '' }));
+    };
+
+    const handlePaymentMethodChange = (e) => {
+        const { value } = e.target;
+        setFormData((prev) => ({ ...prev, paymentMethod: value }));
+    };
+
+    const handleIsPaidChange = (e) => {
+        const checked = e.target.checked;
+        setFormData((prev) => ({ ...prev, isPaid: checked, paymentMethod: checked ? prev.paymentMethod : '' }));
     };
 
     const addAdditionalCost = () => {
@@ -136,7 +449,7 @@ const CreateGoodReceiptNote = () => {
             setFilteredProducts([]);
             return;
         }
-        const filtered = MOCK_PRODUCTS.filter(
+        const filtered = productList.filter(
             (product) =>
                 product.name.toLowerCase().includes(keyword.toLowerCase()) ||
                 product.sku.toLowerCase().includes(keyword.toLowerCase())
@@ -195,7 +508,7 @@ const CreateGoodReceiptNote = () => {
             showToast('Vui lòng chọn ít nhất 1 sản phẩm', 'warning');
             return;
         }
-        const productsToAdd = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id));
+        const productsToAdd = productList.filter((p) => selectedProductIds.includes(p.id));
         const newLines = [];
         let duplicateCount = 0;
         productsToAdd.forEach((product) => {
@@ -234,6 +547,10 @@ const CreateGoodReceiptNote = () => {
         setShowProductSearch(true);
         setSearchKeyword('');
         setFilteredProducts([]);
+        // Load product list if not already loaded
+        if (productList.length === 0) {
+            loadProductList();
+        }
     };
 
     const closeProductSearch = () => {
@@ -249,7 +566,21 @@ const CreateGoodReceiptNote = () => {
 
     const updateLine = (index, field, value) => {
         setLines((prev) =>
-            prev.map((line, i) => (i !== index ? line : { ...line, [field]: value }))
+            prev.map((line, i) => {
+                if (i !== index) return line;
+                let safeValue = value;
+                // Giới hạn receivedQty không vượt quá remainingQty
+                if (field === 'receivedQty') {
+                    const maxQty = Number(line.remainingQty) || Number(line.orderedQty) || 0;
+                    safeValue = Math.min(value, maxQty);
+                }
+                const updatedLine = { ...line, [field]: safeValue };
+                // Tự động tính totalPrice khi receivedQty hoặc unitPrice thay đổi
+                if (field === 'receivedQty' || field === 'unitPrice') {
+                    updatedLine.totalPrice = (Number(updatedLine.receivedQty) || 0) * (Number(updatedLine.unitPrice) || 0);
+                }
+                return updatedLine;
+            })
         );
     };
 
@@ -277,53 +608,13 @@ const CreateGoodReceiptNote = () => {
         }
     };
 
-    const formatCurrency = (value) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-
-    const totalQuantityOrdered = lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
-    const subtotal = lines.reduce(
-        (sum, line) =>
-            sum +
-            (Number(line.totalPrice) || (Number(line.unitPrice) || 0) * (Number(line.receivedQty) || 0)),
-        0
-    );
-    const discountAmount =
-        formData.discountType === 'amount'
-            ? Number(formData.discountAmountFixed) || 0
-            : (subtotal * (Number(formData.discount) || 0)) / 100;
-    const totalAdditionalCosts = (formData.additionalCosts || []).reduce(
-        (sum, c) => sum + (Number(c.amount) || 0),
-        0
-    );
-    const grandTotal = subtotal - discountAmount + totalAdditionalCosts;
+    const totals = useMemo(() => calculateGRNTotals(lines, formData), [lines, formData]);
+    const { subtotal, discountAmount, grandTotal, totalQuantityOrdered, totalAdditionalCosts } = totals;
 
     const validateForm = () => {
-        const newErrors = {};
-        if (!formData.warehouseName?.trim()) newErrors.warehouseName = 'Kho nhận là bắt buộc';
-        const hasInvalidLine = lines.some(
-            (line) => !line.itemName?.trim() || Number(line.receivedQty) <= 0
-        );
-        if (hasInvalidLine)
-            newErrors.lines = 'Vui lòng điền đầy đủ thông tin sản phẩm (Tên, Số lượng nhập > 0)';
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSaveDraft = async (e) => {
-        e.preventDefault();
-        if (!validateForm()) {
-            showToast('Vui lòng kiểm tra lại thông tin!', 'error');
-            return;
-        }
-        try {
-            setSubmitting(true);
-            showToast('Mock: Lưu nháp phiếu nhập kho thành công.', 'success');
-            setTimeout(() => navigate('/good-receipt-notes'), 1500);
-        } catch (error) {
-            showToast(error?.message || 'Có lỗi xảy ra', 'error');
-        } finally {
-            setSubmitting(false);
-        }
+        const result = validateGRNForm(formData, lines);
+        setErrors(result.errors);
+        return result.isValid;
     };
 
     const handleSubmit = async (e) => {
@@ -334,10 +625,36 @@ const CreateGoodReceiptNote = () => {
         }
         try {
             setSubmitting(true);
-            showToast('Mock: Xác nhận nhập kho thành công.', 'success');
+            // Chuẩn bị payload cho API
+            const payload = {
+                PurchaseOrderId: Number(selectedPODetails?.poId),
+                ReceiptDate: formData.receiptDate,
+                WarehouseId: Number(formData.warehouseId),
+                SupplierId: Number(formData.supplierId),
+                DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
+                DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
+                Note: formData.justification || null,
+                IsPaid: formData.isPaid || false,
+                PaymentMethod: formData.paymentMethod || null,
+                ShippingFee: Number(formData.shippingFee) || 0,
+                Lines: lines.map(line => ({
+                    ItemId: Number(line.itemId),
+                    ExpectedQty: Number(line.orderedQty) || 0,
+                    ActualQty: Number(line.receivedQty) || 0,
+                    UomId: Number(line.uomId) || 1,
+                    HasCO: line.hasCO || false,
+                    HasCQ: line.hasCQ || false,
+                    Note: line.note || null,
+                    PurchaseOrderLineId: line.poLineId ? Number(line.poLineId) : null,
+                    UnitPrice: Number(line.unitPrice) || 0,
+                })),
+            };
+            const result = await createGoodReceiptNote(payload);
+            showToast(`Tạo phiếu nhập kho thành công${result?.grnCode ? ` (${result.grnCode})` : ''}.`, 'success');
             setTimeout(() => navigate('/good-receipt-notes'), 1500);
         } catch (error) {
-            showToast(error?.message || 'Có lỗi xảy ra', 'error');
+            const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
+            showToast(msg, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -350,7 +667,7 @@ const CreateGoodReceiptNote = () => {
             Boolean(formData.warehouseName) &&
             lines.length > 0 &&
             !submitting &&
-            !lines.some((l) => !l.itemName?.trim() || Number(l.receivedQty) <= 0),
+            !lines.some((l) => !l.itemName?.trim()),
         [formData.warehouseName, lines, submitting]
     );
 
@@ -359,6 +676,16 @@ const CreateGoodReceiptNote = () => {
         : lines.length === 0
           ? 'Vui lòng thêm ít nhất 1 sản phẩm'
           : '';
+
+    // Lọc PO theo từ khóa
+    const filteredPoCodes = useMemo(() => {
+        const q = (formData.purchaseOrderCode || '').trim().toLowerCase();
+        if (!q) return poList.map(po => po.poCode);
+        return poList.filter(po => 
+            po.poCode.toLowerCase().includes(q) || 
+            po.supplierName.toLowerCase().includes(q)
+        ).map(po => po.poCode);
+    }, [formData.purchaseOrderCode, poList]);
 
     return (
         <div className="create-supplier-page">
@@ -443,10 +770,9 @@ const CreateGoodReceiptNote = () => {
                     <Button
                         variant="contained"
                         disableRipple
-                        onClick={() => {
-                            setConfirmImportPoOpen(false);
-                            // TODO: gọi API lấy chi tiết PO và fill lines
-                            showToast('Chức năng nhập từ đơn mua đang phát triển.', 'info');
+                        disabled={poImportLoading}
+                        onClick={async () => {
+                            await handleConfirmImportPO();
                         }}
                         sx={{
                             minWidth: '88px',
@@ -461,9 +787,19 @@ const CreateGoodReceiptNote = () => {
                                 backgroundColor: '#0369a1',
                                 boxShadow: '0 3px 8px rgba(2, 132, 199, 0.3)',
                             },
+                            '&:disabled': {
+                                backgroundColor: '#94a3b8',
+                            },
                         }}
                     >
-                        Xác nhận
+                        {poImportLoading ? (
+                            <>
+                                <Loader size={15} className="spinner" style={{ marginRight: '6px' }} />
+                                Đang xử lý...
+                            </>
+                        ) : (
+                            'Xác nhận'
+                        )}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -485,15 +821,6 @@ const CreateGoodReceiptNote = () => {
                         <X size={15} />
                         Hủy
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-draft"
-                        disabled={submitting}
-                        onClick={handleSaveDraft}
-                    >
-                        <Save size={15} />
-                        Lưu nháp
-                    </button>
                     <Tooltip title={!canSubmit && !submitting ? submitTooltip : ''} arrow placement="top">
                         <span style={{ display: 'inline-flex' }}>
                             <button
@@ -511,7 +838,7 @@ const CreateGoodReceiptNote = () => {
                                 ) : (
                                     <>
                                         <Send size={15} />
-                                        Tạo & duyệt đơn
+                                        Tạo Phiếu Nhập Kho
                                     </>
                                 )}
                             </button>
@@ -852,6 +1179,11 @@ const CreateGoodReceiptNote = () => {
                                                                 >
                                                                     {line.itemName}
                                                                 </a>
+                                                                {line.itemSku && (
+                                                                    <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>
+                                                                        {line.itemSku}
+                                                                    </span>
+                                                                )}
                                                                 <button
                                                                     type="button"
                                                                     className="btn-icon-only"
@@ -866,7 +1198,7 @@ const CreateGoodReceiptNote = () => {
                                                     <td>
                                                         <input
                                                             type="number"
-                                                            value={line.orderedQty}
+                                                            value={line.orderedQty != null ? line.orderedQty : ''}
                                                             onChange={(e) => updateLine(index, 'orderedQty', Number(e.target.value))}
                                                             min="0"
                                                             className="form-input"
@@ -876,11 +1208,12 @@ const CreateGoodReceiptNote = () => {
                                                     <td>
                                                         <input
                                                             type="number"
-                                                            value={line.receivedQty}
+                                                            value={line.receivedQty != null ? line.receivedQty : ''}
                                                             onChange={(e) => updateLine(index, 'receivedQty', Number(e.target.value))}
                                                             min="0"
                                                             className="form-input"
                                                             style={{ textAlign: 'right' }}
+                                                            
                                                         />
                                                     </td>
                                                     <td style={{ textAlign: 'center', verticalAlign: 'middle', fontSize: '14px', color: 'var(--slate-700)' }}>
@@ -1000,84 +1333,85 @@ const CreateGoodReceiptNote = () => {
                                 </div>
                                 <div className="form-field" ref={poDropdownRef}>
                                     <label htmlFor="purchaseOrderCode" className="form-label">
-                                        Đơn mua hàng tham chiếu
+                                        Đơn mua hàng 
                                     </label>
-                                    <div className="input-wrapper" style={{ position: 'relative' }}>
-                                        <FileText className="input-icon" size={16} />
-                                        <input
-                                            id="purchaseOrderCode"
-                                            type="text"
-                                            name="purchaseOrderCode"
-                                            value={formData.purchaseOrderCode}
-                                            onChange={(e) => {
-                                                handleChange(e);
-                                                setPoDropdownOpen(true);
+                                    {/* Chỉ hiển thị thông tin PO đã chọn, không cho phép chọn/sửa */}
+                                    <div></div>
+                                    
+                                    {/* Hiển thị thông tin PO đã chọn */}
+                                    {selectedPODetails !== null && selectedPODetails !== undefined && selectedPODetails.poCode && (
+                                        <div 
+                                            style={{ 
+                                                marginTop: '12px', 
+                                                padding: '12px', 
+                                                backgroundColor: '#f0f9ff', 
+                                                borderRadius: '8px',
+                                                border: '1px solid #bae6fd'
                                             }}
-                                            onFocus={() => setPoDropdownOpen(true)}
-                                            placeholder="Tìm hoặc chọn mã đơn mua"
-                                            className="form-input"
-                                            autoComplete="off"
-                                        />
-                                        {poDropdownOpen && (
-                                            <ul
-                                                className="form-input"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    maxHeight: '200px',
-                                                    overflowY: 'auto',
-                                                    listStyle: 'none',
-                                                    padding: '8px 0',
-                                                    zIndex: 10,
-                                                    backgroundColor: '#fff',
-                                                    border: '1px solid #d1d5db',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                                }}
-                                            >
-                                                {filteredPoCodes.length === 0 ? (
-                                                    <li style={{ padding: '8px 12px', color: '#6b7280', fontSize: '14px' }}>
-                                                        Không có mã phù hợp
-                                                    </li>
-                                                ) : (
-                                                    filteredPoCodes.map((code) => (
-                                                        <li
-                                                            key={code}
-                                                            onClick={() => {
-                                                                setFormData((prev) => ({ ...prev, purchaseOrderCode: code }));
-                                                                setPoDropdownOpen(false);
-                                                            }}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '14px',
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {code}
-                                                        </li>
-                                                    ))
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
-                                    {formData.purchaseOrderCode?.trim() && (
-                                        <button
-                                            type="button"
-                                            className="btn btn-draft"
-                                            onClick={() => setConfirmImportPoOpen(true)}
-                                            style={{ marginTop: '10px' }}
                                         >
-                                            Nhập từ mã đơn mua
-                                        </button>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#0369a1' }}>
+                                                        {selectedPODetails.poCode}
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                                        {selectedPODetails.supplierName}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearSelectedPO}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        padding: '4px',
+                                                        color: '#64748b',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                    }}
+                                                    title="Xóa"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Kho: </span>
+                                                    <span style={{ fontWeight: 500, color: '#1e293b' }}>{selectedPODetails.warehouseName}</span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Ngày đặt: </span>
+                                                    <span style={{ fontWeight: 500, color: '#1e293b' }}>{selectedPODetails.requestedDate}</span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Trạng thái: </span>
+                                                    <span style={{ 
+                                                        fontWeight: 500, 
+                                                        color: selectedPODetails.status === 'APPROVED' ? '#10b981' : 
+                                                               selectedPODetails.status === 'PENDING_ACC' ? '#f59e0b' : '#ef4444' 
+                                                    }}>
+                                                        {selectedPODetails.status === 'APPROVED' ? 'Đã duyệt' : 
+                                                         selectedPODetails.status === 'PENDING_ACC' ? 'Chờ duyệt': 
+                                                         selectedPODetails.status === 'REJECTED' ? 'Từ chối':'Bị lỗi status'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Sản phẩm: </span>
+                                                    <span style={{ fontWeight: 500, color: '#1e293b' }}>{selectedPODetails.lines.length} items</span>
+                                                </div>
+                                                {selectedPODetails.lifecycleStatus?.toUpperCase() === 'PARTRCV' && (
+                                                    <div style={{ gridColumn: '1 / -1', padding: '8px 12px', backgroundColor: '#fef3c7', borderRadius: '6px', color: '#92400e', fontSize: '12px' }}>
+                                                        <strong>Lưu ý:</strong> Đơn hàng đã được nhập một phần. Số lượng thực tế được tự động fill theo số còn thiếu và không thể chỉnh sửa.
+                                                    </div>
+                                                )}
+                                                {selectedPODetails.lifecycleStatus?.toUpperCase() === 'PENDINGRCV' && (
+                                                    <div style={{ gridColumn: '1 / -1', padding: '8px 12px', backgroundColor: '#dbeafe', borderRadius: '6px', color: '#1e40af', fontSize: '12px' }}>
+                                                        <strong>Thông tin:</strong> Đơn hàng chưa được nhập. Số lượng thực tế được fill theo số lượng đặt, bạn có thể chỉnh sửa.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                                 <div className="form-field">
@@ -1139,147 +1473,27 @@ const CreateGoodReceiptNote = () => {
                                 </div>
                             </div>
 
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng hợp đơn hàng</h2>
-                                </div>
-                                <div className="form-grid">
-                                    <div className="form-field">
-                                        <label className="form-label">Tổng số lượng đặt</label>
-                                        <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
-                                            {totalQuantityOrdered} sản phẩm
-                                        </div>
-                                    </div>
-                                    <div className="form-field">
-                                        <label className="form-label">Tạm tính</label>
-                                        <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px', fontWeight: 600 }}>
-                                            {formatCurrency(subtotal)}
-                                        </div>
-                                    </div>
-                                    <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'start' }}>
-                                        <div className="form-field">
-                                            <label className="form-label">Chiết khấu</label>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                    <button
-                                                        type="button"
-                                                        className={`btn btn-sm ${formData.discountType === 'amount' ? 'btn-primary' : 'btn-card-text'}`}
-                                                        onClick={() => setDiscountType('amount')}
-                                                    >
-                                                        Số tiền
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={`btn btn-sm ${formData.discountType === 'percent' ? 'btn-primary' : 'btn-card-text'}`}
-                                                        onClick={() => setDiscountType('percent')}
-                                                    >
-                                                        %
-                                                    </button>
-                                                </div>
-                                                {formData.discountType === 'percent' ? (
-                                                    <input
-                                                        type="number"
-                                                        name="discount"
-                                                        value={formData.discount}
-                                                        onChange={handleChange}
-                                                        min="0"
-                                                        max="100"
-                                                        className="form-input"
-                                                        placeholder="0–100"
-                                                    />
-                                                ) : (
-                                                    <input
-                                                        type="number"
-                                                        name="discountAmountFixed"
-                                                        value={formData.discountAmountFixed || ''}
-                                                        onChange={handleChange}
-                                                        min="0"
-                                                        className="form-input"
-                                                        placeholder="Nhập số tiền (VND)"
-                                                    />
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="form-field">
-                                            <label className="form-label">Chi phí</label>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                {(formData.additionalCosts || []).map((cost) => (
-                                                    <div key={cost.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                        <input
-                                                            type="text"
-                                                            value={cost.name}
-                                                            onChange={(e) => updateAdditionalCost(cost.id, 'name', e.target.value)}
-                                                            placeholder="Tên"
-                                                            className="form-input"
-                                                            style={{ flex: '1 1 100px', minWidth: 0 }}
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            value={cost.amount || ''}
-                                                            onChange={(e) => updateAdditionalCost(cost.id, 'amount', e.target.value)}
-                                                            placeholder="Số tiền"
-                                                            className="form-input"
-                                                            style={{ width: '120px' }}
-                                                            min="0"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm btn-cancel"
-                                                            onClick={() => removeAdditionalCost(cost.id)}
-                                                            style={{ color: '#ef4444' }}
-                                                        >
-                                                            Xóa
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-card-text"
-                                                    onClick={addAdditionalCost}
-                                                    style={{ alignSelf: 'flex-start' }}
-                                                >
-                                                    + Thêm chi phí
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="form-field span-2" style={{ gridColumn: '1 / -1' }}>
-                                        <div style={{ fontSize: '13px', color: '#666' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 600 }}>Chiết khấu:</span>
-                                                <span style={{ color: '#ef4444' }}>- {formatCurrency(discountAmount)}</span>
-                                            </div>
-                                            {(formData.additionalCosts || []).filter((c) => (Number(c.amount) || 0) > 0).map((c) => (
-                                                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                                                    <span>{c.name?.trim() ? c.name.trim() : 'Chi phí'}:</span>
-                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(Number(c.amount) || 0)}</span>
-                                                </div>
-                                            ))}
-                                            {(formData.additionalCosts || []).filter((c) => (Number(c.amount) || 0) > 0).length > 0 && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontWeight: 600 }}>
-                                                    <span>Tổng chi phí:</span>
-                                                    <span style={{ color: '#10b981' }}>+ {formatCurrency(totalAdditionalCosts)}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div
-                                            style={{
-                                                marginTop: '16px',
-                                                padding: '20px',
-                                                backgroundColor: '#e3f2fd',
-                                                borderRadius: '12px',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                borderLeft: '4px solid #2196F3',
-                                            }}
-                                        >
-                                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#2196F3' }}>Tổng giá trị đơn:</span>
-                                            <span style={{ fontSize: '24px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(grandTotal)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <GRNDiscountSection
+                                formData={formData}
+                                discountType={formData.discountType}
+                                setDiscountType={setDiscountType}
+                                subtotal={subtotal}
+                                discountAmount={discountAmount}
+                                grandTotal={grandTotal}
+                                totalQuantityOrdered={totalQuantityOrdered}
+                                totalAdditionalCosts={totalAdditionalCosts}
+                                formatCurrency={formatCurrency}
+                                handleChange={handleChange}
+                                addAdditionalCost={addAdditionalCost}
+                                removeAdditionalCost={removeAdditionalCost}
+                                updateAdditionalCost={updateAdditionalCost}
+                                isPaid={formData.isPaid}
+                                setIsPaid={(val) => setFormData(prev => ({ ...prev, isPaid: val }))}
+                                paymentMethod={formData.paymentMethod}
+                                setPaymentMethod={(val) => setFormData(prev => ({ ...prev, paymentMethod: val }))}
+                                shippingFee={formData.shippingFee}
+                                setShippingFee={(val) => setFormData(prev => ({ ...prev, shippingFee: val }))}
+                            />
                         </div>
                         <div />
                     </div>

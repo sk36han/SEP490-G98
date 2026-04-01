@@ -15,6 +15,7 @@ import apiClient from './axios';
  * @param {boolean|null} [params.isActive]
  * @param {string} [params.fromDate] - ISO date
  * @param {string} [params.toDate] - ISO date
+ * @param {number|null} [params.companyId] - Loc receiver theo cong ty
  */
 export async function getReceivers(params = {}) {
     const {
@@ -25,6 +26,7 @@ export async function getReceivers(params = {}) {
         isActive = null,
         fromDate = null,
         toDate = null,
+        companyId = null,
     } = params;
     const query = new URLSearchParams();
     query.set('page', String(page));
@@ -35,6 +37,7 @@ export async function getReceivers(params = {}) {
     if (isActive === false) query.set('isActive', 'false');
     if (fromDate && typeof fromDate === 'string') query.set('fromDate', fromDate);
     if (toDate && typeof toDate === 'string') query.set('toDate', toDate);
+    if (companyId != null) query.set('companyId', String(companyId));
 
     const response = await apiClient.get(`/Receiver/list-all?${query.toString()}`);
     const data = response?.data;
@@ -62,7 +65,11 @@ export async function getReceivers(params = {}) {
             address: row.address ?? row.Address ?? '',
             city: row.city ?? row.City ?? '',
             ward: row.ward ?? row.Ward ?? '',
+            district: row.district ?? row.District ?? '',
             notes: row.notes ?? row.Notes ?? '',
+            position: row.position ?? row.Position ?? '',
+            addressId: row.addressId ?? row.AddressId ?? null,
+            companyId: row.companyId ?? row.CompanyId ?? null,
             isActive: row.isActive ?? row.IsActive ?? true,
         }));
     return {
@@ -80,12 +87,18 @@ export async function getReceivers(params = {}) {
 export async function createReceiver(data) {
     try {
         const response = await apiClient.post('/Receiver/create', {
-            receiverCode: data.receiverCode,
             receiverName: data.receiverName,
             phone: data.phone || null,
             email: data.email || null,
             address: data.address || null,
             notes: data.notes || null,
+            // Extended fields
+            companyId: data.companyId != null ? Number(data.companyId) : null,
+            addressId: data.addressId != null ? Number(data.addressId) : null,
+            position: data.position?.trim() || null,
+            city: data.city?.trim() || null,
+            district: data.district?.trim() || null,
+            ward: data.ward?.trim() || null,
         });
         return response.data;
     } catch (error) {
@@ -114,6 +127,13 @@ export async function updateReceiver(id, data) {
             address: data.address || null,
             notes: data.notes || null,
             isActive: data.isActive,
+            // Extended fields
+            companyId: data.companyId != null ? Number(data.companyId) : null,
+            addressId: data.addressId != null ? Number(data.addressId) : null,
+            position: data.position?.trim() || null,
+            city: data.city?.trim() || null,
+            district: data.district?.trim() || null,
+            ward: data.ward?.trim() || null,
         });
         return response.data;
     } catch (error) {

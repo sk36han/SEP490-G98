@@ -25,12 +25,11 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
-import { Filter, CloudOff, Columns, Plus, GripVertical } from 'lucide-react';
+import { Filter, CloudOff, Columns, Plus, GripVertical, Truck } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
-import ViewSupplierDetail from '../components/ViewSupplierDetail';
 import '../styles/ListView.css';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
@@ -39,6 +38,28 @@ const LS_SORT       = 'supplierSortConfig';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
 
 const STATUS_STYLE = {
     true:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Hoạt động', dot: '•' },
@@ -56,6 +77,7 @@ const SUPPLIER_COLUMNS = [
     { id: 'district',     label: 'Quận/Huyện',         sortable: false },
     { id: 'ward',         label: 'Phường/Xã',          sortable: false },
     { id: 'isActive',     label: 'Trạng thái',         sortable: true  },
+    { id: 'createdDate',  label: 'Ngày tạo',           sortable: true  },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
@@ -138,10 +160,6 @@ export default function ViewSupplierList() {
     const [draggedColumn, setDraggedColumn]           = useState(null);
     // Drag within popup
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
-
-    // Detail popup
-    const [detailOpen, setDetailOpen]         = useState(false);
-    const [detailSupplier, setDetailSupplier] = useState(null);
 
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
@@ -247,7 +265,6 @@ export default function ViewSupplierList() {
     // ── API fetch ─────────────────────────────────────────────────
     const getApiParams = useCallback(() => {
         const fv = filterValues || {};
-        const normalize = (s) => (s ? removeDiacritics(String(s).toLowerCase()) : '');
         const supplierName =
             fv.supplierName?.trim()
                 ? fv.supplierName.trim()
@@ -261,6 +278,9 @@ export default function ViewSupplierList() {
             isActive:     fv.isActive   ?? null,
             fromDate:     fv.fromDate   || null,
             toDate:       fv.toDate     || null,
+            provinceCode: fv.provinceCode || '',
+            districtCode: fv.districtCode || '',
+            wardCode:     fv.wardCode     || '',
         };
     }, [page, pageSize, searchTerm, filterValues]);
 
@@ -321,11 +341,6 @@ export default function ViewSupplierList() {
             bgcolor: '#fafafa',
         }}>
             {/* Popups */}
-            <ViewSupplierDetail
-                open={detailOpen}
-                onClose={() => { setDetailOpen(false); setDetailSupplier(null); }}
-                supplier={detailSupplier}
-            />
             <SupplierFilterPopup
                 open={filterOpen}
                 onClose={() => setFilterOpen(false)}
@@ -341,6 +356,12 @@ export default function ViewSupplierList() {
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Suppliers
                 </Typography>
+
+                <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={Truck} label="Tổng nhà cung cấp" value={(totalRows || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Truck} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Truck} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                </Box>
             </Box>
 
             {/* Main Content Wrapper */}
@@ -713,15 +734,15 @@ export default function ViewSupplierList() {
                                                         );
                                                     }
 
-                                                    // Supplier name — simple blue link (same color as orderCode in ViewPO)
-                                                    if (col.id === 'supplierName') {
+                                                    // Supplier code — clickable link to detail
+                                                    if (col.id === 'supplierCode') {
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
                                                                         href="#"
-                                                                        onClick={(e) => { e.preventDefault(); setDetailSupplier(row); setDetailOpen(true); }}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/suppliers/${row.supplierId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6',
                                                                             textDecoration: 'none',
@@ -730,6 +751,27 @@ export default function ViewSupplierList() {
                                                                             textOverflow: 'ellipsis',
                                                                             whiteSpace: 'nowrap',
                                                                             '&:hover': { textDecoration: 'underline' },
+                                                                        }}
+                                                                        title={row.supplierCode ?? ''}
+                                                                    >
+                                                                        {row.supplierCode ?? ''}
+                                                                    </Box>
+                                                                </Box>
+                                                            </TableCell>
+                                                        );
+                                                    }
+
+                                                    // Supplier name — plain text
+                                                    if (col.id === 'supplierName') {
+                                                        return (
+                                                            <TableCell key={col.id} align="left">
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Box
+                                                                        sx={{
+                                                                            color: '#374151',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap',
                                                                         }}
                                                                         title={row.supplierName ?? ''}
                                                                     >
@@ -769,6 +811,24 @@ export default function ViewSupplierList() {
                                                     }
 
                                                     // Default text columns
+                                                    // Format createdDate if present
+                                                    if (col.id === 'createdDate') {
+                                                        const dateValue = row.createdDate;
+                                                        const displayValue = dateValue
+                                                            ? new Date(dateValue + 'Z').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                                            : '';
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                title={displayValue}
+                                                            >
+                                                                {displayValue}
+                                                            </TableCell>
+                                                        );
+                                                    }
+
                                                     return (
                                                         <TableCell
                                                             key={col.id}

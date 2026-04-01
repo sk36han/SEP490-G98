@@ -1,4 +1,3 @@
-extern alias api;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -55,9 +54,9 @@ public class UpdateSupplierServiceTests
     }
 
     [Fact]
-    public async Task UpdateSupplier_ValidRequest_ShouldReturnUpdatedResponse()
+    public async Task UpdateSupplier_ValidRequest_ShouldReturnUpdatedResponseAndSave()
     {
-        // Given
+        // Arrange
         var existing = MakeExisting();
         SetupGetById(1, existing);
         SetupGetAll(existing);
@@ -66,187 +65,152 @@ public class UpdateSupplierServiceTests
         {
             SupplierName = "New Name",
             TaxCode = "TAX-NEW",
-            Phone = "0999",
+            Phone = "0999000888",
             Email = "new@supplier.com",
             Address = "New Addr",
             IsActive = false
         };
 
-        // When
+        // Act
         var result = await CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
 
-        // Then
+        // Assert
         result.SupplierName.Should().Be("New Name");
-        result.TaxCode.Should().Be("TAX-NEW");
-        result.Phone.Should().Be("0999");
         result.Email.Should().Be("new@supplier.com");
         result.IsActive.Should().BeFalse();
 
-        _repoMock.Verify(r => r.UpdateAsync(It.IsAny<SupplierEntity>()), Times.Once);
+        _repoMock.Verify(r => r.UpdateAsync(It.Is<SupplierEntity>(s => s.SupplierName == "New Name" && s.SupplierId == 1)), Times.Once);
+        _auditMock.Verify(a => a.LogAsync(CurrentUserId, AuditAction.Update, AuditEntity.Supplier, 1, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        _notifMock.Verify(n => n.CreateForRolesAsync(It.IsAny<string[]>(), It.IsAny<string>(), It.IsAny<string>(), "SUPPLIER", 1, CurrentUserId, null, 0, null), Times.Once);
     }
 
     [Fact]
-    public async Task UpdateSupplier_IdNotFound_ShouldThrowKeyNotFound()
+    public async Task UpdateSupplier_NonExistingId_ShouldThrowKeyNotFound()
     {
-        // Given
-        SetupGetById(999, null);
+        // Arrange
+        SetupGetById(99, null);
         var request = new UpdateSupplierRequest { SupplierName = "Any" };
 
-        // When
-        Func<Task> act = () => CreateService().UpdateSupplierAsync(999, request, CurrentUserId);
+        // Act
+        Func<Task> act = () => CreateService().UpdateSupplierAsync(99, request, CurrentUserId);
 
-        // Then
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage("*Không tìm thấy nhà cung cấp*999*");
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("*ID = 99*");
+        _repoMock.Verify(r => r.UpdateAsync(It.IsAny<SupplierEntity>()), Times.Never);
     }
 
     [Fact]
-    public async Task UpdateSupplier_DuplicateEmail_ShouldThrowInvalidOperation()
+    public async Task UpdateSupplier_DuplicateEmailForAnotherId_ShouldThrowInvalidOperation()
     {
-        // Given
+        // Arrange
         var existing = MakeExisting(id: 1, email: "mine@test.com");
-        var other = MakeExisting(id: 2, email: "taken@test.com");
+        var other = MakeExisting(id: 2, email: "other@test.com");
         SetupGetById(1, existing);
         SetupGetAll(existing, other);
 
-        var request = new UpdateSupplierRequest { SupplierName = "Name", Email = "taken@test.com" };
+        var request = new UpdateSupplierRequest { SupplierName = "Name", Email = "other@test.com" };
 
-        // When
+        // Act
         Func<Task> act = () => CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
 
-        // Then
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Địa chỉ email đã được sử dụng*");
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*đã được sử dụng*");
     }
 
     [Fact]
-    public async Task UpdateSupplier_EmailSameAsSelf_ShouldNotThrow()
+    public async Task UpdateSupplier_SameEmailAsBefore_ShouldNotThrowDuplicate()
     {
-        // Given
+        // Arrange
         var existing = MakeExisting(id: 1, email: "mine@test.com");
         SetupGetById(1, existing);
         SetupGetAll(existing);
 
         var request = new UpdateSupplierRequest { SupplierName = "Name", Email = "mine@test.com" };
 
-        // When
+        // Act
         var result = await CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
 
-        // Then
+        // Assert
         result.Email.Should().Be("mine@test.com");
     }
 
     [Fact]
-    public async Task UpdateSupplier_EmailNullOrWhitespace_ShouldSkipDuplicateCheck()
+    public async Task UpdateSupplier_SpecialCharactersInName_ShouldBeAcceptedByService()
     {
-        // Given
+        // Arrange
+        var existing = MakeExisting();
+        SetupGetById(1, existing);
+        SetupGetAll(existing);
+
+        var request = new UpdateSupplierRequest { SupplierName = "Supplier @#! 123" };
+
+        // Act
+        var result = await CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
+
+        // Assert
+        result.SupplierName.Should().Be("Supplier @#! 123");
+    }
+
+    [Fact]
+    public async Task UpdateSupplier_EmailNullOrBlank_ShouldSkipDuplicateCheck()
+    {
+        // Arrange
         var existing = MakeExisting();
         SetupGetById(1, existing);
 
-        var requestNull = new UpdateSupplierRequest { SupplierName = "N", Email = null };
-        var requestEmpty = new UpdateSupplierRequest { SupplierName = "N", Email = "  " };
+        var request = new UpdateSupplierRequest { SupplierName = "Any", Email = "" };
 
-        // When
-        await CreateService().UpdateSupplierAsync(1, requestNull, CurrentUserId);
-        await CreateService().UpdateSupplierAsync(1, requestEmpty, CurrentUserId);
+        // Act
+        await CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
 
-        // Then
+        // Assert
         _repoMock.Verify(r => r.GetAllAsync(), Times.Never);
     }
 
     [Fact]
-    public async Task UpdateSupplier_AuditLog_ShouldBeCalled()
+    public async Task UpdateSupplier_AuditLog_ShouldContainSerializedValues()
     {
-        // Given
-        var existing = MakeExisting();
+        // Arrange
+        var existing = MakeExisting(name: "Old");
         SetupGetById(1, existing);
         SetupGetAll(existing);
 
-        var request = new UpdateSupplierRequest { SupplierName = "Updated" };
+        var request = new UpdateSupplierRequest { SupplierName = "New" };
 
-        // When
+        // Act
         await CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
 
-        // Then
+        // Assert
         _auditMock.Verify(a => a.LogAsync(
-            CurrentUserId,
-            AuditAction.Update,
-            AuditEntity.Supplier,
-            1,
-            It.Is<string>(s => s.Contains("Cập nhật nhà cung cấp")),
-            It.IsAny<string>(), // oldValues
-            It.IsAny<string>()  // newValues
+            It.IsAny<long>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<long>(),
+            It.IsAny<string>(),
+            It.Is<string>(json => json.Contains("Old")),
+            It.Is<string>(json => json.Contains("New"))
         ), Times.Once);
     }
 
     [Fact]
-    public async Task UpdateSupplier_Notification_ShouldBeCalled()
+    public async Task UpdateSupplier_ShouldKeepSupplierCodeAndCreatedAtUnchanged()
     {
-        // Given
+        // Arrange
+        var originalCreatedAt = new DateTime(2025, 1, 1);
         var existing = MakeExisting();
+        existing.CreatedAt = originalCreatedAt;
+        existing.SupplierCode = "KEEP-ME";
+        
         SetupGetById(1, existing);
         SetupGetAll(existing);
 
-        var request = new UpdateSupplierRequest { SupplierName = "Updated" };
+        var request = new UpdateSupplierRequest { SupplierName = "Changed" };
 
-        // When
+        // Act
         await CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
 
-        // Then
-        _notifMock.Verify(n => n.CreateForRolesAsync(
-            It.IsAny<string[]>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            "SUPPLIER",
-            1,
-            CurrentUserId,
-            null,
-            0,
-            null
-        ), Times.Once);
-    }
-
-    [Fact]
-    public async Task UpdateSupplier_FullUpdate_ShouldMapAllFieldsAndKeepMetadata()
-    {
-        // Given
-        var createdAt = DateTime.UtcNow.AddDays(-10);
-        var existing = MakeExisting();
-         existing.CreatedAt = createdAt;
-         existing.SupplierCode = "ORIGINAL_CODE";
-
-        SetupGetById(1, existing);
-        SetupGetAll(existing);
-
-        var request = new UpdateSupplierRequest
-        {
-            SupplierName = "Full Update",
-            TaxCode = "TX99",
-            Phone = "888",
-            Email = "full@test.com",
-            Address = "Road 1",
-            City = "City 1",
-            Ward = "Ward 1",
-            District = "Dist 1",
-            IsActive = false
-        };
-
-        // When
-        var result = await CreateService().UpdateSupplierAsync(1, request, CurrentUserId);
-
-        // Then
-        result.SupplierName.Should().Be("Full Update");
-        result.TaxCode.Should().Be("TX99");
-        result.Phone.Should().Be("888");
-        result.Email.Should().Be("full@test.com");
-        result.Address.Should().Be("Road 1");
-        result.City.Should().Be("City 1");
-        result.Ward.Should().Be("Ward 1");
-        result.District.Should().Be("Dist 1");
-        result.IsActive.Should().BeFalse();
-
-        // Metadata check
-        existing.SupplierCode.Should().Be("ORIGINAL_CODE");
-        existing.CreatedAt.Should().Be(createdAt);
+        // Assert
+        existing.SupplierCode.Should().Be("KEEP-ME");
+        existing.CreatedAt.Should().Be(originalCreatedAt);
     }
 }

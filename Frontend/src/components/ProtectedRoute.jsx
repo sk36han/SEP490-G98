@@ -31,7 +31,7 @@ const ProtectedRoute = ({ children, allowedRoles = null }) => {
             if (permissionRole === 'ADMIN') return <Navigate to="/admin/users" replace />;
             if (permissionRole === 'DIRECTOR') return <Navigate to="/home" replace />;
             if (permissionRole === 'WAREHOUSE_KEEPER') return <Navigate to="/products" replace />;
-            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/suppliers" replace />;
+            if (permissionRole === 'SALE_SUPPORT') return <Navigate to="/products" replace />;
             if (permissionRole === 'SALE_ENGINEER') return <Navigate to="/products" replace />;
             if (permissionRole === 'ACCOUNTANTS') return <Navigate to="/products" replace />;
             return <Navigate to="/products" replace />;

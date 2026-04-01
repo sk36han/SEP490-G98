@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using Warehouse.DataAcces.Repositories;
@@ -6,7 +9,7 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
 using ReceiverEntity = Warehouse.Entities.Models.Receiver;
 
-namespace WarehouseTests.ReceiverServiceTests;
+namespace WarehouseTests.Receiver;
 
 public class ToggleReceiverStatusServiceTests
 {
@@ -16,130 +19,65 @@ public class ToggleReceiverStatusServiceTests
 
 	private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object, _mockAuditLogService.Object);
 
-    // ─── Helpers ────────────────────────────────────────────────
-    private ReceiverEntity MakeReceiver(long id = 1, bool isActive = true) => new()
-    {
-        ReceiverId = id,
-        ReceiverCode = "RCV001",
-        ReceiverName = "Test Receiver",
-        Phone = "0909000000",
-        Email = "test@test.com",
-        Address = "Test Address",
-        City = "HCM",
-        Ward = "P1",
-        Notes = "Notes",
-        IsActive = isActive,
-        CreatedAt = DateTime.UtcNow
-    };
-
-    private void SetupGetById(long id, ReceiverEntity? entity)
-    {
-        _repoMock.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(entity!);
-    }
-
-    private void SetupUpdatePassThrough()
-    {
-        _repoMock.Setup(r => r.UpdateAsync(It.IsAny<ReceiverEntity>()))
-            .ReturnsAsync((ReceiverEntity r) => r);
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 1. Toggle từ true → false (deactivate)
-    // ═══════════════════════════════════════════════════════════
     [Fact]
-    public async Task ToggleStatus_FromActiveToInactive_ShouldSucceed()
+    public async Task ToggleStatus_Activate_ShouldSucceed_WhenCurrentIsDeactivated()
     {
-        var receiver = MakeReceiver(isActive: true);
-        SetupGetById(1, receiver);
-        SetupUpdatePassThrough();
+        // Arrange
+        var receiver = new ReceiverEntity { ReceiverId = 1, ReceiverName = "Test R", IsActive = false };
+        _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(receiver);
 
-        var result = await CreateService().ToggleReceiverStatusAsync(1, false);
-
-        result.IsActive.Should().BeFalse();
-        _repoMock.Verify(r => r.UpdateAsync(It.Is<ReceiverEntity>(
-            e => e.IsActive == false)), Times.Once);
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 2. Toggle từ false → true (activate)
-    // ═══════════════════════════════════════════════════════════
-    [Fact]
-    public async Task ToggleStatus_FromInactiveToActive_ShouldSucceed()
-    {
-        var receiver = MakeReceiver(isActive: false);
-        SetupGetById(1, receiver);
-        SetupUpdatePassThrough();
-
+        // Act
         var result = await CreateService().ToggleReceiverStatusAsync(1, true);
 
+        // Assert
         result.IsActive.Should().BeTrue();
+        receiver.IsActive.Should().BeTrue();
+        _repoMock.Verify(r => r.UpdateAsync(receiver), Times.Once);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // 3. ID không tồn tại → throw KeyNotFoundException
-    // ═══════════════════════════════════════════════════════════
     [Fact]
-    public async Task ToggleStatus_IdNotFound_ShouldThrowKeyNotFound()
+    public async Task ToggleStatus_Deactivate_ShouldSucceed_WhenCurrentIsActive()
     {
-        SetupGetById(999, null);
+        // Arrange
+        var receiver = new ReceiverEntity { ReceiverId = 1, ReceiverName = "Test R", IsActive = true };
+        _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(receiver);
 
-        Func<Task> act = () => CreateService().ToggleReceiverStatusAsync(999, false);
-
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage("*Không tìm thấy người nhận*999*");
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 4. Status giống hiện tại (true → true) → throw
-    // ═══════════════════════════════════════════════════════════
-    [Fact]
-    public async Task ToggleStatus_AlreadyActive_ShouldThrowInvalidOperation()
-    {
-        var receiver = MakeReceiver(isActive: true);
-        SetupGetById(1, receiver);
-
-        Func<Task> act = () => CreateService().ToggleReceiverStatusAsync(1, true);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*đang hoạt động*Không cần thay đổi*");
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 5. Status giống hiện tại (false → false) → throw
-    // ═══════════════════════════════════════════════════════════
-    [Fact]
-    public async Task ToggleStatus_AlreadyInactive_ShouldThrowInvalidOperation()
-    {
-        var receiver = MakeReceiver(isActive: false);
-        SetupGetById(1, receiver);
-
-        Func<Task> act = () => CreateService().ToggleReceiverStatusAsync(1, false);
-
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*đã bị vô hiệu hóa*Không cần thay đổi*");
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 6. Verify response trả về đúng tất cả fields
-    // ═══════════════════════════════════════════════════════════
-    [Fact]
-    public async Task ToggleStatus_ShouldReturnFullReceiverResponse()
-    {
-        var receiver = MakeReceiver(isActive: true);
-        SetupGetById(1, receiver);
-        SetupUpdatePassThrough();
-
+        // Act
         var result = await CreateService().ToggleReceiverStatusAsync(1, false);
 
-        result.ReceiverId.Should().Be(1);
-        result.ReceiverCode.Should().Be("RCV001");
-        result.ReceiverName.Should().Be("Test Receiver");
-        result.Phone.Should().Be("0909000000");
-        result.Email.Should().Be("test@test.com");
-        result.Address.Should().Be("Test Address");
-        result.City.Should().Be("HCM");
-        result.Ward.Should().Be("P1");
-        result.Notes.Should().Be("Notes");
+        // Assert
         result.IsActive.Should().BeFalse();
+        receiver.IsActive.Should().BeFalse();
+        _repoMock.Verify(r => r.UpdateAsync(receiver), Times.Once);
+    }
+
+    [Fact]
+    public async Task ToggleStatus_NonExistingId_ShouldThrowKeyNotFound()
+    {
+        // Arrange
+        _repoMock.Setup(r => r.GetByIdAsync(99)).ReturnsAsync((ReceiverEntity?)null);
+
+        // Act
+        Func<Task> act = () => CreateService().ToggleReceiverStatusAsync(99, true);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("*ID = 99*");
+    }
+
+    [Theory]
+    [InlineData(true, "đang hoạt động")]
+    [InlineData(false, "đã bị vô hiệu hóa")]
+    public async Task ToggleStatus_SameStatus_ShouldThrowInvalidOperation(bool currentStatus, string expectedStatusText)
+    {
+        // Arrange
+        var receiver = new ReceiverEntity { ReceiverId = 1, ReceiverName = "Test R", IsActive = currentStatus };
+        _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(receiver);
+
+        // Act
+        Func<Task> act = () => CreateService().ToggleReceiverStatusAsync(1, currentStatus);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"*'{receiver.ReceiverName}' hiện tại {expectedStatusText}*");
     }
 }

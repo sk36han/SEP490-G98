@@ -20,7 +20,6 @@ const inputSx = {
 
 export default function CreatePackagingSpecDialog({ open, onClose, onSubmit, editRow = null }) {
     const isEdit = Boolean(editRow);
-    const [specCode, setSpecCode] = useState('');
     const [specName, setSpecName] = useState('');
     const [description, setDescription] = useState('');
     const [isActive, setIsActive] = useState(true);
@@ -29,12 +28,10 @@ export default function CreatePackagingSpecDialog({ open, onClose, onSubmit, edi
     useEffect(() => {
         if (open) {
             if (editRow) {
-                setSpecCode(editRow.specCode ?? '');
                 setSpecName(editRow.specName ?? '');
                 setDescription(editRow.description ?? '');
                 setIsActive(editRow.isActive ?? true);
             } else {
-                setSpecCode('');
                 setSpecName('');
                 setDescription('');
                 setIsActive(true);
@@ -47,13 +44,11 @@ export default function CreatePackagingSpecDialog({ open, onClose, onSubmit, edi
         e.preventDefault();
         const name = (specName || '').trim();
         if (!name) return;
-        if (!isEdit && !(specCode || '').trim()) return;
         setSubmitting(true);
         try {
             await Promise.resolve(onSubmit({
                 isEdit,
                 packagingSpecId: editRow?.packagingSpecId,
-                specCode: (specCode || '').trim(),
                 specName: name,
                 name: name,
                 description: (description || '').trim() || null,
@@ -71,19 +66,6 @@ export default function CreatePackagingSpecDialog({ open, onClose, onSubmit, edi
             <DialogTitle>{isEdit ? 'Chỉnh sửa quy cách đóng gói' : 'Tạo mới quy cách đóng gói'}</DialogTitle>
             <form onSubmit={handleSubmit}>
                 <DialogContent sx={{ pt: 2, pb: 1, overflow: 'visible' }}>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Mã quy cách"
-                        value={specCode}
-                        onChange={(e) => setSpecCode(e.target.value)}
-                        required={!isEdit}
-                        placeholder="VD: BOX, CARTON"
-                        sx={{ ...inputSx, mb: 2 }}
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={isEdit ? { readOnly: true } : {}}
-                        helperText={isEdit ? 'Mã không đổi khi chỉnh sửa' : undefined}
-                    />
                     <TextField
                         fullWidth
                         size="small"

@@ -16,7 +16,6 @@ function mapUomRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
         uomId: row.uomId ?? row.UomId,
-        uomCode: row.uomCode ?? row.UomCode ?? '',
         uomName: row.uomName ?? row.UomName ?? '',
         isActive: row.isActive ?? row.IsActive ?? true,
     };
@@ -32,9 +31,9 @@ export async function getUomList(params = {}) {
     const response = await apiClient.get('/UnitOfMeasure', {
         params: { page, pageSize, keyword: keyword || undefined, isActive },
     });
-    // Backend returns Ok(new { success, message, data = result }) → list in response.data.data
+    // Backend returns Ok(PagedResponse): ASP.NET Core mặc định trả về PagedResponse trực tiếp (không wrap thêm)
     const body = response?.data ?? {};
-    const paged = body.data ?? body;
+    const paged = body.data ?? body.Data ?? body;
     const rawList = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? []);
     const items = (Array.isArray(rawList) ? rawList : []).map(mapUomRow).filter(Boolean);
     return {
@@ -58,22 +57,22 @@ export async function getUomById(id) {
 
 /**
  * Tạo đơn vị tính mới.
- * @param {{ uomCode: string, uomName: string }} payload
+ * @param {{ uomName: string }} payload
  * @returns {Promise<{ success, message, data }>}
  */
 export async function createUom(payload) {
-    const response = await apiClient.post('/UnitOfMeasure', payload);
+    const response = await apiClient.post('/UnitOfMeasure', { uomName: payload.uomName });
     return response?.data;
 }
 
 /**
  * Cập nhật đơn vị tính.
  * @param {number|string} id
- * @param {{ uomCode: string, uomName: string, isActive?: boolean }} payload
+ * @param {{ uomName: string, isActive?: boolean }} payload
  * @returns {Promise<{ success, message, data }>}
  */
 export async function updateUom(id, payload) {
-    const response = await apiClient.put(`/UnitOfMeasure/${id}`, payload);
+    const response = await apiClient.put(`/UnitOfMeasure/${id}`, { uomName: payload.uomName, isActive: payload.isActive });
     return response?.data;
 }
 

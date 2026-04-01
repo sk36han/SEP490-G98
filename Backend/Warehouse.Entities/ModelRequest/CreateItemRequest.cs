@@ -4,9 +4,9 @@ namespace Warehouse.Entities.ModelRequest
 {
     public class CreateItemRequest
     {
-        [Required(ErrorMessage = "ItemCode là bắt buộc.")]
+        // ItemCode là tùy chọn – nếu không truyền thì backend sẽ tự động sinh mã
         [MaxLength(50, ErrorMessage = "ItemCode không được vượt quá 50 ký tự.")]
-        public string ItemCode { get; set; } = string.Empty;
+        public string? ItemCode { get; set; }
 
         [Required(ErrorMessage = "ItemName là bắt buộc.")]
         [MaxLength(255, ErrorMessage = "ItemName không được vượt quá 255 ký tự.")]

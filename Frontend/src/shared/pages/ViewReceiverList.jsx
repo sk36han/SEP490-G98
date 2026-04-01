@@ -1,664 +1,368 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+/**
+ * ViewReceiverList – Danh sách người nhận
+ * Người dùng: WAREHOUSE_KEEPER, SALE_ENGINEER, DIRECTOR, ACCOUNTANTS
+ */
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
-    Card,
-    CardContent,
-    Button,
     Typography,
-    IconButton,
-    Select,
-    MenuItem,
-    FormControl,
-    Tooltip,
-    useTheme,
-    useMediaQuery,
     Table,
     TableBody,
     TableCell,
     TableContainer,
     TableHead,
     TableRow,
-    Popover,
-    FormGroup,
-    FormControlLabel,
-    Checkbox,
+    Select,
+    MenuItem,
+    FormControl,
     Chip,
+    Tooltip,
+    Button,
 } from '@mui/material';
-import { Columns, Filter, Eye, Edit, CloudOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import {
+    User, Phone, Mail, MapPin, Users, Eye, Edit,
+    Plus, Search, Filter, RefreshCw,
+} from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import ReceiverFilterPopup from '../components/ReceiverFilterPopup';
 import { getReceivers, toggleReceiverStatus } from '../lib/receiverService';
-import '../styles/SupplierView.css';
+import '../styles/ListView.css';
 
-const ROWS_PER_PAGE_OPTIONS = [7, 10, 20, 50, 100];
-
-const RECEIVER_COLUMNS = [
-    { id: 'stt', label: 'STT', getValue: () => '' },
-    { id: 'receiverCode', label: 'Mã người nhận', getValue: (row) => row.receiverCode ?? '' },
-    { id: 'receiverName', label: 'Tên người nhận', getValue: (row) => row.receiverName ?? '' },
-    { id: 'phone', label: 'Số điện thoại', getValue: (row) => row.phone ?? '' },
-    { id: 'email', label: 'Email', getValue: (row) => row.email ?? '' },
-    { id: 'ward', label: 'Phường', getValue: (row) => row.ward ?? '' },
-    { id: 'province', label: 'Tỉnh', getValue: (row) => row.province ?? '' },
-    { id: 'country', label: 'Quốc gia', getValue: (row) => row.country ?? '' },
-    { id: 'address', label: 'Địa chỉ', getValue: (row) => row.address ?? '' },
-    { id: 'notes', label: 'Ghi chú', getValue: (row) => row.notes ?? '' },
-    { id: 'isActive', label: 'Trạng thái', getValue: (row) => (row.isActive ? 'Hoạt động' : 'Ngưng') },
-    { id: 'createdAt', label: 'Ngày tạo', getValue: (row) => row.createdAt ?? '' },
-    { id: 'actions', label: 'Thao tác', getValue: () => '' },
+const COLUMNS = [
+    { id: 'stt',            label: 'STT',            width: 60  },
+    { id: 'receiverCode',   label: 'Mã người nhận', width: 140 },
+    { id: 'receiverName',   label: 'Tên người nhận', width: 220 },
+    { id: 'phone',          label: 'Điện thoại',     width: 130 },
+    { id: 'email',          label: 'Email',           width: 200 },
+    { id: 'address',        label: 'Địa chỉ',       width: 260 },
+    { id: 'isActive',       label: 'Trạng thái',     width: 120 },
+    { id: 'createdAt',      label: 'Ngày tạo',       width: 140 },
+    { id: 'actions',        label: 'Thao tác',       width: 100 },
 ];
 
-/** Mặc định chỉ hiển thị: STT, Tên người nhận, Số điện thoại, Địa chỉ, Trạng thái, Ngày tạo, Thao tác */
-const DEFAULT_VISIBLE_COLUMN_IDS = ['stt', 'receiverName', 'phone', 'address', 'isActive', 'createdAt', 'actions'];
+const ROWS_PER_PAGE_OPTIONS = [20, 50, 100];
 
-const getColumnWeight = (colId) => {
-    switch (colId) {
-        case 'stt': return 0.6;
-        case 'receiverCode': return 1.2;
-        case 'receiverName': return 2;
-        case 'phone': case 'email': return 1.2;
-        case 'ward': case 'province': case 'country': return 1;
-        case 'address': return 1.8;
-        case 'notes': return 1.5;
-        case 'isActive': return 1.2;
-        case 'createdAt': return 1.2;
-        case 'actions': return 1.4;
-        default: return 1;
-    }
+const fmtDate = (str) => {
+    if (!str) return '—';
+    const d = new Date(str.endsWith('Z') ? str : str + 'Z');
+    if (Number.isNaN(d.getTime())) return str;
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const STT_COLUMN_SX = { width: 52, minWidth: 52, maxWidth: 52, fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' };
-const getColumnCellSx = (colId, widthPct) => {
-    if (colId === 'stt') return STT_COLUMN_SX;
-    const base = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: `${widthPct}%`, maxWidth: `${widthPct}%`, boxSizing: 'border-box' };
-    if (colId === 'actions') return { ...base, overflow: 'visible' };
-    if (colId === 'isActive') return { ...base, overflow: 'visible', minWidth: 0 };
-    return base;
-};
+const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <Box sx={{
+        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+        <Box sx={{
+            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Icon size={22} color={color} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                {value}
+            </Typography>
+        </Box>
+    </Box>
+);
 
-const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
-
-// Giữ để tránh lỗi "MOCK_RECEIVERS is not defined" (dữ liệu thật lấy từ API getReceivers)
-const MOCK_RECEIVERS = [];
-
-export default function ViewReceiver() {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+export default function ViewReceiverList() {
     const navigate = useNavigate();
-
-    const [rows, setRows] = useState([]);
-    const [totalRows, setTotalRows] = useState(0);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(7);
-    const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
-    const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+    const [pageSize, setPageSize] = useState(20);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [rows, setRows] = useState([]);
+    const [totalItems, setTotalItems] = useState(0);
 
-    const getApiParams = useCallback(() => {
-        const fv = filterValues || {};
-        const receiverName =
-            fv.receiverName !== undefined && String(fv.receiverName).trim() !== ''
-                ? String(fv.receiverName).trim()
-                : String(searchTerm ?? '').trim();
-        const fromDate = fv.fromDate;
-        const toDate = fv.toDate;
-        return {
-            page: Number(page) + 1 || 1,
-            pageSize: Number(pageSize) || 7,
-            receiverCode: fv.receiverCode != null ? String(fv.receiverCode) : '',
-            receiverName: receiverName || '',
-            isActive: fv.isActive ?? null,
-            fromDate: typeof fromDate === 'string' ? fromDate : null,
-            toDate: typeof toDate === 'string' ? toDate : null,
-        };
-    }, [page, pageSize, searchTerm, filterValues]);
-
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await getReceivers(getApiParams());
-            setRows(Array.isArray(res?.items) ? res.items : []);
-            setTotalRows(res?.totalItems ?? 0);
+            const params = {
+                page: page + 1,
+                pageSize,
+                receiverName: searchTerm || filterValues.receiverName || '',
+                isActive: filterValues.isActive ?? null,
+                fromDate: filterValues.fromDate || null,
+                toDate: filterValues.toDate || null,
+            };
+            const res = await getReceivers(params);
+            setRows(res.items ?? []);
+            setTotalItems(res.totalItems ?? 0);
         } catch (err) {
-            const status = err?.response?.status;
-            let msg = err?.response?.data?.message ?? err?.message;
-            if (status === 404) {
-                msg =
-                    'API Receiver trả 404. Kiểm tra backend (localhost:5141) đang chạy và có Controller Receiver với route GET api/Receiver/list-all.';
-            } else if (!msg || typeof msg !== 'string') {
-                msg = 'Không thể kết nối đến server. Kiểm tra backend và CORS.';
-            }
-            setError(msg);
+            setError(err?.message || 'Tải dữ liệu thất bại.');
             setRows([]);
-            setTotalRows(0);
+            setTotalItems(0);
         } finally {
             setLoading(false);
         }
-    }, [getApiParams]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    const handleColumnVisibilityChange = (columnId, checked) => {
-        setVisibleColumnIds((prev) => {
-            const next = new Set(prev);
-            if (checked) next.add(columnId);
-            else next.delete(columnId);
-            return next;
-        });
     };
 
-    const handleSelectAllColumns = (checked) => {
-        setVisibleColumnIds(checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set());
-    };
+    useEffect(() => { fetchData(); }, [page, pageSize, searchTerm, filterValues]);
 
-    const visibleColumns = RECEIVER_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
-    const columnSelectorOpen = Boolean(columnSelectorAnchor);
-    const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
-    const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
+    const summary = useMemo(() => {
+        const total = rows.length;
+        const active = rows.filter(r => r.isActive).length;
+        const inactive = total - active;
+        return { total, active, inactive };
+    }, [rows]);
 
-    const start = totalRows === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalRows);
-    const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
-    const showOverlayError = error && !loading;
-    const showEmpty = !loading && !error && rows.length === 0;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const start = totalItems > 0 ? page * pageSize + 1 : 0;
+    const end = Math.min((page + 1) * pageSize, totalItems);
 
-    const handleStatusChange = async (id, nextValue) => {
-        const isActive = nextValue === 'true';
-        const confirmed = window.confirm('Bạn có chắc chắn muốn thay đổi trạng thái người nhận này?');
-        if (!confirmed) return;
+    const handleStatusChange = async (id, isActive) => {
+        if (!window.confirm('Bạn có chắc muốn thay đổi trạng thái?')) return;
         try {
             await toggleReceiverStatus(id, isActive);
-            setRows((prev) =>
-                prev.map((row) => (row.receiverId === id ? { ...row, isActive } : row))
-            );
+            setRows(prev => prev.map(r => r.receiverId === id ? { ...r, isActive } : r));
         } catch (err) {
-            setError(err?.message || 'Đổi trạng thái thất bại');
+            setError(err?.message || 'Đổi trạng thái thất bại.');
         }
     };
 
-    const handleSearch = () => {
-        setPage(0);
-    };
-
-    const handleFilterApply = (values) => {
-        setFilterValues(values);
-        setPage(0);
-    };
-
-    const handlePageChange = (newPage) => setPage(newPage);
-    const handlePageSizeChange = (e) => {
-        setPageSize(Number(e.target.value));
-        setPage(0);
-    };
-
     return (
-        <Box
-            sx={{
-                height: '100%',
-                minHeight: 0,
-                minWidth: 0,
-                overflow: 'visible',
-                display: 'flex',
-                flexDirection: 'column',
-                pt: 0,
-                pb: 2,
-                width: '100%',
-                maxWidth: '100%',
-                ml: 0,
-                mr: 0,
-                boxSizing: 'border-box',
-            }}
-        >
-            <Box
-                sx={{
-                    flexShrink: 0,
-                    mb: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    textAlign: 'left',
-                }}
-            >
-                <Typography
-                    variant="h4"
-                    component="h1"
-                    gutterBottom
-                    fontWeight="800"
-                    sx={{
-                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                        backgroundClip: 'text',
-                        textFillColor: 'transparent',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)',
-                        whiteSpace: 'nowrap',
-                    }}
-                >
-                    Quản lý người nhận
-                </Typography>
-                <Typography
-                    variant="body1"
-                    color="text.secondary"
-                    sx={{ maxWidth: 560, wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                >
-                    Tra cứu và quản lý thông tin người nhận hàng.
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+            {/* Header */}
+            <Box sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Users size={20} color="#6b7280" />
+                    <Typography variant="h5" fontWeight={600} sx={{ fontSize: '20px', color: '#111827' }}>
+                        Quản lý người nhận
+                    </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.25 }}>
+                    Tra cứu và quản lý thông tin người nhận hàng
                 </Typography>
             </Box>
 
-            <Box
-                className="supplier-view"
-                sx={{
-                    flex: 1,
-                    minHeight: 0,
-                    minWidth: 0,
-                    overflow: 'visible',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    width: '100%',
-                    maxWidth: '100%',
-                    background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.97) 100%)',
-                    borderRadius: 3,
-                    p: 0.75,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    boxShadow: (t) => t.shadows[1],
-                    boxSizing: 'border-box',
-                }}
-            >
-                <ReceiverFilterPopup
-                    open={filterOpen}
-                    onClose={() => setFilterOpen(false)}
-                    initialValues={filterValues}
-                    onApply={handleFilterApply}
-                />
-                <Card
-                    className="supplier-filter-card"
-                    sx={{
-                        mb: 1,
-                        borderRadius: 3,
-                        border: '1px solid rgba(0,0,0,0.12)',
-                        boxShadow: (t) => t.shadows[1],
-                    }}
-                >
-                    <CardContent sx={{ '&.MuiCardContent-root:last-child': { pb: 2 }, pt: 1, px: 1.5 }}>
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                flexDirection: isMobile ? 'column' : 'row',
-                                gap: 1.5,
-                                alignItems: isMobile ? 'stretch' : 'center',
-                                flexWrap: 'wrap',
-                            }}
-                            >
-                            <SearchInput
-                                placeholder="Tìm kiếm theo mã, tên, SĐT, email người nhận…"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                sx={{
-                                    flex: '1 1 200px',
-                                    minWidth: isMobile ? '100%' : 200,
-                                    maxWidth: isMobile ? '100%' : 480,
-                                }}
-                            />
-                            <Tooltip title="Bộ lọc">
-                                <IconButton
-                                    color="primary"
-                                    onClick={() => setFilterOpen(true)}
-                                    aria-label="Bộ lọc"
-                                    sx={{ border: 1, borderColor: 'divider' }}
-                                >
-                                    <Filter size={20} />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Chọn cột hiển thị">
-                                <IconButton
-                                    color="primary"
-                                    onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
-                                    aria-label="Chọn cột"
-                                    sx={{ border: 1, borderColor: 'divider' }}
-                                >
-                                    <Columns size={20} />
-                                </IconButton>
-                            </Tooltip>
-                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                <Button
-                                    className="supplier-page-btn"
-                                    variant="contained"
-                                    onClick={() => navigate('/receivers/create')}
-                                    sx={{
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        textTransform: 'none',
-                                        borderRadius: 2,
-                                        minHeight: 36,
-                                        px: 2,
-                                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                                        boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
-                                        '&:hover': {
-                                            background: 'linear-gradient(45deg, #1976D2 30%, #00BCD4 90%)',
-                                            boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)',
-                                        },
-                                    }}
-                                    startIcon={<span style={{ fontSize: 18, fontWeight: 700 }}>+</span>}
-                                >
-                                    Tạo mới
-                                </Button>
-                            </Box>
-                        </Box>
-                    </CardContent>
-                </Card>
+            {/* Content */}
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: 2.5, gap: 2 }}>
 
-                <Popover
-                    open={columnSelectorOpen}
-                    anchorEl={columnSelectorAnchor}
-                    onClose={() => setColumnSelectorAnchor(null)}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    slotProps={{ paper: { sx: { mt: 1.5, p: 2, minWidth: 220, maxWidth: 520 } } }}
-                >
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5, whiteSpace: 'nowrap' }}>
-                        Chọn cột hiển thị
-                    </Typography>
-                    <FormGroup>
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={visibleColumnIds.size === RECEIVER_COLUMNS.length}
-                                    indeterminate={
-                                        visibleColumnIds.size > 0 &&
-                                        visibleColumnIds.size < RECEIVER_COLUMNS.length
-                                    }
-                                    onChange={(e) => handleSelectAllColumns(e.target.checked)}
-                                />
-                            }
-                            label="Tất cả"
-                        />
-                        <Box
-                            sx={{
-                                display: 'grid',
-                                gridTemplateRows: 'repeat(5, auto)',
-                                gridAutoFlow: 'column',
-                                gap: '2px 20px',
-                                alignContent: 'start',
-                                mt: 0.5,
-                            }}
+                {/* Summary */}
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <SummaryCard icon={Users} label="Tổng người nhận" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={User} label="Đang hoạt động" value={summary.active.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={User} label="Ngưng hoạt động" value={summary.inactive.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                </Box>
+
+                {/* Filter bar */}
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <SearchInput
+                        placeholder="Tìm theo tên, mã, SĐT, email…"
+                        value={searchTerm}
+                        onChange={e => { setSearchTerm(e.target.value); setPage(0); }}
+                        sx={{
+                            flex: '1 1 240px', minWidth: 200, maxWidth: 420,
+                            '& .MuiOutlinedInput-root': {
+                                bgcolor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '10px',
+                                fontSize: '13px', '& fieldset': { border: 'none' },
+                                '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
+                                '&.Mui-focused': { bgcolor: '#fff', borderColor: '#3b82f6', boxShadow: '0 0 0 3px rgba(59,130,246,0.1)' },
+                                '& input::placeholder': { color: '#9ca3af', fontSize: '13px' },
+                            },
+                        }}
+                    />
+                    <Tooltip title="Bộ lọc nâng cao">
+                        <Button
+                            variant="outlined"
+                            onClick={() => setFilterOpen(true)}
+                            startIcon={<Filter size={15} />}
+                            size="small"
+                            sx={{ height: 36, borderRadius: '10px', fontSize: '13px', textTransform: 'none', borderColor: '#e5e7eb', color: '#374151', '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' } }}
                         >
-                            {RECEIVER_COLUMNS.map((col) => (
-                                <FormControlLabel
-                                    key={col.id}
-                                    control={
-                                        <Checkbox
-                                            checked={visibleColumnIds.has(col.id)}
-                                            onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                        />
-                                    }
-                                    label={col.label}
-                                />
-                            ))}
-                        </Box>
-                    </FormGroup>
-                </Popover>
-
-                <Card
-                    className="supplier-grid-card"
-                    sx={{
-                        flex: 1,
-                        minHeight: 400,
-                        minWidth: 0,
-                        overflow: 'visible',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderRadius: 3,
-                        border: '1px solid rgba(0,0,0,0.12)',
-                        boxShadow: (t) => t.shadows[1],
-                        p: 1,
-                    }}
-                >
-                    <Box
-                        className="supplier-grid-wrapper"
-                        sx={{ flex: 1, minHeight: 360, minWidth: 0, overflow: 'visible', display: 'flex', flexDirection: 'column', position: 'relative' }}
-                    >
-                        {loading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                                <Typography color="text.secondary">Đang tải…</Typography>
-                            </Box>
-                        ) : showOverlayError ? (
-                            <Box
-                                className="supplier-grid-error-overlay"
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    minHeight: 200,
-                                    backgroundColor: 'rgba(255,255,255,0.95)',
-                                    gap: 1.5,
-                                }}
-                            >
-                                <CloudOff size={40} style={{ color: theme.palette.text.secondary }} />
-                                <Typography variant="subtitle1" fontWeight={600} color="text.primary">
-                                    Không thể kết nối đến máy chủ
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    {error}
-                                </Typography>
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    onClick={() => fetchData()}
-                                    sx={{ mt: 0.5, textTransform: 'none' }}
-                                >
-                                    Thử lại
-                                </Button>
-                            </Box>
-                        ) : showEmpty ? (
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    py: 6,
-                                    color: 'text.secondary',
-                                }}
-                            >
-                                <Typography>Chưa có dữ liệu người nhận</Typography>
-                            </Box>
-                        ) : (
-                            <TableContainer
-                                sx={{
-                                    flex: 1,
-                                    minHeight: 0,
-                                    minWidth: 0,
-                                    width: '100%',
-                                    maxWidth: '100%',
-                                    border: '1px solid rgba(0,0,0,0.2)',
-                                    borderRadius: 2,
-                                    overflowY: 'auto',
-                                    overflowX: 'hidden',
-                                    boxSizing: 'border-box',
-                                }}
-                            >
-                                <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
-                                    <TableHead>
-                                        <TableRow>
-                                            {visibleColumns.map((col) => (
-                                                <TableCell
-                                                    key={col.id}
-                                                    sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontWeight: 600, bgcolor: 'grey.50' }}
-                                                    align={col.id === 'stt' ? 'center' : col.id === 'actions' ? 'right' : 'left'}
-                                                >
-                                                    {col.label}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {rows.map((row, index) => (
-                                            <TableRow key={row.receiverId} hover>
-                                                {visibleColumns.map((col) => {
-                                                    if (col.id === 'stt') {
-                                                        return (
-                                                            <TableCell key={col.id} align="center" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
-                                                                {page * pageSize + index + 1}
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    if (col.id === 'isActive') {
-                                                        return (
-                                                            <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
-                                                                <FormControl size="small" sx={{ minWidth: 0, width: '100%', maxWidth: '100%' }}>
-                                                                    <Select
-                                                                        value={row.isActive ? 'true' : 'false'}
-                                                                        onChange={(e) =>
-                                                                            handleStatusChange(
-                                                                                row.receiverId,
-                                                                                e.target.value
-                                                                            )
-                                                                        }
-                                                                        sx={{
-                                                                            fontSize: '0.8125rem',
-                                                                            borderRadius: '50px',
-                                                                            width: '100%',
-                                                                            '& .MuiSelect-select': {
-                                                                                py: 0.25,
-                                                                                px: 1.5,
-                                                                            },
-                                                                        }}
-                                                                    >
-                                                                        <MenuItem value="true">Hoạt động</MenuItem>
-                                                                        <MenuItem value="false">Ngưng</MenuItem>
-                                                                    </Select>
-                                                                </FormControl>
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    if (col.id === 'createdAt') {
-                                                        return (
-                                                            <TableCell key={col.id} align="left" sx={{ ...getColumnCellSx(col.id, getColWidthPct(col.id)), fontSize: '0.8rem' }} title={row.createdAt ? formatDate(row.createdAt) : ''}>
-                                                                {formatDate(row.createdAt)}
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    if (col.id === 'actions') {
-                                                        return (
-                                                            <TableCell key={col.id} align="right" sx={getColumnCellSx(col.id, getColWidthPct(col.id))}>
-                                                                <Tooltip title="Xem">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        aria-label="Xem"
-                                                                    >
-                                                                        <Eye size={18} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                                <Tooltip title="Sửa">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        aria-label="Sửa"
-                                                                    >
-                                                                        <Edit size={18} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    return (
-                                                        <TableCell key={col.id} align="left" sx={getColumnCellSx(col.id, getColWidthPct(col.id))} title={col.getValue(row)}>
-                                                            {col.getValue(row)}
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        )}
+                            Bộ lọc
+                        </Button>
+                    </Tooltip>
+                    <Tooltip title="Tải lại dữ liệu">
+                        <button onClick={fetchData} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151' }}>
+                            <RefreshCw size={15} style={{ color: loading ? '#9ca3af' : '#374151', animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                        </button>
+                    </Tooltip>
+                    <Box sx={{ ml: 'auto' }}>
+                        <Button
+                            variant="contained"
+                            onClick={() => navigate('/receivers/create')}
+                            startIcon={<Plus size={15} />}
+                            sx={{ height: 36, borderRadius: '10px', fontSize: '13px', fontWeight: 600, textTransform: 'none', background: 'linear-gradient(135deg, #2196F3, #21CBF3)', boxShadow: '0 2px 8px rgba(33,150,243,0.3)', '&:hover': { background: 'linear-gradient(135deg, #1976D2, #00BCD4)' } }}
+                        >
+                            Tạo mới
+                        </Button>
                     </Box>
-                </Card>
+                </Box>
 
-                <Box
-                    sx={{
-                        flexShrink: 0,
-                        mt: 1,
-                        pt: 1,
-                        pb: 0.5,
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        gap: 2,
-                        overflow: 'visible',
-                        minHeight: 48,
-                    }}
-                >
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        component="span"
-                        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-                    >
+                {/* Table */}
+                <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                    {loading ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8, color: '#9ca3af', flexDirection: 'column', gap: 1 }}>
+                            <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite' }} />
+                            <Typography sx={{ fontSize: '13px' }}>Đang tải dữ liệu…</Typography>
+                        </Box>
+                    ) : error ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, gap: 1.5 }}>
+                            <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#ef4444' }}>{error}</Typography>
+                            <Button size="small" variant="outlined" onClick={fetchData} sx={{ textTransform: 'none', borderRadius: '8px' }}>Thử lại</Button>
+                        </Box>
+                    ) : rows.length === 0 ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, color: '#9ca3af' }}>
+                            <Users size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
+                            <Typography sx={{ fontSize: '14px' }}>Chưa có người nhận nào</Typography>
+                        </Box>
+                    ) : (
+                        <Table size="small" stickyHeader sx={{ minWidth: '100%', tableLayout: 'fixed' }}>
+                            <TableHead>
+                                <TableRow>
+                                    {COLUMNS.map(col => (
+                                        <TableCell key={col.id}
+                                            sx={{ fontWeight: 600, fontSize: '12px', color: '#6b7280', bgcolor: '#fafafa', borderBottom: '1px solid #e5e7eb', width: col.width, whiteSpace: 'nowrap', py: 1.5, px: 2 }}>
+                                            {col.label}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {rows.map((row, index) => (
+                                    <TableRow key={row.receiverId} hover sx={{ '&:hover': { bgcolor: '#f9fafb' }, '&:last-child td': { borderBottom: 0 } }}>
+                                        <TableCell sx={{ textAlign: 'center', color: '#9ca3af', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            {(page * pageSize) + index + 1}
+                                        </TableCell>
+                                        <TableCell sx={{ fontWeight: 500, color: '#374151', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            {row.receiverCode || '—'}
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#374151', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            {row.receiverName || '—'}
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#374151', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <Phone size={13} color="#9ca3af" />
+                                                {row.phone || '—'}
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#374151', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <Mail size={13} color="#9ca3af" />
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.email || '—'}</span>
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#6b7280', fontSize: '13px', py: 1.5, px: 2, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }} title={[row.address, row.ward, row.province].filter(Boolean).join(', ')}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <MapPin size={13} color="#9ca3af" />
+                                                {[row.address, row.ward, row.province].filter(Boolean).join(', ') || '—'}
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ py: 1.5, px: 2 }}>
+                                            <FormControl size="small" sx={{ minWidth: 0 }}>
+                                                <Select
+                                                    value={row.isActive ? 'true' : 'false'}
+                                                    onChange={e => handleStatusChange(row.receiverId, e.target.value === 'true')}
+                                                    sx={{
+                                                        fontSize: '12px', borderRadius: '999px', height: 28, width: '100%',
+                                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
+                                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
+                                                        ...(row.isActive
+                                                            ? { color: '#059669', bgcolor: 'rgba(5,150,105,0.08)', '& .MuiSelect-icon': { color: '#059669' } }
+                                                            : { color: '#d97706', bgcolor: 'rgba(217,119,6,0.08)', '& .MuiSelect-icon': { color: '#d97706' } }
+                                                        ),
+                                                    }}
+                                                >
+                                                    <MenuItem value="true" sx={{ fontSize: '12px', borderRadius: '6px', mb: 0.5 }}>Hoạt động</MenuItem>
+                                                    <MenuItem value="false" sx={{ fontSize: '12px', borderRadius: '6px' }}>Ngưng</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#6b7280', fontSize: '13px', py: 1.5, px: 2 }}>
+                                            {fmtDate(row.createdAt)}
+                                        </TableCell>
+                                        <TableCell sx={{ py: 1.5, px: 2 }}>
+                                            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                <Tooltip title="Xem chi tiết">
+                                                    <button
+                                                        onClick={() => navigate(`/receivers/${row.receiverId}`)}
+                                                        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.color = '#3b82f6'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280'; }}
+                                                    >
+                                                        <Eye size={15} />
+                                                    </button>
+                                                </Tooltip>
+                                                <Tooltip title="Chỉnh sửa">
+                                                    <button
+                                                        onClick={() => navigate(`/receivers/edit/${row.receiverId}`)}
+                                                        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.color = '#3b82f6'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280'; }}
+                                                    >
+                                                        <Edit size={15} />
+                                                    </button>
+                                                </Tooltip>
+                                            </Box>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </Box>
+
+                {/* Pagination */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2, flexShrink: 0 }}>
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
                         Số dòng / trang:
                     </Typography>
                     <FormControl size="small" sx={{ minWidth: 72 }}>
-                        <Select
-                            value={pageSize}
-                            onChange={handlePageSizeChange}
-                            sx={{ height: 32, fontSize: '0.875rem' }}
-                        >
-                            {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                <MenuItem key={n} value={n}>
-                                    {n}
-                                </MenuItem>
-                            ))}
+                        <Select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}
+                            sx={{ height: 32, fontSize: '13px', borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' } }}>
+                            {ROWS_PER_PAGE_OPTIONS.map(n => <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>)}
                         </Select>
                     </FormControl>
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        component="span"
-                        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-                    >
-                        {start}–{end} / {totalRows} (Tổng {totalPages} trang)
+                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                        {start}–{end} / {totalItems}
                     </Typography>
-                    <Button
-                        size="small"
-                        variant="outlined"
+                    <button
                         disabled={page <= 0}
-                        onClick={() => handlePageChange(page - 1)}
-                        sx={{ minWidth: 36, textTransform: 'none' }}
+                        onClick={() => setPage(p => p - 1)}
+                        style={{
+                            minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
+                            backgroundColor: page <= 0 ? '#f9fafb' : '#fff', cursor: page <= 0 ? 'default' : 'pointer',
+                            color: page <= 0 ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
+                        }}
                     >
-                        Trước
-                    </Button>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ px: 1.5, minWidth: 72, textAlign: 'center', flexShrink: 0 }}>
-                        Trang {page + 1} / {totalPages || 1}
+                        ‹
+                    </button>
+                    <Typography variant="body2" component="span" sx={{ fontSize: '13px', color: '#374151', minWidth: 72, textAlign: 'center' }}>
+                        {page + 1} / {totalPages}
                     </Typography>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={end >= totalRows || totalRows === 0}
-                        onClick={() => handlePageChange(page + 1)}
-                        sx={{ minWidth: 36, textTransform: 'none' }}
+                    <button
+                        disabled={end >= totalItems || totalItems === 0}
+                        onClick={() => setPage(p => p + 1)}
+                        style={{
+                            minWidth: 36, height: 32, borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
+                            backgroundColor: (end >= totalItems || totalItems === 0) ? '#f9fafb' : '#fff',
+                            cursor: (end >= totalItems || totalItems === 0) ? 'default' : 'pointer',
+                            color: (end >= totalItems || totalItems === 0) ? '#d1d5db' : '#374151', fontSize: '13px', padding: 0,
+                        }}
                     >
-                        Sau
-                    </Button>
+                        ›
+                    </button>
                 </Box>
             </Box>
+
+            <ReceiverFilterPopup
+                open={filterOpen}
+                onClose={() => setFilterOpen(false)}
+                initialValues={filterValues}
+                onApply={values => { setFilterValues(values); setPage(0); setFilterOpen(false); }}
+            />
         </Box>
     );
 }
-

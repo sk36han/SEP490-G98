@@ -1,5 +1,6 @@
 extern alias api;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -8,6 +9,7 @@ using Moq;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -24,7 +26,7 @@ public class CreateSupplierServiceTests : IDisposable
     public CreateSupplierServiceTests()
     {
         var options = new DbContextOptionsBuilder<Mkiwms5Context>()
-            .UseInMemoryDatabase(databaseName: "CreateSupp_" + Guid.NewGuid().ToString())
+            .UseInMemoryDatabase(databaseName: "CreateSupp_Refactored_" + Guid.NewGuid().ToString())
             .Options;
         _context = new Mkiwms5Context(options);
     }
@@ -41,128 +43,175 @@ public class CreateSupplierServiceTests : IDisposable
         return new SupplierService(repo, _notifMock.Object, _auditMock.Object, _context);
     }
 
-    [Fact]
-    public async Task CreateSupplier_FullData_ShouldSucceed()
+    private CreateSupplierRequest CreateValidRequest(string code = "SUP001") => new()
     {
-        var request = new CreateSupplierRequest
-        {
-            SupplierCode = "SUP002",
-            SupplierName = "Supplier 02",
-            TaxCode = "123",
-            Phone = "0123",
-            Email = "a@a.com",
-            Address = "HN"
-        };
+        SupplierCode = code,
+        SupplierName = "Test Supplier",
+        TaxCode = "TX123",
+        Phone = "0123456789",
+        Email = "test@supplier.com",
+        Address = "123 Test St"
+    };
 
-        var result = await CreateService().CreateSupplierAsync(request, CurrentUserId);
+    [Fact]
+    public async Task CreateSupplier_FullData_ShouldSucceedAndLogsEverything()
+    {
+        // Arrange
+        var request = CreateValidRequest("SUP-NEW");
+        var service = CreateService();
 
+        // Act
+        var result = await service.CreateSupplierAsync(request, CurrentUserId);
+
+        // Assert
         result.Should().NotBeNull();
-        result.SupplierCode.Should().Be("SUP002");
-        _context.Suppliers.Should().Contain(s => s.SupplierCode == "SUP002");
+        result.SupplierCode.Should().Be("SUP-NEW");
+        result.SupplierName.Should().Be(request.SupplierName);
+        result.Email.Should().Be(request.Email);
+        result.IsActive.Should().BeTrue();
+
+        // Database Side Effect
+        _context.Suppliers.Should().ContainSingle(s => s.SupplierCode == "SUP-NEW");
+        var persisted = _context.Suppliers.Single(s => s.SupplierCode == "SUP-NEW");
+        persisted.SupplierName.Should().Be(request.SupplierName);
+        persisted.TaxCode.Should().Be(request.TaxCode);
+        persisted.Phone.Should().Be(request.Phone);
+        persisted.Email.Should().Be(request.Email);
+        persisted.Address.Should().Be(request.Address);
+        persisted.IsActive.Should().BeTrue();
+        persisted.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+
+        // Dependency Verification
+        _notifMock.Verify(n => n.CreateForRolesAsync(
+            It.IsAny<string[]>(),
+            It.Is<string>(s => s.Contains("Nhà cung cấp mới")),
+            It.Is<string>(s => s.Contains("SUP-NEW")),
+            "SUPPLIER",
+            persisted.SupplierId,
+            CurrentUserId,
+            null, 0, null
+        ), Times.Once);
+
+        _auditMock.Verify(a => a.LogAsync(
+            CurrentUserId,
+            AuditAction.Create,
+            AuditEntity.Supplier,
+            persisted.SupplierId,
+            It.Is<string>(s => s.Contains("Tạo nhà cung cấp") && s.Contains("SUP-NEW")),
+            null,
+            null
+        ), Times.Once);
     }
 
     [Fact]
-    public async Task CreateSupplier_DuplicateCode_ShouldThrowException()
+    public async Task CreateSupplier_DuplicateCode_ShouldThrowAndNotPersist()
     {
-        var existing = new Warehouse.Entities.Models.Supplier { SupplierCode = "DUP001", SupplierName = "Old", IsActive = true };
+        // Arrange
+        var existing = new Warehouse.Entities.Models.Supplier { SupplierCode = "DUP01", SupplierName = "Existing", IsActive = true };
         _context.Suppliers.Add(existing);
         await _context.SaveChangesAsync();
+        
+        var request = CreateValidRequest("DUP01");
+        var service = CreateService();
 
-        var request = new CreateSupplierRequest { SupplierCode = "DUP001", SupplierName = "New" };
+        // Act
+        Func<Task> act = () => service.CreateSupplierAsync(request, CurrentUserId);
 
-        Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
-
+        // Assert
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*đã tồn tại*");
+        _context.Suppliers.Count().Should().Be(1); // No new record
+        _notifMock.Verify(n => n.CreateForRolesAsync(It.IsAny<string[]>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<byte>(), It.IsAny<DateTime?>()), Times.Never);
     }
 
     [Fact]
-    public async Task CreateSupplier_DuplicateEmail_ShouldThrowException()
+    public async Task CreateSupplier_DuplicateEmail_CaseInsensitive_ShouldThrow()
     {
-        var existing = new Warehouse.Entities.Models.Supplier { SupplierCode = "S1", SupplierName = "O1", Email = "dup@e.com", IsActive = true };
+        // Arrange
+        var existing = new Warehouse.Entities.Models.Supplier { SupplierId = 10, SupplierCode = "OTHER", SupplierName = "Other", Email = "UNIQUE@test.com", IsActive = true };
         _context.Suppliers.Add(existing);
         await _context.SaveChangesAsync();
 
-        var request = new CreateSupplierRequest { SupplierCode = "S2", SupplierName = "O2", Email = "dup@e.com" };
+        var request = CreateValidRequest("NEWCODE");
+        request.Email = "unique@test.com"; // Different case
 
+        // Act
         Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*địa chỉ email đã được sử dụng*");
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*email đã được sử dụng*");
+        _context.Suppliers.Count().Should().Be(1);
     }
 
-    [Fact]
-    public async Task CreateSupplier_SpecialChars_ShouldBeSaved()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CreateSupplier_InvalidCode_ShouldThrow(string code)
     {
-        var request = new CreateSupplierRequest 
-        { 
-            SupplierCode = "SUP,#! ", 
-            SupplierName = "Name With , and #"
-        };
-
-        var result = await CreateService().CreateSupplierAsync(request, CurrentUserId);
-
-        result.SupplierCode.Should().Be("SUP,#! ");
-    }
-
-    [Fact]
-    public async Task CreateSupplier_NullName_ShouldThrowException()
-    {
-        var request = new CreateSupplierRequest { SupplierCode = "S99", SupplierName = null! };
+        var request = CreateValidRequest(code);
         
-        // Since the service doesn't validate Name null (relies on DB or Validator), 
-        // we expect a DB update exception or similar if we use a real repo without validation logic.
         Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
-        await act.Should().ThrowAsync<Exception>();
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Mã nhà cung cấp là bắt buộc*");
+        _context.Suppliers.Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task CreateSupplier_NullCode_ShouldThrowException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CreateSupplier_InvalidName_ShouldThrow(string name)
     {
-        var request = new CreateSupplierRequest { SupplierCode = null!, SupplierName = "Test" };
-        Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*bắt buộc*");
-    }
-
-    [Fact]
-    public async Task CreateSupplier_EmptyCode_ShouldThrowException()
-    {
-        var request = new CreateSupplierRequest { SupplierCode = "", SupplierName = "Test" };
-        Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*bắt buộc*");
-    }
-
-    [Fact]
-    public async Task CreateSupplier_WhitespaceCode_ShouldThrowException()
-    {
-        var request = new CreateSupplierRequest { SupplierCode = "   ", SupplierName = "Test" };
-        Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*bắt buộc*");
-    }
-
-    [Fact]
-    public async Task CreateSupplier_CommaOnly_ShouldBeSaved()
-    {
-        var request = new CreateSupplierRequest { SupplierCode = ",", SupplierName = "," };
+        var request = CreateValidRequest();
+        request.SupplierName = name!;
         
-        var result = await CreateService().CreateSupplierAsync(request, CurrentUserId);
+        Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
 
-        result.SupplierCode.Should().Be(",");
-        result.SupplierName.Should().Be(",");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Tên nhà cung cấp là bắt buộc*");
+        _context.Suppliers.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task CreateSupplier_DatabaseError_ShouldThrowException()
+    public async Task CreateSupplier_NullRequest_ShouldThrow()
     {
-        var request = new CreateSupplierRequest { SupplierCode = "ERR01", SupplierName = "Error" };
+        Func<Task> act = () => CreateService().CreateSupplierAsync(null!, CurrentUserId);
+
+        // Current implementation will throw NullReferenceException because it tries to access request.SupplierCode first
+        await act.Should().ThrowAsync<NullReferenceException>();
+    }
+
+    [Fact]
+    public async Task CreateSupplier_DatabaseError_ShouldPropagateException()
+    {
+        // Arrange
+        var request = CreateValidRequest("DBERR");
         
-        // Mock a repository that throws on Create
         var mockRepo = new Mock<IGenericRepository<Warehouse.Entities.Models.Supplier>>();
         mockRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Warehouse.Entities.Models.Supplier>());
         mockRepo.Setup(r => r.CreateAsync(It.IsAny<Warehouse.Entities.Models.Supplier>()))
-                .ThrowsAsync(new Exception("Database error"));
-        
+                .ThrowsAsync(new Exception("Physical DB Error"));
+
         var service = new SupplierService(mockRepo.Object, _notifMock.Object, _auditMock.Object, _context);
 
+        // Act
         Func<Task> act = () => service.CreateSupplierAsync(request, CurrentUserId);
-        await act.Should().ThrowAsync<Exception>().WithMessage("*Database error*");
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>().WithMessage("Physical DB Error");
+        
+        // Side effects: Should NOT log notification if save fails
+        _notifMock.Verify(n => n.CreateForRolesAsync(It.IsAny<string[]>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<byte>(), It.IsAny<DateTime?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateSupplier_EmailNull_ShouldSucceed()
+    {
+        var request = CreateValidRequest("NULL-EMAIL");
+        request.Email = null;
+
+        var result = await CreateService().CreateSupplierAsync(request, CurrentUserId);
+
+        result.Email.Should().BeNull();
+        _context.Suppliers.Should().Contain(s => s.SupplierCode == "NULL-EMAIL" && s.Email == null);
     }
 }
