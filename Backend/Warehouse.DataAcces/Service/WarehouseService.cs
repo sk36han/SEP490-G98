@@ -278,7 +278,7 @@ namespace Warehouse.DataAcces.Service
                 .ToListAsync();
         }
 
-<<<<<<< HEAD
+
         public async Task<PagedResult<WarehouseHistoryResponse>> GetWarehouseHistoryAsync(int pageNumber, int pageSize, long? warehouseId = null)
         {
             var query = _context.InventoryTransactionLines
