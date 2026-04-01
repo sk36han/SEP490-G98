@@ -27,10 +27,7 @@ import {
     XCircle,
     Clock,
     X,
-    Edit,
-    Save,
     Loader,
-    Plus,
     RotateCcw,
     CreditCard,
 } from 'lucide-react';
@@ -43,78 +40,6 @@ import '../styles/CreateSupplier.css';
 
 const MAX_REASON_LENGTH = 250;
 
-// Mock GRN data for "Trả hàng" flow
-const MOCK_GRNS_FOR_RETURN = [
-    {
-        id: 1,
-        grnCode: 'GRN-2026-001',
-        supplierId: 101,
-        supplierName: 'Công ty TNHH Vật tư ABC',
-        warehouseId: 11,
-        warehouseName: 'Kho Hà Nội',
-        createdDate: '2026-02-15',
-        supplierPhone: '024.12345678',
-        supplierEmail: 'abc@vattu.com',
-        supplierTaxCode: '0101234567',
-        supplierAddressProvince: 'Hà Nội',
-        supplierAddressDistrict: 'Quận Cầu Giấy',
-        supplierAddressWard: 'Phường Mai Dịch',
-        supplierAddressStreet: 'Số 123 Đường Nguyễn Phong Sắc',
-        lines: [
-            { grnLineId: 1, productId: 1, sku: 'PEN-001', productName: 'Bút bi Thiên Long TL-057', uom: 'Cây', receivedQty: 50, unitPrice: 3500 },
-            { grnLineId: 2, productId: 2, sku: 'NOTE-001', productName: 'Vở note 5 chấm A5', uom: 'Quyển', receivedQty: 20, unitPrice: 22000 },
-            { grnLineId: 3, productId: 3, sku: 'PAPER-001', productName: 'Giấy A4 Double A 80gsm', uom: 'Ram', receivedQty: 10, unitPrice: 62000 },
-        ],
-    },
-    {
-        id: 2,
-        grnCode: 'GRN-2026-002',
-        supplierId: 102,
-        supplierName: 'Công ty CP Thương mại XYZ',
-        warehouseId: 12,
-        warehouseName: 'Kho TP.HCM',
-        createdDate: '2026-02-20',
-        supplierPhone: '028.98765432',
-        supplierEmail: 'xyz@thuongmai.com',
-        supplierTaxCode: '0109876543',
-        supplierAddressProvince: 'TP.HCM',
-        supplierAddressDistrict: 'Quận 1',
-        supplierAddressWard: 'Phường Bến Nghé',
-        supplierAddressStreet: 'Số 456 Đường Lê Duẩn',
-        lines: [
-            { grnLineId: 4, productId: 4, sku: 'CLIP-001', productName: 'Kẹp giấy 33mm (hộp 50 cái)', uom: 'Hộp', receivedQty: 30, unitPrice: 18000 },
-            { grnLineId: 5, productId: 5, sku: 'GLUE-001', productName: 'Keo dán thiên long 15g', uom: 'Tuýp', receivedQty: 15, unitPrice: 7000 },
-        ],
-    },
-];
-
-// Mock GRN detail for view
-const MOCK_GRN_DETAIL = {
-    grnId: 1,
-    grnCode: 'GRN-2026-001',
-    purchaseOrderCode: 'PO-2026-001',
-    warehouseName: 'Kho Hà Nội',
-    supplierName: 'Công ty TNHH Vật tư ABC',
-    receiptDate: '2026-02-15',
-    createdByName: 'Nguyễn Văn A',
-    createdAt: '2026-02-15T08:00:00',
-    status: 'POSTED',
-    purchaseOrderLifecycleStatus: 'FullRcv',
-    isPaid: true,
-    paymentMethod: 'bank_transfer',
-    note: 'Nhập hàng đúng quy cách',
-    shippingFee: 50000,
-    totalAmount: 0,
-    netAmount: 0,
-    lines: [
-        { grnlineId: 1, itemId: 1, itemName: 'Bút bi Thiên Long TL-057', itemCode: 'PEN-001', uomName: 'Cây', expectedQty: 50, actualQty: 50, unitPrice: 3500, hasCO: true, hasCQ: true, note: '' },
-        { grnlineId: 2, itemId: 2, itemName: 'Vở note 5 chấm A5', itemCode: 'NOTE-001', uomName: 'Quyển', expectedQty: 20, actualQty: 20, unitPrice: 22000, hasCO: false, hasCQ: true, note: '' },
-        { grnlineId: 3, itemId: 3, itemName: 'Giấy A4 Double A 80gsm', itemCode: 'PAPER-001', uomName: 'Ram', expectedQty: 10, actualQty: 10, unitPrice: 62000, hasCO: true, hasCQ: false, note: '' },
-    ],
-    postedAt: '2026-02-15T10:00:00',
-    submittedAt: '2026-02-15T09:00:00',
-};
-
 const formatCurrency = (value) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
 
@@ -123,6 +48,7 @@ const getPaymentMethodLabel = (method) => {
         'cash': 'Tiền mặt',
         'bank_transfer': 'Chuyển khoản',
         'credit_card': 'Thẻ tín dụng',
+        'credit': 'Credit',
         'other': 'Khác',
     };
     return methodMap[method?.toLowerCase()] || method || '-';
@@ -146,11 +72,10 @@ const ViewGoodReceiptNoteDetail = () => {
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
-    // Ke toan: co the duyet GRN
-    // Thủ Kho: chi xem (readonly)
+    // Kế toán: có thể duyệt GRN
+    // Thủ Kho: chỉ xem (readonly)
     const isAccountant = permissionRole === 'ACCOUNTANTS';
     const isWarehouseKeeper = permissionRole === 'WAREHOUSE_KEEPER';
-    const isReadOnly = isWarehouseKeeper;
 
     const [loading, setLoading] = useState(true);
     const [grnData, setGrnData] = useState(null);
@@ -177,57 +102,55 @@ const ViewGoodReceiptNoteDetail = () => {
                 setLoading(false);
                 return;
             }
-        setLoading(true);
+            setLoading(true);
             try {
-                // TODO: Uncomment when backend is ready
-                // const data = await getGRNDetail(id);
-
-                // Mock data fallback
-                const data = MOCK_GRN_DETAIL;
+                const data = await getGRNDetail(id);
 
                 if (data) {
-            setGrnData({
-                        grnId: data.grnId,
-                        grnCode: data.grnCode,
-                        referencePoCode: data.purchaseOrderCode,
-                        warehouseName: data.warehouseName,
-                        supplierName: data.supplierName,
-                        receiptDate: data.receiptDate,
-                        creatorName: data.createdByName,
-                        createdAt: formatDateTime(data.createdAt),
-                        status: data.status,
-                        purchaseOrderLifecycleStatus: data.purchaseOrderLifecycleStatus || data.purchaseOrder?.lifecycleStatus,
-                        isPaid: data.isPaid ?? false,
-                        paymentMethod: data.paymentMethod || 'cash',
-                        note: data.note || '',
-                        shippingFee: data.shippingFee || 0,
-                        totalAmount: data.totalAmount || 0,
-                        netAmount: data.netAmount || 0,
-                        lines: (data.lines || []).map(line => ({
-                            id: line.grnlineId,
-                            itemId: line.itemId,
-                            itemName: line.itemName,
-                            itemCode: line.itemCode,
-                            uom: line.uomName,
-                            orderedQty: line.expectedQty,
-                            receivedQty: line.actualQty,
-                            unitPrice: line.unitPrice,
-                            hasCO: line.hasCO,
-                            hasCQ: line.hasCQ,
-                            note: line.note || '',
+                    const grnCode = data.GrnCode ?? data.grnCode;
+                    const createdAt = data.CreatedAt ?? data.createdAt;
+
+                    setGrnData({
+                        grnId: data.GrnId ?? data.grnId,
+                        grnCode: grnCode,
+                        referencePoCode: data.PurchaseOrderCode ?? data.purchaseOrderCode,
+                        warehouseName: data.WarehouseName ?? data.warehouseName,
+                        supplierName: data.SupplierName ?? data.supplierName,
+                        receiptDate: data.ReceiptDate ?? data.receiptDate,
+                        creatorName: data.CreatedByName ?? data.createdByName,
+                        createdAt: formatDateTime(createdAt),
+                        status: (data.Status ?? data.status)?.toUpperCase(),
+                        isPaid: data.IsPaid ?? data.isPaid ?? false,
+                        paymentMethod: (data.PaymentMethod ?? data.paymentMethod) || 'cash',
+                        note: (data.Note ?? data.note) || '',
+                        shippingFee: Number((data.ShippingFee ?? data.shippingFee) || 0),
+                        totalAmount: Number((data.TotalAmount ?? data.totalAmount) || 0),
+                        netAmount: Number((data.NetAmount ?? data.netAmount) || 0),
+                        lines: (data.Lines ?? (data.lines || [])).map((line, idx) => ({
+                            id: line.GrnlineId ?? line.grnlineId ?? idx,
+                            itemId: line.ItemId ?? line.itemId,
+                            itemName: line.ItemName ?? line.itemName,
+                            itemCode: line.ItemCode ?? line.itemCode,
+                            uom: line.UomName ?? line.uomName,
+                            orderedQty: Number((line.ExpectedQty ?? line.expectedQty) || 0),
+                            receivedQty: Number((line.ActualQty ?? line.actualQty) || 0),
+                            unitPrice: Number((line.UnitPrice ?? line.unitPrice) ?? 0),
+                            hasCO: line.HasCO ?? line.hasCO ?? false,
+                            hasCQ: line.HasCQ ?? line.hasCQ ?? false,
+                            note: (line.Note ?? line.note) || '',
                         })),
-                history: [
-                            data.postedAt ? { action: 'Đã ghi sổ phiếu nhập kho', date: formatDateOnly(data.postedAt), time: formatTimeOnly(data.postedAt) } : null,
-                            data.submittedAt ? { action: 'Gửi yêu cầu duyệt phiếu', date: formatDateOnly(data.submittedAt), time: formatTimeOnly(data.submittedAt) } : null,
-                            { action: `Tạo mới phiếu nhập kho ${data.grnCode}`, date: formatDateOnly(data.createdAt), time: formatTimeOnly(data.createdAt) },
+                        history: [
+                            data.PostedAt ? { action: 'Đã ghi sổ phiếu nhập kho', date: formatDateOnly(data.PostedAt), time: formatTimeOnly(data.PostedAt) } : null,
+                            data.SubmittedAt ? { action: 'Gửi yêu cầu duyệt phiếu', date: formatDateOnly(data.SubmittedAt), time: formatTimeOnly(data.SubmittedAt) } : null,
+                            { action: `Tạo mới phiếu nhập kho ${grnCode}`, date: formatDateOnly(createdAt), time: formatTimeOnly(createdAt) },
                         ].filter(Boolean),
                     });
                 }
             } catch (error) {
                 console.error('Lỗi khi tải chi tiết GRN:', error);
-                showToast('Không thể tải thông tin phiếu nhập kho', 'error');
+                showToast(error?.response?.data?.message || 'Không thể tải thông tin phiếu nhập kho', 'error');
             } finally {
-            setLoading(false);
+                setLoading(false);
             }
         };
 
@@ -290,8 +213,7 @@ const ViewGoodReceiptNoteDetail = () => {
     // Kiểm tra điều kiện hiển thị nút
     // GRN đã được duyệt/từ chối/ghi sổ → hiện Trả hàng, ẩn Duyệt/Hủy
     const isGRNFinalized = ['APPROVED', 'REJECTED', 'POSTED'].includes(grnData?.status);
-    const isPOFullyReceived = grnData?.purchaseOrderLifecycleStatus === 'FullRcv';
-    const showReturnButton = isAccountant && isGRNFinalized && isPOFullyReceived;
+    const showReturnButton = isAccountant && isGRNFinalized;
     const showApproveButton = isAccountant && !isGRNFinalized;
     // Hiện nút Trả hàng cho mọi role (nếu chưa có nút Trả hàng ở trên)
     const showGeneralReturnButton = !showReturnButton && grnData?.grnId;
@@ -330,7 +252,6 @@ const ViewGoodReceiptNoteDetail = () => {
             </div>
         );
     }
-
     return (
         <div className="create-supplier-page">
             {/* Dialog xác nhận duyệt/hủy */}
@@ -485,16 +406,16 @@ const ViewGoodReceiptNoteDetail = () => {
                     )}
                     {/* Nut tra hang */}
                     {showReturnButton && (
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
                             onClick={() => navigate(`/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
-                                disabled={submitting}
+                            disabled={submitting}
                             style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
-                            >
+                        >
                             <RotateCcw size={16} className="btn-icon" />
                             Trả hàng
-                            </button>
+                        </button>
                     )}
 
                     {/* Nút Trả hàng cho các role khác */}
@@ -520,8 +441,8 @@ const ViewGoodReceiptNoteDetail = () => {
                                 color: '#92400e',
                                 fontSize: '13px',
                                 fontWeight: 500,
-                                }}
-                            >
+                            }}
+                        >
                             Bạn chỉ có quyền xem
                         </div>
                     )}
@@ -539,23 +460,23 @@ const ViewGoodReceiptNoteDetail = () => {
                                     <span style={{ fontWeight: 600, color: '#2196F3' }}>{grnData.grnCode}</span>
                                 </p>
                             </div>
-                                <div
-                                    style={{
-                                        padding: '8px 16px',
-                                        borderRadius: 20,
-                                        backgroundColor: statusStyle.bgColor,
-                                        color: statusStyle.color,
-                                        fontWeight: 600,
-                                        fontSize: '13px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                    }}
-                                >
+                            <div
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: 20,
+                                    backgroundColor: statusStyle.bgColor,
+                                    color: statusStyle.color,
+                                    fontWeight: 600,
+                                    fontSize: '13px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                }}
+                            >
                                 {grnData.status === 'APPROVED' && <CheckCircle size={16} />}
                                 {grnData.status === 'REJECTED' && <XCircle size={16} />}
                                 {grnData.status === 'PENDING_ACC' && <Clock size={16} />}
-                                    {statusStyle.label}
+                                {statusStyle.label}
                             </div>
                         </div>
                     </div>
@@ -566,60 +487,60 @@ const ViewGoodReceiptNoteDetail = () => {
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                                 <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
 
-                            {grnData.lines.length === 0 ? (
+                                {grnData.lines.length === 0 ? (
                                     <div style={{ padding: '24px 12px', textAlign: 'center', color: '#6b7280', fontSize: 14 }}>
                                         Chưa có sản phẩm nào trong phiếu nhập kho.
-                                </div>
-                            ) : (
+                                    </div>
+                                ) : (
                                     <div className="table-container" style={{ flex: 1, maxHeight: '500px', overflowY: 'auto' }}>
-                                    <table className="product-table">
-                                        <thead>
-                                            <tr>
-                                                <th style={{ width: '40px' }}>STT</th>
-                                                <th>Sản phẩm</th>
-                                                <th style={{ width: '110px' }}>SL đặt</th>
-                                                <th style={{ width: '110px' }}>SL nhập</th>
-                                                <th style={{ width: '130px' }}>Đơn giá</th>
-                                                <th style={{ width: '150px' }}>Thành tiền</th>
-                                                <th style={{ width: '80px', textAlign: 'center' }}>CO</th>
-                                                <th style={{ width: '80px', textAlign: 'center' }}>CQ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {grnData.lines.map((line, index) => (
-                                                <tr key={line.id}>
-                                                    <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                    <td>
+                                        <table className="product-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ width: '40px' }}>STT</th>
+                                                    <th>Sản phẩm</th>
+                                                    <th style={{ width: '110px' }}>SL đặt</th>
+                                                    <th style={{ width: '110px' }}>SL nhập</th>
+                                                    <th style={{ width: '130px' }}>Đơn giá</th>
+                                                    <th style={{ width: '150px' }}>Thành tiền</th>
+                                                    <th style={{ width: '80px', textAlign: 'center' }}>CO</th>
+                                                    <th style={{ width: '80px', textAlign: 'center' }}>CQ</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {grnData.lines.map((line, index) => (
+                                                    <tr key={line.id}>
+                                                        <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                                        <td>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                                 <span style={{ fontSize: 14, fontWeight: 500 }}>{line.itemName}</span>
                                                                 <span style={{ fontSize: 12, color: '#6b7280' }}>Mã: {line.itemCode || '-'}</span>
-                                                        </div>
-                                                    </td>
+                                                            </div>
+                                                        </td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{Number(line.orderedQty) || 0}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{Number(line.receivedQty) || 0}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(Number(line.unitPrice) || 0)}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#2196F3' }}>
                                                             {formatCurrency((Number(line.unitPrice) || 0) * (Number(line.receivedQty) || 0))}
-                                                    </td>
+                                                        </td>
                                                         <td style={{ textAlign: 'center' }}>
                                                             <input type="checkbox" checked={!!line.hasCO} readOnly disabled style={{ width: 18, height: 18, cursor: 'default', margin: 0 }} />
-                                                    </td>
+                                                        </td>
                                                         <td style={{ textAlign: 'center' }}>
                                                             <input type="checkbox" checked={!!line.hasCQ} readOnly disabled style={{ width: 18, height: 18, cursor: 'default', margin: 0 }} />
                                                         </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        </div>       
 
                         {/* Cột phải: Thông tin chung + Lịch sử */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
-                                    <h2 className="section-title">Thông tin chung</h2>
+                                <h2 className="section-title">Thông tin chung</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <div className="form-field">
                                         <label className="form-label">Nhân viên tạo</label>
@@ -656,7 +577,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                             <input type="text" value={grnData.referencePoCode || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
                                     </div>
-                                    
+
                                     {/* Thông tin thanh toán - chỉ hiển thị khi đã có dữ liệu */}
                                     {(grnData.isPaid !== undefined || grnData.paymentMethod) && (
                                         <>
@@ -690,7 +611,7 @@ const ViewGoodReceiptNoteDetail = () => {
                             </div>
 
                             <div className="info-section" style={{ margin: 0 }}>
-                                    <h2 className="section-title">Lịch sử phiếu nhập</h2>
+                                <h2 className="section-title">Lịch sử phiếu nhập</h2>
                                 <div style={{ padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {grnData.history?.map((item, index) => (
@@ -715,7 +636,7 @@ const ViewGoodReceiptNoteDetail = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', marginTop: 24 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
-                                    <h2 className="section-title">Nhà cung cấp</h2>
+                                <h2 className="section-title">Nhà cung cấp</h2>
                                 <div className="form-field">
                                     <label className="form-label">Nhà cung cấp</label>
                                     <div className="input-wrapper">
@@ -726,7 +647,7 @@ const ViewGoodReceiptNoteDetail = () => {
                             </div>
 
                             <div className="info-section" style={{ margin: 0 }}>
-                                    <h2 className="section-title">Ghi chú</h2>
+                                <h2 className="section-title">Ghi chú</h2>
                                 <div className="form-field">
                                     <label className="form-label">Ghi chú / Lý do nhập kho</label>
                                     <textarea value={grnData.note || ''} readOnly rows={4} className="form-input" style={{ resize: 'vertical', backgroundColor: '#f5f5f5' }} />
@@ -734,35 +655,35 @@ const ViewGoodReceiptNoteDetail = () => {
                             </div>
 
                             <div className="info-section" style={{ margin: 0 }}>
-                                    <h2 className="section-title">Tổng hợp đơn hàng</h2>
-                                    <div className="form-grid">
-                                        <div className="form-field">
+                                <h2 className="section-title">Tổng hợp đơn hàng</h2>
+                                <div className="form-grid">
+                                    <div className="form-field">
                                         <label className="form-label">Tổng số lượng</label>
                                         <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                             {totalQuantity} sản phẩm
-                                            </div>
                                         </div>
-                                        <div className="form-field">
-                                            <label className="form-label">Tạm tính</label>
+                                    </div>
+                                    <div className="form-field">
+                                        <label className="form-label">Tạm tính</label>
                                         <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                                {formatCurrency(subtotal)}
-                                            </div>
+                                            {formatCurrency(subtotal)}
                                         </div>
-                                        <div className="form-field span-2">
-                                            <div style={{ fontSize: 13, color: '#666' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    </div>
+                                    <div className="form-field span-2">
+                                        <div style={{ fontSize: 13, color: '#666' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <span style={{ fontWeight: 600 }}>Phí vận chuyển:</span>
                                                 <span>{formatCurrency(grnData.shippingFee || 0)}</span>
-                                                </div>
-                                                    </div>
+                                            </div>
+                                        </div>
                                         <div style={{ marginTop: 16, padding: '20px', backgroundColor: '#e3f2fd', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '4px solid #2196F3' }}>
                                             <span style={{ fontSize: 18, fontWeight: 700, color: '#2196F3' }}>Tổng giá trị:</span>
                                             <span style={{ fontSize: 22, fontWeight: 700, color: '#2196F3', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(grandTotal)}</span>
-                                            </div>
-                                            </div>
                                         </div>
                                     </div>
+                                </div>
                             </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -772,3 +693,4 @@ const ViewGoodReceiptNoteDetail = () => {
 };
 
 export default ViewGoodReceiptNoteDetail;
+

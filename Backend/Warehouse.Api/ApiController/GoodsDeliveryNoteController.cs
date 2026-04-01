@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -104,6 +105,17 @@ namespace Warehouse.Api.ApiController
             var userId = GetCurrentUserId();
             var result = await _gdnService.IssueGDNAsync(id, userId, request);
             return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, "Xác nhận xuất hàng thành công."));
+        }
+
+        /// <summary>
+        /// Kế toán hoặc Thủ kho tải lên bằng chứng và xác nhận hoàn tất giao hàng
+        /// </summary>
+        [HttpPost("{id}/confirm-delivery")]
+        public async Task<IActionResult> ConfirmDelivery(long id, IFormFile evidenceFile, [FromForm] string? note)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _gdnService.ConfirmDeliveryAsync(id, userId, evidenceFile, note ?? "");
+            return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, "Xác nhận hoàn tất xuất kho thành công."));
         }
     }
 }

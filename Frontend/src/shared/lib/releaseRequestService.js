@@ -46,11 +46,21 @@ function mapReleaseRequestRow(row) {
         requestedDate: row.requestedDate ?? row.RequestedDate ?? null,
         expectedDate: row.expectedDate ?? row.ExpectedDate ?? null,
         purpose: row.purpose ?? row.Purpose ?? null,
+        note: row.note ?? row.Note ?? null,
         warehouseId: row.warehouseId ?? row.WarehouseId,
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
         receiverId: row.receiverId ?? row.ReceiverId,
         receiverName: row.receiverName ?? row.ReceiverName ?? '',
+        receiverPhone: row.receiverPhone ?? row.ReceiverPhone ?? '',
+        receiverEmail: row.receiverEmail ?? row.ReceiverEmail ?? '',
+        receiverPosition: row.receiverPosition ?? row.ReceiverPosition ?? '',
+        companyId: row.companyId ?? row.CompanyId ?? null,
         companyName: row.companyName ?? row.CompanyName ?? '',
+        addressId: row.addressId ?? row.AddressId ?? null,
+        address: row.address ?? row.Address ?? '',
+        city: row.city ?? row.City ?? '',
+        district: row.district ?? row.District ?? '',
+        ward: row.ward ?? row.Ward ?? '',
         requestedBy: row.requestedBy ?? row.RequestedBy,
         requestedByName: row.requestedByName ?? row.RequestedByName ?? '',
         totalItems: row.totalItems ?? row.TotalItems ?? 0,
@@ -138,18 +148,41 @@ export async function getReleaseRequestDetail(id) {
  *   { warehouseId, receiverId, expectedDate, purpose, lines: [{ itemId, requestedQty, uomId, note? }] }
  * @param {Object} data
  */
+/**
+ * Tao yeu cau xuat kho moi.
+ * @param {Object} data
+ * @param {number} data.warehouseId
+ * @param {number} data.receiverId
+ * @param {number} [data.companyId]
+ * @param {string} [data.expectedDate]
+ * @param {string} [data.purpose]
+ * @param {string} [data.note]
+ * @param {number|null} [data.addressId]
+ * @param {string|null} [data.address]
+ * @param {string|null} [data.city]
+ * @param {string|null} [data.district]
+ * @param {string|null} [data.ward]
+ * @param {Array} data.lines
+ */
 export async function createReleaseRequest(data) {
     try {
         const response = await apiClient.post('/ReleaseRequest/create', {
             warehouseId: Number(data.warehouseId),
             receiverId: Number(data.receiverId),
             expectedDate: data.expectedDate || null,
-            purpose: data.purpose || null,
+            purpose: data.purpose?.trim() || null,
+            note: data.note?.trim() || null,
+            // Address
+            addressId: data.addressId != null ? Number(data.addressId) : null,
+            address: data.address?.trim() || null,
+            city: data.city?.trim() || null,
+            district: data.district?.trim() || null,
+            ward: data.ward?.trim() || null,
             lines: (data.lines ?? []).map(l => ({
                 itemId: Number(l.itemId),
                 requestedQty: Number(l.requestedQty),
                 uomId: Number(l.uomId),
-                note: l.note || null,
+                note: l.note?.trim() || null,
             })),
         });
         return extractBody(response);

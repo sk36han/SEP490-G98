@@ -9,14 +9,13 @@ import UserAccountList from '../shared/pages/ViewUserAccountList';
 import DeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
 import ItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
-import EditItem from '../shared/pages/EditItem';
 import ViewItemDetail from '../shared/pages/ViewItemDetail';
 import ViewPurchaseOrderList from '../shared/pages/ViewPurchaseOrderList';
 import ViewPurchaseOrderDetail from '../shared/pages/ViewPurchaseOrderDetail';
 import CreatePurchaseOrder from '../shared/pages/CreatePurchaseOrder';
 import ViewPurchaseReturnList from '../shared/pages/ViewPurchaseReturnList';
-import CreatePurchaseReturn from '../shared/pages/CreatePurchaseReturn';
 import ViewPurchaseReturnDetail from '../shared/pages/ViewPurchaseReturnDetail';
+import CreatePurchaseReturn from '../shared/pages/CreatePurchaseReturn';
 import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
 import AdminNotifications from '../shared/pages/AdminNotifications';
 import ViewNotifications from '../shared/pages/ViewNotifications';
@@ -38,6 +37,8 @@ import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
 import ViewGoodDeliveryNotes from '../shared/pages/ViewGoodDeliveryNotes';
+import CreateGoodDeliveryNote from '../shared/pages/CreateGoodDeliveryNote';
+import ViewGoodDeliveryNoteDetail from '../shared/pages/ViewGoodDeliveryNoteDetail';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import CreateReceiver from '../shared/pages/CreateReceiver';
 import ViewCategoryList from '../shared/pages/ViewCategoryList';
@@ -179,16 +180,6 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateItem />
-                    </MainLayout>
-                </ProtectedRoute>
-            }
-        />
-        <Route
-            path="/items/edit/:id"
-            element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
-                    <MainLayout>
-                        <EditItem />
                     </MainLayout>
                 </ProtectedRoute>
             }
@@ -491,9 +482,19 @@ const AppRoutes = () => (
         <Route
             path="/goods-delivery-notes/create"
             element={
-                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER']}>
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
                     <MainLayout>
-                        <ViewGoodDeliveryNoteList />
+                        <CreateGoodDeliveryNote />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/goods-delivery-notes/detail/:id"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <ViewGoodDeliveryNoteDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }

@@ -12,20 +12,18 @@ import { X } from 'lucide-react';
 
 const STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
-    { value: 'Pending', label: 'Chờ xử lý' },
-    { value: 'Approved', label: 'Đã duyệt' },
-    { value: 'Rejected', label: 'Từ chối' },
-    { value: 'Posted', label: 'Đã hạch toán' },
-    { value: 'Completed', label: 'Hoàn tất' },
+    { value: 'DRAFT', label: 'Nháp' },
+    { value: 'SUBMITTED', label: 'Đã gửi duyệt' },
+    { value: 'APPROVED', label: 'Đã duyệt' },
+    { value: 'POSTED', label: 'Đã hoàn thành' },
+    { value: 'CANCELLED', label: 'Đã hủy' },
 ];
 
 const REFUND_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
-    { value: 'Pending', label: 'Chờ hoàn tiền' },
-    { value: 'Partial', label: 'Hoàn một phần' },
-    { value: 'Completed', label: 'Đã hoàn tiền' },
-    { value: 'Failed', label: 'Hoàn tiền thất bại' },
-    { value: 'NotRequired', label: 'Không cần hoàn tiền' },
+    { value: 'NotRefunded', label: 'Chưa hoàn tiền' },
+    { value: 'PartiallyRefunded', label: 'Hoàn một phần' },
+    { value: 'Refunded', label: 'Đã hoàn tiền' },
 ];
 
 export default function PurchaseReturnFilterPopup({
@@ -98,8 +96,8 @@ export default function PurchaseReturnFilterPopup({
 
         setStatusOption(STATUS_OPTIONS.find((o) => o.value === (initialValues.status ?? '')) || STATUS_OPTIONS[0]);
         setRefundStatusOption(REFUND_STATUS_OPTIONS.find((o) => o.value === (initialValues.refundStatus ?? '')) || REFUND_STATUS_OPTIONS[0]);
-        setRelatedGRNOption(initialValues.relatedGRNId ?? '');
-        setCreatedByOption(initialValues.createdBy ?? '');
+        setRelatedGRNOption(initialValues.relatedGrnCode ?? '');
+        setCreatedByOption(initialValues.createdByName ?? '');
         setSupplierOption(initialValues.supplierName ?? '');
         setReturnFromDate(initialValues.returnFromDate ?? '');
         setReturnToDate(initialValues.returnToDate ?? '');
@@ -111,8 +109,8 @@ export default function PurchaseReturnFilterPopup({
         onApply({
             status: statusOption.value || undefined,
             refundStatus: refundStatusOption.value || undefined,
-            relatedGRNId: relatedGRNOption || undefined,
-            createdBy: createdByOption || undefined,
+            relatedGrnCode: relatedGRNOption || undefined,
+            createdByName: createdByOption || undefined,
             supplierName: supplierOption || undefined,
             returnFromDate: returnFromDate || undefined,
             returnToDate: returnToDate || undefined,
@@ -148,8 +146,8 @@ export default function PurchaseReturnFilterPopup({
         onApply({
             status: undefined,
             refundStatus: undefined,
-            relatedGRNId: undefined,
-            createdBy: undefined,
+            relatedGrnCode: undefined,
+            createdByName: undefined,
             supplierName: undefined,
             returnFromDate: undefined,
             returnToDate: undefined,
