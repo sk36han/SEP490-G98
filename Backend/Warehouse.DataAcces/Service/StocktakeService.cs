@@ -572,7 +572,7 @@ namespace Warehouse.DataAcces.Service
 
             // Kiểm tra xem đã duyệt bước 1 chưa (tránh duyệt đè vô lý)
             var existing = await _context.DocumentApprovals
-                .AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+                .AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
 
             if (existing && request.Decision == "APPROVE")
                 throw new InvalidOperationException("Bước 1 (Warehouse Manager) đã được phê duyệt trước đó.");
@@ -584,7 +584,7 @@ namespace Warehouse.DataAcces.Service
                     // 1. Ghi log phê duyệt
                     var approval = new DocumentApproval
                     {
-                        DocType = "Stocktake",
+                        DocType = "STOCKTAKE",
                         DocId = stocktakeId,
                         StageNo = 1, // Manager
                         Decision = request.Decision,
@@ -639,7 +639,7 @@ namespace Warehouse.DataAcces.Service
 
             // PHẢI có Bước 1 APPROVE rồi mới được làm Bước 2
             var step1Approved = await _context.DocumentApprovals
-                .AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+                .AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
 
             if (!step1Approved)
                 throw new InvalidOperationException("Cần Warehouse Manager phê duyệt Bước 1 trước.");
@@ -650,7 +650,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     var approval = new DocumentApproval
                     {
-                        DocType = "Stocktake",
+                        DocType = "STOCKTAKE",
                         DocId = stocktakeId,
                         StageNo = 2, // Accountant
                         Decision = request.Decision,
@@ -699,7 +699,7 @@ namespace Warehouse.DataAcces.Service
         {
             return await _context.DocumentApprovals
                 .Include(a => a.ActionByNavigation)
-                .Where(a => a.DocType == "Stocktake" && a.DocId == stocktakeId)
+                .Where(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId)
                 .OrderBy(a => a.ActionAt)
                 .Select(a => new StocktakeApprovalHistoryResponse
                 {
@@ -727,8 +727,8 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Chỉ có thể ghi sổ khi phiếu ở trạng thái PENDING_APPROVAL.");
 
             // Kiểm tra phê duyệt 2 bước
-            var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
-            var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
+            var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+            var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
 
             if (!step1Approved || !step2Approved)
                 throw new InvalidOperationException("Phiếu cần được phê duyệt đầy đủ bởi Manager và Accountant trước khi ghi sổ.");
@@ -846,8 +846,8 @@ namespace Warehouse.DataAcces.Service
 
             if (!hasVariance)
             {
-                var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
-                var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "Stocktake" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
+                var step1Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 1 && a.Decision == "APPROVE");
+                var step2Approved = await _context.DocumentApprovals.AnyAsync(a => a.DocType == "STOCKTAKE" && a.DocId == stocktakeId && a.StageNo == 2 && a.Decision == "APPROVE");
                 if (!step1Approved || !step2Approved)
                     throw new InvalidOperationException("Phiếu cần được phê duyệt đầy đủ trước khi hoàn tất.");
             }

@@ -66,17 +66,15 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = warehouse.CreatedAt
             };
 
-            // LEFT JOIN Items ← InventoryOnHand:
-            // Lấy TẤT CẢ active items, kể cả chưa từng nhập vào kho này
-            // HasInventoryRecord = false → chưa có row trong InventoryOnHand → cảnh báo trên UI
-            // ⚠️ KHÔNG lọc OnHandQty > 0: item hết hàng (= 0) vẫn giữ, vì đã từng được nhập
+            // Query thẳng từ InventoryOnHand → chỉ lấy items ĐÃ CÓ bản ghi (kể cả OnHandQty = 0)
+            // ✅ Item hết hàng (OnHandQty = 0): vẫn lấy — đã từng nhập, chỉ là hết hàng
+            // ❌ Item chưa bao giờ nhập kho: không có row → không trả về (exclude hoàn toàn)
+            // Logic này khớp hoàn toàn với StartStocktakeExecutionAsync
             response.Items = await (
-                from item in _context.Items
-                where item.IsActive
-                join inv in _context.InventoryOnHands
-                                .Where(i => i.WarehouseId == warehouseId)
-                    on item.ItemId equals inv.ItemId into invGroup
-                from inv in invGroup.DefaultIfEmpty()
+                from inv in _context.InventoryOnHands
+                where inv.WarehouseId == warehouseId
+                join item in _context.Items.Where(i => i.IsActive)
+                    on inv.ItemId equals item.ItemId
                 orderby item.ItemCode
                 select new WarehouseItemDto
                 {
@@ -86,14 +84,13 @@ namespace Warehouse.DataAcces.Service
                     CategoryName       = item.Category != null ? item.Category.CategoryName : null,
                     BrandName          = item.Brand    != null ? item.Brand.BrandName       : null,
                     UnitName           = item.BaseUom  != null ? item.BaseUom.UomName       : null,
-                    OnHandQty          = inv != null ? inv.OnHandQty    : (decimal?)null,
-                    ReservedQty        = inv != null ? inv.ReservedQty  : (decimal?)null,
-                    HasInventoryRecord = inv != null
+                    OnHandQty          = inv.OnHandQty,
+                    ReservedQty        = inv.ReservedQty,
+                    HasInventoryRecord = true   // luôn true vì đã lọc từ InventoryOnHand
                 }
             ).ToListAsync();
 
-            // ItemCount chỉ đếm items ĐÃ CÓ bản ghi tồn kho (không đếm items chưa nhập)
-            response.ItemCount = response.Items.Count(x => x.HasInventoryRecord);
+            response.ItemCount = response.Items.Count;
 
 
             // Lấy giấy tờ nhập kho (GRN)
@@ -281,6 +278,7 @@ namespace Warehouse.DataAcces.Service
                 .ToListAsync();
         }
 
+<<<<<<< HEAD
         public async Task<PagedResult<WarehouseHistoryResponse>> GetWarehouseHistoryAsync(int pageNumber, int pageSize, long? warehouseId = null)
         {
             var query = _context.InventoryTransactionLines
