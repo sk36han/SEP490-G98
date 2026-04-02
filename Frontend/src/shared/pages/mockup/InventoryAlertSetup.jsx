@@ -6,8 +6,7 @@
  *   - Nếu OnHandQty < MinQty → cảnh báo "Dưới định mức" (đỏ).
  *   - Nếu OnHandQty >= MinQty → "An toàn" (xanh).
  *
- * Backend: chờ IWarehousePolicyController (xem itemWarehousePolicyService.js).
- * Hiện dùng mock data để demo UI.
+ * Backend: ItemWarehousePolicyController (GET /api/itemwarehousepolicy/list).
  *
  * UI pattern: bám 1:1 theo ViewItemList (Danh sách vật tư).
  */
@@ -50,14 +49,8 @@ import Toast from '../../../components/Toast/Toast';
 import { useToast } from '../../hooks/useToast';
 import SearchInput from '../../components/SearchInput';
 import AlertFilterPopup from '../../components/AlertFilterPopup';
+import { getItemWarehousePolicyList } from '../../lib/itemWarehousePolicyService';
 import '../../styles/ListView.css';
-
-// ─── Mock data – thay bằng API khi backend sẵn sàng ────────────────────────
-const MOCK_ALERTS = [
-    { alertId: 1, itemId: 1, itemCode: 'ITEM-001', itemName: 'Nguyên liệu demo', uom: 'Each', warehouseId: 1, warehouseName: 'Kho HCM', onHandQty: 999, minQty: 50, reorderQty: 200 },
-    { alertId: 2, itemId: 2, itemCode: 'ITEM-002', itemName: 'Vật tư B', uom: 'Box', warehouseId: 1, warehouseName: 'Kho HCM', onHandQty: 20, minQty: 50, reorderQty: 200 },
-    { alertId: 3, itemId: 3, itemCode: 'ITEM-003', itemName: 'Vật tư C', uom: 'Each', warehouseId: 1, warehouseName: 'Kho HCM', onHandQty: 150, minQty: 100, reorderQty: 300 },
-];
 
 // ─── Cột hiển thị ────────────────────────────────────────────────────────────
 const ALERT_COLUMNS = [
@@ -88,7 +81,7 @@ const ALERT_COLUMNS = [
     {
         id: 'uom',
         label: 'ĐVT',
-        sortable: true,
+        sortable: false,
         getValue: (row) => row.uom ?? '-',
     },
     {
@@ -161,6 +154,7 @@ const InventoryAlertSetup = () => {
 
     // Dữ liệu
     const [data, setData] = useState([]);
+    const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -177,6 +171,7 @@ const InventoryAlertSetup = () => {
     // Filter
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState({});
+    const filterValuesRef = useRef({});
 
     // Cột
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
@@ -207,16 +202,24 @@ const InventoryAlertSetup = () => {
         setLoading(true);
         setError(null);
         try {
-            await new Promise((r) => setTimeout(r, 600));
-            setData(MOCK_ALERTS);
+            const filters = filterValuesRef.current;
+            const result = await getItemWarehousePolicyList({
+                page: page + 1,
+                pageSize,
+                keyword: searchTerm || undefined,
+                warehouseId: filters.warehouseId || undefined,
+                statusFilter: filters.statusFilter || undefined,
+            });
+            setData(result.items);
+            setTotalItems(result.totalItems);
         } catch (err) {
-            const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? err?.message ?? 'Không thể tải danh sách cảnh báo.';
+            const msg = err?.message ?? err?.response?.data?.message ?? err?.response?.data?.detail ?? 'Không thể tải danh sách cảnh báo.';
             setError(msg);
             setData([]);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page, pageSize, searchTerm]);
 
     useEffect(() => {
         fetchData();
@@ -337,6 +340,7 @@ const InventoryAlertSetup = () => {
     };
 
     const handleFilterApply = (values) => {
+        filterValuesRef.current = values;
         setFilterValues(values);
         setPage(0);
     };
@@ -1058,7 +1062,7 @@ const InventoryAlertSetup = () => {
                             component="span"
                             sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
                         >
-                            {start}–{end} / {sortedData.length} (Tổng {totalPages} trang)
+                            {start}–{end} / {totalItems} (Tổng {totalPages} trang)
                         </Typography>
 
                         <Button
@@ -1083,7 +1087,7 @@ const InventoryAlertSetup = () => {
                         <Button
                             size="small"
                             variant="outlined"
-                            disabled={end >= sortedData.length || sortedData.length === 0}
+                            disabled={end >= totalItems || totalItems === 0}
                             onClick={() => handlePageChange(page + 1)}
                             sx={{
                                 minWidth: 36,

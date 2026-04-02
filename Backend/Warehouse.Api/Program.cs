@@ -106,6 +106,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IReleaseRequestService, ReleaseRequestService>();
             builder.Services.AddScoped<IGoodsDeliveryNoteService, GoodsDeliveryNoteService>();
             builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
+            builder.Services.AddScoped<IItemWarehousePolicyService, ItemWarehousePolicyService>();
 
 			// JWT Authentication
 			var jwtSettings = builder.Configuration.GetSection("JwtSettings");
