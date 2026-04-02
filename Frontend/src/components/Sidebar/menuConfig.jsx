@@ -133,12 +133,12 @@ const warehouseKeeperItems = [
     },
     {
         id: 'good-delivery-notes-mgmt',
-        path: '/good-delivery-notes',
+        path: '/release-request',
         icon: <FileText size={22} />,
         label: 'Yêu cầu xuất hàng',
         children: [
-            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
-            { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
+            { path: '/release-request', label: 'Danh sách yêu cầu xuất hàng' },
+            { path: '/release-request/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
     {
@@ -201,12 +201,12 @@ const saleSupportItems = [
     },
     {
         id: 'good-delivery-notes-mgmt',
-        path: '/good-delivery-notes',
+        path: '/release-request',
         icon: <FileText size={22} />,
         label: 'Yêu cầu xuất hàng',
         children: [
-            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
-            { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
+            { path: '/release-request', label: 'Danh sách yêu cầu xuất hàng' },
+            { path: '/release-request/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
     {
@@ -238,12 +238,12 @@ const saleEngineerItems = [
     { path: '/receivers', icon: <Users size={22} />, label: 'Người nhận' },
     {
         id: 'good-delivery-notes-mgmt',
-        path: '/good-delivery-notes',
+        path: '/release-request',
         icon: <FileText size={22} />,
         label: 'Yêu cầu xuất hàng',
         children: [
-            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
-            { path: '/good-delivery-notes/create', label: 'Tạo yêu cầu xuất hàng' },
+            { path: '/release-request', label: 'Danh sách yêu cầu xuất hàng' },
+            { path: '/release-request/create', label: 'Tạo yêu cầu xuất hàng' },
         ],
     },
     {
@@ -332,11 +332,11 @@ const accountantItems = [
     },
     {
         id: 'good-delivery-notes-mgmt',
-        path: '/good-delivery-notes',
+        path: '/release-request',
         icon: <FileText size={22} />,
         label: 'Yêu cầu xuất hàng',
         children: [
-            { path: '/good-delivery-notes', label: 'Danh sách yêu cầu xuất hàng' },
+            { path: '/release-request', label: 'Danh sách yêu cầu xuất hàng' },
         ],
     },
     {

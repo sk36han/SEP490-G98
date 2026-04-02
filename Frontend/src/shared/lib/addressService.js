@@ -1,6 +1,37 @@
 import apiClient from './axios';
 
 /**
+ * Lay danh sach dia chi theo cong ty.
+ * GET /api/Address/addressBycompany/{companyId}
+ */
+export async function getAddressesByCompany(companyId) {
+    try {
+        const response = await apiClient.get(`/Address/addressBycompany/${companyId}`);
+        const data = response?.data ?? {};
+        const raw = Array.isArray(data)
+            ? data
+            : (data.data ?? data.Data ?? data.items ?? data.Items ?? []);
+
+        return raw
+            .filter(row => row != null && typeof row === 'object')
+            .map(row => ({
+                addressId: row.addressId ?? row.AddressId,
+                companyId: row.companyId ?? row.CompanyId,
+                addressName: row.addressName ?? row.AddressName ?? '',
+                addressDetail: row.addressDetail ?? row.AddressDetail ?? '',
+                district: row.district ?? row.District ?? '',
+                city: row.city ?? row.City ?? '',
+                ward: row.ward ?? row.Ward ?? '',
+                isDefault: row.isDefault ?? row.IsDefault ?? false,
+                isActive: row.isActive ?? row.IsActive ?? true,
+            }));
+    } catch (error) {
+        if (error.response?.status === 404) return [];
+        throw new Error(error.response?.data?.message || 'Khong tai duoc danh sach dia chi.');
+    }
+}
+
+/**
  * Address API — maps to backend AddressController.
  * Lấy danh sách địa chỉ theo companyId,
  * và tạo mới địa chỉ cho một công ty.
@@ -71,6 +102,7 @@ export async function createAddress(data) {
             district: data.district?.trim() || null,
             city: data.city?.trim() || null,
             ward: data.ward?.trim() || null,
+            isDefault: Boolean(data.isDefault),
         };
 
         const response = await apiClient.post('/Address/create', payload);

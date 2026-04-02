@@ -77,7 +77,7 @@ const CreateReceiver = () => {
     const loadCompanies = useCallback(async () => {
         setLoadingCompanies(true);
         try {
-            const list = await getCompanies({ pageSize: 1000 });
+            const list = await getCompanies();
             setCompanies(list ?? []);
         } catch (err) {
             showToast('Khong tai duoc danh sach cong ty.', 'error');
@@ -147,7 +147,7 @@ const CreateReceiver = () => {
     const validateCompanyForm = () => {
         const newErrors = {};
         if (!companyForm.companyName.trim()) {
-            newErrors.companyName = 'Ten cong ty la bat buoc.';
+            newErrors.companyName = 'Tên công ty là bắt buộc.';
         }
         setCompanyErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -159,7 +159,7 @@ const CreateReceiver = () => {
         setCreatingCompany(true);
         try {
             const created = await createCompany({ companyName: companyForm.companyName.trim() });
-            showToast('Tao cong ty thanh cong!', 'success');
+            showToast('Tạo công ty thành công!', 'success');
             await loadCompanies();
             const newId = created?.companyId;
             if (newId) {
@@ -168,7 +168,7 @@ const CreateReceiver = () => {
             }
             handleCloseCompanyDialog();
         } catch (error) {
-            const msg = error?.response?.data?.message || error?.message || 'Tao cong ty that bai.';
+            const msg = error?.response?.data?.message || error?.message || 'Tạo công ty thất bại.';
             showToast(msg, 'error');
         } finally {
             setCreatingCompany(false);
@@ -178,7 +178,7 @@ const CreateReceiver = () => {
     /* ── Address handlers ── */
     const handleOpenAddressDialog = () => {
         if (!formData.companyId) {
-            showToast('Vui long chon cong ty truoc khi tao dia chi.', 'warning');
+            showToast('Vui lòng chọn công ty trước khi tạo địa chỉ.', 'warning');
             return;
         }
         setAddressDialogOpen(true);
@@ -203,7 +203,7 @@ const CreateReceiver = () => {
     const validateAddressForm = () => {
         const newErrors = {};
         if (!addressForm.addressDetail.trim()) {
-            newErrors.addressDetail = 'Dia chi chi tiet la bat buoc.';
+            newErrors.addressDetail = 'Địa chỉ chi tiết là bắt buộc.';
         }
         setAddressErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -222,7 +222,7 @@ const CreateReceiver = () => {
                 city: addressForm.city.trim() || null,
                 ward: addressForm.ward.trim() || null,
             });
-            showToast('Tao dia chi thanh cong!', 'success');
+            showToast('Tạo địa chỉ thành công!', 'success');
             await loadAddresses(formData.companyId);
             const newId = created?.addressId ?? created?.AddressId;
             if (newId) {
@@ -230,7 +230,7 @@ const CreateReceiver = () => {
             }
             handleCloseAddressDialog();
         } catch (error) {
-            const msg = error?.response?.data?.message || error?.message || 'Tao dia chi that bai.';
+            const msg = error?.response?.data?.message || error?.message || 'Tạo địa chỉ thất bại.';
             showToast(msg, 'error');
         } finally {
             setCreatingAddress(false);
@@ -272,15 +272,15 @@ const CreateReceiver = () => {
         const newErrors = {};
 
         if (!formData.companyId) {
-            newErrors.companyId = 'Cong ty la bat buoc.';
+            newErrors.companyId = 'Công ty là bắt buộc.';
         }
 
         if (!formData.receiverName.trim()) {
-            newErrors.receiverName = 'Ten nguoi nhan la bat buoc.';
+            newErrors.receiverName = 'Tên người nhận là bắt buộc.';
         }
 
         if (!formData.phone.trim()) {
-            newErrors.phone = 'So dien thoai la bat buoc.';
+            newErrors.phone = 'Số điện thoại là bắt buộc.';
         }
 
         if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
@@ -288,7 +288,7 @@ const CreateReceiver = () => {
         }
 
         if (useCustomAddress && !formData.address.trim()) {
-            newErrors.address = 'Dia chi chi tiet la bat buoc.';
+            newErrors.address = 'Địa chỉ chi tiết là bắt buộc.';
         }
 
         setErrors(newErrors);
@@ -325,7 +325,7 @@ const CreateReceiver = () => {
             };
 
             await createReceiver(payload);
-            showToast('Tao nguoi nhan thanh cong!', 'success');
+            showToast('Tạo người nhận thành công!', 'success');
 
             setTimeout(() => {
                 navigate(-1);
@@ -385,7 +385,7 @@ const CreateReceiver = () => {
                     <div className="form-card-intro">
                         <h1 className="page-title">Them moi nguoi nhan</h1>
                         <p className="form-card-required-note">
-                            Cac truong duoc danh dau <span className="required-mark">*</span> la bat buoc
+                            Các trường được đánh dấu <span className="required-mark">*</span> là bắt buộc
                         </p>
                     </div>
 
@@ -446,7 +446,7 @@ const CreateReceiver = () => {
                     {/* ── Section 2: Dia chi giao hang ── */}
                     <div className="info-section">
                         <div className="section-header-with-toggle">
-                            <h2 className="section-title">Dia chi giao hang</h2>
+                            <h2 className="section-title">Địa chỉ giao hàng</h2>
                         </div>
 
                         <div className="form-grid">
@@ -573,7 +573,7 @@ const CreateReceiver = () => {
 
                                             <div className="form-field">
                                                 <label className="form-label" htmlFor="address">
-                                                    Dia chi chi tiet <span className="required-mark">*</span>
+                                                    Địa chỉ chi tiết <span className="required-mark">*</span>
                                                 </label>
                                                 <div className="input-wrapper">
                                                     <MapPin className="input-icon" size={16} />
@@ -669,7 +669,7 @@ const CreateReceiver = () => {
                                         name="receiverName"
                                         value={formData.receiverName}
                                         onChange={handleChange}
-                                        placeholder="Nhap ten nguoi nhan"
+                                        placeholder="Nhập tên người nhận"
                                         className={`form-input ${errors.receiverName ? 'error' : ''}`}
                                         autoComplete="off"
                                     />
@@ -683,7 +683,7 @@ const CreateReceiver = () => {
 
                             <div className="form-field">
                                 <label className="form-label" htmlFor="phone">
-                                    So dien thoai <span className="required-mark">*</span>
+                                    Số điện thoại <span className="required-mark">*</span>
                                 </label>
                                 <div className="input-wrapper">
                                     <Phone className="input-icon" size={16} />
@@ -720,7 +720,7 @@ const CreateReceiver = () => {
                             </div>
 
                             <div className="form-field span-2">
-                                <label className="form-label" htmlFor="notes">Ghi chu</label>
+                                <label className="form-label" htmlFor="notes">Ghi chú</label>
                                 <div className="input-wrapper textarea-wrapper">
                                     <FileText className="input-icon textarea-icon" size={16} />
                                     <textarea
@@ -826,7 +826,7 @@ const CreateReceiver = () => {
 
                     <div className="form-field">
                         <label className="form-label" htmlFor="addr-addressDetail">
-                            Dia chi chi tiet <span className="required-mark">*</span>
+                            Địa chỉ chi tiết <span className="required-mark">*</span>
                         </label>
                         <div className="input-wrapper">
                             <MapPin className="input-icon" size={16} />

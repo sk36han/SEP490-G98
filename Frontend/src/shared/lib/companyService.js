@@ -1,9 +1,7 @@
 ﻿import apiClient from './axios';
 
-export async function getCompanies({ page = 1, pageSize = 100 } = {}) {
-    const response = await apiClient.get('/Company/list-all-company', {
-        params: { page, pageSize },
-    });
+export async function getCompanies() {
+    const response = await apiClient.get('/Company/list-all-company');
     const data = response?.data ?? {};
     const raw = Array.isArray(data)
         ? data

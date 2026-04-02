@@ -106,6 +106,29 @@ function mapInventoryByWarehouseRow(v) {
 
 
 /**
+ * Lấy danh sách vật tư theo kho.
+ * GET /api/Item/warehouse/{warehouseId}/available
+ * Backend trả: [{ itemId, itemCode, itemName, uomId, uomName, onHandQty, reservedQty, availableQty }]
+ * @param {number|string} warehouseId
+ * @returns {Promise<Array>}
+ */
+export async function getItemsByWarehouse(warehouseId) {
+    const response = await apiClient.get(`/Item/warehouse/${warehouseId}/available`);
+    const data = response?.data ?? [];
+    const list = Array.isArray(data) ? data : [];
+    return list.map(row => ({
+        itemId: row.itemId ?? row.ItemId,
+        itemCode: row.itemCode ?? row.ItemCode ?? '',
+        itemName: row.itemName ?? row.ItemName ?? '',
+        uomId: row.uomId ?? row.UomId ?? null,
+        uomName: row.uomName ?? row.UomName ?? '',
+        onHandQty: row.onHandQty ?? row.OnHandQty ?? 0,
+        reservedQty: row.reservedQty ?? row.ReservedQty ?? 0,
+        availableQty: row.availableQty ?? row.AvailableQty ?? 0,
+    }));
+}
+
+/**
  * Lấy toàn bộ danh sách vật tư để hiển thị (list).
  * Backend trả: { success, message, data: ItemDisplayResponse[] }
  * @returns {Promise<{ itemId, itemCode, itemName, ... }[]>}
