@@ -7,6 +7,7 @@ namespace Warehouse.DataAcces.Service.Interface
     public interface IReleaseRequestService
     {
         /// Tạo yêu cầu xuất kho
+        /// Tạo yêu cầu xuất kho
         Task<ReleaseRequestDetailResponse> CreateReleaseRequestAsync(long requestedByUserId, CreateReleaseRequestRequest request);
 
         /// Lấy danh sách yêu cầu xuất kho có phân trang

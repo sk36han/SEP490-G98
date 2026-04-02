@@ -58,12 +58,12 @@ namespace Warehouse.DataAcces.Service
                 // 4. Sinh StocktakeLines mới (Snapshot thời điểm hiện tại)
                 var lines = inventory.Select(inv => new StocktakeLine
                 {
-                    StocktakeId = session.StocktakeId,
-                    ItemId = inv.ItemId,
+                    StocktakeId       = session.StocktakeId,
+                    ItemId            = inv.ItemId,
                     SystemQtySnapshot = inv.OnHandQty,
-                    CountedQty = null,
-                    VarianceQty = null,
-                    Note = null
+                    CountedQty        = null,
+                    VarianceQty       = null,
+                    Note              = null
                 }).ToList();
 
                 _context.StocktakeLines.AddRange(lines);

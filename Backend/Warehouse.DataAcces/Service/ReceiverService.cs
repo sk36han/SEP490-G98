@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
@@ -26,26 +27,62 @@ namespace Warehouse.DataAcces.Service
             _auditLogService = auditLogService;
         }
 
+        public async Task<List<ReceiverResponse>> GetReceiversByCompanyAsync(long companyId)
+        {
+            var receivers = await _context.Receivers
+                .Where(r => r.CompanyId == companyId && r.IsActive)
+                .Select(r => new ReceiverResponse
+                {
+                    ReceiverId = r.ReceiverId,
+                    ReceiverCode = r.ReceiverCode,
+                    ReceiverName = r.ReceiverName,
+                    Phone = r.Phone,
+                    Email = r.Email,
+                    Address = r.Address,
+                    City = r.City,
+                    District = r.District,
+                    Ward = r.Ward,
+                    Notes = r.Notes,
+                    Position = r.Position,
+                    CompanyId = r.CompanyId,
+                    IsActive = r.IsActive,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync();
+
+            return receivers;
+        }
+
         public async Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request, long userId = 0)
         {
-            // 1. Check duplicate ReceiverCode
+            // 1. Sinh tự động ReceiverCode: RCV-XXXXX
             var receivers = await _receiverRepository.GetAllAsync();
-            if (receivers.Any(r => r.ReceiverCode == request.ReceiverCode))
-            {
-                throw new InvalidOperationException("Mã người nhận đã tồn tại");
-            }
+            var maxNumber = receivers
+                .Where(r => !string.IsNullOrEmpty(r.ReceiverCode) && r.ReceiverCode.StartsWith("RCV-"))
+                .Select(r => {
+                    if (int.TryParse(r.ReceiverCode!.Substring(4), out int number))
+                        return number;
+                    return 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            string generatedCode = $"RCV-{maxNumber + 1:D5}";
 
             // 2. Create entity
             var receiver = new Receiver
             {
-                ReceiverCode = request.ReceiverCode,
+                ReceiverCode = generatedCode,
                 ReceiverName = request.ReceiverName,
                 Phone = request.Phone,
                 Email = request.Email,
                 Address = request.Address,
                 City = request.City,
                 Ward = request.Ward,
+                District = request.District,
                 Notes = request.Notes,
+                Position = null, // Backend mặc định
+                CompanyId = request.CompanyId,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -65,19 +102,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 5. Return response
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
 
         public async Task<PagedResponse<ReceiverResponse>> GetReceiversAsync(
@@ -145,8 +170,12 @@ namespace Warehouse.DataAcces.Service
                     Address = r.Address,
                     City = r.City,
                     Ward = r.Ward,
+                    District = r.District,
                     Notes = r.Notes,
-                    IsActive = r.IsActive
+                    Position = r.Position,
+                    CompanyId = r.CompanyId,
+                    IsActive = r.IsActive,
+                    CreatedAt = r.CreatedAt
                 })
                 .ToList();
 
@@ -191,7 +220,9 @@ namespace Warehouse.DataAcces.Service
             receiver.Address = request.Address;
             receiver.City = request.City;
             receiver.Ward = request.Ward;
+            receiver.District = request.District;
             receiver.Notes = request.Notes;
+            receiver.CompanyId = request.CompanyId;
             receiver.IsActive = request.IsActive;
 
             // 4. Save
@@ -209,19 +240,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 6. Return response
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
 
         public async Task<ReceiverResponse> ToggleReceiverStatusAsync(long id, bool isActive, long userId = 0)
@@ -261,20 +280,9 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 6. Return response
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
+
         public async Task<ReceiverResponse> GetReceiverByIdAsync(long id)
         {
             var receiver = await _receiverRepository.GetByIdAsync(id);
@@ -283,20 +291,27 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException($"Không tìm thấy người nhận với ID = {id}");
             }
 
-            return new ReceiverResponse
-            {
-                ReceiverId = receiver.ReceiverId,
-                ReceiverCode = receiver.ReceiverCode,
-                ReceiverName = receiver.ReceiverName,
-                Phone = receiver.Phone,
-                Email = receiver.Email,
-                Address = receiver.Address,
-                City = receiver.City,
-                Ward = receiver.Ward,
-                Notes = receiver.Notes,
-                IsActive = receiver.IsActive
-            };
+            return MapToResponse(receiver);
         }
+
+        // ── Helper: map entity → response ──────────────────────────────────────
+        private static ReceiverResponse MapToResponse(Receiver r) => new ReceiverResponse
+        {
+            ReceiverId    = r.ReceiverId,
+            ReceiverCode  = r.ReceiverCode,
+            ReceiverName  = r.ReceiverName,
+            Phone         = r.Phone,
+            Email         = r.Email,
+            Address       = r.Address,
+            City          = r.City,
+            Ward          = r.Ward,
+            District      = r.District,
+            Notes         = r.Notes,
+            Position      = r.Position,
+            CompanyId     = r.CompanyId,
+            IsActive      = r.IsActive,
+            CreatedAt     = r.CreatedAt
+        };
 
         public async Task<ReceiverTransactionUnifiedResponse> GetReceiverTransactionsAsync(
             long receiverId,

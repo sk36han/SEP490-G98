@@ -21,18 +21,17 @@ public class CreateReceiverServiceTests
 	private ReceiverService CreateService() => new(_repoMock.Object, _contextMock.Object, _mockAuditLogService.Object);
 
     private CreateReceiverRequest MakeRequest(
-        string code = "RCV001",
         string name = "Nguyen Van A",
         string? email = "a@test.com") => new()
     {
-        ReceiverCode = code,
         ReceiverName = name,
         Email = email,
         Phone = "0909123456",
         Address = "123 Le Loi",
         City = "HCM",
         Ward = "W1",
-        Notes = "Note 1"
+        Notes = "Note 1",
+        CompanyId = 1
     };
 
     private void SetupGetAll(params ReceiverEntity[] existing)
@@ -44,7 +43,7 @@ public class CreateReceiverServiceTests
     public async Task CreateReceiver_ValidRequest_ShouldReturnSuccessAndMapAllFields()
     {
         // Arrange
-        SetupGetAll();
+        SetupGetAll(); // Không có DB, sinh ra RCV-00001
         _repoMock.Setup(r => r.CreateAsync(It.IsAny<ReceiverEntity>())).ReturnsAsync((ReceiverEntity r) => r);
 
         var request = MakeRequest();
@@ -53,87 +52,41 @@ public class CreateReceiverServiceTests
         var result = await CreateService().CreateReceiverAsync(request);
 
         // Assert
-        result.ReceiverCode.Should().Be(request.ReceiverCode);
+        result.ReceiverCode.Should().Be("RCV-00001");
         result.ReceiverName.Should().Be(request.ReceiverName);
         result.Email.Should().Be(request.Email);
         result.IsActive.Should().BeTrue();
 
         _repoMock.Verify(r => r.CreateAsync(It.Is<ReceiverEntity>(e => 
-            e.ReceiverCode == request.ReceiverCode && 
+            e.ReceiverCode == "RCV-00001" && 
             e.IsActive == true &&
             e.CreatedAt > DateTime.UtcNow.AddMinutes(-1))), Times.Once);
     }
 
-    [Fact]
-    public async Task CreateReceiver_DuplicateCode_ShouldThrowInvalidOperation()
-    {
-        // Arrange
-        SetupGetAll(new ReceiverEntity { ReceiverCode = "DUP001" });
-        var request = MakeRequest(code: "DUP001");
-
-        // Act
-        Func<Task> act = () => CreateService().CreateReceiverAsync(request);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Mã người nhận đã tồn tại*");
-        _repoMock.Verify(r => r.CreateAsync(It.IsAny<ReceiverEntity>()), Times.Never);
-    }
+    // Đã xóa test trùng vì ID hiện tại tự sinh
 
     [Fact]
     public async Task CreateReceiver_OnlyRequiredFields_ShouldSucceed()
     {
         // Arrange
-        SetupGetAll();
+        SetupGetAll(new ReceiverEntity { ReceiverCode = "RCV-00005" }); // RCV-00005 có sẵn
         _repoMock.Setup(r => r.CreateAsync(It.IsAny<ReceiverEntity>())).ReturnsAsync((ReceiverEntity r) => r);
 
         var request = new CreateReceiverRequest
         {
-            ReceiverCode = "REQ01",
-            ReceiverName = "Name Only"
+            ReceiverName = "Name Only",
+            CompanyId = 1
         };
 
         // Act
         var result = await CreateService().CreateReceiverAsync(request);
 
         // Assert
-        result.ReceiverCode.Should().Be("REQ01");
+        result.ReceiverCode.Should().Be("RCV-00006"); // Tự sinh
         result.Phone.Should().BeNull();
     }
 
-    [Fact]
-    public async Task CreateReceiver_SpecialCharacters_ShouldBeAccepted()
-    {
-        // Arrange
-        SetupGetAll();
-        _repoMock.Setup(r => r.CreateAsync(It.IsAny<ReceiverEntity>())).ReturnsAsync((ReceiverEntity r) => r);
-
-        var request = MakeRequest(code: "R-@#!", name: "Receiver @ Name");
-
-        // Act
-        var result = await CreateService().CreateReceiverAsync(request);
-
-        // Assert
-        result.ReceiverCode.Should().Be("R-@#!");
-        result.ReceiverName.Should().Be("Receiver @ Name");
-    }
-
-    [Fact]
-    public async Task CreateReceiver_WhitespaceInput_ShouldBeStoredAsIs()
-    {
-        // Arrange
-        SetupGetAll();
-        _repoMock.Setup(r => r.CreateAsync(It.IsAny<ReceiverEntity>())).ReturnsAsync((ReceiverEntity r) => r);
-
-        var request = MakeRequest(code: "  RCV  ", name: "  Name  ");
-
-        // Act
-        var result = await CreateService().CreateReceiverAsync(request);
-
-        // Assert
-        // Current logic does not trim
-        result.ReceiverCode.Should().Be("  RCV  ");
-        result.ReceiverName.Should().Be("  Name  ");
-    }
+    // Đã xóa các Test về gán ReceiverCode lỗi/special char do frontend không gửi lên nữa
 
     [Fact]
     public async Task CreateReceiver_LongNotes_ShouldHandleCorrectly()

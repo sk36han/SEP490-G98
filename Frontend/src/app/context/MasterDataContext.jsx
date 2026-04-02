@@ -46,7 +46,7 @@ export function MasterDataProvider({ children }) {
   const [receiversLoading, setReceiversLoading] = useState(false);
   const [receiversError, setReceiversError] = useState(null);
 
-  // Fetch functions
+  // Fetch functions - stable, no state-length dependencies to avoid unstable callbacks
   const fetchCategories = useCallback(async (force = false) => {
     if (!force && categories.length > 0) return;
     setCategoriesLoading(true);
@@ -59,7 +59,7 @@ export function MasterDataProvider({ children }) {
     } finally {
       setCategoriesLoading(false);
     }
-  }, [categories.length]);
+  }, []); // intentionally empty - reads current state via closure only at call time
 
   const fetchSuppliers = useCallback(async (force = false) => {
     if (!force && suppliers.length > 0) return;
@@ -73,7 +73,7 @@ export function MasterDataProvider({ children }) {
     } finally {
       setSuppliersLoading(false);
     }
-  }, [suppliers.length]);
+  }, []);
 
   const fetchWarehouses = useCallback(async (force = false) => {
     if (!force && warehouses.length > 0) return;
@@ -87,7 +87,7 @@ export function MasterDataProvider({ children }) {
     } finally {
       setWarehousesLoading(false);
     }
-  }, [warehouses.length]);
+  }, []);
 
   const fetchBrands = useCallback(async (force = false) => {
     if (!force && brands.length > 0) return;
@@ -101,7 +101,7 @@ export function MasterDataProvider({ children }) {
     } finally {
       setBrandsLoading(false);
     }
-  }, [brands.length]);
+  }, []);
 
   const fetchUoms = useCallback(async (force = false) => {
     if (!force && uoms.length > 0) return;
@@ -115,7 +115,7 @@ export function MasterDataProvider({ children }) {
     } finally {
       setUomsLoading(false);
     }
-  }, [uoms.length]);
+  }, []);
 
   const fetchUsers = useCallback(async (force = false) => {
     if (!force && users.length > 0) return;
@@ -129,7 +129,7 @@ export function MasterDataProvider({ children }) {
     } finally {
       setUsersLoading(false);
     }
-  }, [users.length]);
+  }, []);
 
   const fetchReceivers = useCallback(async (force = false) => {
     if (!force && receivers.length > 0) return;
@@ -143,7 +143,7 @@ export function MasterDataProvider({ children }) {
     } finally {
       setReceiversLoading(false);
     }
-  }, [receivers.length]);
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -236,11 +236,6 @@ export function useSuppliers() {
 export function useWarehouses() {
   const { warehouses, warehousesLoading, warehousesError, fetchWarehouses } = useMasterData();
   return { warehouses, loading: warehousesLoading, error: warehousesError, fetchWarehouses };
-}
-
-export function useBrands() {
-  const { brands, brandsLoading, brandsError, fetchBrands } = useMasterData();
-  return { brands, loading: brandsLoading, error: brandsError, fetchBrands };
 }
 
 export function useUoms() {

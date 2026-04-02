@@ -160,6 +160,16 @@ const CreateCategory = () => {
             <Typography variant="h6" fontWeight={700} sx={{ mb: 2.5 }}>
               Thông tin danh mục
             </Typography>
+            <TextField
+                fullWidth
+                size="small"
+                label="Mã danh mục"
+                name="categoryCode"
+                value={form.categoryCode}
+                onChange={handleChange}
+                placeholder="VD: DT, LT..."
+                InputLabelProps={{ shrink: true }}
+              />
 
             <Stack spacing={2}>
               <TextField
@@ -173,16 +183,7 @@ const CreateCategory = () => {
                 InputLabelProps={{ shrink: true }}
               />
 
-              <TextField
-                fullWidth
-                size="small"
-                label="Mã danh mục"
-                name="categoryCode"
-                value={form.categoryCode}
-                onChange={handleChange}
-                placeholder="VD: DT, LT..."
-                InputLabelProps={{ shrink: true }}
-              />
+              
 
               <Box>
                 <Typography

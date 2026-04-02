@@ -20,5 +20,10 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<AddressResponse> UpdateAddressAsync(long id, UpdateAddressRequest request, long currentUserId);
         
         Task<AddressResponse> ToggleAddressStatusAsync(long id, bool isActive, long currentUserId);
+        
+        /// <summary>
+        /// Lấy danh sách Địa chỉ theo Công ty (Dùng cho dropdown)
+        /// </summary>
+        Task<System.Collections.Generic.List<AddressResponse>> GetAddressesByCompanyAsync(long companyId);
     }
 }
