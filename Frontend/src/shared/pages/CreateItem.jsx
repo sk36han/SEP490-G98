@@ -20,6 +20,8 @@ import {
   Chip,
   Autocomplete,
   Paper,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -29,6 +31,8 @@ import {
   X,
   CheckCircle,
   ChevronDown,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
@@ -36,6 +40,7 @@ import CreateUomDialog from "../components/CreateUomDialog";
 import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
 import CreateBrandDialog from "../components/CreateBrandDialog";
+import { ImageDialog } from "../components/ImageDialog";
 import { createItem as createItemApi } from "../lib/itemService";
 import { getUomList, createUom } from "../lib/uomService";
 import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecService";
@@ -69,8 +74,6 @@ const ROW_HEIGHT = 32;
 
 const LABEL_STYLE = { fontSize: "13px", color: "#64748b", fontWeight: 600 };
 const FIELD_WRAPPER = { display: "flex", flexDirection: "column", gap: "4px" };
-
-// Reuse the same style helpers as ViewItemDetail
 
 const baseEditInput = {
   borderRadius: EDIT_RADIUS,
@@ -274,9 +277,15 @@ const EditSelectUnderline = ({ value, onChange, options, placeholder, renderValu
           const optVal = opt.value ?? opt.id ?? opt;
           const optLabel = opt.label ?? opt.name ?? opt;
           const isSelected = String(optVal) === String(value);
+          const itemFontWeight = isSelected ? 600 : 400;
+          const itemColor = isSelected ? "#3b82f6" : "#334155";
           return (
-            <MenuItem key={optVal} value={optVal} onClick={() => handleSelect(optVal)}
-              sx={{ fontSize: "14px", fontWeight: isSelected ? 600 : 400, color: isSelected ? "#3b82f6" : "#334155", gap: 1 }}>
+            <MenuItem
+              key={optVal}
+              value={optVal}
+              onClick={() => handleSelect(optVal)}
+              sx={{ fontSize: "14px", fontWeight: itemFontWeight, color: itemColor, gap: 1 }}
+            >
               {optLabel}
             </MenuItem>
           );
@@ -284,8 +293,10 @@ const EditSelectUnderline = ({ value, onChange, options, placeholder, renderValu
         {onAddNew && (
           <>
             <Divider sx={{ my: 0.5 }} />
-            <MenuItem onClick={() => { handleClose(); onAddNew(); }}
-              sx={{ fontSize: "14px", color: "#3b82f6", gap: 1 }}>
+            <MenuItem
+              onClick={() => { handleClose(); onAddNew(); }}
+              sx={{ fontSize: "14px", color: "#3b82f6", gap: 1 }}
+            >
               <Plus size={14} />
               Thêm mới
             </MenuItem>
@@ -380,6 +391,7 @@ function InlineCreateCategoryDialog({ open, onClose, onSubmit }) {
   );
 }
 
+
 // Main Component
 const CreateItem = () => {
   const navigate = useNavigate();
@@ -406,8 +418,74 @@ const CreateItem = () => {
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
   const [showPurchasePrice, setShowPurchasePrice] = useState(false);
 
+  // Image states
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [imageFile, setImageFile] = useState(null);
+  const [imageFileName, setImageFileName] = useState("");
+  const [imageOriginalWidth, setImageOriginalWidth] = useState(0);
+  const [imageOriginalHeight, setImageOriginalHeight] = useState(0);
+  const [imageDialogTempUrl, setImageDialogTempUrl] = useState("");
+
+  // Open image dialog
+  const handleOpenImageDialog = () => {
+    setImageDialogTempUrl(imagePreviewUrl);
+    setImageDialogOpen(true);
+  };
+
+  // Handle file selected from dialog
+  const handleDialogBrowseFile = (file) => {
+    const url = URL.createObjectURL(file);
+    if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== "") {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    setImageDialogTempUrl(url);
+    setImageFile(file);
+    setImageFileName(file.name);
+    const img = new window.Image();
+    img.onload = () => {
+      setImageOriginalWidth(img.naturalWidth);
+      setImageOriginalHeight(img.naturalHeight);
+    };
+    img.src = url;
+  };
+
+  // Apply cropped image from dialog (receives pre-cropped dataURL from ImageDialog)
+  const handleApplyImage = (croppedDataUrl) => {
+    setImagePreviewUrl(croppedDataUrl);
+    setImageDialogOpen(false);
+  };
+
+  // Remove image
+  const handleRemoveImage = () => {
+    if (imageDialogTempUrl && imageDialogTempUrl !== "" && imageDialogTempUrl !== imagePreviewUrl) {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    if (imagePreviewUrl && imagePreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    setImagePreviewUrl("");
+    setImageFile(null);
+    setImageFileName("");
+    setImageOriginalWidth(0);
+    setImageOriginalHeight(0);
+    setImageDialogOpen(false);
+    setImageDialogTempUrl("");
+  };
+
+  // Close dialog without applying
+  const handleCloseImageDialog = () => {
+    if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== "" && !imageDialogTempUrl.startsWith("data:")) {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    setImageDialogOpen(false);
+  };
+
   useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    };
   }, []);
 
   const PAGE_SIZE = 100;
@@ -428,14 +506,16 @@ const CreateItem = () => {
       setPackagingOptions(packArr.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
       const catItems = Array.isArray(catRes?.items) ? catRes.items : (Array.isArray(catRes) ? catRes : []);
       setCategoryOptions(catItems.map((c) => ({
-        id: c.categoryId ?? c.CategoryId, code: c.categoryCode ?? c.CategoryCode ?? "",
+        id: c.categoryId ?? c.CategoryId,
+        code: c.categoryCode ?? c.CategoryCode ?? "",
         name: c.categoryName ?? c.CategoryName ?? "",
       })));
       const brandItems = Array.isArray(brandRes?.items) ? brandRes.items : (Array.isArray(brandRes) ? brandRes : []);
       setBrandOptions(brandItems.map((b) => ({ id: b.brandId ?? b.BrandId, name: b.brandName ?? b.BrandName ?? "" })));
       const specItems = Array.isArray(specRes?.items) ? specRes.items : (Array.isArray(specRes) ? specRes : []);
       setSpecOptions(specItems.map((s) => ({
-        specId: s.paramId ?? s.ParamId, specCode: s.paramCode ?? s.ParamCode ?? "",
+        specId: s.paramId ?? s.ParamId,
+        specCode: s.paramCode ?? s.ParamCode ?? "",
         specName: s.paramName ?? s.ParamName ?? "",
       })));
       const whItems = Array.isArray(warehouseRes?.items) ? warehouseRes.items : (Array.isArray(warehouseRes) ? warehouseRes : []);
@@ -522,17 +602,8 @@ const CreateItem = () => {
 
   const warehouseList = Array.isArray(warehouseOptions) ? warehouseOptions : [];
 
-  // Combined category options (from API + locally created)
-  const allCategoryOptions = [
-    ...categoryOptions,
-    ...localMasterCategories,
-  ];
-
-  // Combined brand options (from API + locally created)
-  const allBrandOptions = [
-    ...brandOptions,
-    ...localMasterBrands,
-  ];
+  const allCategoryOptions = [...categoryOptions, ...localMasterCategories];
+  const allBrandOptions = [...brandOptions, ...localMasterBrands];
 
   return (
     <div className="create-supplier-page">
@@ -589,12 +660,38 @@ const CreateItem = () => {
                   {/* Ảnh bên trái | Tên + Thương hiệu + Mô tả bên phải */}
                   <div style={{ display: "flex", gap: FIELD_GAP, alignItems: "flex-start" }}>
                     {/* Ảnh vật tư */}
-                    <div style={{
-                      width: 160, minWidth: 160, height: 160, borderRadius: 12,
-                      border: "1px solid #e5e7eb", backgroundColor: "#f1f5f9",
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                    }}>
-                      <ImagePlus size={72} color="#cbd5e1" />
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                      {/* Ô ảnh */}
+                      <div style={{
+                        width: 160, minWidth: 160, height: 160, borderRadius: 12,
+                        border: "1px solid #e5e7eb", backgroundColor: "#f1f5f9",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        overflow: "hidden", flexShrink: 0,
+                      }}>
+                        {imagePreviewUrl ? (
+                          <img
+                            src={imagePreviewUrl}
+                            alt="Vật tư"
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          <ImagePlus size={72} color="#cbd5e1" />
+                        )}
+                      </div>
+
+                      {/* Nút hành động bên dưới ảnh */}
+                      <button
+                        type="button"
+                        className={`btn-image-action ${imagePreviewUrl ? "btn-image-primary" : "btn-image-primary"}`}
+                        onClick={handleOpenImageDialog}
+                      >
+                        <ImagePlus size={13} />
+                        {imagePreviewUrl ? "Đổi ảnh" : "Thêm ảnh"}
+                      </button>
                     </div>
 
                     {/* Info panel */}
@@ -630,7 +727,7 @@ const CreateItem = () => {
                       <div style={FIELD_WRAPPER}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div style={LABEL_STYLE}>Mô tả</div>
-                          <span style={{ fontSize: "12px", color: (form.description?.length ?? 0) > 250 ? "#ef4444" : "#94a3b8" }}>
+                          <span style={{ fontSize: "12px", color: "#94a3b8" }}>
                             {form.description?.length ?? 0}/250
                           </span>
                         </div>
@@ -651,7 +748,6 @@ const CreateItem = () => {
                     <h2 className="section-title">Thông tin kế toán</h2>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                    {/* Tài khoản kho */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Tài khoản kho</div>
                       <EditSelectUnderline
@@ -663,7 +759,6 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* Tài khoản doanh thu */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Tài khoản doanh thu</div>
                       <EditSelectUnderline
@@ -675,7 +770,6 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* Thêm giá vốn toggle */}
                     <div style={FIELD_WRAPPER}>
                       <CheckboxToggle
                         checked={showPurchasePrice}
@@ -713,8 +807,7 @@ const CreateItem = () => {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
 
-                    {/* ── Nhóm 1: Trạng thái, Loại vật tư, Danh mục ── */}
-                    {/* Trạng thái */}
+                    {/* Nhóm 1 */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Trạng thái</div>
                       <CheckboxToggle
@@ -726,7 +819,6 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* Loại vật tư */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Loại vật tư</div>
                       <EditSelectUnderline
@@ -742,7 +834,6 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* Danh mục */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Danh mục</div>
                       <EditSelectUnderline
@@ -758,8 +849,7 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* ── Nhóm 2: Đơn vị tính, Quy cách đóng gói, Thông số sản phẩm ── */}
-                    {/* Đơn vị tính */}
+                    {/* Nhóm 2 */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Đơn vị tính</div>
                       <EditSelectUnderline
@@ -772,7 +862,6 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* Quy cách đóng gói */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Quy cách đóng gói</div>
                       <EditSelectUnderline
@@ -785,7 +874,6 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* Thông số sản phẩm */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Thông số sản phẩm</div>
                       <EditSelectUnderline
@@ -798,7 +886,7 @@ const CreateItem = () => {
                       />
                     </div>
 
-                    {/* ── Nhóm 3: Yêu cầu CO + Yêu cầu CQ trên cùng 1 hàng ── */}
+                    {/* Nhóm 3: CO + CQ */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: FIELD_GAP }}>
                       <div style={FIELD_WRAPPER}>
                         <div style={LABEL_STYLE}>Yêu cầu CO</div>
@@ -822,7 +910,7 @@ const CreateItem = () => {
                       </div>
                     </div>
 
-                    {/* ── Nhóm 4: Kho mặc định ── */}
+                    {/* Nhóm 4: Kho */}
                     <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Kho</div>
                       <Autocomplete
@@ -878,6 +966,19 @@ const CreateItem = () => {
           </div>
         </form>
       </div>
+
+      {/* Image Dialog */}
+      <ImageDialog
+        open={imageDialogOpen}
+        onClose={handleCloseImageDialog}
+        previewUrl={imageDialogTempUrl}
+        fileName={imageFileName}
+        originalWidth={imageOriginalWidth}
+        originalHeight={imageOriginalHeight}
+        onBrowseFile={handleDialogBrowseFile}
+        onApply={handleApplyImage}
+        onRemove={handleRemoveImage}
+      />
 
       {/* Dialogs */}
       <UomFormDialog

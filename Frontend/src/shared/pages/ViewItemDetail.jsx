@@ -4,7 +4,7 @@
  * Full quyền Item (xem/sửa): WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER, ACCOUNTANTS.
  * UI refactor theo design language của ViewPurchaseReturnDetail.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Box,
@@ -21,6 +21,7 @@ import {
     TablePagination,
     Popover,
     IconButton,
+    Chip,
 } from '@mui/material';
 import {
     ArrowLeft,
@@ -38,6 +39,10 @@ import {
     Clock,
     RefreshCw,
     ChevronDown,
+    ImagePlus,
+    Trash2,
+    Settings2,
+    Upload,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getItemDetail, updateItem } from '../lib/itemService';
@@ -55,6 +60,7 @@ import CreatePackagingSpecDialog from '../components/CreatePackagingSpecDialog';
 import CreateSpecDialog from '../components/CreateSpecDialog';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import { ImageDialog } from '../components/ImageDialog';
 import '../styles/CreateSupplier.css';
 
 // ─── Role helpers ─────────────────────────────────────────────────────────
@@ -509,6 +515,12 @@ export default function ViewItemDetail() {
     // Item parameters
     const [specOptions, setSpecOptions] = useState([]);
 
+    // Image states
+    const [imageDialogOpen, setImageDialogOpen] = useState(false);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+    const [imageDialogTempUrl, setImageDialogTempUrl] = useState('');
+    const [imageFileName, setImageFileName] = useState('');
+
     // Reset page khi đổi item
     useEffect(() => { setHistoryPage(0); }, [id]);
 
@@ -642,6 +654,54 @@ export default function ViewItemDetail() {
         navigate('/products');
     };
 
+    // ─── Image handlers ──────────────────────────────────────────────────────
+    const handleOpenImageDialog = () => {
+        setImageDialogTempUrl(imagePreviewUrl);
+        setImageDialogOpen(true);
+    };
+
+    const handleDialogBrowseFile = (file) => {
+        const url = URL.createObjectURL(file);
+        if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== '') {
+            URL.revokeObjectURL(imageDialogTempUrl);
+        }
+        setImageDialogTempUrl(url);
+        setImageFileName(file.name);
+    };
+
+    const handleApplyImage = (croppedDataUrl) => {
+        setImagePreviewUrl(croppedDataUrl);
+        setImageDialogOpen(false);
+        setIsDirty(true);
+    };
+
+    const handleRemoveImage = () => {
+        if (imageDialogTempUrl && imageDialogTempUrl !== '' && imageDialogTempUrl !== imagePreviewUrl) {
+            URL.revokeObjectURL(imageDialogTempUrl);
+        }
+        if (imagePreviewUrl && imagePreviewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreviewUrl);
+        }
+        setImagePreviewUrl('');
+        setImageDialogOpen(false);
+        setImageDialogTempUrl('');
+        setIsDirty(true);
+    };
+
+    const handleCloseImageDialog = () => {
+        if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== '' && !imageDialogTempUrl.startsWith('data:')) {
+            URL.revokeObjectURL(imageDialogTempUrl);
+        }
+        setImageDialogOpen(false);
+    };
+
+    // Load item image when item loads
+    useEffect(() => {
+        if (!item) return;
+        const imgUrl = item.itemImage ?? '';
+        setImagePreviewUrl(imgUrl);
+    }, [item]);
+
     const allUomOptions = [...localUomOptions];
     const allPackOptions = [...localPackOptions];
 
@@ -773,12 +833,32 @@ export default function ViewItemDetail() {
                                 {/* Ảnh to bên trái | Info bên phải */}
                                 <div style={{ display: 'flex', gap: FIELD_GAP, alignItems: 'flex-start' }}>
                                     {/* Ảnh vật tư */}
-                                    <div style={{
-                                        width: 160, minWidth: 160, height: 160, borderRadius: 12,
-                                        border: '1px solid #e5e7eb', backgroundColor: '#f1f5f9',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                    }}>
-                                        <Package size={72} color="#cbd5e1" />
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                                        {/* Ô ảnh */}
+                                        <div style={{
+                                            width: 160, minWidth: 160, height: 160, borderRadius: 12,
+                                            border: '1px solid #e5e7eb', backgroundColor: '#f1f5f9',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            overflow: 'hidden', flexShrink: 0,
+                                        }}>
+                                            {imagePreviewUrl ? (
+                                                <img src={imagePreviewUrl} alt="Vật tư" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <Package size={72} color="#cbd5e1" />
+                                            )}
+                                        </div>
+
+                                        {isEditing && (
+                                            <button
+                                                type="button"
+                                                className={`btn-image-action ${imagePreviewUrl ? 'btn-image-primary' : 'btn-image-primary'}`}
+                                                onClick={handleOpenImageDialog}
+                                                style={{ maxWidth: '100%' }}
+                                            >
+                                                <ImagePlus size={13} />
+                                                {imagePreviewUrl ? 'Đổi ảnh' : 'Thêm ảnh'}
+                                            </button>
+                                        )}
                                     </div>
 
                                     {/* Info panel */}
@@ -1354,6 +1434,16 @@ export default function ViewItemDetail() {
             {toast && (
                 <Toast message={toast.message} type={toast.type} onClose={clearToast} />
             )}
+
+            <ImageDialog
+                open={imageDialogOpen}
+                onClose={handleCloseImageDialog}
+                previewUrl={imageDialogTempUrl}
+                fileName={imageFileName}
+                onBrowseFile={handleDialogBrowseFile}
+                onApply={handleApplyImage}
+                onRemove={handleRemoveImage}
+            />
         </div>
     );
 }
