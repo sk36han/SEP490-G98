@@ -39,6 +39,8 @@ namespace Warehouse.DataAcces.Service
             var normalizedIdentifier = identifier.Trim();
 
             var user = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .ThenInclude(ur => ur!.Role)
                 .FirstOrDefaultAsync(u => u.Email == normalizedIdentifier || u.Username == normalizedIdentifier);
 
             if (user == null || !user.IsActive)
