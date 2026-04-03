@@ -353,8 +353,9 @@ const createInitialFormData = () => ({
 });
 
 // ─── Line Builder ─────────────────────────────────────────────────────────────
-function buildSelectableLine(line) {
+function buildSelectableLine(line, index) {
     return {
+        id: line.id ?? line.releaseRequestLineId ?? `line-${index}`,
         releaseRequestLineId: line.releaseRequestLineId,
         itemId: line.itemId,
         itemCode: line.itemCode || '',
@@ -461,7 +462,7 @@ export default function CreateGoodDeliveryNote() {
 
         const selectedLineIds = new Set(lines.map((line) => line.releaseRequestLineId));
         return (selectedReleaseRequestDetail.lines || [])
-            .map(buildSelectableLine)
+            .map((line, idx) => buildSelectableLine(line, idx))
             .filter((line) => line.remainingQty > 0 && !selectedLineIds.has(line.releaseRequestLineId));
     }, [selectedReleaseRequestDetail, lines]);
 
@@ -502,7 +503,7 @@ export default function CreateGoodDeliveryNote() {
             if (!summary?.releaseRequestId) return;
 
             const initialLines = (summary.lines || [])
-                .map(buildSelectableLine)
+                .map((line, idx) => buildSelectableLine(line, idx))
                 .filter((line) => line.remainingQty > 0)
                 .map(mapSelectableLineToFormLine);
 
@@ -1023,7 +1024,7 @@ export default function CreateGoodDeliveryNote() {
                                                     );
                                                     return (
                                                         <div
-                                                            key={product.releaseRequestLineId}
+                                                            key={product.id}
                                                             style={{
                                                                 padding: '12px 16px',
                                                                 borderBottom: '1px solid #f3f4f6',

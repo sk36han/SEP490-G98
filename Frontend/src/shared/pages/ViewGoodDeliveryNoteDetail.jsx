@@ -338,7 +338,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                     <button
                         type="button"
                         className="btn btn-secondary"
-                        onClick={() => navigate('/goods-delivery-notes/edit/' + gdn.gdnId)}
+                        onClick={() => navigate('/goods-delivery-notes/detail/' + gdn.gdnId)}
                     >
                         <FileText size={15} />
                         Chỉnh sửa

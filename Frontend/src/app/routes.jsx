@@ -49,6 +49,7 @@ import ViewSpecList from '../shared/pages/ViewSpecList';
 import ViewBrandList from '../shared/pages/ViewBrandList';
 import ViewUomList from '../shared/pages/ViewUomList';
 import ViewReleaseRequestList from '../shared/pages/ViewReleaseRequestList';
+import ViewReleaseRequestDetail from '../shared/pages/ViewReleaseRequestDetail';
 import ViewGoodDeliveryNoteList from '../shared/pages/ViewGoodDeliveryNoteList';
 import CreateReleaseRequest from '../shared/pages/CreateReleaseRequest';
 import ProtectedRoute from '../components/ProtectedRoute';
@@ -465,6 +466,36 @@ const AppRoutes = () => (
                 <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
                     <MainLayout>
                         <CreateReleaseRequest />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/release-request"
+            element={
+                <ProtectedRoute allowedRoles={['DIRECTOR', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT']}>
+                    <MainLayout>
+                        <ViewReleaseRequestList />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/release-request/create"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS']}>
+                    <MainLayout>
+                        <CreateReleaseRequest />
+                    </MainLayout>
+                </ProtectedRoute>
+            }
+        />
+        <Route
+            path="/release-request/:id"
+            element={
+                <ProtectedRoute allowedRoles={['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS', 'DIRECTOR']}>
+                    <MainLayout>
+                        <ViewReleaseRequestDetail />
                     </MainLayout>
                 </ProtectedRoute>
             }

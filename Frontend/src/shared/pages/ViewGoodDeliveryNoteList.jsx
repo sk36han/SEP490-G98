@@ -935,8 +935,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/goods-delivery-notes/${row.goodsDeliveryNoteId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/${row.goodsDeliveryNoteId}`); }}
+                                                                        href={`/goods-delivery-notes/detail/${row.goodsDeliveryNoteId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.goodsDeliveryNoteId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

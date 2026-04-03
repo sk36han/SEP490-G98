@@ -993,8 +993,8 @@ export default function ViewItemDetail() {
                                     <thead>
                                         <tr>
                                             <th style={{ width: 50 }}></th>
-                                            <th>Mã SKU</th>
-                                            <th>Tên phiên bản</th>
+                                            <th>Mã Vật tư</th>
+                                            <th>Tên Vật Tư</th>
                                             <th style={{ textAlign: 'right' }}>Tồn kho</th>
                                             <th style={{ textAlign: 'right' }}>Có thể bán</th>
                                             <th style={{ textAlign: 'right' }}>Đặt trước</th>

@@ -157,7 +157,7 @@ export default function BrandFilterPopup({ open, onClose, initialValues = {}, on
                 }}
             >
                 <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
-                    Bo loc
+                    Bộ lọc
                 </Typography>
                 <IconButton
                     size="small"
@@ -205,7 +205,7 @@ export default function BrandFilterPopup({ open, onClose, initialValues = {}, on
                         renderInput={(params) => (
                             <TextField
                                 {...params}
-                                placeholder="Chon trang thai"
+                                placeholder="Chọn trạng thái"
                                 sx={inputSx}
                             />
                         )}
@@ -214,7 +214,7 @@ export default function BrandFilterPopup({ open, onClose, initialValues = {}, on
 
                 {/* Ngay tao */}
                 <Box>
-                    <Typography variant="body2" sx={labelSx}>Ngay tao</Typography>
+                    <Typography variant="body2" sx={labelSx}>Ngày tạo</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <TextField
                             size="small"
