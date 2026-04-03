@@ -226,7 +226,8 @@ namespace Warehouse.DataAcces.Service
                     BrandName = i.Brand != null ? i.Brand.BrandName : null,
                     BaseUomName = i.BaseUom.UomName,
                     PackagingSpecName = i.PackagingSpec != null ? i.PackagingSpec.SpecName : null,
-                    i.DefaultWarehouseId
+                    i.DefaultWarehouseId,
+                    i.Specification
                 })
                 .FirstOrDefaultAsync();
 
@@ -277,6 +278,8 @@ namespace Warehouse.DataAcces.Service
                 .ThenBy(x => x.WarehouseName)
                 .ToList();
 
+            var historyTotal = _context.InventoryTransactionLines.Count(l => l.ItemId == itemId);
+
             var history = _context.InventoryTransactionLines
                 .Where(l => l.ItemId == itemId)
                 .OrderByDescending(l => l.InventoryTxn.TxnDate)
@@ -296,6 +299,7 @@ namespace Warehouse.DataAcces.Service
 
             return new ItemDetailResponse
             {
+                HistoryTotalCount = historyTotal,
                 ProductInfo = new ItemProductInfoResponse
                 {
                     ItemId = item.ItemId,
@@ -386,6 +390,7 @@ namespace Warehouse.DataAcces.Service
             item.DefaultWarehouseId = request.DefaultWarehouseId;
             item.InventoryAccount = request.InventoryAccount?.Trim();
             item.RevenueAccount = request.RevenueAccount?.Trim();
+            item.Specification = request.Specification?.Trim();
             item.UpdatedAt = DateTime.UtcNow;
 
             await UpdateAsync(item);

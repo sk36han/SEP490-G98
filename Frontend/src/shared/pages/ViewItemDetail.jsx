@@ -12,19 +12,13 @@ import {
     TextField,
     Button,
     MenuItem,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     Autocomplete,
     Divider,
-    CircularProgress,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
+    TablePagination,
 } from '@mui/material';
 import {
     ArrowLeft,
@@ -34,14 +28,17 @@ import {
     Plus,
     X,
     Layers,
-    Tag,
     Scale,
     MapPin,
     Warehouse,
     CheckCircle,
+    Loader,
+    Clock,
+    RefreshCw,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getItemDetail, updateItem } from '../lib/itemService';
+import apiClient from '../lib/axios';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 import { useMasterData } from '../../app/context/MasterDataContext';
 import { createUom } from '../lib/uomService';
@@ -79,7 +76,14 @@ const formatDateTimeFull = (v) => {
     if (v == null || v === '') return '—';
     const d = parseUtcDate(v);
     if (!d) return String(v);
-    return `${d.toLocaleDateString('vi-VN')} - ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    return `${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const formatDateFull = (v) => {
+    if (v == null || v === '') return '—';
+    const d = parseUtcDate(v);
+    if (!d) return String(v);
+    return d.toLocaleDateString('vi-VN');
 };
 
 // ─── Edit form constants ──────────────────────────────────────────────────
@@ -171,101 +175,59 @@ const selectMenuProps = {
 
 // ─── Shared UI components ─────────────────────────────────────────────────
 
-// StatusBadge — như PurchaseReturnDetail
+// StatusBadge
 const StatusBadge = ({ config }) => (
     <div style={{
         padding: '6px 14px', borderRadius: 20,
         backgroundColor: config.bg, color: config.color,
         fontWeight: 600, fontSize: '13px',
-        display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
     }}>
         {config.icon}
         {config.label}
     </div>
 );
 
-// StatBox — stat card nhỏ cho side column
+// StatBox — stat card cho right column
 const StatBox = ({ label, value, color = '#0f172a', bg = '#f8fafc', borderColor = '#e2e8f0', icon: Icon }) => (
     <div style={{
-        padding: '12px 14px', backgroundColor: bg,
+        padding: '10px 14px', backgroundColor: bg,
         border: `1px solid ${borderColor}`, borderRadius: '10px',
     }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            {Icon && <Icon size={14} color="#64748b" />}
-            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>{label}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            {Icon && <Icon size={13} color="#64748b" />}
+            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
         </div>
-        <div style={{ fontSize: '16px', fontWeight: 700, color }}>{value}</div>
+        <div style={{ fontSize: '18px', fontWeight: 700, color }}>{value}</div>
     </div>
 );
 
-// PillBadge — cho CO/CQ view mode
-const PillBadge = ({ value }) => {
-    const isYes = Boolean(value);
-    return (
-        <div style={{
-            padding: '3px 10px', borderRadius: 9999, display: 'inline-flex', alignItems: 'center',
-            border: '1px solid', borderColor: isYes ? '#bbf7d0' : '#e2e8f0',
-            backgroundColor: isYes ? '#f0fdf4' : EDIT_BG,
-            fontSize: '12px', fontWeight: 600, color: isYes ? '#15803d' : '#94a3b8',
-            width: 'fit-content', minWidth: 56,
-        }}>
-            {isYes ? 'Có' : 'Không'}
-        </div>
-    );
-};
-
-// BoolToggle — cho CO/CQ edit mode
-const BoolToggle = ({ name, value, onChange }) => {
-    const isYes = Boolean(value);
-    const handleClick = (newVal) => {
-        onChange({ target: { name, value: newVal, type: 'checkbox' } });
-    };
-    return (
-        <div style={{
-            display: 'inline-flex', borderRadius: EDIT_RADIUS,
-            border: '1px solid', borderColor: EDIT_BORDER,
-            overflow: 'hidden', backgroundColor: EDIT_BG, height: ROW_HEIGHT,
-        }}>
-            <button type="button" onClick={() => handleClick(true)} style={{
-                padding: '0 14px', height: '100%', border: 'none', borderRight: '1px solid ' + EDIT_BORDER,
-                cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                transition: 'all 0.15s ease',
-                backgroundColor: isYes ? '#10b981' : 'transparent',
-                color: isYes ? '#ffffff' : '#94a3b8',
-            }}>Có</button>
-            <button type="button" onClick={() => handleClick(false)} style={{
-                padding: '0 14px', height: '100%', border: 'none',
-                cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                transition: 'all 0.15s ease',
-                backgroundColor: !isYes ? '#e2e8f0' : 'transparent',
-                color: !isYes ? '#475569' : '#94a3b8',
-            }}>Không</button>
-        </div>
-    );
-};
-
-// ReadOnlyBox
-const ReadOnlyBox = ({ children, highlight = false }) => (
+// ReadOnlyUnderline
+const ReadOnlyUnderline = ({ children, highlight = false }) => (
     <div style={{
-        padding: '0 12px', borderRadius: EDIT_RADIUS,
-        border: highlight ? '1px solid #bfdbfe' : '1px solid #e5e7eb',
-        backgroundColor: highlight ? '#eff6ff' : EDIT_BG,
-        fontSize: '14px', fontWeight: highlight ? 600 : 500,
+        padding: '0 0 6px 0',
+        borderBottom: `1px solid ${highlight ? '#3b82f6' : 'rgba(0, 0, 0, 0.1)'}`,
+        fontSize: '14px',
+        fontWeight: highlight ? 600 : 500,
         color: highlight ? '#1d4ed8' : '#334155',
-        minHeight: ROW_HEIGHT, display: 'flex', alignItems: 'center',
-        flex: 1, wordBreak: 'break-word',
+        minHeight: ROW_HEIGHT,
+        display: 'flex',
+        alignItems: 'center',
+        flex: 1,
+        wordBreak: 'break-word',
     }}>
-        {children || '—'}
+        {children || <span style={{ color: '#9ca3af' }}>—</span>}
     </div>
 );
 
 // DescriptionBlock
 const DescriptionBlock = ({ children }) => (
     <div style={{
-        padding: '10px 12px', borderRadius: EDIT_RADIUS,
-        border: '1px solid #e5e7eb', backgroundColor: EDIT_BG,
+        padding: '0 0 6px 0',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
         fontSize: '14px', color: '#334155',
         lineHeight: 1.6, wordBreak: 'break-word',
+        minHeight: '28px',
     }}>
         {children || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Chưa có mô tả</span>}
     </div>
@@ -413,6 +375,14 @@ export default function ViewItemDetail() {
     const [createUomOpen, setCreateUomOpen] = useState(false);
     const [createPackOpen, setCreatePackOpen] = useState(false);
 
+    // History pagination (0-based for MUI TablePagination)
+    const [historyPage, setHistoryPage] = useState(0);
+    const [historyPageSize, setHistoryPageSize] = useState(10);
+    const [historyTotal, setHistoryTotal] = useState(0);
+
+    // Reset page khi đổi item
+    useEffect(() => { setHistoryPage(0); }, [id]);
+
     // ─── Load item ────────────────────────────────────────────────────────
     useEffect(() => {
         setLoading(true);
@@ -427,6 +397,28 @@ export default function ViewItemDetail() {
             .finally(() => setLoading(false));
     }, [id]);
 
+    // ─── Load history riêng khi đổi trang ────────────────────────────────
+    useEffect(() => {
+        if (!item) return;
+        apiClient.get(`/Item/detail/${item.itemId}?historyPage=${historyPage + 1}&historyPageSize=${historyPageSize}`)
+            .then((res) => {
+                const payload = res?.data?.data ?? res?.data ?? {};
+                const rawHistory = payload.inventoryHistory ?? payload.InventoryHistory ?? [];
+                const mapped = (rawHistory || []).map((h) => ({
+                    docNo: h.docNo ?? h.DocNo ?? '',
+                    movementSign: h.movementSign ?? h.MovementSign ?? '+',
+                    qty: h.qty ?? h.Qty ?? 0,
+                    transactionAt: h.transactionAt ?? h.TransactionAt ?? null,
+                    actorName: h.actorName ?? h.ActorName ?? null,
+                    note: h.note ?? h.Note ?? null,
+                    sourceType: h.sourceType ?? h.SourceType ?? '',
+                }));
+                setItem((prev) => ({ ...prev, inventoryHistory: mapped }));
+                setHistoryTotal(payload.historyTotalCount ?? payload.HistoryTotalCount ?? 0);
+            })
+            .catch(() => {});
+    }, [item?.itemId, historyPage, historyPageSize]);
+
     useEffect(() => {
         return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }, []);
@@ -434,6 +426,7 @@ export default function ViewItemDetail() {
     useEffect(() => {
         if (uoms) setLocalUomOptions(uoms.map((u) => ({ id: u.uomId ?? u.id, code: u.uomCode ?? u.code, name: u.uomName ?? u.name })));
     }, [uoms]);
+
 
     // ─── Edit handlers ───────────────────────────────────────────────────
     const handleEdit = () => {
@@ -446,6 +439,7 @@ export default function ViewItemDetail() {
             brandId: item.brandId ?? '',
             baseUomId: item.baseUomId ?? '',
             packagingSpecId: item.packagingSpecId ?? '',
+            specification: item.specification ?? '',
             requiresCO: item.requiresCO ?? false,
             requiresCQ: item.requiresCQ ?? false,
             defaultWarehouseId: item.defaultWarehouseId ?? '',
@@ -514,38 +508,33 @@ export default function ViewItemDetail() {
     // ─── Render helpers ───────────────────────────────────────────────────
     if (loading) {
         return (
-            <div style={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-                <div className="spinner" style={{ width: 32, height: 32, border: '3px solid #e5e7eb', borderTopColor: '#2196F3', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            <div className="create-supplier-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280' }}>
+                    <Loader size={18} className="spinner" />
+                    Đang tải chi tiết vật tư...
+                </div>
             </div>
         );
     }
 
     if (fetchError) {
         return (
-            <div style={{ minHeight: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 48, backgroundColor: '#f8fafc' }}>
-                <div style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Package size={32} color="#ef4444" />
+            <div className="create-supplier-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                <div style={{ color: '#dc2626', textAlign: 'center' }}>
+                    <X size={28} style={{ marginBottom: 8 }} />
+                    <div>{fetchError}</div>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#ef4444' }}>{fetchError}</div>
-                <button type="button" onClick={() => navigate('/products')} className="btn btn-primary">
-                    <ArrowLeft size={16} />
-                    Quay lại danh sách
-                </button>
             </div>
         );
     }
 
     if (item == null) {
         return (
-            <div style={{ minHeight: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 48, backgroundColor: '#f8fafc' }}>
-                <div style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Package size={32} color="#9ca3af" />
+            <div className="create-supplier-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                <div style={{ color: '#6b7280', textAlign: 'center' }}>
+                    <Package size={28} style={{ marginBottom: 8 }} />
+                    <div>Không tìm thấy vật tư</div>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#6b7280' }}>Không tìm thấy vật tư</div>
-                <button type="button" onClick={() => navigate('/products')} className="btn btn-primary">
-                    <ArrowLeft size={16} />
-                    Quay lại danh sách
-                </button>
             </div>
         );
     }
@@ -555,6 +544,7 @@ export default function ViewItemDetail() {
         (item.inventoryByWarehouse ?? []).length > 0
             ? item.inventoryByWarehouse
             : [{ warehouseName: item.defaultWarehouseName || 'Kho chính', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 }];
+    const totalPages = Math.ceil((item.historyTotalCount ?? 0) / historyPageSize) || 1;
 
     const statusConfig = item.isActive
         ? { label: 'Đang giao dịch', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> }
@@ -566,9 +556,6 @@ export default function ViewItemDetail() {
     const totalAvailable = itemWarehouses.reduce((s, w) => s + (w.availableQty ?? Math.max(0, (w.onHandQty ?? 0) - (w.reservedQty ?? 0))), 0);
     const totalPreOrder = itemWarehouses.reduce((s, w) => s + (w.preOrderQty ?? 0), 0);
 
-    // Side column width
-    const SIDE_COL = '360px';
-
     return (
         <div className="create-supplier-page">
             {/* ─── PAGE HEADER ─── */}
@@ -579,107 +566,341 @@ export default function ViewItemDetail() {
                         <span>Quay lại danh sách</span>
                     </button>
                 </div>
+
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {canEdit && !isEditing && (
-                        <button type="button" className="btn btn-primary" onClick={handleEdit}>
-                            <Edit3 size={15} />
-                            Chỉnh sửa
-                        </button>
-                    )}
                     {isEditing && (
                         <>
-                            <button type="button" className="btn btn-outline" onClick={handleCancel} disabled={saving}>
+                            <button type="button" className="btn btn-cancel" onClick={handleCancel} disabled={saving}>
                                 <X size={15} />
                                 Hủy
                             </button>
                             <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                                {saving ? <CircularProgress size={14} color="inherit" /> : <Save size={15} />}
-                                Lưu
+                                {saving ? (
+                                    <>
+                                        <Loader size={15} className="spinner" />
+                                        Đang xử lý...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={15} />
+                                        Lưu
+                                    </>
+                                )}
                             </button>
                         </>
+                    )}
+
+                    {!isEditing && canEdit && (
+                        <button type="button" className="btn btn-primary" onClick={handleEdit}>
+                            <Edit3 size={15} />
+                            Chỉnh sửa
+                        </button>
                     )}
                 </div>
             </div>
 
             <div className="form-card">
                 <div className="form-wrapper">
-                    {/* ─── PAGE INTRO ─── */}
+                    {/* ─── FORM CARD INTRO ─── */}
                     <div className="form-card-intro">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                            <div>
-                                <h1 className="page-title">{isEditing ? 'Chỉnh sửa vật tư' : 'Chi tiết vật tư'}</h1>
-                                {!isEditing && (
-                                    <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
-                                        Mã vật tư:{' '}
-                                        <span style={{ fontWeight: 600, color: '#2196F3' }}>{item.itemCode}</span>
-                                        {item.brandName || item.categoryName ? (
-                                            <>&nbsp;&bull;&nbsp;{item.brandName || item.categoryName}</>
-                                        ) : null}
-                                    </p>
-                                )}
-                            </div>
-                            <StatusBadge config={statusConfig} />
+                        <div>
+                            <h1 className="page-title">{isEditing ? 'Chỉnh sửa vật tư' : 'Chi tiết vật tư'}</h1>
+                            <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
+                                Mã vật tư:{' '}
+                                <span style={{ fontWeight: 600, color: '#2196F3' }}>{item.itemCode}</span>
+                            </p>
                         </div>
                     </div>
 
-                    {/* ─── TOP ROW: Thông tin chung + Side column ─── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: `1fr ${SIDE_COL}`, gap: '24px', alignItems: 'start' }}>
+                    {/* ─── MAIN GRID ─── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
 
-                        {/* ── LEFT: Thông tin chung ── */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thông tin chung</h2>
-                            </div>
+                        {/* ══════════════════════════════════════════════ */}
+                        {/* LEFT COLUMN                                     */}
+                        {/* ══════════════════════════════════════════════ */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-                            {/* Hero row: thumbnail + 3-col grid */}
-                            <div style={{ display: 'flex', gap: '20px', marginBottom: FIELD_GAP, flexWrap: 'wrap' }}>
-                                {/* Thumbnail */}
-                                <div style={{
-                                    width: 88, minWidth: 88, height: 88, borderRadius: 10,
-                                    border: '1px solid #e5e7eb', backgroundColor: '#f1f5f9',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                }}>
-                                    <Package size={40} color="#cbd5e1" />
+                            {/* ── CARD 1: Thông tin chung ── */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Thông tin chung</h2>
                                 </div>
 
-                                {/* 3-col grid */}
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                                    gap: FIELD_GAP,
-                                    flex: 1,
-                                    minWidth: 0,
-                                    alignContent: 'flex-start',
-                                }}>
-                                    {/* Mã vật tư */}
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Mã vật tư</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 600, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
-                                            minHeight: ROW_HEIGHT, display: 'flex', alignItems: 'center',
-                                            flex: 1,
-                                        }}>
-                                            {item.itemCode || '—'}
-                                        </div>
+                                {/* Ảnh to bên trái | Info bên phải */}
+                                <div style={{ display: 'flex', gap: FIELD_GAP, alignItems: 'flex-start' }}>
+                                    {/* Ảnh vật tư */}
+                                    <div style={{
+                                        width: 160, minWidth: 160, height: 160, borderRadius: 12,
+                                        border: '1px solid #e5e7eb', backgroundColor: '#f1f5f9',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                    }}>
+                                        <Package size={72} color="#cbd5e1" />
                                     </div>
 
-                                    {/* Tên vật tư */}
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Tên vật tư</div>
-                                        {isEditing ? (
-                                            <TextField fullWidth size="small" name="itemName"
-                                                value={formData.itemName || ''} onChange={handleChange} required
-                                                InputLabelProps={{ shrink: true }} sx={editTextSx} />
-                                        ) : (
-                                            <ReadOnlyBox highlight>{item.itemName || '—'}</ReadOnlyBox>
+                                    {/* Info panel */}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                        {/* Tên vật tư — to, nổi bật */}
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Tên vật tư</div>
+                                            {isEditing ? (
+                                                <TextField fullWidth size="small" name="itemName"
+                                                    value={formData.itemName || ''} onChange={handleChange} required
+                                                    InputLabelProps={{ shrink: true }} sx={editTextSx} />
+                                            ) : (
+                                                <ReadOnlyUnderline highlight>{item.itemName || '—'}</ReadOnlyUnderline>
+                                            )}
+                                        </div>
+
+                                        {/* Thương hiệu */}
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Thương hiệu</div>
+                                            {isEditing ? (
+                                                <TextField select fullWidth size="small" name="brandId"
+                                                    value={String(formData.brandId ?? '')} onChange={handleChange}
+                                                    sx={editSelectSx} InputLabelProps={{ shrink: true }}
+                                                    SelectProps={{
+                                                        displayEmpty: true,
+                                                        renderValue: (v) => v === '' ? (
+                                                            <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn nhãn hiệu</span>
+                                                        ) : (
+                                                            <span style={{ fontSize: '14px' }}>
+                                                                {masterBrands.find((o) => String(o.brandId) === String(v))?.brandName ?? ''}
+                                                            </span>
+                                                        ),
+                                                        MenuProps: selectMenuProps,
+                                                    }}>
+                                                    <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn nhãn hiệu</MenuItem>
+                                                    {masterBrands.map((o) => (
+                                                        <MenuItem key={o.brandId} value={String(o.brandId)} sx={{ fontSize: '14px' }}>{o.brandName}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                            ) : (
+                                                <ReadOnlyUnderline>{item.brandName || '—'}</ReadOnlyUnderline>
+                                            )}
+                                        </div>
+
+                                        {/* Mô tả */}
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Mô tả</div>
+                                            {isEditing ? (
+                                                <TextField fullWidth size="small" name="description"
+                                                    value={formData.description || ''} onChange={handleChange}
+                                                    multiline rows={3} InputLabelProps={{ shrink: true }} sx={editTextareaSx} />
+                                            ) : (
+                                                <DescriptionBlock>{item.description}</DescriptionBlock>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ── CARD 2: Tồn kho theo kho ── */}
+                            {showStockBlock && itemWarehouses.length > 0 && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <Warehouse size={16} style={{ marginRight: 6 }} />
+                                            Tồn kho theo kho
+                                        </h2>
+                                    </div>
+
+                                    {/* Mini summary row */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
+                                        <div style={{ padding: '10px 14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Tổng tồn</div>
+                                            <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{formatQty(totalOnHand)}</div>
+                                        </div>
+                                        <div style={{ padding: '10px 14px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Có thể bán</div>
+                                            <div style={{ fontSize: '16px', fontWeight: 700, color: '#10b981' }}>{formatQty(totalAvailable)}</div>
+                                        </div>
+                                        {(totalReserved > 0 || totalPreOrder > 0) && (
+                                            <div style={{ padding: '10px 14px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px' }}>
+                                                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Đang giữ</div>
+                                                <div style={{ fontSize: '16px', fontWeight: 700, color: '#d97706' }}>{formatQty(totalPreOrder > 0 ? totalPreOrder : totalReserved)}</div>
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Dạng vật tư */}
+                                    {/* Bảng tồn kho theo kho */}
+                                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '10px' }}>
+                                        Item đang có trong <strong style={{ color: '#374151' }}>{itemWarehouses.length}</strong> kho
+                                    </div>
+                                    <table className="product-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Kho</th>
+                                                <th style={{ textAlign: 'right' }}>Tồn kho</th>
+                                                <th style={{ textAlign: 'right' }}>Có thể bán</th>
+                                                <th style={{ textAlign: 'right' }}>Đang giữ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {itemWarehouses.map((wh, idx) => {
+                                                const onHand = wh.onHandQty ?? 0;
+                                                const reserved = wh.reservedQty ?? 0;
+                                                const available = wh.availableQty ?? Math.max(0, onHand - reserved);
+                                                const preOrder = wh.preOrderQty ?? 0;
+                                                const held = preOrder > 0 ? preOrder : reserved > 0 ? reserved : 0;
+                                                return (
+                                                    <tr key={idx} style={{ backgroundColor: idx % 2 === 1 ? '#fafafa' : 'transparent' }}>
+                                                        <td>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                <MapPin size={13} color="#94a3b8" />
+                                                                <span style={{ fontWeight: 500, fontSize: '13px' }}>{wh.warehouseName}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{onHand.toLocaleString('vi-VN')}</td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#10b981', fontVariantNumeric: 'tabular-nums' }}>{available.toLocaleString('vi-VN')}</td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: held > 0 ? '#d97706' : '#9ca3af', fontVariantNumeric: 'tabular-nums' }}>{held > 0 ? held.toLocaleString('vi-VN') : '—'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* ── CARD 3: Lịch sử tồn kho ── */}
+                            {canViewItemHistory && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">Lịch sử tồn kho</h2>
+                                    </div>
+                                    {stockHistory.length === 0 ? (
+                                        <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
+                                            <RefreshCw size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                                            <p style={{ margin: 0 }}>Chưa có lịch sử tồn kho.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="table-container" style={{ overflowY: 'auto', maxHeight: 320 }}>
+                                            <table className="product-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Mã phiếu</th>
+                                                        <th>Loại phiếu</th>
+                                                        <th style={{ textAlign: 'center' }}>+/-</th>
+                                                        <th style={{ textAlign: 'right' }}>Số lượng</th>
+                                                        <th>Người thực hiện</th>
+                                                        <th>Thời gian</th>
+                                                        <th>Ghi chú</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {stockHistory.map((h, idx) => {
+                                                        const sign = h.movementSign ?? '+';
+                                                        const isIn = sign === '+' || sign === 'IN';
+                                                        const isOut = sign === '-' || sign === 'OUT';
+                                                        const signColor = isIn ? '#10b981' : isOut ? '#ef4444' : '#374151';
+                                                        const signBg = isIn ? '#f0fdf4' : isOut ? '#fef2f2' : 'transparent';
+                                                        const sourceLabel = { GRN: 'Nhập kho', GDN: 'Xuất kho', ADJ: 'Điều chỉnh', STK: 'Kiểm kê' }[h.sourceType] ?? h.sourceType ?? '—';
+                                                        const sourceColor = { GRN: '#2563eb', GDN: '#d97706', ADJ: '#7c3aed', STK: '#0891b2' }[h.sourceType] ?? '#6b7280';
+                                                        return (
+                                                            <tr key={idx} style={{ backgroundColor: idx % 2 === 1 ? '#fafafa' : 'transparent' }}>
+                                                                <td style={{ fontWeight: 500, color: '#2196F3', fontSize: '13px' }}>{h.docNo ?? '—'}</td>
+                                                                <td>
+                                                                    <span style={{
+                                                                        fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
+                                                                        backgroundColor: `${sourceColor}15`, color: sourceColor, border: `1px solid ${sourceColor}40`,
+                                                                    }}>
+                                                                        {sourceLabel}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: 700, color: signColor, backgroundColor: signBg, borderRadius: 4 }}>{sign}</td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: signColor }}>{Number(h.qty ?? 0).toLocaleString('vi-VN')}</td>
+                                                                <td style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>{h.actorName ?? '—'}</td>
+                                                                <td style={{ fontSize: '12px', color: '#6b7280', whiteSpace: 'nowrap' }}>{formatDateTimeFull(h.transactionAt)}</td>
+                                                                <td style={{ fontSize: '12px', color: '#6b7280', maxWidth: 160 }}>
+                                                                    {h.note ? <span style={{ wordBreak: 'break-word' }}>{h.note}</span> : '—'}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                            <TablePagination
+                                                component="div"
+                                                count={historyTotal}
+                                                page={historyPage}
+                                                rowsPerPage={historyPageSize}
+                                                onPageChange={(e, newPage) => setHistoryPage(newPage)}
+                                                onRowsPerPageChange={(e) => { setHistoryPageSize(Number(e.target.value)); setHistoryPage(0); }}
+                                                rowsPerPageOptions={[5, 10, 15, 20]}
+                                                labelRowsPerPage="Số dòng / trang"
+                                                labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
+                                                sx={{ borderTop: 'none', '& .MuiTablePagination-toolbar': { minHeight: '40px' }, '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: '13px' } }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ══════════════════════════════════════════════ */}
+                        {/* RIGHT COLUMN                                    */}
+                        {/* ══════════════════════════════════════════════ */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                            {/* ── CARD: Tồn kho nhanh ── */}
+                            
+
+                            {/* ── CARD: Thông tin hệ thống ── */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Thông tin hệ thống</h2>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                    {/* Trạng thái */}
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Dạng vật tư</div>
+                                        <div style={LABEL_STYLE}>Trạng thái</div>
+                                        <StatusBadge config={statusConfig} />
+                                    </div>
+
+                                    {/* Đơn vị tính */}
+                                    <div style={FIELD_WRAPPER}>
+                                        <div style={LABEL_STYLE}>Đơn vị tính</div>
+                                        {isEditing ? (
+                                            <Autocomplete size="small" fullWidth
+                                                options={[CREATE_UOM_OPTION, ...allUomOptions]}
+                                                getOptionLabel={(opt) => (opt && opt.name) || ''}
+                                                value={allUomOptions.find((o) => String(o.id) === String(formData.baseUomId)) ?? null}
+                                                onChange={(e, newValue) => {
+                                                    if (newValue && newValue.id === 'CREATE_UOM') { setCreateUomOpen(true); return; }
+                                                    handleChange({ target: { name: 'baseUomId', value: newValue?.id ?? '' } });
+                                                }}
+                                                isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
+                                                renderOption={(props, option) => {
+                                                    if (option && option.id === 'CREATE_UOM') return (
+                                                        <li {...props} key={option.id}>
+                                                            <CreateOptionContent label={option.name} />
+                                                            <Divider sx={{ mt: 1 }} />
+                                                        </li>
+                                                    );
+                                                    return <li {...props} key={option.id} style={{ fontSize: '14px' }}>{option.name}</li>;
+                                                }}
+                                                ListboxProps={{ sx: { minWidth: 320, '& li': { fontSize: '14px' } } }}
+                                                renderInput={(params) => (
+                                                    <TextField {...params}
+                                                        sx={{
+                                                            '& .MuiOutlinedInput-root': {
+                                                                ...baseEditInput,
+                                                                minHeight: ROW_HEIGHT,
+                                                                '& .MuiInputBase-input': { fontSize: '14px', padding: '0 32px 0 12px', minHeight: ROW_HEIGHT },
+                                                            },
+                                                            '& .MuiInputLabel-root': { fontSize: '13px', color: '#64748b', fontWeight: 600, transform: 'none', position: 'relative', marginBottom: '2px' },
+                                                        }} />
+                                                )}
+                                            />
+                                        ) : (
+                                            <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+                                                {item.baseUomName || '—'}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Loại vật tư */}
+                                    <div style={FIELD_WRAPPER}>
+                                        <div style={LABEL_STYLE}>Loại vật tư</div>
                                         {isEditing ? (
                                             <TextField select fullWidth size="small" name="itemType"
                                                 value={formData.itemType || 'Product'} onChange={handleChange}
@@ -690,413 +911,241 @@ export default function ViewItemDetail() {
                                                 <MenuItem value="Service" sx={{ fontSize: '14px' }}>Service</MenuItem>
                                             </TextField>
                                         ) : (
-                                            <ReadOnlyBox>{item.itemType || '—'}</ReadOnlyBox>
+                                            <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+                                                {item.itemType || '—'}
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Thương hiệu */}
+                                    {/* Danh mục */}
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Thương hiệu</div>
+                                        <div style={LABEL_STYLE}>Danh mục</div>
                                         {isEditing ? (
-                                            <TextField select fullWidth size="small" name="brandId"
-                                                value={String(formData.brandId ?? '')} onChange={handleChange}
+                                            <TextField select fullWidth size="small" name="categoryId"
+                                                value={String(formData.categoryId ?? '')} onChange={handleChange}
                                                 sx={editSelectSx} InputLabelProps={{ shrink: true }}
                                                 SelectProps={{
                                                     displayEmpty: true,
-                                                    renderValue: (v) => v === '' ? (
-                                                        <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn nhãn hiệu</span>
-                                                    ) : (
-                                                        <span style={{ fontSize: '14px' }}>
-                                                            {masterBrands.find((o) => String(o.brandId) === String(v))?.brandName ?? ''}
-                                                        </span>
-                                                    ),
                                                     MenuProps: selectMenuProps,
+                                                    renderValue: (v) => {
+                                                        if (v === '') return <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn danh mục</span>;
+                                                        const found = masterCategories.find((o) => String(o.categoryId) === String(v));
+                                                        return found ? (
+                                                            <span style={{ fontSize: '14px', color: '#334155' }}>
+                                                                {found.categoryCode ? `${found.categoryCode} - ${found.categoryName}` : found.categoryName}
+                                                            </span>
+                                                        ) : '';
+                                                    },
                                                 }}>
-                                                <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn nhãn hiệu</MenuItem>
-                                                {masterBrands.map((o) => (
-                                                    <MenuItem key={o.brandId} value={String(o.brandId)} sx={{ fontSize: '14px' }}>{o.brandName}</MenuItem>
+                                                <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn danh mục</MenuItem>
+                                                {masterCategories.map((o) => (
+                                                    <MenuItem key={o.categoryId} value={String(o.categoryId)} sx={{ fontSize: '14px' }}>
+                                                        {o.categoryCode ? `${o.categoryCode} - ${o.categoryName}` : o.categoryName}
+                                                    </MenuItem>
                                                 ))}
                                             </TextField>
                                         ) : (
-                                            <ReadOnlyBox>{item.brandName || item.brandId || '—'}</ReadOnlyBox>
+                                            <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+                                                {item.categoryName || '—'}
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Kho mặc định */}
+                                    
+
+                                    {/* Quy cách đóng gói */}
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Kho mặc định</div>
+                                        <div style={LABEL_STYLE}>Quy cách đóng gói</div>
                                         {isEditing ? (
-                                            <TextField select fullWidth size="small" name="defaultWarehouseId"
-                                                value={String(formData.defaultWarehouseId ?? '')} onChange={handleChange}
-                                                sx={editSelectSx} InputLabelProps={{ shrink: true }}
-                                                SelectProps={{
-                                                    displayEmpty: true,
-                                                    renderValue: (v) => v === '' ? (
-                                                        <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn kho</span>
-                                                    ) : (
-                                                        <span style={{ fontSize: '14px' }}>
-                                                            {masterWarehouses.find((o) => String(o.warehouseId) === String(v))?.warehouseName ?? 'Chọn kho'}
-                                                        </span>
-                                                    ),
-                                                    MenuProps: { PaperProps: { sx: { borderRadius: 2 } } },
-                                                }}>
-                                                <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn kho</MenuItem>
-                                                {masterWarehouses.map((o) => (
-                                                    <MenuItem key={o.warehouseId} value={String(o.warehouseId)} sx={{ fontSize: '14px' }}>{o.warehouseName}</MenuItem>
-                                                ))}
-                                            </TextField>
+                                            <Autocomplete size="small" fullWidth
+                                                options={[CREATE_PACK_OPTION, ...allPackOptions]}
+                                                getOptionLabel={(opt) => (opt && opt.name) || ''}
+                                                value={allPackOptions.find((o) => String(o.id) === String(formData.packagingSpecId)) ?? null}
+                                                onChange={(e, newValue) => {
+                                                    if (newValue && newValue.id === 'CREATE_PACK') { setCreatePackOpen(true); return; }
+                                                    handleChange({ target: { name: 'packagingSpecId', value: newValue?.id ?? '' } });
+                                                }}
+                                                isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
+                                                renderOption={(props, option) => {
+                                                    if (option && option.id === 'CREATE_PACK') return (
+                                                        <li {...props} key={option.id}>
+                                                            <CreateOptionContent label={option.name} />
+                                                            <Divider sx={{ mt: 1 }} />
+                                                        </li>
+                                                    );
+                                                    return <li {...props} key={option.id} style={{ fontSize: '14px' }}>{option.name}</li>;
+                                                }}
+                                                ListboxProps={{ sx: { minWidth: 320, '& li': { fontSize: '14px' } } }}
+                                                renderInput={(params) => (
+                                                    <TextField {...params}
+                                                        sx={{
+                                                            '& .MuiOutlinedInput-root': {
+                                                                ...baseEditInput,
+                                                                minHeight: ROW_HEIGHT,
+                                                                '& .MuiInputBase-input': { fontSize: '14px', padding: '0 32px 0 12px', minHeight: ROW_HEIGHT },
+                                                            },
+                                                            '& .MuiInputLabel-root': { fontSize: '13px', color: '#64748b', fontWeight: 600, transform: 'none', position: 'relative', marginBottom: '2px' },
+                                                        }} />
+                                                )}
+                                            />
                                         ) : (
-                                            <ReadOnlyBox>{item.defaultWarehouseName || item.defaultWarehouseId || '—'}</ReadOnlyBox>
+                                            <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+                                                {item.packagingSpecName || '—'}
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Yêu cầu CO */}
+                                    {/* Thông số */}
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Yêu cầu CO</div>
+                                        <div style={LABEL_STYLE}>Thông số</div>
                                         {isEditing ? (
-                                            <BoolToggle name="requiresCO" value={formData.requiresCO} onChange={handleChange} />
+                                            <TextField fullWidth size="small" name="specification"
+                                                value={formData.specification || ''} onChange={handleChange}
+                                                InputLabelProps={{ shrink: true }} sx={editTextSx} />
                                         ) : (
-                                            <PillBadge value={item.requiresCO} />
+                                            <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+                                                {item.specification || '—'}
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Yêu cầu CQ */}
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Yêu cầu CQ</div>
-                                        {isEditing ? (
-                                            <BoolToggle name="requiresCQ" value={formData.requiresCQ} onChange={handleChange} />
-                                        ) : (
-                                            <PillBadge value={item.requiresCQ} />
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Meta grid: Danh mục | Đơn vị tính | Quy cách đóng gói */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                                gap: FIELD_GAP,
-                                marginBottom: FIELD_GAP,
-                            }}>
-                                {/* Danh mục */}
-                                <div style={FIELD_WRAPPER}>
-                                    <div style={LABEL_STYLE}>Danh mục</div>
-                                    {isEditing ? (
-                                        <TextField select fullWidth size="small" name="categoryId"
-                                            value={String(formData.categoryId ?? '')} onChange={handleChange}
-                                            sx={editSelectSx} InputLabelProps={{ shrink: true }}
-                                            SelectProps={{
-                                                displayEmpty: true,
-                                                MenuProps: selectMenuProps,
-                                                renderValue: (v) => {
-                                                    if (v === '') return <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn danh mục</span>;
-                                                    const found = masterCategories.find((o) => String(o.categoryId) === String(v));
-                                                    return found ? (
-                                                        <span style={{ fontSize: '14px', color: '#334155' }}>
-                                                            {found.categoryCode ? `${found.categoryCode} - ${found.categoryName}` : found.categoryName}
-                                                        </span>
-                                                    ) : '';
-                                                },
-                                            }}>
-                                            <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn danh mục</MenuItem>
-                                            {masterCategories.map((o) => (
-                                                <MenuItem key={o.categoryId} value={String(o.categoryId)} sx={{ fontSize: '14px' }}>
-                                                    {o.categoryCode ? `${o.categoryCode} - ${o.categoryName}` : o.categoryName}
-                                                </MenuItem>
-                                            ))}
-                                        </TextField>
-                                    ) : (
-                                        <ReadOnlyBox>{item.categoryName || item.categoryId || '—'}</ReadOnlyBox>
-                                    )}
-                                </div>
-
-                                {/* Đơn vị tính */}
-                                <div style={FIELD_WRAPPER}>
-                                    <div style={LABEL_STYLE}>Đơn vị tính</div>
-                                    {isEditing ? (
-                                        <Autocomplete size="small" fullWidth
-                                            options={[CREATE_UOM_OPTION, ...allUomOptions]}
-                                            getOptionLabel={(opt) => (opt && opt.name) || ''}
-                                            value={allUomOptions.find((o) => String(o.id) === String(formData.baseUomId)) ?? null}
-                                            onChange={(e, newValue) => {
-                                                if (newValue && newValue.id === 'CREATE_UOM') { setCreateUomOpen(true); return; }
-                                                handleChange({ target: { name: 'baseUomId', value: newValue?.id ?? '' } });
-                                            }}
-                                            isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
-                                            renderOption={(props, option) => {
-                                                if (option && option.id === 'CREATE_UOM') return (
-                                                    <li {...props} key={option.id}>
-                                                        <CreateOptionContent label={option.name} />
-                                                        <Divider sx={{ mt: 1 }} />
-                                                    </li>
-                                                );
-                                                return <li {...props} key={option.id} style={{ fontSize: '14px' }}>{option.name}</li>;
-                                            }}
-                                            ListboxProps={{ sx: { minWidth: 320, '& li': { fontSize: '14px' } } }}
-                                            renderInput={(params) => (
-                                                <TextField {...params}
-                                                    sx={{
-                                                        '& .MuiOutlinedInput-root': {
-                                                            ...baseEditInput,
-                                                            minHeight: ROW_HEIGHT,
-                                                            '& .MuiInputBase-input': { fontSize: '14px', padding: '0 32px 0 12px', minHeight: ROW_HEIGHT },
-                                                        },
-                                                        '& .MuiInputLabel-root': { fontSize: '13px', color: '#64748b', fontWeight: 600, transform: 'none', position: 'relative', marginBottom: '2px' },
-                                                    }} />
+                                    {/* Yêu cầu CO + CQ trên cùng 1 hàng */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: FIELD_GAP }}>
+                                        {/* CO */}
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Yêu cầu CO</div>
+                                            {isEditing ? (
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none', padding: '4px 0', fontSize: '14px', fontWeight: 500, color: formData.requiresCO ? '#1d4ed8' : '#334155' }}>
+                                                    <div style={{
+                                                        width: 18, height: 18, borderRadius: 4,
+                                                        border: `2px solid ${formData.requiresCO ? '#3b82f6' : '#cbd5e1'}`,
+                                                        backgroundColor: formData.requiresCO ? '#3b82f6' : 'transparent',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0,
+                                                    }}>
+                                                        {formData.requiresCO && (
+                                                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                                                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                    <span>{formData.requiresCO ? 'Có' : 'Không'}</span>
+                                                    <input type="checkbox" name="requiresCO" checked={!!formData.requiresCO} onChange={handleChange} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                                                </label>
+                                            ) : (
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'default', userSelect: 'none', padding: '4px 0', fontSize: '14px', fontWeight: 500, color: item.requiresCO ? '#1d4ed8' : '#334155' }}>
+                                                    <div style={{
+                                                        width: 18, height: 18, borderRadius: 4,
+                                                        border: `2px solid ${item.requiresCO ? '#3b82f6' : '#cbd5e1'}`,
+                                                        backgroundColor: item.requiresCO ? '#3b82f6' : 'transparent',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0,
+                                                    }}>
+                                                        {item.requiresCO && (
+                                                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                                                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                    <span>{item.requiresCO ? 'Có' : 'Không'}</span>
+                                                </label>
                                             )}
-                                        />
-                                    ) : (
-                                        <ReadOnlyBox>{item.baseUomName || item.baseUomId || '—'}</ReadOnlyBox>
-                                    )}
-                                </div>
+                                        </div>
 
-                                {/* Quy cách đóng gói */}
-                                <div style={FIELD_WRAPPER}>
-                                    <div style={LABEL_STYLE}>Quy cách đóng gói</div>
-                                    {isEditing ? (
-                                        <Autocomplete size="small" fullWidth
-                                            options={[CREATE_PACK_OPTION, ...allPackOptions]}
-                                            getOptionLabel={(opt) => (opt && opt.name) || ''}
-                                            value={allPackOptions.find((o) => String(o.id) === String(formData.packagingSpecId)) ?? null}
-                                            onChange={(e, newValue) => {
-                                                if (newValue && newValue.id === 'CREATE_PACK') { setCreatePackOpen(true); return; }
-                                                handleChange({ target: { name: 'packagingSpecId', value: newValue?.id ?? '' } });
-                                            }}
-                                            isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
-                                            renderOption={(props, option) => {
-                                                if (option && option.id === 'CREATE_PACK') return (
-                                                    <li {...props} key={option.id}>
-                                                        <CreateOptionContent label={option.name} />
-                                                        <Divider sx={{ mt: 1 }} />
-                                                    </li>
-                                                );
-                                                return <li {...props} key={option.id} style={{ fontSize: '14px' }}>{option.name}</li>;
-                                            }}
-                                            ListboxProps={{ sx: { minWidth: 320, '& li': { fontSize: '14px' } } }}
-                                            renderInput={(params) => (
-                                                <TextField {...params}
-                                                    sx={{
-                                                        '& .MuiOutlinedInput-root': {
-                                                            ...baseEditInput,
-                                                            minHeight: ROW_HEIGHT,
-                                                            '& .MuiInputBase-input': { fontSize: '14px', padding: '0 32px 0 12px', minHeight: ROW_HEIGHT },
-                                                        },
-                                                        '& .MuiInputLabel-root': { fontSize: '13px', color: '#64748b', fontWeight: 600, transform: 'none', position: 'relative', marginBottom: '2px' },
-                                                    }} />
+                                        {/* CQ */}
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Yêu cầu CQ</div>
+                                            {isEditing ? (
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none', padding: '4px 0', fontSize: '14px', fontWeight: 500, color: formData.requiresCQ ? '#1d4ed8' : '#334155' }}>
+                                                    <div style={{
+                                                        width: 18, height: 18, borderRadius: 4,
+                                                        border: `2px solid ${formData.requiresCQ ? '#3b82f6' : '#cbd5e1'}`,
+                                                        backgroundColor: formData.requiresCQ ? '#3b82f6' : 'transparent',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0,
+                                                    }}>
+                                                        {formData.requiresCQ && (
+                                                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                                                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                    <span>{formData.requiresCQ ? 'Có' : 'Không'}</span>
+                                                    <input type="checkbox" name="requiresCQ" checked={!!formData.requiresCQ} onChange={handleChange} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                                                </label>
+                                            ) : (
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'default', userSelect: 'none', padding: '4px 0', fontSize: '14px', fontWeight: 500, color: item.requiresCQ ? '#1d4ed8' : '#334155' }}>
+                                                    <div style={{
+                                                        width: 18, height: 18, borderRadius: 4,
+                                                        border: `2px solid ${item.requiresCQ ? '#3b82f6' : '#cbd5e1'}`,
+                                                        backgroundColor: item.requiresCQ ? '#3b82f6' : 'transparent',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0,
+                                                    }}>
+                                                        {item.requiresCQ && (
+                                                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                                                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                    <span>{item.requiresCQ ? 'Có' : 'Không'}</span>
+                                                </label>
                                             )}
-                                        />
-                                    ) : (
-                                        <ReadOnlyBox>{item.packagingSpecName || item.packagingSpecId || '—'}</ReadOnlyBox>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Mô tả — cuối card, full width */}
-                            <div style={FIELD_WRAPPER}>
-                                <div style={LABEL_STYLE}>Mô tả</div>
-                                {isEditing ? (
-                                    <TextField fullWidth size="small" name="description"
-                                        value={formData.description || ''} onChange={handleChange}
-                                        multiline rows={3} InputLabelProps={{ shrink: true }} sx={editTextareaSx} />
-                                ) : item.description ? (
-                                    <DescriptionBlock>{item.description}</DescriptionBlock>
-                                ) : (
-                                    <DescriptionBlock />
-                                )}
-                            </div>
-
-                            {/* Tài khoản kho + doanh thu (chỉ accountant, read-only) */}
-                            {!isEditing && showFullPrices && (
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                    gap: FIELD_GAP,
-                                    marginTop: FIELD_GAP,
-                                }}>
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Tài khoản kho</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 500, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', minHeight: ROW_HEIGHT,
-                                            display: 'flex', alignItems: 'center', flex: 1,
-                                        }}>
-                                            {item.inventoryAccount || '—'}
                                         </div>
                                     </div>
+
+                                    {/* Ngày tạo */}
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Tài khoản doanh thu</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 500, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', minHeight: ROW_HEIGHT,
-                                            display: 'flex', alignItems: 'center', flex: 1,
-                                        }}>
-                                            {item.revenueAccount || '—'}
+                                        <div style={LABEL_STYLE}>Ngày tạo</div>
+                                        <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Clock size={13} color="#94a3b8" />
+                                            {formatDateTimeFull(item.createdAt)}
+                                        </div>
+                                    </div>
+
+                                    {/* Ngày cập nhật */}
+                                    {item.updatedAt && (
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Ngày cập nhật</div>
+                                            <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <RefreshCw size={13} color="#94a3b8" />
+                                                {formatDateTimeFull(item.updatedAt)}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* ── CARD 6: Thông tin kế toán (conditional) ── */}
+                            {!isEditing && showFullPrices && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">Thông tin kế toán</h2>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Tài khoản kho</div>
+                                            <div style={{
+                                                padding: '0 0 6px 0',
+                                                borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+                                                fontSize: '14px', fontWeight: 500, color: '#334155',
+                                                display: 'flex', alignItems: 'center',
+                                            }}>
+                                                {item.inventoryAccount || '—'}
+                                            </div>
+                                        </div>
+                                        <div style={FIELD_WRAPPER}>
+                                            <div style={LABEL_STYLE}>Tài khoản doanh thu</div>
+                                            <div style={{
+                                                padding: '0 0 6px 0',
+                                                borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+                                                fontSize: '14px', fontWeight: 500, color: '#334155',
+                                                display: 'flex', alignItems: 'center',
+                                            }}>
+                                                {item.revenueAccount || '—'}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
-                        </div>
-
-                        {/* ── RIGHT: Side column — Tổng quan vật tư ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '16px' }}>
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng quan vật tư</h2>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {showStockBlock ? (
-                                        <>
-                                            <StatBox label="Tồn kho" value={formatQty(totalOnHand)} color="#0f172a" icon={Warehouse} />
-                                            <StatBox label="Có thể bán" value={formatQty(totalAvailable)} color="#10b981" bg="#f0fdf4" borderColor="#bbf7d0" icon={Package} />
-                                            {(totalReserved > 0 || totalPreOrder > 0) && (
-                                                <StatBox label="Đặt trước" value={formatQty(totalPreOrder > 0 ? totalPreOrder : totalReserved)} color="#d97706" bg="#fffbeb" borderColor="#fde68a" icon={Layers} />
-                                            )}
-                                            <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                            {item.defaultWarehouseName && (
-                                                <StatBox label="Kho mặc định" value={item.defaultWarehouseName} color="#334155" icon={MapPin} />
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <StatBox label="Dạng vật tư" value={item.itemType || '—'} color="#334155" icon={Tag} />
-                                            <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                            {item.defaultWarehouseName && (
-                                                <StatBox label="Kho mặc định" value={item.defaultWarehouseName} color="#334155" icon={MapPin} />
-                                            )}
-                                            {item.categoryName && (
-                                                <StatBox label="Danh mục" value={item.categoryName} color="#334155" icon={Layers} />
-                                            )}
-                                            {item.brandName && (
-                                                <StatBox label="Thương hiệu" value={item.brandName} color="#334155" icon={Tag} />
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
                         </div>
                     </div>
-
-                    {/* ─── TỒN KHO TABLE ─── */}
-                    {showStockBlock && itemWarehouses.length > 0 && (
-                        <div className="info-section" style={{ marginTop: '24px' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">
-                                    <Package size={16} style={{ marginRight: 6 }} />
-                                    Số lượng sản phẩm trong kho
-                                </h2>
-                            </div>
-                            <div className="table-container" style={{ overflowY: 'auto', maxHeight: 320 }}>
-                                <table className="product-table">
-                                    <thead>
-                                        <tr>
-                                            <th style={{ width: 50 }}></th>
-                                            <th>Mã SKU</th>
-                                            <th>Tên phiên bản</th>
-                                            <th style={{ textAlign: 'right' }}>Tồn kho</th>
-                                            <th style={{ textAlign: 'right' }}>Có thể bán</th>
-                                            <th style={{ textAlign: 'right' }}>Đặt trước</th>
-                                            <th>Kho</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {itemWarehouses.map((wh, idx) => {
-                                            const onHand = wh.onHandQty ?? 0;
-                                            const reserved = wh.reservedQty ?? 0;
-                                            const available = wh.availableQty ?? Math.max(0, onHand - reserved);
-                                            const preOrder = wh.preOrderQty ?? 0;
-                                            const isDefault = wh.isDefaultWarehouse ?? false;
-                                            return (
-                                                <tr key={idx}>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Package size={18} color="#9ca3af" />
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ fontWeight: 500 }}>{wh.sku || item.itemCode}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <span style={{ fontWeight: 500, color: '#2196F3' }}>{wh.variantName || item.itemName}</span>
-                                                            {isDefault && (
-                                                                <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: 9999, backgroundColor: '#e0f2fe', color: '#2196F3' }}>Mặc định</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{onHand.toLocaleString('vi-VN')}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#10b981', fontVariantNumeric: 'tabular-nums' }}>{available.toLocaleString('vi-VN')}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: preOrder > 0 || reserved > 0 ? '#d97706' : '#9ca3af', fontVariantNumeric: 'tabular-nums' }}>
-                                                        {preOrder > 0 ? preOrder.toLocaleString('vi-VN') : reserved > 0 ? reserved.toLocaleString('vi-VN') : '—'}
-                                                    </td>
-                                                    <td>{wh.warehouseName}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ─── LỊCH SỬ TỒN KHO ─── */}
-                    {canViewItemHistory && (
-                        <div className="info-section" style={{ marginTop: '24px' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Lịch sử tồn kho</h2>
-                            </div>
-                            {stockHistory.length === 0 ? (
-                                <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>Chưa có lịch sử tồn kho.</div>
-                            ) : (
-                                <div className="table-container" style={{ overflowY: 'auto', maxHeight: 360 }}>
-                                    <table className="product-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Mã phiếu</th>
-                                                <th>Loại phiếu</th>
-                                                <th style={{ textAlign: 'center' }}>+/-</th>
-                                                <th style={{ textAlign: 'right' }}>Số lượng</th>
-                                                <th>Người thực hiện</th>
-                                                <th>Thời gian</th>
-                                                <th>Ghi chú</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {stockHistory.map((h, idx) => {
-                                                const sign = h.movementSign ?? '+';
-                                                const isIn = sign === '+' || sign === 'IN';
-                                                const isOut = sign === '-' || sign === 'OUT';
-                                                const signColor = isIn ? '#10b981' : isOut ? '#ef4444' : '#374151';
-                                                const signBg = isIn ? '#f0fdf4' : isOut ? '#fef2f2' : 'transparent';
-                                                const sourceLabel = { GRN: 'Nhập kho', GDN: 'Xuất kho', ADJ: 'Điều chỉnh', STK: 'Kiểm kê' }[h.sourceType] ?? h.sourceType ?? '—';
-                                                const sourceColor = { GRN: '#2563eb', GDN: '#d97706', ADJ: '#7c3aed', STK: '#0891b2' }[h.sourceType] ?? '#6b7280';
-                                                return (
-                                                    <tr key={idx}>
-                                                        <td style={{ fontWeight: 500, color: '#2196F3' }}>{h.docNo ?? '—'}</td>
-                                                        <td>
-                                                            <span style={{
-                                                                fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
-                                                                backgroundColor: `${sourceColor}15`, color: sourceColor, border: `1px solid ${sourceColor}40`,
-                                                            }}>
-                                                                {sourceLabel}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ textAlign: 'center', fontWeight: 700, color: signColor, backgroundColor: signBg }}>{sign}</td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Number(h.qty ?? 0).toLocaleString('vi-VN')}</td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>{h.actorName ?? '—'}</td>
-                                                        <td style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>{formatDateTimeFull(h.transactionAt)}</td>
-                                                        <td style={{ fontSize: '12px', color: '#6b7280', maxWidth: 160 }}>
-                                                            {h.note ? <span style={{ wordBreak: 'break-word' }}>{h.note}</span> : '—'}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
 

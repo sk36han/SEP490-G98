@@ -5,6 +5,7 @@ namespace Warehouse.Entities.ModelResponse
         public ItemProductInfoResponse ProductInfo { get; set; } = new();
         public List<ItemWarehouseVariantResponse> VariantsByWarehouse { get; set; } = new();
         public List<ItemInventoryHistoryResponse> InventoryHistory { get; set; } = new();
+        public int HistoryTotalCount { get; set; }
     }
 
     public class ItemProductInfoResponse
@@ -26,6 +27,7 @@ namespace Warehouse.Entities.ModelResponse
         public string? ImageUrl { get; set; }
         public decimal? PurchasePrice { get; set; }
         public decimal? SalePrice { get; set; }
+        public string? Specification { get; set; }
     }
 
     public class ItemWarehouseVariantResponse

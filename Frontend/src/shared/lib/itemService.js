@@ -12,8 +12,8 @@ import apiClient from './axios';
  * GET /Item/detail/{id} → ItemDetailResponse.
  * Backend trả: { success, message, data: ItemDetailResponse } hoặc trả trực tiếp ItemDetailResponse.
  */
-export async function getItemDetail(itemId) {
-    const response = await apiClient.get(`/Item/detail/${itemId}`);
+export async function getItemDetail(itemId, historyPage = 1, historyPageSize = 10) {
+    const response = await apiClient.get(`/Item/detail/${itemId}?historyPage=${historyPage}&historyPageSize=${historyPageSize}`);
     const payload = response?.data?.data ?? response?.data ?? {};
     // Backend trả data lồng: { productInfo, variantsByWarehouse, inventoryHistory }
     const productInfo = payload.productInfo ?? payload ?? {};
@@ -23,6 +23,7 @@ export async function getItemDetail(itemId) {
         ...mapItemDetailRow(productInfo),
         inventoryHistory: rawHistory.map(mapInventoryHistoryRow),
         inventoryByWarehouse: rawWarehouse.map(mapInventoryByWarehouseRow),
+        historyTotalCount: payload.historyTotalCount ?? payload.HistoryTotalCount ?? 0,
     };
 }
 
@@ -48,6 +49,7 @@ function mapItemDetailRow(row) {
         packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? row.specId ?? row.SpecId ?? null,
         specName: row.specName ?? row.SpecName ?? null,
         specId: row.specId ?? row.SpecId ?? null,
+        specification: row.specification ?? row.Specification ?? null,
         requiresCO: row.requiresCo ?? row.RequiresCo ?? false,
         requiresCQ: row.requiresCq ?? row.RequiresCq ?? false,
         isActive: row.isActive ?? row.IsActive ?? true,
