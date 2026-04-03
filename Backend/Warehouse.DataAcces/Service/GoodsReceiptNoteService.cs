@@ -462,21 +462,27 @@ namespace Warehouse.DataAcces.Service
                     _context.InventoryLots.Add(lot);
 
                     // Cập nhật giá mua (Purchase) vào ItemPrice
+                    // ItemPrice lưu lịch sử giá theo từng đợt nhập hàng
+                    // Giá thực tế để bán nằm trong InventoryLot theo từng lô
                     if (purchasePrice.HasValue && purchasePrice > 0)
                     {
                         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-                        // Deactive giá Purchase cũ và set EffectiveTo
+                        // Deactive giá Purchase cũ chỉ khi đã active từ ngày trước
+                        // Nếu cùng ngày thì giữ nguyên để tránh khoảng trống
                         var existingPurchasePrices = _context.ItemPrices
                             .Where(p => p.ItemId == grnLine.ItemId && p.PriceType == "Purchase" && p.IsActive)
                             .ToList();
                         foreach (var price in existingPurchasePrices)
                         {
-                            price.IsActive = false;
-                            price.EffectiveTo = today.AddDays(-1);
+                            if (price.EffectiveFrom < today)
+                            {
+                                price.IsActive = false;
+                                price.EffectiveTo = today.AddDays(-1);
+                            }
                         }
 
-                        // Thêm giá Purchase mới
+                        // Luôn tạo ItemPrice mới cho mỗi đợt nhập hàng
                         _context.ItemPrices.Add(new ItemPrice
                         {
                             ItemId = grnLine.ItemId,
