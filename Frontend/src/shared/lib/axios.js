@@ -10,7 +10,7 @@ const apiClient = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 10000, // 10 seconds timeout
+    timeout: 60000, // 60 seconds timeout
 });
 
 // Request interceptor - Add auth token to requests
@@ -41,8 +41,9 @@ apiClient.interceptors.response.use(
             localStorage.removeItem('user');
             localStorage.removeItem('userInfo');
 
-            // Redirect to login if not already there
-            if (window.location.pathname !== '/login') {
+            // Do NOT redirect if OTP is pending (user is in the middle of verification)
+            const isOtpPending = localStorage.getItem('pendingUserId');
+            if (!isOtpPending && window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }
         }

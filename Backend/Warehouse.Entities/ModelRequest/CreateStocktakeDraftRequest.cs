@@ -21,5 +21,9 @@ namespace Warehouse.Entities.ModelRequest
         /// <summary>Ghi chú (không bắt buộc, tối đa 1000 ký tự)</summary>
         [MaxLength(1000, ErrorMessage = "Ghi chú tối đa 1000 ký tự.")]
         public string? Note { get; set; }
+
+        /// <summary>Trạng thái ban đầu: DRAFT, PENDING_APPROVAL hoặc APPROVED</summary>
+        [RegularExpression("^(DRAFT|PENDING_APPROVAL|APPROVED)$", ErrorMessage = "Status không hợp lệ (Chỉ chấp nhận DRAFT, PENDING_APPROVAL hoặc APPROVED).")]
+        public string? Status { get; set; }
     }
 }

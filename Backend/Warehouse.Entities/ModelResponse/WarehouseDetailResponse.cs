@@ -27,8 +27,9 @@ namespace Warehouse.Entities.ModelResponse
         public string? CategoryName { get; set; }
         public string? BrandName { get; set; }
         public string? UnitName { get; set; }
-        public decimal OnHandQty { get; set; }
-        public decimal ReservedQty { get; set; }
+        public decimal? OnHandQty { get; set; }   // null = chưa bao giờ nhập kho này; 0 = đã nhập nhưng hết hàng
+        public decimal? ReservedQty { get; set; }
+        public bool HasInventoryRecord { get; set; } // false = chưa có row trong InventoryOnHand → cảnh báo trên UI
     }
 
     public class WarehousePaperDto

@@ -1,0 +1,332 @@
+/**
+ * ProductTable - Styles
+ * Tach tu CreatePurchaseOrder.jsx
+ */
+
+/* Product Section */
+.po-product-section {
+    margin: 0;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header Actions */
+.po-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Buttons */
+.po-btn-delete-selected {
+    font-weight: 600;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+}
+
+.po-btn-delete-selected:hover {
+    background-color: #dc2626;
+}
+
+.po-btn-add-product {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.po-btn-add-selected {
+    width: 100%;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    font-weight: 600;
+    justify-content: center;
+}
+
+/* Error Message */
+.po-error-message {
+    margin-bottom: 16px;
+}
+
+/* Search Wrapper */
+.po-search-wrapper {
+    margin-bottom: 16px;
+    animation: slideDown 0.3s ease-out;
+    position: relative;
+}
+
+.po-search-input-wrapper {
+    position: relative;
+}
+
+.po-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    z-index: 1;
+}
+
+.po-search-input {
+    width: 100%;
+    padding: 12px 44px 12px 44px;
+    border: 2px solid #2196F3;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+    box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.1);
+}
+
+.po-search-close-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    color: #6b7280;
+    z-index: 1;
+}
+
+/* Search Dropdown */
+.po-search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 100;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.po-search-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    background-color: #f9fafb;
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* Loading & Error */
+.po-loading-container {
+    padding: 24px;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.po-loading-spinner {
+    margin: 0 auto 8px;
+    animation: spin 1s linear infinite;
+}
+
+.po-error-container {
+    padding: 24px;
+    text-align: center;
+}
+
+.po-error-container p {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    color: #ef4444;
+}
+
+.po-empty-dropdown {
+    padding: 24px;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.po-empty-icon {
+    margin: 0 auto 8px;
+    opacity: 0.5;
+}
+
+/* Search Item */
+.po-search-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.po-search-item:hover {
+    background-color: #f9fafb;
+}
+
+.po-search-item-image {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.po-search-item-image-placeholder {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background-color: #f3f4f6;
+    flex-shrink: 0;
+}
+
+.po-search-item-info {
+    flex: 1;
+    cursor: pointer;
+}
+
+.po-search-item-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+}
+
+.po-search-item-price {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2196F3;
+    margin-left: 12px;
+}
+
+.po-search-item-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* Checkbox */
+.po-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.po-checkbox-header {
+    cursor: pointer;
+}
+
+/* Selected Footer */
+.po-selected-footer {
+    padding: 12px 16px;
+    border-top: 2px solid #e5e7eb;
+    background-color: #f9fafb;
+    position: sticky;
+    bottom: 0;
+}
+
+/* Empty State */
+.po-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 60px 20px;
+    color: #9ca3af;
+}
+
+.po-empty-state-icon {
+    opacity: 0.5;
+}
+
+.po-empty-state-text {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.po-empty-state-hint {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Table Container */
+.po-table-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.po-product-row {
+    transition: background-color 0.15s;
+}
+
+.po-product-row:hover {
+    background-color: #f9fafb;
+}
+
+/* Input Number */
+.po-input-number {
+    text-align: center;
+}
+
+/* Product Link */
+.po-product-link {
+    color: #2196F3;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    flex: 1;
+}
+
+.po-product-link:hover {
+    text-decoration: underline;
+}
+
+/* Action Buttons */
+.po-action-buttons {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8;
+}
+
+.po-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.po-action-btn-view {
+    color: #2196F3;
+}
+
+.po-action-btn-delete {
+    color: #ef4444;
+}
+
+.po-action-btn-delete:hover {
+    color: #dc2626;
+}

@@ -8,6 +8,127 @@ import apiClient from './axios';
  */
 
 /**
+ * Lấy chi tiết một vật tư theo ID.
+ * GET /Item/detail/{id} → ItemDetailResponse.
+ * Backend trả: { success, message, data: ItemDetailResponse } hoặc trả trực tiếp ItemDetailResponse.
+ */
+export async function getItemDetail(itemId) {
+    const response = await apiClient.get(`/Item/detail/${itemId}`);
+    const payload = response?.data?.data ?? response?.data ?? {};
+    // Backend trả data lồng: { productInfo, variantsByWarehouse, inventoryHistory }
+    const productInfo = payload.productInfo ?? payload ?? {};
+    const rawHistory = payload.inventoryHistory ?? payload.InventoryHistory ?? [];
+    const rawWarehouse = payload.variantsByWarehouse ?? payload.VariantsByWarehouse ?? [];
+    return {
+        ...mapItemDetailRow(productInfo),
+        inventoryHistory: rawHistory.map(mapInventoryHistoryRow),
+        inventoryByWarehouse: rawWarehouse.map(mapInventoryByWarehouseRow),
+    };
+}
+
+/**
+ * Chuẩn hóa dòng từ API /Item/detail/{id}.
+ */
+function mapItemDetailRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
+        itemId: row.itemId ?? row.ItemId,
+        itemCode: row.itemCode ?? row.ItemCode ?? '',
+        itemName: row.itemName ?? row.ItemName ?? '',
+        itemImage: row.itemImage ?? row.ItemImage ?? null,
+        itemType: row.itemType ?? row.ItemType ?? null,
+        description: row.description ?? row.Description ?? null,
+        categoryName: row.categoryName ?? row.CategoryName ?? null,
+        categoryId: row.categoryId ?? row.CategoryId ?? null,
+        brandName: row.brandName ?? row.BrandName ?? null,
+        brandId: row.brandId ?? row.BrandId ?? null,
+        baseUomName: row.baseUomName ?? row.BaseUomName ?? row.uomName ?? row.UomName ?? null,
+        baseUomId: row.baseUomId ?? row.BaseUomId ?? row.uomId ?? row.UomId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? row.specName ?? row.SpecName ?? null,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? row.specId ?? row.SpecId ?? null,
+        specName: row.specName ?? row.SpecName ?? null,
+        specId: row.specId ?? row.SpecId ?? null,
+        requiresCO: row.requiresCo ?? row.RequiresCo ?? false,
+        requiresCQ: row.requiresCq ?? row.RequiresCq ?? false,
+        isActive: row.isActive ?? row.IsActive ?? true,
+        inventoryAccount: row.inventoryAccount ?? row.InventoryAccount ?? null,
+        revenueAccount: row.revenueAccount ?? row.RevenueAccount ?? null,
+        createdAt: row.createdAt ?? row.CreatedAt ?? null,
+        updatedAt: row.updatedAt ?? row.UpdatedAt ?? null,
+        purchasePrice: row.purchasePrice ?? row.PurchasePrice ?? null,
+        salePrice: row.salePrice ?? row.SalePrice ?? null,
+        onHandQty: row.onHandQty ?? row.OnHandQty ?? 0,
+        reservedQty: row.reservedQty ?? row.ReservedQty ?? 0,
+        availableQty: row.availableQty ?? row.AvailableQty ?? 0,
+        // Kho mặc định
+        defaultWarehouseId: row.defaultWarehouseId ?? row.DefaultWarehouseId ?? null,
+        defaultWarehouseName: row.defaultWarehouseName ?? row.DefaultWarehouseName ?? null,
+        // Giá nhập / trung bình kho
+        purchasePriceAvg: row.purchasePriceAvg ?? row.PurchasePriceAvg ?? null,
+        // Các trường khác backend trả thêm
+        ...row,
+    };
+}
+
+/**
+ * Chuẩn hóa 1 dòng lịch sử tồn kho.
+ */
+function mapInventoryHistoryRow(h) {
+    if (h == null) return null;
+    return {
+        docNo: h.docNo ?? h.DocNo ?? '',
+        movementSign: h.movementSign ?? h.MovementSign ?? '+',
+        qty: h.qty ?? h.Qty ?? 0,
+        transactionAt: h.transactionAt ?? h.TransactionAt ?? null,
+        actorName: h.actorName ?? h.ActorName ?? null,
+        note: h.note ?? h.Note ?? null,
+        sourceType: h.sourceType ?? h.SourceType ?? null,
+    };
+}
+
+/**
+ * Chuẩn hóa 1 dòng tồn kho theo kho.
+ */
+function mapInventoryByWarehouseRow(v) {
+    if (v == null) return null;
+    return {
+        warehouseId: v.warehouseId ?? v.WarehouseId ?? null,
+        warehouseName: v.warehouseName ?? v.WarehouseName ?? '',
+        sku: v.sku ?? v.Sku ?? '',
+        variantName: v.variantName ?? v.VariantName ?? '',
+        onHandQty: v.onHandQty ?? v.OnHandQty ?? 0,
+        reservedQty: v.reservedQty ?? v.ReservedQty ?? 0,
+        availableQty: v.availableQty ?? v.AvailableQty ?? 0,
+        preOrderQty: v.preOrderQty ?? v.PreOrderQty ?? 0,
+        isDefaultWarehouse: v.isDefaultWarehouse ?? v.IsDefaultWarehouse ?? false,
+    };
+}
+
+
+/**
+ * Lấy danh sách vật tư theo kho.
+ * GET /api/Item/warehouse/{warehouseId}/available
+ * Backend trả: [{ itemId, itemCode, itemName, uomId, uomName, onHandQty, reservedQty, availableQty }]
+ * @param {number|string} warehouseId
+ * @returns {Promise<Array>}
+ */
+export async function getItemsByWarehouse(warehouseId) {
+    const response = await apiClient.get(`/Item/warehouse/${warehouseId}/available`);
+    const data = response?.data ?? [];
+    const list = Array.isArray(data) ? data : [];
+    return list.map(row => ({
+        itemId: row.itemId ?? row.ItemId,
+        itemCode: row.itemCode ?? row.ItemCode ?? '',
+        itemName: row.itemName ?? row.ItemName ?? '',
+        uomId: row.uomId ?? row.UomId ?? null,
+        uomName: row.uomName ?? row.UomName ?? '',
+        onHandQty: row.onHandQty ?? row.OnHandQty ?? 0,
+        reservedQty: row.reservedQty ?? row.ReservedQty ?? 0,
+        availableQty: row.availableQty ?? row.AvailableQty ?? 0,
+    }));
+}
+
+/**
  * Lấy toàn bộ danh sách vật tư để hiển thị (list).
  * Backend trả: { success, message, data: ItemDisplayResponse[] }
  * @returns {Promise<{ itemId, itemCode, itemName, ... }[]>}
@@ -32,6 +153,16 @@ function mapItemDisplayRow(row) {
         itemType: row.itemType ?? row.ItemType ?? null,
         description: row.description ?? row.Description ?? null,
         categoryName: row.categoryName ?? row.CategoryName ?? null,
+        categoryId: row.categoryId ?? row.CategoryId ?? null,
+        brandName: row.brandName ?? row.BrandName ?? null,
+        brandId: row.brandId ?? row.BrandId ?? null,
+        baseUomName: row.baseUomName ?? row.BaseUomName ?? row.uomName ?? row.UomName ?? null,
+        baseUomId: row.baseUomId ?? row.BaseUomId ?? row.uomId ?? row.UomId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? row.specName ?? row.SpecName ?? null,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? row.specId ?? row.SpecId ?? null,
+        specName: row.specName ?? row.SpecName ?? null,
+        specId: row.specId ?? row.SpecId ?? null,
+        hasSpecifications: row.hasSpecifications ?? row.HasSpecifications ?? false,
         requiresCO: row.requiresCo ?? row.RequiresCo ?? false,
         requiresCQ: row.requiresCq ?? row.RequiresCq ?? false,
         isActive: row.isActive ?? row.IsActive ?? true,
@@ -68,5 +199,14 @@ export async function updateItemStatus(itemId, isActive) {
     const response = await apiClient.patch(`/Item/${itemId}/status`, null, {
         params: { isActive: !!isActive },
     });
+    return response?.data;
+}
+
+/**
+ * Cập nhật vật tư.
+ * PUT /Item/update-item/{id}
+ */
+export async function updateItem(itemId, payload) {
+    const response = await apiClient.put(`/Item/update-item/${itemId}`, payload);
     return response?.data;
 }

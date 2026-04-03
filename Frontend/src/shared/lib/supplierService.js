@@ -16,6 +16,9 @@ import apiClient from './axios';
  * @param {boolean|null} [params.isActive]
  * @param {string} [params.fromDate] - ISO date
  * @param {string} [params.toDate] - ISO date
+ * @param {string} [params.provinceCode] - Tỉnh/Thành phố
+ * @param {string} [params.districtCode] - Quận/Huyện
+ * @param {string} [params.wardCode] - Phường/Xã
  */
 export async function getSuppliers(params = {}) {
     const {
@@ -27,6 +30,9 @@ export async function getSuppliers(params = {}) {
         isActive = null,
         fromDate = null,
         toDate = null,
+        provinceCode = '',
+        districtCode = '',
+        wardCode = '',
     } = params;
     const query = new URLSearchParams();
     query.set('page', String(page));
@@ -38,6 +44,9 @@ export async function getSuppliers(params = {}) {
     if (isActive === false) query.set('isActive', 'false');
     if (fromDate && typeof fromDate === 'string') query.set('fromDate', fromDate);
     if (toDate && typeof toDate === 'string') query.set('toDate', toDate);
+    if (provinceCode && String(provinceCode).trim() !== '') query.set('provinceCode', String(provinceCode).trim());
+    if (districtCode && String(districtCode).trim() !== '') query.set('districtCode', String(districtCode).trim());
+    if (wardCode && String(wardCode).trim() !== '') query.set('wardCode', String(wardCode).trim());
 
     const response = await apiClient.get(`/Supplier/list-all?${query.toString()}`);
     const data = response?.data;
@@ -66,8 +75,13 @@ export async function getSuppliers(params = {}) {
             email: row.email ?? row.Email ?? '',
             address: row.address ?? row.Address ?? '',
             city: row.city ?? row.City ?? '',
+            district: row.district ?? row.District ?? '',
             ward: row.ward ?? row.Ward ?? '',
+            provinceCode: row.provinceCode ?? row.ProvinceCode ?? '',
+            districtCode: row.districtCode ?? row.DistrictCode ?? '',
+            wardCode: row.wardCode ?? row.WardCode ?? '',
             isActive: row.isActive ?? row.IsActive ?? true,
+            createdDate: row.createdDate ?? row.CreatedDate ?? row.createdAt ?? row.CreatedAt ?? null,
         }));
     return {
         page: payload.page ?? payload.Page ?? 1,
@@ -196,6 +210,31 @@ export async function toggleSupplierStatus(id, isActive) {
             throw new Error('Không tìm thấy nhà cung cấp.');
         } else {
             throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi đổi trạng thái.');
+        }
+    }
+}
+
+/**
+ * Lấy thông tin chi tiết nhà cung cấp theo ID
+ * GET /api/Supplier/{id}
+ */
+export async function getSupplierById(id) {
+    try {
+        const response = await apiClient.get(`/Supplier/${id}`);
+        const data = response?.data;
+        if (!data) {
+            throw new Error('Không tìm thấy nhà cung cấp');
+        }
+        return data;
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhà cung cấp');
+        } else if (error.response?.status === 401) {
+            throw new Error('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.message === 'Network Error') {
+            throw new Error('Không thể kết nối đến server.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tải thông tin nhà cung cấp.');
         }
     }
 }

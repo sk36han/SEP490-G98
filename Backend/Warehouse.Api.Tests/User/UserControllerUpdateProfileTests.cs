@@ -1,15 +1,16 @@
+﻿extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System.Security.Claims;
-using Warehouse.Api.ApiController;
+using api::Warehouse.Api.ApiController;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
-namespace Warehouse.Api.Tests;
+namespace WarehouseTests;
 
 public class UserControllerUpdateProfileTests
 {
@@ -69,7 +70,7 @@ public class UserControllerUpdateProfileTests
         var actionResult = await controller.UpdateProfile(request);
 
         var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value!.ToString().Should().Contain("Cập nhật số điện thoại thành công");
+        okResult.Value!.ToString().Should().Contain("Cáº­p nháº­t sá»‘ Ä‘iá»‡n thoáº¡i thÃ nh cÃ´ng");
 
         var dataProp = okResult.Value!.GetType().GetProperty("data");
         dataProp.Should().NotBeNull();
@@ -103,7 +104,7 @@ public class UserControllerUpdateProfileTests
         var actionResult = await controller.UpdateProfile(request);
 
         var unauthorized = actionResult.Should().BeOfType<UnauthorizedObjectResult>().Subject;
-        unauthorized.Value!.ToString().Should().Contain("Không xác định được người dùng từ token");
+        unauthorized.Value!.ToString().Should().Contain("KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c ngÆ°á»i dÃ¹ng tá»« token");
         userServiceMock.Verify(x => x.UpdateProfilePhoneAsync(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -132,7 +133,7 @@ public class UserControllerUpdateProfileTests
         var actionResult = await controller.UpdateProfile(request);
 
         var notFound = actionResult.Should().BeOfType<NotFoundObjectResult>().Subject;
-        notFound.Value!.ToString().Should().Contain("Không tìm thấy thông tin người dùng");
+        notFound.Value!.ToString().Should().Contain("KhÃ´ng tÃ¬m tháº¥y thÃ´ng tin ngÆ°á»i dÃ¹ng");
     }
 
     [Fact]
@@ -149,6 +150,6 @@ public class UserControllerUpdateProfileTests
 
         var objectResult = actionResult.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(500);
-        objectResult.Value!.ToString().Should().Contain("Đã xảy ra lỗi hệ thống");
+        objectResult.Value!.ToString().Should().Contain("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng");
     }
 }

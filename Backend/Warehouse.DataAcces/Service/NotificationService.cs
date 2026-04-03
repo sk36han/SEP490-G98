@@ -13,8 +13,11 @@ namespace Warehouse.DataAcces.Service
 {
 	public class NotificationService : GenericRepository<Notification>, INotificationService
 	{
-		public NotificationService(Mkiwms5Context context) : base(context)
+		private readonly IClientNotificationService _clientNotificationService;
+
+		public NotificationService(Mkiwms5Context context, IClientNotificationService clientNotificationService) : base(context)
 		{
+			_clientNotificationService = clientNotificationService;
 		}
 
 		public async Task CreateAsync(long userId, string title, string message, string? refType = null, long? refId = null, string? type = null, byte severity = 0, DateTime? expiresAt = null)
@@ -36,6 +39,21 @@ namespace Warehouse.DataAcces.Service
 
 			_context.Notifications.Add(notification);
 			await _context.SaveChangesAsync();
+
+			var response = new NotificationResponse
+			{
+				NotificationId = notification.NotificationId,
+				Title = notification.Title,
+				Message = notification.Message,
+				IsRead = notification.IsRead,
+				CreatedAt = notification.CreatedAt,
+				Type = notification.Type,
+				Severity = notification.Severity,
+				IsDeleted = notification.IsDeleted,
+				ExpiresAt = notification.ExpiresAt
+			};
+
+			await _clientNotificationService.SendNotificationAsync(userId, response);
 		}
 
 		public async Task<PagedResponse<NotificationResponse>> GetByUserAsync(long userId, NotificationFilterRequest filter)
@@ -149,9 +167,11 @@ namespace Warehouse.DataAcces.Service
 			if (!userIds.Any()) return;
 
 			var now = DateTime.UtcNow;
+			var notifications = new List<Notification>();
+
 			foreach (var userId in userIds)
 			{
-				_context.Notifications.Add(new Notification
+				var noti = new Notification
 				{
 					UserId = userId,
 					Title = title,
@@ -164,10 +184,29 @@ namespace Warehouse.DataAcces.Service
 					Severity = severity,
 					IsDeleted = false,
 					ExpiresAt = expiresAt
-				});
+				};
+				notifications.Add(noti);
+				_context.Notifications.Add(noti);
 			}
 
 			await _context.SaveChangesAsync();
+
+			foreach (var noti in notifications)
+			{
+				var response = new NotificationResponse
+				{
+					NotificationId = noti.NotificationId,
+					Title = noti.Title,
+					Message = noti.Message,
+					IsRead = noti.IsRead,
+					CreatedAt = noti.CreatedAt,
+					Type = noti.Type,
+					Severity = noti.Severity,
+					IsDeleted = noti.IsDeleted,
+					ExpiresAt = noti.ExpiresAt
+				};
+				await _clientNotificationService.SendNotificationAsync(noti.UserId, response);
+			}
 		}
 
 	

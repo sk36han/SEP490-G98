@@ -15,16 +15,21 @@ namespace Warehouse.DataAcces.Service.Interface
             DateTime? toDate
         );
 
-        Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request);
+        Task<ReceiverResponse> CreateReceiverAsync(CreateReceiverRequest request, long userId = 0);
 
-        Task<ReceiverResponse> UpdateReceiverAsync(long id, UpdateReceiverRequest request);
+        Task<ReceiverResponse> UpdateReceiverAsync(long id, UpdateReceiverRequest request, long userId = 0);
 
-        Task<ReceiverResponse> ToggleReceiverStatusAsync(long id, bool isActive);
+        Task<ReceiverResponse> ToggleReceiverStatusAsync(long id, bool isActive, long userId = 0);
 
         /// <summary>
         /// Lấy thông tin chi tiết người nhận (Get Receiver By ID)
         /// </summary>
         Task<ReceiverResponse> GetReceiverByIdAsync(long id);
+
+        /// <summary>
+        /// Lấy danh sách Người nhận theo Công ty (Dùng cho dropdown)
+        /// </summary>
+        Task<System.Collections.Generic.List<ReceiverResponse>> GetReceiversByCompanyAsync(long companyId);
 
         /// <summary>
         /// Xem lịch sử giao dịch của người nhận (View Transaction History)

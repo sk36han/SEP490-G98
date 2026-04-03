@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -21,7 +22,27 @@ namespace Warehouse.DataAcces.Service
             _logger = logger;
         }
 
-        public async Task<Item> CreateItemAsync(CreateItemRequest request)
+        public async Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId)
+        {
+            return await _context.InventoryOnHands
+                .Include(ioh => ioh.Item)
+                .ThenInclude(i => i.BaseUom)
+                .Where(ioh => ioh.WarehouseId == warehouseId && ioh.OnHandQty > 0 && ioh.Item.IsActive)
+                .Select(ioh => new RRItemLookupResponse
+                {
+                    ItemId = ioh.ItemId,
+                    ItemCode = ioh.Item.ItemCode,
+                    ItemName = ioh.Item.ItemName,
+                    UomId = ioh.Item.BaseUomId,
+                    UomName = ioh.Item.BaseUom.UomName,
+                    OnHandQty = ioh.OnHandQty,
+                    ReservedQty = ioh.ReservedQty,
+                    AvailableQty = ioh.OnHandQty - ioh.ReservedQty
+                })
+                .ToListAsync();
+        }
+
+        public async Task<Item> CreateItemAsync(CreateItemRequest request, long userId = 0)
         {
             _logger.LogInformation("[ItemService] Bat dau tao item moi.");
 
@@ -166,6 +187,17 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
             _logger.LogInformation("[ItemService] Tao item thanh cong: ItemId={ItemId}, ItemCode={ItemCode}, ItemName={ItemName}",
                 entity.ItemId, entity.ItemCode, entity.ItemName);
+
+            // Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Create,
+                    AuditEntity.Item,
+                    entity.ItemId,
+                    $"Tạo sản phẩm {entity.ItemCode} - {entity.ItemName}");
+            }
 
             return entity;
         }
@@ -339,7 +371,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request)
+        public async Task<Item> UpdateItemAsync(long itemId, UpdateItemRequest request, long userId = 0)
         {
             _logger.LogInformation("[ItemService] Bat dau cap nhat item ID={ItemId}", itemId);
 
@@ -498,10 +530,21 @@ namespace Warehouse.DataAcces.Service
             _logger.LogInformation("[ItemService] Cap nhat item thanh cong: ItemId={ItemId}, ItemCode={ItemCode}, ItemName={ItemName}",
                 item.ItemId, item.ItemCode, item.ItemName);
 
+            // Audit log
+            if (userId > 0)
+            {
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Update,
+                    AuditEntity.Item,
+                    item.ItemId,
+                    $"Cập nhật sản phẩm {item.ItemCode} - {item.ItemName}");
+            }
+
             return item;
         }
 
-        public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive)
+        public async Task<Item> UpdateItemStatusAsync(long itemId, bool isActive, long userId = 0)
         {
             _logger.LogInformation("[ItemService] Cap nhat trang thai item ID={ItemId}, IsActive={IsActive}", itemId, isActive);
 
@@ -518,6 +561,19 @@ namespace Warehouse.DataAcces.Service
                 item.IsActive = isActive;
                 item.UpdatedAt = DateTime.UtcNow;
                 await UpdateAsync(item);
+
+                // Audit log
+                if (userId > 0)
+                {
+                    await _auditLogService.LogAsync(
+                        userId,
+                        AuditAction.Update,
+                        AuditEntity.Item,
+                        item.ItemId,
+                        $"{(isActive ? "Kích hoạt" : "Vô hiệu hóa")} sản phẩm {item.ItemCode}",
+                        $"IsActive: {oldStatus}",
+                        $"IsActive: {isActive}");
+                }
             }
             else
             {
@@ -626,7 +682,7 @@ namespace Warehouse.DataAcces.Service
             var maxNumber = 0;
             foreach (var code in itemCodes)
             {
-                if (code.Length <= 3) continue;
+                if (code == null || code.Length <= 3) continue;
 
                 var numberPart = code.Substring(3);
                 if (int.TryParse(numberPart, out var number) && number > maxNumber)
@@ -635,7 +691,8 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            return $"ITM{maxNumber + 1}";
+            var nextNumber = maxNumber + 1;
+            return $"ITM{nextNumber:D6}";
         }
     }
 }

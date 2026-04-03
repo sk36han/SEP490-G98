@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -13,10 +14,12 @@ namespace Warehouse.DataAcces.Service
     public class ApprovalService : IApprovalService
     {
         private readonly Mkiwms5Context _context;
+        private readonly IServiceProvider _serviceProvider;
 
-        public ApprovalService(Mkiwms5Context context)
+        public ApprovalService(Mkiwms5Context context, IServiceProvider serviceProvider)
         {
             _context = context;
+            _serviceProvider = serviceProvider;
         }
 
         public async Task<PagedResult<ApprovalQueueResponse>> GetPendingApprovalsAsync(ApprovalQueueFilterRequest filter)
@@ -140,7 +143,7 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<ApprovalResult> ApproveRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
         {
-            return await ProcessDecisionAsync(requestType, requestId, currentUserId, "APPROVED", null);
+            return await ProcessDecisionAsync(requestType, requestId, currentUserId, "APPROVED", reason);
         }
 
         public async Task<ApprovalResult> RejectRequestAsync(string requestType, long requestId, long currentUserId, string reason = null)
@@ -180,19 +183,26 @@ namespace Warehouse.DataAcces.Service
                     break;
 
                 case "release":
-                    var release = await _context.ReleaseRequests.FindAsync(requestId);
-                    if (release != null)
+                    // Delegate to ReleaseRequestService for full business logic (2-stage, inventory)
+                    try
                     {
-                        found = true;
-                        currentStatus = release.Status ?? "NULL";
-                        if (IsPending(release.Status))
+                        var rrService = _serviceProvider.GetRequiredService<IReleaseRequestService>();
+                        var rrApproveRequest = new ApproveReleaseRequest
                         {
-                            release.Status = decision;
-                            docType = "GIR";
-                        }
+                            IsApproved = decision == "APPROVED",
+                            Reason = reason
+                        };
+                        await rrService.ApproveReleaseRequestAsync(requestId, currentUserId, rrApproveRequest);
+                        return ApprovalResult.Succeeded($"Thực hiện thành công: Đã xử lý yêu cầu xuất kho.");
                     }
-                    else return ApprovalResult.Failed($"Không tìm thấy đơn ReleaseRequest với ID {requestId}.", 404);
-                    break;
+                    catch (KeyNotFoundException ex)
+                    {
+                        return ApprovalResult.Failed(ex.Message, 404);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return ApprovalResult.Failed(ex.Message, 400);
+                    }
 
                 case "goodsreceipt":
                     var grn = await _context.GoodsReceiptNotes.FindAsync(requestId);
@@ -210,19 +220,26 @@ namespace Warehouse.DataAcces.Service
                     break;
 
                 case "goodsdelivery":
-                    var gdn = await _context.GoodsDeliveryNotes.FindAsync(requestId);
-                    if (gdn != null)
+                    // Delegate to GoodsDeliveryNoteService for full business logic (2-stage, FIFO/LIFO inventory deduction)
+                    try
                     {
-                        found = true;
-                        currentStatus = gdn.Status ?? "NULL";
-                        if (IsPending(gdn.Status))
+                        var gdnService = _serviceProvider.GetRequiredService<IGoodsDeliveryNoteService>();
+                        var gdnApproveRequest = new ApproveGDNRequest
                         {
-                            gdn.Status = decision;
-                            docType = "GDN";
-                        }
+                            IsApproved = decision == "APPROVED",
+                            Reason = reason
+                        };
+                        await gdnService.ApproveGDNAsync(requestId, currentUserId, gdnApproveRequest);
+                        return ApprovalResult.Succeeded($"Thực hiện thành công: Đã xử lý phiếu xuất kho.");
                     }
-                    else return ApprovalResult.Failed($"Không tìm thấy đơn GoodsDeliveryNote với ID {requestId}.", 404);
-                    break;
+                    catch (KeyNotFoundException ex)
+                    {
+                        return ApprovalResult.Failed(ex.Message, 404);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return ApprovalResult.Failed(ex.Message, 400);
+                    }
 
                 case "inventoryadjustment":
                     var adjustment = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
@@ -267,7 +284,7 @@ namespace Warehouse.DataAcces.Service
                     Decision = dbDecision,
                     Reason = reason,
                     ActionBy = currentUserId,
-                    ActionAt = DateTime.UtcNow
+                    ActionAt = DateTime.UtcNow,
                 };
 
                 _context.DocumentApprovals.Add(log);

@@ -1,386 +1,907 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
-    Save,
+    Plus,
     X,
     User,
     Mail,
     Phone,
-    MapPin,
-    Globe,
     FileText,
+    Loader,
+    Building2,
+    MapPin,
+    Briefcase,
 } from 'lucide-react';
-import { COUNTRIES } from '../data/vietnamAdministrative';
-import { getProvinces, getProvinceWithWards } from '../lib/locationService';
+
+import Toast from '../../components/Toast/Toast';
+import { useToast } from '../hooks/useToast';
+import { createReceiver } from '../lib/receiverService';
+import { getCompanies, createCompany } from '../lib/companyService';
+import { getAddresses, createAddress } from '../lib/addressService';
+import { FormDialog } from '../../ui/dialogs/FormDialog';
+
 import '../styles/CreateSupplier.css';
+
+/* ─── Luong: Company → Address (cua company) → Receiver ─── */
 
 const CreateReceiver = () => {
     const navigate = useNavigate();
+    const { toast, showToast, clearToast } = useToast();
+
+    const [submitting, setSubmitting] = useState(false);
+
+    /* ── Company state ── */
+    const [companies, setCompanies] = useState([]);
+    const [loadingCompanies, setLoadingCompanies] = useState(false);
+    const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
+    const [companyForm, setCompanyForm] = useState({ companyName: '' });
+    const [companyErrors, setCompanyErrors] = useState({});
+    const [creatingCompany, setCreatingCompany] = useState(false);
+
+    /* ── Address state ── */
+    const [addresses, setAddresses] = useState([]);
+    const [loadingAddresses, setLoadingAddresses] = useState(false);
+    const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+    const [addressForm, setAddressForm] = useState({
+        addressName: '',
+        addressDetail: '',
+        district: '',
+        city: '',
+        ward: '',
+    });
+    const [addressErrors, setAddressErrors] = useState({});
+    const [creatingAddress, setCreatingAddress] = useState(false);
+    /** "Nhap dia chi khac" — bo qua dropdown, cho nhap tay */
+    const [useCustomAddress, setUseCustomAddress] = useState(false);
+
+    /* ── Receiver form state ── */
     const [formData, setFormData] = useState({
+        companyId: '',
         receiverName: '',
         phone: '',
         email: '',
-        country: 'VN',
-        provinceCode: '',
-        wardCode: '',
-        address: '',
+        position: '',
         notes: '',
-        isActive: 'true',
+        // Address fields
+        addressId: '',
+        addressName: '',
+        address: '',
+        city: '',
+        district: '',
+        ward: '',
     });
     const [errors, setErrors] = useState({});
 
-    const [provinces, setProvinces] = useState([]);
-    const [loadingProvinces, setLoadingProvinces] = useState(false);
-    const [provinceError, setProvinceError] = useState('');
-    const [provinceDetail, setProvinceDetail] = useState(null);
-    const [loadingWards, setLoadingWards] = useState(false);
-    const [wardError, setWardError] = useState('');
+    /* ── Helpers ── */
+    const loadCompanies = useCallback(async () => {
+        setLoadingCompanies(true);
+        try {
+            const list = await getCompanies();
+            setCompanies(list ?? []);
+        } catch (err) {
+            showToast('Khong tai duoc danh sach cong ty.', 'error');
+        } finally {
+            setLoadingCompanies(false);
+        }
+    }, [showToast]);
 
-    useEffect(() => {
-        let cancelled = false;
-        const fetchProvinces = async () => {
-            setLoadingProvinces(true);
-            setProvinceError('');
-            try {
-                const list = await getProvinces();
-                if (!cancelled) {
-                    setProvinces(list || []);
-                }
-            } catch (err) {
-                if (!cancelled) {
-                    // eslint-disable-next-line no-console
-                    console.error('Failed to load provinces', err);
-                    setProvinceError('Không tải được danh sách tỉnh/thành phố. Vui lòng thử lại sau.');
-                }
-            } finally {
-                if (!cancelled) {
-                    setLoadingProvinces(false);
-                }
-            }
-        };
-        fetchProvinces();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!formData.provinceCode) {
-            setProvinceDetail(null);
-            setWardError('');
+    const loadAddresses = useCallback(async (companyId) => {
+        if (!companyId) {
+            setAddresses([]);
             return;
         }
-        let cancelled = false;
-        setWardError('');
-        setLoadingWards(true);
-        getProvinceWithWards(formData.provinceCode)
-            .then((detail) => {
-                if (!cancelled && detail) {
-                    setProvinceDetail(detail);
-                }
-            })
-            .catch((err) => {
-                if (!cancelled) {
-                    // eslint-disable-next-line no-console
-                    console.error('Failed to load wards', err);
-                    setWardError('Không tải được danh sách phường/xã. Vui lòng thử lại.');
-                    setProvinceDetail(null);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setLoadingWards(false);
-                }
+        setLoadingAddresses(true);
+        try {
+            const list = await getAddresses(companyId);
+            setAddresses(list ?? []);
+        } catch {
+            showToast('Khong tai duoc danh sach dia chi.', 'error');
+        } finally {
+            setLoadingAddresses(false);
+        }
+    }, [showToast]);
+
+    useEffect(() => {
+        loadCompanies();
+    }, [loadCompanies]);
+
+    /* ── Company handlers ── */
+    const handleCompanyChange = (e) => {
+        const newCompanyId = e.target.value;
+        setFormData(prev => ({
+            ...prev,
+            companyId: newCompanyId,
+            addressId: '',
+            addressName: '',
+            address: '',
+            city: '',
+            district: '',
+            ward: '',
+        }));
+        setUseCustomAddress(false);
+        setErrors(prev => ({ ...prev, companyId: '' }));
+        loadAddresses(newCompanyId);
+    };
+
+    const handleOpenCompanyDialog = () => {
+        setCompanyDialogOpen(true);
+        setCompanyForm({ companyName: '' });
+        setCompanyErrors({});
+    };
+
+    const handleCloseCompanyDialog = () => {
+        setCompanyDialogOpen(false);
+        setCompanyForm({ companyName: '' });
+        setCompanyErrors({});
+    };
+
+    const handleCompanyFormChange = (e) => {
+        const { name, value } = e.target;
+        setCompanyForm(prev => ({ ...prev, [name]: value }));
+        if (companyErrors[name]) {
+            setCompanyErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+
+    const validateCompanyForm = () => {
+        const newErrors = {};
+        if (!companyForm.companyName.trim()) {
+            newErrors.companyName = 'Tên công ty là bắt buộc.';
+        }
+        setCompanyErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmitCompany = async (e) => {
+        e.preventDefault();
+        if (!validateCompanyForm()) return;
+        setCreatingCompany(true);
+        try {
+            const created = await createCompany({ companyName: companyForm.companyName.trim() });
+            showToast('Tạo công ty thành công!', 'success');
+            await loadCompanies();
+            const newId = created?.companyId;
+            if (newId) {
+                setFormData(prev => ({ ...prev, companyId: String(newId) }));
+                loadAddresses(newId);
+            }
+            handleCloseCompanyDialog();
+        } catch (error) {
+            const msg = error?.response?.data?.message || error?.message || 'Tạo công ty thất bại.';
+            showToast(msg, 'error');
+        } finally {
+            setCreatingCompany(false);
+        }
+    };
+
+    /* ── Address handlers ── */
+    const handleOpenAddressDialog = () => {
+        if (!formData.companyId) {
+            showToast('Vui lòng chọn công ty trước khi tạo địa chỉ.', 'warning');
+            return;
+        }
+        setAddressDialogOpen(true);
+        setAddressForm({ addressName: '', addressDetail: '', district: '', city: '', ward: '' });
+        setAddressErrors({});
+    };
+
+    const handleCloseAddressDialog = () => {
+        setAddressDialogOpen(false);
+        setAddressForm({ addressName: '', addressDetail: '', district: '', city: '', ward: '' });
+        setAddressErrors({});
+    };
+
+    const handleAddressFormChange = (e) => {
+        const { name, value } = e.target;
+        setAddressForm(prev => ({ ...prev, [name]: value }));
+        if (addressErrors[name]) {
+            setAddressErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+
+    const validateAddressForm = () => {
+        const newErrors = {};
+        if (!addressForm.addressDetail.trim()) {
+            newErrors.addressDetail = 'Địa chỉ chi tiết là bắt buộc.';
+        }
+        setAddressErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmitAddress = async (e) => {
+        e.preventDefault();
+        if (!validateAddressForm()) return;
+        setCreatingAddress(true);
+        try {
+            const created = await createAddress({
+                companyId: Number(formData.companyId),
+                addressName: addressForm.addressName.trim() || null,
+                addressDetail: addressForm.addressDetail.trim(),
+                district: addressForm.district.trim() || null,
+                city: addressForm.city.trim() || null,
+                ward: addressForm.ward.trim() || null,
             });
-        return () => {
-            cancelled = true;
-        };
-    }, [formData.provinceCode]);
+            showToast('Tạo địa chỉ thành công!', 'success');
+            await loadAddresses(formData.companyId);
+            const newId = created?.addressId ?? created?.AddressId;
+            if (newId) {
+                setFormData(prev => ({ ...prev, addressId: String(newId) }));
+            }
+            handleCloseAddressDialog();
+        } catch (error) {
+            const msg = error?.response?.data?.message || error?.message || 'Tạo địa chỉ thất bại.';
+            showToast(msg, 'error');
+        } finally {
+            setCreatingAddress(false);
+        }
+    };
 
-    const selectedProvince = useMemo(
-        () => provinces.find((p) => String(p.code) === formData.provinceCode),
-        [provinces, formData.provinceCode]
-    );
-    const wardOptions = useMemo(() => {
-        if (!provinceDetail?.districts) return [];
-        const list = provinceDetail.districts.flatMap((d) => d.wards || []);
-        return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
-    }, [provinceDetail]);
+    /* ── Address selection ── */
+    const handleAddressSelectChange = (e) => {
+        const selectedId = e.target.value;
+        if (!selectedId) {
+            setFormData(prev => ({ ...prev, addressId: '', addressName: '', address: '', city: '', district: '', ward: '' }));
+            return;
+        }
+        const selected = addresses.find(a => String(a.addressId) === selectedId);
+        if (selected) {
+            setFormData(prev => ({
+                ...prev,
+                addressId: selectedId,
+                addressName: selected.addressName ?? '',
+                address: selected.addressDetail ?? '',
+                city: selected.city ?? '',
+                district: selected.district ?? '',
+                ward: selected.ward ?? '',
+            }));
+        }
+        setErrors(prev => ({ ...prev, addressId: '' }));
+    };
 
+    /* ── Receiver form handlers ── */
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => {
-            const next = { ...prev, [name]: value };
-            if (name === 'provinceCode') {
-                next.wardCode = '';
-            }
-            return next;
-        });
+        setFormData(prev => ({ ...prev, [name]: value }));
         if (errors[name]) {
-            setErrors((prev) => ({ ...prev, [name]: '' }));
+            setErrors(prev => ({ ...prev, [name]: '' }));
         }
     };
 
     const validateForm = () => {
         const newErrors = {};
+
+        if (!formData.companyId) {
+            newErrors.companyId = 'Công ty là bắt buộc.';
+        }
+
         if (!formData.receiverName.trim()) {
-            newErrors.receiverName = 'Tên người nhận là bắt buộc';
+            newErrors.receiverName = 'Tên người nhận là bắt buộc.';
         }
+
         if (!formData.phone.trim()) {
-            newErrors.phone = 'Số điện thoại là bắt buộc';
+            newErrors.phone = 'Số điện thoại là bắt buộc.';
         }
+
         if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-            newErrors.email = 'Email không hợp lệ';
+            newErrors.email = 'Email khong hop le.';
         }
-        if (!formData.address.trim()) {
-            newErrors.address = 'Địa chỉ chi tiết là bắt buộc';
+
+        if (useCustomAddress && !formData.address.trim()) {
+            newErrors.address = 'Địa chỉ chi tiết là bắt buộc.';
         }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
         if (!validateForm()) {
+            showToast('Vui long kiem tra lai thong tin!', 'error');
             return;
         }
-        const payload = {
-            ...formData,
-            countryName: COUNTRIES.find((c) => c.code === formData.country)?.name ?? formData.country,
-            provinceName: selectedProvince?.name ?? '',
-            wardName:
-                wardOptions.find((w) => String(w.code) === formData.wardCode)?.name ?? '',
-        };
-        // UI demo only – mã người nhận sẽ do backend tự sinh
-        // eslint-disable-next-line no-console
-        console.log('Receiver form submitted', payload);
-        navigate(-1);
+
+        try {
+            setSubmitting(true);
+
+            const selectedAddr = addresses.find(a => String(a.addressId) === formData.addressId);
+
+            const payload = {
+                receiverName: formData.receiverName.trim(),
+                phone: formData.phone.trim(),
+                email: formData.email.trim() || null,
+                position: formData.position.trim() || null,
+                notes: formData.notes.trim() || null,
+                companyId: Number(formData.companyId),
+                isActive: true,
+                // Address
+                addressId: useCustomAddress ? null : (selectedAddr?.addressId ? Number(selectedAddr.addressId) : null),
+                address: formData.address.trim() || null,
+                city: formData.city.trim() || null,
+                district: formData.district.trim() || null,
+                ward: formData.ward.trim() || null,
+            };
+
+            await createReceiver(payload);
+            showToast('Tạo người nhận thành công!', 'success');
+
+            setTimeout(() => {
+                navigate(-1);
+            }, 900);
+        } catch (error) {
+            const msg = error?.response?.data?.message || error?.message || 'Da xay ra loi khi tao nguoi nhan.';
+            showToast(msg, 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleCancel = () => {
         navigate(-1);
     };
 
+    /* ── Render ── */
     return (
         <div className="create-supplier-page">
             <div className="page-header">
-                <button type="button" onClick={handleCancel} className="back-button">
-                    <ArrowLeft size={20} />
-                    <span>Quay lại</span>
-                </button>
+                <div className="page-header-left">
+                    <button type="button" onClick={handleCancel} className="back-button">
+                        <ArrowLeft size={20} />
+                        <span>Quay lai</span>
+                    </button>
+                </div>
 
-                <div>
-                    <h1 className="page-title">Tạo người nhận mới</h1>
-                    <p className="page-subtitle">Điền thông tin để tạo người nhận hàng trong hệ thống. Mã người nhận sẽ được hệ thống tự sinh.</p>
+                <div className="page-header-actions">
+                    <button type="button" onClick={handleCancel} className="btn btn-cancel" disabled={submitting}>
+                        <X size={16} className="btn-icon" />
+                        Huy
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={submitting}
+                        onClick={() => document.getElementById('create-receiver-form')?.requestSubmit()}
+                    >
+                        {submitting ? (
+                            <>
+                                <Loader size={16} className="btn-icon spinner" />
+                                Dang tao...
+                            </>
+                        ) : (
+                            <>
+                                <Plus size={16} className="btn-icon" />
+                                Tao nguoi nhan
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
 
             <div className="form-card">
-                <div className="card-header">
-                    <h2 className="card-title">Thông tin người nhận</h2>
-                    <p className="card-description">Các trường đánh dấu (*) là bắt buộc</p>
-                </div>
+                <form id="create-receiver-form" onSubmit={handleSubmit} className="form-wrapper">
+                    <div className="form-card-intro">
+                        <h1 className="page-title">Them moi nguoi nhan</h1>
+                        <p className="form-card-required-note">
+                            Các trường được đánh dấu <span className="required-mark">*</span> là bắt buộc
+                        </p>
+                    </div>
 
-                <form onSubmit={handleSubmit} className="form-content">
-                    <div className="form-grid">
-                        <div className="form-field span-2">
-                            <label className="form-label">
-                                Tên người nhận <span className="required-mark">*</span>
-                            </label>
-                            <div className="input-wrapper">
-                                <User className="input-icon" size={16} />
-                                <input
-                                    type="text"
-                                    name="receiverName"
-                                    value={formData.receiverName}
-                                    onChange={handleChange}
-                                    placeholder="Nhập tên người nhận"
-                                    className={`form-input ${errors.receiverName ? 'error' : ''}`}
-                                />
-                            </div>
-                            {errors.receiverName && (
-                                <span className="error-message">{errors.receiverName}</span>
-                            )}
+                    {/* ── Section 1: Cong ty ── */}
+                    <div className="info-section">
+                        <div className="section-header-with-toggle">
+                            <h2 className="section-title">Thong tin cong ty</h2>
                         </div>
 
-                        <div className="form-field">
-                            <label className="form-label">Email</label>
-                            <div className="input-wrapper">
-                                <Mail className="input-icon" size={16} />
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    placeholder="example@company.com"
-                                    className={`form-input ${errors.email ? 'error' : ''}`}
-                                />
-                            </div>
-                            {errors.email && <span className="error-message">{errors.email}</span>}
-                        </div>
-
-                        <div className="form-field">
-                            <label className="form-label">
-                                Số điện thoại <span className="required-mark">*</span>
-                            </label>
-                            <div className="input-wrapper">
-                                <Phone className="input-icon" size={16} />
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    placeholder="0912345678"
-                                    className={`form-input ${errors.phone ? 'error' : ''}`}
-                                />
-                            </div>
-                            {errors.phone && <span className="error-message">{errors.phone}</span>}
-                        </div>
-
-                        <div className="form-field span-2">
-                            <label className="form-label">
-                                Địa chỉ chi tiết <span className="required-mark">*</span>
-                            </label>
-                            <div className="input-wrapper">
-                                <MapPin className="input-icon" size={16} />
-                                <input
-                                    type="text"
-                                    name="address"
-                                    value={formData.address}
-                                    onChange={handleChange}
-                                    placeholder="Số nhà, đường..."
-                                    className={`form-input ${errors.address ? 'error' : ''}`}
-                                />
-                            </div>
-                            {errors.address && <span className="error-message">{errors.address}</span>}
-                        </div>
-
-                        <div className="form-field">
-                            <label className="form-label">Quốc gia</label>
-                            <div className="input-wrapper">
-                                <Globe className="input-icon" size={16} />
-                                <select
-                                    name="country"
-                                    value={formData.country}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                >
-                                    {COUNTRIES.map((c) => (
-                                        <option key={c.code} value={c.code}>
-                                            {c.name}
+                        <div className="form-grid">
+                            <div className="form-field span-2">
+                                <label className="form-label" htmlFor="companyId">
+                                    Cong ty <span className="required-mark">*</span>
+                                </label>
+                                <div className="input-wrapper">
+                                    <Building2 className="input-icon" size={16} />
+                                    <select
+                                        id="companyId"
+                                        name="companyId"
+                                        value={formData.companyId}
+                                        onChange={handleCompanyChange}
+                                        className={`form-input ${errors.companyId ? 'error' : ''}`}
+                                    >
+                                        <option value="">
+                                            {loadingCompanies ? 'Dang tai...' : '-- Chon cong ty --'}
                                         </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="form-field">
-                            <label className="form-label">Tỉnh / Thành phố</label>
-                            <div className="input-wrapper">
-                                <MapPin className="input-icon" size={16} />
-                                <select
-                                    name="provinceCode"
-                                    value={formData.provinceCode}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                    disabled={loadingProvinces || !!provinceError}
-                                >
-                                    <option value="">
-                                        {loadingProvinces
-                                            ? 'Đang tải danh sách tỉnh/thành...'
-                                            : provinceError || '-- Chọn tỉnh / thành phố --'}
-                                    </option>
-                                    {!loadingProvinces &&
-                                        !provinceError &&
-                                        provinces.map((p) => (
-                                            <option key={p.code} value={String(p.code)}>
-                                                {p.name}
+                                        {companies.map((c) => (
+                                            <option key={c.companyId} value={c.companyId}>
+                                                {c.companyCode ? `${c.companyCode} - ` : ''}{c.companyName}
                                             </option>
                                         ))}
-                                </select>
-                            </div>
-                        </div>
+                                    </select>
+                                </div>
 
-                        <div className="form-field">
-                            <label className="form-label">Phường / Xã</label>
-                            <div className="input-wrapper">
-                                <MapPin className="input-icon" size={16} />
-                                <select
-                                    name="wardCode"
-                                    value={formData.wardCode}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                    disabled={!formData.provinceCode || loadingWards}
-                                >
-                                    <option value="">
-                                        {!formData.provinceCode
-                                            ? '-- Chọn tỉnh/thành trước --'
-                                            : loadingWards
-                                                ? 'Đang tải phường/xã...'
-                                                : '-- Chọn phường / xã --'}
-                                    </option>
-                                    {!loadingWards &&
-                                        wardOptions.map((w) => {
-                                            const value = String(w.code);
-                                            return (
-                                                <option key={value} value={value}>
-                                                    {w.name}
-                                                </option>
-                                            );
-                                        })}
-                                </select>
-                            </div>
-                            {wardError && (
-                                <span className="form-error" style={{ marginTop: 4, display: 'block' }}>
-                                    {wardError}
-                                </span>
-                            )}
-                        </div>
+                                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenCompanyDialog}
+                                        disabled={submitting}
+                                        className="btn btn-cancel"
+                                        style={{
+                                            padding: '8px 12px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                        }}
+                                    >
+                                        <Plus size={15} className="btn-icon" />
+                                        Tao moi cong ty
+                                    </button>
+                                </div>
 
-                        <div className="form-field">
-                            <label className="form-label">Trạng thái</label>
-                            <div className="input-wrapper">
-                                <FileText className="input-icon" size={16} />
-                                <select
-                                    name="isActive"
-                                    value={formData.isActive}
-                                    onChange={handleChange}
-                                    className="form-input"
-                                >
-                                    <option value="true">Hoạt động</option>
-                                    <option value="false">Ngưng</option>
-                                </select>
+                                {errors.companyId && <span className="error-message">{errors.companyId}</span>}
                             </div>
-                        </div>
-
-                        <div className="form-field span-3">
-                            <label className="form-label">Ghi chú</label>
-                            <textarea
-                                name="notes"
-                                value={formData.notes}
-                                onChange={handleChange}
-                                placeholder="Nhập ghi chú (nếu có)"
-                                rows="4"
-                                className="form-textarea"
-                            />
                         </div>
                     </div>
 
-                    <div className="form-actions">
-                        <button type="button" onClick={handleCancel} className="btn btn-cancel">
-                            <X size={16} className="btn-icon" />
-                            Hủy
-                        </button>
-                        <div className="actions-right">
-                            <button type="submit" className="btn btn-primary">
-                                <Save size={16} className="btn-icon" />
-                                Tạo người nhận
-                            </button>
+                    {/* ── Section 2: Dia chi giao hang ── */}
+                    <div className="info-section">
+                        <div className="section-header-with-toggle">
+                            <h2 className="section-title">Địa chỉ giao hàng</h2>
+                        </div>
+
+                        <div className="form-grid">
+                            <div className="form-field span-2">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {/* Radio: chon co san hay nhap tay */}
+                                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px' }}>
+                                            <input
+                                                type="radio"
+                                                name="addressMode"
+                                                value="existing"
+                                                checked={!useCustomAddress}
+                                                onChange={() => {
+                                                    setUseCustomAddress(false);
+                                                    setErrors(prev => ({ ...prev, addressId: '' }));
+                                                }}
+                                            />
+                                            Chon dia chi co san
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px' }}>
+                                            <input
+                                                type="radio"
+                                                name="addressMode"
+                                                value="custom"
+                                                checked={useCustomAddress}
+                                                onChange={() => {
+                                                    setUseCustomAddress(true);
+                                                    setErrors(prev => ({ ...prev, addressId: '' }));
+                                                }}
+                                            />
+                                            Nhap dia chi khac
+                                        </label>
+                                    </div>
+
+                                    {/* Dropdown chon address */}
+                                    {!useCustomAddress && (
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <div className="input-wrapper">
+                                                    <MapPin className="input-icon" size={16} />
+                                                    <select
+                                                        id="addressId"
+                                                        name="addressId"
+                                                        value={formData.addressId}
+                                                        onChange={handleAddressSelectChange}
+                                                        className={`form-input ${errors.addressId ? 'error' : ''}`}
+                                                    >
+                                                        <option value="">
+                                                            {loadingAddresses ? 'Dang tai...' : '-- Chon dia chi --'}
+                                                        </option>
+                                                        {addresses.map((addr) => (
+                                                            <option key={addr.addressId} value={addr.addressId}>
+                                                                {addr.addressName
+                                                                    ? `${addr.addressName} — ${addr.addressDetail}`
+                                                                    : addr.addressDetail}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                {errors.addressId && <span className="error-message">{errors.addressId}</span>}
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={handleOpenAddressDialog}
+                                                className="btn btn-cancel"
+                                                style={{
+                                                    padding: '8px 12px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    whiteSpace: 'nowrap',
+                                                    marginTop: '2px',
+                                                }}
+                                            >
+                                                <Plus size={15} className="btn-icon" />
+                                                Tao moi
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Preview dia chi da chon */}
+                                    {!useCustomAddress && formData.addressId && (
+                                        <div style={{
+                                            padding: '10px 14px',
+                                            backgroundColor: '#f0f9ff',
+                                            borderRadius: '8px',
+                                            fontSize: '13px',
+                                            color: '#374151',
+                                            borderLeft: '3px solid #2196F3',
+                                        }}>
+                                            {formData.addressName && <div style={{ fontWeight: 500 }}>{formData.addressName}</div>}
+                                            {formData.address && <div>{formData.address}</div>}
+                                            {(formData.ward || formData.district || formData.city) && (
+                                                <div style={{ color: '#6b7280', marginTop: '2px' }}>
+                                                    {[formData.ward, formData.district, formData.city].filter(Boolean).join(', ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Nhap tay dia chi */}
+                                    {useCustomAddress && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div className="form-field">
+                                                <label className="form-label" htmlFor="addressName">
+                                                    Ten dia chi (tuy chon)
+                                                </label>
+                                                <div className="input-wrapper">
+                                                    <MapPin className="input-icon" size={16} />
+                                                    <input
+                                                        id="addressName"
+                                                        type="text"
+                                                        name="addressName"
+                                                        value={formData.addressName}
+                                                        onChange={handleChange}
+                                                        placeholder="VD: Nha kho A, Van phong chinh"
+                                                        className="form-input"
+                                                        autoComplete="off"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="form-field">
+                                                <label className="form-label" htmlFor="address">
+                                                    Địa chỉ chi tiết <span className="required-mark">*</span>
+                                                </label>
+                                                <div className="input-wrapper">
+                                                    <MapPin className="input-icon" size={16} />
+                                                    <input
+                                                        id="address"
+                                                        type="text"
+                                                        name="address"
+                                                        value={formData.address}
+                                                        onChange={handleChange}
+                                                        placeholder="VD: So 123, Duong Nguyen Trai"
+                                                        className={`form-input ${errors.address ? 'error' : ''}`}
+                                                        autoComplete="off"
+                                                    />
+                                                </div>
+                                                {errors.address && <span className="error-message">{errors.address}</span>}
+                                            </div>
+
+                                            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                                <div className="form-field">
+                                                    <label className="form-label" htmlFor="city">Tinh / Thanh pho</label>
+                                                    <div className="input-wrapper">
+                                                        <MapPin className="input-icon" size={16} />
+                                                        <input
+                                                            id="city"
+                                                            type="text"
+                                                            name="city"
+                                                            value={formData.city}
+                                                            onChange={handleChange}
+                                                            placeholder="VD: Ho Chi Minh"
+                                                            className="form-input"
+                                                            autoComplete="off"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="form-field">
+                                                    <label className="form-label" htmlFor="district">Quan / Huyen</label>
+                                                    <div className="input-wrapper">
+                                                        <MapPin className="input-icon" size={16} />
+                                                        <input
+                                                            id="district"
+                                                            type="text"
+                                                            name="district"
+                                                            value={formData.district}
+                                                            onChange={handleChange}
+                                                            placeholder="VD: Quan 1"
+                                                            className="form-input"
+                                                            autoComplete="off"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="form-field span-2">
+                                                    <label className="form-label" htmlFor="ward">Phuong / Xa</label>
+                                                    <div className="input-wrapper">
+                                                        <MapPin className="input-icon" size={16} />
+                                                        <input
+                                                            id="ward"
+                                                            type="text"
+                                                            name="ward"
+                                                            value={formData.ward}
+                                                            onChange={handleChange}
+                                                            placeholder="VD: Phuong Ben Nghe"
+                                                            className="form-input"
+                                                            autoComplete="off"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Section 3: Thong tin nguoi nhan ── */}
+                    <div className="info-section">
+                        <div className="section-header-with-toggle">
+                            <h2 className="section-title">Thong tin nguoi nhan</h2>
+                        </div>
+
+                        <div className="form-grid">
+                            <div className="form-field span-2">
+                                <label className="form-label" htmlFor="receiverName">
+                                    Ten nguoi nhan <span className="required-mark">*</span>
+                                </label>
+                                <div className="input-wrapper">
+                                    <User className="input-icon" size={16} />
+                                    <input
+                                        id="receiverName"
+                                        type="text"
+                                        name="receiverName"
+                                        value={formData.receiverName}
+                                        onChange={handleChange}
+                                        placeholder="Nhập tên người nhận"
+                                        className={`form-input ${errors.receiverName ? 'error' : ''}`}
+                                        autoComplete="off"
+                                    />
+                                </div>
+                                {errors.receiverName && <span className="error-message">{errors.receiverName}</span>}
+                            </div>
+
+                            <div className="form-field">
+                                
+                            </div>
+
+                            <div className="form-field">
+                                <label className="form-label" htmlFor="phone">
+                                    Số điện thoại <span className="required-mark">*</span>
+                                </label>
+                                <div className="input-wrapper">
+                                    <Phone className="input-icon" size={16} />
+                                    <input
+                                        id="phone"
+                                        type="tel"
+                                        name="phone"
+                                        value={formData.phone}
+                                        onChange={handleChange}
+                                        placeholder="0912345678"
+                                        className={`form-input ${errors.phone ? 'error' : ''}`}
+                                        autoComplete="tel"
+                                    />
+                                </div>
+                                {errors.phone && <span className="error-message">{errors.phone}</span>}
+                            </div>
+
+                            <div className="form-field">
+                                <label className="form-label" htmlFor="email">Email</label>
+                                <div className="input-wrapper">
+                                    <Mail className="input-icon" size={16} />
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        placeholder="example@company.com"
+                                        className={`form-input ${errors.email ? 'error' : ''}`}
+                                        autoComplete="email"
+                                    />
+                                </div>
+                                {errors.email && <span className="error-message">{errors.email}</span>}
+                            </div>
+
+                            <div className="form-field span-2">
+                                <label className="form-label" htmlFor="notes">Ghi chú</label>
+                                <div className="input-wrapper textarea-wrapper">
+                                    <FileText className="input-icon textarea-icon" size={16} />
+                                    <textarea
+                                        id="notes"
+                                        name="notes"
+                                        value={formData.notes}
+                                        onChange={handleChange}
+                                        placeholder="Nhap ghi chu (neu co)"
+                                        rows="3"
+                                        className="form-textarea"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
             </div>
+
+            {toast && toast.message && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+
+            {/* ── Dialog: Tao Cong ty ── */}
+            <FormDialog
+                open={companyDialogOpen}
+                onClose={handleCloseCompanyDialog}
+                title="Tao moi cong ty"
+                actions={
+                    <>
+                        <button type="button" onClick={handleCloseCompanyDialog} className="btn btn-cancel" disabled={creatingCompany}>
+                            Huy
+                        </button>
+                        <button type="button" onClick={handleSubmitCompany} className="btn btn-primary" disabled={creatingCompany}>
+                            {creatingCompany ? (
+                                <><Loader size={15} className="btn-icon spinner" /> Dang tao...</>
+                            ) : (
+                                <><Plus size={15} className="btn-icon" /> Tao cong ty</>
+                            )}
+                        </button>
+                    </>
+                }
+            >
+                <form onSubmit={handleSubmitCompany} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}>
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="companyName">
+                            Ten cong ty <span className="required-mark">*</span>
+                        </label>
+                        <div className="input-wrapper">
+                            <Building2 className="input-icon" size={16} />
+                            <input
+                                id="companyName"
+                                type="text"
+                                name="companyName"
+                                value={companyForm.companyName}
+                                onChange={handleCompanyFormChange}
+                                placeholder="VD: Cong ty ABC"
+                                className={`form-input ${companyErrors.companyName ? 'error' : ''}`}
+                                autoComplete="off"
+                            />
+                        </div>
+                        {companyErrors.companyName && <span className="error-message">{companyErrors.companyName}</span>}
+                    </div>
+                </form>
+            </FormDialog>
+
+            {/* ── Dialog: Tao Dia chi ── */}
+            <FormDialog
+                open={addressDialogOpen}
+                onClose={handleCloseAddressDialog}
+                title="Tao moi dia chi"
+                actions={
+                    <>
+                        <button type="button" onClick={handleCloseAddressDialog} className="btn btn-cancel" disabled={creatingAddress}>
+                            Huy
+                        </button>
+                        <button type="button" onClick={handleSubmitAddress} className="btn btn-primary" disabled={creatingAddress}>
+                            {creatingAddress ? (
+                                <><Loader size={15} className="btn-icon spinner" /> Dang tao...</>
+                            ) : (
+                                <><Plus size={15} className="btn-icon" /> Tao dia chi</>
+                            )}
+                        </button>
+                    </>
+                }
+            >
+                <form onSubmit={handleSubmitAddress} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}>
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="addr-addressName">
+                            Ten dia chi (tuy chon)
+                        </label>
+                        <div className="input-wrapper">
+                            <MapPin className="input-icon" size={16} />
+                            <input
+                                id="addr-addressName"
+                                type="text"
+                                name="addressName"
+                                value={addressForm.addressName}
+                                onChange={handleAddressFormChange}
+                                placeholder="VD: Nha kho A, Van phong chinh"
+                                className="form-input"
+                                autoComplete="off"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="addr-addressDetail">
+                            Địa chỉ chi tiết <span className="required-mark">*</span>
+                        </label>
+                        <div className="input-wrapper">
+                            <MapPin className="input-icon" size={16} />
+                            <input
+                                id="addr-addressDetail"
+                                type="text"
+                                name="addressDetail"
+                                value={addressForm.addressDetail}
+                                onChange={handleAddressFormChange}
+                                placeholder="VD: So 123, Duong Nguyen Trai, Phuong 5"
+                                className={`form-input ${addressErrors.addressDetail ? 'error' : ''}`}
+                                autoComplete="off"
+                            />
+                        </div>
+                        {addressErrors.addressDetail && <span className="error-message">{addressErrors.addressDetail}</span>}
+                    </div>
+
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="addr-city">
+                            Tinh / Thanh pho
+                        </label>
+                        <div className="input-wrapper">
+                            <MapPin className="input-icon" size={16} />
+                            <input
+                                id="addr-city"
+                                type="text"
+                                name="city"
+                                value={addressForm.city}
+                                onChange={handleAddressFormChange}
+                                placeholder="VD: Ho Chi Minh"
+                                className="form-input"
+                                autoComplete="off"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="addr-district">
+                            Quan / Huyen
+                        </label>
+                        <div className="input-wrapper">
+                            <MapPin className="input-icon" size={16} />
+                            <input
+                                id="addr-district"
+                                type="text"
+                                name="district"
+                                value={addressForm.district}
+                                onChange={handleAddressFormChange}
+                                placeholder="VD: Quan 1"
+                                className="form-input"
+                                autoComplete="off"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="addr-ward">
+                            Phuong / Xa
+                        </label>
+                        <div className="input-wrapper">
+                            <MapPin className="input-icon" size={16} />
+                            <input
+                                id="addr-ward"
+                                type="text"
+                                name="ward"
+                                value={addressForm.ward}
+                                onChange={handleAddressFormChange}
+                                placeholder="VD: Phuong Ben Nghe"
+                                className="form-input"
+                                autoComplete="off"
+                            />
+                        </div>
+                    </div>
+                </form>
+            </FormDialog>
         </div>
     );
 };

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -12,10 +13,12 @@ namespace Warehouse.DataAcces.Service
     public class PurchaseOrderService : IPurchaseOrderService
     {
         private readonly Mkiwms5Context _context;
+        private readonly IAuditLogService _auditLogService;
 
-        public PurchaseOrderService(Mkiwms5Context context)
+        public PurchaseOrderService(Mkiwms5Context context, IAuditLogService auditLogService)
         {
             _context = context;
+            _auditLogService = auditLogService;
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
@@ -276,17 +279,12 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             // Ghi audit log khi tạo PO
-            var auditLog = new AuditLog
-            {
-                ActorUserId = requestedByUserId,
-                Action = "CREATE",
-                EntityType = "PurchaseOrder",
-                EntityId = po.PurchaseOrderId,
-                Detail = $"Tạo đơn mua hàng {po.Pocode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
-            await _context.SaveChangesAsync();
+            await _auditLogService.LogAsync(
+                requestedByUserId,
+                AuditAction.Create,
+                AuditEntity.PurchaseOrder,
+                po.PurchaseOrderId,
+                $"Tạo đơn mua hàng {po.Pocode}");
 
             return new PurchaseOrderDetailResponse
             {
@@ -419,16 +417,12 @@ namespace Warehouse.DataAcces.Service
             po.UpdatedAt = DateTime.UtcNow;
 
             // Audit log
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "UPDATE",
-                EntityType = "PurchaseOrder",
-                EntityId = po.PurchaseOrderId,
-                Detail = $"Cập nhật đơn mua hàng {po.Pocode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                AuditAction.Update,
+                AuditEntity.PurchaseOrder,
+                po.PurchaseOrderId,
+                $"Cập nhật đơn mua hàng {po.Pocode}");
 
             await _context.SaveChangesAsync();
 
