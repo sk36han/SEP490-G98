@@ -293,7 +293,8 @@ namespace Warehouse.DataAcces.Service
                     TransactionAt = l.InventoryTxn.TxnDate,
                     ActorName = l.InventoryTxn.PostedByNavigation != null ? l.InventoryTxn.PostedByNavigation.FullName : null,
                     Note = l.Note,
-                    SourceType = l.InventoryTxn.ReferenceType
+                    SourceType = l.InventoryTxn.ReferenceType,
+                    ReferenceId = l.InventoryTxn.ReferenceId
                 })
                 .ToList();
 

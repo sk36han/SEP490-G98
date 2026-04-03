@@ -85,6 +85,7 @@ function mapInventoryHistoryRow(h) {
         actorName: h.actorName ?? h.ActorName ?? null,
         note: h.note ?? h.Note ?? null,
         sourceType: h.sourceType ?? h.SourceType ?? null,
+        referenceId: h.referenceId ?? h.ReferenceId ?? 0,
     };
 }
 

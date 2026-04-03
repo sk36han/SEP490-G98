@@ -52,5 +52,6 @@ namespace Warehouse.Entities.ModelResponse
         public string? ActorName { get; set; }
         public string? Note { get; set; }
         public string SourceType { get; set; } = string.Empty;
+        public long ReferenceId { get; set; }
     }
 }

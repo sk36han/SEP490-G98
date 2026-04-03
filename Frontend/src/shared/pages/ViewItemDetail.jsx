@@ -19,6 +19,8 @@ import {
     DialogContent,
     DialogActions,
     TablePagination,
+    Popover,
+    IconButton,
 } from '@mui/material';
 import {
     ArrowLeft,
@@ -35,13 +37,22 @@ import {
     Loader,
     Clock,
     RefreshCw,
+    ChevronDown,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getItemDetail, updateItem } from '../lib/itemService';
 import apiClient from '../lib/axios';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
+import { getItemParameterList } from '../lib/itemParameterService';
 import { useMasterData } from '../../app/context/MasterDataContext';
 import { createUom } from '../lib/uomService';
+import { createCategory } from '../lib/categoryService';
+import { createBrand } from '../lib/brandService';
+import { createItemParameter } from '../lib/itemParameterService';
+import UomFormDialog from '../components/UomFormDialog';
+import CreateBrandDialog from '../components/CreateBrandDialog';
+import CreatePackagingSpecDialog from '../components/CreatePackagingSpecDialog';
+import CreateSpecDialog from '../components/CreateSpecDialog';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
@@ -202,6 +213,41 @@ const StatBox = ({ label, value, color = '#0f172a', bg = '#f8fafc', borderColor 
     </div>
 );
 
+// EditUnderline - TextField dạng đường kẻ, giống ReadOnlyUnderline
+const EditUnderline = ({ value, onChange, placeholder, name, ...props }) => (
+    <TextField
+        fullWidth
+        size="small"
+        name={name}
+        value={value ?? ''}
+        onChange={onChange}
+        placeholder={placeholder}
+        variant="standard"
+        InputProps={{ disableUnderline: false }}
+        sx={{
+            '& .MuiInput-root': {
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#334155',
+                minHeight: ROW_HEIGHT,
+                padding: '0 0 6px 0',
+                alignItems: 'center',
+                '&:before': { borderBottom: '1px solid rgba(0,0,0,0.1)' },
+                '&:hover:not(.Mui-disabled):before': { borderBottom: '1px solid #3b82f6' },
+                '&:after': { borderBottom: '1px solid #3b82f6' },
+            },
+            '& .MuiInput-input': {
+                padding: '0 0 0 0',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#334155',
+                '&::placeholder': { color: '#9ca3af', opacity: 1 },
+            },
+        }}
+        {...props}
+    />
+);
+
 // ReadOnlyUnderline
 const ReadOnlyUnderline = ({ children, highlight = false }) => (
     <div style={{
@@ -219,6 +265,75 @@ const ReadOnlyUnderline = ({ children, highlight = false }) => (
         {children || <span style={{ color: '#9ca3af' }}>—</span>}
     </div>
 );
+
+// EditSelectUnderline - Select dạng đường kẻ, click mở popup
+const EditSelectUnderline = ({ value, onChange, options, placeholder, renderValue, name = '', onAddNew }) => {
+    const [anchorEl, setAnchorEl] = useState(null);
+    const open = Boolean(anchorEl);
+
+    const handleClick = (e) => setAnchorEl(e.currentTarget);
+    const handleClose = () => setAnchorEl(null);
+    const handleSelect = (val) => {
+        onChange({ target: { name, value: val } });
+        handleClose();
+    };
+
+    const selected = options.find((o) => String(o.value ?? o.id ?? o) === String(value));
+    const display = selected ? (renderValue ? renderValue(selected) : (selected.label ?? selected.name ?? selected)) : (placeholder || 'Chọn...');
+
+    return (
+        <>
+            <div
+                onClick={handleClick}
+                style={{
+                    padding: '0 0 6px 0',
+                    borderBottom: '1px solid rgba(0,0,0,0.1)',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: selected ? '#334155' : '#9ca3af',
+                    minHeight: ROW_HEIGHT,
+                    display: 'flex',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    gap: 4,
+                    position: 'relative',
+                }}
+            >
+                <span style={{ flex: 1 }}>{display}</span>
+                <ChevronDown size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
+            </div>
+            <Popover
+                open={open}
+                anchorEl={anchorEl}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', minWidth: anchorEl?.offsetWidth || 220 } }}
+            >
+                {options.map((opt) => {
+                    const optVal = opt.value ?? opt.id ?? opt;
+                    const optLabel = opt.label ?? opt.name ?? opt;
+                    const isSelected = String(optVal) === String(value);
+                    return (
+                        <MenuItem key={optVal} value={optVal} onClick={() => handleSelect(optVal)}
+                            sx={{ fontSize: '14px', fontWeight: isSelected ? 600 : 400, color: isSelected ? '#3b82f6' : '#334155', gap: 1 }}>
+                            {optLabel}
+                        </MenuItem>
+                    );
+                })}
+                {onAddNew && (
+                    <>
+                        <Divider sx={{ my: 0.5 }} />
+                        <MenuItem onClick={() => { handleClose(); onAddNew(); }}
+                            sx={{ fontSize: '14px', color: '#3b82f6', gap: 1 }}>
+                            <Plus size={14} />
+                            Thêm mới
+                        </MenuItem>
+                    </>
+                )}
+            </Popover>
+        </>
+    );
+};
 
 // DescriptionBlock
 const DescriptionBlock = ({ children }) => (
@@ -243,54 +358,58 @@ const CreateOptionContent = ({ label }) => (
     </Box>
 );
 
-// Inline CreateUomDialog
-function InlineCreateUomDialog({ open, onClose, onSubmit }) {
-    const [uomCode, setUomCode] = useState('');
-    const [uomName, setUomName] = useState('');
+// Inline CreateCategoryDialog
+function InlineCreateCategoryDialog({ open, onClose, onSubmit }) {
+    const [categoryName, setCategoryName] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        if (open) { setUomCode(''); setUomName(''); setSubmitting(false); setError(null); }
+        if (open) { setCategoryName(''); setSubmitting(false); setError(null); }
     }, [open]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const code = (uomCode || '').trim();
-        const name = (uomName || '').trim();
-        if (!code || !name) return;
+        const name = (categoryName || '').trim();
+        if (!name) return;
         setSubmitting(true);
         setError(null);
         try {
-            const response = await createUom({ uomCode: code, uomName: name });
-            const data = response?.data ?? response;
-            const id = data?.uomId ?? data?.UomId ?? data?.id;
-            if (id == null) { setError('Không nhận được ID đơn vị tính từ server.'); setSubmitting(false); return; }
-            onSubmit({ id, code: data?.uomCode ?? code, name: data?.uomName ?? name });
+            await onSubmit({ categoryName: name });
             onClose();
         } catch (err) {
-            setError(err?.response?.data?.message ?? err?.message ?? 'Không thể tạo đơn vị tính.');
-        } finally {
-            setSubmitting(false);
-        }
+            setError(err?.response?.data?.message ?? err?.message ?? 'Không thể tạo danh mục.');
+        } finally { setSubmitting(false); }
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-            <DialogTitle>Tạo mới đơn vị tính</DialogTitle>
+        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.06)' } }}>
             <form onSubmit={handleSubmit}>
-                <DialogContent sx={{ pt: 2, pb: 1 }}>
-                    <TextField fullWidth size="small" label="Mã đơn vị tính" value={uomCode}
-                        onChange={(e) => setUomCode(e.target.value)} required placeholder="VD: CAI, HOP"
-                        sx={editTextSx} InputLabelProps={{ shrink: true }} />
-                    <TextField fullWidth size="small" label="Tên đơn vị tính" value={uomName}
-                        onChange={(e) => setUomName(e.target.value)} required placeholder="VD: Cái, Hộp"
-                        error={Boolean(error)} helperText={error} sx={editTextSx} InputLabelProps={{ shrink: true }} />
+                <DialogTitle sx={{ px: 3, py: 2.5, borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '18px', color: 'text.primary' }}>Thêm danh mục</Typography>
+                    <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary', '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' } }}><X size={20} /></IconButton>
+                </DialogTitle>
+                <DialogContent sx={{ px: 3, pt: 2.5, pb: 2.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>Tên danh mục</Typography>
+                    <Box
+                        component="input" type="text" value={categoryName}
+                        onChange={(e) => setCategoryName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(e); }}
+                        placeholder="VD: Vật tư điện tử" autoFocus
+                        sx={{
+                            width: '100%', border: 'none', outline: 'none',
+                            borderBottom: `1px solid ${error ? '#ef4444' : 'rgba(0,0,0,0.1)'}`,
+                            pb: 1, fontSize: '14px', color: 'text.primary', bgcolor: 'transparent',
+                            '&:focus': { borderBottom: error ? '#ef4444' : '#0284c7' },
+                            '&::placeholder': { color: '#9ca3af', fontSize: '14px' },
+                        }}
+                    />
+                    {error && <Typography sx={{ fontSize: '12px', color: '#ef4444', mt: 0.5 }}>{error}</Typography>}
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={onClose} sx={{ textTransform: 'none' }} disabled={submitting}>Hủy</Button>
-                    <Button type="submit" variant="contained" sx={{ textTransform: 'none' }} disabled={submitting}>
-                        {submitting ? 'Đang tạo…' : 'Tạo'}
+                <DialogActions sx={{ px: 3, py: 2.5, borderTop: '1px solid rgba(0,0,0,0.06)', gap: 1.5 }}>
+                    <Button onClick={onClose} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', color: 'text.secondary', px: 2, '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' } }}>Hủy</Button>
+                    <Button type="submit" variant="contained" disabled={submitting || !categoryName.trim()} size="small" sx={{ textTransform: 'none', fontWeight: 500, fontSize: '13px', px: 3, py: 0.75, borderRadius: '8px', boxShadow: 'none', '&:hover': { boxShadow: '0 2px 8px rgba(25,118,210,0.24)' } }}>
+                        {submitting ? 'Đang lưu…' : 'Thêm'}
                     </Button>
                 </DialogActions>
             </form>
@@ -373,15 +492,32 @@ export default function ViewItemDetail() {
     const [localUomOptions, setLocalUomOptions] = useState([]);
     const [localPackOptions, setLocalPackOptions] = useState([]);
     const [createUomOpen, setCreateUomOpen] = useState(false);
+    const [createBrandOpen, setCreateBrandOpen] = useState(false);
     const [createPackOpen, setCreatePackOpen] = useState(false);
+    const [createSpecOpen, setCreateSpecOpen] = useState(false);
+    const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
+
+    // Local options for create-new
+    const [localMasterBrands, setLocalMasterBrands] = useState([]);
+    const [localMasterCategories, setLocalMasterCategories] = useState([]);
 
     // History pagination (0-based for MUI TablePagination)
     const [historyPage, setHistoryPage] = useState(0);
     const [historyPageSize, setHistoryPageSize] = useState(10);
     const [historyTotal, setHistoryTotal] = useState(0);
 
+    // Item parameters
+    const [specOptions, setSpecOptions] = useState([]);
+
     // Reset page khi đổi item
     useEffect(() => { setHistoryPage(0); }, [id]);
+
+    // Load spec options
+    useEffect(() => {
+        getItemParameterList({ pageSize: 100, isActive: true })
+            .then((res) => setSpecOptions(res.items || []))
+            .catch(() => {});
+    }, []);
 
     // ─── Load item ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -412,6 +548,7 @@ export default function ViewItemDetail() {
                     actorName: h.actorName ?? h.ActorName ?? null,
                     note: h.note ?? h.Note ?? null,
                     sourceType: h.sourceType ?? h.SourceType ?? '',
+                    referenceId: h.referenceId ?? h.ReferenceId ?? 0,
                 }));
                 setItem((prev) => ({ ...prev, inventoryHistory: mapped }));
                 setHistoryTotal(payload.historyTotalCount ?? payload.HistoryTotalCount ?? 0);
@@ -442,6 +579,7 @@ export default function ViewItemDetail() {
             specification: item.specification ?? '',
             requiresCO: item.requiresCO ?? false,
             requiresCQ: item.requiresCQ ?? false,
+            isActive: item.isActive ?? true,
             defaultWarehouseId: item.defaultWarehouseId ?? '',
         });
         setIsEditing(true);
@@ -475,13 +613,15 @@ export default function ViewItemDetail() {
                 itemName: formData.itemName,
                 itemType: formData.itemType,
                 description: formData.description,
-                categoryId: formData.categoryId,
-                brandId: formData.brandId || null,
-                baseUomId: formData.baseUomId,
-                packagingSpecId: formData.packagingSpecId || null,
+                categoryId: Number(formData.categoryId),
+                brandId: formData.brandId ? Number(formData.brandId) : null,
+                baseUomId: Number(formData.baseUomId),
+                packagingSpecId: formData.packagingSpecId ? Number(formData.packagingSpecId) : null,
+                specification: formData.specification || null,
                 requiresCo: formData.requiresCO,
                 requiresCq: formData.requiresCQ,
-                defaultWarehouseId: formData.defaultWarehouseId || null,
+                isActive: formData.isActive,
+                defaultWarehouseId: formData.defaultWarehouseId ? Number(formData.defaultWarehouseId) : null,
             });
             showToast('Cập nhật vật tư thành công!', 'success');
             setIsEditing(false);
@@ -545,8 +685,12 @@ export default function ViewItemDetail() {
             ? item.inventoryByWarehouse
             : [{ warehouseName: item.defaultWarehouseName || 'Kho chính', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 }];
     const totalPages = Math.ceil((item.historyTotalCount ?? 0) / historyPageSize) || 1;
+    const specName = item.specification
+        ? (specOptions.find((o) => String(o.paramId) === String(item.specification))?.paramName || item.specification)
+        : '—';
 
-    const statusConfig = item.isActive
+    const isActiveValue = isEditing ? formData.isActive : item.isActive;
+    const statusConfig = isActiveValue
         ? { label: 'Đang giao dịch', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> }
         : { label: 'Tạm dừng', color: '#b91c1c', bg: 'rgba(239,68,68,0.15)', icon: <X size={16} /> };
 
@@ -639,13 +783,11 @@ export default function ViewItemDetail() {
 
                                     {/* Info panel */}
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                        {/* Tên vật tư — to, nổi bật */}
+                                        {/* Tên vật tư */}
                                         <div style={FIELD_WRAPPER}>
                                             <div style={LABEL_STYLE}>Tên vật tư</div>
                                             {isEditing ? (
-                                                <TextField fullWidth size="small" name="itemName"
-                                                    value={formData.itemName || ''} onChange={handleChange} required
-                                                    InputLabelProps={{ shrink: true }} sx={editTextSx} />
+                                                <EditUnderline name="itemName" value={formData.itemName || ''} onChange={handleChange} />
                                             ) : (
                                                 <ReadOnlyUnderline highlight>{item.itemName || '—'}</ReadOnlyUnderline>
                                             )}
@@ -655,25 +797,14 @@ export default function ViewItemDetail() {
                                         <div style={FIELD_WRAPPER}>
                                             <div style={LABEL_STYLE}>Thương hiệu</div>
                                             {isEditing ? (
-                                                <TextField select fullWidth size="small" name="brandId"
-                                                    value={String(formData.brandId ?? '')} onChange={handleChange}
-                                                    sx={editSelectSx} InputLabelProps={{ shrink: true }}
-                                                    SelectProps={{
-                                                        displayEmpty: true,
-                                                        renderValue: (v) => v === '' ? (
-                                                            <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn nhãn hiệu</span>
-                                                        ) : (
-                                                            <span style={{ fontSize: '14px' }}>
-                                                                {masterBrands.find((o) => String(o.brandId) === String(v))?.brandName ?? ''}
-                                                            </span>
-                                                        ),
-                                                        MenuProps: selectMenuProps,
-                                                    }}>
-                                                    <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn nhãn hiệu</MenuItem>
-                                                    {masterBrands.map((o) => (
-                                                        <MenuItem key={o.brandId} value={String(o.brandId)} sx={{ fontSize: '14px' }}>{o.brandName}</MenuItem>
-                                                    ))}
-                                                </TextField>
+                                                <EditSelectUnderline
+                                                    name="brandId"
+                                                    value={String(formData.brandId ?? '')}
+                                                    onChange={handleChange}
+                                                    options={[...masterBrands, ...localMasterBrands].map((o) => ({ value: String(o.brandId ?? o.id), label: o.brandName ?? o.name }))}
+                                                    placeholder="Chọn nhãn hiệu"
+                                                    onAddNew={() => setCreateBrandOpen(true)}
+                                                />
                                             ) : (
                                                 <ReadOnlyUnderline>{item.brandName || '—'}</ReadOnlyUnderline>
                                             )}
@@ -681,11 +812,24 @@ export default function ViewItemDetail() {
 
                                         {/* Mô tả */}
                                         <div style={FIELD_WRAPPER}>
-                                            <div style={LABEL_STYLE}>Mô tả</div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={LABEL_STYLE}>Mô tả</div>
+                                                <span style={{ fontSize: '12px', color: (formData.description?.length ?? 0) > 250 ? '#ef4444' : '#94a3b8' }}>
+                                                    {formData.description?.length ?? 0}/250
+                                                </span>
+                                            </div>
                                             {isEditing ? (
                                                 <TextField fullWidth size="small" name="description"
                                                     value={formData.description || ''} onChange={handleChange}
-                                                    multiline rows={3} InputLabelProps={{ shrink: true }} sx={editTextareaSx} />
+                                                    multiline rows={3} variant="standard"
+                                                    inputProps={{ maxLength: 250 }}
+                                                    sx={{
+                                                        '& .MuiInput-root': { fontSize: '14px', fontWeight: 500, color: '#334155' },
+                                                        '& .MuiInput-underline:before': { borderBottom: '1px solid rgba(0,0,0,0.1)' },
+                                                        '& .MuiInput-underline:hover:before': { borderBottom: '1px solid #3b82f6' },
+                                                        '& .MuiInput-underline:after': { borderBottom: '1px solid #3b82f6' },
+                                                        '& .MuiInput-inputMultiline': { padding: '0 0 6px 0' },
+                                                    }} />
                                             ) : (
                                                 <DescriptionBlock>{item.description}</DescriptionBlock>
                                             )}
@@ -797,7 +941,22 @@ export default function ViewItemDetail() {
                                                         const sourceColor = { GRN: '#2563eb', GDN: '#d97706', ADJ: '#7c3aed', STK: '#0891b2' }[h.sourceType] ?? '#6b7280';
                                                         return (
                                                             <tr key={idx} style={{ backgroundColor: idx % 2 === 1 ? '#fafafa' : 'transparent' }}>
-                                                                <td style={{ fontWeight: 500, color: '#2196F3', fontSize: '13px' }}>{h.docNo ?? '—'}</td>
+                                                                <td>
+                                                                    {(() => {
+                                                                        const pathMap = { GRN: '/goods-receipts/', GDN: '/goods-delivery-notes/', ADJ: '/inventory-adjustments/', STK: '/stocktakes/' };
+                                                                        const path = pathMap[h.sourceType];
+                                                                        return path && h.referenceId ? (
+                                                                            <span
+                                                                                onClick={() => navigate(`${path}${h.referenceId}`)}
+                                                                                style={{ fontWeight: 500, color: '#2196F3', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}
+                                                                            >
+                                                                                {h.docNo}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span style={{ fontWeight: 500, color: '#2196F3', fontSize: '13px' }}>{h.docNo ?? '—'}</span>
+                                                                        );
+                                                                    })()}
+                                                                </td>
                                                                 <td>
                                                                     <span style={{
                                                                         fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
@@ -853,43 +1012,47 @@ export default function ViewItemDetail() {
                                     {/* Trạng thái */}
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Trạng thái</div>
-                                        <StatusBadge config={statusConfig} />
+                                        {isEditing ? (
+                                            <label
+                                                onClick={() => {
+                                                    const newVal = !formData.isActive;
+                                                    setFormData((prev) => ({ ...prev, isActive: newVal }));
+                                                    setIsDirty(true);
+                                                }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}
+                                            >
+                                                <div style={{
+                                                    width: 18, height: 18, borderRadius: 4,
+                                                    border: `2px solid ${formData.isActive ? '#3b82f6' : '#cbd5e1'}`,
+                                                    backgroundColor: formData.isActive ? '#3b82f6' : 'transparent',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0,
+                                                }}>
+                                                    {formData.isActive && (
+                                                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                                            <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                                <span style={{ fontSize: '14px', fontWeight: 500, color: formData.isActive ? '#047857' : '#b91c1c' }}>
+                                                    {formData.isActive ? 'Đang giao dịch' : 'Tạm dừng'}
+                                                </span>
+                                            </label>
+                                        ) : (
+                                            <StatusBadge config={statusConfig} />
+                                        )}
                                     </div>
 
                                     {/* Đơn vị tính */}
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Đơn vị tính</div>
                                         {isEditing ? (
-                                            <Autocomplete size="small" fullWidth
-                                                options={[CREATE_UOM_OPTION, ...allUomOptions]}
-                                                getOptionLabel={(opt) => (opt && opt.name) || ''}
-                                                value={allUomOptions.find((o) => String(o.id) === String(formData.baseUomId)) ?? null}
-                                                onChange={(e, newValue) => {
-                                                    if (newValue && newValue.id === 'CREATE_UOM') { setCreateUomOpen(true); return; }
-                                                    handleChange({ target: { name: 'baseUomId', value: newValue?.id ?? '' } });
-                                                }}
-                                                isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
-                                                renderOption={(props, option) => {
-                                                    if (option && option.id === 'CREATE_UOM') return (
-                                                        <li {...props} key={option.id}>
-                                                            <CreateOptionContent label={option.name} />
-                                                            <Divider sx={{ mt: 1 }} />
-                                                        </li>
-                                                    );
-                                                    return <li {...props} key={option.id} style={{ fontSize: '14px' }}>{option.name}</li>;
-                                                }}
-                                                ListboxProps={{ sx: { minWidth: 320, '& li': { fontSize: '14px' } } }}
-                                                renderInput={(params) => (
-                                                    <TextField {...params}
-                                                        sx={{
-                                                            '& .MuiOutlinedInput-root': {
-                                                                ...baseEditInput,
-                                                                minHeight: ROW_HEIGHT,
-                                                                '& .MuiInputBase-input': { fontSize: '14px', padding: '0 32px 0 12px', minHeight: ROW_HEIGHT },
-                                                            },
-                                                            '& .MuiInputLabel-root': { fontSize: '13px', color: '#64748b', fontWeight: 600, transform: 'none', position: 'relative', marginBottom: '2px' },
-                                                        }} />
-                                                )}
+                                            <EditSelectUnderline
+                                                name="baseUomId"
+                                                value={String(formData.baseUomId ?? '')}
+                                                onChange={handleChange}
+                                                options={allUomOptions.map((o) => ({ ...o, value: String(o.id), label: o.name }))}
+                                                placeholder="Chọn đơn vị tính"
+                                                onAddNew={() => setCreateUomOpen(true)}
                                             />
                                         ) : (
                                             <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
@@ -902,14 +1065,17 @@ export default function ViewItemDetail() {
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Loại vật tư</div>
                                         {isEditing ? (
-                                            <TextField select fullWidth size="small" name="itemType"
-                                                value={formData.itemType || 'Product'} onChange={handleChange}
-                                                sx={editSelectSx} InputLabelProps={{ shrink: true }}
-                                                SelectProps={{ MenuProps: selectMenuProps }}>
-                                                <MenuItem value="Product" sx={{ fontSize: '14px' }}>Product</MenuItem>
-                                                <MenuItem value="Material" sx={{ fontSize: '14px' }}>Material</MenuItem>
-                                                <MenuItem value="Service" sx={{ fontSize: '14px' }}>Service</MenuItem>
-                                            </TextField>
+                                            <EditSelectUnderline
+                                                name="itemType"
+                                                value={formData.itemType || 'Product'}
+                                                onChange={handleChange}
+                                                options={[
+                                                    { value: 'Product', label: 'Product' },
+                                                    { value: 'Material', label: 'Material' },
+                                                    { value: 'Service', label: 'Service' },
+                                                ]}
+                                                placeholder="Chọn loại vật tư"
+                                            />
                                         ) : (
                                             <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
                                                 {item.itemType || '—'}
@@ -921,29 +1087,14 @@ export default function ViewItemDetail() {
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Danh mục</div>
                                         {isEditing ? (
-                                            <TextField select fullWidth size="small" name="categoryId"
-                                                value={String(formData.categoryId ?? '')} onChange={handleChange}
-                                                sx={editSelectSx} InputLabelProps={{ shrink: true }}
-                                                SelectProps={{
-                                                    displayEmpty: true,
-                                                    MenuProps: selectMenuProps,
-                                                    renderValue: (v) => {
-                                                        if (v === '') return <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn danh mục</span>;
-                                                        const found = masterCategories.find((o) => String(o.categoryId) === String(v));
-                                                        return found ? (
-                                                            <span style={{ fontSize: '14px', color: '#334155' }}>
-                                                                {found.categoryCode ? `${found.categoryCode} - ${found.categoryName}` : found.categoryName}
-                                                            </span>
-                                                        ) : '';
-                                                    },
-                                                }}>
-                                                <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn danh mục</MenuItem>
-                                                {masterCategories.map((o) => (
-                                                    <MenuItem key={o.categoryId} value={String(o.categoryId)} sx={{ fontSize: '14px' }}>
-                                                        {o.categoryCode ? `${o.categoryCode} - ${o.categoryName}` : o.categoryName}
-                                                    </MenuItem>
-                                                ))}
-                                            </TextField>
+                                            <EditSelectUnderline
+                                                name="categoryId"
+                                                value={String(formData.categoryId ?? '')}
+                                                onChange={handleChange}
+                                                options={[...masterCategories, ...localMasterCategories].map((o) => ({ ...o, value: String(o.categoryId ?? o.id), label: o.categoryCode ? `${o.categoryCode} - ${o.categoryName ?? o.name}` : (o.categoryName ?? o.name) }))}
+                                                placeholder="Chọn danh mục"
+                                                onAddNew={() => setCreateCategoryOpen(true)}
+                                            />
                                         ) : (
                                             <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
                                                 {item.categoryName || '—'}
@@ -957,36 +1108,13 @@ export default function ViewItemDetail() {
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Quy cách đóng gói</div>
                                         {isEditing ? (
-                                            <Autocomplete size="small" fullWidth
-                                                options={[CREATE_PACK_OPTION, ...allPackOptions]}
-                                                getOptionLabel={(opt) => (opt && opt.name) || ''}
-                                                value={allPackOptions.find((o) => String(o.id) === String(formData.packagingSpecId)) ?? null}
-                                                onChange={(e, newValue) => {
-                                                    if (newValue && newValue.id === 'CREATE_PACK') { setCreatePackOpen(true); return; }
-                                                    handleChange({ target: { name: 'packagingSpecId', value: newValue?.id ?? '' } });
-                                                }}
-                                                isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
-                                                renderOption={(props, option) => {
-                                                    if (option && option.id === 'CREATE_PACK') return (
-                                                        <li {...props} key={option.id}>
-                                                            <CreateOptionContent label={option.name} />
-                                                            <Divider sx={{ mt: 1 }} />
-                                                        </li>
-                                                    );
-                                                    return <li {...props} key={option.id} style={{ fontSize: '14px' }}>{option.name}</li>;
-                                                }}
-                                                ListboxProps={{ sx: { minWidth: 320, '& li': { fontSize: '14px' } } }}
-                                                renderInput={(params) => (
-                                                    <TextField {...params}
-                                                        sx={{
-                                                            '& .MuiOutlinedInput-root': {
-                                                                ...baseEditInput,
-                                                                minHeight: ROW_HEIGHT,
-                                                                '& .MuiInputBase-input': { fontSize: '14px', padding: '0 32px 0 12px', minHeight: ROW_HEIGHT },
-                                                            },
-                                                            '& .MuiInputLabel-root': { fontSize: '13px', color: '#64748b', fontWeight: 600, transform: 'none', position: 'relative', marginBottom: '2px' },
-                                                        }} />
-                                                )}
+                                            <EditSelectUnderline
+                                                name="packagingSpecId"
+                                                value={String(formData.packagingSpecId ?? '')}
+                                                onChange={handleChange}
+                                                options={allPackOptions.map((o) => ({ ...o, value: String(o.id), label: o.name }))}
+                                                placeholder="Chọn quy cách đóng gói"
+                                                onAddNew={() => setCreatePackOpen(true)}
                                             />
                                         ) : (
                                             <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
@@ -999,12 +1127,20 @@ export default function ViewItemDetail() {
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Thông số</div>
                                         {isEditing ? (
-                                            <TextField fullWidth size="small" name="specification"
-                                                value={formData.specification || ''} onChange={handleChange}
-                                                InputLabelProps={{ shrink: true }} sx={editTextSx} />
+                                            <EditSelectUnderline
+                                                name="specification"
+                                                value={formData.specification || ''}
+                                                onChange={(e) => {
+                                                    setFormData((prev) => ({ ...prev, specification: e.target.value }));
+                                                    setIsDirty(true);
+                                                }}
+                                                options={specOptions.map((o) => ({ value: String(o.paramId), label: o.paramName }))}
+                                                placeholder="Chọn thông số"
+                                                onAddNew={() => setCreateSpecOpen(true)}
+                                            />
                                         ) : (
                                             <div style={{ padding: '0 0 6px 0', borderBottom: '1px solid rgba(0,0,0,0.1)', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
-                                                {item.specification || '—'}
+                                                {specName}
                                             </div>
                                         )}
                                     </div>
@@ -1150,23 +1286,68 @@ export default function ViewItemDetail() {
             </div>
 
             {/* Dialogs */}
-            <InlineCreateUomDialog
+            <UomFormDialog
                 open={createUomOpen}
                 onClose={() => setCreateUomOpen(false)}
-                onSubmit={(newUom) => {
-                    setLocalUomOptions((prev) => [...prev, { id: newUom.id, code: newUom.code, name: newUom.name }]);
-                    handleChange({ target: { name: 'baseUomId', value: newUom.id } });
-                    setCreateUomOpen(false);
+                mode="create"
+                onSuccess={async ({ uomName }) => {
+                    const response = await createUom({ uomName });
+                    const data = response?.data ?? response;
+                    const newId = data?.uomId ?? data?.UomId ?? data?.id;
+                    if (newId) {
+                        const newUom = { id: newId, code: data?.uomCode ?? '', name: data?.uomName ?? uomName };
+                        setLocalUomOptions((prev) => [...prev, newUom]);
+                        handleChange({ target: { name: 'baseUomId', value: String(newId) } });
+                    }
                 }}
             />
-            <InlineCreatePackagingSpecDialog
+            <CreatePackagingSpecDialog
                 open={createPackOpen}
                 onClose={() => setCreatePackOpen(false)}
-                onSubmit={(newItem) => {
-                    const newId = newItem.id ?? newItem.packagingSpecId;
-                    setLocalPackOptions((prev) => [...prev, { id: newId, name: newItem.specName ?? newItem.name }]);
-                    handleChange({ target: { name: 'packagingSpecId', value: newId } });
-                    setCreatePackOpen(false);
+                onSubmit={async (item) => {
+                    const data = item?.data ?? item;
+                    const newId = data?.packagingSpecId ?? data?.id;
+                    if (newId) {
+                        setLocalPackOptions((prev) => [...prev, { id: newId, name: data?.specName ?? data?.name ?? '' }]);
+                        handleChange({ target: { name: 'packagingSpecId', value: String(newId) } });
+                    }
+                }}
+            />
+            <CreateBrandDialog
+                open={createBrandOpen}
+                onClose={() => setCreateBrandOpen(false)}
+                onSuccess={async ({ id, name }) => {
+                    if (id) {
+                        const newBrand = { brandId: id, brandName: name };
+                        setLocalMasterBrands((prev) => [...prev, newBrand]);
+                        handleChange({ target: { name: 'brandId', value: String(id) } });
+                    }
+                }}
+            />
+            <InlineCreateCategoryDialog
+                open={createCategoryOpen}
+                onClose={() => setCreateCategoryOpen(false)}
+                onSubmit={async ({ categoryName }) => {
+                    const response = await createCategory({ categoryName });
+                    const data = response?.data ?? response;
+                    const newId = data?.categoryId ?? data?.id;
+                    const newCategory = { categoryId: newId, categoryName: data?.categoryName ?? data?.name ?? categoryName, categoryCode: data?.categoryCode ?? '' };
+                    setLocalMasterCategories((prev) => [...prev, newCategory]);
+                    if (newId) {
+                        handleChange({ target: { name: 'categoryId', value: String(newId) } });
+                    }
+                }}
+            />
+            <CreateSpecDialog
+                open={createSpecOpen}
+                onClose={() => setCreateSpecOpen(false)}
+                onSubmit={async (item) => {
+                    const data = item?.data ?? item;
+                    const newId = data?.paramId ?? data?.id;
+                    if (newId) {
+                        setSpecOptions((prev) => [...prev, { paramId: newId, paramName: data?.paramName ?? data?.name ?? '' }]);
+                        handleChange({ target: { name: 'specification', value: String(newId) } });
+                    }
                 }}
             />
 
