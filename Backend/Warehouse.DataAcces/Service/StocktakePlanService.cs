@@ -14,14 +14,16 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IStocktakeService _stocktakeService;
+        private readonly INotificationService _notificationService;
 
         private static readonly string[] AllowedStatuses = { "DRAFT", "PENDING_APPROVAL", "APPROVED", "CANCELLED" };
         private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
-        public StocktakePlanService(Mkiwms5Context context, IStocktakeService stocktakeService)
+        public StocktakePlanService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
+            _notificationService = notificationService;
         }
 
         public async Task<StocktakeDetailResponse> CreateStocktakePlanAsync(CreateStocktakeDraftRequest request, long currentUserId)
@@ -113,6 +115,17 @@ namespace Warehouse.DataAcces.Service
             });
             await _context.SaveChangesAsync();
 
+            // Gửi thông báo cho Quản lý
+            await _notificationService.CreateForRolesAsync(
+                new[] { "MANAGER", "ADMIN" },
+                "Kế hoạch kiểm kê mới chờ duyệt",
+                $"Kế hoạch kiểm kê {session.StocktakeCode} vừa được gửi duyệt và đang chờ bạn phê duyệt.",
+                "Stocktake",
+                session.StocktakeId,
+                currentUserId,
+                "NewRequest"
+            );
+
             return await _stocktakeService.GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi sảy ra khi gửi thông qua kế hoạch.");
         }
 
@@ -126,6 +139,9 @@ namespace Warehouse.DataAcces.Service
 
             if (session.Status != "PENDING_APPROVAL")
                 throw new InvalidOperationException("Chỉ có thể phê duyệt kế hoạch khi ở trạng thái PENDING_APPROVAL.");
+
+            if ((request.Decision == "REJECT" || request.Decision == "RECOUNT") && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException($"Bắt buộc phải nhập lý do khi chọn quyết định '{request.Decision}'.");
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -172,6 +188,18 @@ namespace Warehouse.DataAcces.Service
                         CreatedAt = DateTime.UtcNow
                     });
                     await _context.SaveChangesAsync();
+
+                    // Gửi thông báo kết quả cho người tạo
+                    string statusText = session.Status == "APPROVED" ? "ĐÃ ĐƯỢC DUYỆT" : (session.Status == "CANCELLED" ? "BỊ TỪ CHỐI" : "YÊU CẦU CHỈNH SỬA");
+                    await _notificationService.CreateAsync(
+                        session.CreatedBy,
+                        $"Kế hoạch kiểm kê {session.StocktakeCode} {statusText}",
+                        $"Kế hoạch kiểm kê {session.StocktakeCode} của bạn đã {statusText.ToLower()}. Lý do: {request.Reason}",
+                        "Stocktake",
+                        session.StocktakeId,
+                        "ApprovalResult",
+                        (byte)(session.Status == "APPROVED" ? 1 : 2)
+                    );
                 }
                 catch
                 {

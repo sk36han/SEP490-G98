@@ -13,11 +13,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IStocktakeService _stocktakeService;
+        private readonly INotificationService _notificationService;
 
-        public ReleaseRequestService(Mkiwms5Context context, IStocktakeService stocktakeService)
+        public ReleaseRequestService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
+            _notificationService = notificationService;
         }
 
         // ──────────────────────────── CREATE ────────────────────────────
@@ -177,10 +179,24 @@ namespace Warehouse.DataAcces.Service
                 Action = "CREATE",
                 EntityType = "ReleaseRequest",
                 EntityId = releaseRequest.ReleaseRequestId,
-                Detail = $"Tạo yêu cầu xuất kho {rrCode}",
+                Detail = $"Tạo mới yêu cầu xuất kho {rrCode}",
                 CreatedAt = DateTime.UtcNow
             });
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
+            if (releaseRequest.Status == "PENDING_ACC")
+            {
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "KT" },
+                    "Yêu cầu xuất kho mới chờ duyệt",
+                    $"Yêu cầu xuất kho {rrCode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ Kế toán phê duyệt.",
+                    "Release",
+                    releaseRequest.ReleaseRequestId,
+                    requestedByUserId,
+                    "NewRequest"
+                );
+            }
 
             // 13. Trả về response chi tiết
             return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms);
@@ -711,6 +727,9 @@ namespace Warehouse.DataAcces.Service
             var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
             string decision = request.IsApproved ? "APPROVE" : "REJECT";
 
+            if (!request.IsApproved && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
+
             // 3. Xử lý theo trạng thái hiện tại (Chỉ 1 bước: Kế toán duyệt)
             if (rr.Status == "PENDING_ACC")
             {
@@ -792,6 +811,20 @@ namespace Warehouse.DataAcces.Service
             });
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo kết quả cho người tạo đơn
+            string statusText = rr.Status == "APPROVED" ? "ĐƯỢC DUYỆT" : "BỊ TỪ CHỐI";
+            string reasonText = string.IsNullOrEmpty(request.Reason) ? "" : $". Lý do: {request.Reason}";
+
+            await _notificationService.CreateAsync(
+                rr.RequestedBy,
+                $"Yêu cầu xuất kho {rr.ReleaseRequestCode} {statusText}",
+                $"Yêu cầu xuất kho {rr.ReleaseRequestCode} của bạn đã {statusText.ToLower()}{reasonText}.",
+                "Release",
+                rr.ReleaseRequestId,
+                "ApprovalResult",
+                (byte)(rr.Status == "APPROVED" ? 1 : 2)
+            );
 
             return await GetReleaseRequestByIdAsync(id)
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");

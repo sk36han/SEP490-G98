@@ -14,11 +14,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IStocktakeService _stocktakeService;
+        private readonly INotificationService _notificationService;
 
-        public StocktakeExecutionService(Mkiwms5Context context, IStocktakeService stocktakeService)
+        public StocktakeExecutionService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
+            _notificationService = notificationService;
         }
 
         public async Task<StocktakeDetailResponse> StartStocktakeExecutionAsync(long stocktakeId, long currentUserId)
@@ -125,9 +127,6 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<StocktakeDetailResponse> ApproveAndFinalizeResultsAsync(long stocktakeId, StocktakeApprovalRequest request, long currentUserId)
         {
-            // Thực hiện Duyệt kết quả đếm (từ PENDING_APPROVAL chờ sếp duyệt -> sang COMPLETED)
-            // Khác với StocktakePlan, đây là duyệt số liệu thực thi, khi duyệt nếu khác biệt -> sinh Adjustment -> COMPLETED
-            
             var session = await _context.StocktakeSessions
                 .Include(s => s.StocktakeLines)
                 .Include(s => s.Warehouse)
@@ -138,6 +137,9 @@ namespace Warehouse.DataAcces.Service
 
             if (session.Status != "PENDING_APPROVAL")
                 throw new InvalidOperationException("Chỉ có thể chốt số liệu khi kết quả đang chờ duyệt (PENDING_APPROVAL).");
+
+            if ((request.Decision == "REJECT" || request.Decision == "RECOUNT") && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException($"Bắt buộc phải nhập lý do khi chọn quyết định '{request.Decision}'.");
 
             var discrepancyLines = session.StocktakeLines.Where(l => l.VarianceQty != 0).ToList();
 
@@ -230,12 +232,24 @@ namespace Warehouse.DataAcces.Service
                     }
                     else if (request.Decision == "REJECT")
                     {
-                         session.Status = "CANCELLED";
-                         session.EndedAt = DateTime.UtcNow;
+                        session.Status = "CANCELLED";
+                        session.EndedAt = DateTime.UtcNow;
                     }
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
+
+                    // Gửi thông báo kết quả cho người tạo
+                    string statusText = session.Status == "COMPLETED" ? "ĐÃ ĐƯỢC DUYỆT & CHỐT SỐ" : (session.Status == "CANCELLED" ? "BỊ TỪ CHỐI" : "YÊU CẦU ĐẾM LẠI");
+                    await _notificationService.CreateAsync(
+                        session.CreatedBy,
+                        $"Kết quả kiểm kê {session.StocktakeCode} {statusText}",
+                        $"Kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã {statusText.ToLower()}. Lý do: {request.Reason}",
+                        "Stocktake",
+                        session.StocktakeId,
+                        "ApprovalResult",
+                        (byte)(session.Status == "COMPLETED" ? 1 : 2)
+                    );
                 }
                 catch
                 {
@@ -249,6 +263,9 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<StocktakeDetailResponse> CancelStocktakeAsync(long stocktakeId, string reason, long currentUserId)
         {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Bắt buộc phải nhập lý do khi hủy phiếu.");
+
              var session = await _context.StocktakeSessions
                 .Include(s => s.Warehouse)
                 .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);

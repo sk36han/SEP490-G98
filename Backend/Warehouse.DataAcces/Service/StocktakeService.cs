@@ -13,13 +13,15 @@ namespace Warehouse.DataAcces.Service
     public class StocktakeService : IStocktakeService
     {
         private readonly Mkiwms5Context _context;
+        private readonly INotificationService _notificationService;
 
         private static readonly string[] AllowedStatuses = { "DRAFT", "IN_PROGRESS", "PENDING_APPROVAL", "COMPLETED", "CANCELLED" };
         private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
-        public StocktakeService(Mkiwms5Context context)
+        public StocktakeService(Mkiwms5Context context, INotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -551,6 +553,17 @@ namespace Warehouse.DataAcces.Service
             });
             await _context.SaveChangesAsync();
 
+            // Gửi thông báo cho Quản lý
+            await _notificationService.CreateForRolesAsync(
+                new[] { "MANAGER", "ADMIN" },
+                "Kết quả kiểm kê mới chờ duyệt",
+                $"Kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã hoàn tất và đang chờ bạn phê duyệt.",
+                "Stocktake",
+                session.StocktakeId,
+                currentUserId,
+                "NewRequest"
+            );
+
             return await GetStocktakeDetailAsync(stocktakeId) 
                    ?? throw new Exception("Lỗi sau khi lưu dữ liệu.");
         }
@@ -576,6 +589,9 @@ namespace Warehouse.DataAcces.Service
 
             if (existing && request.Decision == "APPROVE")
                 throw new InvalidOperationException("Bước 1 (Warehouse Manager) đã được phê duyệt trước đó.");
+
+            if ((request.Decision == "REJECT" || request.Decision == "RECOUNT") && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException($"Bắt buộc phải nhập lý do khi chọn quyết định '{request.Decision}'.");
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -643,6 +659,9 @@ namespace Warehouse.DataAcces.Service
 
             if (!step1Approved)
                 throw new InvalidOperationException("Cần Warehouse Manager phê duyệt Bước 1 trước.");
+
+            if ((request.Decision == "REJECT" || request.Decision == "RECOUNT") && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException($"Bắt buộc phải nhập lý do khi chọn quyết định '{request.Decision}'.");
 
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -874,6 +893,8 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<StocktakeDetailResponse> CancelStocktakeAsync(long stocktakeId, string reason, long currentUserId)
         {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Bắt buộc phải nhập lý do khi hủy phiếu.");
             var session = await _context.StocktakeSessions
                 .Include(s => s.Warehouse)
                 .FirstOrDefaultAsync(s => s.StocktakeId == stocktakeId);

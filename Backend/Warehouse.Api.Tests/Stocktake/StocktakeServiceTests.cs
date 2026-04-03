@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Moq;
 using Warehouse.DataAcces.Service;
+using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -35,6 +36,8 @@ public class StocktakeServiceInterceptor : SaveChangesInterceptor
 
 public class StocktakeServiceTests
 {
+    private readonly Mock<INotificationService> _notificationServiceMock = new();
+
     private Mkiwms5Context GetContext()
     {
         var options = new DbContextOptionsBuilder<Mkiwms5Context>()
@@ -74,7 +77,7 @@ public class StocktakeServiceTests
     {
         using var context = GetContext();
         await SeedDataAsync(context);
-        var service = new StocktakeService(context);
+        var service = new StocktakeService(context, _notificationServiceMock.Object);
 
         // Filter by Status=COMPLETED
         var result = await service.GetStocktakesAsync(new StocktakeListRequest { Status = "COMPLETED" });
@@ -90,7 +93,7 @@ public class StocktakeServiceTests
     {
         using var context = GetContext();
         await SeedDataAsync(context);
-        var service = new StocktakeService(context);
+        var service = new StocktakeService(context, _notificationServiceMock.Object);
 
         var detail = await service.GetStocktakeDetailAsync(1);
         detail.Should().NotBeNull();

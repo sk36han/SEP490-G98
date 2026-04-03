@@ -5,6 +5,8 @@ using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
 using WarehouseModel = Warehouse.Entities.Models;
+using Moq;
+using Warehouse.DataAcces.Service.Interface;
 
 namespace Warehouse.Api.Tests.GoodsReceiptNote;
 
@@ -12,6 +14,7 @@ public class GoodsReceiptNoteServiceTests : IDisposable
 {
     private readonly Mkiwms5Context _context;
     private readonly GoodsReceiptNoteService _service;
+    private readonly Mock<INotificationService> _mockNotificationService;
 
     public GoodsReceiptNoteServiceTests()
     {
@@ -20,7 +23,8 @@ public class GoodsReceiptNoteServiceTests : IDisposable
             .Options;
 
         _context = new Mkiwms5Context(options);
-        _service = new GoodsReceiptNoteService(_context);
+        _mockNotificationService = new Mock<INotificationService>();
+        _service = new GoodsReceiptNoteService(_context, _mockNotificationService.Object);
 
         SeedData();
     }

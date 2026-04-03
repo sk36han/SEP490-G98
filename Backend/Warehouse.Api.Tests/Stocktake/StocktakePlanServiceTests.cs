@@ -56,6 +56,7 @@ public class StocktakeTestInterceptor : SaveChangesInterceptor
 public class StocktakePlanServiceTests
 {
     private readonly Mock<IStocktakeService> _stocktakeServiceMock = new();
+    private readonly Mock<INotificationService> _notificationServiceMock = new();
     
     private Mkiwms5Context GetContext()
     {
@@ -69,7 +70,7 @@ public class StocktakePlanServiceTests
 
     private StocktakePlanService CreateService(Mkiwms5Context context)
     {
-        return new StocktakePlanService(context, _stocktakeServiceMock.Object);
+        return new StocktakePlanService(context, _stocktakeServiceMock.Object, _notificationServiceMock.Object);
     }
 
     private async Task SeedBaseDataAsync(Mkiwms5Context context)

@@ -13,10 +13,12 @@ namespace Warehouse.DataAcces.Service
     public class GoodsReceiptNoteService : IGoodsReceiptNoteService
     {
         private readonly Mkiwms5Context _context;
+        private readonly INotificationService _notificationService;
 
-        public GoodsReceiptNoteService(Mkiwms5Context context)
+        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResponse<GoodsReceiptNoteResponse>> GetGoodsReceiptNotesAsync(int page, int pageSize)
@@ -262,19 +264,30 @@ namespace Warehouse.DataAcces.Service
                 _context.InventoryTransactionLines.Add(txnLine);
             }
 
-            // Audit log
-            var auditLog = new AuditLog
+            _context.AuditLogs.Add(new AuditLog
             {
                 ActorUserId = userId,
                 Action = "CREATE",
                 EntityType = "GoodsReceiptNote",
                 EntityId = grn.Grnid,
-                Detail = $"Tạo phiếu nhập kho {grnCode} từ PO {purchaseOrder.Pocode}",
+                Detail = $"Tạo phiếu nhập {grn.Grncode}",
                 CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
-
+            });
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
+            if (grn.Status == "PENDING_ACC")
+            {
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "KT" },
+                    "Phiếu nhập kho mới chờ duyệt",
+                    $"Phiếu nhập {grnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
+                    "GoodsReceipt",
+                    grn.Grnid,
+                    userId,
+                    "NewRequest"
+                );
+            }
 
             return new GoodsReceiptNoteResponse
             {
@@ -505,6 +518,17 @@ namespace Warehouse.DataAcces.Service
             _context.AuditLogs.Add(auditLog);
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo kết quả cho người tạo đơn
+            await _notificationService.CreateAsync(
+                grn.CreatedBy,
+                $"Phiếu nhập kho {grn.Grncode} ĐÃ ĐƯỢC DUYỆT",
+                $"Phiếu nhập kho {grn.Grncode} của bạn đã được kế toán phê duyệt và ghi sổ.",
+                "GoodsReceipt",
+                grn.Grnid,
+                "ApprovalResult",
+                1 // Info level
+            );
 
             // Trả về kết quả
             return new GoodsReceiptNoteResponse
