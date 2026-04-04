@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
@@ -235,6 +236,20 @@ namespace Warehouse.DataAcces.Service
                 stocktakeId,
                 $"Hủy kế hoạch kiểm kê {session.StocktakeCode}. Lý do: {reason}"
             );
+
+            // Gửi thông báo cho người tạo phiếu
+            if (session.CreatedBy != currentUserId)
+            {
+                await _notificationService.CreateAsync(
+                    session.CreatedBy,
+                    $"Kế hoạch kiểm kê {session.StocktakeCode} ĐÃ HỦY",
+                    $"Kế hoạch kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã bị hủy. Lý do: {reason}",
+                    "Stocktake",
+                    session.StocktakeId,
+                    "StatusChange",
+                    2
+                );
+            }
 
             return await _stocktakeService.GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi khi lấy thông tin sau hủy.");
         }

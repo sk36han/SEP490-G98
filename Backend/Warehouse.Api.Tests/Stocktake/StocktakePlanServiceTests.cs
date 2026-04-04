@@ -57,6 +57,7 @@ public class StocktakePlanServiceTests
 {
     private readonly Mock<IStocktakeService> _stocktakeServiceMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock = new();
+    private readonly Mock<IAuditLogService> _auditLogServiceMock = new();
     
     private Mkiwms5Context GetContext()
     {
@@ -70,7 +71,7 @@ public class StocktakePlanServiceTests
 
     private StocktakePlanService CreateService(Mkiwms5Context context)
     {
-        return new StocktakePlanService(context, _stocktakeServiceMock.Object, _notificationServiceMock.Object);
+        return new StocktakePlanService(context, _stocktakeServiceMock.Object, _notificationServiceMock.Object, _auditLogServiceMock.Object);
     }
 
     private async Task SeedBaseDataAsync(Mkiwms5Context context)

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
@@ -76,7 +77,6 @@ namespace Warehouse.DataAcces.Service
                 session.Status = "IN_PROGRESS";
                 session.StartedAt = DateTime.UtcNow;
 
-                await _context.SaveChangesAsync();
                 await _context.SaveChangesAsync();
 
                 // Ghi Audit Log
@@ -292,6 +292,20 @@ namespace Warehouse.DataAcces.Service
                 stocktakeId,
                 $"Hủy thực hiện kiểm kê phiếu {session.StocktakeCode}. Lý do: {reason}"
             );
+
+            // Gửi thông báo cho người tạo phiếu
+            if (session.CreatedBy != currentUserId)
+            {
+                await _notificationService.CreateAsync(
+                    session.CreatedBy,
+                    $"Kiểm kê {session.StocktakeCode} ĐÃ HỦY (Thực thi)",
+                    $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã bị hủy trong quá trình thực thi. Lý do: {reason}",
+                    "Stocktake",
+                    session.StocktakeId,
+                    "StatusChange",
+                    2
+                );
+            }
 
             return await _stocktakeService.GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi khi lấy thông tin sau hủy.");
         }

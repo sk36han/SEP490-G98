@@ -6,5 +6,6 @@ namespace Warehouse.DataAcces.Service.Interface
 	public interface IClientNotificationService
 	{
 		Task SendNotificationAsync(long userId, NotificationResponse notification);
+		Task SendUnreadCountAsync(long userId, int count);
 	}
 }

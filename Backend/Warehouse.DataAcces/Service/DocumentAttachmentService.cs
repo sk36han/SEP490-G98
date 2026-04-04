@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {

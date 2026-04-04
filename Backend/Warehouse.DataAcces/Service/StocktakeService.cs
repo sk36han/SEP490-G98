@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
@@ -348,9 +349,6 @@ namespace Warehouse.DataAcces.Service
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
                 // 5. Ghi Audit Log
                 await _auditLogService.LogAsync(
                     currentUserId,
@@ -503,8 +501,6 @@ namespace Warehouse.DataAcces.Service
                 }
                 await _context.SaveChangesAsync();
                 
-                await _context.SaveChangesAsync();
-                
                 // Ghi Audit Log
                 await _auditLogService.LogAsync(
                     currentUserId,
@@ -539,8 +535,6 @@ namespace Warehouse.DataAcces.Service
 
             // Chuyển trạng thái
             session.Status = "PENDING_APPROVAL";
-
-            await _context.SaveChangesAsync();
 
             await _context.SaveChangesAsync();
 
@@ -623,9 +617,6 @@ namespace Warehouse.DataAcces.Service
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
                     // Ghi Audit Log
                     string auditAction = request.Decision == "APPROVE" ? AuditAction.Approve : (request.Decision == "REJECT" ? AuditAction.Reject : AuditAction.Update);
                     await _auditLogService.LogAsync(
@@ -642,6 +633,20 @@ namespace Warehouse.DataAcces.Service
                     throw;
                 }
             }
+
+            // Gửi thông báo cho người tạo phiếu
+            string step1StatusText = request.Decision == "APPROVE" ? "ĐÃ ĐƯỢC DUYỆT (Bước 1 - Quản lý)"
+                : (request.Decision == "REJECT" ? "BỊ TỪ CHỐI" : "YÊU CẦU ĐẾM LẠI");
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} {step1StatusText}",
+                $"Phiếu kiểm kê {session.StocktakeCode} đã {step1StatusText.ToLower()}." +
+                    (string.IsNullOrEmpty(request.Reason) ? "" : $" Lý do: {request.Reason}"),
+                "Stocktake",
+                session.StocktakeId,
+                "ApprovalResult",
+                (byte)(request.Decision == "APPROVE" ? 0 : 2)
+            );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
         }
@@ -692,6 +697,20 @@ namespace Warehouse.DataAcces.Service
                     throw;
                 }
             }
+
+            // Gửi thông báo cho người tạo phiếu
+            string step2StatusText = request.Decision == "APPROVE" ? "ĐÃ ĐƯỢC DUYỆT (Bước 2 - Kế toán)"
+                : (request.Decision == "REJECT" ? "BỊ TỪ CHỐI" : "YÊU CẦU ĐẾM LẠI");
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} {step2StatusText}",
+                $"Phiếu kiểm kê {session.StocktakeCode} đã {step2StatusText.ToLower()}." +
+                    (string.IsNullOrEmpty(request.Reason) ? "" : $" Lý do: {request.Reason}"),
+                "Stocktake",
+                session.StocktakeId,
+                "ApprovalResult",
+                (byte)(request.Decision == "APPROVE" ? 0 : 2)
+            );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
         }
@@ -816,9 +835,6 @@ namespace Warehouse.DataAcces.Service
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
                     // Ghi Audit Log
                     await _auditLogService.LogAsync(
                         currentUserId,
@@ -834,6 +850,17 @@ namespace Warehouse.DataAcces.Service
                     throw;
                 }
             }
+
+            // Gửi thông báo cho người tạo phiếu
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} ĐÃ GHI SỔ",
+                $"Phiếu kiểm kê {session.StocktakeCode} đã được ghi sổ điều chỉnh tồn kho thành công.",
+                "Stocktake",
+                session.StocktakeId,
+                "StatusChange",
+                0
+            );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
         }
@@ -877,8 +904,6 @@ namespace Warehouse.DataAcces.Service
 
             await _context.SaveChangesAsync();
 
-            await _context.SaveChangesAsync();
-
             // Ghi Audit Log
             await _auditLogService.LogAsync(
                 currentUserId,
@@ -886,6 +911,17 @@ namespace Warehouse.DataAcces.Service
                 AuditEntity.StocktakeSession,
                 stocktakeId,
                 $"Hoàn tất kiểm kê phiếu {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Kho đã được mở khóa."
+            );
+
+            // Gửi thông báo cho người tạo phiếu
+            await _notificationService.CreateAsync(
+                session.CreatedBy,
+                $"Kiểm kê {session.StocktakeCode} HOÀN TẤT",
+                $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã hoàn tất. Kho đã được mở khóa.",
+                "Stocktake",
+                session.StocktakeId,
+                "StatusChange",
+                0
             );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
@@ -910,8 +946,6 @@ namespace Warehouse.DataAcces.Service
 
             await _context.SaveChangesAsync();
 
-            await _context.SaveChangesAsync();
-
             // Ghi Audit Log
             await _auditLogService.LogAsync(
                 currentUserId,
@@ -920,6 +954,20 @@ namespace Warehouse.DataAcces.Service
                 stocktakeId,
                 $"Hủy phiếu kiểm kê {session.StocktakeCode}. Lý do: {reason}"
             );
+
+            // Gửi thông báo cho người tạo phiếu
+            if (session.CreatedBy != currentUserId)
+            {
+                await _notificationService.CreateAsync(
+                    session.CreatedBy,
+                    $"Kiểm kê {session.StocktakeCode} ĐÃ HỦY",
+                    $"Phiếu kiểm kê {session.StocktakeCode} đã bị hủy. Lý do: {reason}",
+                    "Stocktake",
+                    session.StocktakeId,
+                    "StatusChange",
+                    2
+                );
+            }
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi khi lấy thông tin sau hủy.");
         }

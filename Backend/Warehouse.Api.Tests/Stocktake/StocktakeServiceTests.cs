@@ -37,6 +37,7 @@ public class StocktakeServiceInterceptor : SaveChangesInterceptor
 public class StocktakeServiceTests
 {
     private readonly Mock<INotificationService> _notificationServiceMock = new();
+    private readonly Mock<IAuditLogService> _auditLogServiceMock = new();
 
     private Mkiwms5Context GetContext()
     {
@@ -77,7 +78,7 @@ public class StocktakeServiceTests
     {
         using var context = GetContext();
         await SeedDataAsync(context);
-        var service = new StocktakeService(context, _notificationServiceMock.Object);
+        var service = new StocktakeService(context, _notificationServiceMock.Object, _auditLogServiceMock.Object);
 
         // Filter by Status=COMPLETED
         var result = await service.GetStocktakesAsync(new StocktakeListRequest { Status = "COMPLETED" });
@@ -93,7 +94,7 @@ public class StocktakeServiceTests
     {
         using var context = GetContext();
         await SeedDataAsync(context);
-        var service = new StocktakeService(context, _notificationServiceMock.Object);
+        var service = new StocktakeService(context, _notificationServiceMock.Object, _auditLogServiceMock.Object);
 
         var detail = await service.GetStocktakeDetailAsync(1);
         detail.Should().NotBeNull();

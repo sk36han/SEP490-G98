@@ -449,20 +449,6 @@ namespace Warehouse.DataAcces.Service
                 );
             }
 
-            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
-            if (gdn.Status == "PENDING_ACC")
-            {
-                await _notificationService.CreateForRolesAsync(
-                    new[] { "KT" },
-                    "Phiếu xuất kho mới chờ duyệt",
-                    $"Phiếu xuất {gdnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
-                    "GoodsDelivery",
-                    gdn.Gdnid,
-                    userId,
-                    "NewRequest"
-                );
-            }
-
             var addr = releaseRequest.Receiver?.Company?.Addresses?
                 .OrderByDescending(a => a.IsDefault)
                 .ThenByDescending(a => a.IsActive)
@@ -643,6 +629,17 @@ namespace Warehouse.DataAcces.Service
                         gdn.Gdnid,
                         userId,
                         "WarehouseAction"
+                    );
+
+                    // Thông báo cho người tạo phiếu biết đã duyệt xong
+                    await _notificationService.CreateAsync(
+                        gdn.CreatedBy,
+                        $"Phiếu xuất kho {gdn.Gdncode} ĐÃ ĐƯỢC DUYỆT",
+                        $"Phiếu xuất kho {gdn.Gdncode} đã được Giám đốc phê duyệt. Thủ kho sẽ thực hiện xuất hàng.",
+                        "GoodsDelivery",
+                        gdn.Gdnid,
+                        "ApprovalResult",
+                        0
                     );
                 }
             }

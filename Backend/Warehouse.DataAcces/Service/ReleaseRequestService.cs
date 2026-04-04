@@ -627,6 +627,18 @@ namespace Warehouse.DataAcces.Service
             );
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo cho Kế toán biết đơn đã bị hủy
+            await _notificationService.CreateForRolesAsync(
+                new[] { "KT" },
+                "Yêu cầu xuất kho bị hủy",
+                $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã bị hủy.",
+                "Release",
+                rr.ReleaseRequestId,
+                userId,
+                "StatusChange"
+            );
+
             return true;
         }
 
@@ -687,6 +699,21 @@ namespace Warehouse.DataAcces.Service
             );
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo cho người tạo đơn biết đơn đã đóng
+            if (rr.RequestedBy != userId)
+            {
+                await _notificationService.CreateAsync(
+                    rr.RequestedBy,
+                    $"Yêu cầu xuất kho {rr.ReleaseRequestCode} ĐÃ ĐÓNG",
+                    $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã được đóng. Hàng giữ dư đã được giải phóng.",
+                    "Release",
+                    rr.ReleaseRequestId,
+                    "StatusChange",
+                    0
+                );
+            }
+
             return true;
         }
 

@@ -8,6 +8,7 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -298,7 +299,7 @@ namespace Warehouse.DataAcces.Service
                 await _context.SaveChangesAsync();
 
                 // Lưu AuditLog
-                string auditAction = normalizedDecision == "approved" ? AuditAction.Approve : AuditAction.Reject;
+                string auditAction = decision == "APPROVED" ? AuditAction.Approve : AuditAction.Reject;
                 string auditEntity = normalizedType switch
                 {
                     "purchaseorder" => AuditEntity.PurchaseOrder,
