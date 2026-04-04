@@ -16,10 +16,12 @@ namespace Warehouse.DataAcces.Service
     public class ItemService : GenericRepository<Item>, IItemService
     {
         private readonly ILogger<ItemService> _logger;
+        private readonly IAuditLogService _auditLogService;
 
-        public ItemService(Mkiwms5Context context, ILogger<ItemService> logger) : base(context)
+        public ItemService(Mkiwms5Context context, ILogger<ItemService> logger, IAuditLogService auditLogService) : base(context)
         {
             _logger = logger;
+            _auditLogService = auditLogService;
         }
 
         public async Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId)
@@ -557,7 +559,8 @@ namespace Warehouse.DataAcces.Service
 
             if (item.IsActive != isActive)
             {
-                _logger.LogDebug("[ItemService] Thay doi trang thai item: {OldStatus} -> {NewStatus}", item.IsActive, isActive);
+                var oldStatus = item.IsActive;
+                _logger.LogDebug("[ItemService] Thay doi trang thai item: {OldStatus} -> {NewStatus}", oldStatus, isActive);
                 item.IsActive = isActive;
                 item.UpdatedAt = DateTime.UtcNow;
                 await UpdateAsync(item);

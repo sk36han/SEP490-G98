@@ -386,6 +386,14 @@ namespace Warehouse.DataAcces.Service
             _context.Users.Update(account);
             await _context.SaveChangesAsync();
 
+            // Audit log
+            await _auditLogService.LogAsync(
+                account.UserId,
+                AuditAction.ChangePassword,
+                AuditEntity.User,
+                account.UserId,
+                $"Người dùng {account.FullName} đã đổi mật khẩu qua email");
+
             return true;
         }
 

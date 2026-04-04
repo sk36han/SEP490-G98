@@ -15,15 +15,17 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly IStocktakeService _stocktakeService;
         private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
         private static readonly string[] AllowedStatuses = { "DRAFT", "PENDING_APPROVAL", "APPROVED", "CANCELLED" };
         private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
-        public StocktakePlanService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService)
+        public StocktakePlanService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _notificationService = notificationService;
+            _auditLogService = auditLogService;
         }
 
         public async Task<StocktakeDetailResponse> CreateStocktakePlanAsync(CreateStocktakeDraftRequest request, long currentUserId)
@@ -104,16 +106,13 @@ namespace Warehouse.DataAcces.Service
 
             await _context.SaveChangesAsync();
 
-            await _context.AuditLogs.AddAsync(new AuditLog
-            {
-                ActorUserId = currentUserId,
-                Action = "SUBMIT_STOCKTAKE_PLAN",
-                EntityType = "StocktakeSession",
-                EntityId = stocktakeId,
-                Detail = $"Gửi thông qua kế hoạch kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Đang chờ phê duyệt.",
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.SubmitStocktakePlan,
+                AuditEntity.StocktakeSession,
+                stocktakeId,
+                $"Gửi thông qua kế hoạch kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Đang chờ phê duyệt."
+            );
 
             // Gửi thông báo cho Quản lý
             await _notificationService.CreateForRolesAsync(
@@ -178,16 +177,14 @@ namespace Warehouse.DataAcces.Service
                     await transaction.CommitAsync();
 
                     // Ghi Audit Log tổng quát
-                    await _context.AuditLogs.AddAsync(new AuditLog
-                    {
-                        ActorUserId = currentUserId,
-                        Action = $"PLAN_{request.Decision}",
-                        EntityType = "StocktakeSession",
-                        EntityId = stocktakeId,
-                        Detail = $"Phê duyệt kế hoạch kiểm kê: {request.Decision}. Lý do: {request.Reason}",
-                        CreatedAt = DateTime.UtcNow
-                    });
-                    await _context.SaveChangesAsync();
+                    string auditAction = request.Decision == "APPROVE" ? AuditAction.Approve : (request.Decision == "REJECT" ? AuditAction.Reject : AuditAction.Update);
+                    await _auditLogService.LogAsync(
+                        currentUserId,
+                        auditAction,
+                        AuditEntity.StocktakeSession,
+                        stocktakeId,
+                        $"Phê duyệt kế hoạch kiểm kê: {request.Decision}. Lý do: {request.Reason}"
+                    );
 
                     // Gửi thông báo kết quả cho người tạo
                     string statusText = session.Status == "APPROVED" ? "ĐÃ ĐƯỢC DUYỆT" : (session.Status == "CANCELLED" ? "BỊ TỪ CHỐI" : "YÊU CẦU CHỈNH SỬA");
@@ -231,16 +228,13 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             // Ghi Audit Log
-            await _context.AuditLogs.AddAsync(new AuditLog
-            {
-                ActorUserId = currentUserId,
-                Action = "CANCEL_STOCKTAKE_PLAN",
-                EntityType = "StocktakeSession",
-                EntityId = stocktakeId,
-                Detail = $"Hủy kế hoạch kiểm kê {session.StocktakeCode}. Lý do: {reason}",
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+            await _auditLogService.LogAsync(
+                currentUserId,
+                AuditAction.CancelStocktakePlan,
+                AuditEntity.StocktakeSession,
+                stocktakeId,
+                $"Hủy kế hoạch kiểm kê {session.StocktakeCode}. Lý do: {reason}"
+            );
 
             return await _stocktakeService.GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi khi lấy thông tin sau hủy.");
         }

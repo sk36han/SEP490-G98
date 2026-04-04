@@ -37,7 +37,7 @@ namespace Warehouse.DataAcces.Service
 				.ToListAsync();
 		}
 
-		public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request)
+		public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request, long currentUserId)
 		{
 			// Kiểm tra RoleCode đã tồn tại chưa
 			var exists = await _context.Roles
@@ -57,8 +57,13 @@ namespace Warehouse.DataAcces.Service
 			_context.Roles.Add(role);
 			await _context.SaveChangesAsync();
 
-			// Audit log - Note: no userId available here, using 0
-			// CreateRole/UpdateRole don't receive userId from controller currently
+			// Audit log
+			await _auditLogService.LogAsync(
+				currentUserId,
+				AuditAction.Create,
+				AuditEntity.Role,
+				role.RoleId,
+				$"Tạo role mới: '{role.RoleName}' (Code: {role.RoleCode})");
 
 			return new RoleResponse
 			{
@@ -68,7 +73,7 @@ namespace Warehouse.DataAcces.Service
 			};
 		}
 
-		public async Task<RoleResponse> UpdateRoleAsync(long roleId, UpdateRoleRequest request)
+		public async Task<RoleResponse> UpdateRoleAsync(long roleId, UpdateRoleRequest request, long currentUserId)
 		{
 			var role = await _context.Roles.FindAsync(roleId);
 			if (role == null)
@@ -87,6 +92,16 @@ namespace Warehouse.DataAcces.Service
 
 			role.RoleCode = request.RoleCode;
 			role.RoleName = request.RoleName;
+
+			await _context.SaveChangesAsync();
+
+			// Audit log
+			await _auditLogService.LogAsync(
+				currentUserId,
+				AuditAction.Update,
+				AuditEntity.Role,
+				role.RoleId,
+				$"Cập nhật role: '{role.RoleName}' (Code: {role.RoleCode})");
 
 			await _context.SaveChangesAsync();
 

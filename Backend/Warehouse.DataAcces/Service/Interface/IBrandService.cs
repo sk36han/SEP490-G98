@@ -33,6 +33,6 @@ namespace Warehouse.DataAcces.Service.Interface
         /// <summary>
         /// Bật / Tắt trạng thái thương hiệu
         /// </summary>
-        Task<BrandResponse> ToggleBrandStatusAsync(long id, bool isActive);
+        Task<BrandResponse> ToggleBrandStatusAsync(long id, bool isActive, long currentUserId);
     }
 }

@@ -16,12 +16,14 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly IServiceProvider _serviceProvider;
         private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
         public ApprovalService(Mkiwms5Context context, IServiceProvider serviceProvider)
         {
             _context = context;
             _serviceProvider = serviceProvider;
             _notificationService = serviceProvider.GetRequiredService<INotificationService>();
+            _auditLogService = serviceProvider.GetRequiredService<IAuditLogService>();
         }
 
         public async Task<PagedResult<ApprovalQueueResponse>> GetPendingApprovalsAsync(ApprovalQueueFilterRequest filter)
@@ -294,6 +296,25 @@ namespace Warehouse.DataAcces.Service
 
                 _context.DocumentApprovals.Add(log);
                 await _context.SaveChangesAsync();
+
+                // Lưu AuditLog
+                string auditAction = normalizedDecision == "approved" ? AuditAction.Approve : AuditAction.Reject;
+                string auditEntity = normalizedType switch
+                {
+                    "purchaseorder" => AuditEntity.PurchaseOrder,
+                    "release" => AuditEntity.ReleaseRequest,
+                    "goodsdelivery" => AuditEntity.GoodsDeliveryNote,
+                    "stocktake" => AuditEntity.Stocktake,
+                    _ => normalizedType.ToUpper()
+                };
+
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    auditAction,
+                    auditEntity,
+                    requestId,
+                    $"{auditAction} yêu cầu {requestType} ID: {requestId}. {(!string.IsNullOrEmpty(reason) ? $"Lý do: {reason}" : "")}"
+                );
 
                 // Gửi thông báo cho người tạo đơn (trừ Release và GoodsDelivery đã được xử lý ở Service riêng)
                 if (normalizedType != "release" && normalizedType != "goodsdelivery")

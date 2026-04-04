@@ -1094,15 +1094,13 @@ namespace Warehouse.DataAcces.Service
 
             gdn.Status = "CANCELLED";
 
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CANCEL",
-                EntityType = "GoodsDeliveryNote",
-                EntityId = gdnId,
-                Detail = $"Hủy phiếu xuất kho {gdn.Gdncode}. Lý do: {reason}",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                "CANCEL",
+                "GoodsDeliveryNote",
+                gdnId,
+                $"Hủy phiếu xuất kho {gdn.Gdncode}. Lý do: {reason}"
+            );
 
             await _context.SaveChangesAsync();
             return true;
@@ -1189,15 +1187,13 @@ namespace Warehouse.DataAcces.Service
                 ActionAt = DateTime.UtcNow
             });
 
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "ISSUE",
-                EntityType = "GoodsDeliveryNote",
-                EntityId = gdn.Gdnid,
-                Detail = $"Thủ kho xác nhận xuất hàng cho phiếu {gdn.Gdncode}.",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                "ISSUE",
+                "GoodsDeliveryNote",
+                gdn.Gdnid,
+                $"Thủ kho xác nhận xuất hàng cho phiếu {gdn.Gdncode}."
+            );
 
             await _context.SaveChangesAsync();
 
@@ -1307,15 +1303,13 @@ namespace Warehouse.DataAcces.Service
             });
 
             // Audit log
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = AuditAction.Close,
-                EntityType = AuditEntity.GoodsDeliveryNote,
-                EntityId = gdn.Gdnid,
-                Detail = $"Xác nhận hoàn tất xuất kho phiếu {gdn.Gdncode}. Kèm file minh chứng: {fileUrl}.",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                AuditAction.Close,
+                AuditEntity.GoodsDeliveryNote,
+                gdn.Gdnid,
+                $"Xác nhận hoàn tất xuất kho phiếu {gdn.Gdncode}. Kèm file minh chứng: {fileUrl}."
+            );
 
             await _context.SaveChangesAsync();
 

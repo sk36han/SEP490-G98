@@ -14,11 +14,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
-        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService)
+        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _context = context;
             _notificationService = notificationService;
+            _auditLogService = auditLogService;
         }
 
         public async Task<PagedResponse<GoodsReceiptNoteResponse>> GetGoodsReceiptNotesAsync(int page, int pageSize)
@@ -264,16 +266,13 @@ namespace Warehouse.DataAcces.Service
                 _context.InventoryTransactionLines.Add(txnLine);
             }
 
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CREATE",
-                EntityType = "GoodsReceiptNote",
-                EntityId = grn.Grnid,
-                Detail = $"Tạo phiếu nhập {grn.Grncode}",
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+            await _auditLogService.LogAsync(
+                userId,
+                "CREATE",
+                "GoodsReceiptNote",
+                grn.Grnid,
+                $"Tạo phiếu nhập {grn.Grncode}"
+            );
 
             // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
             if (grn.Status == "PENDING_ACC")
@@ -512,16 +511,13 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Audit log
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "APPROVE",
-                EntityType = "GoodsReceiptNote",
-                EntityId = grn.Grnid,
-                Detail = $"Duyệt phiếu nhập kho {grn.Grncode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                "APPROVE",
+                "GoodsReceiptNote",
+                grn.Grnid,
+                $"Duyệt phiếu nhập kho {grn.Grncode}"
+            );
 
             await _context.SaveChangesAsync();
 
