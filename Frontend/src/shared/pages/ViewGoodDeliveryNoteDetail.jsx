@@ -1,5 +1,8 @@
-import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getGoodsDeliveryNoteDetail, approveGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
+import authService from '../lib/authService';
+import { getPermissionRole } from '../permissions/roleUtils';
 import {
     ArrowLeft,
     X,
@@ -9,8 +12,11 @@ import {
     MapPin,
     Truck,
     Phone,
+    CheckCircle,
+    XCircle,
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import Toast from '../../components/Toast/Toast';
 import '../styles/CreateSupplier.css';
 import '../styles/CreateGoodDeliveryNote.css';
@@ -19,12 +25,14 @@ import '../styles/CreateGoodDeliveryNote.css';
 const MAX_NOTE_LENGTH = 1000;
 const MAX_TRANSPORT_NOTE_LENGTH = 500;
 
-const GDN_STATUS_META = {
+const STATUS_META = {
     DRAFT: { label: 'Nháp', bg: 'rgba(107, 114, 128, 0.15)', color: '#4b5563' },
-    PENDING: { label: 'Chờ duyệt', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
     PENDING_ACC: { label: 'Chờ kế toán duyệt', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
-    APPROVED: { label: 'Đã duyệt', bg: 'rgba(16, 185, 129, 0.18)', color: '#047857' },
+    PENDING_DIR: { label: 'Chờ giám đốc duyệt', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
+    PENDING_ISSUE: { label: 'Chờ xuất hàng', bg: 'rgba(14, 165, 233, 0.18)', color: '#0369a1' },
+    ISSUED: { label: 'Đã xuất hàng', bg: 'rgba(139, 92, 246, 0.18)', color: '#6d28d9' },
     POSTED: { label: 'Đã ghi sổ', bg: 'rgba(59, 130, 246, 0.18)', color: '#1d4ed8' },
+    APPROVED: { label: 'Đã duyệt', bg: 'rgba(16, 185, 129, 0.18)', color: '#047857' },
     REJECTED: { label: 'Từ chối', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
     CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
 };
@@ -37,86 +45,6 @@ const PAYMENT_METHOD_LABEL = {
     OTHER: 'Khác',
 };
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_GDN = {
-    gdnId: 1001,
-    gdnCode: 'PXH-2026-0001',
-    status: 'POSTED',
-    releaseRequestId: 1,
-    releaseRequestCode: 'YCX-2026-001',
-    warehouseId: 11,
-    warehouseName: 'Kho Hà Nội',
-    receiverId: 201,
-    receiverName: 'Nguyễn Văn Minh',
-    receiverPhone: '0901234567',
-    receiverEmail: 'minhnv@gmail.com',
-    receiverCompanyName: 'Công ty TNHH Thương mại ABC',
-    receiverAddress: 'Số 45 Đường Nguyễn Trãi, Quận 1, TP. Hồ Chí Minh',
-    requestedByName: 'Trần Thị Lan',
-    requestedDate: '2026-02-01',
-    expectedDate: '2026-02-15',
-    issueDate: '2026-02-12',
-    createdByName: 'Nguyễn Văn A',
-    note: 'Giao hàng trong giờ hành chính. Liên hệ trước 30 phút trước khi giao.',
-    shippingFee: 150000,
-    isPaid: true,
-    paymentMethod: 'BANK_TRANSFER',
-    carrierName: 'Giao Hàng Nhanh (GHN)',
-    driverName: 'Trần Văn Bình',
-    driverPhone: '0938123456',
-    licensePlate: '59A-123.45',
-    transportNote: 'Hàng dễ vỡ, cần bọc xốp cẩn thận.',
-    lines: [
-        {
-            itemId: 1,
-            itemCode: 'PEN-001',
-            itemName: 'Bút bi Thiên Long TL-057',
-            uomName: 'Cây',
-            requestedQty: 50,
-            allocatedQty: 50,
-            issuedQty: 0,
-            remainingQty: 50,
-            actualQty: 50,
-            availableQty: 200,
-            unitPrice: 3500,
-            lineTotal: 175000,
-            requiresCertificateCopy: false,
-            note: '',
-        },
-        {
-            itemId: 2,
-            itemCode: 'NOTE-001',
-            itemName: 'Vở note 5 chấm A5',
-            uomName: 'Quyển',
-            requestedQty: 40,
-            allocatedQty: 40,
-            issuedQty: 0,
-            remainingQty: 40,
-            actualQty: 40,
-            availableQty: 80,
-            unitPrice: 22000,
-            lineTotal: 880000,
-            requiresCertificateCopy: true,
-            note: 'Ưu tiên giao cùng đợt với giấy A4',
-        },
-        {
-            itemId: 3,
-            itemCode: 'PAPER-001',
-            itemName: 'Giấy A4 Double A 80gsm',
-            uomName: 'Ram',
-            requestedQty: 30,
-            allocatedQty: 30,
-            issuedQty: 0,
-            remainingQty: 30,
-            actualQty: 25,
-            availableQty: 60,
-            unitPrice: 62000,
-            lineTotal: 1550000,
-            requiresCertificateCopy: true,
-            note: 'Chỉ giao 25 ram, 5 ram còn lại chờ thêm hàng',
-        },
-    ],
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const toNumber = (value, fallback = 0) => {
@@ -130,8 +58,95 @@ const formatCurrency = (value) =>
 const formatQuantity = (value) =>
     toNumber(value).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
 
+// ─── Normalize backend camelCase → frontend camelCase ─────────────────────────
+const normalize = (d) => {
+    if (!d) return null;
+    const lines = (d.lines || []).map(l => ({
+        itemId: l.itemId,
+        itemCode: l.itemCode,
+        itemName: l.itemName,
+        requestedQty: l.requestedQty,
+        actualQty: l.actualQty,
+        uomId: l.uomId,
+        uomName: l.uomName,
+        unitPrice: l.unitPrice,
+        lineTotal: l.lineTotal,
+        requiresCertificateCopy: l.requiresCertificateCopy,
+        releaseRequestLineId: l.releaseRequestLineId,
+        lotId: l.lotId,
+        note: l.note,
+        stockQty: l.stockQty,
+        approvedQty: l.approvedQty,
+        previouslyDeliveredQty: l.previouslyDeliveredQty,
+        remainingQty: l.remainingQty,
+    }));
+
+    const receiver = d.receiver ? {
+        receiverId: d.receiver.receiverId,
+        receiverName: d.receiver.receiverName,
+        phone: d.receiver.phone,
+        email: d.receiver.email,
+        companyId: d.receiver.companyId,
+        companyName: d.receiver.companyName,
+        notes: d.receiver.notes,
+        address: d.receiver.address,
+        city: d.receiver.city,
+        district: d.receiver.district,
+        ward: d.receiver.ward,
+    } : null;
+
+    const transportInfo = d.transportInfo ? {
+        transportId: d.transportInfo.transportId,
+        carrierName: d.transportInfo.carrierName,
+        driverName: d.transportInfo.driverName,
+        driverPhone: d.transportInfo.driverPhone,
+        licensePlate: d.transportInfo.licensePlate,
+        note: d.transportInfo.note,
+    } : null;
+
+    const approvals = (d.approvals || []).map(a => ({
+        approvalId: a.approvalId,
+        stageNo: a.stageNo,
+        decision: a.decision,
+        reason: a.reason,
+        actionBy: a.actionBy,
+        actionByName: a.actionByName,
+        actionAt: a.actionAt,
+    }));
+
+    return {
+        gdnId: d.gdnId,
+        gdnCode: d.gdnCode,
+        issueDate: d.issueDate,
+        status: d.status,
+        isPaid: d.isPaid,
+        paymentMethod: d.paymentMethod,
+        releaseRequestId: d.releaseRequestId,
+        releaseRequestCode: d.releaseRequestCode,
+        warehouseId: d.warehouseId,
+        warehouseName: d.warehouseName,
+        createdBy: d.createdBy,
+        createdByName: d.createdByName,
+        totalDeliveredQty: d.totalDeliveredQty,
+        totalDeliveredAmount: d.totalDeliveredAmount,
+        shippingFee: d.shippingFee,
+        netAmount: d.netAmount,
+        submittedAt: d.submittedAt,
+        approvedAt: d.approvedAt,
+        postedAt: d.postedAt,
+        note: d.note,
+        requesterName: d.requesterName,
+        requestDate: d.requestDate,
+        expectedDate: d.expectedDate,
+        lines,
+        receiver,
+        transportInfo,
+        approvals,
+    };
+};
+
 const getStatusMeta = (status) =>
-    GDN_STATUS_META[String(status || '').toUpperCase()]
+    STATUS_META[String(status || '').toUpperCase()]
     ?? { label: status || '-', bg: 'rgba(107, 114, 128, 0.15)', color: '#4b5563' };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -281,30 +296,126 @@ const SummaryCard = ({ title, value }) => (
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ViewGoodDeliveryNoteDetail() {
+    const { id } = useParams();
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
-    const gdn = MOCK_GDN;
 
-    const statusMeta = getStatusMeta(gdn.status);
+    const [gdn, setGdn] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+    const [approveReason, setApproveReason] = useState('');
+    const [processing, setProcessing] = useState(false);
+
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(userInfo?.roleCode);
+
+    const canApproveStage1 = gdn?.status === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS';
+    const canApproveStage2 = gdn?.status === 'PENDING_DIR' && permissionRole === 'DIRECTOR';
+    const canAct = canApproveStage1 || canApproveStage2;
+
+    const handleApprove = async () => {
+        setProcessing(true);
+        try {
+            await approveGoodsDeliveryNote(gdn.gdnId, {
+                IsApproved: true,
+                Reason: approveReason.trim() || null,
+            });
+            showToast('Duyệt phiếu xuất kho thành công.', 'success');
+            setApproveDialogOpen(false);
+            setApproveReason('');
+            fetchData();
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không duyệt được phiếu xuất kho.';
+            showToast(msg, 'error');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleReject = async () => {
+        setProcessing(true);
+        try {
+            await approveGoodsDeliveryNote(gdn.gdnId, {
+                IsApproved: false,
+                Reason: approveReason.trim() || null,
+            });
+            showToast('Đã từ chối phiếu xuất kho.', 'success');
+            setRejectDialogOpen(false);
+            setApproveReason('');
+            fetchData();
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không thể từ chối phiếu xuất kho.';
+            showToast(msg, 'error');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const fetchData = useCallback(async () => {
+        if (!id) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await getGoodsDeliveryNoteDetail(id);
+            setGdn(normalize(data));
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không tải được chi tiết phiếu xuất hàng';
+            setError(msg);
+            showToast(msg, 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, [id, showToast]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Derived values (hooks phải gọi trước mọi early return) ──────────────
+    const statusMeta = getStatusMeta(gdn?.status);
+    const gdnLines = useMemo(() => gdn?.lines || [], [gdn?.lines]);
 
     const totalDeliveredQty = useMemo(
-        () => gdn.lines.reduce((sum, line) => sum + toNumber(line.actualQty), 0),
-        [gdn.lines]
+        () => gdnLines.reduce((sum, line) => sum + toNumber(line.actualQty), 0),
+        [gdnLines]
     );
     const subtotal = useMemo(
-        () => gdn.lines.reduce((sum, line) => sum + toNumber(line.lineTotal), 0),
-        [gdn.lines]
+        () => gdnLines.reduce((sum, line) => sum + toNumber(line.lineTotal), 0),
+        [gdnLines]
     );
-    const shippingFee = toNumber(gdn.shippingFee);
+    const shippingFee = toNumber(gdn?.shippingFee);
     const grandTotal = subtotal + shippingFee;
 
     const handlePrint = () => {
         showToast('Chức năng in đang được phát triển.', 'info');
     };
 
-    const hasTransport = [gdn.carrierName, gdn.driverName, gdn.driverPhone, gdn.licensePlate].some(
+    const ti = gdn?.transportInfo || {};
+    const gdnReceiver = gdn?.receiver || {};
+    const hasTransport = [ti.carrierName, ti.driverName, ti.driverPhone, ti.licensePlate].some(
         (v) => v && v.trim()
     );
+
+    // ── Early returns (sau hooks) ─────────────────────────────────────────────
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>⟳</div>
+                    <div>Đang tải dữ liệu...</div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !gdn) {
+        return (
+            <div style={{ padding: 24, textAlign: 'center' }}>
+                <div style={{ color: '#b91c1c', marginBottom: 16 }}>{error || 'Không tìm thấy dữ liệu'}</div>
+                <button onClick={() => navigate(-1)}>← Quay lại</button>
+            </div>
+        );
+    }
 
     return (
         <div className="create-supplier-page">
@@ -319,15 +430,6 @@ export default function ViewGoodDeliveryNoteDetail() {
                 <div className="page-header-actions">
                     <button
                         type="button"
-                        onClick={() => navigate(-1)}
-                        className="btn btn-cancel"
-                    >
-                        <X size={15} />
-                        Đóng
-                    </button>
-
-                    <button
-                        type="button"
                         className="btn btn-primary"
                         onClick={handlePrint}
                     >
@@ -335,14 +437,28 @@ export default function ViewGoodDeliveryNoteDetail() {
                         In phiếu
                     </button>
 
-                    <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => navigate('/goods-delivery-notes/detail/' + gdn.gdnId)}
-                    >
-                        <FileText size={15} />
-                        Chỉnh sửa
-                    </button>
+                    {canAct && (
+                        <>
+                            <button
+                                type="button"
+                                className="btn btn-danger"
+                                disabled={processing}
+                                onClick={() => setRejectDialogOpen(true)}
+                            >
+                                <XCircle size={15} />
+                                Từ chối
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-success"
+                                disabled={processing}
+                                onClick={() => setApproveDialogOpen(true)}
+                            >
+                                <CheckCircle size={15} />
+                                Duyệt
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -723,7 +839,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                                     <h2 className="section-title">Người nhận hàng</h2>
                                 </div>
 
-                                {gdn.receiverName ? (
+                                {gdnReceiver.receiverName ? (
                                     <div
                                         style={{
                                             display: 'flex',
@@ -735,30 +851,30 @@ export default function ViewGoodDeliveryNoteDetail() {
                                     >
                                         <div>
                                             <span style={{ fontWeight: 600 }}>Tên: </span>
-                                            <span>{gdn.receiverName}</span>
+                                            <span>{gdnReceiver.receiverName}</span>
                                         </div>
-                                        {gdn.receiverPhone && (
+                                        {gdnReceiver.phone && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <Phone size={14} color="#6b7280" />
-                                                <span>{gdn.receiverPhone}</span>
+                                                <span>{gdnReceiver.phone}</span>
                                             </div>
                                         )}
-                                        {gdn.receiverCompanyName && (
+                                        {gdnReceiver.companyName && (
                                             <div>
                                                 <span style={{ fontWeight: 600 }}>Công ty: </span>
-                                                <span>{gdn.receiverCompanyName}</span>
+                                                <span>{gdnReceiver.companyName}</span>
                                             </div>
                                         )}
-                                        {gdn.receiverEmail && (
+                                        {gdnReceiver.email && (
                                             <div>
                                                 <span style={{ fontWeight: 600 }}>Email: </span>
-                                                <span>{gdn.receiverEmail}</span>
+                                                <span>{gdnReceiver.email}</span>
                                             </div>
                                         )}
-                                        {gdn.receiverAddress && (
+                                        {gdnReceiver.address && (
                                             <div style={{ display: 'flex', alignItems: 'start', gap: '6px' }}>
                                                 <MapPin size={14} color="#6b7280" style={{ flexShrink: 0, marginTop: '2px' }} />
-                                                <span>{gdn.receiverAddress}</span>
+                                                <span>{gdnReceiver.address}</span>
                                             </div>
                                         )}
                                     </div>
@@ -780,31 +896,31 @@ export default function ViewGoodDeliveryNoteDetail() {
 
                                 {hasTransport ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        {gdn.carrierName && (
+                                        {ti.carrierName && (
                                             <div style={{ fontSize: '14px', color: '#374151' }}>
                                                 <span style={{ fontWeight: 600 }}>Hãng vận chuyển: </span>
-                                                <span>{gdn.carrierName}</span>
+                                                <span>{ti.carrierName}</span>
                                             </div>
                                         )}
-                                        {gdn.driverName && (
+                                        {ti.driverName && (
                                             <div style={{ fontSize: '14px', color: '#374151' }}>
                                                 <span style={{ fontWeight: 600 }}>Tài xế: </span>
-                                                <span>{gdn.driverName}</span>
+                                                <span>{ti.driverName}</span>
                                             </div>
                                         )}
-                                        {gdn.driverPhone && (
+                                        {ti.driverPhone && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#374151' }}>
                                                 <Phone size={14} color="#6b7280" />
-                                                <span>{gdn.driverPhone}</span>
+                                                <span>{ti.driverPhone}</span>
                                             </div>
                                         )}
-                                        {gdn.licensePlate && (
+                                        {ti.licensePlate && (
                                             <div style={{ fontSize: '14px', color: '#374151' }}>
                                                 <span style={{ fontWeight: 600 }}>Biển số: </span>
-                                                <span>{gdn.licensePlate}</span>
+                                                <span>{ti.licensePlate}</span>
                                             </div>
                                         )}
-                                        {gdn.transportNote && (
+                                        {ti.note && (
                                             <div
                                                 style={{
                                                     padding: '8px 10px',
@@ -818,7 +934,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                                                 }}
                                             >
                                                 <span style={{ fontWeight: 600, fontStyle: 'normal' }}>Ghi chú: </span>
-                                                {gdn.transportNote}
+                                                {ti.note}
                                             </div>
                                         )}
                                     </div>
@@ -1033,6 +1149,62 @@ export default function ViewGoodDeliveryNoteDetail() {
             </div>
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+
+            {/* Dialog: Duyệt */}
+            <Dialog open={approveDialogOpen} onClose={() => !processing && setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ fontWeight: 600, fontSize: '16px' }}>
+                    Duyệt phiếu xuất kho
+                </DialogTitle>
+                <DialogContent>
+                    <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                        Bạn có chắc chắn muốn duyệt phiếu xuất hàng <strong>{gdn?.gdnCode}</strong> không?
+                    </div>
+                    <div className="form-field">
+                        <label className="form-label">Lý do (không bắt buộc)</label>
+                        <textarea
+                            className="form-input"
+                            rows={3}
+                            value={approveReason}
+                            onChange={(e) => setApproveReason(e.target.value)}
+                            placeholder="Nhập lý do duyệt (nếu có)..."
+                        />
+                    </div>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <button type="button" onClick={() => setApproveDialogOpen(false)} className="btn btn-cancel" disabled={processing}>Hủy</button>
+                    <button type="button" onClick={handleApprove} className="btn btn-success" disabled={processing}>
+                        {processing ? 'Đang xử lý...' : 'Duyệt'}
+                    </button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Dialog: Từ chối */}
+            <Dialog open={rejectDialogOpen} onClose={() => !processing && setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', color: '#b91c1c' }}>
+                    Từ chối phiếu xuất kho
+                </DialogTitle>
+                <DialogContent>
+                    <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                        Bạn có chắc chắn muốn từ chối phiếu xuất hàng <strong>{gdn?.gdnCode}</strong> không?
+                    </div>
+                    <div className="form-field">
+                        <label className="form-label">Lý do từ chối</label>
+                        <textarea
+                            className="form-input"
+                            rows={3}
+                            value={approveReason}
+                            onChange={(e) => setApproveReason(e.target.value)}
+                            placeholder="Nhập lý do từ chối..."
+                        />
+                    </div>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <button type="button" onClick={() => setRejectDialogOpen(false)} className="btn btn-cancel" disabled={processing}>Hủy</button>
+                    <button type="button" onClick={handleReject} className="btn btn-danger" disabled={processing}>
+                        {processing ? 'Đang xử lý...' : 'Từ chối'}
+                    </button>
+                </DialogActions>
+            </Dialog>
         </div>
     );
 }

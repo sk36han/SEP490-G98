@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime, parseDate } from '../lib/dateUtils';
+import { getGoodsDeliveryNotes } from '../lib/goodsDeliveryNoteService';
 import {
     Box,
     Paper,
@@ -89,136 +90,12 @@ const GDN_COLUMNS = [
     { id: 'paymentDisplay', label: 'Thanh toán', sortable: true, draggable: true },
     { id: 'createdBy', label: 'Người tạo', sortable: true, draggable: true },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
 ];
 
 const DEFAULT_COLUMN_ORDER = GDN_COLUMNS.map((c) => c.id);
 const DEFAULT_VISIBLE_COLUMN_IDS = DEFAULT_COLUMN_ORDER.slice();
 const SORTABLE_COLUMN_IDS = GDN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 const COLUMN_IDS_WITH_RIGHT_ALIGN = new Set(['totalDeliveredQty', 'totalDeliveredAmount']);
-
-const MOCK_GDN_LIST = [
-    {
-        goodsDeliveryNoteId: 1,
-        gdnCode: 'GDN-2025-001',
-        releaseRequestCode: 'RR-2025-014',
-        receiverName: 'Công ty TNHH ABC',
-        warehouseName: 'Kho HCM',
-        issueDate: '2025-03-10T08:00:00',
-        status: 'Approved',
-        totalDeliveredQty: 50,
-        totalDeliveredAmount: 125000000,
-        createdBy: 'Nguyễn Văn A',
-        createdAt: '2025-03-09T10:00:00',
-        isPaid: true,
-        paymentMethod: 'Chuyển khoản',
-    },
-    {
-        goodsDeliveryNoteId: 2,
-        gdnCode: 'GDN-2025-002',
-        releaseRequestCode: 'RR-2025-015',
-        receiverName: 'Công ty CP XYZ',
-        warehouseName: 'Kho Hà Nội',
-        issueDate: '2025-03-08T09:00:00',
-        status: 'Dispatched',
-        totalDeliveredQty: 30,
-        totalDeliveredAmount: 75000000,
-        createdBy: 'Trần Thị B',
-        createdAt: '2025-03-07T14:00:00',
-        isPaid: false,
-        paymentMethod: 'Tiền mặt',
-    },
-    {
-        goodsDeliveryNoteId: 3,
-        gdnCode: 'GDN-2025-003',
-        releaseRequestCode: 'RR-2025-016',
-        receiverName: 'Công ty TNHH Minh Phát',
-        warehouseName: 'Kho Đà Nẵng',
-        issueDate: '2025-03-07T10:00:00',
-        status: 'PendingDir',
-        totalDeliveredQty: 20,
-        totalDeliveredAmount: 45000000,
-        createdBy: 'Lê Văn C',
-        createdAt: '2025-03-06T11:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-    {
-        goodsDeliveryNoteId: 4,
-        gdnCode: 'GDN-2025-004',
-        releaseRequestCode: 'RR-2025-017',
-        receiverName: 'Công ty CP Hòa Bình',
-        warehouseName: 'Kho HCM',
-        issueDate: '2025-03-06T08:30:00',
-        status: 'Signed',
-        totalDeliveredQty: 80,
-        totalDeliveredAmount: 200000000,
-        createdBy: 'Phạm Thị D',
-        createdAt: '2025-03-05T09:00:00',
-        isPaid: true,
-        paymentMethod: 'Chuyển khoản',
-    },
-    {
-        goodsDeliveryNoteId: 5,
-        gdnCode: 'GDN-2025-005',
-        releaseRequestCode: 'RR-2025-018',
-        receiverName: 'Công ty TNHH Bắc Nam',
-        warehouseName: 'Kho Hà Nội',
-        issueDate: '2025-03-05T14:00:00',
-        status: 'Posted',
-        totalDeliveredQty: 45,
-        totalDeliveredAmount: 112500000,
-        createdBy: 'Nguyễn Văn A',
-        createdAt: '2025-03-04T08:00:00',
-        isPaid: true,
-        paymentMethod: 'Chuyển khoản',
-    },
-    {
-        goodsDeliveryNoteId: 6,
-        gdnCode: 'GDN-2025-006',
-        releaseRequestCode: 'RR-2025-019',
-        receiverName: 'Công ty TNHH Trường Sơn',
-        warehouseName: 'Kho Đà Nẵng',
-        issueDate: '2025-03-04T09:00:00',
-        status: 'PendingAcc',
-        totalDeliveredQty: 15,
-        totalDeliveredAmount: 37500000,
-        createdBy: 'Trần Thị B',
-        createdAt: '2025-03-03T10:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-    {
-        goodsDeliveryNoteId: 7,
-        gdnCode: 'GDN-2025-007',
-        releaseRequestCode: 'RR-2025-020',
-        receiverName: 'Công ty CP Ánh Dương',
-        warehouseName: 'Kho HCM',
-        issueDate: '2025-03-03T11:00:00',
-        status: 'Rejected',
-        totalDeliveredQty: 0,
-        totalDeliveredAmount: 0,
-        createdBy: 'Lê Văn C',
-        createdAt: '2025-03-02T14:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-    {
-        goodsDeliveryNoteId: 8,
-        gdnCode: 'GDN-2025-008',
-        releaseRequestCode: 'RR-2025-021',
-        receiverName: 'Công ty TNHH An Khang',
-        warehouseName: 'Kho Hà Nội',
-        issueDate: '2025-03-02T08:00:00',
-        status: 'Draft',
-        totalDeliveredQty: 0,
-        totalDeliveredAmount: 0,
-        createdBy: 'Phạm Thị D',
-        createdAt: '2025-03-01T16:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-];
 
 const formatDate = (dateStr) => formatDateTime(dateStr);
 
@@ -249,11 +126,11 @@ export default function ViewGoodDeliveryNoteList() {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    const canCreate = true; // UI mock - show create button
+    const canCreate = true;
 
-    const [list] = useState(MOCK_GDN_LIST);
-    const [loading] = useState(false);
-    const [error] = useState(null);
+    const [list, setList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState(() => {
@@ -286,6 +163,23 @@ export default function ViewGoodDeliveryNoteList() {
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
     const resetRef = useRef(false);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await getGoodsDeliveryNotes({ page: page + 1, pageSize });
+            setList(result.items || []);
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không tải được danh sách phiếu xuất hàng';
+            setError(msg);
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [page, pageSize]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     useEffect(() => {
         if (columnSelectorAnchor) {
@@ -911,7 +805,7 @@ export default function ViewGoodDeliveryNoteList() {
                                     <TableBody>
                                         {rows.map((row, index) => (
                                             <TableRow
-                                                key={row.goodsDeliveryNoteId}
+                                                key={row.gdnId ?? `row-${index}`}
                                                 hover
                                                 sx={{
                                                     height: 56,
@@ -935,8 +829,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/goods-delivery-notes/detail/${row.goodsDeliveryNoteId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.goodsDeliveryNoteId}`); }}
+                                                                        href={`/goods-delivery-notes/detail/${row.gdnId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.gdnId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

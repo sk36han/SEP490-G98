@@ -388,7 +388,7 @@ const Sidebar = () => {
 
                                                     return (
                                                         <ListItem
-                                                            key={child.path + (child.state?.openCreate ? '-create' : `-${ci}`)}
+                                                            key={child.uid ?? (child.path + (child.state?.openCreate ? '-create' : `-${ci}`))}
                                                             disablePadding
                                                             sx={{ display: 'block', mb: `${SUB_MB * 8}px` }}
                                                         >
