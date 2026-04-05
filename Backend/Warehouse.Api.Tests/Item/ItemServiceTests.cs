@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -14,6 +14,7 @@ public class ItemServiceTests : IDisposable
     private readonly Mkiwms5Context _context;
     private readonly ItemService _service;
     private readonly Mock<ILogger<ItemService>> _loggerMock;
+    private readonly Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService> _auditLogServiceMock;
 
     public ItemServiceTests()
     {
@@ -23,7 +24,8 @@ public class ItemServiceTests : IDisposable
 
         _context = new Mkiwms5Context(options);
         _loggerMock = new Mock<ILogger<ItemService>>();
-        _service = new ItemService(_context, _loggerMock.Object);
+        _auditLogServiceMock = new Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService>();
+        _service = new ItemService(_context, _loggerMock.Object, _auditLogServiceMock.Object);
 
         SeedData();
     }

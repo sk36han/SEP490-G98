@@ -16,10 +16,12 @@ namespace Warehouse.DataAcces.Service
     public class ItemService : GenericRepository<Item>, IItemService
     {
         private readonly ILogger<ItemService> _logger;
+        private readonly IAuditLogService _auditLogService;
 
-        public ItemService(Mkiwms5Context context, ILogger<ItemService> logger) : base(context)
+        public ItemService(Mkiwms5Context context, ILogger<ItemService> logger, IAuditLogService auditLogService) : base(context)
         {
             _logger = logger;
+            _auditLogService = auditLogService;
         }
 
         public async Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId)
@@ -196,7 +198,7 @@ namespace Warehouse.DataAcces.Service
                     AuditAction.Create,
                     AuditEntity.Item,
                     entity.ItemId,
-                    $"Tạo sản phẩm {entity.ItemCode} - {entity.ItemName}");
+                    $"Tao san pham {entity.ItemCode} - {entity.ItemName}");
             }
 
             return entity;
@@ -538,7 +540,7 @@ namespace Warehouse.DataAcces.Service
                     AuditAction.Update,
                     AuditEntity.Item,
                     item.ItemId,
-                    $"Cập nhật sản phẩm {item.ItemCode} - {item.ItemName}");
+                    $"Cap nhat san pham {item.ItemCode} - {item.ItemName}");
             }
 
             return item;
@@ -558,6 +560,7 @@ namespace Warehouse.DataAcces.Service
             if (item.IsActive != isActive)
             {
                 _logger.LogDebug("[ItemService] Thay doi trang thai item: {OldStatus} -> {NewStatus}", item.IsActive, isActive);
+                var oldStatus = item.IsActive;
                 item.IsActive = isActive;
                 item.UpdatedAt = DateTime.UtcNow;
                 await UpdateAsync(item);
@@ -570,7 +573,7 @@ namespace Warehouse.DataAcces.Service
                         AuditAction.Update,
                         AuditEntity.Item,
                         item.ItemId,
-                        $"{(isActive ? "Kích hoạt" : "Vô hiệu hóa")} sản phẩm {item.ItemCode}",
+                        $"{(isActive ? "Kich hoat" : "Vo hieu hoa")} san pham {item.ItemCode}",
                         $"IsActive: {oldStatus}",
                         $"IsActive: {isActive}");
                 }
