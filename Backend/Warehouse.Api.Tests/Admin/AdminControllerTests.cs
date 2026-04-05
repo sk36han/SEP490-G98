@@ -20,8 +20,8 @@ namespace WarehouseTests.Admin
 		private readonly Mock<IAdminService> _adminServiceMock = new();
 
 		/// <summary>
-		/// Helper: T?o AdminController v?i ClaimsPrincipal có NameIdentifier claim
-		/// Dùng d? gi? l?p user dã dang nh?p v?i userId c? th?
+		/// Helper: Tạo AdminController với ClaimsPrincipal có NameIdentifier claim
+		/// Dùng để giả lập user đã đăng nhập với userId cụ thể
 		/// </summary>
 		private AdminController CreateControllerWithUser(long userId = 1)
 		{
@@ -44,7 +44,7 @@ namespace WarehouseTests.Admin
 		}
 
 		/// <summary>
-		/// Helper: T?o AdminController KHÔNG có claim (user chua xác th?c)
+		/// Helper: Tạo AdminController KHÔNG có claim (user chưa xác thực)
 		/// </summary>
 		private AdminController CreateControllerWithoutUser()
 		{
@@ -59,21 +59,21 @@ namespace WarehouseTests.Admin
 		}
 
 		// =========================================================
-		// 1? CreateUser — 11 test cases
-		//    TC1:  Thành công ? 201 Created + ApiResponse ch?a CreateUserResponse
-		//    TC2:  Verify response tr? v? d?y d? fields (UserId, Email, FullName, Username, GeneratedPassword, RoleName, CreatedAt)
-		//    TC3:  ModelState invalid (thi?u Email) ? 400 BadRequest
-		//    TC4:  ModelState invalid (nhi?u l?i: thi?u Email + FullName + RoleId) ? 400 BadRequest
-		//    TC5:  Không có claim (user chua dang nh?p) ? 401 Unauthorized
-		//    TC6:  Claim có giá tr? không ph?i s? (ví d?: "abc") ? 401 Unauthorized
-		//    TC7:  Email dã t?n t?i ? InvalidOperationException ? 400 BadRequest
-		//    TC8:  Role không t?n t?i ? InvalidOperationException ? 400 BadRequest
-		//    TC9:  H? tên không h?p l? ? InvalidOperationException ? 400 BadRequest
-		//    TC10: Exception không mong d?i (DB error) ? 500 InternalServerError
-		//    TC11: Verify service nh?n dúng arguments (request + assignedBy)
+		// 1. CreateUser — 11 test cases
+		//    TC1:  Thành công → 201 Created + ApiResponse chứa CreateUserResponse
+		//    TC2:  Verify response trả về đầy đủ fields (UserId, Email, FullName, Username, GeneratedPassword, RoleName, CreatedAt)
+		//    TC3:  ModelState invalid (thiếu Email) → 400 BadRequest
+		//    TC4:  ModelState invalid (nhiều lỗi: thiếu Email + FullName + RoleId) → 400 BadRequest
+		//    TC5:  Không có claim (user chưa đăng nhập) → 401 Unauthorized
+		//    TC6:  Claim có giá trị không phải số (ví dụ: "abc") → 401 Unauthorized
+		//    TC7:  Email đã tồn tại → InvalidOperationException → 400 BadRequest
+		//    TC8:  Role không tồn tại → InvalidOperationException → 400 BadRequest
+		//    TC9:  Họ tên không hợp lệ → InvalidOperationException → 400 BadRequest
+		//    TC10: Exception không mong đợi (DB error) → 500 InternalServerError
+		//    TC11: Verify service nhận đúng arguments (request + assignedBy)
 		// =========================================================
 
-		#region TC1: CreateUser — Thành công ? 201 Created
+		#region TC1: CreateUser — Thành công → 201 Created
 		[Fact]
 		public async Task CreateUser_ReturnsCreated_WhenSuccessful()
 		{
@@ -82,14 +82,14 @@ namespace WarehouseTests.Admin
 			var request = new CreateUserRequest
 			{
 				Email = "newuser@company.com",
-				FullName = "Nguy?n Van Long",
+				FullName = "Nguyễn Văn Long",
 				RoleId = 2
 			};
 			var expected = new CreateUserResponse
 			{
 				UserId = 100,
 				Email = "newuser@company.com",
-				FullName = "Nguy?n Van Long",
+				FullName = "Nguyễn Văn Long",
 				Username = "anguyenv1",
 				GeneratedPassword = "Abc@12345678",
 				RoleName = "STAFF",
@@ -103,35 +103,35 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.CreateUser(request);
 
-			// Assert — Controller tr? v? Created("", ApiResponse<CreateUserResponse>)
+			// Assert — Controller trả về Created("", ApiResponse<CreateUserResponse>)
 			var created = result.Should().BeOfType<CreatedResult>().Subject;
 			var apiResponse = created.Value.Should().BeOfType<ApiResponse<CreateUserResponse>>().Subject;
 
 			apiResponse.Success.Should().BeTrue();
-			apiResponse.Message.Should().Be("T?o tài kho?n thành công.");
+			apiResponse.Message.Should().Be("Tạo tài khoản thành công.");
 			apiResponse.Data.Should().NotBeNull();
 			apiResponse.Data!.Email.Should().Be("newuser@company.com");
 		}
 		#endregion
 
-		#region TC2: CreateUser — Verify t?t c? fields trong response
+		#region TC2: CreateUser — Verify tất cả fields trong response
 		[Fact]
 		public async Task CreateUser_ReturnsAllFields_WhenSuccessful()
 		{
-			// Arrange — Ki?m tra t?t c? fields trong CreateUserResponse du?c tr? v? d?y d?
+			// Arrange — Kiểm tra tất cả fields trong CreateUserResponse được trả về đầy đủ
 			var controller = CreateControllerWithUser(userId: 5);
 			var createdAt = new DateTime(2026, 2, 26, 10, 0, 0, DateTimeKind.Utc);
 			var request = new CreateUserRequest
 			{
 				Email = "fullcheck@test.com",
-				FullName = "Tr?n Th? B",
+				FullName = "Trần Thị B",
 				RoleId = 3
 			};
 			var expected = new CreateUserResponse
 			{
 				UserId = 200,
 				Email = "fullcheck@test.com",
-				FullName = "Tr?n Th? B",
+				FullName = "Trần Thị B",
 				Username = "btrant1",
 				GeneratedPassword = "Xyz@98765432",
 				RoleName = "SALE_SUPPORT",
@@ -145,14 +145,14 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.CreateUser(request);
 
-			// Assert — Verify t?ng field m?t
+			// Assert — Verify từng field một
 			var created = result.Should().BeOfType<CreatedResult>().Subject;
 			var apiResponse = created.Value.Should().BeOfType<ApiResponse<CreateUserResponse>>().Subject;
 			var data = apiResponse.Data!;
 
 			data.UserId.Should().Be(200);
 			data.Email.Should().Be("fullcheck@test.com");
-			data.FullName.Should().Be("Tr?n Th? B");
+			data.FullName.Should().Be("Trần Thị B");
 			data.Username.Should().Be("btrant1");
 			data.GeneratedPassword.Should().Be("Xyz@98765432");
 			data.RoleName.Should().Be("SALE_SUPPORT");
@@ -160,13 +160,13 @@ namespace WarehouseTests.Admin
 		}
 		#endregion
 
-		#region TC3: CreateUser — ModelState invalid (thi?u Email)
+		#region TC3: CreateUser — ModelState invalid (thiếu Email)
 		[Fact]
 		public async Task CreateUser_ReturnsBadRequest_WhenEmailMissing()
 		{
-			// Arrange — Thi?u Email ? ModelState invalid
+			// Arrange — Thiếu Email → ModelState invalid
 			var controller = CreateControllerWithUser();
-			controller.ModelState.AddModelError("Email", "Email là b?t bu?c.");
+			controller.ModelState.AddModelError("Email", "Email là bắt buộc.");
 
 			// Act
 			var result = await controller.CreateUser(new CreateUserRequest());
@@ -176,47 +176,47 @@ namespace WarehouseTests.Admin
 			var apiResponse = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("D? li?u không h?p l?.");
+			apiResponse.Message.Should().Be("Dữ liệu không hợp lệ.");
 
-			// Verify: Service KHÔNG du?c g?i khi ModelState invalid
+			// Verify: Service KHÔNG được gọi khi ModelState invalid
 			_adminServiceMock.Verify(
 				x => x.CreateUserAccountAsync(It.IsAny<CreateUserRequest>(), It.IsAny<long>()),
 				Times.Never);
 		}
 		#endregion
 
-		#region TC4: CreateUser — ModelState invalid (nhi?u l?i cùng lúc)
+		#region TC4: CreateUser — ModelState invalid (nhiều lỗi cùng lúc)
 		[Fact]
 		public async Task CreateUser_ReturnsBadRequest_WhenMultipleFieldsInvalid()
 		{
-			// Arrange — Nhi?u fields b? l?i cùng lúc (Email + FullName + RoleId)
+			// Arrange — Nhiều fields bị lỗi cùng lúc (Email + FullName + RoleId)
 			var controller = CreateControllerWithUser();
-			controller.ModelState.AddModelError("Email", "Email là b?t bu?c.");
-			controller.ModelState.AddModelError("FullName", "H? tên là b?t bu?c.");
-			controller.ModelState.AddModelError("RoleId", "Role là b?t bu?c.");
+			controller.ModelState.AddModelError("Email", "Email là bắt buộc.");
+			controller.ModelState.AddModelError("FullName", "Họ tên là bắt buộc.");
+			controller.ModelState.AddModelError("RoleId", "Role là bắt buộc.");
 
 			// Act
 			var result = await controller.CreateUser(new CreateUserRequest());
 
-			// Assert — V?n tr? v? chung 1 message "D? li?u không h?p l?."
+			// Assert — Vẫn trả về chung 1 message "Dữ liệu không hợp lệ."
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 			var apiResponse = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("D? li?u không h?p l?.");
+			apiResponse.Message.Should().Be("Dữ liệu không hợp lệ.");
 
-			// Verify: Service KHÔNG du?c g?i
+			// Verify: Service KHÔNG được gọi
 			_adminServiceMock.Verify(
 				x => x.CreateUserAccountAsync(It.IsAny<CreateUserRequest>(), It.IsAny<long>()),
 				Times.Never);
 		}
 		#endregion
 
-		#region TC5: CreateUser — Không có claim ? 401 Unauthorized
+		#region TC5: CreateUser — Không có claim → 401 Unauthorized
 		[Fact]
 		public async Task CreateUser_ReturnsUnauthorized_WhenClaimMissing()
 		{
-			// Arrange — Controller không có NameIdentifier claim (user chua dang nh?p)
+			// Arrange — Controller không có NameIdentifier claim (user chưa đăng nhập)
 			var controller = CreateControllerWithoutUser();
 
 			// Act
@@ -232,25 +232,25 @@ namespace WarehouseTests.Admin
 			var apiResponse = unauthorized.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Không xác d?nh du?c danh tính ngu?i dùng.");
+			apiResponse.Message.Should().Be("Không xác định được danh tính người dùng.");
 
-			// Verify: Service KHÔNG du?c g?i khi chua xác th?c
+			// Verify: Service KHÔNG được gọi khi chưa xác thực
 			_adminServiceMock.Verify(
 				x => x.CreateUserAccountAsync(It.IsAny<CreateUserRequest>(), It.IsAny<long>()),
 				Times.Never);
 		}
 		#endregion
 
-		#region TC6: CreateUser — Claim có giá tr? không ph?i s? ? 401 Unauthorized
+		#region TC6: CreateUser — Claim có giá trị không phải số → 401 Unauthorized
 		[Fact]
 		public async Task CreateUser_ReturnsUnauthorized_WhenClaimValueNotNumeric()
 		{
-			// Arrange — Claim NameIdentifier có giá tr? "abc" (không parse du?c thành long)
+			// Arrange — Claim NameIdentifier có giá trị "abc" (không parse được thành long)
 			var controller = new AdminController(_adminServiceMock.Object);
 			var claims = new List<Claim>
 			{
-				new Claim(ClaimTypes.NameIdentifier, "not-a-number"), // giá tr? không h?p l?
-                new Claim(ClaimTypes.Role, "ADMIN")
+				new Claim(ClaimTypes.NameIdentifier, "not-a-number"), // giá trị không hợp lệ
+				new Claim(ClaimTypes.Role, "ADMIN")
 			};
 			var identity = new ClaimsIdentity(claims, "TestAuth");
 			controller.ControllerContext = new ControllerContext
@@ -269,20 +269,20 @@ namespace WarehouseTests.Admin
 				RoleId = 1
 			});
 
-			// Assert — long.TryParse fail ? Unauthorized
+			// Assert — long.TryParse fail → Unauthorized
 			var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
 			var apiResponse = unauthorized.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Không xác d?nh du?c danh tính ngu?i dùng.");
+			apiResponse.Message.Should().Be("Không xác định được danh tính người dùng.");
 		}
 		#endregion
 
-		#region TC7: CreateUser — Email dã t?n t?i ? 400 BadRequest
+		#region TC7: CreateUser — Email đã tồn tại → 400 BadRequest
 		[Fact]
 		public async Task CreateUser_ReturnsBadRequest_WhenEmailAlreadyExists()
 		{
-			// Arrange — Service ném InvalidOperationException: email dã du?c s? d?ng
+			// Arrange — Service ném InvalidOperationException: email đã được sử dụng
 			var controller = CreateControllerWithUser();
 			var request = new CreateUserRequest
 			{
@@ -293,7 +293,7 @@ namespace WarehouseTests.Admin
 
 			_adminServiceMock
 				.Setup(x => x.CreateUserAccountAsync(request, It.IsAny<long>()))
-				.ThrowsAsync(new InvalidOperationException("Email này dã du?c s? d?ng."));
+				.ThrowsAsync(new InvalidOperationException("Email này đã được sử dụng."));
 
 			// Act
 			var result = await controller.CreateUser(request);
@@ -303,26 +303,26 @@ namespace WarehouseTests.Admin
 			var apiResponse = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Email này dã du?c s? d?ng.");
+			apiResponse.Message.Should().Be("Email này đã được sử dụng.");
 		}
 		#endregion
 
-		#region TC8: CreateUser — Role không t?n t?i ? 400 BadRequest
+		#region TC8: CreateUser — Role không tồn tại → 400 BadRequest
 		[Fact]
 		public async Task CreateUser_ReturnsBadRequest_WhenRoleNotFound()
 		{
-			// Arrange — Service ném InvalidOperationException: role không t?n t?i
+			// Arrange — Service ném InvalidOperationException: role không tồn tại
 			var controller = CreateControllerWithUser();
 			var request = new CreateUserRequest
 			{
 				Email = "new@company.com",
 				FullName = "New User",
-				RoleId = 9999  // Role ID không t?n t?i
+				RoleId = 9999  // Role ID không tồn tại
 			};
 
 			_adminServiceMock
 				.Setup(x => x.CreateUserAccountAsync(request, It.IsAny<long>()))
-				.ThrowsAsync(new InvalidOperationException("Role không t?n t?i."));
+				.ThrowsAsync(new InvalidOperationException("Role không tồn tại."));
 
 			// Act
 			var result = await controller.CreateUser(request);
@@ -332,27 +332,27 @@ namespace WarehouseTests.Admin
 			var apiResponse = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Role không t?n t?i.");
+			apiResponse.Message.Should().Be("Role không tồn tại.");
 		}
 		#endregion
 
-		#region TC9: CreateUser — H? tên không h?p l? ? 400 BadRequest
+		#region TC9: CreateUser — Họ tên không hợp lệ → 400 BadRequest
 		[Fact]
 		public async Task CreateUser_ReturnsBadRequest_WhenFullNameInvalid()
 		{
-			// Arrange — Service ném InvalidOperationException: h? tên không h?p l?
-			//           (x?y ra khi GenerateUsernameAsync nh?n tên r?ng ho?c toàn kho?ng tr?ng)
+			// Arrange — Service ném InvalidOperationException: họ tên không hợp lệ
+			//           (xảy ra khi GenerateUsernameAsync nhận tên rỗng hoặc toàn khoảng trắng)
 			var controller = CreateControllerWithUser();
 			var request = new CreateUserRequest
 			{
 				Email = "new@company.com",
-				FullName = "   ",  // toàn kho?ng tr?ng
+				FullName = "   ",  // toàn khoảng trắng
 				RoleId = 1
 			};
 
 			_adminServiceMock
 				.Setup(x => x.CreateUserAccountAsync(request, It.IsAny<long>()))
-				.ThrowsAsync(new InvalidOperationException("H? tên không h?p l?."));
+				.ThrowsAsync(new InvalidOperationException("Họ tên không hợp lệ."));
 
 			// Act
 			var result = await controller.CreateUser(request);
@@ -362,15 +362,15 @@ namespace WarehouseTests.Admin
 			var apiResponse = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("H? tên không h?p l?.");
+			apiResponse.Message.Should().Be("Họ tên không hợp lệ.");
 		}
 		#endregion
 
-		#region TC10: CreateUser — Exception không mong d?i ? 500 InternalServerError
+		#region TC10: CreateUser — Exception không mong đợi → 500 InternalServerError
 		[Fact]
 		public async Task CreateUser_Returns500_WhenUnexpectedException()
 		{
-			// Arrange — Service ném Exception không mong d?i (DB connection, timeout, etc.)
+			// Arrange — Service ném Exception không mong đợi (DB connection, timeout, etc.)
 			var controller = CreateControllerWithUser();
 
 			_adminServiceMock
@@ -385,21 +385,21 @@ namespace WarehouseTests.Admin
 				RoleId = 1
 			});
 
-			// Assert — Controller catch Exception ? StatusCode(500) + message h? th?ng
+			// Assert — Controller catch Exception → StatusCode(500) + message hệ thống
 			var statusCode = result.Should().BeOfType<ObjectResult>().Subject;
 			statusCode.StatusCode.Should().Be(500);
 
 			var apiResponse = statusCode.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Ðã x?y ra l?i h? th?ng.");
+			apiResponse.Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
 
-		#region TC11: CreateUser — Verify service nh?n dúng arguments
+		#region TC11: CreateUser — Verify service nhận đúng arguments
 		[Fact]
 		public async Task CreateUser_PassesCorrectArguments_ToService()
 		{
-			// Arrange — userId = 99 trong claim, request có d?y d? thông tin
+			// Arrange — userId = 99 trong claim, request có đầy đủ thông tin
 			var controller = CreateControllerWithUser(userId: 99);
 			var request = new CreateUserRequest
 			{
@@ -423,9 +423,9 @@ namespace WarehouseTests.Admin
 			await controller.CreateUser(request);
 
 			// Assert — Verify:
-			// 1. Service du?c g?i dúng 1 l?n
-			// 2. Request truy?n vào kh?p Email, FullName, RoleId
-			// 3. assignedBy = 99 (l?y t? claim)
+			// 1. Service được gọi đúng 1 lần
+			// 2. Request truyền vào khớp Email, FullName, RoleId
+			// 3. assignedBy = 99 (lấy từ claim)
 			_adminServiceMock.Verify(
 				x => x.CreateUserAccountAsync(
 					It.Is<CreateUserRequest>(r =>
@@ -438,16 +438,16 @@ namespace WarehouseTests.Admin
 		#endregion
 
 		// =========================================================
-		// 2?? GetUsers — 6 test cases
-		//    TC1: L?y danh sách thành công (có data) ? 200 OK
-		//    TC2: Danh sách r?ng ? 200 OK + empty Items
-		//    TC3: Verify response data ch?a dúng thông tin user
-		//    TC4: Verify filter truy?n dúng vào service
-		//    TC5: Verify service ch? du?c g?i dúng 1 l?n
-		//    TC6: Exception ? 500 InternalServerError
+		// 2. GetUsers — 6 test cases
+		//    TC1: Lấy danh sách thành công (có data) → 200 OK
+		//    TC2: Danh sách rỗng → 200 OK + empty Items
+		//    TC3: Verify response data chứa đúng thông tin user
+		//    TC4: Verify filter truyền đúng vào service
+		//    TC5: Verify service chỉ được gọi đúng 1 lần
+		//    TC6: Exception → 500 InternalServerError
 		// =========================================================
 
-		#region TC1: GetUsers — L?y danh sách thành công (có data)
+		#region TC1: GetUsers — Lấy danh sách thành công (có data)
 		[Fact]
 		public async Task GetUsers_ReturnsOk_WhenSuccessful()
 		{
@@ -458,7 +458,7 @@ namespace WarehouseTests.Admin
 				new AdminUserResponse
 				{
 					UserId = 1,
-					FullName = "Nguy?n Van A",
+					FullName = "Nguyễn Văn A",
 					Email = "a@company.com",
 					IsActive = true,
 					RoleName = "ADMIN",
@@ -468,7 +468,7 @@ namespace WarehouseTests.Admin
 				new AdminUserResponse
 				{
 					UserId = 2,
-					FullName = "Tr?n Th? B",
+					FullName = "Trần Thị B",
 					Email = "b@company.com",
 					IsActive = true,
 					RoleName = "STAFF",
@@ -485,20 +485,20 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.GetUsers(new FilterRequest());
 
-			// Assert — Tr? v? 200 OK + ApiResponse success + message dúng
+			// Assert — Trả về 200 OK + ApiResponse success + message đúng
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var apiResponse = ok.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeTrue();
-			apiResponse.Message.Should().Be("L?y danh sách ngu?i dùng thành công.");
+			apiResponse.Message.Should().Be("Lấy danh sách người dùng thành công.");
 		}
 		#endregion
 
-		#region TC2: GetUsers — Danh sách r?ng ? 200 OK + empty
+		#region TC2: GetUsers — Danh sách rỗng → 200 OK + empty
 		[Fact]
 		public async Task GetUsers_ReturnsOk_WhenEmptyList()
 		{
-			// Arrange — Không có user nào trong h? th?ng
+			// Arrange — Không có user nào trong hệ thống
 			var controller = CreateControllerWithUser();
 			var expected = new PagedResult<AdminUserResponse>(
 				new List<AdminUserResponse>(), 0, 1, 10);
@@ -510,20 +510,20 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.GetUsers(new FilterRequest());
 
-			// Assert — V?n tr? v? 200 OK, không ph?i 404
+			// Assert — Vẫn trả về 200 OK, không phải 404
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var apiResponse = ok.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeTrue();
-			apiResponse.Message.Should().Be("L?y danh sách ngu?i dùng thành công.");
+			apiResponse.Message.Should().Be("Lấy danh sách người dùng thành công.");
 		}
 		#endregion
 
-		#region TC3: GetUsers — Verify response data ch?a dúng thông tin user
+		#region TC3: GetUsers — Verify response data chứa đúng thông tin user
 		[Fact]
 		public async Task GetUsers_ReturnsCorrectData_InResponse()
 		{
-			// Arrange — T?o danh sách user v?i d?y d? thông tin d? verify
+			// Arrange — Tạo danh sách user với đầy đủ thông tin để verify
 			var controller = CreateControllerWithUser();
 			var createdAt = new DateTime(2026, 1, 15, 8, 0, 0, DateTimeKind.Utc);
 			var users = new List<AdminUserResponse>
@@ -552,7 +552,7 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.GetUsers(new FilterRequest());
 
-			// Assert — Verify ApiResponse.Data ch?a dúng PagedResult
+			// Assert — Verify ApiResponse.Data chứa đúng PagedResult
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var apiResponse = ok.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
@@ -563,11 +563,11 @@ namespace WarehouseTests.Admin
 		}
 		#endregion
 
-		#region TC4: GetUsers — Verify filter truy?n dúng vào service
+		#region TC4: GetUsers — Verify filter truyền đúng vào service
 		[Fact]
 		public async Task GetUsers_PassesFilterCorrectly_ToService()
 		{
-			// Arrange — Truy?n filter PageNumber=3, PageSize=15
+			// Arrange — Truyền filter PageNumber=3, PageSize=15
 			var controller = CreateControllerWithUser();
 			var filter = new FilterRequest { PageNumber = 3, PageSize = 15 };
 
@@ -580,14 +580,14 @@ namespace WarehouseTests.Admin
 			// Act
 			await controller.GetUsers(filter);
 
-			// Assert — Verify service nh?n dúng filter object (cùng reference)
+			// Assert — Verify service nhận đúng filter object (cùng reference)
 			_adminServiceMock.Verify(
 				x => x.GetUserListAsync(filter),
 				Times.Once);
 		}
 		#endregion
 
-		#region TC5: GetUsers — Verify service ch? du?c g?i dúng 1 l?n
+		#region TC5: GetUsers — Verify service chỉ được gọi đúng 1 lần
 		[Fact]
 		public async Task GetUsers_CallsServiceExactlyOnce()
 		{
@@ -602,17 +602,17 @@ namespace WarehouseTests.Admin
 			// Act
 			await controller.GetUsers(new FilterRequest());
 
-			// Assert — Service GetUserListAsync ch? du?c g?i dúng 1 l?n, không g?i l?i
+			// Assert — Service GetUserListAsync chỉ được gọi đúng 1 lần, không gọi lại
 			_adminServiceMock.Verify(
 				x => x.GetUserListAsync(It.IsAny<FilterRequest>()),
 				Times.Once);
 
-			// Không có method nào khác c?a service du?c g?i
+			// Không có method nào khác của service được gọi
 			_adminServiceMock.VerifyNoOtherCalls();
 		}
 		#endregion
 
-		#region TC6: GetUsers — Exception ? 500 InternalServerError
+		#region TC6: GetUsers — Exception → 500 InternalServerError
 		[Fact]
 		public async Task GetUsers_Returns500_WhenException()
 		{
@@ -626,30 +626,30 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.GetUsers(new FilterRequest());
 
-			// Assert — Controller catch t?t c? Exception ? StatusCode(500)
+			// Assert — Controller catch tất cả Exception → StatusCode(500)
 			var statusCode = result.Should().BeOfType<ObjectResult>().Subject;
 			statusCode.StatusCode.Should().Be(500);
 
 			var apiResponse = statusCode.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Ðã x?y ra l?i h? th?ng.");
+			apiResponse.Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
 
-		#region UTCID 01: UpdateUser — Normal — C?p nh?t thành công (Enable)
+		#region UTCID 01: UpdateUser — Normal — Cập nhật thành công (Enable)
 		[Fact]
 		public async Task UpdateUser_UTCID01_ReturnsOk_WhenSuccessful()
 		{
 			// Arrange
 			var controller = CreateControllerWithUser(userId: 5);
-			// Request v?n dùng RoleId d? g?i lên
+			// Request vẫn dùng RoleId để gửi lên
 			var request = new UpdateUserRequest { FullName = "vu duc thang", RoleId = 1, IsActive = true };
 
-			// Response tr? v? RoleName (VD: "ADMIN") thay vì RoleId
+			// Response trả về RoleName (VD: "ADMIN") thay vì RoleId
 			var expected = new AdminUserResponse
 			{
 				FullName = "vu duc thang",
-				RoleName = "ADMIN", // Ðã s?a t? RoleId thành RoleName
+				RoleName = "ADMIN", // Đã sửa từ RoleId thành RoleName
 				IsActive = true,
 				Gender = null,
 				DOB = null
@@ -666,11 +666,11 @@ namespace WarehouseTests.Admin
 			response.Data!.RoleName.Should().Be("ADMIN"); // Verify theo RoleName
 			response.Data!.Gender.Should().BeNull();
 			response.Data!.DOB.Should().BeNull();
-			response.Message.Should().Be("C?p nh?t thông tin ngu?i dùng thành công.");
+			response.Message.Should().Be("Cập nhật thông tin người dùng thành công.");
 		}
 		#endregion
 
-		#region UTCID 02: UpdateUser — Normal — C?p nh?t tr?ng thái Disable thành công
+		#region UTCID 02: UpdateUser — Normal — Cập nhật trạng thái Disable thành công
 		[Fact]
 		public async Task UpdateUser_UTCID02_ReturnsOk_WhenDisable()
 		{
@@ -685,13 +685,11 @@ namespace WarehouseTests.Admin
 			var result = await controller.UpdateUser(1, request);
 
 			// Assert
-			result.Should().BeOfType<OkObjectResult>(); //
+			result.Should().BeOfType<OkObjectResult>();
 		}
 		#endregion
 
-		
-
-		#region UTCID 03: UpdateUser — Abnormal — Tên tr?ng
+		#region UTCID 03: UpdateUser — Abnormal — Tên trống
 		[Fact]
 		public async Task UpdateUser_UTCID03_ReturnsBadRequest_WhenNameEmpty()
 		{
@@ -705,11 +703,11 @@ namespace WarehouseTests.Admin
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 			var response = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
-			response.Message.Should().Be("D? li?u không h?p l?."); //
+			response.Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 04: UpdateUser — Boundary — Tên ch?a ký t? d?c bi?t
+		#region UTCID 04: UpdateUser — Boundary — Tên chứa ký tự đặc biệt
 		[Fact]
 		public async Task UpdateUser_UTCID04_ReturnsBadRequest_WhenSpecialChars()
 		{
@@ -717,7 +715,7 @@ namespace WarehouseTests.Admin
 			var controller = CreateControllerWithUser();
 			var request = new UpdateUserRequest { FullName = "tthang80%$" };
 
-			// Gi? l?p Validation ch?n ký t? d?c bi?t
+			// Giả lập Validation chặn ký tự đặc biệt
 			controller.ModelState.AddModelError("FullName", "Invalid format");
 
 			// Act
@@ -725,7 +723,7 @@ namespace WarehouseTests.Admin
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("D? li?u không h?p l?."); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
@@ -741,83 +739,83 @@ namespace WarehouseTests.Admin
 
 			// Assert
 			var unauth = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
-			((ApiResponse<object>)unauth.Value!).Message.Should().Be("Không xác d?nh du?c danh tính ngu?i dùng."); //
+			((ApiResponse<object>)unauth.Value!).Message.Should().Be("Không xác định được danh tính người dùng.");
 		}
 		#endregion
 
-		#region UTCID 06: UpdateUser — Abnormal — Ngu?i dùng không t?n t?i
+		#region UTCID 06: UpdateUser — Abnormal — Người dùng không tồn tại
 		[Fact]
 		public async Task UpdateUser_UTCID06_ReturnsNotFound_WhenUserNotExist()
 		{
 			// Arrange
 			var controller = CreateControllerWithUser();
 			_adminServiceMock.Setup(x => x.UpdateUserAsync(999, It.IsAny<UpdateUserRequest>(), It.IsAny<long>()))
-							 .ThrowsAsync(new KeyNotFoundException("Ngu?i dùng không t?n t?i."));
+							 .ThrowsAsync(new KeyNotFoundException("Người dùng không tồn tại."));
 
 			// Act
 			var result = await controller.UpdateUser(999, new UpdateUserRequest());
 
 			// Assert
 			var nf = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-			((ApiResponse<object>)nf.Value!).Message.Should().Be("Ngu?i dùng không t?n t?i."); //
+			((ApiResponse<object>)nf.Value!).Message.Should().Be("Người dùng không tồn tại.");
 		}
 		#endregion
 
-		#region UTCID 07: UpdateUser — Abnormal — Admin t? d?i tr?ng thái chính mình
+		#region UTCID 07: UpdateUser — Abnormal — Admin tự đổi trạng thái chính mình
 		[Fact]
 		public async Task UpdateUser_UTCID07_ReturnsBadRequest_WhenSelfUpdateStatus()
 		{
-			// Arrange — Admin ID 5 t? s?a chính mình
+			// Arrange — Admin ID 5 tự sửa chính mình
 			var controller = CreateControllerWithUser(userId: 5);
 			_adminServiceMock.Setup(x => x.UpdateUserAsync(5, It.IsAny<UpdateUserRequest>(), 5))
-							 .ThrowsAsync(new InvalidOperationException("B?n không du?c phép thay d?i tr?ng thái tài kho?n c?a chính mình."));
+							 .ThrowsAsync(new InvalidOperationException("Bạn không được phép thay đổi trạng thái tài khoản của chính mình."));
 
 			// Act
 			var result = await controller.UpdateUser(5, new UpdateUserRequest { IsActive = false });
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Contain("B?n không du?c phép thay d?i tr?ng thái"); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Contain("Bạn không được phép thay đổi trạng thái");
 		}
 		#endregion
 
-		#region UTCID 08: UpdateUser — Abnormal — Username dã t?n t?i
+		#region UTCID 08: UpdateUser — Abnormal — Username đã tồn tại
 		[Fact]
 		public async Task UpdateUser_UTCID08_ReturnsBadRequest_WhenUsernameExists()
 		{
 			// Arrange
 			var controller = CreateControllerWithUser();
 			_adminServiceMock.Setup(x => x.UpdateUserAsync(It.IsAny<long>(), It.IsAny<UpdateUserRequest>(), It.IsAny<long>()))
-							 .ThrowsAsync(new InvalidOperationException("Username 'newUsername' dã t?n t?i."));
+							 .ThrowsAsync(new InvalidOperationException("Username 'newUsername' đã tồn tại."));
 
 			// Act
 			var result = await controller.UpdateUser(1, new UpdateUserRequest());
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Contain("dã t?n t?i"); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Contain("đã tồn tại");
 		}
 		#endregion
 
-		#region UTCID 09: UpdateUser — Abnormal — Role không t?n t?i
+		#region UTCID 09: UpdateUser — Abnormal — Role không tồn tại
 		[Fact]
 		public async Task UpdateUser_UTCID09_ReturnsBadRequest_WhenRoleInvalid()
 		{
 			// Arrange — Role: 9999999
 			var controller = CreateControllerWithUser();
 			_adminServiceMock.Setup(x => x.UpdateUserAsync(1, It.IsAny<UpdateUserRequest>(), It.IsAny<long>()))
-							 .ThrowsAsync(new InvalidOperationException("Role không t?n t?i."));
+							 .ThrowsAsync(new InvalidOperationException("Role không tồn tại."));
 
 			// Act
 			var result = await controller.UpdateUser(1, new UpdateUserRequest { RoleId = 9999999 });
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Role không t?n t?i."); //
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Role không tồn tại.");
 		}
 		#endregion
 
-		#region UTCID 10: UpdateUser — Abnormal — L?i h? th?ng 500
+		#region UTCID 10: UpdateUser — Abnormal — Lỗi hệ thống 500
 		[Fact]
 		public async Task UpdateUser_UTCID10_Returns500_WhenSystemError()
 		{
@@ -832,11 +830,12 @@ namespace WarehouseTests.Admin
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("Ðã x?y ra l?i h? th?ng."); //
+			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
+
 		// =========================================================
-		// 4? ToggleUserStatus — 6 test cases 
+		// 4. ToggleUserStatus — 6 test cases 
 		// =========================================================
 
 		#region UTCID 01: Toggle Disable thành công
@@ -916,11 +915,11 @@ namespace WarehouseTests.Admin
 			var apiResponse = unauthorized.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Không xác d?nh du?c danh tính ngu?i dùng.");
+			apiResponse.Message.Should().Be("Không xác định được danh tính người dùng.");
 		}
 		#endregion
 
-		#region UTCID 04: User không t?n t?i -> 404 NotFound
+		#region UTCID 04: User không tồn tại -> 404 NotFound
 		[Fact]
 		public async Task ToggleUserStatus_UTCID04_ReturnsNotFound_WhenUserNotExist()
 		{
@@ -929,7 +928,7 @@ namespace WarehouseTests.Admin
 
 			_adminServiceMock
 				.Setup(x => x.ToggleUserStatusAsync(99999, It.IsAny<long>()))
-				.ThrowsAsync(new KeyNotFoundException("Ngu?i dùng không t?n t?i."));
+				.ThrowsAsync(new KeyNotFoundException("Người dùng không tồn tại."));
 
 			// Act
 			var result = await controller.ToggleUserStatus(99999);
@@ -939,20 +938,20 @@ namespace WarehouseTests.Admin
 			var apiResponse = notFound.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Ngu?i dùng không t?n t?i.");
+			apiResponse.Message.Should().Be("Người dùng không tồn tại.");
 		}
 		#endregion
 
-		#region UTCID 05: Admin t? toggle chính mình -> 400 BadRequest
+		#region UTCID 05: Admin tự toggle chính mình -> 400 BadRequest
 		[Fact]
 		public async Task ToggleUserStatus_UTCID05_ReturnsBadRequest_WhenSelfToggle()
 		{
-			// Arrange — TargetUserId trùng v?i Admin ID
+			// Arrange — TargetUserId trùng với Admin ID
 			var controller = CreateControllerWithUser(userId: 1);
 
 			_adminServiceMock
 				.Setup(x => x.ToggleUserStatusAsync(1, 1))
-				.ThrowsAsync(new InvalidOperationException("B?n không du?c phép thay d?i tr?ng thái tài kho?n c?a chính mình."));
+				.ThrowsAsync(new InvalidOperationException("Bạn không được phép thay đổi trạng thái tài khoản của chính mình."));
 
 			// Act
 			var result = await controller.ToggleUserStatus(1);
@@ -962,11 +961,11 @@ namespace WarehouseTests.Admin
 			var apiResponse = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("B?n không du?c phép thay d?i tr?ng thái tài kho?n c?a chính mình.");
+			apiResponse.Message.Should().Be("Bạn không được phép thay đổi trạng thái tài khoản của chính mình.");
 		}
 		#endregion
 
-		#region UTCID 06: Exception không mong d?i -> 500 InternalServerError
+		#region UTCID 06: Exception không mong đợi -> 500 InternalServerError
 		[Fact]
 		public async Task ToggleUserStatus_UTCID06_Returns500_WhenUnexpectedException()
 		{
@@ -986,15 +985,15 @@ namespace WarehouseTests.Admin
 
 			var apiResponse = statusCode.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 			apiResponse.Success.Should().BeFalse();
-			apiResponse.Message.Should().Be("Ðã x?y ra l?i h? th?ng.");
+			apiResponse.Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
 
 		// =========================================================
-		// 5? ExportUsersExcel — 3 test cases
-		//    TC1: Export thành công ? FileContentResult
-		//    TC2: Exception ? 500 InternalServerError
-		//    TC3: Verify dúng content-type và filename
+		// 5. ExportUsersExcel — 3 test cases
+		//    TC1: Export thành công → FileContentResult
+		//    TC2: Exception → 500 InternalServerError
+		//    TC3: Verify đúng content-type và filename
 		// =========================================================
 
 		[Fact]
@@ -1012,7 +1011,7 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.ExportUsersExcel();
 
-			// Assert — Controller tr? v? File(content, contentType, fileName)
+			// Assert — Controller trả về File(content, contentType, fileName)
 			var fileResult = result.Should().BeOfType<FileContentResult>().Subject;
 
 			fileResult.FileContents.Should().BeEquivalentTo(fileContent);
@@ -1051,7 +1050,7 @@ namespace WarehouseTests.Admin
 			// Act
 			var result = await controller.ExportUsersExcel();
 
-			// Assert — Content-Type ph?i là xlsx MIME type
+			// Assert — Content-Type phải là xlsx MIME type
 			var fileResult = result.Should().BeOfType<FileContentResult>().Subject;
 			fileResult.ContentType.Should().Be(
 				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

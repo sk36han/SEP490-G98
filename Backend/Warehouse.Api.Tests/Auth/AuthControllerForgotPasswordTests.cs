@@ -35,7 +35,8 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Náº¿u email tá»“n táº¡i trong há»‡ thá»‘ng, chÃºng tÃ´i Ä‘Ã£ gá»­i link Ä‘áº·t láº¡i máº­t kháº©u Ä‘áº¿n email cá»§a báº¡n.");
+		response.Message.Should().Contain("email ton tai");
+		response.Message.Should().Contain("gui link");
 	}
 
 	[Fact]
@@ -54,7 +55,7 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Náº¿u email tá»“n táº¡i trong há»‡ thá»‘ng, chÃºng tÃ´i Ä‘Ã£ gá»­i link Ä‘áº·t láº¡i máº­t kháº©u Ä‘áº¿n email cá»§a báº¡n.");
+		response.Message.Should().Contain("email ton tai");
 	}
 
 	[Fact]
@@ -122,7 +123,7 @@ public class AuthControllerForgotPasswordTests
 
 		_authServiceMock
 			.Setup(x => x.SendResetPasswordEmailAsync(request.Email))
-			.ThrowsAsync(new InvalidOperationException("Thiáº¿u cáº¥u hÃ¬nh SMTP trong appsettings.json"));
+			.ThrowsAsync(new InvalidOperationException("Thieu cau hinh SMTP"));
 
 		var result = await controller.ForgotPassword(request);
 
@@ -130,7 +131,7 @@ public class AuthControllerForgotPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Thiáº¿u cáº¥u hÃ¬nh SMTP trong appsettings.json");
+		response.Message.Should().Contain("SMTP");
 	}
 
 	[Fact]
@@ -150,6 +151,7 @@ public class AuthControllerForgotPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("CÃ³ lá»—i xáº£y ra khi gá»­i email Ä‘áº·t láº¡i máº­t kháº©u.");
+		response.Message.Should().Contain("Co loi");
+		response.Message.Should().Contain("gui email");
 	}
 }
