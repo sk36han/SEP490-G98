@@ -14,10 +14,12 @@ namespace Warehouse.DataAcces.Service
     public class PurchaseReturnNoteService : IPurchaseReturnNoteService
     {
         private readonly Mkiwms5Context _context;
+        private readonly IAuditLogService _auditLogService;
 
-        public PurchaseReturnNoteService(Mkiwms5Context context)
+        public PurchaseReturnNoteService(Mkiwms5Context context, IAuditLogService auditLogService)
         {
             _context = context;
+            _auditLogService = auditLogService;
         }
 
         public async Task<PurchaseReturnNoteResponse> CreatePRNAsync(long userId, CreatePRNRequest request)
@@ -154,16 +156,13 @@ namespace Warehouse.DataAcces.Service
             }
 
             // AuditLog
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CREATE",
-                EntityType = "PurchaseReturnNote",
-                EntityId = prn.PurchaseReturnId,
-                Detail = $"Tao phieu tra hang {prnCode} tu phieu nhap {grn.Grncode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                "CREATE",
+                "PurchaseReturnNote",
+                prn.PurchaseReturnId,
+                $"Tao phieu tra hang {prnCode} tu phieu nhap {grn.Grncode}"
+            );
 
             await _context.SaveChangesAsync();
 
@@ -378,16 +377,13 @@ namespace Warehouse.DataAcces.Service
             }
 
             // AuditLog
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "APPROVE",
-                EntityType = "PurchaseReturnNote",
-                EntityId = prn.PurchaseReturnId,
-                Detail = $"Duyet phieu tra hang {prn.ReturnCode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                "APPROVE",
+                "PurchaseReturnNote",
+                prn.PurchaseReturnId,
+                $"Duyet phieu tra hang {prn.ReturnCode}"
+            );
 
             await _context.SaveChangesAsync();
 
@@ -428,16 +424,13 @@ namespace Warehouse.DataAcces.Service
             prn.RefundedAt = DateTime.UtcNow;
 
             // AuditLog
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "REFUND",
-                EntityType = "PurchaseReturnNote",
-                EntityId = prn.PurchaseReturnId,
-                Detail = $"Cap nhat hoan tien phieu tra hang {prn.ReturnCode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                "REFUND",
+                "PurchaseReturnNote",
+                prn.PurchaseReturnId,
+                $"Cap nhat hoan tien phieu tra hang {prn.ReturnCode}"
+            );
 
             await _context.SaveChangesAsync();
 
@@ -491,16 +484,13 @@ namespace Warehouse.DataAcces.Service
             prn.Status = "CANCELLED";
 
             // AuditLog
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CANCEL",
-                EntityType = "PurchaseReturnNote",
-                EntityId = prn.PurchaseReturnId,
-                Detail = $"Huy phieu tra hang {prn.ReturnCode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                "CANCEL",
+                "PurchaseReturnNote",
+                prn.PurchaseReturnId,
+                $"Huy phieu tra hang {prn.ReturnCode}"
+            );
 
             await _context.SaveChangesAsync();
 

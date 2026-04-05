@@ -36,9 +36,4 @@
     <ProjectReference Include="..\Warehouse.Entities\Warehouse.Entities.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="ItemParameterValue\" />
-    <Folder Include="ItemParameter\" />
-  </ItemGroup>
-
 </Project>

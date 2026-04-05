@@ -8,6 +8,7 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -15,11 +16,15 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IServiceProvider _serviceProvider;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
         public ApprovalService(Mkiwms5Context context, IServiceProvider serviceProvider)
         {
             _context = context;
             _serviceProvider = serviceProvider;
+            _notificationService = serviceProvider.GetRequiredService<INotificationService>();
+            _auditLogService = serviceProvider.GetRequiredService<IAuditLogService>();
         }
 
         public async Task<PagedResult<ApprovalQueueResponse>> GetPendingApprovalsAsync(ApprovalQueueFilterRequest filter)
@@ -156,6 +161,9 @@ namespace Warehouse.DataAcces.Service
             if (string.IsNullOrWhiteSpace(requestType))
                 return ApprovalResult.Failed("Loại yêu cầu (RequestType) không được để trống.");
 
+            if (decision == "REJECTED" && string.IsNullOrWhiteSpace(reason))
+                return ApprovalResult.Failed("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
+
             bool IsPending(string status) =>
                 !string.IsNullOrEmpty(status) &&
                 status.StartsWith("PENDING", StringComparison.OrdinalIgnoreCase);
@@ -289,6 +297,72 @@ namespace Warehouse.DataAcces.Service
 
                 _context.DocumentApprovals.Add(log);
                 await _context.SaveChangesAsync();
+
+                // Lưu AuditLog
+                string auditAction = decision == "APPROVED" ? AuditAction.Approve : AuditAction.Reject;
+                string auditEntity = normalizedType switch
+                {
+                    "purchaseorder" => AuditEntity.PurchaseOrder,
+                    "release" => AuditEntity.ReleaseRequest,
+                    "goodsdelivery" => AuditEntity.GoodsDeliveryNote,
+                    "stocktake" => AuditEntity.Stocktake,
+                    _ => normalizedType.ToUpper()
+                };
+
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    auditAction,
+                    auditEntity,
+                    requestId,
+                    $"{auditAction} yêu cầu {requestType} ID: {requestId}. {(!string.IsNullOrEmpty(reason) ? $"Lý do: {reason}" : "")}"
+                );
+
+                // Gửi thông báo cho người tạo đơn (trừ Release và GoodsDelivery đã được xử lý ở Service riêng)
+                if (normalizedType != "release" && normalizedType != "goodsdelivery")
+                {
+                    long? requesterId = null;
+                    string code = "";
+                    string displayType = "";
+
+                    if (normalizedType == "purchaseorder")
+                    {
+                        var po = await _context.PurchaseOrders.FindAsync(requestId);
+                        requesterId = po?.RequestedBy;
+                        code = po?.Pocode ?? "";
+                        displayType = "Đơn mua hàng";
+                    }
+                    else if (normalizedType == "goodsreceipt")
+                    {
+                        var grn = await _context.GoodsReceiptNotes.FindAsync(requestId);
+                        requesterId = grn?.CreatedBy;
+                        code = grn?.Grncode ?? "";
+                        displayType = "Phiếu nhập kho";
+                    }
+                    else if (normalizedType == "inventoryadjustment")
+                    {
+                        var adj = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
+                        requesterId = adj?.SubmittedBy;
+                        code = adj?.AdjustmentCode ?? "";
+                        displayType = "Phiếu kiểm kê/điều chỉnh";
+                    }
+
+                    if (requesterId.HasValue)
+                    {
+                        string statusText = decision == "APPROVED" ? "ĐƯỢC DUYỆT" : "BỊ TỪ CHỐI";
+                        string reasonText = string.IsNullOrEmpty(reason) ? "" : $". Lý do: {reason}";
+                        
+                        await _notificationService.CreateAsync(
+                            requesterId.Value,
+                            $"{displayType} {code} {statusText}",
+                            $"Đơn {code} của bạn đã {statusText.ToLower()}{reasonText}.",
+                            requestType,
+                            requestId,
+                            "ApprovalResult",
+                            (byte)(decision == "APPROVED" ? 1 : 2)
+                        );
+                    }
+                }
+
                 return ApprovalResult.Succeeded($"Thực hiện thành công: Đã chuyển trạng thái đơn {requestType} sang '{decision}'.");
             }
             catch (Exception ex)

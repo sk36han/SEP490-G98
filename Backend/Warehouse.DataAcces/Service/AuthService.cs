@@ -42,6 +42,8 @@ namespace Warehouse.DataAcces.Service
             var normalizedIdentifier = identifier.Trim();
 
             var user = await _context.Users
+                .Include(u => u.UserRoleUser)
+                .ThenInclude(ur => ur!.Role)
                 .FirstOrDefaultAsync(u => u.Email == normalizedIdentifier || u.Username == normalizedIdentifier);
 
             if (user == null || !user.IsActive)
@@ -383,6 +385,14 @@ namespace Warehouse.DataAcces.Service
 
             _context.Users.Update(account);
             await _context.SaveChangesAsync();
+
+            // Audit log
+            await _auditLogService.LogAsync(
+                account.UserId,
+                AuditAction.ChangePassword,
+                AuditEntity.User,
+                account.UserId,
+                $"Người dùng {account.FullName} đã đổi mật khẩu qua email");
 
             return true;
         }

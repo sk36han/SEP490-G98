@@ -13,11 +13,15 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IStocktakeService _stocktakeService;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
-        public ReleaseRequestService(Mkiwms5Context context, IStocktakeService stocktakeService)
+        public ReleaseRequestService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
+            _notificationService = notificationService;
+            _auditLogService = auditLogService;
         }
 
         // ──────────────────────────── CREATE ────────────────────────────
@@ -166,21 +170,32 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            // 11. Lưu vào database
+            // 12. Lưu vào database
             _context.ReleaseRequests.Add(releaseRequest);
             await _context.SaveChangesAsync();
 
-            // 12. Ghi audit log
-            _context.AuditLogs.Add(new AuditLog
+            // 13. Ghi audit log
+            await _auditLogService.LogAsync(
+                requestedByUserId,
+                "CREATE",
+                "ReleaseRequest",
+                releaseRequest.ReleaseRequestId,
+                $"Tạo mới yêu cầu xuất kho {rrCode}"
+            );
+
+            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
+            if (releaseRequest.Status == "PENDING_ACC")
             {
-                ActorUserId = requestedByUserId,
-                Action = "CREATE",
-                EntityType = "ReleaseRequest",
-                EntityId = releaseRequest.ReleaseRequestId,
-                Detail = $"Tạo yêu cầu xuất kho {rrCode}",
-                CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "KT" },
+                    "Yêu cầu xuất kho mới chờ duyệt",
+                    $"Yêu cầu xuất kho {rrCode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ Kế toán phê duyệt.",
+                    "Release",
+                    releaseRequest.ReleaseRequestId,
+                    requestedByUserId,
+                    "NewRequest"
+                );
+            }
 
             // 13. Trả về response chi tiết
             return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms);
@@ -569,15 +584,13 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 9. Audit log
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "UPDATE",
-                EntityType = "ReleaseRequest",
-                EntityId = rr.ReleaseRequestId,
-                Detail = $"Cập nhật yêu cầu xuất kho {rr.ReleaseRequestCode}",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                "UPDATE",
+                "ReleaseRequest",
+                rr.ReleaseRequestId,
+                $"Cập nhật yêu cầu xuất kho {rr.ReleaseRequestCode}"
+            );
 
             await _context.SaveChangesAsync();
 
@@ -605,17 +618,27 @@ namespace Warehouse.DataAcces.Service
             rr.LifecycleStatus = "Cancelled";
 
             // 3. Ghi audit log
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CANCEL",
-                EntityType = "ReleaseRequest",
-                EntityId = rr.ReleaseRequestId,
-                Detail = $"Hủy yêu cầu xuất kho {rr.ReleaseRequestCode}",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                "CANCEL",
+                "ReleaseRequest",
+                rr.ReleaseRequestId,
+                $"Hủy yêu cầu xuất kho {rr.ReleaseRequestCode}"
+            );
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo cho Kế toán biết đơn đã bị hủy
+            await _notificationService.CreateForRolesAsync(
+                new[] { "KT" },
+                "Yêu cầu xuất kho bị hủy",
+                $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã bị hủy.",
+                "Release",
+                rr.ReleaseRequestId,
+                userId,
+                "StatusChange"
+            );
+
             return true;
         }
 
@@ -667,17 +690,30 @@ namespace Warehouse.DataAcces.Service
             rr.LifecycleStatus = "Closed";
 
             // Ghi audit log
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CLOSE",
-                EntityType = "ReleaseRequest",
-                EntityId = rr.ReleaseRequestId,
-                Detail = $"Đóng yêu cầu xuất kho {rr.ReleaseRequestCode} và giải phóng tồn kho đã giữ",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                "CLOSE",
+                "ReleaseRequest",
+                rr.ReleaseRequestId,
+                $"Đóng yêu cầu xuất kho {rr.ReleaseRequestCode} và giải phóng tồn kho đã giữ"
+            );
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo cho người tạo đơn biết đơn đã đóng
+            if (rr.RequestedBy != userId)
+            {
+                await _notificationService.CreateAsync(
+                    rr.RequestedBy,
+                    $"Yêu cầu xuất kho {rr.ReleaseRequestCode} ĐÃ ĐÓNG",
+                    $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã được đóng. Hàng giữ dư đã được giải phóng.",
+                    "Release",
+                    rr.ReleaseRequestId,
+                    "StatusChange",
+                    0
+                );
+            }
+
             return true;
         }
 
@@ -710,6 +746,9 @@ namespace Warehouse.DataAcces.Service
 
             var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
             string decision = request.IsApproved ? "APPROVE" : "REJECT";
+
+            if (!request.IsApproved && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
 
             // 3. Xử lý theo trạng thái hiện tại (Chỉ 1 bước: Kế toán duyệt)
             if (rr.Status == "PENDING_ACC")
@@ -779,19 +818,30 @@ namespace Warehouse.DataAcces.Service
                     $"Yêu cầu xuất kho không ở trạng thái chờ duyệt. Trạng thái hiện tại: {rr.Status}.");
             }
 
-            // Audit log
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = request.IsApproved ? "APPROVE" : "REJECT",
-                EntityType = "ReleaseRequest",
-                EntityId = rr.ReleaseRequestId,
-                Detail = $"{(request.IsApproved ? "Duyệt" : "Từ chối")} yêu cầu xuất kho {rr.ReleaseRequestCode}" +
-                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"),
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                request.IsApproved ? "APPROVE" : "REJECT",
+                "ReleaseRequest",
+                rr.ReleaseRequestId,
+                $"{(request.IsApproved ? "Duyệt" : "Từ chối")} yêu cầu xuất kho {rr.ReleaseRequestCode}" +
+                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}")
+            );
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo kết quả cho người tạo đơn
+            string statusText = rr.Status == "APPROVED" ? "ĐƯỢC DUYỆT" : "BỊ TỪ CHỐI";
+            string reasonText = string.IsNullOrEmpty(request.Reason) ? "" : $". Lý do: {request.Reason}";
+
+            await _notificationService.CreateAsync(
+                rr.RequestedBy,
+                $"Yêu cầu xuất kho {rr.ReleaseRequestCode} {statusText}",
+                $"Yêu cầu xuất kho {rr.ReleaseRequestCode} của bạn đã {statusText.ToLower()}{reasonText}.",
+                "Release",
+                rr.ReleaseRequestId,
+                "ApprovalResult",
+                (byte)(rr.Status == "APPROVED" ? 1 : 2)
+            );
 
             return await GetReleaseRequestByIdAsync(id)
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");

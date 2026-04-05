@@ -5,6 +5,8 @@ using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
 using WarehouseModel = Warehouse.Entities.Models;
+using Moq;
+using Warehouse.DataAcces.Service.Interface;
 
 namespace Warehouse.Api.Tests.GoodsReceiptNote;
 
@@ -12,6 +14,8 @@ public class GoodsReceiptNoteServiceTests : IDisposable
 {
     private readonly Mkiwms5Context _context;
     private readonly GoodsReceiptNoteService _service;
+    private readonly Mock<INotificationService> _mockNotificationService;
+    private readonly Mock<IAuditLogService> _mockAuditLogService;
 
     public GoodsReceiptNoteServiceTests()
     {
@@ -20,7 +24,9 @@ public class GoodsReceiptNoteServiceTests : IDisposable
             .Options;
 
         _context = new Mkiwms5Context(options);
-        _service = new GoodsReceiptNoteService(_context);
+        _mockNotificationService = new Mock<INotificationService>();
+        _mockAuditLogService = new Mock<IAuditLogService>();
+        _service = new GoodsReceiptNoteService(_context, _mockNotificationService.Object, _mockAuditLogService.Object);
 
         SeedData();
     }
@@ -718,11 +724,15 @@ public class GoodsReceiptNoteServiceTests : IDisposable
         var result = await _service.CreateGRNAsync(1, request);
 
         // Assert
-        var auditLog = await _context.AuditLogs
-            .FirstOrDefaultAsync(a => a.EntityType == "GoodsReceiptNote" && a.EntityId == result.GrnId);
-        auditLog.Should().NotBeNull();
-        auditLog!.Action.Should().Be("CREATE");
-        auditLog.ActorUserId.Should().Be(1);
+        _mockAuditLogService.Verify(x => x.LogAsync(
+            1,
+            "CREATE",
+            "GoodsReceiptNote",
+            result.GrnId,
+            It.Is<string>(s => s.Contains($"Tạo phiếu nhập {result.GrnCode}")),
+            null,
+            null
+        ), Times.Once);
     }
 
     [Fact]

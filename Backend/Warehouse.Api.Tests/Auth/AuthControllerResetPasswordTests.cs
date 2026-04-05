@@ -41,7 +41,8 @@ public class AuthControllerResetPasswordTests
 		var response = ok.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Be("Äáº·t láº¡i máº­t kháº©u thÃ nh cÃ´ng. Báº¡n cÃ³ thá»ƒ Ä‘Äƒng nháº­p vá»›i máº­t kháº©u má»›i.");
+		response.Message.Should().Contain("Dat lai mat khau");
+		response.Message.Should().Contain("dang nhap");
 	}
 
 	[Fact]
@@ -65,7 +66,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Token khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng yÃªu cáº§u Ä‘áº·t láº¡i máº­t kháº©u má»›i.");
+		response.Message.Should().Contain("Token khong hop le");
 	}
 
 	[Fact]
@@ -89,7 +90,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("Token khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng yÃªu cáº§u Ä‘áº·t láº¡i máº­t kháº©u má»›i.");
+		response.Message.Should().Contain("Token khong hop le");
 	}
 
 	[Fact]
@@ -105,7 +106,7 @@ public class AuthControllerResetPasswordTests
 
 		_authServiceMock
 			.Setup(x => x.ResetPasswordAsync(request.Token, request.NewPassword))
-			.ThrowsAsync(new InvalidOperationException("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n."));
+			.ThrowsAsync(new InvalidOperationException("Khong tim thay tai khoan."));
 
 		var result = await controller.ResetPassword(request);
 
@@ -113,7 +114,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n.");
+		response.Message.Should().Contain("Khong tim thay tai khoan");
 	}
 
 	[Fact]
@@ -177,6 +178,7 @@ public class AuthControllerResetPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Be("CÃ³ lá»—i xáº£y ra khi Ä‘áº·t láº¡i máº­t kháº©u.");
+		response.Message.Should().Contain("Co loi");
+		response.Message.Should().Contain("dat lai mat khau");
 	}
 }

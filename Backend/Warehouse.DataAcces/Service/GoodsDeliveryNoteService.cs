@@ -18,18 +18,20 @@ namespace Warehouse.DataAcces.Service
         private readonly IStocktakeService _stocktakeService;
         private readonly IAuditLogService _auditLogService;
         private readonly IDocumentAttachmentService _documentAttachmentService;
+        private readonly INotificationService _notificationService;
 
 		// Role codes for approval stages
 		// private const string ROLE_ACCOUNTANT = "ACCOUNTANT";   // Kế toán - Stage 1
 		// private const string ROLE_DIRECTOR = "DIRECTOR";       // Giám đốc - Stage 2
 		private const string ROLE_ACCOUNTANT = "KT"; 
         private const string ROLE_DIRECTOR = "GD";
-		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService)
+		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _auditLogService = auditLogService;
             _documentAttachmentService = documentAttachmentService;
+            _notificationService = notificationService;
         }
 
         // ==================== LIST ====================
@@ -433,6 +435,20 @@ namespace Warehouse.DataAcces.Service
 
             await _context.SaveChangesAsync();
 
+            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
+            if (gdn.Status == "PENDING_ACC")
+            {
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "KT" },
+                    "Phiếu xuất kho mới chờ duyệt",
+                    $"Phiếu xuất {gdnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
+                    "GoodsDelivery",
+                    gdn.Gdnid,
+                    userId,
+                    "NewRequest"
+                );
+            }
+
             var addr = releaseRequest.Receiver?.Company?.Addresses?
                 .OrderByDescending(a => a.IsDefault)
                 .ThenByDescending(a => a.IsActive)
@@ -496,6 +512,9 @@ namespace Warehouse.DataAcces.Service
 
             // 3. Determine current stage and validate role
             string decision = request.IsApproved ? "APPROVE" : "REJECT";
+
+            if (!request.IsApproved && string.IsNullOrWhiteSpace(request.Reason))
+                throw new ArgumentException("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
 
             if (gdn.Status == "PENDING_ACC")
             {
@@ -582,6 +601,61 @@ namespace Warehouse.DataAcces.Service
                          (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"));
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo chuyển cấp hoặc kết quả
+            if (request.IsApproved)
+            {
+                if (gdn.Status == "PENDING_DIR")
+                {
+                    // Thông báo cho Giám đốc
+                    await _notificationService.CreateForRolesAsync(
+                        new[] { "GD" },
+                        "Phiếu xuất kho chờ Giám đốc duyệt",
+                        $"Phiếu xuất {gdn.Gdncode} đã được Kế toán duyệt và đang chờ bạn phê duyệt cuối cùng.",
+                        "GoodsDelivery",
+                        gdn.Gdnid,
+                        userId,
+                        "NewRequest"
+                    );
+                }
+                else if (gdn.Status == "PENDING_ISSUE")
+                {
+                    // Thông báo cho Thủ kho
+                    await _notificationService.CreateForRolesAsync(
+                        new[] { "TK" },
+                        "Phiếu xuất kho sẵn sàng xuất hàng",
+                        $"Phiếu xuất {gdn.Gdncode} đã được Giám đốc phê duyệt. Vui lòng thực hiện xuất hàng thực tế.",
+                        "GoodsDelivery",
+                        gdn.Gdnid,
+                        userId,
+                        "WarehouseAction"
+                    );
+
+                    // Thông báo cho người tạo phiếu biết đã duyệt xong
+                    await _notificationService.CreateAsync(
+                        gdn.CreatedBy,
+                        $"Phiếu xuất kho {gdn.Gdncode} ĐÃ ĐƯỢC DUYỆT",
+                        $"Phiếu xuất kho {gdn.Gdncode} đã được Giám đốc phê duyệt. Thủ kho sẽ thực hiện xuất hàng.",
+                        "GoodsDelivery",
+                        gdn.Gdnid,
+                        "ApprovalResult",
+                        0
+                    );
+                }
+            }
+            else
+            {
+                // Thông báo bị từ chối cho người tạo
+                await _notificationService.CreateAsync(
+                    gdn.CreatedBy,
+                    $"Phiếu xuất kho {gdn.Gdncode} BỊ TỪ CHỐI",
+                    $"Phiếu xuất kho {gdn.Gdncode} của bạn đã bị từ chối bởi {user.FullName}. Lý do: {request.Reason}",
+                    "GoodsDelivery",
+                    gdn.Gdnid,
+                    "ApprovalResult",
+                    2 // Warning
+                );
+            }
 
             var rr = gdn.ReleaseRequest;
             var receiver = rr?.Receiver;
@@ -1017,15 +1091,13 @@ namespace Warehouse.DataAcces.Service
 
             gdn.Status = "CANCELLED";
 
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CANCEL",
-                EntityType = "GoodsDeliveryNote",
-                EntityId = gdnId,
-                Detail = $"Hủy phiếu xuất kho {gdn.Gdncode}. Lý do: {reason}",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                "CANCEL",
+                "GoodsDeliveryNote",
+                gdnId,
+                $"Hủy phiếu xuất kho {gdn.Gdncode}. Lý do: {reason}"
+            );
 
             await _context.SaveChangesAsync();
             return true;
@@ -1112,17 +1184,26 @@ namespace Warehouse.DataAcces.Service
                 ActionAt = DateTime.UtcNow
             });
 
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "ISSUE",
-                EntityType = "GoodsDeliveryNote",
-                EntityId = gdn.Gdnid,
-                Detail = $"Thủ kho xác nhận xuất hàng cho phiếu {gdn.Gdncode}.",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                "ISSUE",
+                "GoodsDeliveryNote",
+                gdn.Gdnid,
+                $"Thủ kho xác nhận xuất hàng cho phiếu {gdn.Gdncode}."
+            );
 
             await _context.SaveChangesAsync();
+
+            // Thông báo cho người tạo là hàng đã được xuất (Thủ kho xác nhận)
+            await _notificationService.CreateAsync(
+                gdn.CreatedBy,
+                $"Phiếu xuất kho {gdn.Gdncode} ĐÃ XUẤT HÀNG",
+                $"Thủ kho đã xác nhận xuất hàng cho phiếu {gdn.Gdncode}. Vui lòng kiểm tra và hoàn tất hồ sơ.",
+                "GoodsDelivery",
+                gdn.Gdnid,
+                "ShippingStatus",
+                1
+            );
 
             var rr = gdn.ReleaseRequest;
             var receiver = rr?.Receiver;
@@ -1219,17 +1300,26 @@ namespace Warehouse.DataAcces.Service
             });
 
             // Audit log
-            _context.AuditLogs.Add(new AuditLog
-            {
-                ActorUserId = userId,
-                Action = AuditAction.Close,
-                EntityType = AuditEntity.GoodsDeliveryNote,
-                EntityId = gdn.Gdnid,
-                Detail = $"Xác nhận hoàn tất xuất kho phiếu {gdn.Gdncode}. Kèm file minh chứng: {fileUrl}.",
-                CreatedAt = DateTime.UtcNow
-            });
+            await _auditLogService.LogAsync(
+                userId,
+                AuditAction.Close,
+                AuditEntity.GoodsDeliveryNote,
+                gdn.Gdnid,
+                $"Xác nhận hoàn tất xuất kho phiếu {gdn.Gdncode}. Kèm file minh chứng: {fileUrl}."
+            );
 
             await _context.SaveChangesAsync();
+
+            // Thông báo hoàn tất phiếu (Accountant / Manager đóng phiếu)
+            await _notificationService.CreateAsync(
+                gdn.CreatedBy,
+                $"Phiếu xuất kho {gdn.Gdncode} HOÀN TẤT",
+                $"Phiếu xuất kho {gdn.Gdncode} đã được xác nhận hoàn tất và ghi sổ thành công.",
+                "GoodsDelivery",
+                gdn.Gdnid,
+                "ApprovalResult",
+                1
+            );
 
             var rr = gdn.ReleaseRequest;
             var receiver = rr?.Receiver;

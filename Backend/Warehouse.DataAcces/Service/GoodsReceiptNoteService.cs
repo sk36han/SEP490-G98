@@ -7,16 +7,21 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
     public class GoodsReceiptNoteService : IGoodsReceiptNoteService
     {
         private readonly Mkiwms5Context _context;
+        private readonly INotificationService _notificationService;
+        private readonly IAuditLogService _auditLogService;
 
-        public GoodsReceiptNoteService(Mkiwms5Context context)
+        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _context = context;
+            _notificationService = notificationService;
+            _auditLogService = auditLogService;
         }
 
         public async Task<PagedResponse<GoodsReceiptNoteResponse>> GetGoodsReceiptNotesAsync(int page, int pageSize)
@@ -262,19 +267,27 @@ namespace Warehouse.DataAcces.Service
                 _context.InventoryTransactionLines.Add(txnLine);
             }
 
-            // Audit log
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "CREATE",
-                EntityType = "GoodsReceiptNote",
-                EntityId = grn.Grnid,
-                Detail = $"Tạo phiếu nhập kho {grnCode} từ PO {purchaseOrder.Pocode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                "CREATE",
+                "GoodsReceiptNote",
+                grn.Grnid,
+                $"Tạo phiếu nhập {grn.Grncode}"
+            );
 
-            await _context.SaveChangesAsync();
+            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
+            if (grn.Status == "PENDING_ACC")
+            {
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "KT" },
+                    "Phiếu nhập kho mới chờ duyệt",
+                    $"Phiếu nhập {grnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
+                    "GoodsReceipt",
+                    grn.Grnid,
+                    userId,
+                    "NewRequest"
+                );
+            }
 
             return new GoodsReceiptNoteResponse
             {
@@ -449,21 +462,27 @@ namespace Warehouse.DataAcces.Service
                     _context.InventoryLots.Add(lot);
 
                     // Cập nhật giá mua (Purchase) vào ItemPrice
+                    // ItemPrice lưu lịch sử giá theo từng đợt nhập hàng
+                    // Giá thực tế để bán nằm trong InventoryLot theo từng lô
                     if (purchasePrice.HasValue && purchasePrice > 0)
                     {
                         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-                        // Deactive giá Purchase cũ và set EffectiveTo
+                        // Deactive giá Purchase cũ chỉ khi đã active từ ngày trước
+                        // Nếu cùng ngày thì giữ nguyên để tránh khoảng trống
                         var existingPurchasePrices = _context.ItemPrices
                             .Where(p => p.ItemId == grnLine.ItemId && p.PriceType == "Purchase" && p.IsActive)
                             .ToList();
                         foreach (var price in existingPurchasePrices)
                         {
-                            price.IsActive = false;
-                            price.EffectiveTo = today.AddDays(-1);
+                            if (price.EffectiveFrom < today)
+                            {
+                                price.IsActive = false;
+                                price.EffectiveTo = today.AddDays(-1);
+                            }
                         }
 
-                        // Thêm giá Purchase mới
+                        // Luôn tạo ItemPrice mới cho mỗi đợt nhập hàng
                         _context.ItemPrices.Add(new ItemPrice
                         {
                             ItemId = grnLine.ItemId,
@@ -493,18 +512,26 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Audit log
-            var auditLog = new AuditLog
-            {
-                ActorUserId = userId,
-                Action = "APPROVE",
-                EntityType = "GoodsReceiptNote",
-                EntityId = grn.Grnid,
-                Detail = $"Duyệt phiếu nhập kho {grn.Grncode}",
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.AuditLogs.Add(auditLog);
+            await _auditLogService.LogAsync(
+                userId,
+                "APPROVE",
+                "GoodsReceiptNote",
+                grn.Grnid,
+                $"Duyệt phiếu nhập kho {grn.Grncode}"
+            );
 
             await _context.SaveChangesAsync();
+
+            // Gửi thông báo kết quả cho người tạo đơn
+            await _notificationService.CreateAsync(
+                grn.CreatedBy,
+                $"Phiếu nhập kho {grn.Grncode} ĐÃ ĐƯỢC DUYỆT",
+                $"Phiếu nhập kho {grn.Grncode} của bạn đã được kế toán phê duyệt và ghi sổ.",
+                "GoodsReceipt",
+                grn.Grnid,
+                "ApprovalResult",
+                0 // Info level
+            );
 
             // Trả về kết quả
             return new GoodsReceiptNoteResponse
