@@ -70,15 +70,27 @@ namespace Warehouse.DataAcces.Service
             };
 
             _context.DocumentAttachments.Add(attachment);
-            await _context.SaveChangesAsync();
 
-            await _auditLogService.LogAsync(
-                userId,
-                AuditAction.Create,
-                AuditEntity.DocumentAttachment,
-                docId,
-                $"Tải lên tệp đính kèm '{file.FileName}' cho {docType}"
-            );
+            try
+            {
+                await _context.SaveChangesAsync();
+
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Create,
+                    AuditEntity.DocumentAttachment,
+                    docId,
+                    $"Tải lên tệp đính kèm '{file.FileName}' cho {docType}"
+                );
+            }
+            catch (Exception)
+            {
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+                throw;
+            }
 
             return fileUrl;
         }
