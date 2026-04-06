@@ -273,6 +273,18 @@ namespace Warehouse.DataAcces.Service
 
             if (rr == null) return null;
 
+            // Query lịch sử duyệt từ DocumentApprovals
+            var approvals = await _context.DocumentApprovals
+                .Include(a => a.ActionByNavigation)
+                .Where(a => a.DocType == "GIR" && a.DocId == id)
+                .OrderBy(a => a.StageNo)
+                .ThenBy(a => a.ActionAt)
+                .ToListAsync();
+
+            // Lấy thời gian duyệt cuối cùng (APPROVE decision)
+            var lastApproval = approvals
+                .LastOrDefault(a => a.Decision == "APPROVE");
+
             return new ReleaseRequestDetailResponse
             {
                 ReleaseRequestId = rr.ReleaseRequestId,
@@ -304,6 +316,7 @@ namespace Warehouse.DataAcces.Service
                 TotalRequestedQty = rr.ReleaseRequestLines.Sum(l => l.RequestedQty),
                 CreatedAt = rr.CreatedAt,
                 SubmittedAt = rr.SubmittedAt,
+                ApprovedAt = lastApproval?.ActionAt,
                 Lines = rr.ReleaseRequestLines.Select(l => new ReleaseRequestLineResponse
                 {
                     ReleaseRequestLineId = l.ReleaseRequestLineId,
@@ -318,6 +331,16 @@ namespace Warehouse.DataAcces.Service
                     AllocatedQty = l.AllocatedQty,
                     IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus
+                }).ToList(),
+                Approvals = approvals.Select(a => new RRApprovalResponse
+                {
+                    ApprovalId = a.ApprovalId,
+                    StageNo = a.StageNo,
+                    Decision = a.Decision,
+                    Reason = a.Reason,
+                    ActionBy = a.ActionBy,
+                    ActionByName = a.ActionByNavigation?.FullName,
+                    ActionAt = a.ActionAt
                 }).ToList()
             };
         }
