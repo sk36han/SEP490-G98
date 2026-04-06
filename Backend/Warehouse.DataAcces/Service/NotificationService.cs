@@ -45,6 +45,8 @@ namespace Warehouse.DataAcces.Service
 				NotificationId = notification.NotificationId,
 				Title = notification.Title,
 				Message = notification.Message,
+				RefType = notification.RefType,
+				RefId = notification.RefId,
 				IsRead = notification.IsRead,
 				CreatedAt = notification.CreatedAt,
 				Type = notification.Type,
@@ -54,6 +56,11 @@ namespace Warehouse.DataAcces.Service
 			};
 
 			await _clientNotificationService.SendNotificationAsync(userId, response);
+
+			// Push unread count
+			var unreadCount = await _context.Notifications
+				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted);
+			await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 		}
 
 		public async Task<PagedResponse<NotificationResponse>> GetByUserAsync(long userId, NotificationFilterRequest filter)
@@ -91,6 +98,8 @@ namespace Warehouse.DataAcces.Service
 					NotificationId = x.NotificationId,
 					Title = x.Title,
 					Message = x.Message,
+					RefType = x.RefType,
+					RefId = x.RefId,
 					IsRead = x.IsRead,
 					CreatedAt = x.CreatedAt,
 					Type = x.Type,
@@ -198,6 +207,8 @@ namespace Warehouse.DataAcces.Service
 					NotificationId = noti.NotificationId,
 					Title = noti.Title,
 					Message = noti.Message,
+					RefType = noti.RefType,
+					RefId = noti.RefId,
 					IsRead = noti.IsRead,
 					CreatedAt = noti.CreatedAt,
 					Type = noti.Type,
@@ -206,6 +217,11 @@ namespace Warehouse.DataAcces.Service
 					ExpiresAt = noti.ExpiresAt
 				};
 				await _clientNotificationService.SendNotificationAsync(noti.UserId, response);
+
+				// Push unread count
+				var unreadCount = await _context.Notifications
+					.CountAsync(x => x.UserId == noti.UserId && !x.IsRead && !x.IsDeleted);
+				await _clientNotificationService.SendUnreadCountAsync(noti.UserId, unreadCount);
 			}
 		}
 

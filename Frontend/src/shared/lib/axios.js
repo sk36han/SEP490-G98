@@ -53,3 +53,11 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+export const extractBody = (response) => {
+    if (!response) return null;
+    // Axios wraps data in .data; API standard wraps in .data.data
+    const d = response?.data;
+    return d?.data ?? d ?? null;
+};

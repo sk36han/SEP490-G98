@@ -130,7 +130,11 @@ namespace Warehouse.Api.ApiController
         {
             try
             {
-                var result = await _brandService.ToggleBrandStatusAsync(id, isActive);
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                    return Unauthorized(new { message = "Không xác định được người dùng." });
+
+                var result = await _brandService.ToggleBrandStatusAsync(id, isActive, currentUserId);
                 return Ok(result);
             }
             catch (ArgumentException ex)

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -14,11 +15,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IAuditLogService _auditLogService;
 
-        public DocumentAttachmentService(Mkiwms5Context context, IWebHostEnvironment env)
+        public DocumentAttachmentService(Mkiwms5Context context, IWebHostEnvironment env, IAuditLogService auditLogService)
         {
             _context = context;
             _env = env;
+            _auditLogService = auditLogService;
         }
 
         public async Task<string> UploadAttachmentAsync(string docType, long docId, IFormFile file, long userId, string attachmentType = "GENERAL")
@@ -67,7 +70,27 @@ namespace Warehouse.DataAcces.Service
             };
 
             _context.DocumentAttachments.Add(attachment);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+
+                await _auditLogService.LogAsync(
+                    userId,
+                    AuditAction.Create,
+                    AuditEntity.DocumentAttachment,
+                    docId,
+                    $"Tải lên tệp đính kèm '{file.FileName}' cho {docType}"
+                );
+            }
+            catch (Exception)
+            {
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+                throw;
+            }
 
             return fileUrl;
         }
