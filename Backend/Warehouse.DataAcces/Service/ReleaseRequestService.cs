@@ -874,7 +874,7 @@ namespace Warehouse.DataAcces.Service
         private async Task<string> GenerateNextRRCodeAsync()
         {
             var year = DateTime.Now.Year;
-            var prefix = $"XR-{year}-";
+            var prefix = $"RR-{year}-";
             
             var lastCode = await _context.ReleaseRequests
                 .Where(r => r.ReleaseRequestCode.StartsWith(prefix))

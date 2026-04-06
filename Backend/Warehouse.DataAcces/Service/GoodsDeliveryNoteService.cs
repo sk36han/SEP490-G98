@@ -1102,7 +1102,7 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
             return true;
         }
-        private const string ROLE_WAREHOUSE_KEEPER = "WAREHOUSE_KEEPER";
+        private const string ROLE_WAREHOUSE_KEEPER = "TK";
 
         public async Task<GoodsDeliveryNoteResponse> IssueGDNAsync(long gdnId, long userId, WarehouseIssueRequest request)
         {
@@ -1164,7 +1164,11 @@ namespace Warehouse.DataAcces.Service
 
             if (!string.IsNullOrEmpty(request.Note))
             {
-                gdn.Note = $"{gdn.Note} | Xác nhận bởi Thủ kho: {request.Note}".Trim();
+                var noteAddition = $"Xác nhận bởi Thủ kho: {request.Note}".Trim();
+                if (string.IsNullOrEmpty(gdn.Note))
+                    gdn.Note = noteAddition;
+                else if (!gdn.Note.Contains(noteAddition))
+                    gdn.Note = $"{gdn.Note} | {noteAddition}";
             }
 
             if (await _stocktakeService.IsWarehouseFrozenAsync(gdn.WarehouseId))
@@ -1277,14 +1281,18 @@ namespace Warehouse.DataAcces.Service
                 docId: gdn.Gdnid,
                 file: evidenceFile,
                 userId: userId,
-                attachmentType: "DELIVERY_EVIDENCE"
-            );
+                attachmentType: "GENERAL"
+			);
 
             // Update GDN
             gdn.Status = "POSTED";
             if (!string.IsNullOrEmpty(note))
             {
-                gdn.Note = $"{gdn.Note} | Minh chứng: {note}".Trim();
+                var noteAddition = $"Minh chứng: {note}".Trim();
+                if (string.IsNullOrEmpty(gdn.Note))
+                    gdn.Note = noteAddition;
+                else if (!gdn.Note.Contains(noteAddition))
+                    gdn.Note = $"{gdn.Note} | {noteAddition}";
             }
 
             // Document Approval
