@@ -23,8 +23,8 @@ namespace Warehouse.DataAcces.Service
 		// Role codes for approval stages
 		// private const string ROLE_ACCOUNTANT = "ACCOUNTANT";   // Kế toán - Stage 1
 		// private const string ROLE_DIRECTOR = "DIRECTOR";       // Giám đốc - Stage 2
-		private const string ROLE_ACCOUNTANT = "KT"; 
-        private const string ROLE_DIRECTOR = "GD";
+		private const string ROLE_ACCOUNTANT = "SE"; 
+        private const string ROLE_DIRECTOR = "SE";
 		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService)
         {
             _context = context;
@@ -234,7 +234,8 @@ namespace Warehouse.DataAcces.Service
             var pendingGdnLines = await _context.GoodsDeliveryNoteLines
                 .Include(l => l.Gdn)
                 .Where(l => l.ReleaseRequestLineId.HasValue && requestLineIds.Contains(l.ReleaseRequestLineId.Value)
-                         && l.Gdn.Status != "APPROVED"
+                         && l.Gdn.Status != "ISSUED"
+                         && l.Gdn.Status != "POSTED"
                          && l.Gdn.Status != "REJECTED"
                          && l.Gdn.Status != "CANCELLED")
                 .ToListAsync();
@@ -287,7 +288,8 @@ namespace Warehouse.DataAcces.Service
                 .Include(l => l.Gdn)
                 .Where(l => itemIds.Contains(l.ItemId)
                          && l.Gdn.WarehouseId == request.WarehouseId
-                         && l.Gdn.Status != "APPROVED"
+                         && l.Gdn.Status != "ISSUED"
+                         && l.Gdn.Status != "POSTED"
                          && l.Gdn.Status != "REJECTED"
                          && l.Gdn.Status != "CANCELLED")
                 .ToListAsync();
@@ -601,7 +603,7 @@ namespace Warehouse.DataAcces.Service
                 AuditEntity.GoodsDeliveryNote,
                 gdn.Gdnid,
                 $"{(request.IsApproved ? "Duyệt" : "Từ chối")} phiếu xuất kho {gdn.Gdncode}" +
-                         $" (Stage: {(gdn.Status == "APPROVED" || gdn.Status == "REJECTED" ? "Final" : "Accountant")})" +
+                         $" (Stage: {(gdn.Status == "PENDING_ISSUE" || gdn.Status == "REJECTED" ? "Director" : "Accountant")})" +
                          (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"));
 
             await _context.SaveChangesAsync();
@@ -976,7 +978,7 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            gdn.PostedAt = DateTime.UtcNow;
+            // PostedAt sẽ được gán ở ConfirmDeliveryAsync (bước POSTED), không gán ở đây
         }
 
         // ==================== HELPERS ====================
@@ -1094,7 +1096,7 @@ namespace Warehouse.DataAcces.Service
             var gdn = await _context.GoodsDeliveryNotes.FirstOrDefaultAsync(g => g.Gdnid == gdnId);
             if (gdn == null) throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
 
-            if (gdn.Status == "APPROVED" || gdn.Status == "CANCELLED")
+            if (gdn.Status == "ISSUED" || gdn.Status == "POSTED" || gdn.Status == "CANCELLED")
                 throw new InvalidOperationException($"Không thể hủy phiếu ở trạng thái {gdn.Status}.");
 
             gdn.Status = "CANCELLED";
@@ -1110,7 +1112,7 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
             return true;
         }
-        private const string ROLE_WAREHOUSE_KEEPER = "TK";
+        private const string ROLE_WAREHOUSE_KEEPER = "SE";
 
         public async Task<GoodsDeliveryNoteResponse> IssueGDNAsync(long gdnId, long userId, WarehouseIssueRequest request)
         {
@@ -1278,7 +1280,7 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
-            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "TK";
+            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "SE";
             bool isAccountant = userRoleCode == ROLE_ACCOUNTANT;
             bool isAdmin = userRoleCode == "ADMIN";
 
