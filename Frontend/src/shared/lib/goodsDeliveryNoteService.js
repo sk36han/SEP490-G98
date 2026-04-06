@@ -201,3 +201,45 @@ export async function approveGoodsDeliveryNote(gdnId, data) {
         throw error?.response?.data || error;
     }
 }
+
+export async function issueGoodsDeliveryNote(gdnId, data) {
+    try {
+        const response = await apiClient.put(`/GoodsDeliveryNote/${gdnId}/issue`, {
+            isAllItemsFulfilled: data.isAllItemsFulfilled ?? true,
+            lines: data.lines ?? null,
+            note: data.note ?? null,
+        });
+        return extractBody(response);
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 6. CONFIRM DELIVERY
+// POST /api/GoodsDeliveryNote/{id}/confirm-delivery
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Xác nhận giao hàng thành công — hoàn thành phiếu xuất kho.
+ * Status chuyển: ISSUED → POSTED.
+ * @param {number} gdnId
+ * @param {{ evidenceFile: File, note?: string }} data
+ */
+export async function confirmDeliveryGoodsDeliveryNote(gdnId, data) {
+    try {
+        const formData = new FormData();
+        if (data.evidenceFile) {
+            formData.append('evidenceFile', data.evidenceFile);
+        }
+        if (data.note) {
+            formData.append('note', data.note);
+        }
+        const response = await apiClient.post(`/GoodsDeliveryNote/${gdnId}/confirm-delivery`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return extractBody(response);
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
