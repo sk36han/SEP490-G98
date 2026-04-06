@@ -250,6 +250,8 @@ export default function ViewGoodDeliveryNoteDetail() {
         currentStatus === 'ISSUED' &&
         (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR');
 
+
+
     const resetConfirmDeliveryState = () => {
         setConfirmDeliveryDialogOpen(false);
         setEvidenceFile(null);
@@ -496,7 +498,9 @@ export default function ViewGoodDeliveryNoteDetail() {
                             type="button"
                             className="btn btn-success"
                             disabled={processing}
-                            onClick={() => setConfirmDeliveryDialogOpen(true)}
+                            onClick={() => {
+                                setConfirmDeliveryDialogOpen(true);
+                            }}
                         >
                             <CheckCircle size={15} />
                             Hoàn thành phiếu xuất kho
@@ -1311,7 +1315,11 @@ export default function ViewGoodDeliveryNoteDetail() {
 
             <Dialog
                 open={confirmDeliveryDialogOpen}
-                onClose={() => !processing && resetConfirmDeliveryState()}
+                onClose={(event, reason) => {
+                    if (!processing) {
+                        resetConfirmDeliveryState();
+                    }
+                }}
                 maxWidth="sm"
                 fullWidth
             >

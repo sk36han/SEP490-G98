@@ -45,6 +45,14 @@ const RELEASE_REQUEST_STATUS_META = {
     CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
 };
 
+const LIFECYCLE_STATUS_META = {
+    ISSUE_PENDING: { label: 'Chờ xuất', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
+    ISSUE_PARTIAL: { label: 'Xuất một phần', bg: 'rgba(14, 165, 233, 0.18)', color: '#0369a1' },
+    ISSUE_FULL: { label: 'Đã xuất đủ', bg: 'rgba(16, 185, 129, 0.18)', color: '#047857' },
+    CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
+    CLOSED: { label: 'Đã đóng', bg: 'rgba(59, 130, 246, 0.18)', color: '#1d4ed8' },
+};
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -66,6 +74,15 @@ const formatQuantity = (value) =>
 const getStatusMeta = (status) =>
     RELEASE_REQUEST_STATUS_META[String(status || '').toUpperCase()]
     ?? { label: status || '-', bg: 'rgba(107, 114, 128, 0.15)', color: '#4b5563' };
+
+const getLifecycleStatusMeta = (lifecycleStatus) =>
+    LIFECYCLE_STATUS_META[String(lifecycleStatus || '').toUpperCase().replace(/[ _-]/g, '')]
+    ?? {
+        // fallback for camelCase keys from backend (e.g. IssuePartial, IssueFull)
+        label: lifecycleStatus || '-',
+        bg: 'rgba(107, 114, 128, 0.15)',
+        color: '#4b5563',
+      };
 
 const getRemainingQty = (line) => {
     const approvedQty = toNumber(line?.approvedQty);
@@ -275,16 +292,28 @@ export default function CreateGoodDeliveryNote() {
 
     // ─── Handlers ───────────────────────────────────────────────────────────────
     const handleSelectReleaseRequest = useCallback(
-        (summary, options = {}) => {
+        async (summary, options = {}) => {
             if (!summary?.releaseRequestId) return;
 
-            const initialLines = (summary.lines || [])
+            // Fetch full detail to get lines (dropdown only returns header, not lines)
+            let detail = summary;
+            if (!summary.lines || summary.lines.length === 0) {
+                try {
+                    detail = await getReleaseRequestDetail(summary.releaseRequestId);
+                } catch {
+                    showToast('Không tải được chi tiết yêu cầu xuất.', 'error');
+                    return;
+                }
+            }
+
+            const linesFromDetail = detail?.lines || summary?.lines || [];
+            const initialLines = linesFromDetail
                 .map((line, idx) => buildSelectableLine(line, idx))
                 .filter((line) => line.remainingQty > 0)
                 .map(mapSelectableLineToFormLine);
 
-            setSelectedReleaseRequestDetail(summary);
-            setReleaseRequestQuery(summary.releaseRequestCode || '');
+            setSelectedReleaseRequestDetail(detail);
+            setReleaseRequestQuery(detail.releaseRequestCode || summary.releaseRequestCode || '');
             setReleaseRequestDropdownOpen(false);
             setLines(initialLines);
             setSearchKeyword('');
@@ -293,22 +322,22 @@ export default function CreateGoodDeliveryNote() {
 
             setFormData((prev) => ({
                 ...prev,
-                releaseRequestId: String(summary.releaseRequestId),
-                releaseRequestCode: summary.releaseRequestCode || '',
-                warehouseId: String(summary.warehouseId || ''),
-                warehouseName: summary.warehouseName || '',
-                receiverId: String(summary.receiverId || ''),
-                receiverName: summary.receiverName || '',
+                releaseRequestId: String(detail.releaseRequestId || summary.releaseRequestId),
+                releaseRequestCode: detail.releaseRequestCode || summary.releaseRequestCode || '',
+                warehouseId: String(detail.warehouseId || summary.warehouseId || ''),
+                warehouseName: detail.warehouseName || summary.warehouseName || '',
+                receiverId: String(detail.receiverId || summary.receiverId || ''),
+                receiverName: detail.receiverName || summary.receiverName || '',
                 receiverPhone: '',
                 receiverEmail: '',
-                receiverCompanyName: summary.companyName || '',
-                receiverAddress: summary.receiverAddress || '',
+                receiverCompanyName: detail.companyName || summary.companyName || '',
+                receiverAddress: detail.receiverAddress || summary.receiverAddress || '',
                 receiverCity: '',
                 receiverDistrict: '',
                 receiverWard: '',
-                requestedByName: summary.requestedByName || '',
-                requestedDate: summary.requestedDate || '',
-                expectedDate: summary.expectedDate || '',
+                requestedByName: detail.requestedByName || summary.requestedByName || '',
+                requestedDate: detail.requestedDate || summary.requestedDate || '',
+                expectedDate: detail.expectedDate || summary.expectedDate || '',
             }));
 
             setErrors((prev) => {
@@ -1209,7 +1238,8 @@ export default function CreateGoodDeliveryNote() {
                                                     </div>
                                                 ) : (
                                                     filteredReleaseRequests.map((rr) => {
-                                                        const meta = getStatusMeta(rr.status);
+                                                        const statusMeta = getStatusMeta(rr.status);
+                                                        const lifecycleMeta = getLifecycleStatusMeta(rr.lifecycleStatus);
                                                         return (
                                                             <div
                                                                 key={rr.releaseRequestId}
@@ -1244,18 +1274,33 @@ export default function CreateGoodDeliveryNote() {
                                                                     >
                                                                         {rr.releaseRequestCode}
                                                                     </span>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '11px',
-                                                                            fontWeight: 600,
-                                                                            padding: '2px 8px',
-                                                                            borderRadius: '9999px',
-                                                                            backgroundColor: meta.bg,
-                                                                            color: meta.color,
-                                                                        }}
-                                                                    >
-                                                                        {meta.label}
-                                                                    </span>
+                                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: '10px',
+                                                                                fontWeight: 600,
+                                                                                padding: '1px 6px',
+                                                                                borderRadius: '9999px',
+                                                                                backgroundColor: statusMeta.bg,
+                                                                                color: statusMeta.color,
+                                                                            }}
+                                                                        >
+                                                                            {statusMeta.label}
+                                                                        </span>
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: '10px',
+                                                                                fontWeight: 600,
+                                                                                padding: '1px 6px',
+                                                                                borderRadius: '9999px',
+                                                                                backgroundColor: lifecycleMeta.bg,
+                                                                                color: lifecycleMeta.color,
+                                                                            }}
+                                                                            title="Trạng thái xuất kho"
+                                                                        >
+                                                                            {lifecycleMeta.label}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                                 <div
                                                                     style={{
@@ -1310,6 +1355,20 @@ export default function CreateGoodDeliveryNote() {
                                                         gap: '4px',
                                                     }}
                                                 >
+                                                    <span
+                                                        style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: 600,
+                                                            padding: '1px 6px',
+                                                            borderRadius: '9999px',
+                                                            backgroundColor: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).bg,
+                                                            color: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).color,
+                                                        }}
+                                                        title="Trạng thái xuất kho"
+                                                    >
+                                                        {getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).label}
+                                                    </span>
+                                                    <span>•</span>
                                                     <span
                                                         style={{
                                                             fontSize: '10px',

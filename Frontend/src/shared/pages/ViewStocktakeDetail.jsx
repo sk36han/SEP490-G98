@@ -37,7 +37,7 @@ import {
     approveStocktakePlan,
     startStocktakeExecution,
 } from '../lib/stocktakeService';
-import { getItemsForDisplay } from '../lib/itemService';
+import { getItemsByWarehouse } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
 
 // Format date string as UTC to avoid timezone shift
@@ -116,7 +116,7 @@ const ViewStocktakeDetail = () => {
 
             if (lineItems.length === 0 && detail?.warehouseId) {
                 try {
-                    const allItems = await getItemsForDisplay();
+                    const allItems = await getItemsByWarehouse(detail.warehouseId);
                     lineItems = allItems.map(item => ({
                         id: item.itemId,
                         stocktakeLineId: item.itemId,
@@ -124,8 +124,8 @@ const ViewStocktakeDetail = () => {
                         itemCode: item.itemCode,
                         itemName: item.itemName,
                         itemImage: item.itemImage ?? null,
-                        uom: item.baseUomName ?? '-',
-                        uomName: item.baseUomName ?? '-',
+                        uom: item.uomName ?? '-',
+                        uomName: item.uomName ?? '-',
                         systemQtySnapshot: item.onHandQty ?? 0,
                         countedQty: null,
                         varianceQty: null,
