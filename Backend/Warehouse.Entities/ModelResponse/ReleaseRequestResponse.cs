@@ -66,9 +66,25 @@ namespace Warehouse.Entities.ModelResponse
 
         public DateTime CreatedAt { get; set; }
         public DateTime? SubmittedAt { get; set; }
+        public DateTime? ApprovedAt { get; set; }
 
         // Danh sách vật tư
         public List<ReleaseRequestLineResponse> Lines { get; set; } = new();
+
+        // Lịch sử duyệt
+        public List<RRApprovalResponse> Approvals { get; set; } = new();
+    }
+
+    /// Lịch sử duyệt yêu cầu xuất kho
+    public class RRApprovalResponse
+    {
+        public long ApprovalId { get; set; }
+        public int StageNo { get; set; }
+        public string Decision { get; set; } = null!;
+        public string? Reason { get; set; }
+        public long ActionBy { get; set; }
+        public string? ActionByName { get; set; }
+        public DateTime ActionAt { get; set; }
     }
 
     /// Thông tin người nhận embed trong response

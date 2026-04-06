@@ -109,6 +109,8 @@ namespace Warehouse.DataAcces.Service
                     ShippingFee = g.ShippingFee,
                     NetAmount = g.TotalDeliveredAmount + g.ShippingFee,
                     SubmittedAt = g.SubmittedAt,
+                    ApprovedAt = g.ApprovedAt,
+                    PostedAt = g.PostedAt,
                     Note = g.Note,
                     ReceiverId = g.ReleaseRequest != null ? (long?)g.ReleaseRequest.ReceiverId : null,
                     ReceiverName = g.ReleaseRequest != null ? g.ReleaseRequest.Receiver.ReceiverName : null,
@@ -473,6 +475,8 @@ namespace Warehouse.DataAcces.Service
                 ShippingFee = gdn.ShippingFee,
                 NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
                 SubmittedAt = gdn.SubmittedAt,
+                ApprovedAt = gdn.ApprovedAt,
+                PostedAt = gdn.PostedAt,
                 Note = gdn.Note,
                 ReceiverId = releaseRequest.ReceiverId,
                 ReceiverName = releaseRequest.Receiver?.ReceiverName,
@@ -683,6 +687,8 @@ namespace Warehouse.DataAcces.Service
                 ShippingFee = gdn.ShippingFee,
                 NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
                 SubmittedAt = gdn.SubmittedAt,
+                ApprovedAt = gdn.ApprovedAt,
+                PostedAt = gdn.PostedAt,
                 Note = gdn.Note,
                 ReceiverId = receiver?.ReceiverId,
                 ReceiverName = receiver?.ReceiverName,
@@ -1072,6 +1078,8 @@ namespace Warehouse.DataAcces.Service
                 ShippingFee = gdn.ShippingFee,
                 NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
                 SubmittedAt = gdn.SubmittedAt,
+                ApprovedAt = gdn.ApprovedAt,
+                PostedAt = gdn.PostedAt,
                 Note = gdn.Note,
                 ReceiverId = receiver?.ReceiverId,
                 ReceiverName = receiver?.ReceiverName,
@@ -1232,6 +1240,8 @@ namespace Warehouse.DataAcces.Service
                 ShippingFee = gdn.ShippingFee,
                 NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
                 SubmittedAt = gdn.SubmittedAt,
+                ApprovedAt = gdn.ApprovedAt,
+                PostedAt = gdn.PostedAt,
                 Note = gdn.Note,
                 ReceiverId = receiver?.ReceiverId,
                 ReceiverName = receiver?.ReceiverName,
@@ -1295,6 +1305,9 @@ namespace Warehouse.DataAcces.Service
                     gdn.Note = $"{gdn.Note} | {noteAddition}";
             }
 
+            // Cập nhật thời điểm hoàn thành toàn bộ quy trình
+            gdn.PostedAt = DateTime.UtcNow;
+
             // Document Approval
             _context.DocumentApprovals.Add(new DocumentApproval
             {
@@ -1352,6 +1365,8 @@ namespace Warehouse.DataAcces.Service
                 ShippingFee = gdn.ShippingFee,
                 NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
                 SubmittedAt = gdn.SubmittedAt,
+                ApprovedAt = gdn.ApprovedAt,
+                PostedAt = gdn.PostedAt,
                 Note = gdn.Note,
                 ReceiverId = receiver?.ReceiverId,
                 ReceiverName = receiver?.ReceiverName,
