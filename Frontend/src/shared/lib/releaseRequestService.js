@@ -38,6 +38,10 @@ function getCurrentUserId() {
 
 function mapReleaseRequestRow(row) {
     if (row == null || typeof row !== 'object') return null;
+
+    // API có thể trả receiver lồng trong object hoặc flatten ở top-level
+    const r = row.receiver ?? {};
+
     return {
         releaseRequestId: row.releaseRequestId ?? row.ReleaseRequestId,
         releaseRequestCode: row.releaseRequestCode ?? row.ReleaseRequestCode ?? '',
@@ -49,18 +53,21 @@ function mapReleaseRequestRow(row) {
         note: row.note ?? row.Note ?? null,
         warehouseId: row.warehouseId ?? row.WarehouseId,
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
-        receiverId: row.receiverId ?? row.ReceiverId,
-        receiverName: row.receiverName ?? row.ReceiverName ?? '',
-        receiverPhone: row.receiverPhone ?? row.ReceiverPhone ?? '',
-        receiverEmail: row.receiverEmail ?? row.ReceiverEmail ?? '',
-        receiverPosition: row.receiverPosition ?? row.ReceiverPosition ?? '',
-        companyId: row.companyId ?? row.CompanyId ?? null,
-        companyName: row.companyName ?? row.CompanyName ?? '',
-        addressId: row.addressId ?? row.AddressId ?? null,
-        address: row.address ?? row.Address ?? '',
-        city: row.city ?? row.City ?? '',
-        district: row.district ?? row.District ?? '',
-        ward: row.ward ?? row.Ward ?? '',
+        // Receiver — ưu tiên top-level, fallback vào receiver object
+        receiverId: row.receiverId ?? row.ReceiverId ?? r.receiverId ?? r.ReceiverId,
+        receiverName: row.receiverName ?? row.ReceiverName ?? r.receiverName ?? r.ReceiverName ?? '',
+        receiverPhone: row.receiverPhone ?? row.ReceiverPhone ?? r.phone ?? r.Phone ?? '',
+        receiverEmail: row.receiverEmail ?? row.ReceiverEmail ?? r.email ?? r.Email ?? '',
+        receiverPosition: row.receiverPosition ?? row.ReceiverPosition ?? r.position ?? r.Position ?? '',
+        // Company
+        companyId: row.companyId ?? row.CompanyId ?? r.companyId ?? r.CompanyId ?? null,
+        companyName: row.companyName ?? row.CompanyName ?? r.companyName ?? r.CompanyName ?? '',
+        // Address
+        addressId: row.addressId ?? row.AddressId ?? r.addressId ?? r.AddressId ?? null,
+        address: row.address ?? row.Address ?? r.address ?? r.Address ?? '',
+        city: row.city ?? row.City ?? r.city ?? r.City ?? '',
+        district: row.district ?? row.District ?? r.district ?? r.District ?? '',
+        ward: row.ward ?? row.Ward ?? r.ward ?? r.Ward ?? '',
         requestedBy: row.requestedBy ?? row.RequestedBy,
         requestedByName: row.requestedByName ?? row.RequestedByName ?? '',
         totalItems: row.totalItems ?? row.TotalItems ?? 0,
@@ -126,6 +133,7 @@ export async function getReleaseRequestDetail(id) {
         const response = await apiClient.get(`/ReleaseRequest/detail/${id}`);
         const body = extractBody(response);
         if (!body || typeof body !== 'object') return null;
+
         return {
             ...mapReleaseRequestRow(body),
             receiver: body.receiver ?? null,
@@ -166,12 +174,14 @@ export async function getReleaseRequestDetail(id) {
  */
 export async function createReleaseRequest(data) {
     try {
-        const response = await apiClient.post('/ReleaseRequest/create', {
-            warehouseId: Number(data.warehouseId),
-            receiverId: Number(data.receiverId),
+        const payload = {
+            warehouseId: Number(data.warehouseId) || null,
+            receiverId: Number(data.receiverId) || null,
+            companyId: Number(data.companyId) || null,
             expectedDate: data.expectedDate || null,
             purpose: data.purpose?.trim() || null,
             note: data.note?.trim() || null,
+            status: data.status || null,
             // Address
             addressId: data.addressId != null ? Number(data.addressId) : null,
             address: data.address?.trim() || null,
@@ -181,14 +191,24 @@ export async function createReleaseRequest(data) {
             lines: (data.lines ?? []).map(l => ({
                 itemId: Number(l.itemId),
                 requestedQty: Number(l.requestedQty),
-                uomId: Number(l.uomId),
+                uomId: l.uomId != null ? Number(l.uomId) : null,
                 note: l.note?.trim() || null,
             })),
-        });
+        };
+        console.log('[createReleaseRequest] payload:', JSON.stringify(payload, null, 2));
+        const response = await apiClient.post('/ReleaseRequest/create', payload);
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] createReleaseRequest failed:', error);
-        throw error.response?.data || error;
+        const errData = error.response?.data;
+        // Parse backend validation errors
+        if (errData?.errors) {
+            const msgs = Object.values(errData.errors).flat();
+            const err = new Error(msgs.join('; '));
+            err._raw = errData;
+            throw err;
+        }
+        throw errData || error;
     }
 }
 
@@ -230,6 +250,47 @@ export async function updateReleaseRequest(id, data) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 5. SUBMIT
+// PUT /api/ReleaseRequest/submit/{id}
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Gửi yêu cầu xuất kho (chốt AllocatedQty = RequestedQty).
+ * @param {number|string} id
+ */
+// ═══════════════════════════════════════════════════════════════════════════════
+// 5. APPROVE / REJECT
+// PUT /api/ReleaseRequest/approve/{id}
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Duyệt hoặc từ chối yêu cầu xuất kho.
+ * @param {number|string} id
+ * @param {{ isApproved: boolean, reason?: string, lines?: Array }} data
+ */
+export async function approveReleaseRequest(id, data) {
+    try {
+        const payload = {
+            isApproved: data.isApproved,
+            reason: data.reason?.trim() || null,
+            lines: data.lines ?? null,
+        };
+        const response = await apiClient.put(`/ReleaseRequest/approve/${id}`, payload);
+        return extractBody(response);
+    } catch (error) {
+        console.error('[releaseRequestService] approveReleaseRequest failed:', error);
+        const errData = error.response?.data;
+        if (errData?.errors) {
+            const msgs = Object.values(errData.errors).flat();
+            const err = new Error(msgs.join('; '));
+            err._raw = errData;
+            throw err;
+        }
+        throw errData || error;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 6. SUBMIT
 // PUT /api/ReleaseRequest/submit/{id}
 // ═══════════════════════════════════════════════════════════════════════════════
 

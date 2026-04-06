@@ -37,7 +37,7 @@ const SUB_INDENT = 20;
 const openedMixin = (theme) => ({
     width: SIDEBAR_WIDTH_OPEN,
     transition: theme.transitions.create('width', {
-        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        easing: 'linear',
         duration: 240,
     }),
     overflowX: 'hidden',
@@ -46,7 +46,7 @@ const openedMixin = (theme) => ({
 const closedMixin = (theme) => ({
     width: SIDEBAR_WIDTH_CLOSED,
     transition: theme.transitions.create('width', {
-        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        easing: 'linear',
         duration: 240,
     }),
     overflowX: 'hidden',
@@ -91,7 +91,7 @@ const getExtraMatchPaths = (item) => {
         ];
     }
     if (item.id === 'good-delivery-notes-mgmt') {
-        return ['/good-delivery-notes', '/good-delivery-notes/create', '/goods-delivery-notes', '/goods-delivery-notes/create'];
+        return ['/release-request', '/release-request/create', '/goods-delivery-notes', '/goods-delivery-notes/create'];
     }
     if (item.id === 'goods-delivery-notes-mgmt') {
         return ['/goods-delivery-notes', '/goods-delivery-notes/create'];
@@ -388,7 +388,7 @@ const Sidebar = () => {
 
                                                     return (
                                                         <ListItem
-                                                            key={child.path + (child.state?.openCreate ? '-create' : `-${ci}`)}
+                                                            key={child.uid ?? (child.path + (child.state?.openCreate ? '-create' : `-${ci}`))}
                                                             disablePadding
                                                             sx={{ display: 'block', mb: `${SUB_MB * 8}px` }}
                                                         >

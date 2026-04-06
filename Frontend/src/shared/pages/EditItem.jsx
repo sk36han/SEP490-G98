@@ -36,10 +36,10 @@ const REVENUE_ACCOUNT_OPTIONS = [
   { code: "5113", label: "5113 - Doanh thu cung cap dich vu" },
 ];
 
-const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tao moi don vi tinh" };
-const CREATE_PACK_OPTION = { id: "CREATE_PACK", name: "Tao moi quy cach dong goi" };
-const CREATE_SPEC_OPTION = { specId: "CREATE_SPEC", specCode: "", specName: "Tao moi thong so san pham" };
-const CREATE_BRAND_OPTION = { id: "CREATE_BRAND", name: "Tao moi nhan hieu" };
+const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tạo mới đơn vị tính" };
+const CREATE_PACK_OPTION = { id: "CREATE_PACK", name: "Tạo mới quy cách đóng gói" };
+const CREATE_SPEC_OPTION = { specId: "CREATE_SPEC", specCode: "", specName: "Tạo mới thông số sản phẩm" };
+const CREATE_BRAND_OPTION = { id: "CREATE_BRAND", name: "Tạo mới nhãn hiệu" };
 
 function CreateOptionContent({ label }) {
   return (
@@ -225,9 +225,9 @@ const EditItem = () => {
           <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 3, alignItems: "flex-start", width: "100%" }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
-                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Thong tin san pham</Typography>
+                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Thông tin sản phẩm</Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
-                  <TextField fullWidth size="small" label="Ten san pham" name="itemName" value={form.itemName} onChange={handleChange} required placeholder="VD: Mu Beanie Nam Han Quoc" InputLabelProps={{ shrink: true }} sx={inputSx} />
+                  <TextField fullWidth size="small" label="Tên sản phẩm" name="itemName" value={form.itemName} onChange={handleChange} required placeholder="VD: Mũ Beanie Nam Hàn Quốc" InputLabelProps={{ shrink: true }} sx={inputSx} />
                 </Box>
                 <Box sx={{ mt: 2, width: "100%" }}>
                   <Box sx={{ width: "100%", mb: 2 }}>
@@ -245,7 +245,7 @@ const EditItem = () => {
                         onChange={(e, newValue) => { if (newValue && newValue.id === "CREATE_PACK") { setCreatePackOpen(true); return; } setForm((prev) => ({ ...prev, packagingSpecId: newValue?.id ?? "" })); }}
                         isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)} ListboxProps={{ sx: autocompleteListboxSx }}
                         renderOption={(props, option) => option && option.id === "CREATE_PACK" ? <Box component="li" {...props} key={option.id} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.name} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.id}>{option.name}</Box>}
-                        renderInput={(params) => <TextField {...params} label="Quy cach dong goi" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
+                        renderInput={(params) => <TextField {...params} label="Quy cách đóng gói" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
                       <Autocomplete size="small" fullWidth options={[CREATE_SPEC_OPTION, ...specOptions]} getOptionLabel={(opt) => (opt && opt.specName) || ""}
@@ -254,12 +254,12 @@ const EditItem = () => {
                         onChange={(e, newValue) => { if (newValue && newValue.specId === "CREATE_SPEC") { setCreateSpecOpen(true); return; } setForm((prev) => ({ ...prev, specId: newValue?.specId ?? "" })); }}
                         isOptionEqualToValue={(opt, val) => String(opt?.specId) === String(val?.specId)} ListboxProps={{ sx: autocompleteListboxSx }}
                         renderOption={(props, option) => option && option.specId === "CREATE_SPEC" ? <Box component="li" {...props} key={option.specId} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.specName} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.specId}>{option.specName}</Box>}
-                        renderInput={(params) => <TextField {...params} label="Thong so san pham" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
+                        renderInput={(params) => <TextField {...params} label="Thông số sản phẩm" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
                     </Box>
                   </Box>
                 </Box>
                 <Box sx={{ width: "100%", mt: 2 }}>
-                  <TextField fullWidth size="small" label="Mo ta" name="description" value={form.description} onChange={handleChange} multiline rows={3} placeholder="Nhap mo ta san pham..." InputLabelProps={{ shrink: true }} sx={inputSx} />
+                  <TextField fullWidth size="small" label="Mô tả" name="description" value={form.description} onChange={handleChange} multiline rows={3} placeholder="Nhập mô tả sản phẩm..." InputLabelProps={{ shrink: true }} sx={inputSx} />
                 </Box>
               </Paper>
 
@@ -305,7 +305,7 @@ const EditItem = () => {
 
             <Box sx={{ width: { xs: "100%", md: 260 }, minWidth: { xs: "100%", md: 260 }, flexShrink: 0 }}>
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
-                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Anh san pham</Typography>
+                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Hình ảnh sản phẩm</Typography>
                 <Box sx={{ border: "2px dashed", borderColor: "divider", borderRadius: 2, py: 4, px: 2, textAlign: "center", bgcolor: "grey.50", "&:hover": { borderColor: "primary.light", bgcolor: "action.hover" } }}>
                   <Stack alignItems="center" spacing={1}>
                     <Box sx={{ color: "text.secondary" }}><ImagePlus size={40} /></Box>
@@ -317,7 +317,7 @@ const EditItem = () => {
               </Paper>
 
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
-                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Phan loai</Typography>
+                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Phân loại</Typography>
                 <Stack spacing={2}>
                   <TextField select fullWidth size="small" label="Danh muc" name="categoryId" value={String(form.categoryId ?? "")} onChange={handleChange} sx={selectInputSx}
                     SelectProps={{ displayEmpty: true, renderValue: (v) => catDisplay(v), MenuProps: selectMenuProps }}
@@ -337,7 +337,7 @@ const EditItem = () => {
                     renderInput={(params) => <TextField {...params} label="Nhan hieu" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} InputProps={{ ...params.InputProps, startAdornment: <><InputAdornment position="start"><StoreIcon sx={{ color: "action.active", fontSize: 20 }} /></InputAdornment>{params.InputProps.startAdornment}</> }} />}
                     sx={autocompleteRootSx} />
 
-                  <TextField select fullWidth size="small" label="Loai san pham" name="itemType" value={form.itemType} onChange={handleChange} sx={selectInputSx} SelectProps={{ MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
+                  <TextField select fullWidth size="small" label="Loại sản phẩm" name="itemType" value={form.itemType} onChange={handleChange} sx={selectInputSx} SelectProps={{ MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
                     <MenuItem value="Product">Product</MenuItem><MenuItem value="Material">Material</MenuItem><MenuItem value="Service">Service</MenuItem>
                   </TextField>
 
@@ -413,7 +413,7 @@ const EditItem = () => {
             refreshAll?.();
             setForm((prev) => ({ ...prev, brandId: newBrand.id }));
             setCreateBrandOpen(false);
-            showToast("Tao nhan hieu thanh cong.", "success");
+            showToast("Đã tạo nhãn hiệu.", "success");
           }} />
 
         {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}

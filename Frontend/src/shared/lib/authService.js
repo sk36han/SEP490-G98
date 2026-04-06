@@ -56,7 +56,7 @@ const authService = {
             return response.data;
         } catch (error) {
             if (error.response?.status === 401) {
-                throw new Error('Email/Username hoac mat khau khong dung.');
+                throw new Error('Email/Username hoặc mật khẩu không đúng.');
             } else if (error.response?.status === 500) {
                 const detail = error.response?.data?.error || error.response?.data?.message;
                 throw new Error(detail || 'Loi dang nhap.');
@@ -123,7 +123,7 @@ const authService = {
             if (error.response?.status === 400) {
                 throw new Error(error.response?.data?.message || 'Ma OTP khong hop le.');
             } else if (error.response?.status === 401) {
-                throw new Error('Ma OTP khong dung.');
+                throw new Error('Mã OTP không đúng.');
             } else if (error.code === 'ECONNABORTED') {
                 throw new Error('Timeout.');
             } else {
@@ -203,7 +203,7 @@ const authService = {
             });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Khong the dat lai mat khau.');
+            throw new Error(error.response?.data?.message || 'Không thể đặt lại mật khẩu.');
         }
     },
 
@@ -248,7 +248,7 @@ const authService = {
             });
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.message || 'Doi mat khau that bai.');
+            throw new Error(error.response?.data?.message || 'Đổi mật khẩu thất bại.');
         }
     },
 };

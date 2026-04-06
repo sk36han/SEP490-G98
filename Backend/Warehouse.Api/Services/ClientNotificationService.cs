@@ -20,5 +20,10 @@ namespace Warehouse.Api.Services
 			// SignalR uses the User property internally (ClaimTypes.NameIdentifier mappings by default)
 			await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceiveNotification", notification);
 		}
+
+		public async Task SendUnreadCountAsync(long userId, int count)
+		{
+			await _hubContext.Clients.User(userId.ToString()).SendAsync("UpdateUnreadCount", count);
+		}
 	}
 }

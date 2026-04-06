@@ -34,6 +34,8 @@ namespace Warehouse.Entities.ModelResponse
 
         // Thời gian
         public DateTime? SubmittedAt { get; set; }
+        public DateTime? ApprovedAt { get; set; }
+        public DateTime? PostedAt { get; set; }
 
         public string? Note { get; set; }
 

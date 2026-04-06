@@ -97,6 +97,19 @@
     border-color: #dc2626;
 }
 
+/* Success Button */
+.btn-success {
+    background-color: #16a34a;
+    color: white;
+    border: 1px solid #16a34a;
+}
+
+.btn-success:hover:not(:disabled) {
+    background-color: #15803d;
+    border-color: #15803d;
+}
+}
+
 .btn-danger:focus {
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
 }

@@ -201,10 +201,11 @@ namespace Warehouse.DataAcces.Service
 		// =====================================================================
 		// TOGGLE STATUS
 		// =====================================================================
-		public async Task<BrandResponse> ToggleBrandStatusAsync(long id, bool isActive)
+		public async Task<BrandResponse> ToggleBrandStatusAsync(long id, bool isActive, long currentUserId)
 		{
 			// 1️⃣ Validate ID
 			ValidateBrandId(id);
+			ValidateUserId(currentUserId);
 
 			// 2️⃣ Kiểm tra tồn tại
 			var brand = await _brandRepository.GetByIdAsync(id);
@@ -224,6 +225,16 @@ namespace Warehouse.DataAcces.Service
 
 			// 5️⃣ Lưu
 			await _brandRepository.UpdateAsync(brand);
+
+			// 6️⃣ Ghi audit log
+			var statusLabel = isActive ? "kích hoạt" : "vô hiệu hóa";
+			await _auditLogService.LogAsync(
+				currentUserId,
+				AuditAction.Update,
+				AuditEntity.Brand,
+				brand.BrandId,
+				$"Đã {statusLabel} thương hiệu '{brand.BrandName}'"
+			);
 
 			return ToResponse(brand);
 		}

@@ -4,6 +4,8 @@ using Warehouse.DataAcces.Service;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.Models;
 using WarehouseModel = Warehouse.Entities.Models;
+using Moq;
+using Warehouse.DataAcces.Service.Interface;
 
 namespace Warehouse.Api.Tests.PurchaseOrder;
 
@@ -11,7 +13,8 @@ public class PurchaseOrderServiceTests : IDisposable
 {
     private readonly Mkiwms5Context _context;
     private readonly PurchaseOrderService _service;
-    private readonly Moq.Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService> _mockAuditLogService;
+    private readonly Mock<IAuditLogService> _mockAuditLogService;
+    private readonly Mock<INotificationService> _mockNotificationService;
 
     public PurchaseOrderServiceTests()
     {
@@ -21,10 +24,11 @@ public class PurchaseOrderServiceTests : IDisposable
 
         _context = new Mkiwms5Context(options);
         
-        // Mock IAuditLogService để by-pass việc gọi thật trong lúc test
-        _mockAuditLogService = new Moq.Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService>();
+        // Mock dependencies
+        _mockAuditLogService = new Mock<IAuditLogService>();
+        _mockNotificationService = new Mock<INotificationService>();
         
-        _service = new PurchaseOrderService(_context, _mockAuditLogService.Object);
+        _service = new PurchaseOrderService(_context, _mockAuditLogService.Object, _mockNotificationService.Object);
 
         SeedData();
     }

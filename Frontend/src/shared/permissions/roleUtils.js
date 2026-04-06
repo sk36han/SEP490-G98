@@ -34,6 +34,7 @@ export const getPermissionRole = (originalRole) => {
     if (upper === 'ADMIN') return 'ADMIN';
     if (upper === 'GD') return 'DIRECTOR';
     if (upper === 'TK') return 'WAREHOUSE_KEEPER';
+    if (upper === 'WK') return 'WAREHOUSE_KEEPER';
     if (upper === 'SP') return 'SALE_SUPPORT';
     if (upper === 'SE') return 'SALE_ENGINEER';
     if (upper === 'KT') return 'ACCOUNTANTS';

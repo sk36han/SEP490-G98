@@ -39,7 +39,7 @@ namespace Warehouse.Api.Tests.BrandTest
             _mockBrandRepo.Setup(repo => repo.UpdateAsync(It.IsAny<Brand>())).ReturnsAsync((Brand b) => b);
 
             // Act
-            var result = await _brandService.ToggleBrandStatusAsync(brandId, true);
+            var result = await _brandService.ToggleBrandStatusAsync(brandId, true, 1L);
 
             // Assert
             result.Should().NotBeNull();
@@ -58,7 +58,7 @@ namespace Warehouse.Api.Tests.BrandTest
             _mockBrandRepo.Setup(repo => repo.UpdateAsync(It.IsAny<Brand>())).ReturnsAsync((Brand b) => b);
 
             // Act
-            var result = await _brandService.ToggleBrandStatusAsync(brandId, false);
+            var result = await _brandService.ToggleBrandStatusAsync(brandId, false, 1L);
 
             // Assert
             result.Should().NotBeNull();
@@ -74,7 +74,7 @@ namespace Warehouse.Api.Tests.BrandTest
         public async Task ToggleBrandStatusAsync_ShouldThrowArgumentException_WhenBrandIdIsZero()
         {
             // Act
-            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(0, true);
+            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(0, true, 1L);
 
             // Assert
             await act.Should().ThrowAsync<ArgumentException>()
@@ -85,7 +85,7 @@ namespace Warehouse.Api.Tests.BrandTest
         public async Task ToggleBrandStatusAsync_ShouldThrowArgumentException_WhenBrandIdIsNegative()
         {
             // Act
-            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(-1, true);
+            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(-1, true, 1L);
 
             // Assert
             await act.Should().ThrowAsync<ArgumentException>()
@@ -104,7 +104,7 @@ namespace Warehouse.Api.Tests.BrandTest
             _mockBrandRepo.Setup(repo => repo.GetByIdAsync(brandId)).ReturnsAsync((Brand)null!);
 
             // Act
-            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(brandId, true);
+            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(brandId, true, 1L);
 
             // Assert
             await act.Should().ThrowAsync<KeyNotFoundException>()
@@ -120,7 +120,7 @@ namespace Warehouse.Api.Tests.BrandTest
             _mockBrandRepo.Setup(repo => repo.GetByIdAsync(brandId)).ReturnsAsync(existingBrand);
 
             // Act
-            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(brandId, true);
+            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(brandId, true, 1L);
 
             // Assert
             await act.Should().ThrowAsync<InvalidOperationException>()
@@ -136,7 +136,7 @@ namespace Warehouse.Api.Tests.BrandTest
             _mockBrandRepo.Setup(repo => repo.GetByIdAsync(brandId)).ReturnsAsync(existingBrand);
 
             // Act
-            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(brandId, false);
+            Func<Task> act = async () => await _brandService.ToggleBrandStatusAsync(brandId, false, 1L);
 
             // Assert
             await act.Should().ThrowAsync<InvalidOperationException>()

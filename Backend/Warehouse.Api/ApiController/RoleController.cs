@@ -43,12 +43,13 @@ namespace Warehouse.Api.ApiController
 		{
 			try
 			{
-				if (!ModelState.IsValid)
+				var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long currentUserId))
 				{
-					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
 				}
 
-				var result = await _roleService.CreateRoleAsync(request);
+				var result = await _roleService.CreateRoleAsync(request, currentUserId);
 				return Ok(ApiResponse<RoleResponse>.SuccessResponse(result, "Tạo role thành công."));
 			}
 			catch (InvalidOperationException ex)
@@ -69,12 +70,13 @@ namespace Warehouse.Api.ApiController
 		{
 			try
 			{
-				if (!ModelState.IsValid)
+				var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+				if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long currentUserId))
 				{
-					return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+					return Unauthorized(ApiResponse<object>.ErrorResponse("Không xác định được danh tính người dùng."));
 				}
 
-				var result = await _roleService.UpdateRoleAsync(id, request);
+				var result = await _roleService.UpdateRoleAsync(id, request, currentUserId);
 				return Ok(ApiResponse<RoleResponse>.SuccessResponse(result, "Cập nhật role thành công."));
 			}
 			catch (KeyNotFoundException ex)

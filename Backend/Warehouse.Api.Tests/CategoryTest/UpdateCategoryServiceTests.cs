@@ -84,6 +84,9 @@ namespace Warehouse.Api.Tests.CategoryTest
         [Fact]
         public async Task UpdateCategoryAsync_ShouldThrowArgumentException_WhenUserIdIsInvalid()
         {
+            var existing = new ItemCategory { CategoryId = 1L, CategoryCode = "EXISTING", CategoryName = "Existing" };
+            _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory> { existing }.AsQueryable());
+
             Func<Task> act = async () => await _categoryService.UpdateCategoryAsync(1L, new UpdateCategoryRequest { CategoryCode = "@", CategoryName = "N1" }, 0);
             await act.Should().ThrowAsync<ArgumentException>().WithMessage("ID người dùng không hợp lệ.");
         }
@@ -100,6 +103,9 @@ namespace Warehouse.Api.Tests.CategoryTest
         [Fact]
         public async Task UpdateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeIsInvalidLength()
         {
+            var existing = new ItemCategory { CategoryId = 1L, CategoryCode = "EXISTING", CategoryName = "Existing" };
+            _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory> { existing }.AsQueryable());
+
             var request = new UpdateCategoryRequest { CategoryCode = "A", CategoryName = "Valid Name" };
             Func<Task> act = async () => await _categoryService.UpdateCategoryAsync(1L, request, 1L);
             await act.Should().ThrowAsync<ArgumentException>().WithMessage("Mã danh mục phải có ít nhất 2 ký tự.");
@@ -109,6 +115,9 @@ namespace Warehouse.Api.Tests.CategoryTest
         [Fact]
         public async Task UpdateCategoryAsync_ShouldThrowArgumentException_WhenCategoryCodeHasInvalidPattern()
         {
+            var existing = new ItemCategory { CategoryId = 1L, CategoryCode = "EXISTING", CategoryName = "Existing" };
+            _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory> { existing }.AsQueryable());
+
             var request = new UpdateCategoryRequest { CategoryCode = "CODE 12", CategoryName = "Valid Name" };
             Func<Task> act = async () => await _categoryService.UpdateCategoryAsync(1L, request, 1L);
             await act.Should().ThrowAsync<ArgumentException>().WithMessage("Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới (_) và dấu gạch ngang (-).");
@@ -118,6 +127,9 @@ namespace Warehouse.Api.Tests.CategoryTest
         [Fact]
         public async Task UpdateCategoryAsync_ShouldThrowArgumentException_WhenCategoryNameIsInvalidLength()
         {
+            var existing = new ItemCategory { CategoryId = 1L, CategoryCode = "EXISTING", CategoryName = "Existing" };
+            _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory> { existing }.AsQueryable());
+
             var request = new UpdateCategoryRequest { CategoryCode = "VALID_CODE", CategoryName = "" };
             Func<Task> act = async () => await _categoryService.UpdateCategoryAsync(1L, request, 1L);
             await act.Should().ThrowAsync<ArgumentException>().WithMessage("Tên danh mục không được để trống.");

@@ -14,11 +14,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IAuditLogService _auditLogService;
+        private readonly INotificationService _notificationService;
 
-        public PurchaseOrderService(Mkiwms5Context context, IAuditLogService auditLogService)
+        public PurchaseOrderService(Mkiwms5Context context, IAuditLogService auditLogService, INotificationService notificationService)
         {
             _context = context;
             _auditLogService = auditLogService;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
@@ -285,6 +287,20 @@ namespace Warehouse.DataAcces.Service
                 AuditEntity.PurchaseOrder,
                 po.PurchaseOrderId,
                 $"Tạo đơn mua hàng {po.Pocode}");
+
+            // Gửi thông báo cho Quản lý/Admin nếu đơn ở trạng thái chờ duyệt
+            if (po.Status == "PENDING")
+            {
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "ADMIN", "MANAGER" },
+                    "Đơn mua hàng mới cần duyệt",
+                    $"Đơn mua hàng {po.Pocode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt.",
+                    "PurchaseOrder",
+                    po.PurchaseOrderId,
+                    requestedByUserId,
+                    "NewRequest"
+                );
+            }
 
             return new PurchaseOrderDetailResponse
             {
