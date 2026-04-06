@@ -742,8 +742,8 @@ namespace Warehouse.DataAcces.Service
 
         // ──────────────────────────── APPROVE (2-stage: Kế toán → Giám đốc) ────────────────────────────
 
-       private const string ROLE_ACCOUNTANT = "KT";
-		//private const string ROLE_ACCOUNTANT = "SE";
+     //  private const string ROLE_ACCOUNTANT = "KT";
+		private const string ROLE_ACCOUNTANT = "SE";
 
 
 		public async Task<ReleaseRequestDetailResponse> ApproveReleaseRequestAsync(
