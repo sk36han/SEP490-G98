@@ -1305,6 +1305,9 @@ namespace Warehouse.DataAcces.Service
                     gdn.Note = $"{gdn.Note} | {noteAddition}";
             }
 
+            // Cập nhật thời điểm hoàn thành toàn bộ quy trình
+            gdn.PostedAt = DateTime.UtcNow;
+
             // Document Approval
             _context.DocumentApprovals.Add(new DocumentApproval
             {

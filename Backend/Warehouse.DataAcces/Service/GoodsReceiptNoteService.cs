@@ -61,8 +61,8 @@ namespace Warehouse.DataAcces.Service
                     TotalAmount = grn.TotalGoodsAmount,
                     ShippingFee = grn.ShippingFee,
                     NetAmount = grn.TotalGoodsAmount + grn.ShippingFee,
-                    CreatedAt = DateTime.UtcNow,
-                    Note = grn.Note
+					CreatedAt = DateTime.UtcNow,
+					Note = grn.Note
                 })
                 .ToListAsync();
 
