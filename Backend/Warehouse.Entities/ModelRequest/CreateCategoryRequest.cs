@@ -4,15 +4,6 @@ namespace Warehouse.Entities.ModelRequest
 {
     public class CreateCategoryRequest
     {
-        /// <summary>
-        /// Mã danh mục — bắt buộc, từ 2 đến 50 ký tự
-        /// </summary>
-        [Required(ErrorMessage = "Mã danh mục không được để trống.")]
-        [MinLength(2, ErrorMessage = "Mã danh mục phải có ít nhất 2 ký tự.")]
-        [MaxLength(50, ErrorMessage = "Mã danh mục không được vượt quá 50 ký tự.")]
-        [RegularExpression(@"^[A-Za-z0-9_\-]+$",
-            ErrorMessage = "Mã danh mục chỉ được chứa chữ cái, chữ số, dấu gạch dưới và dấu gạch ngang.")]
-        public string CategoryCode { get; set; } = null!;
 
         /// <summary>
         /// Tên danh mục — bắt buộc, từ 2 đến 255 ký tự
