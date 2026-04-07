@@ -740,11 +740,7 @@ namespace Warehouse.DataAcces.Service
             return true;
         }
 
-        // ──────────────────────────── APPROVE (2-stage: Kế toán → Giám đốc) ────────────────────────────
-
-     //  private const string ROLE_ACCOUNTANT = "KT";
-		private const string ROLE_ACCOUNTANT = "SE";
-
+        // ──────────────────────────── APPROVE (Kế toán duyệt) ────────────────────────────
 
 		public async Task<ReleaseRequestDetailResponse> ApproveReleaseRequestAsync(
             long id, long userId, ApproveReleaseRequest request)
@@ -776,11 +772,6 @@ namespace Warehouse.DataAcces.Service
             // 3. Xử lý theo trạng thái hiện tại (Chỉ 1 bước: Kế toán duyệt)
             if (rr.Status == "PENDING_ACC")
             {
-                // Chỉ Kế toán mới có quyền duyệt RR
-                if (userRoleCode != ROLE_ACCOUNTANT)
-                    throw new InvalidOperationException(
-                        "Chỉ Kế toán mới có quyền duyệt yêu cầu xuất kho.");
-
                 if (request.IsApproved)
                 {
                     rr.Status = "APPROVED";
