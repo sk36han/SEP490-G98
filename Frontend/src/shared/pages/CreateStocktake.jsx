@@ -75,7 +75,7 @@ const isInProgressStatus = (status) => {
     return normalized === 'IN_PROGRESS' || normalized === 'EXECUTING' || normalized === 'STARTED';
 };
 
-const ViewStocktakeDetail = () => {
+const CreateStocktake = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
@@ -1118,4 +1118,4 @@ const ViewStocktakeDetail = () => {
     );
 };
 
-export default ViewStocktakeDetail;
+export default CreateStocktake;
