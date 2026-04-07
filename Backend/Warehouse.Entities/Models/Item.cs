@@ -43,8 +43,6 @@ public partial class Item
 
     public string? ImageUrl { get; set; }
 
-    public string? Specification { get; set; }
-
     public virtual UnitOfMeasure BaseUom { get; set; } = null!;
 
     public virtual Brand? Brand { get; set; }
