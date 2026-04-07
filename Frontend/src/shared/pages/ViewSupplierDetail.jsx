@@ -17,59 +17,11 @@ import {
     Truck,
     AlertCircle,
     Edit,
+    RefreshCw,
 } from 'lucide-react';
-import MonthPickerCalendar, { SingleDatePicker, DateRangePicker } from '../components/DateRangePicker';
 import DateRangeFilter from '../components/DateRangeFilter';
+import { getSupplierById, getSupplierTransactions } from '../lib/supplierService';
 import '../styles/CreateSupplier.css';
-
-// Mock data for testing
-const MOCK_SUPPLIER = {
-    supplierId: 'SUP001',
-    supplierCode: 'NCC001',
-    supplierName: 'Công Ty TNHH Thương Mại ABC',
-    taxCode: '0123456789',
-    phone: '028 1234 5678',
-    email: 'contact@abccorp.com',
-    address: '123 Đường Lạc Long Quân',
-    city: 'TP. Hồ Chí Minh',
-    district: 'Quận 1',
-    ward: 'Phường Bến Nghé',
-    isActive: true,
-    createdByName: 'Nguyễn Văn A',
-    createdDate: '2024-01-15T10:30:00Z',
-};
-
-const MOCK_STATS = {
-    createdGRNs: 5,
-    createdGRNsAmount: 150000000,
-    pendingPaymentGRNs: 2,
-    pendingPaymentGRNsAmount: 45000000,
-    createdReturnOrders: 1,
-    createdReturnOrdersAmount: 12000000,
-    pendingRefundReturnOrders: 0,
-    pendingRefundReturnOrdersAmount: 0,
-};
-
-const MOCK_HISTORY = [
-    {
-        time: '14:30',
-        date: '20/01/2025',
-        title: 'Tạo đơn nhập hàng #GRN001',
-        user: 'Nguyễn Văn A',
-    },
-    {
-        time: '10:15',
-        date: '18/01/2025',
-        title: 'Cập nhật thông tin nhà cung cấp',
-        user: 'Nguyễn Văn B',
-    },
-    {
-        time: '09:00',
-        date: '15/01/2025',
-        title: 'Tạo đơn nhập hàng #GRN002',
-        user: 'Nguyễn Văn A',
-    },
-];
 
 const formatCurrency = (amount) => {
     if (amount == null || isNaN(amount)) return '0 ₫';
@@ -82,29 +34,66 @@ const formatDate = (dateStr) => {
     return date.toLocaleDateString('vi-VN');
 };
 
+const formatDateTime = (dateStr) => {
+    if (!dateStr) return { time: '-', date: '-' };
+    const date = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    return {
+        time: date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        date: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    };
+};
+
 export default function ViewSupplierDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [supplier, setSupplier] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [transactions, setTransactions] = useState([]);
+    const [statsSummary, setStatsSummary] = useState(null);
+    const [loadingTransactions, setLoadingTransactions] = useState(false);
 
-    // Handle custom date range change
-    const handleDateFromChange = (date) => {
-        setDateFrom(date || '');
+    const fetchSupplier = async (isRefreshing = false) => {
+        if (isRefreshing) setRefreshing(true);
+        else setLoading(true);
+        setError(null);
+        try {
+            const data = await getSupplierById(id);
+            setSupplier(data);
+        } catch (err) {
+            setError(err.message || 'Không thể tải thông tin nhà cung cấp.');
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     };
 
-    const handleDateToChange = (date) => {
-        setDateTo(date || '');
+    const fetchTransactions = async () => {
+        setLoadingTransactions(true);
+        try {
+            const res = await getSupplierTransactions(id, {
+                fromDate: dateFrom || null,
+                toDate: dateTo || null,
+            });
+            setStatsSummary(res?.summary || null);
+            setTransactions(res?.history?.items || []);
+        } catch (err) {
+            console.error('Failed to load transactions:', err);
+        } finally {
+            setLoadingTransactions(false);
+        }
     };
 
     useEffect(() => {
-        // Simulate API loading
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 500);
-        return () => clearTimeout(timer);
+        fetchSupplier();
+        fetchTransactions();
     }, [id]);
+
+    const handleDateFromChange = (date) => setDateFrom(date || '');
+    const handleDateToChange = (date) => setDateTo(date || '');
 
     if (loading) {
         return (
@@ -114,9 +103,18 @@ export default function ViewSupplierDetail() {
         );
     }
 
-    const supplier = MOCK_SUPPLIER;
-    const stats = MOCK_STATS;
-    const history = MOCK_HISTORY;
+    if (error || !supplier) {
+        return (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography color="error">{error || 'Không tìm thấy nhà cung cấp.'}</Typography>
+                <Box sx={{ mt: 2 }}>
+                    <button type="button" onClick={() => navigate('/suppliers')} className="btn btn-secondary">
+                        Quay lại danh sách
+                    </button>
+                </Box>
+            </Box>
+        );
+    }
 
     return (
         <Box className="supplier-detail-page" sx={{ p: 3 }}>
@@ -129,7 +127,21 @@ export default function ViewSupplierDetail() {
                     </button>
                 </div>
                 <div className="page-header-actions">
-                    <button type="button" className="btn btn-secondary">
+                    <button
+                        type="button"
+                        onClick={() => fetchSupplier(true)}
+                        className="btn btn-secondary"
+                        disabled={refreshing}
+                        title="Tải lại"
+                    >
+                        <RefreshCw size={16} className={`btn-icon ${refreshing ? 'spinning' : ''}`} />
+                        Làm mới
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => navigate(`/suppliers/${id}/edit`)}
+                    >
                         <Edit size={16} className="btn-icon" />
                         Chỉnh sửa
                     </button>
@@ -200,27 +212,7 @@ export default function ViewSupplierDetail() {
                                             </Box>
                                             <Box sx={{ textAlign: 'right' }}>
                                                 <Typography sx={{ fontWeight: 700, color: '#0284c7', fontSize: '14px' }}>
-                                                    {stats.createdGRNs} đơn
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '12px', color: '#0284c7' }}>
-                                                    {formatCurrency(stats.createdGRNsAmount)}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        {/* Đơn nhập chưa thanh toán */}
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#fef3c7', borderRadius: 1.5 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <AlertCircle size={18} color="#d97706" />
-                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                    Đơn nhập chưa thanh toán
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{ textAlign: 'right' }}>
-                                                <Typography sx={{ fontWeight: 700, color: '#d97706', fontSize: '14px' }}>
-                                                    {stats.pendingPaymentGRNs} đơn
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '12px', color: '#d97706' }}>
-                                                    {formatCurrency(stats.pendingPaymentGRNsAmount)}
+                                                    {loadingTransactions ? '...' : (statsSummary?.totalGoodsReceiptNotes ?? 0)} đơn
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -234,27 +226,7 @@ export default function ViewSupplierDetail() {
                                             </Box>
                                             <Box sx={{ textAlign: 'right' }}>
                                                 <Typography sx={{ fontWeight: 700, color: '#16a34a', fontSize: '14px' }}>
-                                                    {stats.createdReturnOrders} đơn
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '12px', color: '#16a34a' }}>
-                                                    {formatCurrency(stats.createdReturnOrdersAmount)}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        {/* Đơn trả chưa nhận hoàn tiền */}
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#fef2f2', borderRadius: 1.5 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <AlertCircle size={18} color="#dc2626" />
-                                                <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                    Đơn trả chưa nhận hoàn tiền
-                                                </Typography>
-                                            </Box>
-                                            <Box sx={{ textAlign: 'right' }}>
-                                                <Typography sx={{ fontWeight: 700, color: '#dc2626', fontSize: '14px' }}>
-                                                    {stats.pendingRefundReturnOrders} đơn
-                                                </Typography>
-                                                <Typography sx={{ fontSize: '12px', color: '#dc2626' }}>
-                                                    {formatCurrency(stats.pendingRefundReturnOrdersAmount)}
+                                                    {loadingTransactions ? '...' : (statsSummary?.totalPurchaseOrders ?? 0)} đơn
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -275,52 +247,71 @@ export default function ViewSupplierDetail() {
                                         border: '1px solid #e5e7eb',
                                     }}
                                 >
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                        {history.map((item, index) => (
-                                            <Box
-                                                key={index}
-                                                sx={{
-                                                    display: 'flex',
-                                                    gap: 2,
-                                                    alignItems: 'flex-start',
-                                                }}
-                                            >
-                                                <Box
-                                                    sx={{
-                                                        width: 10,
-                                                        height: 10,
-                                                        borderRadius: '50%',
-                                                        bgcolor: index === 0 ? '#2196F3' : '#9ca3af',
-                                                        mt: 0.75,
-                                                        flexShrink: 0,
-                                                    }}
-                                                />
-                                                <Box
-                                                    sx={{
-                                                        flex: 1,
-                                                        borderLeft: index < history.length - 1 ? '2px solid #e5e7eb' : 'none',
-                                                        pl: 2,
-                                                        pb: index < history.length - 1 ? 2 : 0,
-                                                    }}
-                                                >
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                                                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
-                                                            {item.time}
-                                                        </Typography>
-                                                        <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
-                                                            {item.date}
-                                                        </Typography>
+                                    {loadingTransactions ? (
+                                        <Typography sx={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', py: 2 }}>
+                                            Đang tải lịch sử...
+                                        </Typography>
+                                    ) : transactions.length === 0 ? (
+                                        <Typography sx={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', py: 2 }}>
+                                            Chưa có giao dịch nào
+                                        </Typography>
+                                    ) : (
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            {transactions.map((item, index) => {
+                                                const dt = formatDateTime(item.createdAt || item.transactionDate);
+                                                const title =
+                                                    item.transactionType === 'PO'
+                                                        ? `Đơn đặt hàng #${item.transactionCode}`
+                                                        : item.transactionType === 'GRN'
+                                                        ? `Đơn nhập hàng #${item.transactionCode}`
+                                                        : `${item.transactionType} #${item.transactionCode}`;
+                                                return (
+                                                    <Box
+                                                        key={`${item.transactionType}-${item.transactionId}-${index}`}
+                                                        sx={{
+                                                            display: 'flex',
+                                                            gap: 2,
+                                                            alignItems: 'flex-start',
+                                                        }}
+                                                    >
+                                                        <Box
+                                                            sx={{
+                                                                width: 10,
+                                                                height: 10,
+                                                                borderRadius: '50%',
+                                                                bgcolor: index === 0 ? '#2196F3' : '#9ca3af',
+                                                                mt: 0.75,
+                                                                flexShrink: 0,
+                                                            }}
+                                                        />
+                                                        <Box
+                                                            sx={{
+                                                                flex: 1,
+                                                                borderLeft: index < transactions.length - 1 ? '2px solid #e5e7eb' : 'none',
+                                                                pl: 2,
+                                                                pb: index < transactions.length - 1 ? 2 : 0,
+                                                            }}
+                                                        >
+                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                                                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                                                    {dt.time}
+                                                                </Typography>
+                                                                <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
+                                                                    {dt.date}
+                                                                </Typography>
+                                                            </Box>
+                                                            <Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#2563eb', mb: 0.25 }}>
+                                                                {title}
+                                                            </Typography>
+                                                            <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
+                                                                {item.createdBy || item.User || '-'}
+                                                            </Typography>
+                                                        </Box>
                                                     </Box>
-                                                    <Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#2563eb', mb: 0.25 }}>
-                                                        {item.title}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
-                                                        {item.user}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        ))}
-                                    </Box>
+                                                );
+                                            })}
+                                        </Box>
+                                    )}
                                 </Box>
                             </div>
                         </Box>
@@ -409,26 +400,12 @@ export default function ViewSupplierDetail() {
                                         </div>
                                     </div>
                                     <div className="form-field">
-                                        <label className="form-label">Người tạo</label>
-                                        <div className="input-wrapper">
-                                            <User className="input-icon" size={16} />
-                                            <input
-                                                type="text"
-                                                value={supplier.createdByName || ''}
-                                                readOnly
-                                                className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
-                                                placeholder="-"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="form-field">
                                         <label className="form-label">Ngày tạo</label>
                                         <div className="input-wrapper">
                                             <Calendar className="input-icon" size={16} />
                                             <input
                                                 type="text"
-                                                value={formatDate(supplier.createdDate)}
+                                                value={supplier.createdAt ? formatDate(supplier.createdAt) : '-'}
                                                 readOnly
                                                 className="form-input"
                                                 style={{ backgroundColor: '#f5f5f5' }}

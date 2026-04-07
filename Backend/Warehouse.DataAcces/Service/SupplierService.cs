@@ -119,7 +119,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 
@@ -199,7 +200,8 @@ namespace Warehouse.DataAcces.Service
 					City = s.City,
 					Ward = s.Ward,
 					District = s.District,
-					IsActive = s.IsActive
+					IsActive = s.IsActive,
+					CreatedAt = s.CreatedAt
 				})
 				.ToList();
 
@@ -311,7 +313,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 
@@ -377,7 +380,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 		public async Task<SupplierResponse> GetSupplierByIdAsync(long id)
@@ -400,7 +404,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 
