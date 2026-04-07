@@ -524,7 +524,6 @@ public partial class Mkiwms5Context : DbContext
             entity.Property(e => e.RequiresCo).HasColumnName("RequiresCO");
             entity.Property(e => e.RequiresCq).HasColumnName("RequiresCQ");
             entity.Property(e => e.RevenueAccount).HasMaxLength(50);
-            entity.Property(e => e.Specification).HasMaxLength(500);
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(sysutcdatetime())");
 
             entity.HasOne(d => d.BaseUom).WithMany(p => p.Items)
