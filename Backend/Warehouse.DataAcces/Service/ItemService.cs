@@ -198,7 +198,7 @@ namespace Warehouse.DataAcces.Service
                     AuditAction.Create,
                     AuditEntity.Item,
                     entity.ItemId,
-                    $"Tạo sản phẩm {entity.ItemCode} - {entity.ItemName}");
+                    $"Tao san pham {entity.ItemCode} - {entity.ItemName}");
             }
 
             return entity;
@@ -540,7 +540,7 @@ namespace Warehouse.DataAcces.Service
                     AuditAction.Update,
                     AuditEntity.Item,
                     item.ItemId,
-                    $"Cập nhật sản phẩm {item.ItemCode} - {item.ItemName}");
+                    $"Cap nhat san pham {item.ItemCode} - {item.ItemName}");
             }
 
             return item;
@@ -559,8 +559,8 @@ namespace Warehouse.DataAcces.Service
 
             if (item.IsActive != isActive)
             {
+                _logger.LogDebug("[ItemService] Thay doi trang thai item: {OldStatus} -> {NewStatus}", item.IsActive, isActive);
                 var oldStatus = item.IsActive;
-                _logger.LogDebug("[ItemService] Thay doi trang thai item: {OldStatus} -> {NewStatus}", oldStatus, isActive);
                 item.IsActive = isActive;
                 item.UpdatedAt = DateTime.UtcNow;
                 await UpdateAsync(item);
@@ -573,7 +573,7 @@ namespace Warehouse.DataAcces.Service
                         AuditAction.Update,
                         AuditEntity.Item,
                         item.ItemId,
-                        $"{(isActive ? "Kích hoạt" : "Vô hiệu hóa")} sản phẩm {item.ItemCode}",
+                        $"{(isActive ? "Kich hoat" : "Vo hieu hoa")} san pham {item.ItemCode}",
                         $"IsActive: {oldStatus}",
                         $"IsActive: {isActive}");
                 }

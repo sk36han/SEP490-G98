@@ -468,8 +468,8 @@ export default function ViewPurchaseOrderList() {
             const isNumber = ['orderValue', 'totalReceivedQuantity'].includes(orderBy);
             let cmp = 0;
             if (isDate) {
-                const tA = utcTimestamp(aVal);
-                const tB = utcTimestamp(bVal);
+                const tA = new Date(aVal).getTime();
+                const tB = new Date(bVal).getTime();
                 cmp = tA - tB;
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);

@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime, parseDate } from '../lib/dateUtils';
+import { getGoodsDeliveryNotes } from '../lib/goodsDeliveryNoteService';
 import {
     Box,
     Paper,
@@ -60,16 +61,98 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const STATUS_STYLE = {
-    Draft: { bgColor: 'rgba(107, 114, 128, 0.2)', label: 'Nháp', dot: '•' },
-    PendingAcc: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chờ kế toán duyệt', dot: '•' },
-    PendingDir: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chờ giám đốc duyệt', dot: '•' },
-    Approved: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã duyệt', dot: '•' },
-    Dispatched: { bgColor: 'rgba(59, 130, 246, 0.2)', label: 'Đã xuất hàng', dot: '•' },
-    Signed: { bgColor: 'rgba(139, 92, 246, 0.2)', label: 'Đã ký nhận', dot: '•' },
-    Posted: { bgColor: 'rgba(139, 92, 246, 0.2)', label: 'Đã ghi sổ', dot: '•' },
-    Rejected: { bgColor: 'rgba(239, 68, 68, 0.2)', label: 'Từ chối', dot: '•' },
+const normalizeGdnStatus = (status) => {
+    const raw = String(status || '').trim();
+
+    const normalized = raw
+        .replace(/([a-z])([A-Z])/g, '$1_$2')
+        .replace(/[\s-]+/g, '_')
+        .toUpperCase();
+
+    const aliasMap = {
+        DRAFT: 'DRAFT',
+        PENDINGACC: 'PENDING_ACC',
+        PENDING_ACC: 'PENDING_ACC',
+        PENDINGDIR: 'PENDING_DIR',
+        PENDING_DIR: 'PENDING_DIR',
+        PENDINGISSUE: 'PENDING_ISSUE',
+        PENDING_ISSUE: 'PENDING_ISSUE',
+        APPROVED: 'APPROVED',
+        ISSUED: 'ISSUED',
+        DISPATCHED: 'ISSUED',
+        SIGNED: 'POSTED',
+        POSTED: 'POSTED',
+        REJECTED: 'REJECTED',
+        CANCELLED: 'CANCELLED',
+    };
+
+    return aliasMap[normalized] || normalized;
 };
+
+const STATUS_STYLE = {
+    DRAFT: {
+        bgColor: 'rgba(107, 114, 128, 0.2)',
+        color: '#4b5563',
+        label: 'Nháp',
+        dot: '•',
+    },
+    PENDING_ACC: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        color: '#b45309',
+        label: 'Chờ kế toán duyệt',
+        dot: '•',
+    },
+    PENDING_DIR: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        color: '#b45309',
+        label: 'Chờ giám đốc duyệt',
+        dot: '•',
+    },
+    PENDING_ISSUE: {
+        bgColor: 'rgba(14, 165, 233, 0.18)',
+        color: '#0369a1',
+        label: 'Chờ xuất hàng',
+        dot: '•',
+    },
+    APPROVED: {
+        bgColor: 'rgba(16, 185, 129, 0.18)',
+        color: '#047857',
+        label: 'Đã duyệt',
+        dot: '•',
+    },
+    ISSUED: {
+        bgColor: 'rgba(139, 92, 246, 0.18)',
+        color: '#6d28d9',
+        label: 'Đã xuất hàng',
+        dot: '•',
+    },
+    POSTED: {
+        bgColor: 'rgba(59, 130, 246, 0.18)',
+        color: '#1d4ed8',
+        label: 'Đã ghi sổ',
+        dot: '•',
+    },
+    REJECTED: {
+        bgColor: 'rgba(239, 68, 68, 0.18)',
+        color: '#b91c1c',
+        label: 'Từ chối',
+        dot: '•',
+    },
+    CANCELLED: {
+        bgColor: 'rgba(239, 68, 68, 0.18)',
+        color: '#b91c1c',
+        label: 'Đã hủy',
+        dot: '•',
+    },
+};
+
+const getGdnStatusMeta = (status) =>
+    STATUS_STYLE[normalizeGdnStatus(status)] || {
+        bgColor: 'rgba(107, 114, 128, 0.15)',
+        color: '#4b5563',
+        label: status || '-',
+        dot: '•',
+    };
 
 const PAYMENT_STYLE = {
     paid: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã thanh toán', dot: '•' },
@@ -87,8 +170,7 @@ const GDN_COLUMNS = [
     { id: 'totalDeliveredQty', label: 'Tổng số lượng xuất', sortable: true, draggable: true },
     { id: 'totalDeliveredAmount', label: 'Tổng tiền xuất', sortable: true, draggable: true },
     { id: 'paymentDisplay', label: 'Thanh toán', sortable: true, draggable: true },
-    { id: 'createdBy', label: 'Người tạo', sortable: true, draggable: true },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
+    { id: 'createdByName', label: 'Người tạo', sortable: true, draggable: true },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
 ];
 
@@ -96,129 +178,6 @@ const DEFAULT_COLUMN_ORDER = GDN_COLUMNS.map((c) => c.id);
 const DEFAULT_VISIBLE_COLUMN_IDS = DEFAULT_COLUMN_ORDER.slice();
 const SORTABLE_COLUMN_IDS = GDN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 const COLUMN_IDS_WITH_RIGHT_ALIGN = new Set(['totalDeliveredQty', 'totalDeliveredAmount']);
-
-const MOCK_GDN_LIST = [
-    {
-        goodsDeliveryNoteId: 1,
-        gdnCode: 'GDN-2025-001',
-        releaseRequestCode: 'RR-2025-014',
-        receiverName: 'Công ty TNHH ABC',
-        warehouseName: 'Kho HCM',
-        issueDate: '2025-03-10T08:00:00',
-        status: 'Approved',
-        totalDeliveredQty: 50,
-        totalDeliveredAmount: 125000000,
-        createdBy: 'Nguyễn Văn A',
-        createdAt: '2025-03-09T10:00:00',
-        isPaid: true,
-        paymentMethod: 'Chuyển khoản',
-    },
-    {
-        goodsDeliveryNoteId: 2,
-        gdnCode: 'GDN-2025-002',
-        releaseRequestCode: 'RR-2025-015',
-        receiverName: 'Công ty CP XYZ',
-        warehouseName: 'Kho Hà Nội',
-        issueDate: '2025-03-08T09:00:00',
-        status: 'Dispatched',
-        totalDeliveredQty: 30,
-        totalDeliveredAmount: 75000000,
-        createdBy: 'Trần Thị B',
-        createdAt: '2025-03-07T14:00:00',
-        isPaid: false,
-        paymentMethod: 'Tiền mặt',
-    },
-    {
-        goodsDeliveryNoteId: 3,
-        gdnCode: 'GDN-2025-003',
-        releaseRequestCode: 'RR-2025-016',
-        receiverName: 'Công ty TNHH Minh Phát',
-        warehouseName: 'Kho Đà Nẵng',
-        issueDate: '2025-03-07T10:00:00',
-        status: 'PendingDir',
-        totalDeliveredQty: 20,
-        totalDeliveredAmount: 45000000,
-        createdBy: 'Lê Văn C',
-        createdAt: '2025-03-06T11:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-    {
-        goodsDeliveryNoteId: 4,
-        gdnCode: 'GDN-2025-004',
-        releaseRequestCode: 'RR-2025-017',
-        receiverName: 'Công ty CP Hòa Bình',
-        warehouseName: 'Kho HCM',
-        issueDate: '2025-03-06T08:30:00',
-        status: 'Signed',
-        totalDeliveredQty: 80,
-        totalDeliveredAmount: 200000000,
-        createdBy: 'Phạm Thị D',
-        createdAt: '2025-03-05T09:00:00',
-        isPaid: true,
-        paymentMethod: 'Chuyển khoản',
-    },
-    {
-        goodsDeliveryNoteId: 5,
-        gdnCode: 'GDN-2025-005',
-        releaseRequestCode: 'RR-2025-018',
-        receiverName: 'Công ty TNHH Bắc Nam',
-        warehouseName: 'Kho Hà Nội',
-        issueDate: '2025-03-05T14:00:00',
-        status: 'Posted',
-        totalDeliveredQty: 45,
-        totalDeliveredAmount: 112500000,
-        createdBy: 'Nguyễn Văn A',
-        createdAt: '2025-03-04T08:00:00',
-        isPaid: true,
-        paymentMethod: 'Chuyển khoản',
-    },
-    {
-        goodsDeliveryNoteId: 6,
-        gdnCode: 'GDN-2025-006',
-        releaseRequestCode: 'RR-2025-019',
-        receiverName: 'Công ty TNHH Trường Sơn',
-        warehouseName: 'Kho Đà Nẵng',
-        issueDate: '2025-03-04T09:00:00',
-        status: 'PendingAcc',
-        totalDeliveredQty: 15,
-        totalDeliveredAmount: 37500000,
-        createdBy: 'Trần Thị B',
-        createdAt: '2025-03-03T10:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-    {
-        goodsDeliveryNoteId: 7,
-        gdnCode: 'GDN-2025-007',
-        releaseRequestCode: 'RR-2025-020',
-        receiverName: 'Công ty CP Ánh Dương',
-        warehouseName: 'Kho HCM',
-        issueDate: '2025-03-03T11:00:00',
-        status: 'Rejected',
-        totalDeliveredQty: 0,
-        totalDeliveredAmount: 0,
-        createdBy: 'Lê Văn C',
-        createdAt: '2025-03-02T14:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-    {
-        goodsDeliveryNoteId: 8,
-        gdnCode: 'GDN-2025-008',
-        releaseRequestCode: 'RR-2025-021',
-        receiverName: 'Công ty TNHH An Khang',
-        warehouseName: 'Kho Hà Nội',
-        issueDate: '2025-03-02T08:00:00',
-        status: 'Draft',
-        totalDeliveredQty: 0,
-        totalDeliveredAmount: 0,
-        createdBy: 'Phạm Thị D',
-        createdAt: '2025-03-01T16:00:00',
-        isPaid: false,
-        paymentMethod: '',
-    },
-];
 
 const formatDate = (dateStr) => formatDateTime(dateStr);
 
@@ -249,11 +208,11 @@ export default function ViewGoodDeliveryNoteList() {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    const canCreate = true; // UI mock - show create button
+    const canCreate = true;
 
-    const [list] = useState(MOCK_GDN_LIST);
-    const [loading] = useState(false);
-    const [error] = useState(null);
+    const [list, setList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState(() => {
@@ -286,6 +245,23 @@ export default function ViewGoodDeliveryNoteList() {
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
     const resetRef = useRef(false);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await getGoodsDeliveryNotes({ page: page + 1, pageSize });
+            setList(result.items || []);
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không tải được danh sách phiếu xuất hàng';
+            setError(msg);
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [page, pageSize]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     useEffect(() => {
         if (columnSelectorAnchor) {
@@ -449,7 +425,7 @@ export default function ViewGoodDeliveryNoteList() {
                 normalize(row.releaseRequestCode ?? '').includes(term) ||
                 normalize(row.receiverName ?? '').includes(term) ||
                 normalize(row.warehouseName ?? '').includes(term) ||
-                normalize(row.createdBy ?? '').includes(term)
+                normalize(row.createdByName ?? '').includes(term)
             );
         }
 
@@ -470,7 +446,7 @@ export default function ViewGoodDeliveryNoteList() {
             result = result.filter((row) => normalize(row.warehouseName ?? '').includes(normalize(filterValues.warehouseName)));
         }
         if (filterValues.createdBy) {
-            result = result.filter((row) => normalize(row.createdBy ?? '').includes(normalize(filterValues.createdBy)));
+            result = result.filter((row) => normalize(row.createdByName ?? '').includes(normalize(filterValues.createdByName)));
         }
         if (filterValues.issueFromDate) {
             result = result.filter((row) => {
@@ -523,10 +499,10 @@ export default function ViewGoodDeliveryNoteList() {
         setPage(0);
     };
 
-    const releaseRequestCodeOptions = useMemo(() => [...new Set(list.map((x) => x.releaseRequestCode).filter(Boolean))], [list]);
+    const releaseRequestCodeOptions = useMemo(() => [...new Set(list.map((x) => x.releaseRequestId).filter(Boolean))], [list]);
     const receiverOptions = useMemo(() => [...new Set(list.map((x) => x.receiverName).filter(Boolean))], [list]);
     const warehouseOptions = useMemo(() => [...new Set(list.map((x) => x.warehouseName).filter(Boolean))], [list]);
-    const createdByOptions = useMemo(() => [...new Set(list.map((x) => x.createdBy).filter(Boolean))], [list]);
+    const createdByOptions = useMemo(() => [...new Set(list.map((x) => x.createdByName).filter(Boolean))], [list]);
 
     const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
@@ -860,7 +836,7 @@ export default function ViewGoodDeliveryNoteList() {
                                                         ...(col.id === 'totalDeliveredQty' && { minWidth: 160 }),
                                                         ...(col.id === 'totalDeliveredAmount' && { minWidth: 160 }),
                                                         ...(col.id === 'paymentDisplay' && { minWidth: 180 }),
-                                                        ...(col.id === 'createdBy' && { minWidth: 130 }),
+                                                        ...(col.id === 'createdByName' && { minWidth: 130 }),
                                                         ...(col.id === 'createdAt' && { minWidth: 145 }),
                                                     }}
                                                     align={COLUMN_IDS_WITH_RIGHT_ALIGN.has(col.id) ? 'right' : 'left'}
@@ -911,7 +887,7 @@ export default function ViewGoodDeliveryNoteList() {
                                     <TableBody>
                                         {rows.map((row, index) => (
                                             <TableRow
-                                                key={row.goodsDeliveryNoteId}
+                                                key={row.gdnId ?? `row-${index}`}
                                                 hover
                                                 sx={{
                                                     height: 56,
@@ -935,8 +911,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/goods-delivery-notes/detail/${row.goodsDeliveryNoteId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.goodsDeliveryNoteId}`); }}
+                                                                        href={`/goods-delivery-notes/detail/${row.releaseRequestId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.releaseRequestId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -957,8 +933,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/release-requests/${encodeURIComponent(row.releaseRequestCode)}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/release-requests/${encodeURIComponent(row.releaseRequestCode)}`); }}
+                                                                        href={`/release-request/${row.releaseRequestId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/release-request/${row.releaseRequestId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -974,7 +950,7 @@ export default function ViewGoodDeliveryNoteList() {
                                                     }
 
                                                     if (col.id === 'status') {
-                                                        const style = STATUS_STYLE[row.status] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.status ?? '', dot: '•' };
+                                                        const style = getGdnStatusMeta(row.status);
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
@@ -1046,6 +1022,19 @@ export default function ViewGoodDeliveryNoteList() {
                                                         );
                                                     }
 
+
+                                                    if (col.id === 'createdBy') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                title={row.createdByName}
+                                                            >
+                                                                {row.createdByName ?? '-'}
+                                                            </TableCell>
+                                                        );
+                                                    }
 
                                                     return (
                                                         <TableCell

@@ -20,6 +20,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("list")]
+        [Authorize]
         public async Task<IActionResult> GetPurchaseOrders(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
@@ -36,6 +37,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("detail/{id:long}")]
+        [Authorize]
         public async Task<IActionResult> GetPurchaseOrderDetail(long id)
         {
             try
@@ -54,6 +56,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("create")]
+        [Authorize(Roles = "SP,KT,GD")]
         public async Task<IActionResult> CreatePurchaseOrder([FromBody] CreatePurchaseOrderRequest request)
         {
             if (!ModelState.IsValid)
@@ -83,6 +86,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPut("update/{id:long}")]
+        [Authorize(Roles = "SP,KT,GD")]
         public async Task<IActionResult> UpdatePurchaseOrder(long id, [FromBody] UpdatePurchaseOrderRequest request)
         {
             if (!ModelState.IsValid)

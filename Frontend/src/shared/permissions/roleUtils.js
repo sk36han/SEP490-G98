@@ -30,13 +30,20 @@ export const getPermissionRole = (originalRole) => {
         if (numeric === 2) return 'SALE_ENGINEER';
         if (numeric === 3) return 'ACCOUNTANTS';
     }
-    const upper = str.toUpperCase();
-    if (upper === 'ADMIN') return 'ADMIN';
+    const upper = str.toUpperCase().replace(/[-\s]/g, '_');
+    // Viết tắt tiếng Việt
     if (upper === 'GD') return 'DIRECTOR';
-    if (upper === 'TK') return 'WAREHOUSE_KEEPER';
+    if (upper === 'TK' || upper === 'WK') return 'WAREHOUSE_KEEPER';
     if (upper === 'SP') return 'SALE_SUPPORT';
     if (upper === 'SE') return 'SALE_ENGINEER';
     if (upper === 'KT') return 'ACCOUNTANTS';
+    // Tên tiếng Anh đầy đủ (trực tiếp từ JWT / backend)
+    if (upper === 'ADMIN') return 'ADMIN';
+    if (upper === 'DIRECTOR') return 'DIRECTOR';
+    if (upper === 'WAREHOUSE_KEEPER' || upper === 'WAREHOUSEKEEPER') return 'WAREHOUSE_KEEPER';
+    if (upper === 'SALE_SUPPORT' || upper === 'SALESUPPORT') return 'SALE_SUPPORT';
+    if (upper === 'SALE_ENGINEER' || upper === 'SALESENGINEER') return 'SALE_ENGINEER';
+    if (upper === 'ACCOUNTANTS' || upper === 'ACCOUNTANT') return 'ACCOUNTANTS';
     return null;
 };
 

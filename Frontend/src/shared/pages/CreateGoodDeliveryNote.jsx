@@ -17,6 +17,8 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
 import '../styles/CreateGoodDeliveryNote.css';
+import { createGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
+import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TODAY = new Date().toLocaleDateString('en-CA');
@@ -43,254 +45,14 @@ const RELEASE_REQUEST_STATUS_META = {
     CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
 };
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_RELEASE_REQUESTS = [
-    {
-        releaseRequestId: 1,
-        releaseRequestCode: 'YCX-2026-001',
-        status: 'APPROVED',
-        lifecycleStatus: 'IssuePending',
-        requestedDate: '2026-02-01',
-        expectedDate: '2026-02-15',
-        purpose: 'Xuất hàng bán lẻ',
-        warehouseId: 11,
-        warehouseName: 'Kho Hà Nội',
-        receiverId: 201,
-        receiverName: 'Nguyễn Văn Minh',
-        companyName: 'Công ty TNHH Thương mại ABC',
-        receiverAddress: 'Số 45 Đường Nguyễn Trãi, Quận 1',
-        requestedBy: 1,
-        requestedByName: 'Trần Thị Lan',
-        totalItems: 3,
-        totalRequestedQty: 120,
-        createdAt: '2026-02-01T08:30:00',
-        lines: [
-            {
-                releaseRequestLineId: 101,
-                itemId: 1,
-                itemCode: 'PEN-001',
-                itemName: 'Bút bi Thiên Long TL-057',
-                requestedQty: 50,
-                uomId: 1,
-                uomName: 'Cây',
-                note: '',
-                approvedQty: 50,
-                allocatedQty: 50,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 200,
-            },
-            {
-                releaseRequestLineId: 102,
-                itemId: 2,
-                itemCode: 'NOTE-001',
-                itemName: 'Vở note 5 chấm A5',
-                requestedQty: 40,
-                uomId: 2,
-                uomName: 'Quyển',
-                note: '',
-                approvedQty: 40,
-                allocatedQty: 40,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 80,
-            },
-            {
-                releaseRequestLineId: 103,
-                itemId: 3,
-                itemCode: 'PAPER-001',
-                itemName: 'Giấy A4 Double A 80gsm',
-                requestedQty: 30,
-                uomId: 3,
-                uomName: 'Ram',
-                note: 'Ưu tiên giao trước 15/2',
-                approvedQty: 30,
-                allocatedQty: 30,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 60,
-            },
-        ],
-    },
-    {
-        releaseRequestId: 2,
-        releaseRequestCode: 'YCX-2026-002',
-        status: 'PENDING',
-        lifecycleStatus: 'IssuePending',
-        requestedDate: '2026-02-05',
-        expectedDate: '2026-02-20',
-        purpose: 'Xuất hàng cho dự án',
-        warehouseId: 12,
-        warehouseName: 'Kho TP.HCM',
-        receiverId: 202,
-        receiverName: 'Lê Hoàng Nam',
-        companyName: 'Công ty CP Đầu tư XYZ',
-        receiverAddress: 'Tầng 5, Tòa nhà Bitexco, Quận 1',
-        requestedBy: 2,
-        requestedByName: 'Phạm Quốc Trung',
-        totalItems: 2,
-        totalRequestedQty: 75,
-        createdAt: '2026-02-05T10:15:00',
-        lines: [
-            {
-                releaseRequestLineId: 201,
-                itemId: 4,
-                itemCode: 'CLIP-001',
-                itemName: 'Kẹp giấy 33mm (hộp 50 cái)',
-                requestedQty: 50,
-                uomId: 4,
-                uomName: 'Hộp',
-                note: '',
-                approvedQty: 50,
-                allocatedQty: 50,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 100,
-            },
-            {
-                releaseRequestLineId: 202,
-                itemId: 5,
-                itemCode: 'GLUE-001',
-                itemName: 'Keo dán Thiên Long 15g',
-                requestedQty: 25,
-                uomId: 5,
-                uomName: 'Tuýp',
-                note: '',
-                approvedQty: 25,
-                allocatedQty: 25,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 60,
-            },
-        ],
-    },
-    {
-        releaseRequestId: 3,
-        releaseRequestCode: 'YCX-2026-003',
-        status: 'DRAFT',
-        lifecycleStatus: 'IssuePending',
-        requestedDate: '2026-02-10',
-        expectedDate: '2026-02-25',
-        purpose: 'Xuất mẫu thử nghiệm',
-        warehouseId: 11,
-        warehouseName: 'Kho Hà Nội',
-        receiverId: 203,
-        receiverName: 'Phạm Thị Hương',
-        companyName: 'Trung tâm Nghiên cứu Quốc gia',
-        receiverAddress: 'Số 12 Đường Hoàng Quốc Việt, Cầu Giấy',
-        requestedBy: 1,
-        requestedByName: 'Trần Thị Lan',
-        totalItems: 1,
-        totalRequestedQty: 10,
-        createdAt: '2026-02-10T14:00:00',
-        lines: [
-            {
-                releaseRequestLineId: 301,
-                itemId: 6,
-                itemCode: 'SAMPLE-001',
-                itemName: 'Mẫu thử nghiệm sản phẩm mới',
-                requestedQty: 10,
-                uomId: 6,
-                uomName: 'Bộ',
-                note: 'Cần đầy đủ giấy chứng nhận chất lượng',
-                approvedQty: 10,
-                allocatedQty: 10,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 15,
-            },
-        ],
-    },
-    {
-        releaseRequestId: 4,
-        releaseRequestCode: 'YCX-2026-004',
-        status: 'APPROVED',
-        lifecycleStatus: 'IssuePending',
-        requestedDate: '2026-02-08',
-        expectedDate: '2026-02-18',
-        purpose: 'Xuất hàng bảo hành',
-        warehouseId: 13,
-        warehouseName: 'Kho Đà Nẵng',
-        receiverId: 204,
-        receiverName: 'Hoàng Minh Tuấn',
-        companyName: 'Công ty TNHH Bảo hành Việt',
-        receiverAddress: '42 Trần Hưng Đạo, Quận Hải Châu',
-        requestedBy: 3,
-        requestedByName: 'Ngô Thị Mai',
-        totalItems: 2,
-        totalRequestedQty: 60,
-        createdAt: '2026-02-08T09:00:00',
-        lines: [
-            {
-                releaseRequestLineId: 401,
-                itemId: 7,
-                itemCode: 'REPAIR-001',
-                itemName: 'Bộ phụ kiện sửa chữa laptop',
-                requestedQty: 30,
-                uomId: 7,
-                uomName: 'Bộ',
-                note: '',
-                approvedQty: 30,
-                allocatedQty: 30,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 45,
-            },
-            {
-                releaseRequestLineId: 402,
-                itemId: 8,
-                itemCode: 'TOOL-001',
-                itemName: 'Dụng cụ sửa chữa chuyên dụng',
-                requestedQty: 30,
-                uomId: 8,
-                uomName: 'Bộ',
-                note: 'Bảo quản cẩn thận',
-                approvedQty: 30,
-                allocatedQty: 30,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 30,
-            },
-        ],
-    },
-    {
-        releaseRequestId: 5,
-        releaseRequestCode: 'YCX-2026-005',
-        status: 'REJECTED',
-        lifecycleStatus: 'IssuePending',
-        requestedDate: '2026-02-12',
-        expectedDate: '2026-02-28',
-        purpose: 'Xuất hàng nội bộ',
-        warehouseId: 11,
-        warehouseName: 'Kho Hà Nội',
-        receiverId: 205,
-        receiverName: 'Vũ Thị Lan',
-        companyName: 'Chi nhánh Hải Phòng',
-        receiverAddress: 'Số 88 Đường Lê Hồng Phong, Hải Phòng',
-        requestedBy: 2,
-        requestedByName: 'Phạm Quốc Trung',
-        totalItems: 1,
-        totalRequestedQty: 20,
-        createdAt: '2026-02-12T11:30:00',
-        lines: [
-            {
-                releaseRequestLineId: 501,
-                itemId: 9,
-                itemCode: 'OFFICE-001',
-                itemName: 'Bộ văn phòng phẩm cho chi nhánh',
-                requestedQty: 20,
-                uomId: 9,
-                uomName: 'Bộ',
-                note: '',
-                approvedQty: 20,
-                allocatedQty: 20,
-                issuedQty: 0,
-                lineStatus: 'Open',
-                stockQty: 25,
-            },
-        ],
-    },
-];
+const LIFECYCLE_STATUS_META = {
+    ISSUE_PENDING: { label: 'Chờ xuất', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
+    ISSUE_PARTIAL: { label: 'Xuất một phần', bg: 'rgba(14, 165, 233, 0.18)', color: '#0369a1' },
+    ISSUE_FULL: { label: 'Đã xuất đủ', bg: 'rgba(16, 185, 129, 0.18)', color: '#047857' },
+    CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
+    CLOSED: { label: 'Đã đóng', bg: 'rgba(59, 130, 246, 0.18)', color: '#1d4ed8' },
+};
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -312,6 +74,15 @@ const formatQuantity = (value) =>
 const getStatusMeta = (status) =>
     RELEASE_REQUEST_STATUS_META[String(status || '').toUpperCase()]
     ?? { label: status || '-', bg: 'rgba(107, 114, 128, 0.15)', color: '#4b5563' };
+
+const getLifecycleStatusMeta = (lifecycleStatus) =>
+    LIFECYCLE_STATUS_META[String(lifecycleStatus || '').toUpperCase().replace(/[ _-]/g, '')]
+    ?? {
+        // fallback for camelCase keys from backend (e.g. IssuePartial, IssueFull)
+        label: lifecycleStatus || '-',
+        bg: 'rgba(107, 114, 128, 0.15)',
+        color: '#4b5563',
+      };
 
 const getRemainingQty = (line) => {
     const approvedQty = toNumber(line?.approvedQty);
@@ -345,6 +116,7 @@ const createInitialFormData = () => ({
     shippingFee: '',
     isPaid: false,
     paymentMethod: 'CASH',
+    pickingStrategy: 'FIFO',
     carrierName: '',
     driverName: '',
     driverPhone: '',
@@ -415,22 +187,44 @@ export default function CreateGoodDeliveryNote() {
     const [releaseRequestDropdownOpen, setReleaseRequestDropdownOpen] = useState(false);
     const [releaseRequestQuery, setReleaseRequestQuery] = useState('');
     const [selectedReleaseRequestDetail, setSelectedReleaseRequestDetail] = useState(null);
+    const [rrList, setRrList] = useState([]);
+    const [rrListLoading, setRrListLoading] = useState(false);
 
-    // Load from URL params on mount
+    // Load from URL params on mount (fetch from API)
     useEffect(() => {
         const queryId = searchParams.get('releaseRequestId') || searchParams.get('rrId');
-        const queryCode = searchParams.get('releaseRequestCode') || searchParams.get('rrCode');
+        if (!queryId) return;
 
-        if (!queryId && !queryCode) return;
+        const loadRR = async () => {
+            try {
+                const data = await getReleaseRequestDetail(queryId);
+                if (data) {
+                    handleSelectReleaseRequest(data, { silentToast: true });
+                }
+            } catch (err) {
+                console.error('Failed to load release request:', err);
+                showToast('Không tải được yêu cầu xuất hàng.', 'error');
+            }
+        };
 
-        const matched = queryId
-            ? MOCK_RELEASE_REQUESTS.find((r) => String(r.releaseRequestId) === String(queryId))
-            : MOCK_RELEASE_REQUESTS.find((r) => r.releaseRequestCode === queryCode);
+        loadRR();
+    }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        if (matched) {
-            handleSelectReleaseRequest(matched, { silentToast: true });
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Fetch release request list for dropdown
+    useEffect(() => {
+        const loadRRList = async () => {
+            setRrListLoading(true);
+            try {
+                const result = await getReleaseRequests({ page: 1, pageSize: 100 });
+                setRrList(result.items || []);
+            } catch (err) {
+                console.error('Failed to load release request list:', err);
+            } finally {
+                setRrListLoading(false);
+            }
+        };
+        loadRRList();
+    }, []);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -446,16 +240,15 @@ export default function CreateGoodDeliveryNote() {
     // ─── Derived ───────────────────────────────────────────────────────────────
     const filteredReleaseRequests = useMemo(() => {
         const keyword = normalizeText(releaseRequestQuery.trim());
-        if (!keyword) return MOCK_RELEASE_REQUESTS;
-
-        return MOCK_RELEASE_REQUESTS.filter(
+        if (!keyword) return rrList;
+        return rrList.filter(
             (r) =>
                 normalizeText(r.releaseRequestCode).includes(keyword) ||
                 normalizeText(r.receiverName).includes(keyword) ||
                 normalizeText(r.warehouseName).includes(keyword) ||
                 normalizeText(r.requestedByName).includes(keyword)
         );
-    }, [releaseRequestQuery]);
+    }, [releaseRequestQuery, rrList]);
 
     const remainingSelectableLines = useMemo(() => {
         if (!selectedReleaseRequestDetail) return [];
@@ -499,16 +292,28 @@ export default function CreateGoodDeliveryNote() {
 
     // ─── Handlers ───────────────────────────────────────────────────────────────
     const handleSelectReleaseRequest = useCallback(
-        (summary, options = {}) => {
+        async (summary, options = {}) => {
             if (!summary?.releaseRequestId) return;
 
-            const initialLines = (summary.lines || [])
+            // Fetch full detail to get lines (dropdown only returns header, not lines)
+            let detail = summary;
+            if (!summary.lines || summary.lines.length === 0) {
+                try {
+                    detail = await getReleaseRequestDetail(summary.releaseRequestId);
+                } catch {
+                    showToast('Không tải được chi tiết yêu cầu xuất.', 'error');
+                    return;
+                }
+            }
+
+            const linesFromDetail = detail?.lines || summary?.lines || [];
+            const initialLines = linesFromDetail
                 .map((line, idx) => buildSelectableLine(line, idx))
                 .filter((line) => line.remainingQty > 0)
                 .map(mapSelectableLineToFormLine);
 
-            setSelectedReleaseRequestDetail(summary);
-            setReleaseRequestQuery(summary.releaseRequestCode || '');
+            setSelectedReleaseRequestDetail(detail);
+            setReleaseRequestQuery(detail.releaseRequestCode || summary.releaseRequestCode || '');
             setReleaseRequestDropdownOpen(false);
             setLines(initialLines);
             setSearchKeyword('');
@@ -517,22 +322,22 @@ export default function CreateGoodDeliveryNote() {
 
             setFormData((prev) => ({
                 ...prev,
-                releaseRequestId: String(summary.releaseRequestId),
-                releaseRequestCode: summary.releaseRequestCode || '',
-                warehouseId: String(summary.warehouseId || ''),
-                warehouseName: summary.warehouseName || '',
-                receiverId: String(summary.receiverId || ''),
-                receiverName: summary.receiverName || '',
+                releaseRequestId: String(detail.releaseRequestId || summary.releaseRequestId),
+                releaseRequestCode: detail.releaseRequestCode || summary.releaseRequestCode || '',
+                warehouseId: String(detail.warehouseId || summary.warehouseId || ''),
+                warehouseName: detail.warehouseName || summary.warehouseName || '',
+                receiverId: String(detail.receiverId || summary.receiverId || ''),
+                receiverName: detail.receiverName || summary.receiverName || '',
                 receiverPhone: '',
                 receiverEmail: '',
-                receiverCompanyName: summary.companyName || '',
-                receiverAddress: summary.receiverAddress || '',
+                receiverCompanyName: detail.companyName || summary.companyName || '',
+                receiverAddress: detail.receiverAddress || summary.receiverAddress || '',
                 receiverCity: '',
                 receiverDistrict: '',
                 receiverWard: '',
-                requestedByName: summary.requestedByName || '',
-                requestedDate: summary.requestedDate || '',
-                expectedDate: summary.expectedDate || '',
+                requestedByName: detail.requestedByName || summary.requestedByName || '',
+                requestedDate: detail.requestedDate || summary.requestedDate || '',
+                expectedDate: detail.expectedDate || summary.expectedDate || '',
             }));
 
             setErrors((prev) => {
@@ -769,27 +574,32 @@ export default function CreateGoodDeliveryNote() {
 
     // ─── Submit ────────────────────────────────────────────────────────────────
     const buildPayload = () => ({
-        releaseRequestId: Number(formData.releaseRequestId),
-        warehouseId: Number(formData.warehouseId),
-        issueDate: formData.issueDate,
-        status: 'DRAFT',
-        note: formData.note.trim() || null,
-        shippingFee,
-        isPaid: Boolean(formData.isPaid),
-        paymentMethod: formData.isPaid ? formData.paymentMethod : null,
-        totalDeliveredQty,
-        totalDeliveredAmount: grandTotal,
-        lines: lines.map((line) => ({
-            itemId: Number(line.itemId),
-            requestedQty: toNumber(line.remainingQty),
-            actualQty: toNumber(line.actualQty),
-            uomId: Number(line.uomId),
-            releaseRequestLineId: Number(line.releaseRequestLineId),
-            unitPrice: toNumber(line.unitPrice),
-            lineTotal: toNumber(line.lineTotal),
-            requiresCertificateCopy: Boolean(line.requiresCertificateCopy),
-            note: line.note?.trim() || null,
+        ReleaseRequestId: Number(formData.releaseRequestId),
+        WarehouseId: Number(formData.warehouseId),
+        IssueDate: formData.issueDate,
+        Status: 'PENDING_ACC',
+        PickingStrategy: formData.pickingStrategy || 'FIFO',
+        Note: formData.note.trim() || null,
+        ShippingFee: shippingFee,
+        IsPaid: Boolean(formData.isPaid),
+        PaymentMethod: formData.isPaid ? formData.paymentMethod : null,
+        Lines: lines.map((line) => ({
+            ItemId: Number(line.itemId),
+            RequestedQty: toNumber(line.remainingQty),
+            ActualQty: toNumber(line.actualQty),
+            UomId: Number(line.uomId),
+            ReleaseRequestLineId: Number(line.releaseRequestLineId),
+            UnitPrice: toNumber(line.unitPrice),
+            RequiresCertificateCopy: Boolean(line.requiresCertificateCopy),
+            Note: line.note?.trim() || null,
         })),
+        TransportInfo: {
+            CarrierName: formData.carrierName.trim() || null,
+            DriverName: formData.driverName.trim() || null,
+            DriverPhone: formData.driverPhone.trim() || null,
+            LicensePlate: formData.licensePlate.trim() || null,
+            Note: formData.transportNote.trim() || null,
+        },
     });
 
     const buildTransportPayload = () => ({
@@ -816,11 +626,10 @@ export default function CreateGoodDeliveryNote() {
         try {
             setSubmitting(true);
 
-            // Mock API call - delay 1s
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            // Real API call
+            await createGoodsDeliveryNote(payload);
 
             console.log('Create Goods Delivery Note payload:', payload);
-            console.log('Transport payload:', buildTransportPayload());
 
             showToast('Tạo phiếu xuất hàng thành công!', 'success');
             setTimeout(() => navigate('/goods-delivery-notes'), 1200);
@@ -1429,7 +1238,8 @@ export default function CreateGoodDeliveryNote() {
                                                     </div>
                                                 ) : (
                                                     filteredReleaseRequests.map((rr) => {
-                                                        const meta = getStatusMeta(rr.status);
+                                                        const statusMeta = getStatusMeta(rr.status);
+                                                        const lifecycleMeta = getLifecycleStatusMeta(rr.lifecycleStatus);
                                                         return (
                                                             <div
                                                                 key={rr.releaseRequestId}
@@ -1464,18 +1274,33 @@ export default function CreateGoodDeliveryNote() {
                                                                     >
                                                                         {rr.releaseRequestCode}
                                                                     </span>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '11px',
-                                                                            fontWeight: 600,
-                                                                            padding: '2px 8px',
-                                                                            borderRadius: '9999px',
-                                                                            backgroundColor: meta.bg,
-                                                                            color: meta.color,
-                                                                        }}
-                                                                    >
-                                                                        {meta.label}
-                                                                    </span>
+                                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: '10px',
+                                                                                fontWeight: 600,
+                                                                                padding: '1px 6px',
+                                                                                borderRadius: '9999px',
+                                                                                backgroundColor: statusMeta.bg,
+                                                                                color: statusMeta.color,
+                                                                            }}
+                                                                        >
+                                                                            {statusMeta.label}
+                                                                        </span>
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: '10px',
+                                                                                fontWeight: 600,
+                                                                                padding: '1px 6px',
+                                                                                borderRadius: '9999px',
+                                                                                backgroundColor: lifecycleMeta.bg,
+                                                                                color: lifecycleMeta.color,
+                                                                            }}
+                                                                            title="Trạng thái xuất kho"
+                                                                        >
+                                                                            {lifecycleMeta.label}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                                 <div
                                                                     style={{
@@ -1530,6 +1355,20 @@ export default function CreateGoodDeliveryNote() {
                                                         gap: '4px',
                                                     }}
                                                 >
+                                                    <span
+                                                        style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: 600,
+                                                            padding: '1px 6px',
+                                                            borderRadius: '9999px',
+                                                            backgroundColor: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).bg,
+                                                            color: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).color,
+                                                        }}
+                                                        title="Trạng thái xuất kho"
+                                                    >
+                                                        {getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).label}
+                                                    </span>
+                                                    <span>•</span>
                                                     <span
                                                         style={{
                                                             fontSize: '10px',
@@ -1943,6 +1782,73 @@ export default function CreateGoodDeliveryNote() {
                                         </span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Picking Strategy */}
+                        <div className="info-section" style={{ margin: 0 }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Chiến lược xuất kho</h2>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
+                                {[
+                                    { value: 'FIFO', label: 'FIFO', desc: 'Nhập trước xuất trước' },
+                                    { value: 'LIFO', label: 'LIFO', desc: 'Nhập sau xuất trước' },
+                                ].map((opt) => {
+                                    const selected = formData.pickingStrategy === opt.value;
+                                    return (
+                                        <label
+                                            key={opt.value}
+                                            style={{
+                                                flex: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '4px',
+                                                padding: '14px 16px',
+                                                borderRadius: '10px',
+                                                border: selected ? '2px solid #0284c7' : '2px solid #e2e8f0',
+                                                backgroundColor: selected ? '#f0f9ff' : '#ffffff',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <input
+                                                    type="radio"
+                                                    name="pickingStrategy"
+                                                    value={opt.value}
+                                                    checked={selected}
+                                                    onChange={(e) => {
+                                                        setFormData((prev) => ({ ...prev, pickingStrategy: e.target.value }));
+                                                    }}
+                                                    style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }}
+                                                />
+                                                <span style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>
+                                                    {opt.label}
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: '12px', color: '#64748b', paddingLeft: '26px' }}>
+                                                {opt.desc}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            <div
+                                style={{
+                                    marginTop: '10px',
+                                    padding: '8px 12px',
+                                    backgroundColor: '#fefce8',
+                                    border: '1px solid #fde68a',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    color: '#854d0e',
+                                    lineHeight: '1.5',
+                                }}
+                            >
+                                ⚠ Chiến lược xác định lô hàng được xuất trước dựa theo ngày nhập kho.
                             </div>
                         </div>
 

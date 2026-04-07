@@ -28,6 +28,7 @@ namespace Warehouse.Api.ApiController
         /// Lấy danh sách Vật tư có tồn kho khả dụng tại một kho
         /// </summary>
         [HttpGet("warehouse/{warehouseId:long}/available")]
+        [Authorize]
         public async Task<IActionResult> GetAvailableItemsByWarehouse(long warehouseId)
         {
             try
@@ -42,6 +43,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("create-item")]
+        [Authorize(Roles = "TK,KT,GD")]
         public async Task<IActionResult> CreateItem([FromBody] CreateItemRequest request)
         {
             try
@@ -78,6 +80,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("display-all")]
+        [Authorize]
         public async Task<IActionResult> GetAllItemsForDisplay()
         {
             var items = await _itemService.GetAllItemsDisplayAsync();
@@ -91,6 +94,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("display/{id:long}")]
+        [Authorize]
         public async Task<IActionResult> GetItemForDisplayById(long id)
         {
             var item = await _itemService.GetItemDisplayByIdAsync(id);
@@ -108,6 +112,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("detail/{id:long}")]
+        [Authorize]
         public async Task<IActionResult> GetItemDetailById(long id, [FromQuery] int historyPage = 1, [FromQuery] int historyPageSize = 20)
         {
             var item = await _itemService.GetItemDetailByIdAsync(id, historyPage, historyPageSize);
@@ -125,6 +130,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPut("{id:long}")]
+        [Authorize(Roles = "TK,KT,GD")]
         public async Task<IActionResult> UpdateItem(long id, [FromBody] UpdateItemRequest request)
         {
             try
@@ -165,6 +171,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPatch("{id:long}/status")]
+        [Authorize(Roles = "TK,KT,GD")]
         public async Task<IActionResult> UpdateItemStatus(long id, [FromQuery] bool isActive)
         {
             try

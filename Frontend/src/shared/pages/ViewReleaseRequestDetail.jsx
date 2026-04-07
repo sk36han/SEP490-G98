@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, FileText, Package, MapPin, User,
     Phone, Mail, Briefcase, Calendar, Send, Edit, Loader, ImageIcon,
-    CheckCircle, XCircle,
+    CheckCircle, XCircle, Truck,
 } from 'lucide-react';
 import {
     Box, Typography, Chip, CircularProgress,
@@ -16,6 +16,7 @@ import {
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getReleaseRequestDetail, submitReleaseRequest, approveReleaseRequest } from '../lib/releaseRequestService';
 import '../styles/CreateSupplier.css';
 
@@ -114,7 +115,6 @@ export default function ViewReleaseRequestDetail() {
         setLoading(true);
         try {
             const result = await getReleaseRequestDetail(id);
-            console.log('[ViewReleaseRequestDetail] API result:', JSON.stringify(result, null, 2));
             if (!result) {
                 showToast('Không tìm thấy yêu cầu xuất hàng.', 'error');
                 navigate('/release-request');
@@ -152,8 +152,14 @@ export default function ViewReleaseRequestDetail() {
     const canEdit = data?.status === 'DRAFT';
 
     // Kế toán có thể duyệt / từ chối yêu cầu đang chờ duyệt
-    const userRole = authService.getUser()?.roleCode ?? '';
-    const canApprove = data?.status === 'PENDING_ACC' && userRole === 'ACCOUNTANTS';
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    const canApprove = data?.status === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS';
+    const canCreateGDN = data?.status === 'APPROVED' && permissionRole === 'WAREHOUSE_KEEPER';
+
+    const handleCreateGDN = () => {
+        navigate(`/goods-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);
+    };
 
     const handleApprove = async () => {
         setProcessing(true);
@@ -234,6 +240,11 @@ export default function ViewReleaseRequestDetail() {
                                 <CheckCircle size={15} />Duyệt
                             </button>
                         </>
+                    )}
+                    {canCreateGDN && (
+                        <button type="button" className="btn btn-primary" onClick={handleCreateGDN}>
+                            <Truck size={15} />Tạo Phiếu Xuất Kho
+                        </button>
                     )}
                     {canEdit && (
                         <button type="button" className="btn btn-secondary" onClick={() => navigate(`/release-request/${id}/edit`)}>

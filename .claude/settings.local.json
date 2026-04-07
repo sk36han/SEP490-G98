@@ -7,7 +7,8 @@
       "Bash(node:*)",
       "Bash(npx eslint:*)",
       "Bash(git -C \"D:\\\\SEP490 SP26\\\\SEP490-G98\" show HEAD:Frontend/src/shared/pages/ViewPurchaseReturnDetail.jsx)",
-      "Bash(\"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\original_detail.jsx\")"
+      "Bash(\"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\original_detail.jsx\")",
+      "Bash(grep:*)"
     ]
   }
 }

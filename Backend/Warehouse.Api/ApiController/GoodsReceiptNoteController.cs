@@ -20,6 +20,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("list")]
+        [Authorize]
         public async Task<IActionResult> GetGoodsReceiptNotes(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
@@ -36,6 +37,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("create")]
+        [Authorize(Roles = "GD,TK")]
         public async Task<IActionResult> CreateGRN([FromBody] CreateGRNRequest request)
         {
             if (!ModelState.IsValid)
@@ -69,6 +71,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("approve/{id:long}")]
+        [Authorize(Roles = "KT,GD")]
         public async Task<IActionResult> ApproveGRN(long id, [FromBody] ApproveGRNRequest request)
         {
             if (!ModelState.IsValid)
@@ -102,6 +105,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpGet("detail/{id:long}")]
+        [Authorize]
         public async Task<IActionResult> GetGRNDetail(long id)
         {
             try
