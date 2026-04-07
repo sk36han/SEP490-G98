@@ -44,16 +44,23 @@ namespace Warehouse.DataAcces.Service
 				throw new ArgumentNullException(nameof(request), "Dữ liệu yêu cầu không được để trống.");
 
 			ValidateUserId(currentUserId);
-			ValidateCategoryCode(request.CategoryCode);
 			ValidateCategoryName(request.CategoryName);
 
-			var categoryCode = request.CategoryCode.Trim();
 			var categoryName = request.CategoryName.Trim();
-
-			// 2️⃣ Kiểm tra mã danh mục trùng (case-insensitive)
 			var all = await _categoryRepository.GetAllAsync();
-			if (all.Any(c => c.CategoryCode.Trim().Equals(categoryCode, StringComparison.OrdinalIgnoreCase)))
-				throw new InvalidOperationException($"Mã danh mục '{categoryCode}' đã tồn tại.");
+
+			// 2️⃣ Tự động tạo mã danh mục (CTG-001, CTG-002, ...)
+			var maxCode = all
+				.Where(c => !string.IsNullOrEmpty(c.CategoryCode) && c.CategoryCode.StartsWith("CTG-") && c.CategoryCode.Length >= 7)
+				.Select(c =>
+				{
+					int.TryParse(c.CategoryCode.Substring(4), out int num);
+					return num;
+				})
+				.DefaultIfEmpty(0)
+				.Max();
+
+			var categoryCode = $"CTG-{(maxCode + 1):D3}";
 
 			// 3️⃣ Kiểm tra tên danh mục trùng (case-insensitive) trong cùng cấp
 			if (all.Any(c =>
