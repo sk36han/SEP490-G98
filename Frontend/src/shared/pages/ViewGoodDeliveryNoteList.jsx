@@ -61,16 +61,98 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const STATUS_STYLE = {
-    Draft: { bgColor: 'rgba(107, 114, 128, 0.2)', label: 'Nháp', dot: '•' },
-    PendingAcc: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chờ kế toán duyệt', dot: '•' },
-    PendingDir: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chờ giám đốc duyệt', dot: '•' },
-    Approved: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã duyệt', dot: '•' },
-    Dispatched: { bgColor: 'rgba(59, 130, 246, 0.2)', label: 'Đã xuất hàng', dot: '•' },
-    Signed: { bgColor: 'rgba(139, 92, 246, 0.2)', label: 'Đã ký nhận', dot: '•' },
-    Posted: { bgColor: 'rgba(139, 92, 246, 0.2)', label: 'Đã ghi sổ', dot: '•' },
-    Rejected: { bgColor: 'rgba(239, 68, 68, 0.2)', label: 'Từ chối', dot: '•' },
+const normalizeGdnStatus = (status) => {
+    const raw = String(status || '').trim();
+
+    const normalized = raw
+        .replace(/([a-z])([A-Z])/g, '$1_$2')
+        .replace(/[\s-]+/g, '_')
+        .toUpperCase();
+
+    const aliasMap = {
+        DRAFT: 'DRAFT',
+        PENDINGACC: 'PENDING_ACC',
+        PENDING_ACC: 'PENDING_ACC',
+        PENDINGDIR: 'PENDING_DIR',
+        PENDING_DIR: 'PENDING_DIR',
+        PENDINGISSUE: 'PENDING_ISSUE',
+        PENDING_ISSUE: 'PENDING_ISSUE',
+        APPROVED: 'APPROVED',
+        ISSUED: 'ISSUED',
+        DISPATCHED: 'ISSUED',
+        SIGNED: 'POSTED',
+        POSTED: 'POSTED',
+        REJECTED: 'REJECTED',
+        CANCELLED: 'CANCELLED',
+    };
+
+    return aliasMap[normalized] || normalized;
 };
+
+const STATUS_STYLE = {
+    DRAFT: {
+        bgColor: 'rgba(107, 114, 128, 0.2)',
+        color: '#4b5563',
+        label: 'Nháp',
+        dot: '•',
+    },
+    PENDING_ACC: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        color: '#b45309',
+        label: 'Chờ kế toán duyệt',
+        dot: '•',
+    },
+    PENDING_DIR: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        color: '#b45309',
+        label: 'Chờ giám đốc duyệt',
+        dot: '•',
+    },
+    PENDING_ISSUE: {
+        bgColor: 'rgba(14, 165, 233, 0.18)',
+        color: '#0369a1',
+        label: 'Chờ xuất hàng',
+        dot: '•',
+    },
+    APPROVED: {
+        bgColor: 'rgba(16, 185, 129, 0.18)',
+        color: '#047857',
+        label: 'Đã duyệt',
+        dot: '•',
+    },
+    ISSUED: {
+        bgColor: 'rgba(139, 92, 246, 0.18)',
+        color: '#6d28d9',
+        label: 'Đã xuất hàng',
+        dot: '•',
+    },
+    POSTED: {
+        bgColor: 'rgba(59, 130, 246, 0.18)',
+        color: '#1d4ed8',
+        label: 'Đã ghi sổ',
+        dot: '•',
+    },
+    REJECTED: {
+        bgColor: 'rgba(239, 68, 68, 0.18)',
+        color: '#b91c1c',
+        label: 'Từ chối',
+        dot: '•',
+    },
+    CANCELLED: {
+        bgColor: 'rgba(239, 68, 68, 0.18)',
+        color: '#b91c1c',
+        label: 'Đã hủy',
+        dot: '•',
+    },
+};
+
+const getGdnStatusMeta = (status) =>
+    STATUS_STYLE[normalizeGdnStatus(status)] || {
+        bgColor: 'rgba(107, 114, 128, 0.15)',
+        color: '#4b5563',
+        label: status || '-',
+        dot: '•',
+    };
 
 const PAYMENT_STYLE = {
     paid: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã thanh toán', dot: '•' },
@@ -88,7 +170,7 @@ const GDN_COLUMNS = [
     { id: 'totalDeliveredQty', label: 'Tổng số lượng xuất', sortable: true, draggable: true },
     { id: 'totalDeliveredAmount', label: 'Tổng tiền xuất', sortable: true, draggable: true },
     { id: 'paymentDisplay', label: 'Thanh toán', sortable: true, draggable: true },
-    { id: 'createdBy', label: 'Người tạo', sortable: true, draggable: true },
+    { id: 'createdByName', label: 'Người tạo', sortable: true, draggable: true },
     { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
 ];
 
@@ -343,7 +425,7 @@ export default function ViewGoodDeliveryNoteList() {
                 normalize(row.releaseRequestCode ?? '').includes(term) ||
                 normalize(row.receiverName ?? '').includes(term) ||
                 normalize(row.warehouseName ?? '').includes(term) ||
-                normalize(row.createdBy ?? '').includes(term)
+                normalize(row.createdByName ?? '').includes(term)
             );
         }
 
@@ -364,7 +446,7 @@ export default function ViewGoodDeliveryNoteList() {
             result = result.filter((row) => normalize(row.warehouseName ?? '').includes(normalize(filterValues.warehouseName)));
         }
         if (filterValues.createdBy) {
-            result = result.filter((row) => normalize(row.createdBy ?? '').includes(normalize(filterValues.createdBy)));
+            result = result.filter((row) => normalize(row.createdByName ?? '').includes(normalize(filterValues.createdByName)));
         }
         if (filterValues.issueFromDate) {
             result = result.filter((row) => {
@@ -417,10 +499,10 @@ export default function ViewGoodDeliveryNoteList() {
         setPage(0);
     };
 
-    const releaseRequestCodeOptions = useMemo(() => [...new Set(list.map((x) => x.releaseRequestCode).filter(Boolean))], [list]);
+    const releaseRequestCodeOptions = useMemo(() => [...new Set(list.map((x) => x.releaseRequestId).filter(Boolean))], [list]);
     const receiverOptions = useMemo(() => [...new Set(list.map((x) => x.receiverName).filter(Boolean))], [list]);
     const warehouseOptions = useMemo(() => [...new Set(list.map((x) => x.warehouseName).filter(Boolean))], [list]);
-    const createdByOptions = useMemo(() => [...new Set(list.map((x) => x.createdBy).filter(Boolean))], [list]);
+    const createdByOptions = useMemo(() => [...new Set(list.map((x) => x.createdByName).filter(Boolean))], [list]);
 
     const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
@@ -754,7 +836,7 @@ export default function ViewGoodDeliveryNoteList() {
                                                         ...(col.id === 'totalDeliveredQty' && { minWidth: 160 }),
                                                         ...(col.id === 'totalDeliveredAmount' && { minWidth: 160 }),
                                                         ...(col.id === 'paymentDisplay' && { minWidth: 180 }),
-                                                        ...(col.id === 'createdBy' && { minWidth: 130 }),
+                                                        ...(col.id === 'createdByName' && { minWidth: 130 }),
                                                         ...(col.id === 'createdAt' && { minWidth: 145 }),
                                                     }}
                                                     align={COLUMN_IDS_WITH_RIGHT_ALIGN.has(col.id) ? 'right' : 'left'}
@@ -829,8 +911,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/goods-delivery-notes/detail/${row.gdnId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.gdnId}`); }}
+                                                                        href={`/goods-delivery-notes/detail/${row.releaseRequestId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.releaseRequestId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -851,8 +933,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/release-requests/${encodeURIComponent(row.releaseRequestCode)}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/release-requests/${encodeURIComponent(row.releaseRequestCode)}`); }}
+                                                                        href={`/release-request/${row.releaseRequestId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/release-request/${row.releaseRequestId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -868,7 +950,7 @@ export default function ViewGoodDeliveryNoteList() {
                                                     }
 
                                                     if (col.id === 'status') {
-                                                        const style = STATUS_STYLE[row.status] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.status ?? '', dot: '•' };
+                                                        const style = getGdnStatusMeta(row.status);
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
@@ -940,6 +1022,19 @@ export default function ViewGoodDeliveryNoteList() {
                                                         );
                                                     }
 
+
+                                                    if (col.id === 'createdBy') {
+                                                        return (
+                                                            <TableCell
+                                                                key={col.id}
+                                                                align="left"
+                                                                sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                title={row.createdByName}
+                                                            >
+                                                                {row.createdByName ?? '-'}
+                                                            </TableCell>
+                                                        );
+                                                    }
 
                                                     return (
                                                         <TableCell

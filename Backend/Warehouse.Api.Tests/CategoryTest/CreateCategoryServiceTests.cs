@@ -38,7 +38,7 @@ namespace Warehouse.Api.Tests.CategoryTest
             var currentUserId = 1L;
             var request = new CreateCategoryRequest 
             { 
-                CategoryCode = "  ELEC-01  ", 
+                
                 CategoryName = "  Electronics  ",
                 ParentId = null
             };
@@ -82,7 +82,7 @@ namespace Warehouse.Api.Tests.CategoryTest
             var parentId = 10L;
             var request = new CreateCategoryRequest 
             { 
-                CategoryCode = "LAPTOP", 
+               
                 CategoryName = "Laptops",
                 ParentId = parentId
             };
@@ -130,7 +130,7 @@ namespace Warehouse.Api.Tests.CategoryTest
         public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenUserIdIsZero()
         {
             // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = "Name" };
+            var request = new CreateCategoryRequest { CategoryName = "Name" };
 
             // Act
             Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 0);
@@ -144,7 +144,7 @@ namespace Warehouse.Api.Tests.CategoryTest
         public async Task CreateCategoryAsync_ShouldThrowArgumentException_WhenUserIdIsNegative()
         {
             // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = "Name" };
+            var request = new CreateCategoryRequest { CategoryName = "Name" };
 
             // Act
             Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, -1);
@@ -158,7 +158,7 @@ namespace Warehouse.Api.Tests.CategoryTest
 
         private async Task AssertCreateCategoryCodeThrowsAsync(string code, string expectedMessage)
         {
-            var request = new CreateCategoryRequest { CategoryCode = code, CategoryName = "Name" };
+            var request = new CreateCategoryRequest { CategoryName = "Name" };
             Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
             await act.Should().ThrowAsync<ArgumentException>().WithMessage(expectedMessage);
         }
@@ -210,7 +210,7 @@ namespace Warehouse.Api.Tests.CategoryTest
 
         private async Task AssertCreateCategoryNameThrowsAsync(string name, string expectedMessage)
         {
-            var request = new CreateCategoryRequest { CategoryCode = "CODE", CategoryName = name };
+            var request = new CreateCategoryRequest { CategoryName = name };
             Func<Task> act = async () => await _categoryService.CreateCategoryAsync(request, 1L);
             await act.Should().ThrowAsync<ArgumentException>().WithMessage(expectedMessage);
         }
@@ -258,7 +258,7 @@ namespace Warehouse.Api.Tests.CategoryTest
         public async Task CreateCategoryAsync_ShouldThrowInvalidOperationException_WhenCategoryCodeExists()
         {
             // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "ELEC", CategoryName = "New Electronics" };
+            var request = new CreateCategoryRequest { CategoryName = "New Electronics" };
             
             var existingCategories = new List<ItemCategory>
             {
@@ -280,7 +280,7 @@ namespace Warehouse.Api.Tests.CategoryTest
         {
             // Arrange
             var parentId = 5L;
-            var request = new CreateCategoryRequest { CategoryCode = "NEW-ELEC", CategoryName = "Electronics", ParentId = parentId };
+            var request = new CreateCategoryRequest { CategoryName = "Electronics", ParentId = parentId };
             
             var existingCategories = new List<ItemCategory>
             {
@@ -301,7 +301,7 @@ namespace Warehouse.Api.Tests.CategoryTest
         public async Task CreateCategoryAsync_ShouldNotThrowException_WhenCategoryNameExistsInDifferentParent()
         {
             // Arrange
-            var request = new CreateCategoryRequest { CategoryCode = "NEW-ELEC", CategoryName = "Electronics", ParentId = 1L };
+            var request = new CreateCategoryRequest { CategoryName = "Electronics", ParentId = 1L };
             
             var existingCategories = new List<ItemCategory>
             {
@@ -325,7 +325,8 @@ namespace Warehouse.Api.Tests.CategoryTest
         {
             // Arrange
             var parentId = 99L;
-            var request = new CreateCategoryRequest { CategoryCode = "C1", CategoryName = "Cat 1", ParentId = parentId };
+            var request = new CreateCategoryRequest { 
+                CategoryName = "Cat 1", ParentId = parentId };
             
             _mockCategoryRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(new List<ItemCategory>().AsQueryable());
             _mockCategoryRepo.Setup(repo => repo.GetByIdAsync(parentId)).ReturnsAsync((ItemCategory)null!);

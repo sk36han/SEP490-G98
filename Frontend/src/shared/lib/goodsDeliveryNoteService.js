@@ -192,9 +192,11 @@ export async function createTransportInfo(payload) {
  */
 export async function approveGoodsDeliveryNote(gdnId, data) {
     try {
+        // Hỗ trợ cả camelCase (isApproved) lẫn PascalCase (IsApproved) từ caller
+        const isApproved = data.isApproved ?? data.IsApproved ?? false;
         const response = await apiClient.put(`/GoodsDeliveryNote/${gdnId}/approve`, {
-            IsApproved: Boolean(data.IsApproved),
-            Reason: data.reason ?? null,
+            IsApproved: Boolean(isApproved),
+            Reason: data.reason ?? data.Reason ?? null,
         });
         return extractBody(response);
     } catch (error) {
