@@ -186,6 +186,37 @@ export async function updateReceiver(id, data) {
 }
 
 /**
+ * Lay chi tiet mot nguoi nhan.
+ * GET /api/Receiver/{id} - backend tra ve ReceiverResponse truc tiep.
+ */
+export async function getReceiverDetail(id) {
+    const response = await apiClient.get(`/Receiver/${id}`);
+    const data = response?.data ?? {};
+    const raw = data.data ?? data.Data ?? data;
+    return {
+        receiverId: raw.receiverId ?? raw.ReceiverId,
+        receiverCode: raw.receiverCode ?? raw.ReceiverCode ?? '',
+        receiverName: raw.receiverName ?? raw.ReceiverName ?? '',
+        phone: raw.phone ?? raw.Phone ?? '',
+        email: raw.email ?? raw.Email ?? '',
+        address: raw.address ?? raw.Address ?? '',
+        city: raw.city ?? raw.City ?? '',
+        ward: raw.ward ?? raw.Ward ?? '',
+        district: raw.district ?? raw.District ?? '',
+        notes: raw.notes ?? raw.Notes ?? '',
+        position: raw.position ?? raw.Position ?? '',
+        isActive: raw.isActive ?? raw.IsActive ?? true,
+        createdAt: raw.createdAt ?? raw.CreatedAt ?? null,
+        updatedAt: raw.updatedAt ?? raw.UpdatedAt ?? null,
+        companyId: raw.companyId ?? raw.CompanyId ?? null,
+        addressId: raw.addressId ?? raw.AddressId ?? null,
+        // Neu backend tra ve nested company / address
+        companyName: raw.company?.companyName ?? raw.Company?.companyName ?? raw.companyName ?? '',
+        addressName: raw.addressName ?? raw.AddressName ?? '',
+    };
+}
+
+/**
  * Bat/tat trang thai nguoi nhan
  * PATCH /api/Receiver/change-status/{id}?isActive= - backend tra ve ReceiverResponse
  */

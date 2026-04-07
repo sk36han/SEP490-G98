@@ -1,5 +1,5 @@
-/*
- * Danh sách Quy cách đóng gói – mock data.
+﻿/*
+ * Danh s├ích Quy c├ích ─æ├│ng g├│i ΓÇô mock data.
  */
 import React, { useState, useCallback } from 'react';
 import {
@@ -80,18 +80,18 @@ const bodyCellBaseSx = {
 
 // Mock data
 const MOCK_DATA = [
-    { packagingSpecId: 1, packagingSpecCode: 'PKG001', packagingSpecName: 'Thùng carton 10kg', isActive: true, createdAt: '2024-01-15T08:30:00Z' },
-    { packagingSpecId: 2, packagingSpecCode: 'PKG002', packagingSpecName: 'Túi nilon 1kg', isActive: true, createdAt: '2024-01-20T09:15:00Z' },
-    { packagingSpecId: 3, packagingSpecCode: 'PKG003', packagingSpecName: 'Hộp giấy 500g', isActive: false, createdAt: '2024-02-03T14:00:00Z' },
-    { packagingSpecId: 4, packagingSpecCode: 'PKG004', packagingSpecName: 'Thùng gỗ 25kg', isActive: true, createdAt: '2024-02-10T11:45:00Z' },
-    { packagingSpecId: 5, packagingSpecCode: 'PKG005', packagingSpecName: 'Túi vải 5kg', isActive: true, createdAt: '2024-02-18T16:20:00Z' },
-    { packagingSpecId: 6, packagingSpecCode: 'PKG006', packagingSpecName: 'Hộp nhựa 2kg', isActive: false, createdAt: '2024-03-05T10:00:00Z' },
-    { packagingSpecId: 7, packagingSpecCode: 'PKG007', packagingSpecName: 'Bao bì chân không 10kg', isActive: true, createdAt: '2024-03-12T13:30:00Z' },
-    { packagingSpecId: 8, packagingSpecCode: 'PKG008', packagingSpecName: 'Thùng xốp 5kg', isActive: true, createdAt: '2024-03-20T08:00:00Z' },
-    { packagingSpecId: 9, packagingSpecCode: 'PKG009', packagingSpecName: 'Hộp carton A4', isActive: false, createdAt: '2024-04-01T09:30:00Z' },
-    { packagingSpecId: 10, packagingSpecCode: 'PKG010', packagingSpecName: 'Túi giấy 500g', isActive: true, createdAt: '2024-04-08T15:15:00Z' },
-    { packagingSpecId: 11, packagingSpecCode: 'PKG011', packagingSpecName: 'Thùng nhựa 20kg', isActive: true, createdAt: '2024-04-15T10:45:00Z' },
-    { packagingSpecId: 12, packagingSpecCode: 'PKG012', packagingSpecName: 'Bao bì zip 1kg', isActive: false, createdAt: '2024-04-22T14:20:00Z' },
+    { packagingSpecId: 1, packagingSpecCode: 'PKG001', packagingSpecName: 'Th├╣ng carton 10kg', isActive: true, createdAt: '2024-01-15T08:30:00Z' },
+    { packagingSpecId: 2, packagingSpecCode: 'PKG002', packagingSpecName: 'T├║i nilon 1kg', isActive: true, createdAt: '2024-01-20T09:15:00Z' },
+    { packagingSpecId: 3, packagingSpecCode: 'PKG003', packagingSpecName: 'Hß╗Öp giß║Ñy 500g', isActive: false, createdAt: '2024-02-03T14:00:00Z' },
+    { packagingSpecId: 4, packagingSpecCode: 'PKG004', packagingSpecName: 'Th├╣ng gß╗ù 25kg', isActive: true, createdAt: '2024-02-10T11:45:00Z' },
+    { packagingSpecId: 5, packagingSpecCode: 'PKG005', packagingSpecName: 'T├║i vß║úi 5kg', isActive: true, createdAt: '2024-02-18T16:20:00Z' },
+    { packagingSpecId: 6, packagingSpecCode: 'PKG006', packagingSpecName: 'Hß╗Öp nhß╗▒a 2kg', isActive: false, createdAt: '2024-03-05T10:00:00Z' },
+    { packagingSpecId: 7, packagingSpecCode: 'PKG007', packagingSpecName: 'Bao b├¼ ch├ón kh├┤ng 10kg', isActive: true, createdAt: '2024-03-12T13:30:00Z' },
+    { packagingSpecId: 8, packagingSpecCode: 'PKG008', packagingSpecName: 'Th├╣ng xß╗æp 5kg', isActive: true, createdAt: '2024-03-20T08:00:00Z' },
+    { packagingSpecId: 9, packagingSpecCode: 'PKG009', packagingSpecName: 'Hß╗Öp carton A4', isActive: false, createdAt: '2024-04-01T09:30:00Z' },
+    { packagingSpecId: 10, packagingSpecCode: 'PKG010', packagingSpecName: 'T├║i giß║Ñy 500g', isActive: true, createdAt: '2024-04-08T15:15:00Z' },
+    { packagingSpecId: 11, packagingSpecCode: 'PKG011', packagingSpecName: 'Th├╣ng nhß╗▒a 20kg', isActive: true, createdAt: '2024-04-15T10:45:00Z' },
+    { packagingSpecId: 12, packagingSpecCode: 'PKG012', packagingSpecName: 'Bao b├¼ zip 1kg', isActive: false, createdAt: '2024-04-22T14:20:00Z' },
 ];
 
 const ViewPackagingSpecList = () => {
@@ -122,9 +122,9 @@ const ViewPackagingSpecList = () => {
 
     // Column management
     const allColumns = [
-        { id: 'packagingSpecName', label: 'Tên quy cách', sortable: true },
-        { id: 'isActive', label: 'Trạng thái', sortable: true },
-        { id: 'createdAt', label: 'Ngày tạo', sortable: true },
+        { id: 'packagingSpecName', label: 'T├¬n quy c├ích', sortable: true },
+        { id: 'isActive', label: 'Trß║íng th├íi', sortable: true },
+        { id: 'createdAt', label: 'Ng├áy tß║ío', sortable: true },
     ];
 
     const savedColumnOrder = (() => {
@@ -377,7 +377,7 @@ const ViewPackagingSpecList = () => {
                     fontWeight="600"
                     sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
                 >
-                    Quy cách đóng gói
+                    Quy c├ích ─æ├│ng g├│i
                 </Typography>
                 <Typography
                     variant="body2"
@@ -387,9 +387,9 @@ const ViewPackagingSpecList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Package} label="Tổng quy cách" value={(totalItems || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Package} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Package} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Package} label="Tß╗òng quy c├ích" value={(totalItems || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Package} label="─Éang hoß║ít ─æß╗Öng" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Package} label="Ng╞░ng hoß║ít ─æß╗Öng" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
@@ -438,7 +438,7 @@ const ViewPackagingSpecList = () => {
                     >
                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1, minWidth: 0 }}>
                             <SearchInput
-                                placeholder="Tìm kiếm theo mã, tên quy cách..."
+                                placeholder="T├¼m kiß║┐m theo m├ú, t├¬n quy c├ích..."
                                 value={searchTerm}
                                 onChange={(e) => {
                                     setSearchTerm(e.target.value);
@@ -473,11 +473,11 @@ const ViewPackagingSpecList = () => {
                                 }}
                             />
 
-                            <Tooltip title="Bộ lọc">
+                            <Tooltip title="Bß╗Ö lß╗ìc">
                                 <IconButton
                                     color="primary"
                                     onClick={(e) => setFilterAnchor(e.currentTarget)}
-                                    aria-label="Bộ lọc"
+                                    aria-label="Bß╗Ö lß╗ìc"
                                     sx={{
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
@@ -492,11 +492,11 @@ const ViewPackagingSpecList = () => {
                                 </IconButton>
                             </Tooltip>
 
-                            <Tooltip title="Chọn cột hiển thị">
+                            <Tooltip title="Chß╗ìn cß╗Öt hiß╗ân thß╗ï">
                                 <IconButton
                                     color="primary"
                                     onClick={(e) => setColumnsAnchor(e.currentTarget)}
-                                    aria-label="Chọn cột"
+                                    aria-label="Chß╗ìn cß╗Öt"
                                     sx={{
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
@@ -533,7 +533,7 @@ const ViewPackagingSpecList = () => {
                                 },
                             }}
                         >
-                            Thêm quy cách
+                            Th├¬m quy c├ích
                         </Button>
                     </Box>
 
@@ -560,7 +560,7 @@ const ViewPackagingSpecList = () => {
                     >
                         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
-                                Bộ lọc
+                                Bß╗Ö lß╗ìc
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Button
@@ -570,7 +570,7 @@ const ViewPackagingSpecList = () => {
                                     }}
                                     sx={{ textTransform: 'none', fontSize: '13px', fontWeight: 500, color: '#6b7280' }}
                                 >
-                                    Hủy
+                                    Hß╗ºy
                                 </Button>
                                 <Button
                                     size="small"
@@ -584,14 +584,14 @@ const ViewPackagingSpecList = () => {
                                     }}
                                     sx={{ textTransform: 'none', fontSize: '13px', fontWeight: 500, color: '#0284c7' }}
                                 >
-                                    Áp dụng
+                                    ├üp dß╗Ñng
                                 </Button>
                             </Box>
                         </Box>
                         <Box sx={{ px: 2.5, py: 2 }}>
                             {/* Status */}
                             <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                                Trạng thái
+                                Trß║íng th├íi
                             </Typography>
                             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                                 <Select
@@ -605,15 +605,15 @@ const ViewPackagingSpecList = () => {
                                         },
                                     }}
                                 >
-                                    <MenuItem value="all" sx={{ fontSize: '13px' }}>Tất cả</MenuItem>
-                                    <MenuItem value="active" sx={{ fontSize: '13px' }}>Hoạt động</MenuItem>
-                                    <MenuItem value="inactive" sx={{ fontSize: '13px' }}>Tắt</MenuItem>
+                                    <MenuItem value="all" sx={{ fontSize: '13px' }}>Tß║Ñt cß║ú</MenuItem>
+                                    <MenuItem value="active" sx={{ fontSize: '13px' }}>Hoß║ít ─æß╗Öng</MenuItem>
+                                    <MenuItem value="inactive" sx={{ fontSize: '13px' }}>Tß║»t</MenuItem>
                                 </Select>
                             </FormControl>
 
                             {/* Date From */}
                             <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                                Từ ngày
+                                Tß╗½ ng├áy
                             </Typography>
                             <Box
                                 component="input"
@@ -641,7 +641,7 @@ const ViewPackagingSpecList = () => {
 
                             {/* Date To */}
                             <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                                Đến ngày
+                                ─Éß║┐n ng├áy
                             </Typography>
                             <Box
                                 component="input"
@@ -694,14 +694,14 @@ const ViewPackagingSpecList = () => {
                     >
                         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
-                                Chọn cột & Sắp xếp
+                                Chß╗ìn cß╗Öt & Sß║»p xß║┐p
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Button size="small" onClick={handleCancelColumnOrder} sx={{ textTransform: 'none', fontSize: '13px', fontWeight: 500, color: '#6b7280' }}>
-                                    Hủy
+                                    Hß╗ºy
                                 </Button>
                                 <Button size="small" onClick={handleSaveColumnOrder} sx={{ textTransform: 'none', fontSize: '13px', fontWeight: 500, color: '#0284c7' }}>
-                                    Lưu
+                                    L╞░u
                                 </Button>
                             </Box>
                         </Box>
@@ -715,7 +715,7 @@ const ViewPackagingSpecList = () => {
                                         sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#3b82f6' }, '&.MuiCheckbox-indeterminate': { color: '#3b82f6' } }}
                                     />
                                 }
-                                label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
+                                label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tß║Ñt cß║ú</Typography>}
                                 sx={{ mb: 1, py: 0.5 }}
                             />
                             {allColumns.map((col) => (
@@ -783,7 +783,7 @@ const ViewPackagingSpecList = () => {
                                 }}
                             >
                                 <CircularProgress size={40} sx={{ mb: 2 }} />
-                                <Typography variant="body2">Đang tải danh sách quy cách đóng gói…</Typography>
+                                <Typography variant="body2">─Éang tß║úi danh s├ích quy c├ích ─æ├│ng g├│iΓÇª</Typography>
                             </Box>
                         ) : error ? (
                             <Box
@@ -807,7 +807,7 @@ const ViewPackagingSpecList = () => {
                                     onClick={() => fetchList()}
                                     sx={{ textTransform: 'none' }}
                                 >
-                                    Thử lại
+                                    Thß╗¡ lß║íi
                                 </Button>
                             </Box>
                         ) : paginatedRows.length === 0 ? (
@@ -823,7 +823,7 @@ const ViewPackagingSpecList = () => {
                                 }}
                             >
                                 <Package size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
-                                <Typography>Chưa có dữ liệu quy cách đóng gói</Typography>
+                                <Typography>Ch╞░a c├│ dß╗» liß╗çu quy c├ích ─æ├│ng g├│i</Typography>
                             </Box>
                         ) : (
                             <TableContainer
@@ -869,7 +869,7 @@ const ViewPackagingSpecList = () => {
                                                     minWidth: 160,
                                                 }}
                                             >
-                                                Mã quy cách
+                                                M├ú quy c├ích
                                             </TableCell>
                                             {columnOrder.filter(id => visibleColumnIds.has(id)).map((colId) => {
                                                 const col = allColumns.find(c => c.id === colId);
@@ -983,7 +983,7 @@ const ViewPackagingSpecList = () => {
                                                         color: '#6b7280',
                                                     }}
                                                 >
-                                                    {p.packagingSpecCode || '—'}
+                                                    {p.packagingSpecCode || 'ΓÇö'}
                                                 </TableCell>
                                                 {columnOrder.filter(id => visibleColumnIds.has(id)).map((colId) => {
                                                     return (
@@ -1016,10 +1016,10 @@ const ViewPackagingSpecList = () => {
                                                                     {p.packagingSpecName}
                                                                 </Box>
                                                             )}
-                                                            {colId === 'createdAt' && (p.createdAt ? (() => { const d = new Date(p.createdAt + (p.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })() : '—')}
+                                                            {colId === 'createdAt' && (p.createdAt ? (() => { const d = new Date(p.createdAt + (p.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? 'ΓÇö' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })() : 'ΓÇö')}
                                                             {colId === 'isActive' && (
                                                                 <Chip
-                                                                    label={p.isActive ? '• Hoạt động' : '• Tạm dừng'}
+                                                                    label={p.isActive ? 'ΓÇó Hoß║ít ─æß╗Öng' : 'ΓÇó Tß║ím dß╗½ng'}
                                                                     size="small"
                                                                     sx={{
                                                                         fontWeight: 500,
@@ -1067,7 +1067,7 @@ const ViewPackagingSpecList = () => {
                             component="span"
                             sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
                         >
-                            Số dòng / trang:
+                            Sß╗æ d├▓ng / trang:
                         </Typography>
 
                         <FormControl size="small" sx={{ minWidth: 72 }}>
@@ -1100,7 +1100,7 @@ const ViewPackagingSpecList = () => {
                             component="span"
                             sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
                         >
-                            {start}–{end} / {filteredRows.length} (Tổng {totalPages} trang)
+                            {start}ΓÇô{end} / {filteredRows.length} (Tß╗òng {totalPages} trang)
                         </Typography>
 
                         <Button
@@ -1119,7 +1119,7 @@ const ViewPackagingSpecList = () => {
                                 },
                             }}
                         >
-                            Trước
+                            Tr╞░ß╗¢c
                         </Button>
 
                         <Button
@@ -1180,7 +1180,7 @@ const ViewPackagingSpecList = () => {
                             color: 'text.primary',
                         }}
                     >
-                        Thêm quy cách đóng gói
+                        Th├¬m quy c├ích ─æ├│ng g├│i
                     </Typography>
                     <IconButton
                         onClick={() => {
@@ -1211,7 +1211,7 @@ const ViewPackagingSpecList = () => {
                             mt: 1,
                         }}
                     >
-                        Tên quy cách đóng gói
+                        T├¬n quy c├ích ─æ├│ng g├│i
                     </Typography>
                     <Box
                         component="input"
@@ -1223,7 +1223,7 @@ const ViewPackagingSpecList = () => {
                                 handleAddPackagingSpec();
                             }
                         }}
-                        placeholder="Nhập tên quy cách đóng gói"
+                        placeholder="Nhß║¡p t├¬n quy c├ích ─æ├│ng g├│i"
                         sx={{
                             width: '100%',
                             border: 'none',
@@ -1270,7 +1270,7 @@ const ViewPackagingSpecList = () => {
                             },
                         }}
                     >
-                        Hủy
+                        Hß╗ºy
                     </Button>
                     <Button
                         onClick={handleAddPackagingSpec}
@@ -1290,7 +1290,7 @@ const ViewPackagingSpecList = () => {
                             },
                         }}
                     >
-                        Tạo
+                        Tß║ío
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1332,7 +1332,7 @@ const ViewPackagingSpecList = () => {
                             color: 'text.primary',
                         }}
                     >
-                        Sửa quy cách đóng gói
+                        Sß╗¡a quy c├ích ─æ├│ng g├│i
                     </Typography>
                     <IconButton
                         onClick={() => {
@@ -1359,7 +1359,7 @@ const ViewPackagingSpecList = () => {
                         </Box>
                     ) : (
                         <>
-                            {/* Mã quy cách đóng gói */}
+                            {/* M├ú quy c├ích ─æ├│ng g├│i */}
                             <Typography
                                 variant="caption"
                                 sx={{
@@ -1371,15 +1371,15 @@ const ViewPackagingSpecList = () => {
                                     mt: 1,
                                 }}
                             >
-                                Mã quy cách
+                                M├ú quy c├ích
                             </Typography>
                             <Box sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.06)', pb: 1, mb: 2 }}>
                                 <Typography sx={{ fontSize: '14px', color: '#6b7280' }}>
-                                    {editForm.packagingSpecCode || '—'}
+                                    {editForm.packagingSpecCode || 'ΓÇö'}
                                 </Typography>
                             </Box>
 
-                            {/* Tên quy cách đóng gói */}
+                            {/* T├¬n quy c├ích ─æ├│ng g├│i */}
                             <Typography
                                 variant="caption"
                                 sx={{
@@ -1390,7 +1390,7 @@ const ViewPackagingSpecList = () => {
                                     mb: 0.5,
                                 }}
                             >
-                                Tên quy cách đóng gói
+                                T├¬n quy c├ích ─æ├│ng g├│i
                             </Typography>
                             <Box
                                 component="input"
@@ -1402,7 +1402,7 @@ const ViewPackagingSpecList = () => {
                                         handleEditPackagingSpec();
                                     }
                                 }}
-                                placeholder="Nhập tên quy cách đóng gói"
+                                placeholder="Nhß║¡p t├¬n quy c├ích ─æ├│ng g├│i"
                                 sx={{
                                     width: '100%',
                                     border: 'none',
@@ -1423,7 +1423,7 @@ const ViewPackagingSpecList = () => {
                                 }}
                             />
 
-                            {/* Trạng thái */}
+                            {/* Trß║íng th├íi */}
                             <Typography
                                 variant="caption"
                                 sx={{
@@ -1434,7 +1434,7 @@ const ViewPackagingSpecList = () => {
                                     mb: 0.5,
                                 }}
                             >
-                                Trạng thái
+                                Trß║íng th├íi
                             </Typography>
                             <Box
                                 component="select"
@@ -1457,11 +1457,11 @@ const ViewPackagingSpecList = () => {
                                     },
                                 }}
                             >
-                                <option value="true" style={{ color: '#10b981' }}>Hoạt động</option>
-                                <option value="false" style={{ color: '#ef4444' }}>Ngừng hoạt động</option>
+                                <option value="true" style={{ color: '#10b981' }}>Hoß║ít ─æß╗Öng</option>
+                                <option value="false" style={{ color: '#ef4444' }}>Ngß╗½ng hoß║ít ─æß╗Öng</option>
                             </Box>
 
-                            {/* Ngày tạo */}
+                            {/* Ng├áy tß║ío */}
                             <Typography
                                 variant="caption"
                                 sx={{
@@ -1472,7 +1472,7 @@ const ViewPackagingSpecList = () => {
                                     mb: 0.5,
                                 }}
                             >
-                                Ngày tạo
+                                Ng├áy tß║ío
                             </Typography>
                             <Box
                                 sx={{
@@ -1482,8 +1482,8 @@ const ViewPackagingSpecList = () => {
                             >
                                 <Typography sx={{ fontSize: '14px', color: '#374151' }}>
                                     {editForm.createdAt
-                                        ? (() => { const d = new Date(editForm.createdAt + (editForm.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })()
-                                        : '—'}
+                                        ? (() => { const d = new Date(editForm.createdAt + (editForm.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? 'ΓÇö' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })()
+                                        : 'ΓÇö'}
                                 </Typography>
                             </Box>
                         </>
@@ -1517,7 +1517,7 @@ const ViewPackagingSpecList = () => {
                             },
                         }}
                     >
-                        Hủy
+                        Hß╗ºy
                     </Button>
                     <Button
                         onClick={handleEditPackagingSpec}
@@ -1537,7 +1537,7 @@ const ViewPackagingSpecList = () => {
                             },
                         }}
                     >
-                        Lưu
+                        L╞░u
                     </Button>
                 </DialogActions>
             </Dialog>
