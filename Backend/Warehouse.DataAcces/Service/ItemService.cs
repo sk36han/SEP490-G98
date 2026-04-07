@@ -272,7 +272,8 @@ namespace Warehouse.DataAcces.Service
                     BrandName = i.Brand != null ? i.Brand.BrandName : null,
                     BaseUomName = i.BaseUom.UomName,
                     PackagingSpecName = i.PackagingSpec != null ? i.PackagingSpec.SpecName : null,
-                    i.DefaultWarehouseId
+                    i.DefaultWarehouseId,
+                    i.Specification
                 })
                 .FirstOrDefaultAsync();
 
@@ -324,6 +325,7 @@ namespace Warehouse.DataAcces.Service
                 .ThenBy(x => x.WarehouseName)
                 .ToList();
 
+            var historyTotal = _context.InventoryTransactionLines.Count(l => l.ItemId == itemId);
             _logger.LogDebug("[ItemService] Tim thay {VariantCount} warehouse variants cho item {ItemId}", variants.Count, itemId);
 
             var history = _context.InventoryTransactionLines
@@ -339,7 +341,8 @@ namespace Warehouse.DataAcces.Service
                     TransactionAt = l.InventoryTxn.TxnDate,
                     ActorName = l.InventoryTxn.PostedByNavigation != null ? l.InventoryTxn.PostedByNavigation.FullName : null,
                     Note = l.Note,
-                    SourceType = l.InventoryTxn.ReferenceType
+                    SourceType = l.InventoryTxn.ReferenceType,
+                    ReferenceId = l.InventoryTxn.ReferenceId
                 })
                 .ToList();
 
@@ -348,6 +351,7 @@ namespace Warehouse.DataAcces.Service
 
             return new ItemDetailResponse
             {
+                HistoryTotalCount = historyTotal,
                 ProductInfo = new ItemProductInfoResponse
                 {
                     ItemId = item.ItemId,
@@ -458,6 +462,7 @@ namespace Warehouse.DataAcces.Service
             item.DefaultWarehouseId = request.DefaultWarehouseId;
             item.InventoryAccount = request.InventoryAccount?.Trim();
             item.RevenueAccount = request.RevenueAccount?.Trim();
+            item.Specification = request.Specification?.Trim();
             item.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogDebug("[ItemService] Cap nhat thong tin item: ItemName={ItemName}, CategoryId={CategoryId}, BaseUomId={BaseUomId}",

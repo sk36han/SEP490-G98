@@ -6,14 +6,17 @@
  *   - Nếu OnHandQty < MinQty → cảnh báo "Dưới định mức" (đỏ).
  *   - Nếu OnHandQty >= MinQty → "An toàn" (xanh).
  *
- * Backend: chờ IWarehousePolicyController (xem itemWarehousePolicyService.js).
- * Hiện dùng mock data để demo UI.
+ * Backend: ItemWarehousePolicyController (GET /api/itemwarehousepolicy/list).
+ *
+ * UI pattern: bám 1:1 theo ViewItemList (Danh sách vật tư).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
+    Card,
+    CardContent,
     Button,
     Typography,
     IconButton,
@@ -24,44 +27,30 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Popover,
-    FormGroup,
-    FormControlLabel,
-    Checkbox,
+    TableSortLabel,
+    FormControl,
+    Select,
+    MenuItem,
     Chip,
     CircularProgress,
-    Paper,
-    useTheme,
-    useMediaQuery,
+    Popover,
+    Checkbox,
+    FormGroup,
+    FormControlLabel,
 } from '@mui/material';
 import {
-    Plus,
     Columns,
     Filter,
-    RefreshCw,
-    Save,
-    Edit,
-    X,
     GripVertical,
-    AlertTriangle,
+    Package,
+    RotateCcw,
 } from 'lucide-react';
 import Toast from '../../../components/Toast/Toast';
 import { useToast } from '../../hooks/useToast';
 import SearchInput from '../../components/SearchInput';
-import authService from '../../lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../../permissions/roleUtils';
+import AlertFilterPopup from '../../components/AlertFilterPopup';
+import { getItemWarehousePolicyList } from '../../lib/itemWarehousePolicyService';
 import '../../styles/ListView.css';
-
-// ─── Mock data – thay bằng API khi backend sẵn sàng ────────────────────────
-const MOCK_WAREHOUSES = [
-    { warehouseId: 1, warehouseCode: 'WH-HCM', warehouseName: 'Kho HCM' },
-];
-
-const MOCK_ALERTS = [
-    { alertId: 1, itemId: 1, itemCode: 'ITEM-001', itemName: 'Nguyên liệu demo', uom: 'Each', warehouseId: 1, warehouseName: 'Kho HCM', onHandQty: 999, minQty: 50, reorderQty: 200 },
-    { alertId: 2, itemId: 2, itemCode: 'ITEM-002', itemName: 'Vật tư B', uom: 'Box', warehouseId: 1, warehouseName: 'Kho HCM', onHandQty: 20, minQty: 50, reorderQty: 200 },
-    { alertId: 3, itemId: 3, itemCode: 'ITEM-003', itemName: 'Vật tư C', uom: 'Each', warehouseId: 1, warehouseName: 'Kho HCM', onHandQty: 150, minQty: 100, reorderQty: 300 },
-];
 
 // ─── Cột hiển thị ────────────────────────────────────────────────────────────
 const ALERT_COLUMNS = [
@@ -92,7 +81,7 @@ const ALERT_COLUMNS = [
     {
         id: 'uom',
         label: 'ĐVT',
-        sortable: true,
+        sortable: false,
         getValue: (row) => row.uom ?? '-',
     },
     {
@@ -130,19 +119,25 @@ const SORTABLE_COLUMN_IDS = ALERT_COLUMNS.filter((c) => c.sortable).map((c) => c
 const DEFAULT_VISIBLE_COLUMN_IDS = ALERT_COLUMNS.map((c) => c.id);
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const headCellBaseSx = {
-    fontWeight: 600,
-    bgcolor: '#fafafa',
-    borderBottom: '1px solid #e5e7eb',
-    fontSize: '12px',
-    color: '#6b7280',
-    height: 48,
-    py: 0,
-    px: 2,
-    verticalAlign: 'middle',
+const getTableColumnWidth = (colId) => {
+    switch (colId) {
+        case 'stt': return 56;
+        case 'itemCode': return 230;
+        case 'itemName': return 220;
+        case 'warehouse': return 160;
+        case 'uom': return 100;
+        case 'onHandQty': return 150;
+        case 'minQty': return 150;
+        case 'reorderQty': return 150;
+        case 'status': return 180;
+        default: return 160;
+    }
 };
 
+const isCenterAlignedColumn = (colId) =>
+    ['stt', 'onHandQty', 'minQty', 'reorderQty'].includes(colId);
+
+// ─── Styles giống ViewItemList ────────────────────────────────────────────────
 const bodyCellBaseSx = {
     color: '#374151',
     fontSize: '13px',
@@ -152,44 +147,16 @@ const bodyCellBaseSx = {
     borderBottom: '1px solid #f3f4f6',
 };
 
-const getAlertCellSx = (colId, widthPct, row) => {
-    const base = {
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        width: `${widthPct}%`,
-        maxWidth: `${widthPct}%`,
-        boxSizing: 'border-box',
-    };
-
-    if (colId === 'itemCode') {
-        return { ...base, fontWeight: 600, color: '#2563eb', cursor: 'pointer', textDecoration: 'underline' };
-    }
-    if (colId === 'onHandQty' || colId === 'minQty' || colId === 'reorderQty') {
-        return { ...base, fontVariantNumeric: 'tabular-nums' };
-    }
-    if (colId === 'status') {
-        const qty = row?.onHandQty ?? 0;
-        const min = row?.minQty ?? 0;
-        if (qty < min) return { ...base, color: 'error.main', fontWeight: 600 };
-        return { ...base, color: 'success.main', fontWeight: 600 };
-    }
-    return base;
-};
-
 // ─── Component ────────────────────────────────────────────────────────────────
 const InventoryAlertSetup = () => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const location = useLocation();
+    const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
-
-    const userInfo = authService.getUser();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
     // Dữ liệu
     const [data, setData] = useState([]);
+    const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     // Phân trang
     const [page, setPage] = useState(0);
@@ -200,6 +167,11 @@ const InventoryAlertSetup = () => {
 
     // Tìm kiếm
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Filter
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [filterValues, setFilterValues] = useState({});
+    const filterValuesRef = useRef({});
 
     // Cột
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
@@ -219,30 +191,35 @@ const InventoryAlertSetup = () => {
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
+    const resetRef = useRef(false);
 
     // Sắp xếp
     const [orderBy, setOrderBy] = useState(null);
     const [order, setOrder] = useState('asc');
 
-    // Edit inline
-    const [editingId, setEditingId] = useState(null);
-    const [editForm, setEditForm] = useState({ minQty: 0, reorderQty: 0 });
-
     // Load data
     const fetchData = useCallback(async () => {
         setLoading(true);
+        setError(null);
         try {
-            // TODO: thay bằng getItemWarehousePolicyList() khi backend sẵn sàng
-            // const result = await getItemWarehousePolicyList();
-            // setData(result.items);
-            await new Promise((r) => setTimeout(r, 600));
-            setData(MOCK_ALERTS);
+            const filters = filterValuesRef.current;
+            const result = await getItemWarehousePolicyList({
+                page: page + 1,
+                pageSize,
+                keyword: searchTerm || undefined,
+                warehouseId: filters.warehouseId || undefined,
+                statusFilter: filters.statusFilter || undefined,
+            });
+            setData(result.items);
+            setTotalItems(result.totalItems);
         } catch (err) {
-            showToast('Không tải được danh sách cảnh báo.', 'error');
+            const msg = err?.message ?? err?.response?.data?.message ?? err?.response?.data?.detail ?? 'Không thể tải danh sách cảnh báo.';
+            setError(msg);
+            setData([]);
         } finally {
             setLoading(false);
         }
-    }, [showToast]);
+    }, [page, pageSize, searchTerm]);
 
     useEffect(() => {
         fetchData();
@@ -250,12 +227,30 @@ const InventoryAlertSetup = () => {
 
     // Lọc + tìm kiếm
     const filteredData = data.filter((row) => {
-        if (!searchTerm) return true;
-        const term = searchTerm.toLowerCase();
-        return (
-            (row.itemCode ?? '').toLowerCase().includes(term) ||
-            (row.itemName ?? '').toLowerCase().includes(term)
-        );
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const matchSearch =
+                (row.itemCode ?? '').toLowerCase().includes(term) ||
+                (row.itemName ?? '').toLowerCase().includes(term);
+            if (!matchSearch) return false;
+        }
+        if (filterValues.itemCode) {
+            if (!(row.itemCode ?? '').toLowerCase().includes(filterValues.itemCode.toLowerCase())) return false;
+        }
+        if (filterValues.itemName) {
+            if (!(row.itemName ?? '').toLowerCase().includes(filterValues.itemName.toLowerCase())) return false;
+        }
+        if (filterValues.warehouseId != null) {
+            if (row.warehouseId !== filterValues.warehouseId) return false;
+        }
+        if (filterValues.statusFilter) {
+            const qty = row.onHandQty ?? 0;
+            const min = row.minQty ?? 0;
+            const isUnder = qty < min;
+            if (filterValues.statusFilter === 'under' && !isUnder) return false;
+            if (filterValues.statusFilter === 'safe' && isUnder) return false;
+        }
+        return true;
     });
 
     // Sắp xếp
@@ -270,30 +265,8 @@ const InventoryAlertSetup = () => {
     // Phân trang
     const paginatedData = sortedData.slice(page * pageSize, (page + 1) * pageSize);
     const totalPages = Math.ceil(sortedData.length / pageSize);
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    function getColumnWidth(colId) {
-        switch (colId) {
-            case 'stt': return 60;
-            case 'itemCode': return 160;
-            case 'itemName': return 220;
-            case 'warehouse': return 160;
-            case 'uom': return 100;
-            case 'onHandQty': return 140;
-            case 'minQty': return 140;
-            case 'reorderQty': return 140;
-            case 'status': return 160;
-            default: return 150;
-        }
-    }
-
-    // Cột đang hiển thị theo thứ tự
-    const visibleColumns = columnOrder
-        .filter((id) => visibleColumnIds.has(id))
-        .map((id) => ALERT_COLUMNS.find((c) => c.id === id))
-        .filter(Boolean);
-
-    const totalWidth = visibleColumns.reduce((sum, col) => sum + getColumnWidth(col.id), 0);
+    const start = sortedData.length === 0 ? 0 : page * pageSize + 1;
+    const end = Math.min((page + 1) * pageSize, sortedData.length);
 
     // ── Column visibility ────────────────────────────────────────────────────
     const handleColumnVisibilityChange = (columnId, checked) => {
@@ -308,7 +281,7 @@ const InventoryAlertSetup = () => {
         setVisibleColumnIds(checked ? new Set(ALERT_COLUMNS.map((c) => c.id)) : new Set());
     };
 
-    // ── Drag & drop ─────────────────────────────────────────────────────────
+    // ── Drag & drop cột trong bảng ─────────────────────────────────────────
     const handleDragStart = (e, columnId) => {
         setDraggedColumn(columnId);
         e.dataTransfer.effectAllowed = 'move';
@@ -327,8 +300,9 @@ const InventoryAlertSetup = () => {
         localStorage.setItem('alertColumnOrder', JSON.stringify(newOrder));
         setDraggedColumn(null);
     };
+    const handleDragEnd = () => { setDraggedColumn(null); };
 
-    // Drag trong popup
+    // ── Drag & drop trong popup ──────────────────────────────────────────────
     const handlePopupDragStart = (e, colId) => { setDraggedPopupColumn(colId); e.dataTransfer.effectAllowed = 'move'; };
     const handlePopupDragOver = (e) => { e.preventDefault(); };
     const handlePopupDrop = (e, targetId) => {
@@ -342,45 +316,36 @@ const InventoryAlertSetup = () => {
         setTempColumnOrder(newOrder);
         setDraggedPopupColumn(null);
     };
-
-    const handleApplyColumnOrder = () => {
-        setColumnOrder(tempColumnOrder);
-        localStorage.setItem('alertColumnOrder', JSON.stringify(tempColumnOrder));
-        setColumnSelectorAnchor(null);
-    };
+    const handlePopupDragEnd = () => { setDraggedPopupColumn(null); };
 
     // ── Sort ─────────────────────────────────────────────────────────────────
-    const handleSort = (colId) => {
+    const handleSortRequest = (colId) => {
         if (!SORTABLE_COLUMN_IDS.includes(colId)) return;
-        const isAsc = orderBy === colId && order === 'asc';
-        setOrder(isAsc ? 'desc' : 'asc');
-        setOrderBy(colId);
+        let newOrder, newOrderBy;
+        if (orderBy === colId) {
+            newOrder = order === 'asc' ? 'desc' : 'asc';
+            newOrderBy = colId;
+        } else {
+            newOrderBy = colId;
+            newOrder = 'asc';
+        }
+        setOrderBy(newOrderBy);
+        setOrder(newOrder);
+        setPage(0);
     };
 
-    // ── Edit inline ─────────────────────────────────────────────────────────
-    const handleEdit = (row) => {
-        setEditingId(row.alertId);
-        setEditForm({ minQty: row.minQty, reorderQty: row.reorderQty });
+    const handleSearchTermChange = (e) => {
+        setSearchTerm(e.target.value);
+        setPage(0);
     };
 
-    const handleSave = (row) => {
-        setData((prev) =>
-            prev.map((r) =>
-                r.alertId === row.alertId
-                    ? { ...r, minQty: editForm.minQty, reorderQty: editForm.reorderQty }
-                    : r
-            )
-        );
-        setEditingId(null);
-        showToast('Cập nhật ngưỡng thành công!', 'success');
+    const handleFilterApply = (values) => {
+        filterValuesRef.current = values;
+        setFilterValues(values);
+        setPage(0);
     };
 
-    const handleCancelEdit = () => {
-        setEditingId(null);
-        setEditForm({ minQty: 0, reorderQty: 0 });
-    };
-
-    const handlePageChange = (_, newPage) => setPage(newPage);
+    const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
         const newSize = Number(e.target.value);
         setPageSize(newSize);
@@ -388,291 +353,769 @@ const InventoryAlertSetup = () => {
         localStorage.setItem('alertPageSize', String(newSize));
     };
 
-    return (
-        <Box className="list-view" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* ── Toast ─────────────────────────────────────────────────── */}
-            {toast && toast.message && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+    const columnSelectorOpen = Boolean(columnSelectorAnchor);
+    useEffect(() => {
+        if (columnSelectorOpen) {
+            setTempColumnOrder(columnOrder);
+        }
+    }, [columnSelectorOpen, columnOrder]);
 
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexShrink: 0, px: 2 }}>
-                <Box>
-                    <Typography variant="h5" fontWeight={700} color="text.primary">
+    const handleSaveColumnOrder = () => {
+        setColumnOrder(tempColumnOrder);
+        localStorage.setItem('alertColumnOrder', JSON.stringify(tempColumnOrder));
+        setColumnSelectorAnchor(null);
+    };
+
+    const handleCancelColumnOrder = () => {
+        setTempColumnOrder(columnOrder);
+        setColumnSelectorAnchor(null);
+    };
+
+    const handleResetColumns = () => {
+        const defaultOrder = ALERT_COLUMNS.map((c) => c.id);
+        const defaultVisible = new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        resetRef.current = true;
+        setTempColumnOrder(defaultOrder);
+        setColumnOrder(defaultOrder);
+        setVisibleColumnIds(defaultVisible);
+        localStorage.setItem('alertColumnOrder', JSON.stringify(defaultOrder));
+        localStorage.setItem('alertVisibleColumns', JSON.stringify([...defaultVisible]));
+        setColumnSelectorAnchor(null);
+    };
+
+    useEffect(() => {
+        if (columnSelectorOpen) {
+            setTempColumnOrder(columnOrder);
+        }
+    }, [columnSelectorOpen, columnOrder]);
+
+    useEffect(() => {
+        if (!resetRef.current) {
+            if (columnSelectorOpen) {
+                setTempColumnOrder(columnOrder);
+            }
+        }
+        resetRef.current = false;
+    }, [columnSelectorOpen, columnOrder]);
+
+    const visibleColumns = ALERT_COLUMNS.filter((col) => visibleColumnIds.has(col.id))
+        .sort((a, b) => {
+            if (a.id === 'stt' && b.id !== 'stt') return -1;
+            if (b.id === 'stt' && a.id !== 'stt') return 1;
+            return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
+        });
+
+    return (
+        <Box
+            sx={{
+                height: '100%',
+                minHeight: 0,
+                minWidth: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: '#fafafa',
+            }}
+        >
+            {/* ── Header giống ViewItemList ──────────────────────────── */}
+            <Box
+                sx={{
+                    flexShrink: 0,
+                    px: { xs: 2, sm: 2 },
+                    py: 2.5,
+                    bgcolor: '#fafafa',
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography
+                        variant="h5"
+                        component="h1"
+                        fontWeight="600"
+                        sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
+                    >
                         Thiết lập Cảnh báo Tồn kho
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                        Cấu hình ngưỡng tối thiểu và số lượng đặt lại cho từng vật tư tại mỗi kho.
-                    </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="Làm mới">
-                        <IconButton onClick={fetchData} size="small">
-                            <RefreshCw size={18} />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
+                <Typography
+                    variant="body2"
+                    sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}
+                >
+                    Cấu hình ngưỡng tối thiểu và số lượng đặt lại cho từng vật tư tại mỗi kho.
+                </Typography>
             </Box>
 
-            {/* ── Filter / Toolbar bar ───────────────────────────────────── */}
-            <Box className="list-filter-card" sx={{ px: 2, py: 1.5, flexShrink: 0 }}>
-                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                    {/* Search */}
-                    <SearchInput
-                        placeholder="Tìm theo mã hoặc tên vật tư..."
-                        value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
-                        sx={{ flex: '1 1 240px', maxWidth: 400 }}
-                    />
-
-                    {/* Alert banner */}
-                    <Box
+            {/* ── Main list-view container giống ViewItemList ──────────── */}
+            <Box
+                className="list-view"
+                sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    width: '100%',
+                    maxWidth: '100%',
+                    px: { xs: 2, sm: 2 },
+                    pb: 2,
+                    boxSizing: 'border-box',
+                }}
+            >
+                {/* Wrapper border + radius giống ViewItemList */}
+                <Box
+                    sx={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '12px',
+                        bgcolor: '#ffffff',
+                    }}
+                >
+                    {/* ── Filter / Toolbar bar – Card giống ViewItemList ── */}
+                    <Card
+                        className="list-filter-card"
                         sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            px: 2,
-                            py: 0.75,
-                            bgcolor: 'warning.50',
-                            border: '1px solid',
-                            borderColor: 'warning.light',
-                            borderRadius: 2,
-                            flex: '1 1 280px',
+                            mb: 0,
+                            borderRadius: '12px 12px 0 0',
+                            border: 'none',
+                            borderBottom: '1px solid #f3f4f6',
+                            boxShadow: 'none',
                         }}
                     >
-                        <AlertTriangle size={16} color="#ed6c02" />
-                        <Typography variant="caption" color="warning.dark">
-                            Tồn thực tế &lt; ngưỡng Min → cảnh báo tự động.
-                        </Typography>
-                    </Box>
-
-                    {/* Column selector */}
-                    <Tooltip title="Chọn cột hiển thị">
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<Columns size={16} />}
-                            onClick={(e) => { setColumnSelectorAnchor(e.currentTarget); setTempColumnOrder(columnOrder); }}
-                            sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                        <CardContent
+                            sx={{
+                                '&.MuiCardContent-root:last-child': { pb: 1.5 },
+                                pt: 2,
+                                px: 2,
+                            }}
                         >
-                            Cột
-                        </Button>
-                    </Tooltip>
-                </Box>
-            </Box>
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    gap: 1.5,
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                }}
+                            >
+                                {/* Search – giống ViewItemList */}
+                                <SearchInput
+                                    placeholder="Tìm kiếm theo mã, tên vật tư…"
+                                    value={searchTerm}
+                                    onChange={handleSearchTermChange}
+                                    sx={{
+                                        flex: '1 1 200px',
+                                        minWidth: 200,
+                                        maxWidth: 480,
+                                        '& .MuiOutlinedInput-root': {
+                                            bgcolor: '#f3f4f6',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '10px',
+                                            fontSize: '13px',
+                                            '& fieldset': {
+                                                border: 'none',
+                                            },
+                                            '&:hover': {
+                                                bgcolor: '#f9fafb',
+                                                borderColor: '#d1d5db',
+                                            },
+                                            '&.Mui-focused': {
+                                                bgcolor: '#ffffff',
+                                                borderColor: '#3b82f6',
+                                                boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                            },
+                                            '& input::placeholder': {
+                                                color: '#9ca3af',
+                                                fontSize: '13px',
+                                            },
+                                        },
+                                    }}
+                                />
 
-            {/* ── Table card ───────────────────────────────────────────── */}
-            <Box className="list-grid-card" sx={{ flex: 1, px: 2, pb: 2, minHeight: 0 }}>
-                <Box className="list-grid-wrapper" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <Paper
-                        elevation={0}
+                                {/* Filter button */}
+                                <Tooltip title="Bộ lọc">
+                                    <IconButton
+                                        color="primary"
+                                        onClick={() => setFilterOpen(true)}
+                                        aria-label="Bộ lọc"
+                                        sx={{
+                                            border: '1px solid #e5e7eb',
+                                            bgcolor: '#ffffff',
+                                            borderRadius: '10px',
+                                            '&:hover': {
+                                                bgcolor: '#f9fafb',
+                                                borderColor: '#d1d5db',
+                                            },
+                                        }}
+                                    >
+                                        <Filter size={20} />
+                                    </IconButton>
+                                </Tooltip>
+
+                                {/* Column selector – IconButton giống ViewItemList */}
+                                <Tooltip title="Chọn cột hiển thị">
+                                    <IconButton
+                                        color="primary"
+                                        onClick={(e) => { setColumnSelectorAnchor(e.currentTarget); setTempColumnOrder(columnOrder); }}
+                                        aria-label="Chọn cột"
+                                        sx={{
+                                            border: '1px solid #e5e7eb',
+                                            bgcolor: '#ffffff',
+                                            borderRadius: '10px',
+                                            '&:hover': {
+                                                bgcolor: '#f9fafb',
+                                                borderColor: '#d1d5db',
+                                            },
+                                        }}
+                                    >
+                                        <Columns size={20} />
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
+                        </CardContent>
+                    </Card>
+
+                    {/* ── Column selector Popover – giống y ViewItemList ─────── */}
+                    <Popover
+                        open={columnSelectorOpen}
+                        anchorEl={columnSelectorAnchor}
+                        onClose={handleCancelColumnOrder}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        slotProps={{
+                            paper: {
+                                elevation: 0,
+                                sx: {
+                                    mt: 1,
+                                    width: 340,
+                                    maxHeight: '70vh',
+                                    borderRadius: '14px',
+                                    border: '1px solid rgba(0, 0, 0, 0.08)',
+                                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                }
+                            }
+                        }}
+                    >
+                        {/* Header */}
+                        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
+                            <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
+                                Chọn cột & Sắp xếp
+                            </Typography>
+                        </Box>
+
+                        {/* Body */}
+                        <Box sx={{
+                            px: 2.5,
+                            py: 2,
+                            flex: 1,
+                            minHeight: 0,
+                            overflowY: 'auto',
+                            '&::-webkit-scrollbar': { width: '6px' },
+                            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+                            '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px', '&:hover': { bgcolor: '#9ca3af' } },
+                        }}>
+                            <FormGroup>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={visibleColumnIds.size === ALERT_COLUMNS.length}
+                                            indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < ALERT_COLUMNS.length}
+                                            onChange={(e) => handleSelectAllColumns(e.target.checked)}
+                                            sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#3b82f6' }, '&.MuiCheckbox-indeterminate': { color: '#3b82f6' } }}
+                                        />
+                                    }
+                                    label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
+                                    sx={{ mb: 1, py: 0.5 }}
+                                />
+                                {[...ALERT_COLUMNS].sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
+                                    <Box
+                                        key={col.id}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1,
+                                            borderRadius: '8px',
+                                            px: 0.75,
+                                            py: 0.25,
+                                            '&:hover': { bgcolor: '#f9fafb' },
+                                        }}
+                                        onDragOver={(e) => { if (col.sortable !== false) e.preventDefault(); }}
+                                        onDrop={(e) => { if (col.sortable !== false) { e.preventDefault(); handlePopupDrop(e, col.id); } }}
+                                    >
+                                        {col.sortable ? (
+                                            <Box
+                                                draggable
+                                                onDragStart={(e) => handlePopupDragStart(e, col.id)}
+                                                onDragEnd={handlePopupDragEnd}
+                                                sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', '&:active': { cursor: 'grabbing' }, color: '#9ca3af', '&:hover': { color: '#6b7280' } }}
+                                            >
+                                                <GripVertical size={14} />
+                                            </Box>
+                                        ) : (
+                                            <Box sx={{ width: 14, height: 14 }} />
+                                        )}
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={visibleColumnIds.has(col.id)}
+                                                    disabled={col.id === 'stt'}
+                                                    onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
+                                                    sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#3b82f6' }, '&.Mui-disabled': { color: '#d1d5db' } }}
+                                                />
+                                            }
+                                            label={
+                                                <Typography sx={{ fontSize: '13px', color: col.id === 'stt' ? '#9ca3af' : '#374151' }}>
+                                                    {col.label}
+                                                    {col.id === 'stt' && (
+                                                        <Typography component="span" sx={{ fontSize: '11px', color: '#9ca3af', ml: 0.5 }}>(cố định)</Typography>
+                                                    )}
+                                                </Typography>
+                                            }
+                                            sx={{ flex: 1, m: 0, py: 0.5 }}
+                                        />
+                                    </Box>
+                                ))}
+                            </FormGroup>
+                        </Box>
+
+                        {/* Footer */}
+                        <Box sx={{ px: 2.5, py: 2, display: 'flex', gap: 1.5, borderTop: '1px solid #f3f4f6', flexShrink: 0, alignItems: 'center' }}>
+                            <Button
+                                variant="text"
+                                onClick={handleResetColumns}
+                                startIcon={<RotateCcw size={14} />}
+                                sx={{
+                                    textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', color: '#6b7280', mr: 'auto',
+                                    '&:hover': { bgcolor: '#f9fafb', color: '#374151' },
+                                }}
+                            >
+                                Đặt lại
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                onClick={handleCancelColumnOrder}
+                                sx={{
+                                    textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', borderColor: '#e5e7eb', color: '#6b7280',
+                                    '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                                }}
+                            >
+                                Hủy
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={handleSaveColumnOrder}
+                                sx={{
+                                    textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', bgcolor: '#0284c7', boxShadow: 'none',
+                                    '&:hover': { bgcolor: '#0369a1', boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)' },
+                                }}
+                            >
+                                Lưu
+                            </Button>
+                        </Box>
+                    </Popover>
+
+                    {/* ── Table card giống ViewItemList ─────────────────────── */}
+                    <Card
+                        className="list-grid-card"
                         sx={{
                             flex: 1,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 2,
+                            minHeight: 0,
+                            minWidth: 0,
                             overflow: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',
-                            minHeight: 0,
+                            borderRadius: 0,
+                            border: 'none',
+                            boxShadow: 'none',
+                            p: 0,
                         }}
                     >
-                        {loading ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, py: 8 }}>
-                                <CircularProgress size={32} />
-                            </Box>
-                        ) : (
-                            <>
-                                <TableContainer sx={{ flex: 1 }}>
-                                    <Table size="small" stickyHeader>
+                        <Box
+                            className="list-grid-wrapper"
+                            sx={{
+                                flex: 1,
+                                minHeight: 0,
+                                minWidth: 0,
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                position: 'relative',
+                            }}
+                        >
+                            {/* Loading state giống ViewItemList */}
+                            {loading ? (
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        py: 8,
+                                        color: 'text.secondary',
+                                    }}
+                                >
+                                    <CircularProgress size={40} sx={{ mb: 2 }} />
+                                    <Typography variant="body2">Đang tải danh sách cảnh báo…</Typography>
+                                </Box>
+                            ) : error ? (
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        py: 6,
+                                        color: 'error.main',
+                                        textAlign: 'center',
+                                        px: 2,
+                                    }}
+                                >
+                                    <Typography variant="body2" sx={{ mb: 2 }}>
+                                        {error}
+                                    </Typography>
+                                    <Button variant="outlined" size="small" onClick={() => fetchData()} sx={{ textTransform: 'none' }}>
+                                        Thử lại
+                                    </Button>
+                                </Box>
+                            ) : paginatedData.length === 0 ? (
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        py: 6,
+                                        px: 2,
+                                        color: 'text.secondary',
+                                    }}
+                                >
+                                    <Package size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+                                    <Typography>Chưa có dữ liệu cảnh báo</Typography>
+                                </Box>
+                            ) : (
+                                <TableContainer
+                                    sx={{
+                                        flex: 1,
+                                        minHeight: 0,
+                                        minWidth: 0,
+                                        width: '100%',
+                                        maxWidth: '100%',
+                                        overflow: 'auto',
+                                        boxSizing: 'border-box',
+                                    }}
+                                >
+                                    <Table
+                                        size="small"
+                                        stickyHeader
+                                        sx={{
+                                            minWidth: '100%',
+                                            width: 'max-content',
+                                            tableLayout: 'fixed',
+                                            borderCollapse: 'separate',
+                                            borderSpacing: 0,
+                                        }}
+                                    >
+                                        <colgroup>
+                                            {visibleColumns.map((col) => (
+                                                <col key={col.id} style={{ width: getTableColumnWidth(col.id) }} />
+                                            ))}
+                                        </colgroup>
+
                                         <TableHead>
                                             <TableRow>
-                                                {visibleColumns.map((col) => (
-                                                    <TableCell
-                                                        key={col.id}
-                                                        draggable
-                                                        onDragStart={(e) => handleDragStart(e, col.id)}
-                                                        onDragOver={handleDragOver}
-                                                        onDrop={(e) => handleDrop(e, col.id)}
-                                                        sx={{
-                                                            ...headCellBaseSx,
-                                                            cursor: 'grab',
-                                                            userSelect: 'none',
-                                                            width: getColumnWidth(col.id),
-                                                            minWidth: getColumnWidth(col.id),
-                                                        }}
-                                                    >
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                            {SORTABLE_COLUMN_IDS.includes(col.id) ? (
-                                                                <Box
-                                                                    component="span"
-                                                                    onClick={() => handleSort(col.id)}
-                                                                    sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5 }}
-                                                                >
-                                                                    {col.label}
-                                                                    {orderBy === col.id ? (order === 'asc' ? ' ↑' : ' ↓') : ''}
-                                                                </Box>
-                                                            ) : (
-                                                                <Box component="span">{col.label}</Box>
-                                                            )}
-                                                            <GripVertical size={12} color="#d1d5db" />
-                                                        </Box>
-                                                    </TableCell>
-                                                ))}
-                                                {/* Thao tác */}
-                                                <TableCell sx={{ ...headCellBaseSx, width: 100, minWidth: 100 }}>
-                                                    Thao tác
-                                                </TableCell>
+                                                {visibleColumns.map((col) => {
+                                                    const isCenter = isCenterAlignedColumn(col.id);
+                                                    return (
+                                                        <TableCell
+                                                            key={col.id}
+                                                            align={isCenter ? 'right' : 'left'}
+                                                            draggable={col.sortable !== false && col.id !== 'stt'}
+                                                            sx={{
+                                                                bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa',
+                                                                borderBottom: '2px solid #e5e7eb',
+                                                                fontSize: '12px',
+                                                                fontWeight: 600,
+                                                                color: '#6b7280',
+                                                                py: 1.5,
+                                                                px: 2,
+                                                                whiteSpace: 'nowrap',
+                                                                opacity: draggedColumn === col.id ? 0.5 : 1,
+                                                                transition: 'all 0.2s',
+                                                                overflow: 'hidden',
+                                                                ...(col.id === 'stt' && { width: 70, minWidth: 70, maxWidth: 70 }),
+                                                            }}
+                                                            onDragOver={handleDragOver}
+                                                            onDrop={(e) => handleDrop(e, col.id)}
+                                                        >
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
+                                                                {col.sortable && col.id !== 'stt' ? (
+                                                                    <Box
+                                                                        draggable
+                                                                        onDragStart={(e) => handleDragStart(e, col.id)}
+                                                                        onDragEnd={handleDragEnd}
+                                                                        sx={{
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            cursor: 'grab',
+                                                                            '&:active': { cursor: 'grabbing' },
+                                                                            color: '#9ca3af',
+                                                                            opacity: 1,
+                                                                            transition: 'opacity 0.2s',
+                                                                        }}
+                                                                    >
+                                                                        <GripVertical size={14} />
+                                                                    </Box>
+                                                                ) : (
+                                                                    <Box sx={{ width: 14 }} />
+                                                                )}
+                                                                {col.sortable ? (
+                                                                    <TableSortLabel
+                                                                        active={orderBy === col.id}
+                                                                        direction={orderBy === col.id ? order : 'asc'}
+                                                                        onClick={() => handleSortRequest(col.id)}
+                                                                        sx={{
+                                                                            flex: 1,
+                                                                            '& .MuiTableSortLabel-icon': { fontSize: '14px', opacity: orderBy === col.id ? 1 : 0 },
+                                                                        }}
+                                                                        >
+                                                                        {col.label}
+                                                                    </TableSortLabel>
+                                                                ) : (
+                                                                    <Typography variant="inherit" sx={{ flex: 1 }}>{col.label}</Typography>
+                                                                )}
+                                                            </Box>
+                                                        </TableCell>
+                                                    );
+                                                })}
                                             </TableRow>
                                         </TableHead>
 
                                         <TableBody>
-                                            {paginatedData.map((row) => {
-                                                const isEditing = editingId === row.alertId;
-                                                const totalW = visibleColumns.reduce((s, c) => s + getColumnWidth(c.id), 0);
-
+                                            {paginatedData.map((row, index) => {
+                                                const qty = row?.onHandQty ?? 0;
+                                                const min = row?.minQty ?? 0;
+                                                const isUnder = qty < min;
                                                 return (
-                                                    <TableRow key={row.alertId} hover>
-                                                        {visibleColumns.map((col) => (
-                                                            <TableCell
-                                                                key={col.id}
-                                                                sx={getAlertCellSx(col.id, (getColumnWidth(col.id) / totalW) * 100, row)}
-                                                            >
-                                                                {col.getValue(row, paginatedData.indexOf(row), {
-                                                                    pageNumber: page + 1,
-                                                                    pageSize,
-                                                                })}
-                                                            </TableCell>
-                                                        ))}
-                                                        <TableCell sx={{ ...bodyCellBaseSx }}>
-                                                            {isEditing ? (
-                                                                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                                                                    <Tooltip title="Lưu">
-                                                                        <IconButton color="primary" size="small" onClick={() => handleSave(row)}>
-                                                                            <Save size={15} />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                    <Tooltip title="Hủy">
-                                                                        <IconButton size="small" onClick={handleCancelEdit}>
-                                                                            <X size={15} />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                </Box>
-                                                            ) : (
-                                                                <Tooltip title="Chỉnh sửa ngưỡng">
-                                                                    <IconButton color="primary" size="small" onClick={() => handleEdit(row)}>
-                                                                        <Edit size={15} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                            )}
-                                                        </TableCell>
+                                                    <TableRow
+                                                        key={row.alertId}
+                                                        hover
+                                                        sx={{
+                                                            height: 52,
+                                                            '&:hover': {
+                                                                bgcolor: '#f9fafb',
+                                                            },
+                                                        }}
+                                                    >
+                                                        {visibleColumns.map((col) => {
+                                                            const opts = { pageNumber: page + 1, pageSize };
+                                                            const isCenter = isCenterAlignedColumn(col.id);
+
+                                                            if (col.id === 'stt') {
+                                                                return (
+                                                                    <TableCell
+                                                                        key={col.id}
+                                                                        align="center"
+                                                                        sx={{ ...bodyCellBaseSx, px: 1 }}
+                                                                    >
+                                                                        {(page + 1 - 1) * pageSize + index + 1}
+                                                                    </TableCell>
+                                                                );
+                                                            }
+
+                                                            if (col.id === 'itemCode') {
+                                                                return (
+                                                                    <TableCell key={col.id} align="left">
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                            <Box
+                                                                                component="a"
+                                                                                href={`/items/${row.itemId}`}
+                                                                                onClick={(e) => { e.preventDefault(); navigate(`/items/${row.itemId}`); }}
+                                                                                sx={{
+                                                                                    color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
+                                                                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                                                    '&:hover': { textDecoration: 'underline' },
+                                                                                }}
+                                                                                title={col.getValue(row, index, opts)}
+                                                                            >
+                                                                                {col.getValue(row, index, opts)}
+                                                                            </Box>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            }
+
+                                                            if (col.id === 'status') {
+                                                                return (
+                                                                    <TableCell
+                                                                        key={col.id}
+                                                                        align="left"
+                                                                    >
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                            <Chip
+                                                                                label={isUnder ? '• Dưới định mức' : '• An toàn'}
+                                                                                size="small"
+                                                                                sx={{
+                                                                                    fontWeight: 500,
+                                                                                    fontSize: '12px',
+                                                                                    lineHeight: '16px',
+                                                                                    borderRadius: '999px',
+                                                                                    minWidth: 120,
+                                                                                    height: '26px',
+                                                                                    bgcolor: isUnder
+                                                                                        ? 'rgba(239, 68, 68, 0.15)'
+                                                                                        : 'rgba(16, 185, 129, 0.2)',
+                                                                                    color: '#374151',
+                                                                                    border: 'none',
+                                                                                    boxShadow: 'none',
+                                                                                    '& .MuiChip-label': {
+                                                                                        px: 1.5,
+                                                                                        py: 0,
+                                                                                        textAlign: 'left',
+                                                                                        display: 'block',
+                                                                                        width: '100%',
+                                                                                    },
+                                                                                }}
+                                                                            />
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            }
+
+                                                            return (
+                                                                <TableCell
+                                                                    key={col.id}
+                                                                    align={isCenter ? 'center' : 'left'}
+                                                                    sx={{
+                                                                        ...bodyCellBaseSx,
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                        whiteSpace: 'nowrap',
+                                                                    }}
+                                                                    title={col.getValue(row, index, opts)}
+                                                                >
+                                                                    {col.getValue(row, index, opts)}
+                                                                </TableCell>
+                                                            );
+                                                        })}
                                                     </TableRow>
                                                 );
                                             })}
-
-                                            {paginatedData.length === 0 && (
-                                                <TableRow>
-                                                    <TableCell colSpan={visibleColumns.length + 1} align="center" sx={{ py: 6 }}>
-                                                        <Typography color="text.secondary">Không tìm thấy dữ liệu phù hợp.</Typography>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
+                            )}
+                        </Box>
+                    </Card>
 
-                                {/* ── Pagination ──────────────────────────────────── */}
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        px: 2,
-                                        py: 1,
-                                        borderTop: '1px solid',
-                                        borderColor: 'divider',
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Dòng mỗi trang:
-                                        </Typography>
-                                        <Box component="select" value={pageSize} onChange={handlePageSizeChange}
-                                            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 1, py: 0.5, fontSize: '0.8125rem', cursor: 'pointer' }}>
-                                            {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                                <Box component="option" key={n} value={n}>{n}</Box>
-                                            ))}
-                                        </Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                                            {(page * pageSize + 1)}–{Math.min((page + 1) * pageSize, sortedData.length)} trong {sortedData.length} dòng
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                        <Button size="small" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>‹</Button>
-                                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => (
-                                            <Button
-                                                key={i} size="small" variant={page === i ? 'contained' : 'text'}
-                                                onClick={() => setPage(i)} sx={{ minWidth: 32 }}
-                                            >
-                                                {i + 1}
-                                            </Button>
-                                        ))}
-                                        <Button size="small" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>›</Button>
-                                    </Box>
-                                </Box>
-                            </>
-                        )}
-                    </Paper>
-                </Box>
-            </Box>
+                    {/* ── Pagination footer giống ViewItemList ─────────────── */}
+                    <Box
+                        sx={{
+                            flexShrink: 0,
+                            px: 2,
+                            py: 2,
+                            borderTop: '1px solid #f3f4f6',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: 2,
+                        }}
+                    >
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            Số dòng / trang:
+                        </Typography>
 
-            {/* ── Column selector Popover ─────────────────────────────────── */}
-            <Popover
-                open={Boolean(columnSelectorAnchor)}
-                anchorEl={columnSelectorAnchor}
-                onClose={() => setColumnSelectorAnchor(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-            >
-                <Box sx={{ p: 2, width: 280 }}>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                        Chọn cột hiển thị
-                    </Typography>
-                    <FormGroup>
-                        {tempColumnOrder.map((colId) => {
-                            const col = ALERT_COLUMNS.find((c) => c.id === colId);
-                            if (!col) return null;
-                            return (
-                                <FormControlLabel
-                                    key={colId}
-                                    control={
-                                        <Checkbox
-                                            checked={visibleColumnIds.has(colId)}
-                                            onChange={(e) => handleColumnVisibilityChange(colId, e.target.checked)}
-                                            size="small"
-                                        />
-                                    }
-                                    label={
-                                        <Box
-                                            draggable
-                                            onDragStart={(e) => handlePopupDragStart(e, colId)}
-                                            onDragOver={handlePopupDragOver}
-                                            onDrop={(e) => handlePopupDrop(e, colId)}
-                                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'grab', fontSize: '0.875rem' }}
-                                        >
-                                            <GripVertical size={14} color="#9ca3af" />
-                                            {col.label}
-                                        </Box>
-                                    }
-                                />
-                            );
-                        })}
-                    </FormGroup>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                        <Button size="small" onClick={() => setColumnSelectorAnchor(null)}>Hủy</Button>
-                        <Button size="small" variant="contained" onClick={handleApplyColumnOrder}>Áp dụng</Button>
+                        <FormControl size="small" sx={{ minWidth: 72 }}>
+                            <Select
+                                value={pageSize}
+                                onChange={handlePageSizeChange}
+                                sx={{
+                                    height: 32,
+                                    fontSize: '13px',
+                                    borderRadius: '8px',
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                                    },
+                                }}
+                            >
+                                {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>
+                                        {n}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            {start}–{end} / {totalItems} (Tổng {totalPages} trang)
+                        </Typography>
+
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={page <= 0}
+                            onClick={() => handlePageChange(page - 1)}
+                            sx={{
+                                minWidth: 36,
+                                textTransform: 'none',
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                borderColor: 'rgba(0, 0, 0, 0.1)',
+                                '&:hover': {
+                                    borderColor: 'rgba(0, 0, 0, 0.2)',
+                                },
+                            }}
+                        >
+                            Trước
+                        </Button>
+
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={end >= totalItems || totalItems === 0}
+                            onClick={() => handlePageChange(page + 1)}
+                            sx={{
+                                minWidth: 36,
+                                textTransform: 'none',
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                borderColor: 'rgba(0, 0, 0, 0.1)',
+                                '&:hover': {
+                                    borderColor: 'rgba(0, 0, 0, 0.2)',
+                                },
+                            }}
+                        >
+                            Sau
+                        </Button>
                     </Box>
                 </Box>
-            </Popover>
+
+                {/* ── Popups ── */}
+                <AlertFilterPopup
+                    open={filterOpen}
+                    onClose={() => setFilterOpen(false)}
+                    initialValues={filterValues}
+                    onApply={handleFilterApply}
+                />
+
+                {/* Toast đặt đúng vị trí như ViewItemList – sau list-view, trong root */}
+                {toast && toast.message && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+            </Box>
         </Box>
     );
 };

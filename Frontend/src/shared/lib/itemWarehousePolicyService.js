@@ -3,10 +3,10 @@ import apiClient from './axios';
 /**
  * ItemWarehousePolicy API – kết nối ItemWarehousePolicyController.
  *
- * Backend chưa triển khai Controller. Endpoint cần backend cung cấp:
- *   GET  /ItemWarehousePolicy/list-all    – danh sách có phân trang + filter
+ * Backend endpoints:
+ *   GET  /ItemWarehousePolicy/list-all     – danh sách có phân trang + filter
  *   GET  /ItemWarehousePolicy/detail/{id} – chi tiết 1 policy
- *   POST /ItemWarehousePolicy/create      – tạo mới
+ *   POST /ItemWarehousePolicy/create       – tạo mới
  *   PUT  /ItemWarehousePolicy/update/{id} – cập nhật
  *   DELETE /ItemWarehousePolicy/delete/{id} – xóa
  *
@@ -29,16 +29,18 @@ import apiClient from './axios';
 function mapPolicyRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
+        alertId: row.itemWarehousePolicyId ?? row.ItemWarehousePolicyId,
         itemWarehousePolicyId: row.itemWarehousePolicyId ?? row.ItemWarehousePolicyId,
         itemId: row.itemId ?? row.ItemId,
         warehouseId: row.warehouseId ?? row.WarehouseId,
         minQty: row.minQty ?? row.MinQty ?? 0,
         reorderQty: row.reorderQty ?? row.ReorderQty ?? null,
-        // join fields (backend trả kèm nếu dùng Include)
-        itemCode: row.itemCode ?? row.ItemCode ?? null,
-        itemName: row.itemName ?? row.ItemName ?? null,
-        warehouseCode: row.warehouseCode ?? row.WarehouseCode ?? null,
-        warehouseName: row.warehouseName ?? row.WarehouseName ?? null,
+        onHandQty: row.onHandQty ?? row.OnHandQty ?? 0,
+        uom: row.uom ?? row.Uom ?? null,
+        // join fields
+        itemCode: row.itemCode ?? row.ItemCode ?? '',
+        itemName: row.itemName ?? row.ItemName ?? '',
+        warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
     };
 }
 
@@ -47,39 +49,40 @@ function mapPolicyRow(row) {
 /**
  * Lấy danh sách ItemWarehousePolicy có phân trang và filter.
  *
- * Backend trả: ApiResponse<PagedResponse<ItemWarehousePolicyResponse>>
- * hoặc: PagedResponse
+ * Backend trả: ApiResponse<ItemWarehousePolicyListResponse>
  *
  * @param {Object} params
- * @param {number} [params.pageNumber=1]
+ * @param {number} [params.page=1]
  * @param {number} [params.pageSize=20]
- * @param {number|string} [params.itemId]     – lọc theo vật tư
- * @param {number|string} [params.warehouseId] – lọc theo kho
+ * @param {string} [params.keyword]           – tìm kiếm theo mã/tên vật tư
+ * @param {number} [params.warehouseId]      – lọc theo kho
+ * @param {string} [params.statusFilter]      – "under" | "safe"
  * @returns {Promise<{ items, totalItems, pageNumber, pageSize }>}
  */
 export async function getItemWarehousePolicyList(params = {}) {
     const {
-        pageNumber = 1,
+        page = 1,
         pageSize = 20,
-        itemId = null,
+        keyword = null,
         warehouseId = null,
+        statusFilter = null,
     } = params;
 
     try {
         const response = await apiClient.get('/ItemWarehousePolicy/list-all', {
-            params: { pageNumber, pageSize, itemId, warehouseId },
+            params: { page, pageSize, keyword, warehouseId, statusFilter },
         });
         const body = response?.data ?? {};
-        const paged = body.data ?? body.Data ?? body;
-        const rawList = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? []);
+        const paged = body?.data ?? body;
+        const rawList = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? paged ?? []);
         const items = (Array.isArray(rawList) ? rawList : [])
             .map(mapPolicyRow)
             .filter(Boolean);
 
         return {
             items,
-            totalItems: paged?.totalItems ?? paged?.TotalItems ?? items.length,
-            pageNumber: paged?.pageNumber ?? paged?.PageNumber ?? pageNumber,
+            totalItems: paged?.totalRecords ?? paged?.TotalRecords ?? items.length,
+            pageNumber: paged?.page ?? paged?.Page ?? page,
             pageSize: paged?.pageSize ?? paged?.PageSize ?? pageSize,
         };
     } catch (error) {

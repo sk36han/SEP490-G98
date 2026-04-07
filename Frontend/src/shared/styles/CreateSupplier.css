@@ -572,6 +572,78 @@ select.form-input:disabled {
 .btn-sm {
     padding: 5px 10px;
     font-size: 12px;
+    height: 30px;
+}
+
+/* Image action button */
+.btn-image-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.btn-image-action.btn-image-primary {
+    background-color: #0284c7;
+    color: #ffffff;
+    border: 1px solid rgba(2, 132, 199, 0.3);
+    box-shadow: 0 1px 2px rgba(2, 132, 199, 0.2);
+}
+
+.btn-image-action.btn-image-primary:hover:not(:disabled) {
+    background-color: #0369a1;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.btn-image-action.btn-image-primary:active:not(:disabled) {
+    background-color: #075985;
+}
+
+.btn-image-action.btn-image-primary:focus {
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+.btn-image-action.btn-image-ghost {
+    background-color: transparent;
+    color: #0284c7;
+    border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
+.btn-image-action.btn-image-ghost:hover:not(:disabled) {
+    background-color: rgba(2, 132, 199, 0.06);
+    border-color: #0284c7;
+}
+
+.btn-image-action.btn-image-ghost:focus {
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.btn-image-action.btn-image-danger {
+    background-color: transparent;
+    color: #dc2626;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.btn-image-action.btn-image-danger:hover:not(:disabled) {
+    background-color: rgba(220, 38, 38, 0.06);
+    border-color: #dc2626;
+}
+
+.btn-image-action.btn-image-danger:focus {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.btn-image-action:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 /* Nút dùng màu chữ card (slate-700) thay vì xanh */
