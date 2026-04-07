@@ -7,6 +7,9 @@ export const validatePassword = (password) => {
     if (!password || password.length < 6) {
         return { valid: false, message: 'Mật khẩu phải có ít nhất 6 ký tự!' };
     }
+    if (/\s/.test(password)) {
+        return { valid: false, message: 'Mật khẩu không được chứa khoảng trắng!' };
+    }
     if (!/[A-Z]/.test(password)) {
         return { valid: false, message: 'Mật khẩu phải có ít nhất 1 chữ in hoa (A-Z)!' };
     }

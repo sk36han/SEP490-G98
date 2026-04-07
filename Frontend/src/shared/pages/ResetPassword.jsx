@@ -180,7 +180,7 @@ const ResetPassword = () => {
                                 </InputAdornment>
                             ),
                         }}
-                        helperText="Mật khẩu phải có ít nhất 6 ký tự, 1 chữ hoa, 1 số và 1 ký tự đặc biệt"
+                        helperText="Tối thiểu 6 ký tự, gồm 1 chữ hoa, 1 số, 1 ký tự đặc biệt, không khoảng trắng"
                     />
 
                     <Button
