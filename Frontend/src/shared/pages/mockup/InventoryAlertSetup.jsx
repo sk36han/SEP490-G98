@@ -47,11 +47,14 @@ import {
     RotateCcw,
     Plus,
 } from 'lucide-react';
+
+const isValidUrl = (str) => str && (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('/'));
 import Toast from '../../../components/Toast/Toast';
 import { useToast } from '../../hooks/useToast';
 import SearchInput from '../../components/SearchInput';
 import AlertFilterPopup from '../../components/AlertFilterPopup';
 import CreateAlertDialog from '../../components/CreateAlertDialog';
+import AlertDetailDialog from '../../components/AlertDetailDialog';
 import { getItemWarehousePolicyList } from '../../lib/itemWarehousePolicyService';
 import '../../styles/ListView.css';
 
@@ -97,9 +100,6 @@ const MOCK_WAREHOUSE_POLICIES = [
         warehouseName: 'Kho Tổng Hà Nội',
         onHandQty: 1200,
         minQty: 500,
-        reorderQty: 800,
-        isActive: true,
-        createdBy: 'Lê Hoàng Nam',
         createdAt: '2026-03-08T09:15:00',
     },
     {
@@ -435,6 +435,10 @@ const InventoryAlertSetup = () => {
     // Dialog tạo mới
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
+    // Dialog chi tiết
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [detailData, setDetailData] = useState(null);
+
     // Cột
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
         const saved = localStorage.getItem('alertVisibleColumns');
@@ -644,6 +648,19 @@ const InventoryAlertSetup = () => {
         setTotalItems((prev) => prev + 1);
         setActiveMap((prev) => ({ ...prev, [alertId]: true }));
         showToast('Thêm thiết lập cảnh báo thành công!', 'success');
+    };
+
+    // Mở chi tiết
+    const handleOpenDetail = (row) => {
+        setDetailData(row);
+        setDetailDialogOpen(true);
+    };
+
+    // Lưu chỉnh sửa từ detail dialog
+    const handleSaveDetail = (updatedRow) => {
+        setData((prev) => prev.map((r) => (r.alertId === updatedRow.alertId ? { ...r, ...updatedRow } : r)));
+        setDetailData(updatedRow);
+        showToast('Cập nhật thiết lập thành công!', 'success');
     };
 
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
@@ -1125,6 +1142,8 @@ const InventoryAlertSetup = () => {
                                         maxWidth: '100%',
                                         overflow: 'auto',
                                         boxSizing: 'border-box',
+                                        bgcolor: '#ffffff',
+                                        pt: 0.5,
                                     }}
                                 >
                                     <Table
@@ -1144,7 +1163,7 @@ const InventoryAlertSetup = () => {
                                             ))}
                                         </colgroup>
 
-                                        <TableHead>
+                                        <TableHead sx={{ bgcolor: '#fafafa' }}>
                                             <TableRow>
                                                 {visibleColumns.map((col) => {
                                                     const isCenter = isCenterAlignedColumn(col.id);
@@ -1305,7 +1324,7 @@ const InventoryAlertSetup = () => {
                                                                             <Box
                                                                                 component="a"
                                                                                 href="#"
-                                                                                onClick={(e) => { e.preventDefault(); console.log('Open detail:', row.alertId); }}
+                                                                                onClick={(e) => { e.preventDefault(); handleOpenDetail(row); }}
                                                                                 sx={{
                                                                                     color: '#3b82f6',
                                                                                     textDecoration: 'none',
@@ -1328,16 +1347,65 @@ const InventoryAlertSetup = () => {
                                                             if (col.id === 'itemName') {
                                                                 return (
                                                                     <TableCell key={col.id} align="left" sx={{ ...bodyCellBaseSx }}>
-                                                                        <Box
-                                                                            title={col.getValue(row, index, opts)}
-                                                                            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                                                        >
-                                                                            <Typography sx={{ fontSize: '13px', color: '#374151', lineHeight: 1.4 }}>
-                                                                                {col.getValue(row, index, opts)}
-                                                                            </Typography>
-                                                                            <Typography sx={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.4 }}>
-                                                                                {row.uom ?? '-'}
-                                                                            </Typography>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
+                                                                            {/* Thumbnail */}
+                                                                            <Box
+                                                                                sx={{
+                                                                                    width: 40,
+                                                                                    height: 40,
+                                                                                    borderRadius: '8px',
+                                                                                    overflow: 'hidden',
+                                                                                    bgcolor: '#fafafa',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'center',
+                                                                                    border: '1px solid #e5e7eb',
+                                                                                    position: 'relative',
+                                                                                    flexShrink: 0,
+                                                                                }}
+                                                                            >
+                                                                                {/* Icon placeholder */}
+                                                                                <Box
+                                                                                    sx={{
+                                                                                        position: 'absolute',
+                                                                                        inset: 0,
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                    }}
+                                                                                >
+                                                                                    <Package size={16} color="#9e9e9e" />
+                                                                                </Box>
+
+                                                                                {/* Hình ảnh */}
+                                                                                {isValidUrl(row.itemImage) && (
+                                                                                    <img
+                                                                                        src={row.itemImage}
+                                                                                        alt=""
+                                                                                        style={{
+                                                                                            width: '100%',
+                                                                                            height: '100%',
+                                                                                            objectFit: 'cover',
+                                                                                            position: 'relative',
+                                                                                            zIndex: 1,
+                                                                                        }}
+                                                                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                                                                    />
+                                                                                )}
+                                                                            </Box>
+
+                                                                            {/* Tên + ĐVT */}
+                                                                            <Box
+                                                                                title={col.getValue(row, index, opts)}
+                                                                                sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                            >
+                                                                                <Typography sx={{ fontSize: '13px', color: '#374151', lineHeight: 1.4 }}>
+                                                                                    {col.getValue(row, index, opts)}
+                                                                                </Typography>
+                                                                                <Typography sx={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.4 }}>
+                                                                                    {row.uom ?? '-'}
+                                                                                </Typography>
+                                                                            </Box>
                                                                         </Box>
                                                                     </TableCell>
                                                                 );
@@ -1525,6 +1593,13 @@ const InventoryAlertSetup = () => {
                     open={createDialogOpen}
                     onClose={() => setCreateDialogOpen(false)}
                     onSubmit={handleCreateAlert}
+                />
+
+                <AlertDetailDialog
+                    open={detailDialogOpen}
+                    onClose={() => setDetailDialogOpen(false)}
+                    alertData={detailData}
+                    onSave={handleSaveDetail}
                 />
 
                 {/* Toast đặt đúng vị trí như ViewItemList – sau list-view, trong root */}
