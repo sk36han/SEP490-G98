@@ -20,9 +20,6 @@ import {
     FormControlLabel,
     Checkbox,
     Paper,
-    FormControl,
-    Select,
-    MenuItem,
     Tooltip,
     useTheme,
     useMediaQuery,
@@ -36,6 +33,7 @@ import {
     ChevronDown,
     FileBarChart,
     Download,
+    Eye,
 } from 'lucide-react';
 import SearchInput from '../../components/SearchInput';
 import SalesReportFilterPopup from '../../components/SalesReportFilterPopup';
@@ -46,8 +44,6 @@ const LS_VISIBLE    = 'salesReportVisibleColumns';
 const LS_EXPANDED   = 'salesReportExpanded';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
-
 const LEVEL = { YEAR: 'YEAR', QUARTER: 'QUARTER', MONTH: 'MONTH' };
 
 const YEAR_OPTIONS = ['2026', '2025', '2024'];
@@ -142,6 +138,48 @@ const MOCK_DATA = [
     { id: 'm3-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 3 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'q1-2025', deliveryNotes: 109, lineItems: 814, totalQty: 5_560, totalValue: 500_000_000,
       prevValue: 410_000_000, change: 90_000_000, growth: 22.0 },
+
+    // Quý 2/2025
+    { id: 'q2-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 2 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'y2025', deliveryNotes: 270, lineItems: 2_030, totalQty: 13_900, totalValue: 1_120_000_000,
+      prevValue: 960_000_000, change: 160_000_000, growth: 16.7 },
+    { id: 'm4-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 4 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q2-2025', deliveryNotes: 88, lineItems: 662, totalQty: 4_530, totalValue: 360_000_000,
+      prevValue: 320_000_000, change: 40_000_000, growth: 12.5 },
+    { id: 'm5-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 5 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q2-2025', deliveryNotes: 92, lineItems: 694, totalQty: 4_740, totalValue: 390_000_000,
+      prevValue: 330_000_000, change: 60_000_000, growth: 18.2 },
+    { id: 'm6-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 6 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q2-2025', deliveryNotes: 90, lineItems: 674, totalQty: 4_630, totalValue: 370_000_000,
+      prevValue: 310_000_000, change: 60_000_000, growth: 19.4 },
+
+    // Quý 3/2025
+    { id: 'q3-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 3 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'y2025', deliveryNotes: 255, lineItems: 1_920, totalQty: 13_130, totalValue: 960_000_000,
+      prevValue: 840_000_000, change: 120_000_000, growth: 14.3 },
+    { id: 'm7-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 7 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q3-2025', deliveryNotes: 84, lineItems: 630, totalQty: 4_310, totalValue: 310_000_000,
+      prevValue: 270_000_000, change: 40_000_000, growth: 14.8 },
+    { id: 'm8-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 8 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q3-2025', deliveryNotes: 86, lineItems: 646, totalQty: 4_420, totalValue: 330_000_000,
+      prevValue: 280_000_000, change: 50_000_000, growth: 17.9 },
+    { id: 'm9-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 9 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q3-2025', deliveryNotes: 85, lineItems: 644, totalQty: 4_400, totalValue: 320_000_000,
+      prevValue: 290_000_000, change: 30_000_000, growth: 10.3 },
+
+    // Quý 4/2025
+    { id: 'q4-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 4 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'y2025', deliveryNotes: 260, lineItems: 1_980, totalQty: 13_470, totalValue: 530_000_000,
+      prevValue: 460_000_000, change: 70_000_000, growth: 15.2 },
+    { id: 'm10-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 10 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q4-2025', deliveryNotes: 86, lineItems: 646, totalQty: 4_410, totalValue: 170_000_000,
+      prevValue: 150_000_000, change: 20_000_000, growth: 13.3 },
+    { id: 'm11-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 11 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q4-2025', deliveryNotes: 86, lineItems: 660, totalQty: 4_510, totalValue: 180_000_000,
+      prevValue: 155_000_000, change: 25_000_000, growth: 16.1 },
+    { id: 'm12-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 12 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
+      parentId: 'q4-2025', deliveryNotes: 88, lineItems: 674, totalQty: 4_550, totalValue: 180_000_000,
+      prevValue: 155_000_000, change: 25_000_000, growth: 16.1 },
 ];
 
 // ── Column definitions ─────────────────────────────────────────────────────
@@ -158,45 +196,109 @@ const ALL_COLUMNS = [
 const DEFAULT_VISIBLE = ['periodLabel', 'deliveryNotes', 'totalQty', 'totalValue', 'prevValue', 'change', 'growth'];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Format VND cho giá trị thường (không dấu) */
 const formatVND = (n) => {
     if (n == null) return '—';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
 };
 
+/** Format số nguyên có dấu + / - phía trước */
+const formatSignedCurrency = (n) => {
+    if (n == null) return '—';
+    const formatted = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Math.abs(n));
+    return n >= 0 ? `+${formatted}` : `-${formatted}`;
+};
+
+/** Format phần trăm có dấu + / - và 2 số lẻ */
+const formatSignedPercent = (n) => {
+    if (n == null || isNaN(n)) return '—';
+    return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
+};
+
+/** Format số nguyên thường */
 const formatNumber = (n) => {
     if (n == null) return '—';
     return new Intl.NumberFormat('vi-VN').format(n);
 };
 
-const formatGrowth = (n) => {
-    if (n == null || n === '-') return '—';
-    const num = typeof n === 'number' ? n : parseFloat(n);
-    if (isNaN(num)) return '—';
-    return `${num >= 0 ? '+' : ''}${num.toFixed(2)}%`;
-};
-
+/** Tính Tăng/Giảm = hiện tại - kỳ trước */
 const calcChange = (curr, prev) => {
     if (curr == null || prev == null) return null;
     return curr - prev;
 };
 
+/** Tính Tăng trưởng = (change / prev) * 100, tránh chia 0 */
 const calcGrowth = (change, prev) => {
-    if (change == null || prev == null) return null;
-    if (prev === 0) return null; // tránh chia 0
+    if (change == null || prev == null || prev === 0) return null;
     return (change / prev) * 100;
 };
 
+/** Màu Tăng/Giảm: dương=xanh, âm=đỏ, 0=xám */
 const changeColor = (v) => v > 0 ? '#16a34a' : v < 0 ? '#dc2626' : '#6b7280';
-const growthColor = (v) => v > 0 ? '#16a34a' : v < 0 ? '#dc2626' : '#6b7280';
 
-// ── Font style theo cấp (fontSize / fontWeight / color) ───────────────────────────────
+/** Tìm row kỳ trước trong rawData dựa trên level của row hiện tại */
+const getPreviousPeriodRow = (row, rawData) => {
+    if (!row || !rawData?.length) return null;
+
+    if (row.level === LEVEL.YEAR) {
+        const yearNum = parseInt(row.periodLabel);
+        const prevYear = yearNum - 1;
+        return rawData.find(r => r.level === LEVEL.YEAR && r.periodLabel === String(prevYear));
+    }
+
+    if (row.level === LEVEL.QUARTER) {
+        const label = row.periodLabel;
+        const qNum = parseInt(label.match(/Quý (\d)/)?.[1] || '0');
+        const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
+        let prevQ = qNum - 1;
+        let prevY = yrNum;
+        if (prevQ === 0) { prevQ = 4; prevY = yrNum - 1; }
+        const prevLabel = `Quý ${prevQ} / ${prevY}`;
+        return rawData.find(r => r.level === LEVEL.QUARTER && r.periodLabel === prevLabel);
+    }
+
+    if (row.level === LEVEL.MONTH) {
+        const label = row.periodLabel;
+        const mNum = parseInt(label.match(/Tháng (\d+)/)?.[1] || '0');
+        const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
+        let prevM = mNum - 1;
+        let prevY = yrNum;
+        if (prevM === 0) { prevM = 12; prevY = yrNum - 1; }
+        const prevLabel = `Tháng ${prevM} / ${prevY}`;
+        return rawData.find(r => r.level === LEVEL.MONTH && r.periodLabel === prevLabel);
+    }
+
+    return null;
+};
+
+/** Tính comparison object từ row và rawData gốc */
+const getComputedComparison = (row, rawData) => {
+    const prevRow = getPreviousPeriodRow(row, rawData);
+    if (!prevRow) return { compPrev: null, compChange: null, compGrowth: null };
+
+    const compPrev = prevRow.totalValue;
+    const compChange = calcChange(row.totalValue, compPrev);
+    const compGrowth = calcGrowth(compChange, compPrev);
+
+    return { compPrev, compChange, compGrowth };
+};
+
+// ── Font style theo cấp (nhấn mạnh YEAR > QUARTER > MONTH) ──────────────────
 const LEVEL_FONT = {
     YEAR:    { fontSize: '14px', fontWeight: 700, color: '#111827' },
     QUARTER: { fontSize: '13px', fontWeight: 500, color: '#374151' },
-    MONTH:   { fontSize: '12px', fontWeight: 400, color: '#4b5563' },
+    MONTH:   { fontSize: '12px', fontWeight: 400, color: '#6b7280' },
 };
 
 const ROW_INDENT = { YEAR: 0, QUARTER: 24, MONTH: 48 };
+
+// Font style cho cột giá trị (đậm hơn label, giữ đúng màu level)
+const VALUE_FONT = {
+    YEAR:    { fontSize: '14px', fontWeight: 700, color: '#111827' },
+    QUARTER: { fontSize: '13px', fontWeight: 600, color: '#374151' },
+    MONTH:   { fontSize: '12px', fontWeight: 500, color: '#6b7280' },
+};
 
 // ── SummaryCard ─────────────────────────────────────────────────────────────
 const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
@@ -252,13 +354,11 @@ export default function Viewsalesreportlist() {
     const [expandedIds, setExpandedIds] = useState(() => {
         try {
             const saved = JSON.parse(localStorage.getItem(LS_EXPANDED));
-            return new Set(Array.isArray(saved) ? saved : ['y2026', 'q1-2026', 'q2-2026', 'q3-2026', 'q4-2026', 'q1-2025']);
-        } catch { return new Set(['y2026', 'q1-2026', 'q2-2026', 'q3-2026', 'q4-2026', 'q1-2025']); }
+            return new Set(Array.isArray(saved) ? saved : ['y2026', 'q1-2026', 'q2-2026', 'q3-2026', 'q4-2026', 'y2025', 'q1-2025', 'q2-2025', 'q3-2025', 'q4-2025']);
+        } catch { return new Set(['y2026', 'q1-2026', 'q2-2026', 'q3-2026', 'q4-2026', 'y2025', 'q1-2025', 'q2-2025', 'q3-2025', 'q4-2025']); }
     });
 
-    // Pagination
-    const [page, setPage]         = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    // Tree report: không dùng pagination
 
     // ── Build visible flat rows ──────────────────────────────────────────
     const visibleColumns = useMemo(() =>
@@ -298,51 +398,16 @@ export default function Viewsalesreportlist() {
         });
     }, [filterValues, searchTerm]);
 
-    // Build tree: only show parents that have visible children, or children that have expanded parents
-    // Đồng thời tính prevValue / change / growth theo đúng level
+    // Build tree: filter để quyết định hiển thị,
+    // nhưng comparison LUÔN lấy từ MOCK_DATA gốc (không lọc)
     const treeRows = useMemo(() => {
         const result = [];
+        const rawData = MOCK_DATA; // luôn dùng dataset gốc cho comparison
         const idSet = new Set(filteredData.map(r => r.id));
 
         filteredData.forEach(row => {
-            let compPrev = null;
-            let compChange = null;
-            let compGrowth = null;
-
-            if (row.level === LEVEL.YEAR) {
-                // Kỳ trước = năm liền trước (so với năm trước đó)
-                const yearNum = parseInt(row.periodLabel);
-                const prevYear = yearNum - 1;
-                const prevRow = filteredData.find(r => r.level === LEVEL.YEAR && r.periodLabel === String(prevYear));
-                compPrev = prevRow ? prevRow.totalValue : null;
-            } else if (row.level === LEVEL.QUARTER) {
-                // Kỳ trước = quý liền trước (Quý 2 so Quý 1 cùng năm, Quý 1 so Quý 4 năm trước)
-                const label = row.periodLabel; // e.g. "Quý 2 / 2026"
-                const qNum  = parseInt(label.match(/Quý (\d)/)?.[1] || '0');
-                const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
-                let prevQ = qNum - 1;
-                let prevY = yrNum;
-                if (prevQ === 0) { prevQ = 4; prevY = yrNum - 1; }
-                const prevLabel = `Quý ${prevQ} / ${prevY}`;
-                const prevRow = filteredData.find(r => r.level === LEVEL.QUARTER && r.periodLabel === prevLabel);
-                compPrev = prevRow ? prevRow.totalValue : null;
-            } else if (row.level === LEVEL.MONTH) {
-                // Kỳ trước = tháng liền trước (Tháng 1 so Tháng 12 năm trước)
-                const label = row.periodLabel; // e.g. "Tháng 3 / 2026"
-                const mNum  = parseInt(label.match(/Tháng (\d+)/)?.[1] || '0');
-                const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
-                let prevM = mNum - 1;
-                let prevY = yrNum;
-                if (prevM === 0) { prevM = 12; prevY = yrNum - 1; }
-                const prevLabel = `Tháng ${prevM} / ${prevY}`;
-                const prevRow = filteredData.find(r => r.level === LEVEL.MONTH && r.periodLabel === prevLabel);
-                compPrev = prevRow ? prevRow.totalValue : null;
-            }
-
-            if (compPrev != null) {
-                compChange = calcChange(row.totalValue, compPrev);
-                compGrowth = calcGrowth(compChange, compPrev);
-            }
+            // Luôn tính comparison từ raw dataset gốc, không dùng filteredData
+            const { compPrev, compChange, compGrowth } = getComputedComparison(row, rawData);
 
             if (row.level === LEVEL.YEAR) {
                 result.push({ ...row, depth: 0, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)),
@@ -365,10 +430,6 @@ export default function Viewsalesreportlist() {
     }, [filteredData, expandedIds]);
 
     const totalItems = treeRows.length;
-    const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalItems / pageSize)) : 1;
-    const start = totalItems === 0 ? 0 : page * pageSize + 1;
-    const end   = Math.min((page + 1) * pageSize, totalItems);
-    const paginatedRows = treeRows.slice(page * pageSize, (page + 1) * pageSize);
 
     // ── Expand / collapse ─────────────────────────────────────────────────
     const toggleExpand = useCallback((id) => {
@@ -415,7 +476,6 @@ export default function Viewsalesreportlist() {
     // ── Filter ────────────────────────────────────────────────────────────
     const handleFilterApply = useCallback((values) => {
         setFilterValues(values);
-        setPage(0);
     }, []);
 
     // ── Summary totals ────────────────────────────────────────────────────
@@ -487,7 +547,7 @@ export default function Viewsalesreportlist() {
                             <SearchInput
                                 placeholder="Tìm theo kỳ báo cáo…"
                                 value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
+                                onChange={(e) => { setSearchTerm(e.target.value); }}
                                 sx={{
                                     flex: '1 1 200px',
                                     minWidth: isMobile ? '100%' : 200,
@@ -668,14 +728,21 @@ export default function Viewsalesreportlist() {
                     </Popover>
 
                     {/* ── Table / States ── */}
-                    <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        {paginatedRows.length === 0 ? (
+                    <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        {treeRows.length === 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 1, color: 'text.secondary', py: 6 }}>
                                 <CloudOff size={48} style={{ marginBottom: 8, opacity: 0.35 }} />
                                 <Typography sx={{ fontSize: '13px' }}>Không có dữ liệu báo cáo</Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
+                                <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>
+                                    Hiển thị {totalItems} dòng báo cáo
+                                </Typography>
+                            </Box>
+                        )}
+                        {treeRows.length > 0 && (
+                            <TableContainer sx={{ flex: 1, minHeight: 0 }}>
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
@@ -693,7 +760,7 @@ export default function Viewsalesreportlist() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {paginatedRows.map((row, index) => {
+                                        {treeRows.map((row) => {
                                             const isExpanded = expandedIds.has(row.id);
 
                                             return (
@@ -708,23 +775,32 @@ export default function Viewsalesreportlist() {
                                                     {visibleColumns.map((col) => {
                                                         const lf = LEVEL_FONT[row.level] || LEVEL_FONT.MONTH;
 
-                                                        // Kỳ báo cáo với expand button
+                                                        // Kỳ báo cáo với expand button và icon xem chi tiết
                                                         if (col.id === 'periodLabel') {
                                                             return (
                                                                 <TableCell key={col.id} align="left" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
-                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: `${ROW_INDENT[row.level] || 0}px` }}>
-                                                                        {row.hasChildren ? (
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: `${ROW_INDENT[row.level] || 0}px` }}>
+                                                                            {row.hasChildren ? (
+                                                                                <IconButton size="small"
+                                                                                    onClick={() => toggleExpand(row.id)}
+                                                                                    sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#6b7280' } }}>
+                                                                                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                                                                </IconButton>
+                                                                            ) : (
+                                                                                <Box sx={{ width: 20, flexShrink: 0 }} />
+                                                                            )}
+                                                                            <Typography sx={{ ...lf }}>
+                                                                                {row.periodLabel}
+                                                                            </Typography>
+                                                                        </Box>
+                                                                        <Tooltip title="Xem chi tiết">
                                                                             <IconButton size="small"
-                                                                                onClick={() => toggleExpand(row.id)}
-                                                                                sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#6b7280' } }}>
-                                                                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                                                                onClick={() => {/* TODO: navigate to detail */}}
+                                                                                sx={{ p: 0.5, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
+                                                                                <Eye size={15} />
                                                                             </IconButton>
-                                                                        ) : (
-                                                                            <Box sx={{ width: 20, flexShrink: 0 }} />
-                                                                        )}
-                                                                        <Typography sx={{ ...lf }}>
-                                                                            {row.periodLabel}
-                                                                        </Typography>
+                                                                        </Tooltip>
                                                                     </Box>
                                                                 </TableCell>
                                                             );
@@ -743,24 +819,24 @@ export default function Viewsalesreportlist() {
                                                                 val = formatNumber(row.totalQty);
                                                             } else if (col.id === 'totalValue') {
                                                                 val = formatVND(row.totalValue);
-                                                                weight = Math.max(lf.fontWeight, 600);
+                                                                const vf = VALUE_FONT[row.level] || VALUE_FONT.MONTH;
+                                                                fontSize = vf.fontSize;
+                                                                weight = vf.fontWeight;
+                                                                color = vf.color;
                                                             } else if (col.id === 'prevValue') {
                                                                 val = row.compPrev != null ? formatVND(row.compPrev) : '—';
                                                                 color = '#9ca3af';
-                                                                weight = lf.fontWeight;
                                                             } else if (col.id === 'change') {
                                                                 if (row.compChange != null) {
                                                                     color = changeColor(row.compChange);
-                                                                    val = row.compChange > 0 ? `+${formatVND(row.compChange)}` : formatVND(row.compChange);
-                                                                    weight = Math.max(lf.fontWeight, 500);
+                                                                    val = formatSignedCurrency(row.compChange);
                                                                 } else {
                                                                     val = '—';
                                                                 }
                                                             } else if (col.id === 'growth') {
                                                                 if (row.compGrowth != null) {
-                                                                    color = growthColor(row.compGrowth);
-                                                                    val = formatGrowth(row.compGrowth);
-                                                                    weight = Math.max(lf.fontWeight, 500);
+                                                                    color = changeColor(row.compGrowth);
+                                                                    val = formatSignedPercent(row.compGrowth);
                                                                 } else {
                                                                     val = '—';
                                                                 }
@@ -790,38 +866,6 @@ export default function Viewsalesreportlist() {
                                 </Table>
                             </TableContainer>
                         )}
-                    </Box>
-
-                    {/* ── Pagination ── */}
-                    <Box sx={{
-                        flexShrink: 0, px: 2, py: 2, borderTop: '1px solid #f3f4f6',
-                        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 2,
-                    }}>
-                        <Typography variant="body2" color="text.secondary" component="span"
-                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                            Số dòng / trang:
-                        </Typography>
-                        <FormControl size="small" sx={{ minWidth: 72 }}>
-                            <Select value={pageSize}
-                                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-                                sx={{ height: 32, fontSize: '13px', borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0,0,0,0.1)' } }}>
-                                {ROWS_PER_PAGE_OPTIONS.map(n => (
-                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <Typography variant="body2" color="text.secondary" component="span"
-                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                            {start}–{end} / {totalItems} (Tổng {totalPages} trang)
-                        </Typography>
-                        <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => setPage(p => Math.max(0, p - 1))}
-                            sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)', '&:hover': { borderColor: 'rgba(0,0,0,0.2)' } }}>
-                            Trước
-                        </Button>
-                        <Button size="small" variant="outlined" disabled={end >= totalItems || totalItems === 0} onClick={() => setPage(p => p + 1)}
-                            sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)', '&:hover': { borderColor: 'rgba(0,0,0,0.2)' } }}>
-                            Sau
-                        </Button>
                     </Box>
                 </Paper>
             </Box>
