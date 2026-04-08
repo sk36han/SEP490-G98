@@ -697,5 +697,110 @@ namespace Warehouse.DataAcces.Service
             var nextNumber = maxNumber + 1;
             return $"ITM{nextNumber:D6}";
         }
+
+        public async Task<(byte[] content, string fileName)> ExportItemListExcelAsync()
+        {
+            var items = await _context.Items
+                .Include(i => i.Category)
+                .Include(i => i.Brand)
+                .Include(i => i.BaseUom)
+                .Include(i => i.PackagingSpec)
+                .Include(i => i.InventoryOnHands)
+                .AsNoTracking()
+                .OrderBy(i => i.ItemCode)
+                .ToListAsync();
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Items");
+
+            // ── Header ──
+            var headers = new[]
+            {
+                "STT", "Mã vật tư", "Tên vật tư", "Loại", "Danh mục",
+                "Thương hiệu", "Đơn vị tính", "Quy cách", "Yêu cầu CO",
+                "Yêu cầu CQ", "Giá mua", "Giá bán",
+                "Tồn kho", "Đã đặt", "Khả dụng",
+                "Trạng thái", "Ngày tạo"
+            };
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = worksheet.Cell(1, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#4472C4");
+                cell.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+                cell.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Center;
+            }
+
+            // ── Data ──
+            int row = 2;
+            int stt = 1;
+            foreach (var item in items)
+            {
+                var onHand    = item.InventoryOnHands?.Sum(x => x.OnHandQty) ?? 0;
+                var reserved  = item.InventoryOnHands?.Sum(x => x.ReservedQty) ?? 0;
+                var available = onHand - reserved;
+
+                worksheet.Cell(row, 1).Value  = stt++;
+                worksheet.Cell(row, 2).Value  = item.ItemCode;
+                worksheet.Cell(row, 3).Value  = item.ItemName;
+                worksheet.Cell(row, 4).Value  = item.ItemType ?? "";
+                worksheet.Cell(row, 5).Value  = item.Category?.CategoryName ?? "";
+                worksheet.Cell(row, 6).Value  = item.Brand?.BrandName ?? "";
+                worksheet.Cell(row, 7).Value  = item.BaseUom?.UomName ?? "";
+                worksheet.Cell(row, 8).Value  = item.PackagingSpec?.SpecName ?? "";
+                worksheet.Cell(row, 9).Value  = item.RequiresCo ? "Có" : "Không";
+                worksheet.Cell(row, 10).Value = item.RequiresCq ? "Có" : "Không";
+
+                // Giá mua / bán — lấy giá hiệu lực mới nhất theo PriceType
+                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                var allPrices = await _context.ItemPrices
+                    .Where(p => p.ItemId == item.ItemId && p.IsActive && p.EffectiveFrom <= today)
+                    .ToListAsync();
+
+                var purchasePrice = allPrices
+                    .Where(p => p.PriceType == "Purchase")
+                    .OrderByDescending(p => p.EffectiveFrom)
+                    .FirstOrDefault()?.Amount ?? 0;
+
+                var salePrice = allPrices
+                    .Where(p => p.PriceType == "Sale")
+                    .OrderByDescending(p => p.EffectiveFrom)
+                    .FirstOrDefault()?.Amount ?? 0;
+
+                worksheet.Cell(row, 11).Value = (double)purchasePrice;
+                worksheet.Cell(row, 12).Value = (double)salePrice;
+                worksheet.Cell(row, 11).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(row, 12).Style.NumberFormat.Format = "#,##0";
+
+                worksheet.Cell(row, 13).Value = (double)onHand;
+                worksheet.Cell(row, 14).Value = (double)reserved;
+                worksheet.Cell(row, 15).Value = (double)available;
+
+                worksheet.Cell(row, 16).Value = item.IsActive ? "Hoạt động" : "Ngừng hoạt động";
+                worksheet.Cell(row, 17).Value = item.CreatedAt.ToString("dd/MM/yyyy");
+
+                // Tô màu dòng xen kẽ
+                if (row % 2 == 0)
+                {
+                    worksheet.Row(row).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#F2F2F2");
+                }
+
+                row++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            // Freeze header row
+            worksheet.SheetView.FreezeRows(1);
+
+            using var stream = new System.IO.MemoryStream();
+            workbook.SaveAs(stream);
+            var content = stream.ToArray();
+            var fileName = $"Items_Export_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+            return (content, fileName);
+        }
     }
 }

@@ -88,13 +88,13 @@ namespace Warehouse.Api.ApiController
 
             try
             {
-                var updated = await _userService.UpdateProfilePhoneAsync(userId, request.Phone);
+                var updated = await _userService.UpdateProfileAsync(userId, request);
                 if (updated == null)
                 {
                     return NotFound(new { message = "Không tìm thấy thông tin người dùng." });
                 }
 
-                return Ok(new { success = true, message = "Cập nhật số điện thoại thành công.", data = updated });
+                return Ok(new { success = true, message = "Cập nhật thông tin cá nhân thành công.", data = updated });
             }
             catch (Exception ex)
             {

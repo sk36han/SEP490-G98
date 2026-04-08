@@ -19,5 +19,10 @@ namespace Warehouse.DataAcces.Service.Interface
         /// Lấy danh sách Vật tư có tồn kho khả dụng tại một kho
         /// </summary>
         Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId);
+
+        /// <summary>
+        /// Xuất danh sách Item ra file Excel
+        /// </summary>
+        Task<(byte[] content, string fileName)> ExportItemListExcelAsync();
     }
 }
