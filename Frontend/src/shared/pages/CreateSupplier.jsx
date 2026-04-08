@@ -193,11 +193,19 @@ const CreateSupplier = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+    
+        let nextValue = value;
+    
+        // Chỉ cho phép số ở ô số điện thoại
+        if (name === 'phone') {
+            nextValue = value.replace(/\D/g, '');
+        }
+    
         setFormData(prev => ({
             ...prev,
-            [name]: value
+            [name]: nextValue
         }));
-        // Clear error when user starts typing
+    
         if (errors[name]) {
             setErrors(prev => ({
                 ...prev,
@@ -208,83 +216,90 @@ const CreateSupplier = () => {
 
     const validateForm = () => {
         const newErrors = {};
-
-        // Required fields
-        if (!formData.supplierName.trim()) {
+    
+        const supplierName = formData.supplierName.trim();
+        const email = formData.email.trim();
+        const phone = formData.phone.replace(/\D/g, '').trim();
+    
+        if (!supplierName) {
             newErrors.supplierName = 'Tên nhà cung cấp là bắt buộc';
         }
-
-        // Email validation (optional - only validate if provided)
-        if (formData.email.trim() && !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email.trim())) {
+    
+        if (
+            email &&
+            !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
+        ) {
             newErrors.email = 'Email không hợp lệ (ví dụ: example@company.com)';
         }
-
-        // Phone validation (required)
-        if (!formData.phone.trim()) {
+    
+        if (!phone) {
             newErrors.phone = 'Số điện thoại là bắt buộc';
         } else {
-            // Validate based on country code
-            const phone = formData.phone.trim();
             if (formData.phoneCountryCode === '+84') {
-                // Vietnam: 9-10 digits, can start with 0
-                if (!/^0?\d{9,10}$/.test(phone)) {
-                    newErrors.phone = 'Số điện thoại Việt Nam phải có 9-10 chữ số';
+                // Vietnam: 10-11 digits, MUST start with 0 (e.g. 0912345678, 0586755357)
+                // Matches backend: ^0\d{9,10}$
+                if (!/^0\d{9,10}$/.test(phone)) {
+                    newErrors.phone = 'Số điện thoại Việt Nam phải có 10-11 chữ số và bắt đầu bằng 0';
                 }
             } else if (formData.phoneCountryCode === '+1') {
-                // US/Canada: 10 digits
                 if (!/^\d{10}$/.test(phone)) {
                     newErrors.phone = 'Số điện thoại phải có 10 chữ số';
                 }
             } else if (formData.phoneCountryCode === '+86') {
-                // China: 11 digits
                 if (!/^\d{11}$/.test(phone)) {
                     newErrors.phone = 'Số điện thoại Trung Quốc phải có 11 chữ số';
                 }
             } else if (formData.phoneCountryCode === '+81') {
-                // Japan: 10-11 digits
                 if (!/^\d{10,11}$/.test(phone)) {
                     newErrors.phone = 'Số điện thoại Nhật Bản phải có 10-11 chữ số';
                 }
             } else if (formData.phoneCountryCode === '+82') {
-                // Korea: 9-11 digits
                 if (!/^\d{9,11}$/.test(phone)) {
                     newErrors.phone = 'Số điện thoại Hàn Quốc phải có 9-11 chữ số';
                 }
             } else {
-                // Generic validation for other countries
                 if (!/^\d{7,15}$/.test(phone)) {
                     newErrors.phone = 'Số điện thoại phải có 7-15 chữ số';
                 }
             }
         }
-
+    
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+    
+        return {
+            isValid: Object.keys(newErrors).length === 0,
+            errors: newErrors
+        };
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (!validateForm()) {
-            showToast('Vui lòng kiểm tra lại thông tin!', 'error');
-            const firstErrorField = Object.keys(errors)[0];
+    
+        const { isValid, errors: newErrors } = validateForm();
+    
+        if (!isValid) {
+            const firstErrorField = Object.keys(newErrors)[0];
+            const firstErrorMessage = newErrors[firstErrorField];
+    
+            showToast(firstErrorMessage || 'Vui lòng kiểm tra lại thông tin!', 'error');
+    
             if (firstErrorField) {
                 document.getElementsByName(firstErrorField)[0]?.focus();
             }
             return;
         }
-
+    
         try {
             setSubmitting(true);
-            // Combine country code and phone number
-            const fullPhone = `${formData.phoneCountryCode}${formData.phone.replace(/^0+/, '')}`;
-            
+    
+            // Gửi số điện thoại đúng định dạng backend: giữ nguyên số 0 đầu, không thêm country code
+            const fullPhone = formData.phone.replace(/\D/g, '');
+    
             const payload = {
                 supplierName: formData.supplierName.trim(),
                 phone: fullPhone,
             };
-
-            // Add optional fields if they have values
+    
             if (formData.email && formData.email.trim()) {
                 payload.email = formData.email.trim();
             }
@@ -294,7 +309,6 @@ const CreateSupplier = () => {
             if (formData.address && formData.address.trim()) {
                 payload.address = formData.address.trim();
             }
-            // Send province, district, ward codes to API
             if (formData.provinceCode) {
                 payload.provinceCode = formData.provinceCode;
             }
@@ -304,11 +318,12 @@ const CreateSupplier = () => {
             if (formData.wardCode) {
                 payload.wardCode = formData.wardCode;
             }
-
+    
             console.log('Sending payload to API:', payload);
-            
+    
             await createSupplier(payload);
             showToast('Tạo nhà cung cấp thành công!', 'success');
+    
             setTimeout(() => {
                 navigate(-1);
             }, 1500);
@@ -438,8 +453,8 @@ const CreateSupplier = () => {
                                             value={formData.phone}
                                     onChange={handleChange}
                                             placeholder={
-                                                formData.phoneCountryCode === '+84' 
-                                                    ? '912345678' 
+                                                formData.phoneCountryCode === '+84'
+                                                    ? '9123456789'
                                                     : 'Nhập số điện thoại'
                                             }
                                             className={`phone-number-input ${errors.phone ? 'error' : ''}`}

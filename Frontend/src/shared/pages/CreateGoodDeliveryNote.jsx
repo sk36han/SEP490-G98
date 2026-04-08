@@ -19,6 +19,7 @@ import '../styles/CreateSupplier.css';
 import '../styles/CreateGoodDeliveryNote.css';
 import { createGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
 import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
+import { getItemsForDisplay } from '../lib/itemService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TODAY = new Date().toLocaleDateString('en-CA');
@@ -45,6 +46,14 @@ const RELEASE_REQUEST_STATUS_META = {
     CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
 };
 
+const LIFECYCLE_STATUS_META = {
+    ISSUE_PENDING: { label: 'Chờ xuất', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
+    ISSUE_PARTIAL: { label: 'Xuất một phần', bg: 'rgba(14, 165, 233, 0.18)', color: '#0369a1' },
+    ISSUE_FULL: { label: 'Đã xuất đủ', bg: 'rgba(16, 185, 129, 0.18)', color: '#047857' },
+    CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
+    CLOSED: { label: 'Đã đóng', bg: 'rgba(59, 130, 246, 0.18)', color: '#1d4ed8' },
+};
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -67,10 +76,19 @@ const getStatusMeta = (status) =>
     RELEASE_REQUEST_STATUS_META[String(status || '').toUpperCase()]
     ?? { label: status || '-', bg: 'rgba(107, 114, 128, 0.15)', color: '#4b5563' };
 
+const getLifecycleStatusMeta = (lifecycleStatus) =>
+    LIFECYCLE_STATUS_META[String(lifecycleStatus || '').toUpperCase().replace(/[ _-]/g, '')]
+    ?? {
+        // fallback for camelCase keys from backend (e.g. IssuePartial, IssueFull)
+        label: lifecycleStatus || '-',
+        bg: 'rgba(107, 114, 128, 0.15)',
+        color: '#4b5563',
+      };
+
 const getRemainingQty = (line) => {
-    const approvedQty = toNumber(line?.approvedQty);
-    const allocatedQty = toNumber(line?.allocatedQty);
-    const issuedQty = toNumber(line?.issuedQty);
+    const approvedQty = toNumber(line?.approvedQty ?? line?.ApprovedQty ?? 0);
+    const allocatedQty = toNumber(line?.allocatedQty ?? line?.AllocatedQty ?? 0);
+    const issuedQty = toNumber(line?.issuedQty ?? line?.IssuedQty ?? 0);
     const baseQty = allocatedQty > 0 ? allocatedQty : approvedQty;
     return Math.max(baseQty - issuedQty, 0);
 };
@@ -117,19 +135,20 @@ function buildSelectableLine(line, index) {
         itemName: line.itemName || '',
         uomId: line.uomId,
         uomName: line.uomName || '',
-        requestedQty: toNumber(line.requestedQty),
-        approvedQty: toNumber(line.approvedQty),
-        allocatedQty: toNumber(line.allocatedQty),
-        issuedQty: toNumber(line.issuedQty),
+        requestedQty: toNumber(line.requestedQty ?? line.RequestedQty),
+        approvedQty: toNumber(line.approvedQty ?? line.ApprovedQty),
+        allocatedQty: toNumber(line.allocatedQty ?? line.AllocatedQty),
+        issuedQty: toNumber(line.issuedQty ?? line.IssuedQty),
         remainingQty: getRemainingQty(line),
-        availableQty: toNumber(line.stockQty),
+        availableQty: toNumber(line.availableQty ?? line.AvailableQty ?? line.stockQty ?? line.StockQty ?? 0),
         unitPrice: 0,
         lineTotal: 0,
         note: line.note || '',
     };
 }
 
-function mapSelectableLineToFormLine(selectableLine) {
+function mapSelectableLineToFormLine(selectableLine, itemPrices = {}) {
+    const price = itemPrices[selectableLine.itemId] ?? selectableLine.unitPrice ?? 0;
     return {
         id: generateLineId(),
         releaseRequestLineId: selectableLine.releaseRequestLineId,
@@ -145,8 +164,8 @@ function mapSelectableLineToFormLine(selectableLine) {
         remainingQty: selectableLine.remainingQty,
         actualQty: selectableLine.remainingQty,
         availableQty: selectableLine.availableQty,
-        unitPrice: selectableLine.unitPrice,
-        lineTotal: 0,
+        unitPrice: price,
+        lineTotal: price * selectableLine.remainingQty,
         requiresCertificateCopy: false,
         note: selectableLine.note || '',
     };
@@ -165,6 +184,7 @@ export default function CreateGoodDeliveryNote() {
     const [selectedSearchLineIds, setSelectedSearchLineIds] = useState([]);
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [items, setItems] = useState([]);
 
     const releaseRequestDropdownRef = useRef(null);
     const [releaseRequestDropdownOpen, setReleaseRequestDropdownOpen] = useState(false);
@@ -207,6 +227,19 @@ export default function CreateGoodDeliveryNote() {
             }
         };
         loadRRList();
+    }, []);
+
+    // Load items with prices on mount
+    useEffect(() => {
+        const loadItems = async () => {
+            try {
+                const itemList = await getItemsForDisplay();
+                setItems(Array.isArray(itemList) ? itemList : []);
+            } catch (err) {
+                console.error('Failed to load items:', err);
+            }
+        };
+        loadItems();
     }, []);
 
     // Close dropdown on outside click
@@ -275,16 +308,36 @@ export default function CreateGoodDeliveryNote() {
 
     // ─── Handlers ───────────────────────────────────────────────────────────────
     const handleSelectReleaseRequest = useCallback(
-        (summary, options = {}) => {
+        async (summary, options = {}) => {
             if (!summary?.releaseRequestId) return;
 
-            const initialLines = (summary.lines || [])
+            // Fetch full detail to get lines (dropdown only returns header, not lines)
+            let detail = summary;
+            if (!summary.lines || summary.lines.length === 0) {
+                try {
+                    detail = await getReleaseRequestDetail(summary.releaseRequestId);
+                } catch {
+                    showToast('Không tải được chi tiết yêu cầu xuất.', 'error');
+                    return;
+                }
+            }
+
+            // Build item price lookup from items state
+            const itemPrices = {};
+            items.forEach((it) => {
+                if (it.itemId) {
+                    itemPrices[it.itemId] = toNumber(it.salePrice ?? it.purchasePrice ?? 0);
+                }
+            });
+
+            const linesFromDetail = detail?.lines || summary?.lines || [];
+            const initialLines = linesFromDetail
                 .map((line, idx) => buildSelectableLine(line, idx))
                 .filter((line) => line.remainingQty > 0)
-                .map(mapSelectableLineToFormLine);
+                .map((line) => mapSelectableLineToFormLine(line, itemPrices));
 
-            setSelectedReleaseRequestDetail(summary);
-            setReleaseRequestQuery(summary.releaseRequestCode || '');
+            setSelectedReleaseRequestDetail(detail);
+            setReleaseRequestQuery(detail.releaseRequestCode || summary.releaseRequestCode || '');
             setReleaseRequestDropdownOpen(false);
             setLines(initialLines);
             setSearchKeyword('');
@@ -293,22 +346,22 @@ export default function CreateGoodDeliveryNote() {
 
             setFormData((prev) => ({
                 ...prev,
-                releaseRequestId: String(summary.releaseRequestId),
-                releaseRequestCode: summary.releaseRequestCode || '',
-                warehouseId: String(summary.warehouseId || ''),
-                warehouseName: summary.warehouseName || '',
-                receiverId: String(summary.receiverId || ''),
-                receiverName: summary.receiverName || '',
-                receiverPhone: '',
-                receiverEmail: '',
-                receiverCompanyName: summary.companyName || '',
-                receiverAddress: summary.receiverAddress || '',
-                receiverCity: '',
-                receiverDistrict: '',
-                receiverWard: '',
-                requestedByName: summary.requestedByName || '',
-                requestedDate: summary.requestedDate || '',
-                expectedDate: summary.expectedDate || '',
+                releaseRequestId: String(detail.releaseRequestId || detail.ReleaseRequestId || summary.releaseRequestId),
+                releaseRequestCode: detail.releaseRequestCode || detail.ReleaseRequestCode || summary.releaseRequestCode || '',
+                warehouseId: String(detail.warehouseId || detail.WarehouseId || summary.warehouseId),
+                warehouseName: detail.warehouseName || detail.WarehouseName || summary.warehouseName || '',
+                receiverId: String(detail.receiverId || detail.ReceiverId || summary.receiverId || (detail.Receiver?.receiverId ?? detail.Receiver?.ReceiverId)),
+                receiverName: detail.receiverName || detail.ReceiverName || summary.receiverName || detail.Receiver?.receiverName || detail.Receiver?.ReceiverName || '',
+                receiverPhone: detail.receiverPhone || detail.Receiver?.phone || detail.Receiver?.Phone || summary.receiverPhone || '',
+                receiverEmail: detail.receiverEmail || detail.Receiver?.email || detail.Receiver?.Email || summary.receiverEmail || '',
+                receiverCompanyName: detail.companyName || detail.CompanyName || summary.companyName || detail.Receiver?.companyName || detail.Receiver?.CompanyName || '',
+                receiverAddress: detail.address || detail.Address || summary.receiverAddress || summary.address || detail.Receiver?.address || detail.Receiver?.Address || '',
+                receiverCity: detail.city || detail.City || summary.city || detail.Receiver?.city || detail.Receiver?.City || '',
+                receiverDistrict: detail.district || detail.District || summary.district || detail.Receiver?.district || detail.Receiver?.District || '',
+                receiverWard: detail.ward || detail.Ward || summary.ward || detail.Receiver?.ward || detail.Receiver?.Ward || '',
+                requestedByName: detail.requestedByName || detail.RequestedByName || summary.requestedByName || '',
+                requestedDate: detail.requestedDate || detail.RequestedDate || summary.requestedDate || '',
+                expectedDate: detail.expectedDate || detail.ExpectedDate || summary.expectedDate || '',
             }));
 
             setErrors((prev) => {
@@ -326,7 +379,7 @@ export default function CreateGoodDeliveryNote() {
                 }
             }
         },
-        [showToast]
+        [showToast, items]
     );
 
     const handleChange = (event) => {
@@ -424,7 +477,13 @@ export default function CreateGoodDeliveryNote() {
     };
 
     const addLineFromReleaseRequest = (selectableLine) => {
-        setLines((prev) => [...prev, mapSelectableLineToFormLine(selectableLine)]);
+        const itemPrices = {};
+        items.forEach((it) => {
+            if (it.itemId) {
+                itemPrices[it.itemId] = toNumber(it.salePrice ?? it.purchasePrice ?? 0);
+            }
+        });
+        setLines((prev) => [...prev, mapSelectableLineToFormLine(selectableLine, itemPrices)]);
         if (errors.lines) {
             setErrors((prev) => {
                 const next = { ...prev };
@@ -1209,7 +1268,8 @@ export default function CreateGoodDeliveryNote() {
                                                     </div>
                                                 ) : (
                                                     filteredReleaseRequests.map((rr) => {
-                                                        const meta = getStatusMeta(rr.status);
+                                                        const statusMeta = getStatusMeta(rr.status);
+                                                        const lifecycleMeta = getLifecycleStatusMeta(rr.lifecycleStatus);
                                                         return (
                                                             <div
                                                                 key={rr.releaseRequestId}
@@ -1244,18 +1304,33 @@ export default function CreateGoodDeliveryNote() {
                                                                     >
                                                                         {rr.releaseRequestCode}
                                                                     </span>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '11px',
-                                                                            fontWeight: 600,
-                                                                            padding: '2px 8px',
-                                                                            borderRadius: '9999px',
-                                                                            backgroundColor: meta.bg,
-                                                                            color: meta.color,
-                                                                        }}
-                                                                    >
-                                                                        {meta.label}
-                                                                    </span>
+                                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: '10px',
+                                                                                fontWeight: 600,
+                                                                                padding: '1px 6px',
+                                                                                borderRadius: '9999px',
+                                                                                backgroundColor: statusMeta.bg,
+                                                                                color: statusMeta.color,
+                                                                            }}
+                                                                        >
+                                                                            {statusMeta.label}
+                                                                        </span>
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: '10px',
+                                                                                fontWeight: 600,
+                                                                                padding: '1px 6px',
+                                                                                borderRadius: '9999px',
+                                                                                backgroundColor: lifecycleMeta.bg,
+                                                                                color: lifecycleMeta.color,
+                                                                            }}
+                                                                            title="Trạng thái xuất kho"
+                                                                        >
+                                                                            {lifecycleMeta.label}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                                 <div
                                                                     style={{
@@ -1310,6 +1385,20 @@ export default function CreateGoodDeliveryNote() {
                                                         gap: '4px',
                                                     }}
                                                 >
+                                                    <span
+                                                        style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: 600,
+                                                            padding: '1px 6px',
+                                                            borderRadius: '9999px',
+                                                            backgroundColor: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).bg,
+                                                            color: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).color,
+                                                        }}
+                                                        title="Trạng thái xuất kho"
+                                                    >
+                                                        {getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).label}
+                                                    </span>
+                                                    <span>•</span>
                                                     <span
                                                         style={{
                                                             fontSize: '10px',

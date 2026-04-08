@@ -21,7 +21,7 @@ import Toast from '../../components/Toast/Toast';
 import ChangePasswordDialog from '../../components/profile/ChangePasswordDialog';
 import authService from '../lib/authService';
 import { useToast } from '../hooks/useToast';
-import { validatePhoneWithMessage } from '../utils/validation';
+import { validatePhoneWithMessage, validateDOB, validateGender } from '../utils/validation';
 import { parseDate } from '../lib/dateUtils';
 import { ROLE_OPTIONS } from '../constants/roles';
 
@@ -84,10 +84,27 @@ const Profile = () => {
     };
 
     const handleSaveProfile = async () => {
-        const validation = validatePhoneWithMessage(formData.phone);
-        if (!validation.valid) {
-            showToast(validation.message, 'error');
+        // Validate phone
+        const phoneValidation = validatePhoneWithMessage(formData.phone);
+        if (!phoneValidation.valid) {
+            showToast(phoneValidation.message, 'error');
             return;
+        }
+
+        // Validate gender
+        const genderValidation = validateGender(formData.gender);
+        if (!genderValidation.valid) {
+            showToast(genderValidation.message, 'error');
+            return;
+        }
+
+        // Validate DOB (must be at least 18 years old)
+        if (formData.dob) {
+            const dobValidation = validateDOB(formData.dob);
+            if (!dobValidation.valid) {
+                showToast(dobValidation.message, 'error');
+                return;
+            }
         }
 
         setLoading(true);
@@ -610,6 +627,10 @@ const Profile = () => {
                                                         setFormData({ ...formData, dob: e.target.value })
                                                     }
                                                     InputLabelProps={{ shrink: true }}
+                                                    inputProps={{
+                                                        max: new Date().toISOString().split('T')[0],
+                                                        style: { fontSize: '14px' },
+                                                    }}
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
                                                             height: '40px',

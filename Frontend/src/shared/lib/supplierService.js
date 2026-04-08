@@ -216,11 +216,11 @@ export async function toggleSupplierStatus(id, isActive) {
 
 /**
  * Lấy thông tin chi tiết nhà cung cấp theo ID
- * GET /api/Supplier/{id}
+ * GET /api/Supplier/get-supplier-by-id/{id}
  */
 export async function getSupplierById(id) {
     try {
-        const response = await apiClient.get(`/Supplier/${id}`);
+        const response = await apiClient.get(`/Supplier/get-supplier-by-id/${id}`);
         const data = response?.data;
         if (!data) {
             throw new Error('Không tìm thấy nhà cung cấp');
@@ -236,5 +236,27 @@ export async function getSupplierById(id) {
         } else {
             throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tải thông tin nhà cung cấp.');
         }
+    }
+}
+
+/**
+ * Lấy lịch sử giao dịch của nhà cung cấp
+ * GET /api/Supplier/view-transaction-history/{id}
+ */
+export async function getSupplierTransactions(id, params = {}) {
+    try {
+        const { page = 1, pageSize = 20, transactionType, status, fromDate, toDate } = params;
+        const query = new URLSearchParams();
+        query.set('page', String(page));
+        query.set('pageSize', String(pageSize));
+        if (transactionType) query.set('transactionType', transactionType);
+        if (status) query.set('status', status);
+        if (fromDate) query.set('fromDate', fromDate);
+        if (toDate) query.set('toDate', toDate);
+
+        const response = await apiClient.get(`/Supplier/view-transaction-history/${id}?${query.toString()}`);
+        return response?.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tải lịch sử giao dịch.');
     }
 }

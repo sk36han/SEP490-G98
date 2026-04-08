@@ -20,11 +20,7 @@ namespace Warehouse.DataAcces.Service
         private readonly IDocumentAttachmentService _documentAttachmentService;
         private readonly INotificationService _notificationService;
 
-		// Role codes for approval stages
-		// private const string ROLE_ACCOUNTANT = "ACCOUNTANT";   // Kế toán - Stage 1
-		// private const string ROLE_DIRECTOR = "DIRECTOR";       // Giám đốc - Stage 2
-		private const string ROLE_ACCOUNTANT = "SE"; 
-        private const string ROLE_DIRECTOR = "SE";
+
 		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService)
         {
             _context = context;
@@ -513,9 +509,6 @@ namespace Warehouse.DataAcces.Service
 
             if (user == null)
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
-
-            var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
-
             // 3. Determine current stage and validate role
             string decision = request.IsApproved ? "APPROVE" : "REJECT";
 
@@ -525,10 +518,6 @@ namespace Warehouse.DataAcces.Service
             if (gdn.Status == "PENDING_ACC")
             {
                 // Stage 1: Kế toán duyệt
-                if (userRoleCode != ROLE_ACCOUNTANT)
-                    throw new InvalidOperationException(
-                        "Chỉ Kế toán mới có quyền duyệt phiếu xuất kho ở giai đoạn này.");
-
                 if (request.IsApproved)
                 {
                     // Approved by Accountant → move to Director
@@ -555,9 +544,6 @@ namespace Warehouse.DataAcces.Service
             else if (gdn.Status == "PENDING_DIR")
             {
                 // Stage 2: Giám đốc duyệt
-                if (userRoleCode != ROLE_DIRECTOR)
-                    throw new InvalidOperationException(
-                        "Chỉ Giám đốc mới có quyền duyệt phiếu xuất kho ở giai đoạn này.");
 
                 if (request.IsApproved)
                 {
@@ -1112,8 +1098,6 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
             return true;
         }
-        private const string ROLE_WAREHOUSE_KEEPER = "SE";
-
         public async Task<GoodsDeliveryNoteResponse> IssueGDNAsync(long gdnId, long userId, WarehouseIssueRequest request)
         {
             var gdn = await _context.GoodsDeliveryNotes
@@ -1139,13 +1123,6 @@ namespace Warehouse.DataAcces.Service
 
             if (user == null)
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
-
-            var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
-            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "TK" || userRoleCode == "WAREHOUSE_KEEPER";// || userRoleCode == "WAREHOUSE_KEEPER"
-			bool isAdmin = userRoleCode == "ADMIN";
-
-            if (!isWarehouseKeeper && !isAdmin)
-                throw new InvalidOperationException("Chỉ Thủ kho mới có quyền xác nhận xuất hàng.");
 
             if (!request.IsAllItemsFulfilled && request.Lines != null && request.Lines.Any())
             {
@@ -1278,14 +1255,6 @@ namespace Warehouse.DataAcces.Service
 
             if (user == null)
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
-
-            var userRoleCode = user.UserRoleUser?.Role?.RoleCode;
-            bool isWarehouseKeeper = userRoleCode == ROLE_WAREHOUSE_KEEPER || userRoleCode == "SE";
-            bool isAccountant = userRoleCode == ROLE_ACCOUNTANT;
-            bool isAdmin = userRoleCode == "ADMIN";
-
-            if (!isWarehouseKeeper && !isAccountant && !isAdmin)
-                throw new InvalidOperationException("Chỉ Thủ kho hoặc Kế toán mới có quyền upload bằng chứng và xác nhận hoàn tất.");
 
             // Upload the file
             var fileUrl = await _documentAttachmentService.UploadAttachmentAsync(

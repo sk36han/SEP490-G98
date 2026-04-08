@@ -888,6 +888,9 @@ export default function ViewPurchaseReturnDetail() {
                     await refundPurchaseReturn(detailData.purchaseReturnId, {
                         RefundMethod: draft.refundMethod,
                         RefundReference: detailData.refundReference || '',
+                        RefundedAmount: estimatedRefundAmount,
+                        RefundStatus: 'Refunded',
+                        Note: detailData.deductionReason || '',
                     });
                     await fetchDetail();
                     setIsEditingPayment(false);

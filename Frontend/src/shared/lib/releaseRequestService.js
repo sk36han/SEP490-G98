@@ -137,7 +137,7 @@ export async function getReleaseRequestDetail(id) {
         return {
             ...mapReleaseRequestRow(body),
             receiver: body.receiver ?? null,
-            lines: (body.lines ?? body.Lines ?? []).map(mapReleaseRequestLineRow),
+            lines: (body.Lines ?? body.lines ?? []).map(mapReleaseRequestLineRow),
         };
     } catch (error) {
         console.error('[releaseRequestService] getReleaseRequestDetail failed:', error);

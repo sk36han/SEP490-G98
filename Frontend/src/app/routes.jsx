@@ -12,18 +12,19 @@ import ResetPassword from '../shared/pages/ResetPassword';
 import Profile from '../shared/pages/Profile';
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-import UserAccountList from '../shared/pages/ViewUserAccountList';
-import DeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
+import ViewUserAccountList from '../shared/pages/ViewUserAccountList';
+import ViewDeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
 import AdminNotifications from '../shared/pages/AdminNotifications';
-import AdminAuditLog from '../shared/pages/ViewAdminAuditLog';
+import ViewAdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 
 // ── Home ───────────────────────────────────────────────────────────────────────
 import Home from '../shared/pages/Home';
 
 // ── Product / Warehouse ────────────────────────────────────────────────────────
-import ItemList from '../shared/pages/ViewItemList';
+import ViewItemList from '../shared/pages/ViewItemList';
 import CreateItem from '../shared/pages/CreateItem';
 import ViewItemDetail from '../shared/pages/ViewItemDetail';
+import EditItem from '../shared/pages/EditItem';
 import ViewCategoryList from '../shared/pages/ViewCategoryList';
 import CreateCategory from '../shared/pages/CreateCategory';
 import EditCategory from '../shared/pages/EditCategory';
@@ -61,7 +62,7 @@ import ViewGoodDeliveryNoteDetail from '../shared/pages/ViewGoodDeliveryNoteDeta
 import CreateGoodDeliveryNote from '../shared/pages/CreateGoodDeliveryNote';
 
 // ── Receipt ───────────────────────────────────────────────────────────────────
-import ViewGoodReceiptNotes from '../shared/pages/ViewGoodReceiptNotesList';
+import ViewGoodReceiptNotesList from '../shared/pages/ViewGoodReceiptNotesList';
 import ViewGoodReceiptNoteDetail from '../shared/pages/ViewGoodReceiptNoteDetail';
 import CreateGoodReceiptNote from '../shared/pages/CreateGoodReceiptNote';
 
@@ -70,6 +71,7 @@ import ViewSupplierList from '../shared/pages/ViewSupplierList';
 import ViewSupplierDetail from '../shared/pages/ViewSupplierDetail';
 import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
+import ViewReceiverDetail from '../shared/pages/ViewReceiverDetail';
 import CreateReceiver from '../shared/pages/CreateReceiver';
 import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
 import ViewNotifications from '../shared/pages/ViewNotifications';
@@ -101,16 +103,17 @@ const AppRoutes = () => (
         <Route path="/sale-support/home" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Home /></MainLayout></ProtectedRoute>} />
         <Route path="/sale-support/home/suppliers-view" element={<ProtectedRoute><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><MainLayout><Profile /></MainLayout></ProtectedRoute>} />
-        <Route path="/admin/users/deactivated" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><DeactivatedUsersList /></MainLayout></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><UserAccountList /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/users/deactivated" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewDeactivatedUsersList /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotifications /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/notifications" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><AdminNotifications /></MainLayout></ProtectedRoute>} />
-        <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><AdminAuditLog /></MainLayout></ProtectedRoute>} />
-        <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ItemList /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewAdminAuditLog /></MainLayout></ProtectedRoute>} />
+        <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
         <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
         <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
-        <Route path="/categories/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreateCategory /></MainLayout></ProtectedRoute>} />
+        <Route path="/categories/create" element={<Navigate to="/categories" replace />} />
         <Route path="/categories/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><EditCategory /></MainLayout></ProtectedRoute>} />
         <Route path="/packaging-spec" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewPackagingSpecList /></MainLayout></ProtectedRoute>} />
         <Route path="/specs" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewSpecList /></MainLayout></ProtectedRoute>} />
@@ -135,7 +138,7 @@ const AppRoutes = () => (
         <Route path="/reports" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><Outlet /></MainLayout></ProtectedRoute>}>
             <Route path="stocktakes" element={<ViewStocktakeList />} />
         </Route>
-        <Route path="/good-receipt-notes" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNotes /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNotesList /></MainLayout></ProtectedRoute>} />
         <Route path="/good-receipt-notes/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/good-receipt-notes/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreateGoodReceiptNote /></MainLayout></ProtectedRoute>} />
         <Route path="/good-receipt-notes/confirmation/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
@@ -144,10 +147,11 @@ const AppRoutes = () => (
         <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateReleaseRequest /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/goods-delivery-notes" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewGoodDeliveryNoteList /></MainLayout></ProtectedRoute>} />
-        <Route path="/goods-delivery-notes/create" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><CreateGoodDeliveryNote /></MainLayout></ProtectedRoute>} />
+        <Route path="/goods-delivery-notes" element={<Navigate to="/good-delivery-notes" replace />} />
+        <Route path="/goods-delivery-notes/create" element={<Navigate to="/good-delivery-notes/create" replace />} />
         <Route path="/goods-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/receivers" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewReceiver /></MainLayout></ProtectedRoute>} />
+        <Route path="/receivers/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewReceiverDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/receivers/create" element={<ProtectedRoute allowedRoles={ROLES_SA}><MainLayout><CreateReceiver /></MainLayout></ProtectedRoute>} />
         <Route path="/purchase-orders" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderList /></MainLayout></ProtectedRoute>} />
         <Route path="/purchase-orders/create" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><CreatePurchaseOrder /></MainLayout></ProtectedRoute>} />

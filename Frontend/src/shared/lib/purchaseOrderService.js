@@ -14,22 +14,40 @@ import apiClient from './axios';
  * @param {number} params.pageSize - Số dòng mỗi trang
  * @param {string=} params.poCode - Lọc theo mã PO (tùy chọn)
  * @param {string=} params.supplierName - Lọc theo tên NCC (tùy chọn)
- * @param {string=} params.status - Lọc theo trạng thái (tùy chọn)
+ * @param {string=} params.warehouseName - Lọc theo tên kho (tùy chọn)
+ * @param {string=} params.status - Lọc theo trạng thái duyệt (tùy chọn)
+ * @param {string=} params.lifecycleStatus - Lọc theo trạng thái nhập hàng (tùy chọn)
  * @param {string=} params.fromDate - Từ ngày (yyyy-MM-dd)
  * @param {string=} params.toDate - Đến ngày (yyyy-MM-dd)
  * @param {string=} params.requestedByName - Lọc theo người tạo (tùy chọn)
+ * @param {string=} params.responsibleUserName - Lọc theo người phụ trách (tùy chọn)
  * @returns {Promise<{ items: any[], totalItems: number, page: number, pageSize: number, totalPages: number }>}
  */
-export async function getPurchaseOrders({ page = 1, pageSize = 20, poCode, supplierName, status, fromDate, toDate, requestedByName } = {}) {
+export async function getPurchaseOrders({
+    page = 1,
+    pageSize = 20,
+    poCode,
+    supplierName,
+    warehouseName,
+    status,
+    lifecycleStatus,
+    fromDate,
+    toDate,
+    requestedByName,
+    responsibleUserName,
+} = {}) {
     const params = new URLSearchParams();
     params.append('page', page);
     params.append('pageSize', pageSize);
     if (poCode) params.append('poCode', poCode);
     if (supplierName) params.append('supplierName', supplierName);
+    if (warehouseName) params.append('warehouseName', warehouseName);
     if (status) params.append('status', status);
+    if (lifecycleStatus) params.append('lifecycleStatus', lifecycleStatus);
     if (fromDate) params.append('fromDate', fromDate);
     if (toDate) params.append('toDate', toDate);
     if (requestedByName) params.append('requestedByName', requestedByName);
+    if (responsibleUserName) params.append('responsibleUserName', responsibleUserName);
 
     const response = await apiClient.get(`/PurchaseOrder/list?${params.toString()}`);
     const data = response?.data;

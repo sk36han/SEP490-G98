@@ -26,6 +26,7 @@ import {
     MapPin,
     User,
     Loader,
+    Check,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -46,6 +47,20 @@ const STATUS_MAP = {
     REJECTED: { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' },
 };
 
+const LIFECYCLE_STATUS_MAP = {
+    PendingRcv: { label: 'Chờ nhận hàng', color: '#f59e0b', bgColor: '#fef3c7' },
+    PartiallyRcv: { label: 'Nhận một phần', color: '#3b82f6', bgColor: '#dbeafe' },
+    Received: { label: 'Đã nhận đủ', color: '#10b981', bgColor: '#d1fae5' },
+    Closed: { label: 'Đã đóng', color: '#6b7280', bgColor: '#f3f4f6' },
+    Cancelled: { label: 'Đã hủy', color: '#ef4444', bgColor: '#fee2e2' },
+};
+
+const LINE_STATUS_MAP = {
+    Open: { label: 'Mở', color: '#10b981', bgColor: '#d1fae5' },
+    Closed: { label: 'Đã đóng', color: '#6b7280', bgColor: '#f3f4f6' },
+    Cancelled: { label: 'Đã hủy', color: '#ef4444', bgColor: '#fee2e2' },
+};
+
 // UTC-safe: parse ISO string as UTC to avoid browser timezone shift
 const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -64,32 +79,298 @@ const mapOrderDetail = (data) => ({
         data.id ??
         null,
     orderCode: data.poCode ?? data.OrderCode ?? '',
+    supplierId: data.supplierId ?? data.SupplierId ?? null,
     supplierName: data.supplierName ?? data.SupplierName ?? '',
+    warehouseId: data.warehouseId ?? data.WarehouseId ?? null,
     warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
-    creatorId: data.requestedBy ?? data.RequestedBy ?? null,
+    creatorId: data.requestedBy ?? data.RequestedBy ?? data.createdBy ?? data.CreatedBy ?? null,
     creatorName: data.requestedByName || data.RequestedByName || '',
-    responsiblePersonName: data.responsiblePersonName || data.ResponsibleUserName || '',
+    responsibleUserId: data.responsibleUserId ?? data.ResponsibleUserId ?? null,
+    responsiblePersonName: data.responsibleUserName || data.ResponsibleUserName || '',
     expectedDeliveryDate: data.expectedDeliveryDate ? formatDate(data.expectedDeliveryDate) : '',
     justification: data.justification || '',
     discountType: data.discountType ?? 'percent',
     discount: data.discount ?? 0,
     approvalStatus: (data.status ?? data.Status ?? 'DRAFT').toUpperCase(),
+    lifecycleStatus: data.lifecycleStatus ?? data.LifecycleStatus ?? null,
+    currentStageNo: data.currentStageNo ?? data.CurrentStageNo ?? 1,
+    requestedDate: data.requestedDate ? formatDate(data.requestedDate) : '',
     createdAt: data.createdAt ? formatDate(data.createdAt) : '',
+    submittedAt: data.submittedAt ? formatDate(data.submittedAt) : '',
+    updatedAt: data.updatedAt ? formatDate(data.updatedAt) : '',
+    totalAmount: data.totalAmount ?? data.TotalAmount ?? null,
+    discountAmount: data.discountAmount ?? data.DiscountAmount ?? null,
+    netAmount: data.netAmount ?? data.NetAmount ?? null,
+    totalOrderedQty: data.totalOrderedQty ?? data.TotalOrderedQty ?? 0,
     lines: (data.lines || []).map((line, index) => ({
         id: line.purchaseOrderLineId || line.id || index + 1,
+        itemId: line.itemId ?? line.ItemId ?? null,
         itemName: line.itemName || line.ItemName || '',
         itemCode: line.itemCode || line.ItemCode || '',
+        uomId: line.uomId ?? line.UomId ?? null,
+        uom: line.uomName || line.UomName || '',
         orderedQty: line.orderedQty ?? line.OrderedQty ?? 0,
         receivedQty: line.receivedQty ?? line.ReceivedQty ?? 0,
         unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
+        lineTotal: line.lineTotal ?? line.LineTotal ?? 0,
         totalPrice:
+            line.lineTotal ??
+            line.LineTotal ??
             line.totalPrice ??
             line.TotalPrice ??
             ((line.orderedQty ?? line.OrderedQty ?? 0) * (line.unitPrice ?? line.UnitPrice ?? 0)),
-        uom: line.uomName || line.UomName || '',
-        note: line.note || '',
+        currency: line.currency ?? line.Currency ?? 'VND',
+        lineStatus: line.lineStatus ?? line.LineStatus ?? 'Open',
+        note: line.note || line.Note || '',
+        requiresCo: Boolean(line.requiresCo ?? line.RequiresCo ?? false),
+        requiresCq: Boolean(line.requiresCq ?? line.RequiresCq ?? false),
     })),
 });
+
+const styles = {
+    page: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+    },
+    heroCard: {
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
+        border: '1px solid #e5e7eb',
+        borderRadius: 20,
+        padding: 24,
+        boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
+    },
+    heroTop: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 16,
+        flexWrap: 'wrap',
+    },
+    heroTitleWrap: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+    },
+    heroTitle: {
+        margin: 0,
+        fontSize: 28,
+        fontWeight: 800,
+        color: '#111827',
+        lineHeight: 1.2,
+    },
+    heroSubtitle: {
+        margin: 0,
+        fontSize: 14,
+        color: '#6b7280',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexWrap: 'wrap',
+    },
+    heroMetrics: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: 14,
+        marginTop: 20,
+    },
+    metricCard: {
+        background: '#ffffff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: '16px 18px',
+        boxShadow: '0 6px 18px rgba(15, 23, 42, 0.04)',
+    },
+    metricLabel: {
+        fontSize: 12,
+        fontWeight: 700,
+        color: '#6b7280',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        marginBottom: 8,
+    },
+    metricValue: {
+        fontSize: 18,
+        fontWeight: 700,
+        color: '#111827',
+        lineHeight: 1.35,
+        wordBreak: 'break-word',
+    },
+    metricSubValue: {
+        marginTop: 4,
+        fontSize: 12,
+        color: '#9ca3af',
+    },
+    contentGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1.6fr) minmax(320px, 0.95fr)',
+        gap: 24,
+        alignItems: 'start',
+    },
+    sectionCard: {
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 20,
+        boxShadow: '0 10px 28px rgba(15, 23, 42, 0.05)',
+        overflow: 'hidden',
+    },
+    sectionHeader: {
+        padding: '18px 20px',
+        borderBottom: '1px solid #f1f5f9',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        flexWrap: 'wrap',
+    },
+    sectionTitle: {
+        margin: 0,
+        fontSize: 18,
+        fontWeight: 700,
+        color: '#111827',
+    },
+    sectionBody: {
+        padding: 20,
+    },
+    emptyState: {
+        padding: '48px 24px',
+        textAlign: 'center',
+        color: '#9ca3af',
+    },
+    tableWrap: {
+        overflowX: 'auto',
+        maxHeight: 560,
+        overflowY: 'auto',
+    },
+    table: {
+        width: '100%',
+        borderCollapse: 'separate',
+        borderSpacing: 0,
+        minWidth: 980,
+    },
+    th: {
+        position: 'sticky',
+        top: 0,
+        zIndex: 1,
+        background: '#f8fafc',
+        color: '#475569',
+        fontSize: 12,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.03em',
+        padding: '14px 12px',
+        borderBottom: '1px solid #e5e7eb',
+        whiteSpace: 'nowrap',
+    },
+    td: {
+        padding: '14px 12px',
+        borderBottom: '1px solid #f1f5f9',
+        fontSize: 14,
+        color: '#111827',
+        verticalAlign: 'middle',
+        backgroundColor: '#ffffff',
+    },
+    infoGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: 14,
+    },
+    fieldWrap: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+    },
+    fieldLabel: {
+        fontSize: 13,
+        fontWeight: 700,
+        color: '#6b7280',
+    },
+    fieldBox: {
+        minHeight: 46,
+        borderRadius: 14,
+        border: '1px solid #e5e7eb',
+        background: '#f8fafc',
+        padding: '12px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        color: '#111827',
+        fontSize: 14,
+        lineHeight: 1.5,
+    },
+    fieldBoxMultiline: {
+        minHeight: 88,
+        alignItems: 'flex-start',
+    },
+    sideStack: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+    },
+    summaryGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 14,
+    },
+    summaryBox: {
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: 16,
+        background: '#f8fafc',
+    },
+    summaryBoxLabel: {
+        fontSize: 12,
+        fontWeight: 700,
+        color: '#6b7280',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        marginBottom: 8,
+    },
+    summaryBoxValue: {
+        fontSize: 18,
+        fontWeight: 800,
+        color: '#111827',
+        lineHeight: 1.3,
+    },
+    amountRows: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        marginTop: 16,
+        paddingTop: 16,
+        borderTop: '1px dashed #e5e7eb',
+    },
+    amountRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 16,
+        fontSize: 14,
+        color: '#374151',
+    },
+    totalHighlight: {
+        marginTop: 18,
+        borderRadius: 18,
+        padding: '18px 20px',
+        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+        border: '1px solid #bfdbfe',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+    },
+    totalHighlightLabel: {
+        fontSize: 16,
+        fontWeight: 700,
+        color: '#1d4ed8',
+    },
+    totalHighlightValue: {
+        fontSize: 26,
+        fontWeight: 800,
+        color: '#1d4ed8',
+        fontVariantNumeric: 'tabular-nums',
+    },
+};
 
 const ViewPurchaseOrderDetail = () => {
     const navigate = useNavigate();
@@ -114,18 +395,29 @@ const ViewPurchaseOrderDetail = () => {
     const [orderData, setOrderData] = useState({
         purchaseOrderId: null,
         orderCode: '',
+        supplierId: null,
+        supplierName: '',
+        warehouseId: null,
+        warehouseName: '',
         creatorId: null,
         creatorName: '',
-        supplierName: '',
-        warehouseName: '',
-        creatorName: '',
+        responsibleUserId: null,
         responsiblePersonName: '',
         expectedDeliveryDate: '',
         justification: '',
         discountType: 'percent',
         discount: 0,
         approvalStatus: '',
+        lifecycleStatus: null,
+        currentStageNo: 1,
+        requestedDate: '',
         createdAt: '',
+        submittedAt: '',
+        updatedAt: '',
+        totalAmount: null,
+        discountAmount: null,
+        netAmount: null,
+        totalOrderedQty: 0,
         lines: [],
     });
 
@@ -146,11 +438,15 @@ const ViewPurchaseOrderDetail = () => {
 
                 const mapped = mapOrderDetail(data);
 
-                // Kiểm tra quyền truy cập: PO DRAFT chỉ người tạo mới xem được
-                const currentUserId = userInfo?.userId ?? userInfo?.UserId ?? null;
+                // Dùng authService.getCurrentUserId() thay vì tự đọc userInfo
+                // vì userInfo trong localStorage có thể thiếu trường userId
+                const currentUserId = authService.getCurrentUserId();
                 const isDraft = (mapped.approvalStatus || '').toUpperCase() === 'DRAFT';
                 const isCreator = mapped.creatorId != null && String(mapped.creatorId) === String(currentUserId);
-                if (isDraft && !isCreator) {
+
+                // Nếu là DRAFT: chỉ chặn khi CHẮC CHẮN không phải người tạo
+                // creatorId null (backend chưa trả) → cho phép xem (tránh chặn nhầm creator)
+                if (isDraft && mapped.creatorId != null && !isCreator) {
                     setAccessDenied(true);
                     return mapped;
                 }
@@ -170,12 +466,10 @@ const ViewPurchaseOrderDetail = () => {
         [id, showToast]
     );
 
-    // Load PO detail
     useEffect(() => {
         loadOrderDetail();
     }, [loadOrderDetail]);
 
-    // Kiểm tra GRN pending khi PO đã duyệt
     useEffect(() => {
         let cancelled = false;
 
@@ -246,16 +540,18 @@ const ViewPurchaseOrderDetail = () => {
         };
     }, [orderData.purchaseOrderId, orderData.approvalStatus]);
 
-    // Tính toán
-    const subtotal = orderData.lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
-    const discountAmount =
+    const subtotal = orderData.totalAmount ?? orderData.lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
+    const discountAmt = orderData.discountAmount ?? (
         orderData.discountType === 'amount'
             ? Number(orderData.discount ?? 0)
-            : (subtotal * Number(orderData.discount ?? 0)) / 100;
-    const grandTotal = subtotal - discountAmount;
+            : (subtotal * Number(orderData.discount ?? 0)) / 100
+    );
+    const grandTotal = orderData.netAmount ?? (subtotal - discountAmt);
+    const totalQty = orderData.totalOrderedQty > 0
+        ? orderData.totalOrderedQty
+        : orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
 
-    // Quyền: Kế toán duyệt/từ chối đơn
-    const isPending = orderData.approvalStatus === 'PENDING_ACC';
+    const isPending = orderData.approvalStatus === 'PENDING_ACC' || orderData.approvalStatus === 'PENDING';
     const canApprove = permissionRole === 'ACCOUNTANTS' && isPending;
 
     const isPendingGrnCheckedForCurrentPO =
@@ -268,7 +564,6 @@ const ViewPurchaseOrderDetail = () => {
         !hasPendingGRNState.checking &&
         hasPendingGRNState.hasPending;
 
-    // Quyền: Thủ Kho tạo GRN khi PO đã duyệt và chưa có GRN pending
     const canCreateGRN =
         permissionRole === 'WAREHOUSE_KEEPER' &&
         orderData.approvalStatus === 'APPROVED' &&
@@ -276,7 +571,6 @@ const ViewPurchaseOrderDetail = () => {
         !hasPendingGRNState.checking &&
         !hasPendingGRNState.hasPending;
 
-    // Dialog
     const openConfirmDialog = (type) => {
         setConfirmDialogType(type);
         setConfirmDialogOpen(true);
@@ -321,6 +615,27 @@ const ViewPurchaseOrderDetail = () => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const renderReadonlyField = (label, value, Icon, options = {}) => {
+        const { multiline = false } = options;
+
+        return (
+            <div style={styles.fieldWrap}>
+                <label style={styles.fieldLabel}>{label}</label>
+                <div
+                    style={{
+                        ...styles.fieldBox,
+                        ...(multiline ? styles.fieldBoxMultiline : {}),
+                    }}
+                >
+                    <Icon size={16} style={{ color: '#64748b', flexShrink: 0, marginTop: multiline ? 2 : 0 }} />
+                    <span style={{ whiteSpace: multiline ? 'pre-wrap' : 'normal' }}>
+                        {value || '—'}
+                    </span>
+                </div>
+            </div>
+        );
     };
 
     if (loading) {
@@ -370,8 +685,12 @@ const ViewPurchaseOrderDetail = () => {
             bgColor: '#f3f4f6',
         };
 
+    const lifecycleStyle = orderData.lifecycleStatus
+        ? LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]
+        : null;
+
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page" style={styles.page}>
             <Dialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
@@ -382,9 +701,9 @@ const ViewPurchaseOrderDetail = () => {
                     sx: {
                         width: '100%',
                         maxWidth: '560px',
-                        borderRadius: '16px',
+                        borderRadius: '18px',
                         border: '1px solid #e5e7eb',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                        boxShadow: '0 10px 28px rgba(15, 23, 42, 0.14)',
                     },
                 }}
             >
@@ -393,7 +712,7 @@ const ViewPurchaseOrderDetail = () => {
                         px: 3,
                         pt: 2.5,
                         pb: 1.5,
-                        fontWeight: 700,
+                        fontWeight: 800,
                         fontSize: '18px',
                         color: '#111827',
                         borderBottom: '1px solid #f3f4f6',
@@ -402,20 +721,20 @@ const ViewPurchaseOrderDetail = () => {
                     {confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
                 </DialogTitle>
 
-                <DialogContent sx={{ px: 3, py: 2 }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
+                <DialogContent sx={{ px: 3, py: 2.5 }}>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.7 }}>
                         {confirmDialogType === 'approve'
                             ? 'Bạn có chắc chắn muốn duyệt đơn mua hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
                             : 'Bạn có chắc chắn muốn từ chối đơn mua hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
                     </p>
 
                     {confirmDialogType === 'reject' && (
-                        <div style={{ marginTop: '16px' }}>
+                        <div style={{ marginTop: 18 }}>
                             <label
                                 style={{
                                     display: 'block',
                                     fontSize: '14px',
-                                    fontWeight: 500,
+                                    fontWeight: 600,
                                     color: '#374151',
                                     marginBottom: '8px',
                                 }}
@@ -426,19 +745,20 @@ const ViewPurchaseOrderDetail = () => {
                                 value={rejectionReason}
                                 onChange={(e) => setRejectionReason(e.target.value)}
                                 disabled={submitting}
-                                rows={3}
+                                rows={4}
                                 placeholder="Nhập lý do từ chối đơn hàng"
                                 maxLength={250}
                                 style={{
                                     width: '100%',
-                                    padding: '10px 12px',
-                                    borderRadius: '8px',
+                                    padding: '12px 14px',
+                                    borderRadius: '12px',
                                     border: '1px solid #d1d5db',
                                     fontSize: '14px',
                                     resize: 'vertical',
                                     outline: 'none',
                                     fontFamily: 'inherit',
                                     boxSizing: 'border-box',
+                                    backgroundColor: '#ffffff',
                                 }}
                             />
                             <div
@@ -447,7 +767,7 @@ const ViewPurchaseOrderDetail = () => {
                                     justifyContent: 'flex-end',
                                     fontSize: '12px',
                                     color: rejectionReason.length >= 250 ? '#ef4444' : '#6b7280',
-                                    marginTop: '4px',
+                                    marginTop: '6px',
                                 }}
                             >
                                 {rejectionReason.length}/250 ký tự
@@ -466,7 +786,7 @@ const ViewPurchaseOrderDetail = () => {
                             borderRadius: '10px',
                             textTransform: 'none',
                             fontSize: '14px',
-                            fontWeight: 600,
+                            fontWeight: 700,
                             color: '#6b7280',
                             backgroundColor: 'transparent',
                             boxShadow: 'none',
@@ -482,11 +802,11 @@ const ViewPurchaseOrderDetail = () => {
                         disabled={confirmDialogType === 'reject' && !rejectionReason.trim()}
                         sx={{
                             minWidth: '110px',
-                            height: 40,
+                            height: 42,
                             borderRadius: '12px',
                             textTransform: 'none',
                             fontSize: '14px',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             backgroundColor: confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
                             boxShadow: 'none',
                             '&:hover': {
@@ -553,7 +873,7 @@ const ViewPurchaseOrderDetail = () => {
                                 sx={{
                                     bgcolor: '#eff6ff',
                                     color: '#1d4ed8',
-                                    fontWeight: 500,
+                                    fontWeight: 600,
                                     fontSize: '12px',
                                     height: 32,
                                 }}
@@ -566,7 +886,7 @@ const ViewPurchaseOrderDetail = () => {
                             sx={{
                                 bgcolor: '#fef3c7',
                                 color: '#92400e',
-                                fontWeight: 500,
+                                fontWeight: 600,
                                 fontSize: '12px',
                                 height: 32,
                             }}
@@ -575,249 +895,306 @@ const ViewPurchaseOrderDetail = () => {
                 </div>
             </div>
 
-            <div className="form-card">
-                <div className="form-wrapper">
-                    <div className="form-card-intro">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            <h1 className="page-title">Chi tiết đơn mua hàng</h1>
-                            {statusStyle && (
+            <div style={styles.heroCard}>
+                <div style={styles.heroTop}>
+                    <div style={styles.heroTitleWrap}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <h1 style={styles.heroTitle}>Chi tiết đơn mua hàng</h1>
+
+                            <Chip
+                                label={statusStyle.label}
+                                size="small"
+                                sx={{
+                                    backgroundColor: statusStyle.bgColor,
+                                    color: statusStyle.color,
+                                    fontWeight: 700,
+                                    fontSize: '12px',
+                                }}
+                            />
+
+                            {lifecycleStyle && (
                                 <Chip
-                                    label={statusStyle.label}
+                                    label={lifecycleStyle.label}
                                     size="small"
                                     sx={{
-                                        backgroundColor: statusStyle.bgColor,
-                                        color: statusStyle.color,
-                                        fontWeight: 600,
+                                        backgroundColor: lifecycleStyle.bgColor,
+                                        color: lifecycleStyle.color,
+                                        fontWeight: 700,
                                         fontSize: '12px',
                                     }}
                                 />
                             )}
                         </div>
 
-                        {orderData.orderCode && (
-                            <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
-                                MÃ ĐƠN: <span style={{ fontWeight: 600, color: '#2196F3' }}>{orderData.orderCode}</span>
-                            </p>
-                        )}
+                        <p style={styles.heroSubtitle}>
+                            <span>
+                                Mã đơn:{' '}
+                                <span style={{ fontWeight: 800, color: '#0284c7' }}>
+                                    {orderData.orderCode || '—'}
+                                </span>
+                            </span>
+
+                            {orderData.currentStageNo && orderData.currentStageNo > 1 && (
+                                <span style={{ color: '#94a3b8' }}>
+                                    Bước {orderData.currentStageNo}
+                                </span>
+                            )}
+                        </p>
+                    </div>
+                </div>
+
+                <div style={styles.heroMetrics}>
+                    <div style={styles.metricCard}>
+                        <div style={styles.metricLabel}>Nhà cung cấp</div>
+                        <div style={styles.metricValue}>{orderData.supplierName || '—'}</div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <h2 className="section-title">Danh sách sản phẩm</h2>
+                    <div style={styles.metricCard}>
+                        <div style={styles.metricLabel}>Kho nhận</div>
+                        <div style={styles.metricValue}>{orderData.warehouseName || '—'}</div>
+                    </div>
 
-                                {orderData.lines.length === 0 ? (
-                                    <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
-                                        <Clock size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-                                        <p>Chưa có sản phẩm nào trong đơn mua hàng.</p>
-                                    </div>
-                                ) : (
-                                    <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                                        <table className="product-table">
-                                            <thead>
-                                                <tr>
-                                                    <th style={{ width: '44px' }}>STT</th>
-                                                    <th>Sản phẩm</th>
-                                                    <th style={{ width: '90px', textAlign: 'right' }}>SL đặt</th>
-                                                    <th style={{ width: '90px', textAlign: 'right' }}>SL nhập</th>
-                                                    <th style={{ width: '130px', textAlign: 'right' }}>Đơn giá</th>
-                                                    <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
-                                                    <th style={{ width: '130px' }}>Ghi chú</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {orderData.lines.map((line, index) => (
-                                                    <tr key={line.id}>
-                                                        <td style={{ textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>{index + 1}</td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                                <span style={{ fontSize: 14, fontWeight: 500 }}>{line.itemName}</span>
-                                                                {line.itemCode && (
-                                                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                                                        Mã: {line.itemCode}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                            {Number(line.orderedQty) || 0}
-                                                        </td>
-                                                        <td
-                                                            style={{
-                                                                textAlign: 'right',
-                                                                fontVariantNumeric: 'tabular-nums',
-                                                                fontWeight: 600,
-                                                            }}
-                                                        >
-                                                            {Number(line.receivedQty) || 0}
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                            {formatCurrency(Number(line.unitPrice) || 0)}
-                                                        </td>
-                                                        <td
-                                                            style={{
-                                                                textAlign: 'right',
-                                                                fontVariantNumeric: 'tabular-nums',
-                                                                fontWeight: 600,
-                                                                color: '#2196F3',
-                                                            }}
-                                                        >
-                                                            {formatCurrency(Number(line.totalPrice) || 0)}
-                                                        </td>
-                                                        <td style={{ color: '#6b7280', fontSize: 13 }}>{line.note || '—'}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
+                    <div style={styles.metricCard}>
+                        <div style={styles.metricLabel}>Tổng số lượng</div>
+                        <div style={styles.metricValue}>{totalQty}</div>
+                        <div style={styles.metricSubValue}>Sản phẩm đặt mua</div>
+                    </div>
 
-                            <div
-                                style={{
-                                    padding: '16px 20px',
-                                    backgroundColor: '#f0f9ff',
-                                    borderRadius: '12px',
-                                    borderLeft: '4px solid #2196F3',
-                                }}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                    <span style={{ color: '#64748b' }}>Tạm tính:</span>
-                                    <span style={{ fontWeight: 600 }}>{formatCurrency(subtotal)}</span>
-                                </div>
-
-                                {orderData.discount > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                        <span style={{ color: '#64748b' }}>
-                                            Chiết khấu {orderData.discountType === 'percent' ? `(${orderData.discount}%)` : ''}:
-                                        </span>
-                                        <span style={{ fontWeight: 600, color: '#ef4444' }}>
-                                            - {formatCurrency(discountAmount)}
-                                        </span>
-                                    </div>
-                                )}
-
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        paddingTop: '8px',
-                                        borderTop: '1px solid #d1d5db',
-                                    }}
-                                >
-                                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Tổng cộng:</span>
-                                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#2196F3' }}>
-                                        {formatCurrency(grandTotal)}
-                                    </span>
-                                </div>
-                            </div>
+                    <div style={styles.metricCard}>
+                        <div style={styles.metricLabel}>Tổng giá trị</div>
+                        <div style={{ ...styles.metricValue, color: '#1d4ed8' }}>
+                            {formatCurrency(grandTotal)}
                         </div>
-
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <h2 className="section-title">Thông tin đơn hàng</h2>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div className="form-field">
-                                    <label className="form-label">Nhà cung cấp</label>
-                                    <div className="input-wrapper">
-                                        <Building2 size={16} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            value={orderData.supplierName || ''}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Kho nhận</label>
-                                    <div className="input-wrapper">
-                                        <MapPin size={16} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            value={orderData.warehouseName || ''}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Người tạo</label>
-                                    <div className="input-wrapper">
-                                        <User size={16} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            value={orderData.creatorName || ''}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {orderData.responsiblePersonName && (
-                                    <div className="form-field">
-                                        <label className="form-label">Người phụ trách</label>
-                                        <div className="input-wrapper">
-                                            <User size={16} className="input-icon" />
-                                            <input
-                                                type="text"
-                                                value={orderData.responsiblePersonName || ''}
-                                                readOnly
-                                                className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="form-field">
-                                    <label className="form-label">Ngày tạo</label>
-                                    <div className="input-wrapper">
-                                        <Calendar size={16} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            value={orderData.createdAt || '—'}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Ngày nhận dự kiến</label>
-                                    <div className="input-wrapper">
-                                        <Calendar size={16} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            value={orderData.expectedDeliveryDate || '—'}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="form-label">Lý do / Ghi chú</label>
-                                    <textarea
-                                        value={orderData.justification || ''}
-                                        readOnly
-                                        rows={4}
-                                        className="form-input"
-                                        style={{ resize: 'vertical', backgroundColor: '#f5f5f5' }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                        <div style={styles.metricSubValue}>Sau chiết khấu</div>
                     </div>
                 </div>
             </div>
+
+            <div style={styles.contentGrid}>
+    <div style={styles.leftStack}>
+        <div style={styles.sectionCard}>
+            <div style={styles.sectionHeader}>
+                <h2 style={styles.sectionTitle}>Danh sách sản phẩm</h2>
+                <Chip
+                    label={`${orderData.lines.length} dòng sản phẩm`}
+                    size="small"
+                    sx={{
+                        backgroundColor: '#eff6ff',
+                        color: '#1d4ed8',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                    }}
+                />
+            </div>
+
+            {orderData.lines.length === 0 ? (
+                <div style={styles.emptyState}>
+                    <Clock size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                    <p style={{ margin: 0 }}>Chưa có sản phẩm nào trong đơn mua hàng.</p>
+                </div>
+            ) : (
+                <div style={styles.tableWrap}>
+                    <table style={styles.table}>
+                        <thead>
+                            <tr>
+                                <th style={{ ...styles.th, width: 56, textAlign: 'center' }}>STT</th>
+                                <th style={styles.th}>Sản phẩm</th>
+                                <th style={{ ...styles.th, width: 86, textAlign: 'center' }}>ĐVT</th>
+                                <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>SL đặt</th>
+                                <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>SL nhập</th>
+                                <th style={{ ...styles.th, width: 150, textAlign: 'right' }}>Đơn giá</th>
+                                <th style={{ ...styles.th, width: 150, textAlign: 'right' }}>Thành tiền</th>
+                                <th style={{ ...styles.th, width: 70, textAlign: 'center' }}>CO</th>
+                                <th style={{ ...styles.th, width: 70, textAlign: 'center' }}>CQ</th>
+                                <th style={{ ...styles.th, width: 110, textAlign: 'center' }}>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {orderData.lines.map((line, index) => {
+                                const lineStatusStyle = LINE_STATUS_MAP[line.lineStatus] || {
+                                    label: line.lineStatus,
+                                    color: '#6b7280',
+                                    bgColor: '#f3f4f6',
+                                };
+
+                                return (
+                                    <tr key={line.id}>
+                                        <td style={{ ...styles.td, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+                                            {index + 1}
+                                        </td>
+
+                                        <td style={styles.td}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                                    {line.itemName || '—'}
+                                                </span>
+
+                                                {line.itemCode && (
+                                                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                                                        Mã: {line.itemCode}
+                                                    </span>
+                                                )}
+
+                                                {line.note && (
+                                                    <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                                                        {line.note}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+
+                                        <td style={{ ...styles.td, textAlign: 'center', color: '#64748b' }}>
+                                            {line.uom || '—'}
+                                        </td>
+
+                                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                            {Number(line.orderedQty) || 0}
+                                        </td>
+
+                                        <td
+                                            style={{
+                                                ...styles.td,
+                                                textAlign: 'right',
+                                                fontVariantNumeric: 'tabular-nums',
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            {Number(line.receivedQty) || 0}
+                                        </td>
+
+                                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                                <span>{formatCurrency(Number(line.unitPrice) || 0)}</span>
+                                                {line.currency && line.currency !== 'VND' && (
+                                                    <span style={{ fontSize: 11, color: '#9ca3af' }}>{line.currency}</span>
+                                                )}
+                                            </div>
+                                        </td>
+
+                                        <td
+                                            style={{
+                                                ...styles.td,
+                                                textAlign: 'right',
+                                                fontVariantNumeric: 'tabular-nums',
+                                                fontWeight: 800,
+                                                color: '#1d4ed8',
+                                            }}
+                                        >
+                                            {formatCurrency(Number(line.totalPrice) || 0)}
+                                        </td>
+
+                                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                                            {line.requiresCo ? (
+                                                <Check size={16} color="#10b981" />
+                                            ) : (
+                                                <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                            )}
+                                        </td>
+
+                                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                                            {line.requiresCq ? (
+                                                <Check size={16} color="#10b981" />
+                                            ) : (
+                                                <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                            )}
+                                        </td>
+
+                                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                                            <Chip
+                                                label={lineStatusStyle.label}
+                                                size="small"
+                                                sx={{
+                                                    backgroundColor: lineStatusStyle.bgColor,
+                                                    color: lineStatusStyle.color,
+                                                    fontWeight: 700,
+                                                    fontSize: '10px',
+                                                    height: 22,
+                                                }}
+                                            />
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+
+        <div style={styles.sectionCard}>
+            <div style={styles.sectionHeader}>
+                <h2 style={styles.sectionTitle}>Tổng hợp đơn hàng</h2>
+            </div>
+
+            <div style={styles.sectionBody}>
+                <div style={styles.summaryGrid}>
+                    <div style={styles.summaryBox}>
+                        <div style={styles.summaryBoxLabel}>Tổng số lượng</div>
+                        <div style={styles.summaryBoxValue}>{totalQty}</div>
+                    </div>
+
+                    <div style={styles.summaryBox}>
+                        <div style={styles.summaryBoxLabel}>Tạm tính</div>
+                        <div style={styles.summaryBoxValue}>{formatCurrency(subtotal)}</div>
+                    </div>
+                </div>
+
+                <div style={styles.amountRows}>
+                    {orderData.discount > 0 && (
+                        <div style={styles.amountRow}>
+                            <span>
+                                Chiết khấu {orderData.discountType === 'percent' ? `(${orderData.discount}%)` : ''}
+                            </span>
+                            <strong style={{ color: '#ef4444' }}>- {formatCurrency(discountAmt)}</strong>
+                        </div>
+                    )}
+
+                    <div style={styles.amountRow}>
+                        <span>Giá sau chiết khấu</span>
+                        <strong>{formatCurrency(grandTotal)}</strong>
+                    </div>
+                </div>
+
+                <div style={styles.totalHighlight}>
+                    <span style={styles.totalHighlightLabel}>Tổng giá trị</span>
+                    <span style={styles.totalHighlightValue}>{formatCurrency(grandTotal)}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style={styles.sectionCard}>
+        <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>Thông tin đơn hàng</h2>
+        </div>
+
+        <div style={styles.sectionBody}>
+            <div style={styles.infoGrid}>
+                {renderReadonlyField('Nhà cung cấp', orderData.supplierName, Building2)}
+                {renderReadonlyField('Kho nhận', orderData.warehouseName, MapPin)}
+                {renderReadonlyField('Người tạo', orderData.creatorName, User)}
+
+                {orderData.responsiblePersonName &&
+                    renderReadonlyField('Người phụ trách', orderData.responsiblePersonName, User)}
+
+                {orderData.requestedDate &&
+                    renderReadonlyField('Ngày yêu cầu', orderData.requestedDate, Calendar)}
+
+                {orderData.createdAt &&
+                    renderReadonlyField('Ngày tạo', orderData.createdAt, Calendar)}
+
+                {orderData.submittedAt &&
+                    renderReadonlyField('Ngày gửi duyệt', orderData.submittedAt, Calendar)}
+
+                {orderData.expectedDeliveryDate &&
+                    renderReadonlyField('Ngày nhận dự kiến', orderData.expectedDeliveryDate, Calendar)}
+
+                {orderData.justification &&
+                    renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
+            </div>
+        </div>
+    </div>
+</div>
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>

@@ -18,15 +18,28 @@ function mapPackagingSpecRow(row) {
 const BASE = '/packagingspecs';
 
 /**
- * Lấy toàn bộ danh sách quy cách đóng gói.
- * Backend trả: { code, message, data: PackagingSpecResponse[] }
+ * Lấy danh sách quy cách đóng gói (có phân trang).
+ * Backend trả: { code, message, data: PackagingSpecResponse[] } hoặc { items, page, pageSize, totalItems }
  */
-export async function getPackagingSpecList() {
-    const response = await apiClient.get(BASE);
+export async function getPackagingSpecList({ page = 1, pageSize = 20, specName = '', isActive = null } = {}) {
+    const query = new URLSearchParams();
+    query.set('page', String(page));
+    query.set('pageSize', String(pageSize));
+    if (specName.trim()) query.set('specName', specName.trim());
+    if (isActive === true) query.set('isActive', 'true');
+    if (isActive === false) query.set('isActive', 'false');
+
+    const response = await apiClient.get(`${BASE}?${query.toString()}`);
     const data = response?.data?.data ?? response?.data;
-    const list = Array.isArray(data) ? data : (data?.items ?? data?.Items ?? []);
-    const arr = Array.isArray(list) ? list : [];
-    return arr.map((row) => mapPackagingSpecRow(row)).filter(Boolean);
+    // Backend có thể trả array trực tiếp hoặc wrapped object
+    const payload = Array.isArray(data) ? { items: data, page, pageSize, totalItems: data.length } : data;
+    const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload?.Items) ? payload.Items : Array.isArray(payload) ? payload : [];
+    return {
+        items: items.map(row => mapPackagingSpecRow(row)).filter(Boolean),
+        page: payload?.page ?? payload?.Page ?? page,
+        pageSize: payload?.pageSize ?? payload?.PageSize ?? pageSize,
+        totalItems: payload?.totalItems ?? payload?.TotalItems ?? items.length,
+    };
 }
 
 /**

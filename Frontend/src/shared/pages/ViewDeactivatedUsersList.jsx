@@ -89,7 +89,7 @@ const getColumnCellSx = (colId, widthPct) => {
     return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
 };
 
-const DeactivatedUsersList = () => {
+const ViewDeactivatedUsersList = () => {
     const { toast, showToast, clearToast } = useToast();
     const currentUserId = authService.getCurrentUserId();
     const [allUsers, setAllUsers] = useState([]);
@@ -700,5 +700,5 @@ const DeactivatedUsersList = () => {
     );
 };
 
-export default DeactivatedUsersList;
+export default ViewDeactivatedUsersList;
 

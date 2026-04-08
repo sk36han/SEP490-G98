@@ -73,7 +73,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const UserAccountList = () => {
+const ViewUserAccountList = () => {
     const { toast, showToast, clearToast } = useToast();
     const location = useLocation();
     const navigate = useNavigate();
@@ -787,5 +787,5 @@ const UserAccountList = () => {
     );
 };
 
-export default UserAccountList;
+export default ViewUserAccountList;
 
