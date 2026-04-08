@@ -10,7 +10,12 @@
       "Bash(\"D:\\\\SEP490 SP26\\\\SEP490-G98\\\\original_detail.jsx\")",
       "Bash(grep:*)",
       "Bash(python3:*)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(node -e \"require\\(''''@babel/core''''\\).parseSync\\(require\\(''''fs''''\\).readFileSync\\(''''src/shared/pages/mockup/SalesRevenueTarget.jsx'''', ''''utf8''''\\), {presets:[''''@babel/preset-react'''']}\\); console.log\\(''''Syntax OK''''\\)\")",
+      "Bash(python:*)",
+      "Bash(find 'D:/SEP490 SP26/SEP490-G98/' -maxdepth 3 -type f -name README* -o -name *.md)",
+      "Bash(git -C \"D:/SEP490 SP26/SEP490-G98/\" branch -a)",
+      "Bash(git:*)"
     ]
   }
 }
