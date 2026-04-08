@@ -37,6 +37,7 @@ import {
     submitStocktakePlan,
     approveStocktakePlan,
     startStocktakeExecution,
+    completeStocktake,
 } from '../lib/stocktakeService';
 import { getItemsByWarehouse } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
@@ -539,6 +540,7 @@ const ViewStocktakeDetail = () => {
                             </button>
                         </>
                     )}
+                    {/* PENDING_APPROVAL: Director - duyệt kế hoạch hoặc duyệt kết quả */}
                     {!isCounting && !basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && isDirector && (
                         <>
                             <button type="button" className="btn btn-cancel" onClick={handleRejectPlan}>
@@ -547,7 +549,7 @@ const ViewStocktakeDetail = () => {
                             </button>
                             <button type="button" className="btn btn-primary" onClick={handleApprovePlan}>
                                 <CheckCircle size={15} />
-                                Duyệt
+                                {stocktakeData?.startedAt ? 'Duyệt kết quả' : 'Duyệt kế hoạch'}
                             </button>
                         </>
                     )}
@@ -586,24 +588,8 @@ const ViewStocktakeDetail = () => {
                             </button>
                         </>
                     )}
-                    {/* PENDING_APPROVAL (kết quả): Director - Duyệt kết quả */}
-                    {!basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && isDirector && (
-                        <>
-                            {/* Có chênh lệch: cho duyệt để tạo phiếu ĐCK */}
-                            {summary.varianceLines > 0 && (
-                                <button type="button" className="btn btn-cancel" onClick={handleRejectPlan}>
-                                    <XCircle size={15} />
-                                    Từ chối
-                                </button>
-                            )}
-                            <button type="button" className="btn btn-primary" onClick={handleApprovePlan}>
-                                <CheckCircle size={15} />
-                                Duyệt
-                            </button>
-                        </>
-                    )}
-                    {/* PENDING_APPROVAL: Acc (không phải creator) - Xem */}
-                    {!basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && !isDirector && (
+                    {/* PENDING_APPROVAL (kết quả): Acc - chờ giám đốc duyệt */}
+                    {!basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && !isDirector && !isWarehouseKeeper && (
                         <span style={{ color: '#9ca3af', fontSize: '14px' }}>Đang chờ giám đốc duyệt kết quả</span>
                     )}
                 </div>
