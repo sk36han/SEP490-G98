@@ -151,7 +151,33 @@ const authService = {
 
     getCurrentUserId() {
         const user = this.getUser();
-        return user?.userId ?? user?.id ?? user?.UserId ?? user?.Id ?? null;
+        if (user?.userId != null) return user.userId;
+        if (user?.UserId != null) return user.UserId;
+        if (user?.id != null) return user.id;
+        if (user?.Id != null) return user.Id;
+        // Fallback: decode JWT token để lấy nameidentifier (userId từ backend)
+        const token = this.getToken();
+        if (token) {
+            try {
+                const base64Url = token.split('.')[1];
+                if (base64Url) {
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(
+                        atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+                    );
+                    const payload = JSON.parse(jsonPayload);
+                    const tokenUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+                        ?? payload.nameidentifier
+                        ?? payload.sub
+                        ?? payload.userId
+                        ?? null;
+                    if (tokenUserId != null) return Number(tokenUserId);
+                }
+            } catch {
+                // ignore decode errors
+            }
+        }
+        return null;
     },
 
     getCurrentUserName() {

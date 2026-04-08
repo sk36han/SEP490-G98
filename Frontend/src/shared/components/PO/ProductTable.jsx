@@ -58,7 +58,7 @@ const ProductTable = ({
                         name: it.itemName ?? '',
                         sku: it.itemCode ?? '',
                         unitPrice: Number(it.purchasePrice ?? 0),
-                        uom: it.uomName || '',
+                        uom: it.baseUomName || it.uomName || '',
                         image: it.imageUrl || null,
                         hasCO: !!(it.requiresCO || it.requiresCo),
                         hasCQ: !!(it.requiresCQ || it.requiresCq),

@@ -24,18 +24,16 @@ import {
     Chip,
     TableSortLabel,
     Paper,
-    CircularProgress,
-    Alert,
 } from '@mui/material';
 import {
     FileText,
     Filter,
-    Eye,
-    Edit,
     Columns,
     Plus,
     RefreshCw,
     ShoppingCart,
+    CloudOff,
+    GripVertical,
 } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
@@ -44,6 +42,11 @@ import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import { getPurchaseOrders } from '../lib/purchaseOrderService';
 import '../styles/ListView.css';
+
+const LS_COL_ORDER = 'poColumnOrder';
+const LS_SORT = 'poSortConfig';
+const LS_VISIBLE_COLUMNS = 'poVisibleColumnIds';
+const LS_FILTER = 'poFilterValues';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 const API_PAGE_SIZE = 100;
@@ -176,8 +179,18 @@ const PO_COLUMNS = [
         getValue: (row, index, { pageNumber, pageSize }) =>
             (pageNumber - 1) * pageSize + index + 1,
     },
-    { id: 'orderCode', label: 'Mã đơn đặt hàng nhập', sortable: true, getValue: (row) => row.orderCode ?? '' },
-    { id: 'warehouseName', label: 'Kho nhận', sortable: true, getValue: (row) => row.warehouseName ?? '' },
+    {
+        id: 'orderCode',
+        label: 'Mã đơn đặt hàng nhập',
+        sortable: true,
+        getValue: (row) => row.orderCode ?? '',
+    },
+    {
+        id: 'warehouseName',
+        label: 'Kho nhận',
+        sortable: true,
+        getValue: (row) => row.warehouseName ?? '',
+    },
     {
         id: 'approvalStatus',
         label: 'Trạng thái duyệt',
@@ -194,23 +207,73 @@ const PO_COLUMNS = [
         getValue: (row) =>
             RECEIVING_STATUS_STYLE[row.receivingStatus]?.label ?? row.receivingStatus ?? '',
     },
-    { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, getValue: (row) => row.supplierName ?? '' },
-    { id: 'creator', label: 'Nhân viên tạo', sortable: true, getValue: (row) => row.creator ?? '' },
-    { id: 'responsiblePerson', label: 'Nhân viên phụ trách', sortable: true, getValue: (row) => row.responsiblePerson ?? '' },
-    { id: 'totalReceivedQuantity', label: 'Số lượng nhập', sortable: true, getValue: (row) => row.totalReceivedQuantity ?? 0 },
-    { id: 'orderValue', label: 'Giá trị đơn', sortable: true, getValue: (row) => row.orderValue ?? 0 },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
+    {
+        id: 'supplierName',
+        label: 'Nhà cung cấp',
+        sortable: true,
+        getValue: (row) => row.supplierName ?? '',
+    },
+    {
+        id: 'creator',
+        label: 'Nhân viên tạo',
+        sortable: true,
+        getValue: (row) => row.creator ?? '',
+    },
+    {
+        id: 'responsiblePerson',
+        label: 'Nhân viên phụ trách',
+        sortable: true,
+        getValue: (row) => row.responsiblePerson ?? '',
+    },
+    {
+        id: 'totalReceivedQuantity',
+        label: 'Số lượng nhập',
+        sortable: true,
+        getValue: (row) => row.totalReceivedQuantity ?? 0,
+    },
+    {
+        id: 'orderValue',
+        label: 'Giá trị đơn',
+        sortable: true,
+        getValue: (row) => row.orderValue ?? 0,
+    },
+    {
+        id: 'createdAt',
+        label: 'Ngày tạo',
+        sortable: true,
+        getValue: (row) => row.createdAt ?? '',
+    },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 
+const BODY_CELL_SX = {
+    py: 1.75,
+    px: 2,
+    fontSize: '13px',
+    lineHeight: '20px',
+    verticalAlign: 'middle',
+    borderBottom: '1px solid #f3f4f6',
+    color: '#374151',
+};
+
+const CHECKBOX_CELL_SX = {
+    ...BODY_CELL_SX,
+    width: 56,
+    minWidth: 56,
+    maxWidth: 56,
+};
+
 const formatCurrency = (value) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
+    new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+    }).format(Number(value) || 0);
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    const d = new Date(dateStr + (String(dateStr).endsWith('Z') ? '' : 'Z'));
     if (Number.isNaN(d.getTime())) return String(dateStr);
     return (
         d.toLocaleDateString('vi-VN') +
@@ -262,39 +325,89 @@ export default function ViewPurchaseOrderList() {
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [serverTotalItems, setServerTotalItems] = useState(0);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState(() => {
-        const saved = localStorage.getItem('poFilterValues');
+        const saved = localStorage.getItem(LS_FILTER);
         return saved ? JSON.parse(saved) : {};
     });
+
+    const activeFilterCount = useMemo(
+        () =>
+            Object.values(filterValues).filter(
+                (v) => v !== undefined && v !== null && v !== ''
+            ).length,
+        [filterValues]
+    );
 
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
 
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
-        const saved = localStorage.getItem('poVisibleColumnIds');
-        return saved ? new Set(JSON.parse(saved)) : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        try {
+            const saved = JSON.parse(localStorage.getItem(LS_VISIBLE_COLUMNS));
+            return Array.isArray(saved)
+                ? new Set(saved)
+                : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        } catch {
+            return new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        }
     });
 
+    const [columnOrder, setColumnOrder] = useState(() => {
+        try {
+            const allIds = PO_COLUMNS.map((c) => c.id);
+            const saved = JSON.parse(localStorage.getItem(LS_COL_ORDER));
+            if (Array.isArray(saved) && saved.length > 0) {
+                const validIds = new Set(allIds);
+                const filtered = saved.filter((id) => validIds.has(id));
+                const missing = allIds.filter((id) => !filtered.includes(id));
+                return [...filtered, ...missing];
+            }
+            return allIds;
+        } catch {
+            return PO_COLUMNS.map((c) => c.id);
+        }
+    });
+
+    const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
+    const [tempVisibleColumnIds, setTempVisibleColumnIds] = useState(
+        () => new Set(visibleColumnIds)
+    );
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
 
+    const [draggedColumn, setDraggedColumn] = useState(null);
+    const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
+
     const [orderBy, setOrderBy] = useState(() => {
-        const saved = localStorage.getItem('poSortConfig');
-        return saved ? JSON.parse(saved).orderBy : null;
+        try {
+            const saved = JSON.parse(localStorage.getItem(LS_SORT));
+            return saved?.orderBy || null;
+        } catch {
+            return null;
+        }
     });
 
     const [order, setOrder] = useState(() => {
-        const saved = localStorage.getItem('poSortConfig');
-        return saved ? JSON.parse(saved).order : 'asc';
+        try {
+            const saved = JSON.parse(localStorage.getItem(LS_SORT));
+            return saved?.order || 'asc';
+        } catch {
+            return 'asc';
+        }
     });
 
-    const [columnOrder] = useState(() => {
-        const saved = localStorage.getItem('poColumnOrder');
-        return saved ? JSON.parse(saved) : PO_COLUMNS.map((c) => c.id);
-    });
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
+    const columnSelectorOpen = Boolean(columnSelectorAnchor);
+
+    useEffect(() => {
+        if (columnSelectorOpen) {
+            setTempColumnOrder(columnOrder);
+            setTempVisibleColumnIds(new Set(visibleColumnIds));
+        }
+    }, [columnSelectorOpen, columnOrder, visibleColumnIds]);
 
     useEffect(() => {
         const status = location.state?.approvalStatus;
@@ -304,14 +417,12 @@ export default function ViewPurchaseOrderList() {
                     ...prev,
                     approvalStatus: status || undefined,
                 };
-                localStorage.setItem('poFilterValues', JSON.stringify(next));
+                localStorage.setItem(LS_FILTER, JSON.stringify(next));
                 return next;
             });
         }
     }, [location.state?.approvalStatus]);
 
-    // Lấy filterValues từ scope ngoài, không cần dependency array thay đổi
-    // vì filterValues được truyền vào fetchAllPages mỗi lần gọi
     const fetchAllPages = useCallback(async (filters) => {
         const allItems = [];
         let currentPage = 1;
@@ -321,7 +432,6 @@ export default function ViewPurchaseOrderList() {
             const result = await getPurchaseOrders({
                 page: currentPage,
                 pageSize: API_PAGE_SIZE,
-                // Backend filter: status, lifecycleStatus, supplierName, warehouseName, fromDate, toDate, requestedByName
                 status: filters.approvalStatus,
                 lifecycleStatus: filters.receivingStatus,
                 supplierName: filters.supplier,
@@ -355,7 +465,7 @@ export default function ViewPurchaseOrderList() {
             totalItems: totalItemsFromApi || dedupedMap.size,
             items: Array.from(dedupedMap.values()),
         };
-    }, [filterValues]);
+    }, []);
 
     const fetchList = useCallback(async () => {
         setLoading(true);
@@ -364,17 +474,18 @@ export default function ViewPurchaseOrderList() {
         try {
             const result = await fetchAllPages(filterValues);
             const mappedList = (result.items ?? []).map(mapPOItem);
-
             setList(mappedList);
-            setServerTotalItems(result.totalItems ?? mappedList.length);
         } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách đơn mua.');
+            setError(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    'Không tải được danh sách đơn mua.'
+            );
             setList([]);
-            setServerTotalItems(0);
         } finally {
             setLoading(false);
         }
-    }, [fetchAllPages]);
+    }, [fetchAllPages, filterValues]);
 
     useEffect(() => {
         fetchList();
@@ -385,51 +496,130 @@ export default function ViewPurchaseOrderList() {
         fetchList();
     };
 
-    const handleColumnVisibilityChange = (columnId, checked) => {
-        setVisibleColumnIds((prev) => {
-            const next = new Set(prev);
-            if (checked) next.add(columnId);
-            else next.delete(columnId);
+    const visibleColumns = useMemo(
+        () =>
+            columnOrder
+                .map((id) => PO_COLUMNS.find((c) => c.id === id))
+                .filter((c) => c && visibleColumnIds.has(c.id)),
+        [columnOrder, visibleColumnIds]
+    );
 
-            localStorage.setItem('poVisibleColumnIds', JSON.stringify([...next]));
-            return next;
-        });
+    const handleDragStart = (e, colId) => {
+        setDraggedColumn(colId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', colId);
     };
 
-    const handleSelectAllColumns = (checked) => {
-        const newSet = checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set();
-        setVisibleColumnIds(newSet);
-        localStorage.setItem('poVisibleColumnIds', JSON.stringify([...newSet]));
+    const handleDragEnd = () => setDraggedColumn(null);
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
     };
 
-    const visibleColumns = PO_COLUMNS
-        .filter((col) => visibleColumnIds.has(col.id))
-        .sort((a, b) => {
-            if (a.id === 'stt' && b.id !== 'stt') return -1;
-            if (b.id === 'stt' && a.id !== 'stt') return 1;
-            return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
-        });
+    const handleDrop = (e, targetId) => {
+        e.preventDefault();
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedColumn;
+
+        if (!sourceId || sourceId === targetId) {
+            setDraggedColumn(null);
+            return;
+        }
+
+        const arr = [...columnOrder];
+        const from = arr.indexOf(sourceId);
+        const to = arr.indexOf(targetId);
+
+        if (from === -1 || to === -1) {
+            setDraggedColumn(null);
+            return;
+        }
+
+        arr.splice(from, 1);
+        arr.splice(to, 0, sourceId);
+        setColumnOrder(arr);
+        localStorage.setItem(LS_COL_ORDER, JSON.stringify(arr));
+        setDraggedColumn(null);
+    };
+
+    const handlePopupDragStart = (e, colId) => {
+        setDraggedPopupColumn(colId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', colId);
+    };
+
+    const handlePopupDragEnd = () => setDraggedPopupColumn(null);
+
+    const handlePopupDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handlePopupDrop = (e, targetId) => {
+        e.preventDefault();
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedPopupColumn;
+
+        if (!sourceId || sourceId === targetId) {
+            setDraggedPopupColumn(null);
+            return;
+        }
+
+        const arr = [...tempColumnOrder];
+        const from = arr.indexOf(sourceId);
+        const to = arr.indexOf(targetId);
+
+        if (from === -1 || to === -1) {
+            setDraggedPopupColumn(null);
+            return;
+        }
+
+        arr.splice(from, 1);
+        arr.splice(to, 0, sourceId);
+        setTempColumnOrder(arr);
+        setDraggedPopupColumn(null);
+    };
+
+    const handleSaveColumnOrder = () => {
+        setColumnOrder(tempColumnOrder);
+        setVisibleColumnIds(new Set(tempVisibleColumnIds));
+        localStorage.setItem(LS_COL_ORDER, JSON.stringify(tempColumnOrder));
+        localStorage.setItem(
+            LS_VISIBLE_COLUMNS,
+            JSON.stringify([...tempVisibleColumnIds])
+        );
+        setColumnSelectorAnchor(null);
+    };
+
+    const handleCancelColumnOrder = () => {
+        setTempColumnOrder(columnOrder);
+        setTempVisibleColumnIds(new Set(visibleColumnIds));
+        setColumnSelectorAnchor(null);
+    };
 
     const handleSortRequest = (columnId) => {
         if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
 
-        let nextOrderBy = columnId;
-        let nextOrder = 'asc';
+        let nextOrderBy;
+        let nextOrder;
 
         if (orderBy === columnId) {
             if (order === 'asc') {
+                nextOrderBy = columnId;
                 nextOrder = 'desc';
             } else {
                 nextOrderBy = null;
                 nextOrder = 'asc';
             }
+        } else {
+            nextOrderBy = columnId;
+            nextOrder = 'asc';
         }
 
         setOrderBy(nextOrderBy);
         setOrder(nextOrder);
         setPage(0);
         localStorage.setItem(
-            'poSortConfig',
+            LS_SORT,
             JSON.stringify({ orderBy: nextOrderBy, order: nextOrder })
         );
     };
@@ -475,7 +665,6 @@ export default function ViewPurchaseOrderList() {
             );
         }
 
-        // responsibleUserName: client-side vì backend chưa hỗ trợ
         if (filterValues.responsiblePerson) {
             result = result.filter((row) =>
                 normalizeText(row.responsiblePerson).includes(
@@ -490,6 +679,7 @@ export default function ViewPurchaseOrderList() {
                     upper(row.approvalStatus) === 'DRAFT' &&
                     (String(row.creatorId) === String(currentUserId) ||
                         normalizeText(row.creator) === normalizeText(currentUserName));
+
                 const aIsOwnDraft = isOwnDraftCheck(a);
                 const bIsOwnDraft = isOwnDraftCheck(b);
 
@@ -529,11 +719,12 @@ export default function ViewPurchaseOrderList() {
 
     useEffect(() => {
         setPage(0);
+        setSelectedIds(new Set());
     }, [searchTerm, filterValues]);
 
     const totalCount = filteredAndSortedRows.length;
-    const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1;
-    const safePage = Math.min(page, totalPages - 1);
+    const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
+    const safePage = totalPages === 0 ? 0 : Math.min(page, totalPages - 1);
     const rows = filteredAndSortedRows.slice(
         safePage * pageSize,
         (safePage + 1) * pageSize
@@ -543,27 +734,61 @@ export default function ViewPurchaseOrderList() {
 
     const handleFilterApply = (values) => {
         setFilterValues(values);
-        localStorage.setItem('poFilterValues', JSON.stringify(values));
+        localStorage.setItem(LS_FILTER, JSON.stringify(values));
         setPage(0);
     };
 
+    const handlePageSizeChange = (e) => {
+        setPageSize(Number(e.target.value));
+        setPage(0);
+    };
+
+    const handleSelectAll = (checked) => {
+        setSelectedIds(checked ? new Set(rows.map((r) => r.purchaseOrderId)) : new Set());
+    };
+
+    const handleSelectRow = (id, checked) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    };
+
+    const isAllSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.purchaseOrderId));
+    const isSomeSelected =
+        rows.some((r) => selectedIds.has(r.purchaseOrderId)) && !isAllSelected;
+
     const renderApprovalStatus = (status) => {
         const style = APPROVAL_STATUS_STYLE[upper(status)] || {
-            bgColor: 'rgba(107, 114, 128, 0.2)',
-            color: '#4b5563',
+            bgColor: 'rgba(107,114,128,0.15)',
+            color: '#374151',
             label: status || '-',
         };
 
         return (
             <Chip
-                label={style.label}
+                label={`• ${style.label}`}
                 size="small"
                 sx={{
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    lineHeight: '16px',
+                    borderRadius: '999px',
+                    minWidth: 96,
+                    height: '26px',
                     bgcolor: style.bgColor,
                     color: style.color,
-                    fontWeight: 600,
-                    fontSize: '12px',
-                    borderRadius: '999px',
+                    border: 'none',
+                    boxShadow: 'none',
+                    '& .MuiChip-label': {
+                        px: 1.5,
+                        py: 0,
+                        textAlign: 'left',
+                        display: 'block',
+                        width: '100%',
+                    },
                 }}
             />
         );
@@ -571,21 +796,33 @@ export default function ViewPurchaseOrderList() {
 
     const renderReceivingStatus = (status) => {
         const style = RECEIVING_STATUS_STYLE[status] || {
-            bgColor: 'rgba(107, 114, 128, 0.2)',
-            color: '#4b5563',
+            bgColor: 'rgba(107,114,128,0.15)',
+            color: '#374151',
             label: status || '-',
         };
 
         return (
             <Chip
-                label={style.label}
+                label={`• ${style.label}`}
                 size="small"
                 sx={{
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    lineHeight: '16px',
+                    borderRadius: '999px',
+                    minWidth: 132,
+                    height: '26px',
                     bgcolor: style.bgColor,
                     color: style.color,
-                    fontWeight: 600,
-                    fontSize: '12px',
-                    borderRadius: '999px',
+                    border: 'none',
+                    boxShadow: 'none',
+                    '& .MuiChip-label': {
+                        px: 1.5,
+                        py: 0,
+                        textAlign: 'left',
+                        display: 'block',
+                        width: '100%',
+                    },
                 }}
             />
         );
@@ -601,27 +838,28 @@ export default function ViewPurchaseOrderList() {
 
             case 'orderCode':
                 return (
-                    <Typography
-                        component="button"
-                        onClick={() => navigate(`/purchase-orders/${row.purchaseOrderId}`)}
-                        sx={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            cursor: 'pointer',
-                            color: '#3b82f6',
-                            fontWeight: 500,
-                            fontSize: '13px',
-                            fontFamily: 'inherit',
-                            textDecoration: 'underline',
-                            '&:hover': { color: '#1d4ed8' },
-                        }}
-                    >
-                        {column.getValue(row, index, {
-                            pageNumber: safePage + 1,
-                            pageSize,
-                        })}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                        <Box
+                            component="a"
+                            href="#"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                navigate(`/purchase-orders/${row.purchaseOrderId}`);
+                            }}
+                            sx={{
+                                color: '#3b82f6',
+                                textDecoration: 'none',
+                                cursor: 'pointer',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                '&:hover': { textDecoration: 'underline' },
+                            }}
+                            title={row.orderCode ?? ''}
+                        >
+                            {row.orderCode ?? ''}
+                        </Box>
+                    </Box>
                 );
 
             case 'approvalStatus':
@@ -639,34 +877,30 @@ export default function ViewPurchaseOrderList() {
             case 'createdAt':
                 return formatDate(row.createdAt);
 
-            default:
-                return (
+            default: {
+                const value =
                     column.getValue(row, index, {
                         pageNumber: safePage + 1,
                         pageSize,
-                    }) || '-'
+                    }) || '-';
+
+                return (
+                    <Box
+                        sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                        title={String(value)}
+                    >
+                        {value}
+                    </Box>
                 );
+            }
         }
     };
 
-    const canEditRow = (row) =>
-        permissionRole === 'SALE_SUPPORT' &&
-        upper(row.approvalStatus) === 'DRAFT' &&
-        String(row.creatorId) === String(currentUserId);
-
     const summarySource = filteredAndSortedRows;
-    const columnSelectorOpen = Boolean(columnSelectorAnchor);
-
-    const BODY_CELL_SX = {
-        py: 1.75,
-        px: 2,
-        fontSize: '13px',
-        lineHeight: '20px',
-        verticalAlign: 'middle',
-        borderBottom: '1px solid #f3f4f6',
-        color: '#374151',
-        whiteSpace: 'nowrap',
-    };
 
     return (
         <Box
@@ -732,7 +966,9 @@ export default function ViewPurchaseOrderList() {
                             .filter(
                                 (r) =>
                                     upper(r.approvalStatus) === 'DRAFT' &&
-                                    String(r.creatorId) === String(currentUserId)
+                                    (String(r.creatorId) === String(currentUserId) ||
+                                        normalizeText(r.creator) ===
+                                            normalizeText(currentUserName))
                             )
                             .length.toLocaleString()}
                         color="#6b7280"
@@ -796,17 +1032,16 @@ export default function ViewPurchaseOrderList() {
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '10px',
                                         fontSize: '13px',
-                                        '& fieldset': {
-                                            border: 'none',
-                                        },
+                                        '& fieldset': { border: 'none' },
                                         '&:hover': {
                                             bgcolor: '#f9fafb',
                                             borderColor: '#d1d5db',
                                         },
                                         '&.Mui-focused': {
                                             bgcolor: '#ffffff',
-                                            borderColor: '#3b82f6',
-                                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                            borderColor: '#0284c7',
+                                            boxShadow:
+                                                '0 0 0 3px rgba(2,132,199,0.10)',
                                         },
                                         '& input::placeholder': {
                                             color: '#9ca3af',
@@ -825,6 +1060,7 @@ export default function ViewPurchaseOrderList() {
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
                                         borderRadius: '10px',
+                                        position: 'relative',
                                         '&:hover': {
                                             bgcolor: '#f9fafb',
                                             borderColor: '#d1d5db',
@@ -832,6 +1068,19 @@ export default function ViewPurchaseOrderList() {
                                     }}
                                 >
                                     <Filter size={18} />
+                                    {activeFilterCount > 0 && (
+                                        <Box
+                                            sx={{
+                                                position: 'absolute',
+                                                top: 4,
+                                                right: 4,
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: '50%',
+                                                bgcolor: '#0284c7',
+                                            }}
+                                        />
+                                    )}
                                 </IconButton>
                             </Tooltip>
 
@@ -896,10 +1145,11 @@ export default function ViewPurchaseOrderList() {
                                             height: 38,
                                             px: 2.5,
                                             bgcolor: '#0284c7',
-                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                            boxShadow: '0 1px 2px rgba(2,132,199,0.25)',
                                             '&:hover': {
                                                 bgcolor: '#0369a1',
-                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                                boxShadow:
+                                                    '0 4px 12px rgba(2,132,199,0.30)',
                                             },
                                         }}
                                     >
@@ -913,7 +1163,7 @@ export default function ViewPurchaseOrderList() {
                     <Popover
                         open={columnSelectorOpen}
                         anchorEl={columnSelectorAnchor}
-                        onClose={() => setColumnSelectorAnchor(null)}
+                        onClose={handleCancelColumnOrder}
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                         slotProps={{
@@ -921,62 +1171,232 @@ export default function ViewPurchaseOrderList() {
                                 elevation: 0,
                                 sx: {
                                     mt: 1,
-                                    width: 320,
+                                    width: 340,
+                                    maxHeight: '70vh',
                                     borderRadius: '14px',
-                                    border: '1px solid rgba(0, 0, 0, 0.08)',
+                                    border: '1px solid rgba(0,0,0,0.08)',
                                     boxShadow:
-                                        '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+                                        '0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
                                     overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column',
                                 },
                             },
                         }}
                     >
-                        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6' }}>
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                borderBottom: '1px solid #f3f4f6',
+                                flexShrink: 0,
+                            }}
+                        >
                             <Typography
                                 variant="subtitle2"
                                 fontWeight={600}
                                 sx={{ fontSize: '15px', color: '#111827' }}
                             >
-                                Chọn cột hiển thị
+                                Chọn cột & Sắp xếp
                             </Typography>
                         </Box>
 
-                        <Box sx={{ px: 2.5, py: 2 }}>
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                flex: 1,
+                                minHeight: 0,
+                                overflowY: 'auto',
+                                '&::-webkit-scrollbar': { width: '6px' },
+                                '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+                                '&::-webkit-scrollbar-thumb': {
+                                    bgcolor: '#d1d5db',
+                                    borderRadius: '3px',
+                                    '&:hover': { bgcolor: '#9ca3af' },
+                                },
+                            }}
+                        >
                             <FormGroup>
                                 <FormControlLabel
                                     control={
                                         <Checkbox
-                                            checked={visibleColumnIds.size === PO_COLUMNS.length}
+                                            checked={
+                                                tempVisibleColumnIds.size === PO_COLUMNS.length
+                                            }
                                             indeterminate={
-                                                visibleColumnIds.size > 0 &&
-                                                visibleColumnIds.size < PO_COLUMNS.length
+                                                tempVisibleColumnIds.size > 0 &&
+                                                tempVisibleColumnIds.size < PO_COLUMNS.length
                                             }
                                             onChange={(e) =>
-                                                handleSelectAllColumns(e.target.checked)
+                                                setTempVisibleColumnIds(
+                                                    e.target.checked
+                                                        ? new Set(DEFAULT_VISIBLE_COLUMN_IDS)
+                                                        : new Set()
+                                                )
                                             }
+                                            sx={{
+                                                color: '#9ca3af',
+                                                '&.Mui-checked': { color: '#0284c7' },
+                                                '&.MuiCheckbox-indeterminate': {
+                                                    color: '#0284c7',
+                                                },
+                                            }}
                                         />
                                     }
-                                    label="Tất cả"
+                                    label={
+                                        <Typography
+                                            sx={{
+                                                fontSize: '13px',
+                                                fontWeight: 500,
+                                                color: '#374151',
+                                            }}
+                                        >
+                                            Tất cả
+                                        </Typography>
+                                    }
+                                    sx={{ mb: 1, py: 0.5 }}
                                 />
 
-                                {PO_COLUMNS.map((col) => (
-                                    <FormControlLabel
-                                        key={col.id}
-                                        control={
-                                            <Checkbox
-                                                checked={visibleColumnIds.has(col.id)}
-                                                onChange={(e) =>
-                                                    handleColumnVisibilityChange(
-                                                        col.id,
-                                                        e.target.checked
-                                                    )
+                                {PO_COLUMNS.slice()
+                                    .sort(
+                                        (a, b) =>
+                                            tempColumnOrder.indexOf(a.id) -
+                                            tempColumnOrder.indexOf(b.id)
+                                    )
+                                    .map((col) => (
+                                        <Box
+                                            key={col.id}
+                                            sx={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 1,
+                                                bgcolor:
+                                                    draggedPopupColumn === col.id
+                                                        ? '#f9fafb'
+                                                        : 'transparent',
+                                                opacity:
+                                                    draggedPopupColumn === col.id ? 0.5 : 1,
+                                                transition: 'all 0.2s',
+                                                borderRadius: '8px',
+                                                px: 0.75,
+                                                py: 0.25,
+                                                '&:hover': { bgcolor: '#f9fafb' },
+                                            }}
+                                            onDragOver={handlePopupDragOver}
+                                            onDrop={(e) => handlePopupDrop(e, col.id)}
+                                        >
+                                            <Box
+                                                draggable
+                                                onDragStart={(e) =>
+                                                    handlePopupDragStart(e, col.id)
                                                 }
+                                                onDragEnd={handlePopupDragEnd}
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    cursor: 'grab',
+                                                    '&:active': { cursor: 'grabbing' },
+                                                    color: '#9ca3af',
+                                                    '&:hover': { color: '#6b7280' },
+                                                }}
+                                            >
+                                                <GripVertical size={14} />
+                                            </Box>
+
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={tempVisibleColumnIds.has(
+                                                            col.id
+                                                        )}
+                                                        onChange={(e) => {
+                                                            setTempVisibleColumnIds((prev) => {
+                                                                const next = new Set(prev);
+                                                                if (e.target.checked) {
+                                                                    next.add(col.id);
+                                                                } else {
+                                                                    next.delete(col.id);
+                                                                }
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        sx={{
+                                                            color: '#9ca3af',
+                                                            '&.Mui-checked': {
+                                                                color: '#0284c7',
+                                                            },
+                                                        }}
+                                                    />
+                                                }
+                                                label={
+                                                    <Typography
+                                                        sx={{
+                                                            fontSize: '13px',
+                                                            color: '#374151',
+                                                        }}
+                                                    >
+                                                        {col.label}
+                                                    </Typography>
+                                                }
+                                                sx={{ flex: 1, m: 0, py: 0.5 }}
                                             />
-                                        }
-                                        label={col.label}
-                                    />
-                                ))}
+                                        </Box>
+                                    ))}
                             </FormGroup>
+                        </Box>
+
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                display: 'flex',
+                                gap: 1.5,
+                                borderTop: '1px solid #f3f4f6',
+                                flexShrink: 0,
+                            }}
+                        >
+                            <Button
+                                variant="outlined"
+                                onClick={handleCancelColumnOrder}
+                                sx={{
+                                    flex: 1,
+                                    textTransform: 'none',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    height: 38,
+                                    borderRadius: '10px',
+                                    borderColor: '#e5e7eb',
+                                    color: '#6b7280',
+                                    '&:hover': {
+                                        borderColor: '#d1d5db',
+                                        bgcolor: '#f9fafb',
+                                    },
+                                }}
+                            >
+                                Hủy
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={handleSaveColumnOrder}
+                                sx={{
+                                    flex: 1,
+                                    textTransform: 'none',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    height: 38,
+                                    borderRadius: '10px',
+                                    bgcolor: '#0284c7',
+                                    boxShadow: 'none',
+                                    '&:hover': {
+                                        bgcolor: '#0369a1',
+                                        boxShadow:
+                                            '0 2px 8px rgba(2,132,199,0.25)',
+                                    },
+                                }}
+                            >
+                                Lưu
+                            </Button>
                         </Box>
                     </Popover>
 
@@ -989,185 +1409,394 @@ export default function ViewPurchaseOrderList() {
                             flexDirection: 'column',
                         }}
                     >
-                        {error && (
-                            <Box sx={{ p: 2 }}>
-                                <Alert severity="error">{error}</Alert>
-                            </Box>
-                        )}
-
                         {loading ? (
                             <Box
                                 sx={{
-                                    flex: 1,
                                     display: 'flex',
-                                    alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: 1.5,
-                                    color: '#6b7280',
+                                    alignItems: 'center',
+                                    flex: 1,
+                                    py: 8,
                                 }}
                             >
-                                <CircularProgress size={22} />
-                                <Typography variant="body2">
-                                    Đang tải danh sách đơn mua...
+                                <Typography
+                                    sx={{ fontSize: '14px', color: '#9ca3af' }}
+                                >
+                                    Đang tải…
+                                </Typography>
+                            </Box>
+                        ) : error ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flex: 1,
+                                    gap: 1.5,
+                                }}
+                            >
+                                <CloudOff size={40} style={{ color: '#d1d5db' }} />
+                                <Typography
+                                    sx={{
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        color: '#374151',
+                                    }}
+                                >
+                                    Không thể kết nối đến máy chủ
+                                </Typography>
+                                <Typography
+                                    sx={{ fontSize: '13px', color: '#9ca3af' }}
+                                >
+                                    {error}
+                                </Typography>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={fetchList}
+                                    sx={{
+                                        mt: 0.5,
+                                        fontSize: '13px',
+                                        textTransform: 'none',
+                                        borderRadius: '8px',
+                                        borderColor: 'rgba(2,132,199,0.30)',
+                                        color: '#0284c7',
+                                        '&:hover': {
+                                            bgcolor: 'rgba(2,132,199,0.06)',
+                                        },
+                                    }}
+                                >
+                                    Thử lại
+                                </Button>
+                            </Box>
+                        ) : rows.length === 0 ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flex: 1,
+                                    gap: 1,
+                                    color: 'text.secondary',
+                                }}
+                            >
+                                <CloudOff
+                                    size={48}
+                                    style={{ marginBottom: 8, opacity: 0.35 }}
+                                />
+                                <Typography sx={{ fontSize: '13px' }}>
+                                    Không có dữ liệu phù hợp
                                 </Typography>
                             </Box>
                         ) : (
-                            <>
-                                <TableContainer sx={{ flex: 1, minHeight: 0 }}>
-                                    <Table stickyHeader size="small">
-                                        <TableHead>
-                                            <TableRow>
-                                                {visibleColumns.map((column) => (
-                                                    <TableCell
-                                                        key={column.id}
+                            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                                <Table stickyHeader size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell
+                                                padding="checkbox"
+                                                sx={{
+                                                    fontWeight: 600,
+                                                    bgcolor: '#fafafa',
+                                                    width: 56,
+                                                    minWidth: 56,
+                                                    maxWidth: 56,
+                                                    borderBottom: '2px solid #e5e7eb',
+                                                    fontSize: '12px',
+                                                    px: 2,
+                                                }}
+                                            >
+                                                <Checkbox
+                                                    checked={isAllSelected}
+                                                    indeterminate={isSomeSelected}
+                                                    onChange={(e) =>
+                                                        handleSelectAll(e.target.checked)
+                                                    }
+                                                    size="small"
+                                                />
+                                            </TableCell>
+
+                                            {visibleColumns.map((column) => (
+                                                <TableCell
+                                                    key={column.id}
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        bgcolor:
+                                                            draggedColumn === column.id
+                                                                ? 'action.hover'
+                                                                : '#fafafa',
+                                                        whiteSpace: 'nowrap',
+                                                        opacity:
+                                                            draggedColumn === column.id
+                                                                ? 0.5
+                                                                : 1,
+                                                        transition: 'all 0.2s',
+                                                        borderBottom:
+                                                            '2px solid #e5e7eb',
+                                                        fontSize: '12px',
+                                                        color: '#6b7280',
+                                                        py: 1.5,
+                                                        px: 2,
+                                                    }}
+                                                    align={
+                                                        column.id === 'stt'
+                                                            ? 'center'
+                                                            : 'left'
+                                                    }
+                                                    onDragOver={handleDragOver}
+                                                    onDrop={(e) => handleDrop(e, column.id)}
+                                                >
+                                                    <Box
                                                         sx={{
-                                                            bgcolor: '#f9fafb',
-                                                            borderBottom: '1px solid #e5e7eb',
-                                                            fontWeight: 700,
-                                                            color: '#374151',
-                                                            py: 1.5,
-                                                            px: 2,
-                                                            whiteSpace: 'nowrap',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 0.5,
+                                                            '&:hover .drag-icon': {
+                                                                opacity: 0.6,
+                                                            },
                                                         }}
                                                     >
+                                                        <Box
+                                                            draggable
+                                                            onDragStart={(e) =>
+                                                                handleDragStart(
+                                                                    e,
+                                                                    column.id
+                                                                )
+                                                            }
+                                                            onDragEnd={handleDragEnd}
+                                                            className="drag-icon"
+                                                            sx={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                cursor: 'grab',
+                                                                '&:active': {
+                                                                    cursor: 'grabbing',
+                                                                },
+                                                                color: '#9ca3af',
+                                                                opacity: 0,
+                                                                transition:
+                                                                    'opacity 0.2s',
+                                                            }}
+                                                        >
+                                                            <GripVertical size={14} />
+                                                        </Box>
+
                                                         {column.sortable ? (
                                                             <TableSortLabel
                                                                 active={orderBy === column.id}
                                                                 direction={
-                                                                    (orderBy === column.id)
+                                                                    orderBy === column.id
                                                                         ? order
                                                                         : 'asc'
                                                                 }
                                                                 onClick={() =>
-                                                                    handleSortRequest(column.id)
+                                                                    handleSortRequest(
+                                                                        column.id
+                                                                    )
                                                                 }
+                                                                sx={{
+                                                                    flex: 1,
+                                                                    '& .MuiTableSortLabel-icon':
+                                                                        {
+                                                                            fontSize:
+                                                                                '14px',
+                                                                            opacity:
+                                                                                orderBy ===
+                                                                                column.id
+                                                                                    ? 1
+                                                                                    : 0,
+                                                                        },
+                                                                }}
+                                                                hideSortIcon={false}
                                                             >
                                                                 {column.label}
                                                             </TableSortLabel>
                                                         ) : (
-                                                            column.label
+                                                            <Typography
+                                                                variant="inherit"
+                                                                sx={{ flex: 1 }}
+                                                            >
+                                                                {column.label}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    </TableHead>
+
+                                    <TableBody>
+                                        {rows.map((row, index) => (
+                                            <TableRow
+                                                key={row.purchaseOrderId}
+                                                hover
+                                                sx={{
+                                                    height: 56,
+                                                    '&:last-child td': {
+                                                        borderBottom: 0,
+                                                    },
+                                                    '&:hover': {
+                                                        bgcolor: '#f9fafb',
+                                                    },
+                                                    '& .MuiTableCell-root': BODY_CELL_SX,
+                                                    '& .MuiTableCell-paddingCheckbox':
+                                                        CHECKBOX_CELL_SX,
+                                                }}
+                                            >
+                                                <TableCell padding="checkbox">
+                                                    <Checkbox
+                                                        checked={selectedIds.has(
+                                                            row.purchaseOrderId
+                                                        )}
+                                                        onChange={(e) =>
+                                                            handleSelectRow(
+                                                                row.purchaseOrderId,
+                                                                e.target.checked
+                                                            )
+                                                        }
+                                                        size="small"
+                                                    />
+                                                </TableCell>
+
+                                                {visibleColumns.map((column) => (
+                                                    <TableCell
+                                                        key={column.id}
+                                                        align={
+                                                            column.id === 'stt'
+                                                                ? 'center'
+                                                                : 'left'
+                                                        }
+                                                        sx={
+                                                            column.id === 'stt'
+                                                                ? {
+                                                                      fontVariantNumeric:
+                                                                          'tabular-nums',
+                                                                  }
+                                                                : column.id ===
+                                                                      'approvalStatus' ||
+                                                                  column.id ===
+                                                                      'receivingStatus'
+                                                                ? undefined
+                                                                : {
+                                                                      maxWidth: 220,
+                                                                      overflow:
+                                                                          'hidden',
+                                                                      textOverflow:
+                                                                          'ellipsis',
+                                                                      whiteSpace:
+                                                                          'nowrap',
+                                                                  }
+                                                        }
+                                                    >
+                                                        {renderCellContent(
+                                                            column,
+                                                            row,
+                                                            index
                                                         )}
                                                     </TableCell>
                                                 ))}
-
                                             </TableRow>
-                                        </TableHead>
-
-                                        <TableBody>
-    {rows.length === 0 ? (
-        <TableRow>
-            <TableCell
-                colSpan={visibleColumns.length}
-                align="center"
-                sx={{ py: 6, color: '#9ca3af' }}
-            >
-                Không có dữ liệu phù hợp
-            </TableCell>
-        </TableRow>
-    ) : (
-        rows.map((row, index) => (
-            <TableRow
-                key={row.purchaseOrderId}
-                hover
-                sx={{
-                    '&:hover': {
-                        bgcolor: '#fafcff',
-                    },
-                }}
-            >
-                {visibleColumns.map((column) => (
-                    <TableCell
-                        key={column.id}
-                        sx={BODY_CELL_SX}
-                    >
-                        {renderCellContent(column, row, index)}
-                    </TableCell>
-                ))}
-            </TableRow>
-        ))
-    )}
-</TableBody>
-                                    </Table>
-                                </TableContainer>
-
-                                <Box
-                                    sx={{
-                                        px: 2,
-                                        py: 1.5,
-                                        borderTop: '1px solid #f3f4f6',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: 2,
-                                        flexWrap: 'wrap',
-                                    }}
-                                >
-                                    <Typography
-                                        variant="body2"
-                                        sx={{ color: '#6b7280', fontSize: '13px' }}
-                                    >
-                                        Hiển thị {start}-{end} / {totalCount} dòng
-                                    </Typography>
-
-                                    <Box
-                                        sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 1.5,
-                                        }}
-                                    >
-                                        <FormControl size="small">
-                                            <Select
-                                                value={pageSize}
-                                                onChange={(e) => {
-                                                    setPageSize(Number(e.target.value));
-                                                    setPage(0);
-                                                }}
-                                            >
-                                                {ROWS_PER_PAGE_OPTIONS.map((size) => (
-                                                    <MenuItem key={size} value={size}>
-                                                        {size} / trang
-                                                    </MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-
-                                        <Button
-                                            variant="outlined"
-                                            size="small"
-                                            disabled={safePage <= 0}
-                                            onClick={() =>
-                                                setPage((prev) => Math.max(prev - 1, 0))
-                                            }
-                                            sx={{ textTransform: 'none' }}
-                                        >
-                                            Trước
-                                        </Button>
-
-                                        <Typography
-                                            variant="body2"
-                                            sx={{ minWidth: 70, textAlign: 'center' }}
-                                        >
-                                            {safePage + 1} / {totalPages}
-                                        </Typography>
-
-                                        <Button
-                                            variant="outlined"
-                                            size="small"
-                                            disabled={safePage >= totalPages - 1}
-                                            onClick={() =>
-                                                setPage((prev) =>
-                                                    Math.min(prev + 1, totalPages - 1)
-                                                )
-                                            }
-                                            sx={{ textTransform: 'none' }}
-                                        >
-                                            Sau
-                                        </Button>
-                                    </Box>
-                                </Box>
-                            </>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
                         )}
+                    </Box>
+
+                    <Box
+                        sx={{
+                            flexShrink: 0,
+                            px: 2,
+                            py: 2,
+                            borderTop: '1px solid #f3f4f6',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: 2,
+                        }}
+                    >
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            Số dòng / trang:
+                        </Typography>
+
+                        <FormControl size="small" sx={{ minWidth: 72 }}>
+                            <Select
+                                value={pageSize}
+                                onChange={handlePageSizeChange}
+                                sx={{
+                                    height: 32,
+                                    fontSize: '13px',
+                                    borderRadius: '8px',
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: 'rgba(0,0,0,0.1)',
+                                    },
+                                }}
+                            >
+                                {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>
+                                        {n}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            {start}–{end} / {totalCount} (Tổng {totalPages} trang)
+                        </Typography>
+
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={safePage <= 0}
+                            onClick={() => setPage((p) => Math.max(0, p - 1))}
+                            sx={{
+                                minWidth: 36,
+                                textTransform: 'none',
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                borderColor: 'rgba(0,0,0,0.1)',
+                                '&:hover': {
+                                    borderColor: 'rgba(0,0,0,0.2)',
+                                },
+                            }}
+                        >
+                            Trước
+                        </Button>
+
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={safePage >= totalPages - 1 || totalCount === 0}
+                            onClick={() =>
+                                setPage((p) => Math.min(totalPages - 1, p + 1))
+                            }
+                            sx={{
+                                minWidth: 36,
+                                textTransform: 'none',
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                borderColor: 'rgba(0,0,0,0.1)',
+                                '&:hover': {
+                                    borderColor: 'rgba(0,0,0,0.2)',
+                                },
+                            }}
+                        >
+                            Sau
+                        </Button>
                     </Box>
                 </Paper>
             </Box>

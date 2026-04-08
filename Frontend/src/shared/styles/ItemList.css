@@ -1,136 +1,25 @@
 /* ItemList.css */
-.item-page-container {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background-color: #f8fafc;
-    overflow: hidden;
+/* ... các style cũ của bạn giữ nguyên ... */
+
+.table-cell-numeric {
+    font-variant-numeric: tabular-nums;
+    text-align: center !important;
 }
 
-.item-header-section {
-    padding: 24px;
-    flex-shrink: 0;
-}
-
-.item-title-group h1 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #111827;
-    margin: 0;
-}
-
-.item-summary-grid {
-    display: flex;
-    gap: 16px;
-    margin-top: 20px;
-    flex-wrap: wrap;
-}
-
-.item-main-content {
-    flex: 1;
-    padding: 0 24px 24px 24px;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.item-paper-wrapper {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.item-toolbar {
-    padding: 16px;
-    border-bottom: 1px solid #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.item-table-container {
-    flex: 1;
-    overflow: auto;
-}
-
-.item-table th {
-    background-color: #fafafa !important;
-    color: #6b7280 !important;
+.table-cell-price {
+    font-variant-numeric: tabular-nums;
     font-weight: 600 !important;
+    text-align: right !important;
+}
+
+.item-status-chip {
+    font-weight: 500 !important;
     font-size: 12px !important;
-    border-bottom: 1px solid #e5e7eb !important;
-    height: 48px;
-    padding: 0 16px !important;
+    border-radius: 999px !important;
+    min-width: 110px;
 }
 
-.item-table td {
-    padding: 12px 16px !important;
-    font-size: 13px !important;
-    color: #374151 !important;
-    border-bottom: 1px solid #f3f4f6 !important;
-}
-
-.col-item-code {
-    font-weight: 600;
-    color: #2563eb;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-.item-pagination {
-    padding: 12px 16px;
-    border-top: 1px solid #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 16px;
-}
-
-/* Column Selector Popover Styles */
-.column-selector-popover {
-    padding: 16px;
-    width: 320px;
-    max-height: 500px;
-    display: flex;
-    flex-direction: column;
-}
-
-.column-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    border-radius: 8px;
-    transition: background 0.2s;
-}
-
-.column-item:hover {
-    background-color: #f1f5f9;
-}
-
-.column-drag-handle {
-    cursor: grab;
-    color: #94a3b8;
-    display: flex;
-    align-items: center;
-}
-
-.popover-footer {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f1f5f9;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-}
-
-.is-dragging {
-    opacity: 0.5;
-    background-color: #eff6ff !important;
+.column-selector-popover .MuiFormGroup-root {
+    padding: 8px;
+    gap: 4px;
 }
