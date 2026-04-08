@@ -158,7 +158,7 @@ export default function ViewReleaseRequestDetail() {
     const canCreateGDN = data?.status === 'APPROVED' && permissionRole === 'WAREHOUSE_KEEPER';
 
     const handleCreateGDN = () => {
-        navigate(`/goods-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);
+        navigate(`/good-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);
     };
 
     const handleApprove = async () => {
