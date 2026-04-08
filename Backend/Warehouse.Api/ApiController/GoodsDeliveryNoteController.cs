@@ -55,7 +55,7 @@ namespace Warehouse.Api.ApiController
         /// Tạo phiếu xuất kho mới (kèm thông tin vận chuyển nếu có)
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = "ADMIN,GD,KT")]
+        [Authorize(Roles = "ADMIN,GD,KT,TK")]
         public async Task<IActionResult> Create([FromBody] CreateGDNRequest request)
         {
             var userId = GetCurrentUserId();
@@ -67,7 +67,7 @@ namespace Warehouse.Api.ApiController
         /// Cập nhật phiếu xuất kho (chỉ khi đang ở trạng thái chờ duyệt)
         /// </summary>
         [HttpPut("{id}")]
-        [Authorize(Roles = "ADMIN,GD,KT")]
+        [Authorize(Roles = "ADMIN,GD,KT,TK")]
         public async Task<IActionResult> Update(long id, [FromBody] CreateGDNRequest request)
         {
             var userId = GetCurrentUserId();
@@ -79,7 +79,7 @@ namespace Warehouse.Api.ApiController
         /// Hủy phiếu xuất kho
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize(Roles = "ADMIN,GD,KT,SE")]
+        [Authorize(Roles = "ADMIN,GD,KT,TK")]
         public async Task<IActionResult> Cancel(long id, [FromQuery] string reason)
         {
             var userId = GetCurrentUserId();

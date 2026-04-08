@@ -22,7 +22,7 @@ namespace Warehouse.Api.ApiController
         /// Tạo yêu cầu xuất kho
         /// </summary>
         [HttpPost("create")]
-        [Authorize(Roles = "ADMIN,GD,KT,SE")]
+        [Authorize(Roles = "ADMIN,GD,KT,SE,TK")]
         public async Task<IActionResult> CreateReleaseRequest([FromBody] CreateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
@@ -93,7 +93,7 @@ namespace Warehouse.Api.ApiController
         /// Cập nhật yêu cầu xuất kho
         /// </summary>
         [HttpPut("update/{id:long}")]
-        [Authorize(Roles = "ADMIN,GD,KT,SE")]
+        [Authorize(Roles = "ADMIN,GD,KT,TK")]
         public async Task<IActionResult> UpdateReleaseRequest(long id, [FromBody] UpdateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
