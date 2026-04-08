@@ -797,7 +797,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                                     </div>
                                 </div>
 
-                                <div className="form-field">
+                                <div className="form-field" readOnly>
                                     <label className="form-label">Yêu cầu xuất tham chiếu</label>
                                     <div
                                         style={{

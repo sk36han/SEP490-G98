@@ -24,7 +24,7 @@ namespace Warehouse.Entities.ModelRequest
         public string? TaxCode { get; set; }
 
         [MaxLength(20)]
-        [RegularExpression(@"^(0[35789][0-9]{8})$", ErrorMessage = "Số điện thoại không hợp lệ (phải bắt đầu bằng 0 và có 10 chữ số)")]
+        [RegularExpression(@"^0\d{9,10}$", ErrorMessage = "Số điện thoại không hợp lệ (phải bắt đầu bằng 0 và có 10-11 chữ số)")]
         public string? Phone { get; set; }
 
         [EmailAddress(ErrorMessage = "Địa chỉ email không hợp lệ")]

@@ -19,6 +19,7 @@ import '../styles/CreateSupplier.css';
 import '../styles/CreateGoodDeliveryNote.css';
 import { createGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
 import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
+import { getItemsForDisplay } from '../lib/itemService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TODAY = new Date().toLocaleDateString('en-CA');
@@ -85,9 +86,9 @@ const getLifecycleStatusMeta = (lifecycleStatus) =>
       };
 
 const getRemainingQty = (line) => {
-    const approvedQty = toNumber(line?.approvedQty);
-    const allocatedQty = toNumber(line?.allocatedQty);
-    const issuedQty = toNumber(line?.issuedQty);
+    const approvedQty = toNumber(line?.approvedQty ?? line?.ApprovedQty ?? 0);
+    const allocatedQty = toNumber(line?.allocatedQty ?? line?.AllocatedQty ?? 0);
+    const issuedQty = toNumber(line?.issuedQty ?? line?.IssuedQty ?? 0);
     const baseQty = allocatedQty > 0 ? allocatedQty : approvedQty;
     return Math.max(baseQty - issuedQty, 0);
 };
@@ -134,19 +135,20 @@ function buildSelectableLine(line, index) {
         itemName: line.itemName || '',
         uomId: line.uomId,
         uomName: line.uomName || '',
-        requestedQty: toNumber(line.requestedQty),
-        approvedQty: toNumber(line.approvedQty),
-        allocatedQty: toNumber(line.allocatedQty),
-        issuedQty: toNumber(line.issuedQty),
+        requestedQty: toNumber(line.requestedQty ?? line.RequestedQty),
+        approvedQty: toNumber(line.approvedQty ?? line.ApprovedQty),
+        allocatedQty: toNumber(line.allocatedQty ?? line.AllocatedQty),
+        issuedQty: toNumber(line.issuedQty ?? line.IssuedQty),
         remainingQty: getRemainingQty(line),
-        availableQty: toNumber(line.stockQty),
+        availableQty: toNumber(line.availableQty ?? line.AvailableQty ?? line.stockQty ?? line.StockQty ?? 0),
         unitPrice: 0,
         lineTotal: 0,
         note: line.note || '',
     };
 }
 
-function mapSelectableLineToFormLine(selectableLine) {
+function mapSelectableLineToFormLine(selectableLine, itemPrices = {}) {
+    const price = itemPrices[selectableLine.itemId] ?? selectableLine.unitPrice ?? 0;
     return {
         id: generateLineId(),
         releaseRequestLineId: selectableLine.releaseRequestLineId,
@@ -162,8 +164,8 @@ function mapSelectableLineToFormLine(selectableLine) {
         remainingQty: selectableLine.remainingQty,
         actualQty: selectableLine.remainingQty,
         availableQty: selectableLine.availableQty,
-        unitPrice: selectableLine.unitPrice,
-        lineTotal: 0,
+        unitPrice: price,
+        lineTotal: price * selectableLine.remainingQty,
         requiresCertificateCopy: false,
         note: selectableLine.note || '',
     };
@@ -182,6 +184,7 @@ export default function CreateGoodDeliveryNote() {
     const [selectedSearchLineIds, setSelectedSearchLineIds] = useState([]);
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [items, setItems] = useState([]);
 
     const releaseRequestDropdownRef = useRef(null);
     const [releaseRequestDropdownOpen, setReleaseRequestDropdownOpen] = useState(false);
@@ -224,6 +227,19 @@ export default function CreateGoodDeliveryNote() {
             }
         };
         loadRRList();
+    }, []);
+
+    // Load items with prices on mount
+    useEffect(() => {
+        const loadItems = async () => {
+            try {
+                const itemList = await getItemsForDisplay();
+                setItems(Array.isArray(itemList) ? itemList : []);
+            } catch (err) {
+                console.error('Failed to load items:', err);
+            }
+        };
+        loadItems();
     }, []);
 
     // Close dropdown on outside click
@@ -306,11 +322,19 @@ export default function CreateGoodDeliveryNote() {
                 }
             }
 
+            // Build item price lookup from items state
+            const itemPrices = {};
+            items.forEach((it) => {
+                if (it.itemId) {
+                    itemPrices[it.itemId] = toNumber(it.salePrice ?? it.purchasePrice ?? 0);
+                }
+            });
+
             const linesFromDetail = detail?.lines || summary?.lines || [];
             const initialLines = linesFromDetail
                 .map((line, idx) => buildSelectableLine(line, idx))
                 .filter((line) => line.remainingQty > 0)
-                .map(mapSelectableLineToFormLine);
+                .map((line) => mapSelectableLineToFormLine(line, itemPrices));
 
             setSelectedReleaseRequestDetail(detail);
             setReleaseRequestQuery(detail.releaseRequestCode || summary.releaseRequestCode || '');
@@ -322,22 +346,22 @@ export default function CreateGoodDeliveryNote() {
 
             setFormData((prev) => ({
                 ...prev,
-                releaseRequestId: String(detail.releaseRequestId || summary.releaseRequestId),
-                releaseRequestCode: detail.releaseRequestCode || summary.releaseRequestCode || '',
-                warehouseId: String(detail.warehouseId || summary.warehouseId || ''),
-                warehouseName: detail.warehouseName || summary.warehouseName || '',
-                receiverId: String(detail.receiverId || summary.receiverId || ''),
-                receiverName: detail.receiverName || summary.receiverName || '',
-                receiverPhone: '',
-                receiverEmail: '',
-                receiverCompanyName: detail.companyName || summary.companyName || '',
-                receiverAddress: detail.receiverAddress || summary.receiverAddress || '',
-                receiverCity: '',
-                receiverDistrict: '',
-                receiverWard: '',
-                requestedByName: detail.requestedByName || summary.requestedByName || '',
-                requestedDate: detail.requestedDate || summary.requestedDate || '',
-                expectedDate: detail.expectedDate || summary.expectedDate || '',
+                releaseRequestId: String(detail.releaseRequestId || detail.ReleaseRequestId || summary.releaseRequestId),
+                releaseRequestCode: detail.releaseRequestCode || detail.ReleaseRequestCode || summary.releaseRequestCode || '',
+                warehouseId: String(detail.warehouseId || detail.WarehouseId || summary.warehouseId),
+                warehouseName: detail.warehouseName || detail.WarehouseName || summary.warehouseName || '',
+                receiverId: String(detail.receiverId || detail.ReceiverId || summary.receiverId || (detail.Receiver?.receiverId ?? detail.Receiver?.ReceiverId)),
+                receiverName: detail.receiverName || detail.ReceiverName || summary.receiverName || detail.Receiver?.receiverName || detail.Receiver?.ReceiverName || '',
+                receiverPhone: detail.receiverPhone || detail.Receiver?.phone || detail.Receiver?.Phone || summary.receiverPhone || '',
+                receiverEmail: detail.receiverEmail || detail.Receiver?.email || detail.Receiver?.Email || summary.receiverEmail || '',
+                receiverCompanyName: detail.companyName || detail.CompanyName || summary.companyName || detail.Receiver?.companyName || detail.Receiver?.CompanyName || '',
+                receiverAddress: detail.address || detail.Address || summary.receiverAddress || summary.address || detail.Receiver?.address || detail.Receiver?.Address || '',
+                receiverCity: detail.city || detail.City || summary.city || detail.Receiver?.city || detail.Receiver?.City || '',
+                receiverDistrict: detail.district || detail.District || summary.district || detail.Receiver?.district || detail.Receiver?.District || '',
+                receiverWard: detail.ward || detail.Ward || summary.ward || detail.Receiver?.ward || detail.Receiver?.Ward || '',
+                requestedByName: detail.requestedByName || detail.RequestedByName || summary.requestedByName || '',
+                requestedDate: detail.requestedDate || detail.RequestedDate || summary.requestedDate || '',
+                expectedDate: detail.expectedDate || detail.ExpectedDate || summary.expectedDate || '',
             }));
 
             setErrors((prev) => {
@@ -355,7 +379,7 @@ export default function CreateGoodDeliveryNote() {
                 }
             }
         },
-        [showToast]
+        [showToast, items]
     );
 
     const handleChange = (event) => {
@@ -453,7 +477,13 @@ export default function CreateGoodDeliveryNote() {
     };
 
     const addLineFromReleaseRequest = (selectableLine) => {
-        setLines((prev) => [...prev, mapSelectableLineToFormLine(selectableLine)]);
+        const itemPrices = {};
+        items.forEach((it) => {
+            if (it.itemId) {
+                itemPrices[it.itemId] = toNumber(it.salePrice ?? it.purchasePrice ?? 0);
+            }
+        });
+        setLines((prev) => [...prev, mapSelectableLineToFormLine(selectableLine, itemPrices)]);
         if (errors.lines) {
             setErrors((prev) => {
                 const next = { ...prev };
