@@ -4,6 +4,7 @@
  * Chỉ là mockup, không gọi API thật.
  */
 import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Button,
@@ -327,6 +328,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
 export default function Viewsalesreportlist() {
     const theme    = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const navigate = useNavigate();
 
     // Search / filter
     const [searchTerm, setSearchTerm]         = useState('');
@@ -796,7 +798,17 @@ export default function Viewsalesreportlist() {
                                                                         </Box>
                                                                         <Tooltip title="Xem chi tiết">
                                                                             <IconButton size="small"
-                                                                                onClick={() => {/* TODO: navigate to detail */}}
+                                                                                onClick={() => {
+                                                                                    if (row.level === LEVEL.YEAR) {
+                                                                                        navigate(`/reports/sales/detail/year/${row.periodLabel}`);
+                                                                                    } else if (row.level === LEVEL.QUARTER) {
+                                                                                        const parts = row.periodLabel.match(/Quý (\d) \/ (\d{4})/);
+                                                                                        navigate(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}`);
+                                                                                    } else if (row.level === LEVEL.MONTH) {
+                                                                                        const parts = row.periodLabel.match(/Tháng (\d+) \/ (\d{4})/);
+                                                                                        navigate(`/reports/sales/detail/month/${parts[1]}/${parts[2]}`);
+                                                                                    }
+                                                                                }}
                                                                                 sx={{ p: 0.5, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
                                                                                 <Eye size={15} />
                                                                             </IconButton>
