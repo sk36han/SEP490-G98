@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Table,
     TableBody,
@@ -133,7 +134,7 @@ const ViewUserAccountList = () => {
     const visibleColumns = USER_ACCOUNT_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         setLoading(true);
         try {
             const response = await adminService.getUserList({
@@ -150,11 +151,14 @@ const ViewUserAccountList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showToast]);
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    useEffect(() => { loadUsers(); }, [loadUsers]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const loadUsersRef = useRef(loadUsers);
+    useEffect(() => { loadUsersRef.current = loadUsers; }, [loadUsers]);
+    usePolling('users', () => loadUsersRef.current?.());
 
     // Mở dialog Tạo mới khi điều hướng từ Sidebar với state.openCreate
     useEffect(() => {

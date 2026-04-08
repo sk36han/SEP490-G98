@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box, Paper, Button, Typography, IconButton, Tooltip, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Popover, FormGroup,
@@ -42,7 +43,7 @@ export default function ViewPurchaseReturnList() {
     // Bổ sung các states quản lý cột (vẫn giữ logic cũ của bạn)
     const [visibleColumnIds, setVisibleColumnIds] = useState(new Set(['stt', 'returnCode', 'supplierName', 'status', 'totalReturnedAmount']));
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             const result = await getPurchaseReturnNotes({ page: 1, pageSize: 1000 });
@@ -52,9 +53,14 @@ export default function ViewPurchaseReturnList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('purchaseReturns', () => fetchDataRef.current?.());
 
     // Helper render Summary Card
     // Helper render Summary Card (Đã xóa type annotations)

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { formatDateTime } from '../lib/dateUtils';
+import { usePolling } from '../hooks/usePolling';
 import {
     Container,
     Paper,
@@ -86,6 +87,11 @@ const ViewAdminAuditLog = () => {
     useEffect(() => {
         fetchAuditLogs();
     }, [fetchAuditLogs]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchAuditLogsRef = useRef(fetchAuditLogs);
+    useEffect(() => { fetchAuditLogsRef.current = fetchAuditLogs; }, [fetchAuditLogs]);
+    usePolling('auditLog', () => fetchAuditLogsRef.current?.());
 
     const handlePageChange = (_, newPage) => setPage(newPage);
     const handleRowsPerPageChange = (e) => {

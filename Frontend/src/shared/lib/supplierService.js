@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Supplier API – maps to backend SupplierController / SupplierResponse.
@@ -139,6 +140,7 @@ export async function createSupplier(data) {
         console.log('Supplier API payload:', payload);
         
         const response = await apiClient.post('/Supplier/create', payload);
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         console.error('Supplier API error response:', error.response?.data);
@@ -177,6 +179,7 @@ export async function updateSupplier(id, data) {
             address: data.address || null,
             isActive: data.isActive,
         });
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
@@ -202,6 +205,7 @@ export async function toggleSupplierStatus(id, isActive) {
         const response = await apiClient.patch(`/Supplier/change-status/${id}`, null, {
             params: { isActive: !!isActive },
         });
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         if (error.response?.status === 401) {

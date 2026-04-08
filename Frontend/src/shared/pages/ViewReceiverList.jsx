@@ -2,8 +2,9 @@
  * ViewReceiverList – Danh sách người nhận
  * Người dùng: WAREHOUSE_KEEPER, SALE_ENGINEER, DIRECTOR, ACCOUNTANTS
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Typography,
@@ -84,7 +85,7 @@ export default function ViewReceiverList() {
     const [rows, setRows] = useState([]);
     const [totalItems, setTotalItems] = useState(0);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -106,9 +107,14 @@ export default function ViewReceiverList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, pageSize, searchTerm, filterValues]);
 
-    useEffect(() => { fetchData(); }, [page, pageSize, searchTerm, filterValues]);
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('receivers', () => fetchDataRef.current?.());
 
     const summary = useMemo(() => {
         const total = rows.length;

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Card,
@@ -336,6 +337,11 @@ const ViewItemList = () => {
     useEffect(() => {
         fetchItems();
     }, [fetchItems]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchItemsRef = useRef(fetchItems);
+    useEffect(() => { fetchItemsRef.current = fetchItems; }, [fetchItems]);
+    usePolling('items', () => fetchItemsRef.current?.());
 
     const handleColumnVisibilityChange = (columnId, checked) => {
         setVisibleColumnIds((prev) => {

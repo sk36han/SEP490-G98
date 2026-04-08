@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Kho (Warehouse) – kết nối WarehouseController.
@@ -101,6 +102,7 @@ export const getWarehouses = getWarehouseList;
 export async function createWarehouse(data) {
     try {
         const response = await apiClient.post('/Warehouse/create-warehouse', data);
+        invalidate('warehouse');
         return response.data;
     } catch (error) {
         throw error.response?.data || error;

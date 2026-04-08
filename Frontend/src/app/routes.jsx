@@ -89,6 +89,8 @@ const ROLES_SSA = ['SALE_SUPPORT', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER'];
 const ROLES_DIRECTOR = ['DIRECTOR'];
 const ROLES_ADMIN = ['ADMIN'];
 const ROLES_ACC = ['ACCOUNTANTS'];
+// Loại SALE_SUPPORT ra khỏi Release Request và GDN
+const ROLES_EXCEPT_SS = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS'];
 
 const AppRoutes = () => (
     <Routes>
@@ -142,14 +144,14 @@ const AppRoutes = () => (
         <Route path="/good-receipt-notes/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/good-receipt-notes/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreateGoodReceiptNote /></MainLayout></ProtectedRoute>} />
         <Route path="/good-receipt-notes/confirmation/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/good-delivery-notes" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewGoodDeliveryNoteList /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes" element={<ProtectedRoute allowedRoles={ROLES_EXCEPT_SS}><MainLayout><ViewGoodDeliveryNoteList /></MainLayout></ProtectedRoute>} />
         <Route path="/good-delivery-notes/create" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><CreateGoodDeliveryNote /></MainLayout></ProtectedRoute>} />
-        <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLES_EXCEPT_SS}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateReleaseRequest /></MainLayout></ProtectedRoute>} />
-        <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLES_EXCEPT_SS}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/goods-delivery-notes" element={<Navigate to="/good-delivery-notes" replace />} />
         <Route path="/goods-delivery-notes/create" element={<Navigate to="/good-delivery-notes/create" replace />} />
-        <Route path="/goods-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/goods-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_EXCEPT_SS}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/receivers" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewReceiver /></MainLayout></ProtectedRoute>} />
         <Route path="/receivers/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewReceiverDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/receivers/create" element={<ProtectedRoute allowedRoles={ROLES_SA}><MainLayout><CreateReceiver /></MainLayout></ProtectedRoute>} />

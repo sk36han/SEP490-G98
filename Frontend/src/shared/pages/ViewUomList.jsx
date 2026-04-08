@@ -1,7 +1,8 @@
 /*
  * Danh sách Đơn vị tính – kết nối API UnitOfMeasure.
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Button,
@@ -205,6 +206,11 @@ const ViewUomList = () => {
         fetchList();
     }, [fetchList]);
 
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('uom', () => fetchListRef.current?.());
+
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
         setPage(0);
@@ -267,6 +273,7 @@ const ViewUomList = () => {
 
             setUomDialogOpen(false);
             fetchList();
+            PollingManager.triggerRefreshByFetchKey('Uom');
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không lưu được đơn vị tính.');
         }

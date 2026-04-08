@@ -1,4 +1,5 @@
 import apiClient, { extractBody } from './axios';
+import { invalidate } from './pollingManager';
 
 function getPayload(data) {
     return data?.data ?? data?.Data ?? data ?? null;
@@ -143,6 +144,7 @@ export async function getGoodsDeliveryNoteDetail(id) {
 export async function createGoodsDeliveryNote(payload) {
     try {
         const response = await apiClient.post('/GoodsDeliveryNote', payload);
+        invalidate('good-delivery-note');
         return getPayload(response?.data);
     } catch (error) {
         if (error?.response?.status === 404) {

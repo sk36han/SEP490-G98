@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Button,
@@ -490,6 +491,11 @@ export default function ViewPurchaseOrderList() {
     useEffect(() => {
         fetchList();
     }, [fetchList]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('purchaseOrders', () => fetchListRef.current?.());
 
     const handleRefresh = () => {
         setPage(0);

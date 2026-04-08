@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Danh mục sản phẩm (Item Category) – kết nối CategoryController.
@@ -56,6 +57,7 @@ export async function createCategory(payload) {
         categoryName: payload.categoryName ?? payload.CategoryName,
         parentId: payload.parentId ?? payload.ParentId ?? null,
     });
+    invalidate('category');
     return response?.data?.data ?? response?.data;
 }
 
@@ -69,6 +71,7 @@ export async function updateCategory(id, payload) {
         parentId: payload.parentId ?? payload.ParentId ?? null,
         isActive: payload.isActive,
     });
+    invalidate('category');
     return response?.data?.data ?? response?.data;
 }
 
@@ -79,5 +82,6 @@ export async function toggleCategoryStatus(id, isActive) {
     const response = await apiClient.patch(`/Category/change-status-category/${id}`, null, {
         params: { isActive: !!isActive },
     });
+    invalidate('category');
     return response?.data?.data ?? response?.data;
 }

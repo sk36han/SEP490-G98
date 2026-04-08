@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Đơn vị tính (Unit of Measure) – kết nối UnitOfMeasureController.
@@ -62,6 +63,7 @@ export async function getUomById(id) {
  */
 export async function createUom(payload) {
     const response = await apiClient.post('/UnitOfMeasure', { uomName: payload.uomName });
+    invalidate('uom');
     return response?.data;
 }
 
@@ -73,6 +75,7 @@ export async function createUom(payload) {
  */
 export async function updateUom(id, payload) {
     const response = await apiClient.put(`/UnitOfMeasure/${id}`, { uomName: payload.uomName, isActive: payload.isActive });
+    invalidate('uom');
     return response?.data;
 }
 
@@ -86,5 +89,6 @@ export async function toggleUomStatus(id, isActive) {
     const response = await apiClient.patch(`/UnitOfMeasure/${id}/status`, null, {
         params: { isActive: !!isActive },
     });
+    invalidate('uom');
     return response?.data;
 }

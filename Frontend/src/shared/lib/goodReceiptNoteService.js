@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Good Receipt Note API – kết nối GoodsReceiptNoteController.
@@ -69,6 +70,7 @@ export async function getGoodReceiptNotes({ page = 1, pageSize = 20, purchaseOrd
  */
 export async function createGoodReceiptNote(payload) {
     const response = await apiClient.post('/GoodsReceiptNote/create', payload);
+    invalidate('good-receipt-note');
     return response?.data;
 }
 
