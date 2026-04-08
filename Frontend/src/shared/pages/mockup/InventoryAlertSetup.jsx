@@ -37,6 +37,7 @@ import {
     Checkbox,
     FormGroup,
     FormControlLabel,
+    Switch,
 } from '@mui/material';
 import {
     Columns,
@@ -52,6 +53,235 @@ import AlertFilterPopup from '../../components/AlertFilterPopup';
 import { getItemWarehousePolicyList } from '../../lib/itemWarehousePolicyService';
 import '../../styles/ListView.css';
 
+// ─── Mock data (thay thế API thực khi backend chưa hoạt động) ───────────────
+const MOCK_WAREHOUSE_POLICIES = [
+    {
+        alertId: 'AL-001',
+        itemId: 'ITEM-001',
+        itemCode: 'SKU-001',
+        itemName: 'Sữa tươi Vinamilk 180ml',
+        uom: 'Thùng',
+        warehouseId: 'WH-001',
+        warehouseName: 'Kho Tổng Hà Nội',
+        onHandQty: 450,
+        minQty: 100,
+        reorderQty: 200,
+        isActive: true,
+        createdBy: 'Nguyễn Văn Minh',
+        createdAt: '2026-03-15T08:30:00',
+    },
+    {
+        alertId: 'AL-002',
+        itemId: 'ITEM-002',
+        itemCode: 'SKU-002',
+        itemName: 'Nước suối Aquafina 500ml',
+        uom: 'Chai',
+        warehouseId: 'WH-001',
+        warehouseName: 'Kho Tổng Hà Nội',
+        onHandQty: 50,
+        minQty: 200,
+        reorderQty: 300,
+        isActive: true,
+        createdBy: 'Trần Thị Lan',
+        createdAt: '2026-03-10T14:22:00',
+    },
+    {
+        alertId: 'AL-003',
+        itemId: 'ITEM-003',
+        itemCode: 'SKU-003',
+        itemName: 'Mì Hảo Hảo Tôm chua cay',
+        uom: 'Thùng',
+        warehouseId: 'WH-001',
+        warehouseName: 'Kho Tổng Hà Nội',
+        onHandQty: 1200,
+        minQty: 500,
+        reorderQty: 800,
+        isActive: true,
+        createdBy: 'Lê Hoàng Nam',
+        createdAt: '2026-03-08T09:15:00',
+    },
+    {
+        alertId: 'AL-004',
+        itemId: 'ITEM-004',
+        itemCode: 'SKU-004',
+        itemName: 'Gạo ST25 (Túi 5kg)',
+        uom: 'Túi',
+        warehouseId: 'WH-002',
+        warehouseName: 'Kho Quận 9',
+        onHandQty: 4000,
+        minQty: 1000,
+        reorderQty: 2000,
+        isActive: true,
+        createdBy: 'Phạm Thị Hương',
+        createdAt: '2026-03-20T11:45:00',
+    },
+    {
+        alertId: 'AL-005',
+        itemId: 'ITEM-005',
+        itemCode: 'SKU-005',
+        itemName: 'Dầu ăn Tường An 1L',
+        uom: 'Chai',
+        warehouseId: 'WH-002',
+        warehouseName: 'Kho Quận 9',
+        onHandQty: 15,
+        minQty: 50,
+        reorderQty: 100,
+        isActive: false,
+        createdBy: 'Nguyễn Văn Minh',
+        createdAt: '2026-03-22T16:00:00',
+    },
+    {
+        alertId: 'AL-006',
+        itemId: 'ITEM-006',
+        itemCode: 'SKU-006',
+        itemName: 'Bánh Oreo vani 133g',
+        uom: 'Gói',
+        warehouseId: 'WH-001',
+        warehouseName: 'Kho Tổng Hà Nội',
+        onHandQty: 300,
+        minQty: 150,
+        reorderQty: 200,
+        isActive: true,
+        createdBy: 'Trần Thị Lan',
+        createdAt: '2026-03-12T10:30:00',
+    },
+    {
+        alertId: 'AL-007',
+        itemId: 'ITEM-007',
+        itemCode: 'SKU-007',
+        itemName: 'Bia Tiger lon 330ml',
+        uom: 'Lốc',
+        warehouseId: 'WH-003',
+        warehouseName: 'Kho Sài Gòn',
+        onHandQty: 80,
+        minQty: 100,
+        reorderQty: 150,
+        isActive: false,
+        createdBy: 'Lê Hoàng Nam',
+        createdAt: '2026-03-25T08:00:00',
+    },
+    {
+        alertId: 'AL-008',
+        itemId: 'ITEM-008',
+        itemCode: 'SKU-008',
+        itemName: 'Trứng gà ta (vỉ 10)',
+        uom: 'Vỉ',
+        warehouseId: 'WH-003',
+        warehouseName: 'Kho Sài Gòn',
+        onHandQty: 600,
+        minQty: 200,
+        reorderQty: 300,
+        isActive: true,
+        createdBy: 'Phạm Thị Hương',
+        createdAt: '2026-03-18T13:20:00',
+    },
+    {
+        alertId: 'AL-009',
+        itemId: 'ITEM-009',
+        itemCode: 'SKU-009',
+        itemName: 'Xúc xích Vissan 500g',
+        uom: 'Gói',
+        warehouseId: 'WH-001',
+        warehouseName: 'Kho Tổng Hà Nội',
+        onHandQty: 250,
+        minQty: 100,
+        reorderQty: 180,
+        isActive: true,
+        createdBy: 'Nguyễn Văn Minh',
+        createdAt: '2026-03-05T07:45:00',
+    },
+    {
+        alertId: 'AL-010',
+        itemId: 'ITEM-010',
+        itemCode: 'SKU-010',
+        itemName: 'Sữa đặc Ông Thọ 397g',
+        uom: 'Hộp',
+        warehouseId: 'WH-002',
+        warehouseName: 'Kho Quận 9',
+        onHandQty: 30,
+        minQty: 80,
+        reorderQty: 120,
+        isActive: false,
+        createdBy: 'Trần Thị Lan',
+        createdAt: '2026-03-14T15:10:00',
+    },
+    {
+        alertId: 'AL-011',
+        itemId: 'ITEM-011',
+        itemCode: 'SKU-011',
+        itemName: 'Cà phê G7 3in1',
+        uom: 'Hộp',
+        warehouseId: 'WH-001',
+        warehouseName: 'Kho Tổng Hà Nội',
+        onHandQty: 900,
+        minQty: 300,
+        reorderQty: 500,
+        isActive: true,
+        createdBy: 'Lê Hoàng Nam',
+        createdAt: '2026-03-28T09:00:00',
+    },
+    {
+        alertId: 'AL-012',
+        itemId: 'ITEM-012',
+        itemCode: 'SKU-012',
+        itemName: 'Nước mắm Nam Ngư 500ml',
+        uom: 'Chai',
+        warehouseId: 'WH-003',
+        warehouseName: 'Kho Sài Gòn',
+        onHandQty: 180,
+        minQty: 100,
+        reorderQty: 150,
+        isActive: true,
+        createdBy: 'Phạm Thị Hương',
+        createdAt: '2026-03-30T10:30:00',
+    },
+    {
+        alertId: 'AL-013',
+        itemId: 'ITEM-013',
+        itemCode: 'SKU-013',
+        itemName: 'Gói tương ăn liền 200g',
+        uom: 'Gói',
+        warehouseId: 'WH-002',
+        warehouseName: 'Kho Quận 9',
+        onHandQty: 5,
+        minQty: 60,
+        reorderQty: 100,
+        isActive: false,
+        createdBy: 'Nguyễn Văn Minh',
+        createdAt: '2026-04-01T08:15:00',
+    },
+    {
+        alertId: 'AL-014',
+        itemId: 'ITEM-014',
+        itemCode: 'SKU-014',
+        itemName: 'Tã dán newborn (pack 40)',
+        uom: 'Pack',
+        warehouseId: 'WH-001',
+        warehouseName: 'Kho Tổng Hà Nội',
+        onHandQty: 120,
+        minQty: 50,
+        reorderQty: 80,
+        isActive: true,
+        createdBy: 'Trần Thị Lan',
+        createdAt: '2026-04-03T11:00:00',
+    },
+    {
+        alertId: 'AL-015',
+        itemId: 'ITEM-015',
+        itemCode: 'SKU-015',
+        itemName: 'Nước rửa chén Sunlight 750ml',
+        uom: 'Chai',
+        warehouseId: 'WH-003',
+        warehouseName: 'Kho Sài Gòn',
+        onHandQty: 95,
+        minQty: 50,
+        reorderQty: 100,
+        isActive: true,
+        createdBy: 'Lê Hoàng Nam',
+        createdAt: '2026-04-05T14:45:00',
+    },
+];
+
 // ─── Cột hiển thị ────────────────────────────────────────────────────────────
 const ALERT_COLUMNS = [
     {
@@ -59,6 +289,12 @@ const ALERT_COLUMNS = [
         label: 'STT',
         sortable: false,
         getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1,
+    },
+    {
+        id: 'alertId',
+        label: 'Mã thiết lập',
+        sortable: true,
+        getValue: (row) => row.alertId ?? '',
     },
     {
         id: 'itemCode',
@@ -79,28 +315,29 @@ const ALERT_COLUMNS = [
         getValue: (row) => row.warehouseName ?? '-',
     },
     {
-        id: 'uom',
-        label: 'ĐVT',
-        sortable: false,
-        getValue: (row) => row.uom ?? '-',
-    },
-    {
         id: 'onHandQty',
-        label: 'Tồn thực tế',
+        label: 'Tồn hiện tại',
         sortable: true,
         getValue: (row) => row.onHandQty != null ? Number(row.onHandQty).toLocaleString('vi-VN') : '-',
+        getColor: (row) => {
+            const qty = row.onHandQty ?? 0;
+            const min = row.minQty ?? 0;
+            return qty < min ? '#dc2626' : '#16a34a'; // đỏ nếu dưới định mức, xanh nếu an toàn
+        },
     },
     {
         id: 'minQty',
-        label: 'Tồn tối thiểu',
+        label: 'Ngưỡng tồn tối thiểu',
         sortable: true,
         getValue: (row) => row.minQty != null ? Number(row.minQty).toLocaleString('vi-VN') : '-',
+        getColor: () => '#d97706', // cam — ngưỡng cảnh báo
     },
     {
         id: 'reorderQty',
-        label: 'Số lượng đặt lại',
+        label: 'SL nhập đề xuất',
         sortable: true,
         getValue: (row) => row.reorderQty != null ? Number(row.reorderQty).toLocaleString('vi-VN') : '-',
+        getColor: () => '#2563eb', // xanh dương — đề xuất nhập
     },
     {
         id: 'status',
@@ -113,29 +350,48 @@ const ALERT_COLUMNS = [
             return 'An toàn';
         },
     },
+    {
+        id: 'createdBy',
+        label: 'Nhân viên tạo',
+        sortable: true,
+        getValue: (row) => row.createdBy ?? '-',
+    },
+    {
+        id: 'createdAt',
+        label: 'Ngày tạo',
+        sortable: true,
+        getValue: (row) => {
+            if (!row.createdAt) return '-';
+            const d = new Date(row.createdAt);
+            return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        },
+    },
 ];
 
 const SORTABLE_COLUMN_IDS = ALERT_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
+
 const DEFAULT_VISIBLE_COLUMN_IDS = ALERT_COLUMNS.map((c) => c.id);
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 const getTableColumnWidth = (colId) => {
     switch (colId) {
         case 'stt': return 56;
-        case 'itemCode': return 230;
-        case 'itemName': return 220;
+        case 'alertId': return 130;
+        case 'itemCode': return 130;
+        case 'itemName': return 230;
         case 'warehouse': return 160;
-        case 'uom': return 100;
-        case 'onHandQty': return 150;
+        case 'onHandQty': return 140;
         case 'minQty': return 150;
         case 'reorderQty': return 150;
-        case 'status': return 180;
+        case 'status': return 150;
+        case 'createdBy': return 140;
+        case 'createdAt': return 120;
         default: return 160;
     }
 };
 
 const isCenterAlignedColumn = (colId) =>
-    ['stt', 'onHandQty', 'minQty', 'reorderQty'].includes(colId);
+    ['stt', 'onHandQty', 'minQty', 'reorderQty', 'createdAt'].includes(colId);
 
 // ─── Styles giống ViewItemList ────────────────────────────────────────────────
 const bodyCellBaseSx = {
@@ -154,6 +410,7 @@ const InventoryAlertSetup = () => {
 
     // Dữ liệu
     const [data, setData] = useState([]);
+    const [activeMap, setActiveMap] = useState({});
     const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -197,21 +454,27 @@ const InventoryAlertSetup = () => {
     const [orderBy, setOrderBy] = useState(null);
     const [order, setOrder] = useState('asc');
 
-    // Load data
+    // Load data (dùng mock data, bỏ comment để gọi API thật khi backend sẵn sàng)
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const filters = filterValuesRef.current;
-            const result = await getItemWarehousePolicyList({
-                page: page + 1,
-                pageSize,
-                keyword: searchTerm || undefined,
-                warehouseId: filters.warehouseId || undefined,
-                statusFilter: filters.statusFilter || undefined,
-            });
+            // ── Mock data fallback (bỏ comment dòng dưới, comment dòng API khi backend sẵn sàng) ──
+            // const result = await getItemWarehousePolicyList({ ... });
+
+            // Mock: trả về đúng cấu trúc { items, totalItems }
+            const result = {
+                items: MOCK_WAREHOUSE_POLICIES,
+                totalItems: MOCK_WAREHOUSE_POLICIES.length,
+            };
+
             setData(result.items);
             setTotalItems(result.totalItems);
+
+            // Khởi tạo activeMap từ mock data
+            const initActive = {};
+            result.items.forEach((item) => { initActive[item.alertId] = item.isActive ?? true; });
+            setActiveMap(initActive);
         } catch (err) {
             const msg = err?.message ?? err?.response?.data?.message ?? err?.response?.data?.detail ?? 'Không thể tải danh sách cảnh báo.';
             setError(msg);
@@ -351,6 +614,11 @@ const InventoryAlertSetup = () => {
         setPageSize(newSize);
         setPage(0);
         localStorage.setItem('alertPageSize', String(newSize));
+    };
+
+    // Toggle bật/tắt cảnh báo nhanh
+    const handleToggleActive = (alertId) => {
+        setActiveMap((prev) => ({ ...prev, [alertId]: !prev[alertId] }));
     };
 
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
@@ -949,6 +1217,82 @@ const InventoryAlertSetup = () => {
                                                                 );
                                                             }
 
+                                                            if (col.id === 'alertId') {
+                                                                const isActive = activeMap[row.alertId] ?? true;
+                                                                return (
+                                                                    <TableCell key={col.id} align="left" sx={{ ...bodyCellBaseSx }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                            <Tooltip
+                                                                                title={isActive ? 'Tắt cảnh báo này' : 'Bật cảnh báo này'}
+                                                                                arrow
+                                                                            >
+                                                                                <Switch
+                                                                                    size="small"
+                                                                                    checked={isActive}
+                                                                                    onChange={() => handleToggleActive(row.alertId)}
+                                                                                    sx={{
+                                                                                        p: 0,
+                                                                                        '& .MuiSwitch-switchBase': {
+                                                                                            '&.Mui-checked': {
+                                                                                                color: '#16a34a',
+                                                                                                '& + .MuiSwitch-track': {
+                                                                                                    bgcolor: '#16a34a',
+                                                                                                    opacity: 0.2,
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                        '& .MuiSwitch-thumb': {
+                                                                                            bgcolor: isActive ? '#16a34a' : '#9ca3af',
+                                                                                        },
+                                                                                        '& .MuiSwitch-track': {
+                                                                                            bgcolor: isActive ? 'rgba(22, 163, 74, 0.2)' : '#e5e7eb',
+                                                                                            borderRadius: '10px',
+                                                                                            opacity: 1,
+                                                                                        },
+                                                                                    }}
+                                                                                />
+                                                                            </Tooltip>
+                                                                            <Box
+                                                                                component="a"
+                                                                                href="#"
+                                                                                onClick={(e) => { e.preventDefault(); console.log('Open detail:', row.alertId); }}
+                                                                                sx={{
+                                                                                    color: '#3b82f6',
+                                                                                    textDecoration: 'none',
+                                                                                    fontWeight: 500,
+                                                                                    cursor: 'pointer',
+                                                                                    overflow: 'hidden',
+                                                                                    textOverflow: 'ellipsis',
+                                                                                    whiteSpace: 'nowrap',
+                                                                                    '&:hover': { textDecoration: 'underline' },
+                                                                                }}
+                                                                                title={col.getValue(row, index, opts)}
+                                                                            >
+                                                                                {col.getValue(row, index, opts)}
+                                                                            </Box>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            }
+
+                                                            if (col.id === 'itemName') {
+                                                                return (
+                                                                    <TableCell key={col.id} align="left" sx={{ ...bodyCellBaseSx }}>
+                                                                        <Box
+                                                                            title={col.getValue(row, index, opts)}
+                                                                            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                        >
+                                                                            <Typography sx={{ fontSize: '13px', color: '#374151', lineHeight: 1.4 }}>
+                                                                                {col.getValue(row, index, opts)}
+                                                                            </Typography>
+                                                                            <Typography sx={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.4 }}>
+                                                                                {row.uom ?? '-'}
+                                                                            </Typography>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                );
+                                                            }
+
                                                             if (col.id === 'status') {
                                                                 return (
                                                                     <TableCell
@@ -986,6 +1330,8 @@ const InventoryAlertSetup = () => {
                                                                 );
                                                             }
 
+                                                            const isNumberCol = ['onHandQty', 'minQty', 'reorderQty'].includes(col.id);
+
                                                             return (
                                                                 <TableCell
                                                                     key={col.id}
@@ -995,10 +1341,22 @@ const InventoryAlertSetup = () => {
                                                                         overflow: 'hidden',
                                                                         textOverflow: 'ellipsis',
                                                                         whiteSpace: 'nowrap',
+                                                                        ...(isNumberCol && {
+                                                                            '& span': {
+                                                                                color: col.getColor ? col.getColor(row) : 'inherit',
+                                                                                fontWeight: 700,
+                                                                            },
+                                                                        }),
                                                                     }}
                                                                     title={col.getValue(row, index, opts)}
                                                                 >
-                                                                    {col.getValue(row, index, opts)}
+                                                                    {isNumberCol && col.getColor ? (
+                                                                        <span style={{ fontWeight: 700, color: col.getColor(row) }}>
+                                                                            {col.getValue(row, index, opts)}
+                                                                        </span>
+                                                                    ) : (
+                                                                        col.getValue(row, index, opts)
+                                                                    )}
                                                                 </TableCell>
                                                             );
                                                         })}
