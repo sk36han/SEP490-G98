@@ -327,34 +327,24 @@ namespace Warehouse.DataAcces.Service
             // 13. Generate GDN Code
             var gdnCode = await GenerateNextGdnCodeAsync();
 
-            // 14. Calculate totals – UnitPrice lấy từ InventoryLot.UnitCost (lot đầu tiên theo FIFO/LIFO)
+            // 14. Calculate totals – UnitPrice tính bình quân gia quyền từ các lô (FIFO/LIFO)
             decimal totalDeliveredQty = 0;
             decimal totalDeliveredAmount = 0;
 
-            // Truy vấn lot đầu tiên (theo FIFO/LIFO) cho mỗi item trong kho này
-            var allLots = await _context.InventoryLots
-                .Where(lot => lot.WarehouseId == request.WarehouseId
-                           && itemIds.Contains(lot.ItemId)
-                           && lot.IsActive
-                           && lot.Quantity > 0)
-                .ToListAsync();
+            // Xây dựng map ItemId → Số lượng cần xuất
+            var itemQtyMap = request.Lines
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.ActualQty));
 
-            var firstLotByItem = allLots
-                .GroupBy(lot => lot.ItemId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => pickingStrategy == "LIFO"
-                        ? g.OrderByDescending(lot => lot.ReceiptDate).First()
-                        : g.OrderBy(lot => lot.ReceiptDate).First()
-                );
+            var unitPriceByItem = await GetItemWeightedUnitPricesFromLotsAsync(request.WarehouseId, itemQtyMap, pickingStrategy);
 
             foreach (var line in request.Lines)
             {
-                if (!firstLotByItem.ContainsKey(line.ItemId))
+                if (!unitPriceByItem.ContainsKey(line.ItemId) || unitPriceByItem[line.ItemId] == 0)
                     throw new InvalidOperationException(
                         $"Vật tư '{items[line.ItemId].ItemName}' không có lô hàng nào trong kho '{warehouse.WarehouseName}'.");
 
-                var unitPrice = firstLotByItem[line.ItemId].UnitCost;
+                var unitPrice = unitPriceByItem[line.ItemId];
                 totalDeliveredQty += line.ActualQty;
                 totalDeliveredAmount += line.ActualQty * unitPrice;
             }
@@ -393,7 +383,7 @@ namespace Warehouse.DataAcces.Service
             // 16. Create GDN Lines – gán UnitPrice từ InventoryLot.UnitCost
             foreach (var line in request.Lines)
             {
-                var unitPrice = firstLotByItem[line.ItemId].UnitCost;
+                var unitPrice = unitPriceByItem[line.ItemId];
                 var gdnLine = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
@@ -979,6 +969,72 @@ namespace Warehouse.DataAcces.Service
             return $"{prefix}{(countThisYear + 1):D4}";
         }
 
+        /// <summary>
+        /// Tính giá bình quân gia quyền cho mỗi item dựa trên số lượng cần xuất,
+        /// mô phỏng lấy hàng từ nhiều lô (FIFO/LIFO).
+        /// Ví dụ: Xuất 100sp, Lô A có 40sp giá 10đ, Lô B có 60sp giá 12đ
+        ///        → UnitPrice = (40×10 + 60×12) / 100 = 11.2đ
+        /// </summary>
+        /// <param name="warehouseId">Kho xuất</param>
+        /// <param name="itemQtyMap">Dictionary ItemId → Số lượng cần xuất</param>
+        /// <param name="pickingStrategy">FIFO hoặc LIFO</param>
+        private async Task<Dictionary<long, decimal>> GetItemWeightedUnitPricesFromLotsAsync(
+            long warehouseId, Dictionary<long, decimal> itemQtyMap, string pickingStrategy)
+        {
+            var itemIds = itemQtyMap.Keys.ToList();
+
+            var allLots = await _context.InventoryLots
+                .Where(lot => lot.WarehouseId == warehouseId
+                           && itemIds.Contains(lot.ItemId)
+                           && lot.IsActive
+                           && lot.Quantity > 0)
+                .ToListAsync();
+
+            var result = new Dictionary<long, decimal>();
+
+            foreach (var itemId in itemIds)
+            {
+                var requestedQty = itemQtyMap[itemId];
+
+                // Sắp xếp lô theo chiến lược FIFO/LIFO
+                var lots = allLots
+                    .Where(lot => lot.ItemId == itemId)
+                    .ToList();
+
+                lots = pickingStrategy == "LIFO"
+                    ? lots.OrderByDescending(lot => lot.ReceiptDate).ToList()
+                    : lots.OrderBy(lot => lot.ReceiptDate).ToList();
+
+                if (lots.Count == 0)
+                {
+                    result[itemId] = 0;
+                    continue;
+                }
+
+                // Mô phỏng lấy hàng từ nhiều lô và tính tổng giá trị
+                decimal remainingQty = requestedQty;
+                decimal totalCost = 0;
+                decimal totalPickedQty = 0;
+
+                foreach (var lot in lots)
+                {
+                    if (remainingQty <= 0) break;
+
+                    var pickQty = Math.Min(lot.Quantity, remainingQty);
+                    totalCost += pickQty * lot.UnitCost;
+                    totalPickedQty += pickQty;
+                    remainingQty -= pickQty;
+                }
+
+                // Tính giá bình quân gia quyền
+                result[itemId] = totalPickedQty > 0
+                    ? Math.Round(totalCost / totalPickedQty, 2)
+                    : 0;
+            }
+
+            return result;
+        }
+
         // ==================== UPDATE & CANCEL (Medium Priority) ====================
 
         public async Task<GoodsDeliveryNoteResponse> UpdateGDNAsync(long gdnId, long userId, CreateGDNRequest request)
@@ -1011,6 +1067,16 @@ namespace Warehouse.DataAcces.Service
             gdn.Note = request.Note;
             gdn.ShippingFee = request.ShippingFee ?? 0;
 
+            // 12b. Validate PickingStrategy
+            var pickingStrategy = (request.PickingStrategy ?? (gdn.Note?.Contains("[LIFO]") == true ? "LIFO" : "FIFO")).ToUpperInvariant();
+
+            // Xây dựng map ItemId → Số lượng cần xuất
+            var itemQtyMap = request.Lines
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.ActualQty));
+
+            var unitPriceByItem = await GetItemWeightedUnitPricesFromLotsAsync(gdn.WarehouseId, itemQtyMap, pickingStrategy);
+
             // Xóa line cũ và thêm line mới (đơn giản hóa)
             _context.GoodsDeliveryNoteLines.RemoveRange(gdn.GoodsDeliveryNoteLines);
             
@@ -1019,20 +1085,27 @@ namespace Warehouse.DataAcces.Service
 
             foreach (var lineReq in request.Lines)
             {
+                // Lấy UnitPrice bình quân gia quyền từ lô hàng
+                var unitPrice = unitPriceByItem.ContainsKey(lineReq.ItemId) 
+                    ? unitPriceByItem[lineReq.ItemId] 
+                    : 0;
+
+                var lineTotal = lineReq.ActualQty * unitPrice;
+
                 var line = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
                     ItemId = lineReq.ItemId,
                     UomId = lineReq.UomId,
                     ActualQty = lineReq.ActualQty,
-                    UnitPrice = lineReq.UnitPrice,
-                    LineTotal = lineReq.ActualQty * lineReq.UnitPrice,
+                    UnitPrice = unitPrice,
+                    LineTotal = lineTotal,
                     ReleaseRequestLineId = lineReq.ReleaseRequestLineId,
                     Note = lineReq.Note
                 };
                 gdn.GoodsDeliveryNoteLines.Add(line);
                 totalQty += line.ActualQty;
-                totalAmount += (line.LineTotal ?? 0);
+                totalAmount += lineTotal;
             }
 
             gdn.TotalDeliveredQty = totalQty;

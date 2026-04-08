@@ -197,8 +197,14 @@ namespace Warehouse.DataAcces.Service
                 );
             }
 
+            // Lấy giá bình quân gia quyền dự kiến cho response (mặc định FIFO)
+            var itemQtyMap = request.Lines
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
+            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(request.WarehouseId, itemQtyMap, "FIFO");
+
             // 13. Trả về response chi tiết
-            return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms);
+            return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms, unitPrices);
         }
 
         // ──────────────────────────── LIST ────────────────────────────
@@ -285,6 +291,12 @@ namespace Warehouse.DataAcces.Service
             var lastApproval = approvals
                 .LastOrDefault(a => a.Decision == "APPROVE");
 
+            // Lấy giá bình quân gia quyền dự kiến từ các lô hàng trong kho (mặc định FIFO)
+            var itemQtyMap = rr.ReleaseRequestLines
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
+            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(rr.WarehouseId, itemQtyMap, "FIFO");
+
             return new ReleaseRequestDetailResponse
             {
                 ReleaseRequestId = rr.ReleaseRequestId,
@@ -330,7 +342,9 @@ namespace Warehouse.DataAcces.Service
                     ApprovedQty = l.ApprovedQty,
                     AllocatedQty = l.AllocatedQty,
                     IssuedQty = l.IssuedQty,
-                    LineStatus = l.LineStatus
+                    LineStatus = l.LineStatus,
+                    StockQty = 0, // Sẽ tính sau nếu cần, hoặc bỏ qua nếu frontend không dùng
+                    UnitPrice = unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0
                 }).ToList(),
                 Approvals = approvals.Select(a => new RRApprovalResponse
                 {
@@ -935,7 +949,8 @@ namespace Warehouse.DataAcces.Service
             Receiver receiver,
             User requestedByUser,
             Dictionary<long, Item> items,
-            Dictionary<long, UnitOfMeasure> uoms)
+            Dictionary<long, UnitOfMeasure> uoms,
+            Dictionary<long, decimal> unitPrices)
         {
             return new ReleaseRequestDetailResponse
             {
@@ -981,9 +996,60 @@ namespace Warehouse.DataAcces.Service
                     ApprovedQty = l.ApprovedQty,
                     AllocatedQty = l.AllocatedQty,
                     IssuedQty = l.IssuedQty,
-                    LineStatus = l.LineStatus
+                    LineStatus = l.LineStatus,
+                    StockQty = 0,
+                    UnitPrice = unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0
                 }).ToList()
             };
+        }
+        /// <summary>
+        /// Tính giá bình quân gia quyền cho mỗi item dựa trên số lượng cần xuất,
+        /// mô phỏng lấy hàng từ nhiều lô (FIFO/LIFO).
+        /// </summary>
+        private async Task<Dictionary<long, decimal>> GetItemWeightedUnitPricesFromLotsAsync(
+            long warehouseId, Dictionary<long, decimal> itemQtyMap, string pickingStrategy)
+        {
+            var itemIds = itemQtyMap.Keys.ToList();
+
+            var allLots = await _context.InventoryLots
+                .Where(lot => lot.WarehouseId == warehouseId
+                           && itemIds.Contains(lot.ItemId)
+                           && lot.IsActive
+                           && lot.Quantity > 0)
+                .ToListAsync();
+
+            var result = new Dictionary<long, decimal>();
+
+            foreach (var itemId in itemIds)
+            {
+                var requestedQty = itemQtyMap[itemId];
+                var lots = allLots.Where(lot => lot.ItemId == itemId).ToList();
+
+                lots = pickingStrategy == "LIFO"
+                    ? lots.OrderByDescending(lot => lot.ReceiptDate).ToList()
+                    : lots.OrderBy(lot => lot.ReceiptDate).ToList();
+
+                if (lots.Count == 0) { result[itemId] = 0; continue; }
+
+                decimal remainingQty = requestedQty;
+                decimal totalCost = 0;
+                decimal totalPickedQty = 0;
+
+                foreach (var lot in lots)
+                {
+                    if (remainingQty <= 0) break;
+                    var pickQty = Math.Min(lot.Quantity, remainingQty);
+                    totalCost += pickQty * lot.UnitCost;
+                    totalPickedQty += pickQty;
+                    remainingQty -= pickQty;
+                }
+
+                result[itemId] = totalPickedQty > 0
+                    ? Math.Round(totalCost / totalPickedQty, 2)
+                    : 0;
+            }
+
+            return result;
         }
     }
 }

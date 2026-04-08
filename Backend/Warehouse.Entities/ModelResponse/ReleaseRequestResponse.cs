@@ -121,5 +121,6 @@ namespace Warehouse.Entities.ModelResponse
         public decimal IssuedQty { get; set; }
         public string LineStatus { get; set; } = null!;
         public decimal StockQty { get; set; }
+        public decimal? UnitPrice { get; set; }
     }
 }
