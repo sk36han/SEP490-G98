@@ -45,11 +45,13 @@ import {
     GripVertical,
     Package,
     RotateCcw,
+    Plus,
 } from 'lucide-react';
 import Toast from '../../../components/Toast/Toast';
 import { useToast } from '../../hooks/useToast';
 import SearchInput from '../../components/SearchInput';
 import AlertFilterPopup from '../../components/AlertFilterPopup';
+import CreateAlertDialog from '../../components/CreateAlertDialog';
 import { getItemWarehousePolicyList } from '../../lib/itemWarehousePolicyService';
 import '../../styles/ListView.css';
 
@@ -430,6 +432,9 @@ const InventoryAlertSetup = () => {
     const [filterValues, setFilterValues] = useState({});
     const filterValuesRef = useRef({});
 
+    // Dialog tạo mới
+    const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
     // Cột
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
         const saved = localStorage.getItem('alertVisibleColumns');
@@ -621,6 +626,16 @@ const InventoryAlertSetup = () => {
         setActiveMap((prev) => ({ ...prev, [alertId]: !prev[alertId] }));
     };
 
+    // Thêm thiết lập mới
+    const handleCreateAlert = (newAlert) => {
+        const alertId = `AL-${String(MOCK_WAREHOUSE_POLICIES.length + 1).padStart(3, '0')}`;
+        const newRow = { ...newAlert, alertId };
+        setData((prev) => [newRow, ...prev]);
+        setTotalItems((prev) => prev + 1);
+        setActiveMap((prev) => ({ ...prev, [alertId]: true }));
+        showToast('Thêm thiết lập cảnh báo thành công!', 'success');
+    };
+
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
     useEffect(() => {
         if (columnSelectorOpen) {
@@ -802,6 +817,26 @@ const InventoryAlertSetup = () => {
                                     }}
                                 />
 
+                                {/* Column selector */}
+                                <Tooltip title="Chọn cột hiển thị">
+                                    <IconButton
+                                        color="primary"
+                                        onClick={(e) => { setColumnSelectorAnchor(e.currentTarget); setTempColumnOrder(columnOrder); }}
+                                        aria-label="Chọn cột"
+                                        sx={{
+                                            border: '1px solid #e5e7eb',
+                                            bgcolor: '#ffffff',
+                                            borderRadius: '10px',
+                                            '&:hover': {
+                                                bgcolor: '#f9fafb',
+                                                borderColor: '#d1d5db',
+                                            },
+                                        }}
+                                    >
+                                        <Columns size={20} />
+                                    </IconButton>
+                                </Tooltip>
+
                                 {/* Filter button */}
                                 <Tooltip title="Bộ lọc">
                                     <IconButton
@@ -822,25 +857,30 @@ const InventoryAlertSetup = () => {
                                     </IconButton>
                                 </Tooltip>
 
-                                {/* Column selector – IconButton giống ViewItemList */}
-                                <Tooltip title="Chọn cột hiển thị">
-                                    <IconButton
-                                        color="primary"
-                                        onClick={(e) => { setColumnSelectorAnchor(e.currentTarget); setTempColumnOrder(columnOrder); }}
-                                        aria-label="Chọn cột"
+                                {/* Nút Thêm thiết lập — đẩy sang phải */}
+                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: 'auto' }}>
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<Plus size={16} />}
+                                        onClick={() => setCreateDialogOpen(true)}
                                         sx={{
-                                            border: '1px solid #e5e7eb',
-                                            bgcolor: '#ffffff',
+                                            textTransform: 'none',
+                                            fontWeight: 600,
+                                            fontSize: '13px',
+                                            px: 2,
+                                            py: 0.75,
                                             borderRadius: '10px',
+                                            boxShadow: 'none',
+                                            bgcolor: '#3b82f6',
                                             '&:hover': {
-                                                bgcolor: '#f9fafb',
-                                                borderColor: '#d1d5db',
+                                                bgcolor: '#2563eb',
+                                                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
                                             },
                                         }}
                                     >
-                                        <Columns size={20} />
-                                    </IconButton>
-                                </Tooltip>
+                                        Thêm thiết lập
+                                    </Button>
+                                </Box>
                             </Box>
                         </CardContent>
                     </Card>
@@ -1469,6 +1509,12 @@ const InventoryAlertSetup = () => {
                     onClose={() => setFilterOpen(false)}
                     initialValues={filterValues}
                     onApply={handleFilterApply}
+                />
+
+                <CreateAlertDialog
+                    open={createDialogOpen}
+                    onClose={() => setCreateDialogOpen(false)}
+                    onSubmit={handleCreateAlert}
                 />
 
                 {/* Toast đặt đúng vị trí như ViewItemList – sau list-view, trong root */}
