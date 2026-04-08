@@ -69,6 +69,8 @@ const CreatePurchaseOrder = () => {
         unitPrice: Number(it.purchasePrice ?? 0),
         uom: it.uomName || '',
         image: it.imageUrl || null,
+        hasCO: !!(it.requiresCo || it.requiresCO),
+        hasCQ: !!(it.requiresCq || it.requiresCQ),
     });
     
     const [formData, setFormData] = useState({
@@ -153,6 +155,8 @@ const CreatePurchaseOrder = () => {
                             unitPrice: Number(it.purchasePrice ?? 0),
                             uom: it.uomName || '',
                             image: it.imageUrl || null,
+                            hasCO: !!(it.requiresCO || it.requiresCo),
+                            hasCQ: !!(it.requiresCQ || it.requiresCq),
                         }));
                     setProducts(mappedProducts);
                     setProductsError(null);
@@ -261,8 +265,8 @@ const CreatePurchaseOrder = () => {
             orderedQty: 1,
             unitPrice: product.unitPrice,
             totalPrice: product.unitPrice,
-            hasCO: false,
-            hasCQ: false,
+            hasCO: !!(product.hasCO),
+            hasCQ: !!(product.hasCQ),
             note: ''
         };
         
@@ -306,8 +310,8 @@ const CreatePurchaseOrder = () => {
                     orderedQty: 1,
                     unitPrice: product.unitPrice,
                     totalPrice: product.unitPrice,
-                    hasCO: false,
-                    hasCQ: false,
+                    hasCO: !!(product.hasCO || product.requiresCO || product.requiresCo),
+                    hasCQ: !!(product.hasCQ || product.requiresCQ || product.requiresCq),
                     note: ''
                 });
             } else {
@@ -353,6 +357,8 @@ const CreatePurchaseOrder = () => {
                             unitPrice: Number(it.purchasePrice ?? 0),
                             uom: it.uomName || '',
                             image: it.imageUrl || null,
+                            hasCO: !!(it.requiresCo || it.requiresCO),
+                            hasCQ: !!(it.requiresCq || it.requiresCQ),
                         }));
                     setProducts(mapped);
                     setFilteredProducts(mapped);
@@ -395,6 +401,8 @@ const CreatePurchaseOrder = () => {
                             unitPrice: Number(it.purchasePrice ?? 0),
                             uom: it.uomName || '',
                             image: it.imageUrl || null,
+                            hasCO: !!(it.requiresCo || it.requiresCO),
+                            hasCQ: !!(it.requiresCq || it.requiresCQ),
                         }));
                     setProducts(mapped);
                     setFilteredProducts(mapped);
@@ -860,11 +868,10 @@ const CreatePurchaseOrder = () => {
                                                                     supplierPhone: sup.phone,
                                                                     supplierEmail: sup.email,
                                                                     supplierTaxCode: sup.taxCode,
-                            // Map theo dữ liệu thật từ API: Address + City + Ward
-                            supplierAddressStreet: sup.addressText || '',
-                            supplierAddressWard: sup.ward || '',
-                            supplierAddressDistrict: '',
-                            supplierAddressProvince: sup.city || '',
+                                                                    supplierAddressStreet: sup.addressText || '',
+                                                                    supplierAddressWard: sup.ward || '',
+                                                                    supplierAddressDistrict: '',
+                                                                    supplierAddressProvince: sup.city || '',
                                                                 }));
                                                                 setSupplierQuery(sup.name);
                                                                 setSupplierDropdownOpen(false);

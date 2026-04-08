@@ -154,6 +154,11 @@ const authService = {
         return user?.userId ?? user?.id ?? user?.UserId ?? user?.Id ?? null;
     },
 
+    getCurrentUserName() {
+        const user = this.getUser();
+        return user?.fullName ?? user?.userName ?? user?.name ?? user?.fullname ?? null;
+    },
+
     isLoggedIn() {
         const token = this.getToken();
         if (!token) return false;
