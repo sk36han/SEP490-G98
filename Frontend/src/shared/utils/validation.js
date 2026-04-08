@@ -87,7 +87,7 @@ export const validateDOB = (dob) => {
  * @returns {{ valid: boolean, message?: string }}
  */
 export const validateGender = (gender) => {
-    const validGenders = ['male', 'female', 'other'];
+    const validGenders = ['Nam', 'Nữ', 'Khác'];
     if (!gender) {
         return { valid: false, message: 'Vui lòng chọn giới tính.' };
     }

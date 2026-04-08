@@ -906,38 +906,6 @@ export default function ViewItemDetail() {
                                 )}
                             </div>
 
-                            {/* Tài khoản kho + doanh thu (chỉ accountant, read-only) */}
-                            {!isEditing && showFullPrices && (
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                    gap: FIELD_GAP,
-                                    marginTop: FIELD_GAP,
-                                }}>
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Tài khoản kho</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 500, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', minHeight: ROW_HEIGHT,
-                                            display: 'flex', alignItems: 'center', flex: 1,
-                                        }}>
-                                            {item.inventoryAccount || '—'}
-                                        </div>
-                                    </div>
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Tài khoản doanh thu</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 500, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', minHeight: ROW_HEIGHT,
-                                            display: 'flex', alignItems: 'center', flex: 1,
-                                        }}>
-                                            {item.revenueAccount || '—'}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* ── RIGHT: Side column — Tổng quan vật tư ── */}

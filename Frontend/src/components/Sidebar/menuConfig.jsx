@@ -19,7 +19,7 @@ const COMMON_ITEMS = [];
 const PRODUCT_MATCH_PATHS = {
     FULL: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'],
     BASIC: ['/products', '/uom', '/brands'],
-    SALE_SUPPORT: ['/products', '/categories', '/brands', '/products/create', '/categories/create', '/brands/create'],
+    SALE_SUPPORT: ['/products', '/categories', '/brands'],
     ACCOUNTANT: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands', '/items', '/items/create', '/items/edit'],
 };
 
@@ -119,11 +119,8 @@ const menuCatalog = {
         matchPaths: PRODUCT_MATCH_PATHS.SALE_SUPPORT,
         children: [
             createChild('/products', 'Danh sách vật tư'),
-            createChild('/products/create', 'Tạo vật tư', { state: { openCreate: true } }),
             createChild('/categories', 'Danh mục'),
-            createChild('/categories/create', 'Tạo danh mục', { state: { openCreate: true } }),
             createChild('/brands', 'Thương hiệu'),
-            createChild('/brands/create', 'Tạo thương hiệu', { state: { openCreate: true } }),
         ],
     }),
     saleEngineerProducts: createItem({

@@ -458,7 +458,7 @@ namespace Warehouse.DataAcces.Service
             item.DefaultWarehouseId = request.DefaultWarehouseId;
             item.InventoryAccount = request.InventoryAccount?.Trim();
             item.RevenueAccount = request.RevenueAccount?.Trim();
-            item.UpdatedAt = DateTime.UtcNow;
+                item.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogDebug("[ItemService] Cap nhat thong tin item: ItemName={ItemName}, CategoryId={CategoryId}, BaseUomId={BaseUomId}",
                 item.ItemName, item.CategoryId, item.BaseUomId);

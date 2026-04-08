@@ -50,10 +50,10 @@ export async function getReceivers(params = {}) {
         : Array.isArray(payload?.Items)
             ? payload.Items
             : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.Items)
-            ? data.Items
-            : [];
+                ? data.items
+                : Array.isArray(data?.Items)
+                    ? data.Items
+                    : [];
     const items = rawItems
         .filter((row) => row != null && typeof row === 'object')
         .map((row) => ({
@@ -187,10 +187,10 @@ export async function updateReceiver(id, data) {
 
 /**
  * Lay chi tiet mot nguoi nhan.
- * GET /api/Receiver/{id} - backend tra ve ReceiverResponse truc tiep.
+ * GET /api/Receiver/get-receiver-by-id/{id} - backend tra ve ReceiverResponse truc tiep.
  */
 export async function getReceiverDetail(id) {
-    const response = await apiClient.get(`/Receiver/${id}`);
+    const response = await apiClient.get(`/Receiver/get-receiver-by-id/${id}`);
     const data = response?.data ?? {};
     const raw = data.data ?? data.Data ?? data;
     return {

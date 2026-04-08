@@ -27,7 +27,6 @@ import {
     FileText,
     Building2,
     MapPin,
-    Briefcase,
     Edit,
     Save,
     X,
@@ -123,7 +122,6 @@ export default function ViewReceiverDetail() {
         ward: '',
     });
     const [addressErrors, setAddressErrors] = useState({});
-    const [useCustomAddress, setUseCustomAddress] = useState(false);
     const [errors, setErrors] = useState({});
 
     const fetchDetail = useCallback(async () => {
@@ -210,7 +208,7 @@ export default function ViewReceiverDetail() {
                 notes: data.notes?.trim() || null,
                 isActive: data.isActive,
                 companyId: data.companyId ? Number(data.companyId) : null,
-                addressId: useCustomAddress ? null : (selectedAddr?.addressId ? Number(selectedAddr.addressId) : null),
+                addressId: selectedAddr?.addressId ? Number(selectedAddr.addressId) : null,
                 address: data.address?.trim() || null,
                 city: data.city?.trim() || null,
                 district: data.district?.trim() || null,
@@ -389,7 +387,7 @@ export default function ViewReceiverDetail() {
                                 <X size={15} />
                                 {data.isActive ? 'Ngưng hoạt động' : 'Kích hoạt'}
                             </button>
-                            <button type="button" className="btn btn-secondary" onClick={() => navigate(`/receivers/edit/${data.receiverId}`)}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>
                                 <Edit size={15} />
                                 Chỉnh sửa
                             </button>
@@ -476,16 +474,6 @@ export default function ViewReceiverDetail() {
                                         />
                                     </div>
                                     <div className="form-field span-2">
-                                        <EditableField
-                                            label="Chức vụ"
-                                            name="position"
-                                            value={data.position || ''}
-                                            onChange={handleChange}
-                                            icon={Briefcase}
-                                            placeholder="VD: Người liên hệ, Kế toán"
-                                        />
-                                    </div>
-                                    <div className="form-field span-2">
                                         <label className="form-label">Ghi chú</label>
                                         <div className="input-wrapper textarea-wrapper">
                                             <FileText className="input-icon textarea-icon" size={16} />
@@ -505,7 +493,6 @@ export default function ViewReceiverDetail() {
                                     <InfoField label="Tên người nhận" value={data.receiverName} icon={User} />
                                     <InfoField label="Số điện thoại" value={data.phone} icon={Phone} />
                                     <InfoField label="Email" value={data.email} icon={Mail} />
-                                    <InfoField label="Chức vụ" value={data.position} icon={Briefcase} />
                                     <div className="form-field span-2">
                                         <label className="form-label">Ghi chú</label>
                                         <div style={{
@@ -576,80 +563,32 @@ export default function ViewReceiverDetail() {
                                 <>
                                     <div className="form-field span-2">
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
-                                                    <input type="radio" name="addressMode" checked={!useCustomAddress} onChange={() => setUseCustomAddress(false)} />
-                                                    Chọn địa chỉ có sẵn
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
-                                                    <input type="radio" name="addressMode" checked={useCustomAddress} onChange={() => setUseCustomAddress(true)} />
-                                                    Nhập địa chỉ khác
-                                                </label>
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                                <div className="input-wrapper" style={{ flex: 1 }}>
+                                                    <MapPin className="input-icon" size={16} style={{ display: 'flex', alignItems: 'center' }} />
+                                                    <select
+                                                        value={data.addressId || ''}
+                                                        onChange={handleAddressSelectChange}
+                                                        className="form-input"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        <option value="">-- Chọn địa chỉ --</option>
+                                                        {addresses.map(a => (
+                                                            <option key={a.addressId} value={a.addressId}>
+                                                                {a.addressName ? `${a.addressName} — ${a.addressDetail}` : a.addressDetail}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <button type="button" onClick={handleOpenAddressDialog} className="btn btn-cancel" style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', marginTop: 2 }}>
+                                                    <Edit size={15} /> Tạo mới
+                                                </button>
                                             </div>
 
-                                            {!useCustomAddress && (
-                                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                                    <div className="input-wrapper" style={{ flex: 1 }}>
-                                                        <MapPin className="input-icon" size={16} style={{ display: 'flex', alignItems: 'center' }} />
-                                                        <select
-                                                            value={data.addressId || ''}
-                                                            onChange={handleAddressSelectChange}
-                                                            className="form-input"
-                                                            style={{ width: '100%' }}
-                                                        >
-                                                            <option value="">-- Chọn địa chỉ --</option>
-                                                            {addresses.map(a => (
-                                                                <option key={a.addressId} value={a.addressId}>
-                                                                    {a.addressName ? `${a.addressName} — ${a.addressDetail}` : a.addressDetail}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    <button type="button" onClick={handleOpenAddressDialog} className="btn btn-cancel" style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', marginTop: 2 }}>
-                                                        <Edit size={15} /> Tạo mới
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {!useCustomAddress && data.addressId && (
+                                            {data.addressId && (
                                                 <div style={{ padding: '10px 14px', backgroundColor: '#f0f9ff', borderRadius: 8, fontSize: '13px', color: '#374151', borderLeft: '3px solid #2196F3' }}>
                                                     {data.addressName && <div style={{ fontWeight: 500 }}>{data.addressName}</div>}
                                                     {fullAddress}
-                                                </div>
-                                            )}
-
-                                            {useCustomAddress && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                                    <div className="form-field">
-                                                        <label className="form-label">Địa chỉ chi tiết</label>
-                                                        <div className="input-wrapper">
-                                                            <MapPin className="input-icon" size={16} style={{ display: 'flex', alignItems: 'center' }} />
-                                                            <input type="text" name="address" value={data.address || ''} onChange={handleChange} className="form-input" placeholder="VD: Số 123, Đường Nguyễn Trãi" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                                                        <div className="form-field">
-                                                            <label className="form-label">Tỉnh / Thành phố</label>
-                                                            <div className="input-wrapper">
-                                                                <MapPin className="input-icon" size={16} style={{ display: 'flex', alignItems: 'center' }} />
-                                                                <input type="text" name="city" value={data.city || ''} onChange={handleChange} className="form-input" placeholder="VD: Hồ Chí Minh" />
-                                                            </div>
-                                                        </div>
-                                                        <div className="form-field">
-                                                            <label className="form-label">Quận / Huyện</label>
-                                                            <div className="input-wrapper">
-                                                                <MapPin className="input-icon" size={16} style={{ display: 'flex', alignItems: 'center' }} />
-                                                                <input type="text" name="district" value={data.district || ''} onChange={handleChange} className="form-input" placeholder="VD: Quận 1" />
-                                                            </div>
-                                                        </div>
-                                                        <div className="form-field span-2">
-                                                            <label className="form-label">Phường / Xã</label>
-                                                            <div className="input-wrapper">
-                                                                <MapPin className="input-icon" size={16} style={{ display: 'flex', alignItems: 'center' }} />
-                                                                <input type="text" name="ward" value={data.ward || ''} onChange={handleChange} className="form-input" placeholder="VD: Phường Bến Nghé" />
-                                                            </div>
-                                                        </div>
-                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -686,7 +625,6 @@ export default function ViewReceiverDetail() {
                         </div>
                         <div className="form-grid">
                             <InfoField label="Ngày tạo" value={fmtDate(data.createdAt)} />
-                            <InfoField label="Ngày cập nhật" value={fmtDate(data.updatedAt)} />
                         </div>
                     </div>
                 </form>
@@ -743,6 +681,21 @@ export default function ViewReceiverDetail() {
                 }
             >
                 <form onSubmit={handleSubmitAddress} style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
+                    <div className="form-field">
+                        <label className="form-label" htmlFor="addr-addressName">Tên địa chỉ</label>
+                        <div className="input-wrapper">
+                            <MapPin className="input-icon" size={16} />
+                            <input
+                                id="addr-addressName"
+                                type="text"
+                                name="addressName"
+                                value={addressForm.addressName}
+                                onChange={handleAddressFormChange}
+                                className="form-input"
+                                placeholder="VD: Kho chính, Văn phòng"
+                            />
+                        </div>
+                    </div>
                     <div className="form-field">
                         <label className="form-label" htmlFor="addr-addressDetail">Địa chỉ chi tiết <span className="required-mark">*</span></label>
                         <div className="input-wrapper">
