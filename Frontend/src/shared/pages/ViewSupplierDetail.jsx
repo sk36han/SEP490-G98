@@ -20,7 +20,7 @@ import {
     RefreshCw,
 } from 'lucide-react';
 import DateRangeFilter from '../components/DateRangeFilter';
-import { getSupplierById, getSupplierTransactions } from '../lib/supplierService';
+import { getSupplierById, getSupplierTransactions, updateSupplier } from '../lib/supplierService';
 import '../styles/CreateSupplier.css';
 
 const formatCurrency = (amount) => {
@@ -55,6 +55,59 @@ export default function ViewSupplierDetail() {
     const [transactions, setTransactions] = useState([]);
     const [statsSummary, setStatsSummary] = useState(null);
     const [loadingTransactions, setLoadingTransactions] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    const handleEditToggle = () => {
+        setEditData({
+            supplierName: supplier?.supplierName || '',
+            taxCode: supplier?.taxCode || '',
+            phone: supplier?.phone || '',
+            email: supplier?.email || '',
+            address: supplier?.address || '',
+            city: supplier?.city || '',
+            district: supplier?.district || '',
+            ward: supplier?.ward || '',
+        });
+        setIsEditing(true);
+    };
+
+    const handleEditCancel = () => {
+        setIsEditing(false);
+        setEditData({});
+    };
+
+    const handleEditChange = (field, value) => {
+        setEditData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleEditSave = async () => {
+        if (!editData.supplierName?.trim()) {
+            alert('Tên nhà cung cấp là bắt buộc.');
+            return;
+        }
+        setSaving(true);
+        try {
+            await updateSupplier(id, {
+                supplierName: editData.supplierName.trim(),
+                taxCode: editData.taxCode?.trim() || null,
+                phone: editData.phone?.trim() || null,
+                email: editData.email?.trim() || null,
+                address: editData.address?.trim() || null,
+                city: editData.city?.trim() || null,
+                district: editData.district?.trim() || null,
+                ward: editData.ward?.trim() || null,
+                isActive: supplier?.isActive,
+            });
+            setIsEditing(false);
+            await fetchSupplier(true);
+        } catch (err) {
+            alert(err.message || 'Lỗi khi cập nhật nhà cung cấp.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const fetchSupplier = async (isRefreshing = false) => {
         if (isRefreshing) setRefreshing(true);
@@ -137,14 +190,35 @@ export default function ViewSupplierDetail() {
                         <RefreshCw size={16} className={`btn-icon ${refreshing ? 'spinning' : ''}`} />
                         Làm mới
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => navigate(`/suppliers/${id}/edit`)}
-                    >
-                        <Edit size={16} className="btn-icon" />
-                        Chỉnh sửa
-                    </button>
+                    {isEditing ? (
+                        <>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={handleEditCancel}
+                                disabled={saving}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={handleEditSave}
+                                disabled={saving}
+                            >
+                                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={handleEditToggle}
+                        >
+                            <Edit size={16} className="btn-icon" />
+                            Chỉnh sửa
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -263,8 +337,8 @@ export default function ViewSupplierDetail() {
                                                     item.transactionType === 'PO'
                                                         ? `Đơn đặt hàng #${item.transactionCode}`
                                                         : item.transactionType === 'GRN'
-                                                        ? `Đơn nhập hàng #${item.transactionCode}`
-                                                        : `${item.transactionType} #${item.transactionCode}`;
+                                                            ? `Đơn nhập hàng #${item.transactionCode}`
+                                                            : `${item.transactionType} #${item.transactionCode}`;
                                                 return (
                                                     <Box
                                                         key={`${item.transactionType}-${item.transactionId}-${index}`}
@@ -324,17 +398,18 @@ export default function ViewSupplierDetail() {
                                     <h2 className="section-title">Thông tin chung</h2>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                        
+
                                     <div className="form-field">
                                         <label className="form-label">Tên nhà cung cấp</label>
                                         <div className="input-wrapper">
                                             <Building2 className="input-icon" size={16} />
                                             <input
                                                 type="text"
-                                                value={supplier.supplierName || ''}
-                                                readOnly
+                                                value={isEditing ? editData.supplierName : (supplier.supplierName || '')}
+                                                readOnly={!isEditing}
+                                                onChange={(e) => handleEditChange('supplierName', e.target.value)}
                                                 className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
+                                                style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                                 placeholder="-"
                                             />
                                         </div>
@@ -345,10 +420,11 @@ export default function ViewSupplierDetail() {
                                             <FileText className="input-icon" size={16} />
                                             <input
                                                 type="text"
-                                                value={supplier.taxCode || ''}
-                                                readOnly
+                                                value={isEditing ? editData.taxCode : (supplier.taxCode || '')}
+                                                readOnly={!isEditing}
+                                                onChange={(e) => handleEditChange('taxCode', e.target.value)}
                                                 className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
+                                                style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                                 placeholder="-"
                                             />
                                         </div>
@@ -359,10 +435,11 @@ export default function ViewSupplierDetail() {
                                             <Phone className="input-icon" size={16} />
                                             <input
                                                 type="text"
-                                                value={supplier.phone || ''}
-                                                readOnly
+                                                value={isEditing ? editData.phone : (supplier.phone || '')}
+                                                readOnly={!isEditing}
+                                                onChange={(e) => handleEditChange('phone', e.target.value)}
                                                 className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
+                                                style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                                 placeholder="-"
                                             />
                                         </div>
@@ -373,10 +450,11 @@ export default function ViewSupplierDetail() {
                                             <Mail className="input-icon" size={16} />
                                             <input
                                                 type="text"
-                                                value={supplier.email || ''}
-                                                readOnly
+                                                value={isEditing ? editData.email : (supplier.email || '')}
+                                                readOnly={!isEditing}
+                                                onChange={(e) => handleEditChange('email', e.target.value)}
                                                 className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
+                                                style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                                 placeholder="-"
                                             />
                                         </div>
@@ -427,10 +505,11 @@ export default function ViewSupplierDetail() {
                                         <MapPin className="input-icon" size={16} />
                                         <input
                                             type="text"
-                                            value={supplier.city || ''}
-                                            readOnly
+                                            value={isEditing ? editData.city : (supplier.city || '')}
+                                            readOnly={!isEditing}
+                                            onChange={(e) => handleEditChange('city', e.target.value)}
                                             className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
+                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                             placeholder="-"
                                         />
                                     </div>
@@ -441,10 +520,11 @@ export default function ViewSupplierDetail() {
                                         <MapPin className="input-icon" size={16} />
                                         <input
                                             type="text"
-                                            value={supplier.district || ''}
-                                            readOnly
+                                            value={isEditing ? editData.district : (supplier.district || '')}
+                                            readOnly={!isEditing}
+                                            onChange={(e) => handleEditChange('district', e.target.value)}
                                             className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
+                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                             placeholder="-"
                                         />
                                     </div>
@@ -455,10 +535,11 @@ export default function ViewSupplierDetail() {
                                         <MapPin className="input-icon" size={16} />
                                         <input
                                             type="text"
-                                            value={supplier.ward || ''}
-                                            readOnly
+                                            value={isEditing ? editData.ward : (supplier.ward || '')}
+                                            readOnly={!isEditing}
+                                            onChange={(e) => handleEditChange('ward', e.target.value)}
                                             className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
+                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                             placeholder="-"
                                         />
                                     </div>
@@ -469,10 +550,11 @@ export default function ViewSupplierDetail() {
                                         <MapPin className="input-icon" size={16} />
                                         <input
                                             type="text"
-                                            value={supplier.address || ''}
-                                            readOnly
+                                            value={isEditing ? editData.address : (supplier.address || '')}
+                                            readOnly={!isEditing}
+                                            onChange={(e) => handleEditChange('address', e.target.value)}
                                             className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
+                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
                                             placeholder="-"
                                         />
                                     </div>

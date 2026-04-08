@@ -31,15 +31,15 @@ import { getReceivers, toggleReceiverStatus } from '../lib/receiverService';
 import '../styles/ListView.css';
 
 const COLUMNS = [
-    { id: 'stt',            label: 'STT',            width: 60  },
-    { id: 'receiverCode',   label: 'Mã người nhận', width: 140 },
-    { id: 'receiverName',   label: 'Tên người nhận', width: 220 },
-    { id: 'phone',          label: 'Điện thoại',     width: 130 },
-    { id: 'email',          label: 'Email',           width: 200 },
-    { id: 'address',        label: 'Địa chỉ',       width: 260 },
-    { id: 'isActive',       label: 'Trạng thái',     width: 120 },
-    { id: 'createdAt',      label: 'Ngày tạo',       width: 140 },
-    { id: 'actions',        label: 'Thao tác',       width: 100 },
+    { id: 'stt', label: 'STT', width: 60 },
+    { id: 'receiverCode', label: 'Mã người nhận', width: 140 },
+    { id: 'receiverName', label: 'Tên người nhận', width: 220 },
+    { id: 'phone', label: 'Điện thoại', width: 130 },
+    { id: 'email', label: 'Email', width: 200 },
+    { id: 'address', label: 'Địa chỉ', width: 260 },
+    { id: 'isActive', label: 'Trạng thái', width: 120 },
+    { id: 'createdAt', label: 'Ngày tạo', width: 140 },
+    { id: 'actions', label: 'Thao tác', width: 100 },
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [20, 50, 100];
@@ -303,7 +303,7 @@ export default function ViewReceiverList() {
                                                 </Tooltip>
                                                 <Tooltip title="Chỉnh sửa">
                                                     <button
-                                                        onClick={() => navigate(`/receivers/edit/${row.receiverId}`)}
+                                                        onClick={() => navigate(`/receivers/${row.receiverId}`)}
                                                         style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
                                                         onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.color = '#3b82f6'; }}
                                                         onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280'; }}

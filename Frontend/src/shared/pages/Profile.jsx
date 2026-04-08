@@ -110,8 +110,8 @@ const Profile = () => {
         setLoading(true);
         try {
             const dobStr = formData.dob
-                ? (typeof formData.dob === 'string' && formData.dob.length >= 10 
-                    ? formData.dob.substring(0, 10) 
+                ? (typeof formData.dob === 'string' && formData.dob.length >= 10
+                    ? formData.dob.substring(0, 10)
                     : new Date(formData.dob).toISOString().slice(0, 10))
                 : undefined;
             await authService.updateProfile({
@@ -134,15 +134,16 @@ const Profile = () => {
     };
 
     const isFemale = formData.gender && (
+        formData.gender === 'Nữ' ||
         String(formData.gender).toLowerCase().includes('nữ') ||
         String(formData.gender).toLowerCase().includes('female') ||
         String(formData.gender).toLowerCase() === 'f'
     );
 
     const getGenderDisplay = (gender) => {
-        if (gender === 'male') return 'Nam';
-        if (gender === 'female') return 'Nữ';
-        if (gender === 'other') return 'Khác';
+        if (gender === 'Nam' || gender === 'male') return 'Nam';
+        if (gender === 'Nữ' || gender === 'female') return 'Nữ';
+        if (gender === 'Khác' || gender === 'other') return 'Khác';
         return gender || '—';
     };
 
@@ -160,9 +161,9 @@ const Profile = () => {
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#fafbfc' }}>
             <Fade in={true} timeout={400}>
-                <Container 
-                    maxWidth={false} 
-                    sx={{ 
+                <Container
+                    maxWidth={false}
+                    sx={{
                         maxWidth: '1150px',
                         py: 4,
                         px: { xs: 2, sm: 3, md: 4 }
@@ -203,9 +204,9 @@ const Profile = () => {
                             boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                         }}
                     >
-                        <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                        <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center',
                             justifyContent: 'space-between',
                             flexWrap: 'wrap',
                             gap: 2
@@ -232,9 +233,9 @@ const Profile = () => {
                                 </Avatar>
 
                                 <Box sx={{ flex: 1 }}>
-                                    <Typography 
-                                        variant="h6" 
-                                        sx={{ 
+                                    <Typography
+                                        variant="h6"
+                                        sx={{
                                             fontWeight: 600,
                                             fontSize: '20px',
                                             mb: 0.25,
@@ -243,9 +244,9 @@ const Profile = () => {
                                     >
                                         {formData.fullName || 'Người dùng'}
                                     </Typography>
-                                    <Typography 
-                                        variant="body2" 
-                                        sx={{ 
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
                                             color: 'text.secondary',
                                             fontSize: '13px',
                                             mb: 0.75
@@ -363,7 +364,7 @@ const Profile = () => {
                     </Paper>
 
                     {/* Main Content Grid */}
-                    <Box sx={{ 
+                    <Box sx={{
                         display: 'grid',
                         gridTemplateColumns: { xs: '1fr', lg: 'repeat(12, 1fr)' },
                         gap: 3
@@ -381,9 +382,9 @@ const Profile = () => {
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
                                 }}
                             >
-                                <Typography 
-                                    variant="subtitle2" 
-                                    sx={{ 
+                                <Typography
+                                    variant="subtitle2"
+                                    sx={{
                                         fontWeight: 600,
                                         fontSize: '15px',
                                         mb: 2,
@@ -395,9 +396,9 @@ const Profile = () => {
 
                                 <Stack spacing={2}>
                                     <Box>
-                                        <Typography 
-                                            variant="caption" 
-                                            sx={{ 
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
                                                 color: 'text.secondary',
                                                 fontSize: '12px',
                                                 fontWeight: 500,
@@ -409,9 +410,9 @@ const Profile = () => {
                                         >
                                             Tên đăng nhập
                                         </Typography>
-                                        <Typography 
-                                            variant="body2" 
-                                            sx={{ 
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
                                                 color: 'text.primary',
                                                 fontSize: '14px'
                                             }}
@@ -421,9 +422,9 @@ const Profile = () => {
                                     </Box>
 
                                     <Box>
-                                        <Typography 
-                                            variant="caption" 
-                                            sx={{ 
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
                                                 color: 'text.secondary',
                                                 fontSize: '12px',
                                                 fontWeight: 500,
@@ -435,9 +436,9 @@ const Profile = () => {
                                         >
                                             Email
                                         </Typography>
-                                        <Typography 
-                                            variant="body2" 
-                                            sx={{ 
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
                                                 color: 'text.primary',
                                                 fontSize: '14px',
                                                 wordBreak: 'break-word'
@@ -467,9 +468,9 @@ const Profile = () => {
                                 }}
                             >
                                 <Box sx={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <Typography 
-                                        variant="subtitle2" 
-                                        sx={{ 
+                                    <Typography
+                                        variant="subtitle2"
+                                        sx={{
                                             fontWeight: 600,
                                             fontSize: '15px',
                                             mb: 3,
@@ -482,9 +483,9 @@ const Profile = () => {
                                     <Stack spacing={3}>
                                         {/* Họ và tên */}
                                         <Box>
-                                            <Typography 
-                                                variant="caption" 
-                                                sx={{ 
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
                                                     color: 'text.secondary',
                                                     fontSize: '12px',
                                                     fontWeight: 500,
@@ -514,13 +515,13 @@ const Profile = () => {
                                                     }}
                                                 />
                                             ) : (
-                                                <Box sx={{ 
-                                                    pb: 1, 
+                                                <Box sx={{
+                                                    pb: 1,
                                                     borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
                                                 }}>
-                                                    <Typography 
-                                                        variant="body2" 
-                                                        sx={{ 
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
                                                             color: 'text.primary',
                                                             fontSize: '14px'
                                                         }}
@@ -530,9 +531,9 @@ const Profile = () => {
                                                 </Box>
                                             )}
                                             {isEditing && (
-                                                <Typography 
-                                                    variant="caption" 
-                                                    sx={{ 
+                                                <Typography
+                                                    variant="caption"
+                                                    sx={{
                                                         color: 'text.secondary',
                                                         fontSize: '11px',
                                                         mt: 0.5,
@@ -546,9 +547,9 @@ const Profile = () => {
 
                                         {/* Số điện thoại */}
                                         <Box>
-                                            <Typography 
-                                                variant="caption" 
-                                                sx={{ 
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
                                                     color: 'text.secondary',
                                                     fontSize: '12px',
                                                     fontWeight: 500,
@@ -586,13 +587,13 @@ const Profile = () => {
                                                     }}
                                                 />
                                             ) : (
-                                                <Box sx={{ 
-                                                    pb: 1, 
+                                                <Box sx={{
+                                                    pb: 1,
                                                     borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
                                                 }}>
-                                                    <Typography 
-                                                        variant="body2" 
-                                                        sx={{ 
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
                                                             color: 'text.primary',
                                                             fontSize: '14px'
                                                         }}
@@ -605,9 +606,9 @@ const Profile = () => {
 
                                         {/* Ngày sinh */}
                                         <Box>
-                                            <Typography 
-                                                variant="caption" 
-                                                sx={{ 
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
                                                     color: 'text.secondary',
                                                     fontSize: '12px',
                                                     fontWeight: 500,
@@ -650,13 +651,13 @@ const Profile = () => {
                                                     }}
                                                 />
                                             ) : (
-                                                <Box sx={{ 
-                                                    pb: 1, 
+                                                <Box sx={{
+                                                    pb: 1,
                                                     borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
                                                 }}>
-                                                    <Typography 
-                                                        variant="body2" 
-                                                        sx={{ 
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
                                                             color: 'text.primary',
                                                             fontSize: '14px'
                                                         }}
@@ -669,9 +670,9 @@ const Profile = () => {
 
                                         {/* Giới tính */}
                                         <Box>
-                                            <Typography 
-                                                variant="caption" 
-                                                sx={{ 
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
                                                     color: 'text.secondary',
                                                     fontSize: '12px',
                                                     fontWeight: 500,
@@ -708,18 +709,18 @@ const Profile = () => {
                                                         },
                                                     }}
                                                 >
-                                                    <MenuItem value="male">Nam</MenuItem>
-                                                    <MenuItem value="female">Nữ</MenuItem>
-                                                    <MenuItem value="other">Khác</MenuItem>
+                                                    <MenuItem value="Nam">Nam</MenuItem>
+                                                    <MenuItem value="Nữ">Nữ</MenuItem>
+                                                    <MenuItem value="Khác">Khác</MenuItem>
                                                 </TextField>
                                             ) : (
-                                                <Box sx={{ 
-                                                    pb: 1, 
+                                                <Box sx={{
+                                                    pb: 1,
                                                     borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
                                                 }}>
-                                                    <Typography 
-                                                        variant="body2" 
-                                                        sx={{ 
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
                                                             color: 'text.primary',
                                                             fontSize: '14px'
                                                         }}

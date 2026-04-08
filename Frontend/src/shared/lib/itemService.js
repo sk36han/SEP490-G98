@@ -217,3 +217,15 @@ export async function updateItem(itemId, payload) {
     invalidate('item');
     return response?.data;
 }
+
+/**
+ * Xuất danh sách vật tư ra Excel.
+ * GET /Item/export-excel
+ * @returns {Promise<Blob>}
+ */
+export async function exportItemsExcel() {
+    const response = await apiClient.get('/Item/export-excel', {
+        responseType: 'blob',
+    });
+    return response?.data;
+}

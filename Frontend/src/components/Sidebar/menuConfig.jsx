@@ -19,7 +19,7 @@ const COMMON_ITEMS = [];
 const PRODUCT_MATCH_PATHS = {
     FULL: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'],
     BASIC: ['/products', '/uom', '/brands'],
-    SALE_SUPPORT: ['/products', '/categories', '/brands', '/products/create', '/categories/create', '/brands/create'],
+    SALE_SUPPORT: ['/products', '/categories', '/brands'],
     ACCOUNTANT: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands', '/items', '/items/create', '/items/edit'],
 };
 
