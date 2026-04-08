@@ -508,8 +508,18 @@ const InventoryAlertSetup = () => {
         if (filterValues.itemName) {
             if (!(row.itemName ?? '').toLowerCase().includes(filterValues.itemName.toLowerCase())) return false;
         }
-        if (filterValues.warehouseId != null) {
-            if (row.warehouseId !== filterValues.warehouseId) return false;
+        if (filterValues.warehouseName) {
+            if ((row.warehouseName ?? '') !== filterValues.warehouseName) return false;
+        }
+        if (filterValues.createdBy) {
+            if (!(row.createdBy ?? '').toLowerCase().includes(filterValues.createdBy.toLowerCase())) return false;
+        }
+        if (filterValues.fromDate || filterValues.toDate) {
+            const rowDate = new Date(row.createdAt);
+            const from = filterValues.fromDate ? new Date(filterValues.fromDate) : null;
+            const to = filterValues.toDate ? new Date(filterValues.toDate + 'T23:59:59') : null;
+            if (from && rowDate < from) return false;
+            if (to && rowDate > to) return false;
         }
         if (filterValues.statusFilter) {
             const qty = row.onHandQty ?? 0;
