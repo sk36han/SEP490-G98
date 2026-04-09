@@ -91,7 +91,7 @@ namespace Warehouse.Api.ApiController
         /// Duyệt/Từ chối phiếu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
         /// </summary>
         [HttpPut("{id}/approve")]
-        [Authorize(Roles = "KT,GD")]
+        [Authorize(Roles = "KT,GD,SE")]
         public async Task<IActionResult> Approve(long id, [FromBody] ApproveGDNRequest request)
         {
             var userId = GetCurrentUserId();
@@ -104,7 +104,7 @@ namespace Warehouse.Api.ApiController
         /// Thủ kho xác nhận xuất hàng thực tế (Trừ tồn kho)
         /// </summary>
         [HttpPut("{id}/issue")]
-        [Authorize(Roles = "TK")]
+        [Authorize(Roles = "TK,SE")]
         public async Task<IActionResult> Issue(long id, [FromBody] WarehouseIssueRequest request)
         {
             var userId = GetCurrentUserId();
@@ -116,7 +116,7 @@ namespace Warehouse.Api.ApiController
         /// Kế toán hoặc Thủ kho tải lên bằng chứng và xác nhận hoàn tất giao hàng
         /// </summary>
         [HttpPost("{id}/confirm-delivery")]
-        [Authorize(Roles = "KT,TK")]
+        [Authorize(Roles = "KT,TK,SE")]
         public async Task<IActionResult> ConfirmDelivery(long id, IFormFile evidenceFile, [FromForm] string? note)
         {
             var userId = GetCurrentUserId();

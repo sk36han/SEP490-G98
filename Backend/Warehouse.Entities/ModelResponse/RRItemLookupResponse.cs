@@ -22,5 +22,20 @@ namespace Warehouse.Entities.ModelResponse
         /// Số lượng khả dụng có thể xuất = OnHandQty - ReservedQty
         /// </summary>
         public decimal AvailableQty { get; set; }
+
+        /// <summary>
+        /// Đơn giá tham khảo (dựa trên lô cũ nhất - FIFO)
+        /// </summary>
+        public decimal? UnitPrice { get; set; }
+
+        /// <summary>
+        /// ID Quy cách đóng gói (mặc định của vật tư)
+        /// </summary>
+        public long? PackagingSpecId { get; set; }
+
+        /// <summary>
+        /// Tên Quy cách đóng gói
+        /// </summary>
+        public string? PackagingSpecName { get; set; }
     }
 }

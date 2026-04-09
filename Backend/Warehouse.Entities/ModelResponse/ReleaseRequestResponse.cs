@@ -64,6 +64,8 @@ namespace Warehouse.Entities.ModelResponse
         public int TotalItems { get; set; }
         public decimal TotalRequestedQty { get; set; }
 
+        public decimal TotalAmount { get; set; }
+
         public DateTime CreatedAt { get; set; }
         public DateTime? SubmittedAt { get; set; }
         public DateTime? ApprovedAt { get; set; }
@@ -121,6 +123,10 @@ namespace Warehouse.Entities.ModelResponse
         public decimal IssuedQty { get; set; }
         public string LineStatus { get; set; } = null!;
         public decimal StockQty { get; set; }
+        
         public decimal? UnitPrice { get; set; }
+        public decimal LineTotal => RequestedQty * (UnitPrice ?? 0);
+        public long? PackagingSpecId { get; set; }
+        public string? PackagingSpecName { get; set; }
     }
 }

@@ -26,22 +26,43 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId)
         {
-            return await _context.InventoryOnHands
+            var inventoryItems = await _context.InventoryOnHands
                 .Include(ioh => ioh.Item)
-                .ThenInclude(i => i.BaseUom)
+                    .ThenInclude(i => i.BaseUom)
+                .Include(ioh => ioh.Item)
+                    .ThenInclude(i => i.PackagingSpec)
                 .Where(ioh => ioh.WarehouseId == warehouseId && ioh.OnHandQty > 0 && ioh.Item.IsActive)
-                .Select(ioh => new RRItemLookupResponse
-                {
-                    ItemId = ioh.ItemId,
-                    ItemCode = ioh.Item.ItemCode,
-                    ItemName = ioh.Item.ItemName,
-                    UomId = ioh.Item.BaseUomId,
-                    UomName = ioh.Item.BaseUom.UomName,
-                    OnHandQty = ioh.OnHandQty,
-                    ReservedQty = ioh.ReservedQty,
-                    AvailableQty = ioh.OnHandQty - ioh.ReservedQty
-                })
                 .ToListAsync();
+
+            if (!inventoryItems.Any()) return new List<RRItemLookupResponse>();
+
+            var itemIds = inventoryItems.Select(i => i.ItemId).ToList();
+
+            // Fetch the oldest active lot for FIFO picking to show an estimated UnitPrice
+            var oldestLots = await _context.InventoryLots
+                .Where(lot => lot.WarehouseId == warehouseId && lot.IsActive && lot.Quantity > 0 && itemIds.Contains(lot.ItemId))
+                .GroupBy(lot => lot.ItemId)
+                .Select(g => g.OrderBy(lot => lot.ReceiptDate).FirstOrDefault())
+                .ToListAsync();
+
+            var unitPriceDict = oldestLots
+                .Where(lot => lot != null)
+                .ToDictionary(lot => lot!.ItemId, lot => lot!.UnitCost);
+
+            return inventoryItems.Select(ioh => new RRItemLookupResponse
+            {
+                ItemId = ioh.ItemId,
+                ItemCode = ioh.Item.ItemCode,
+                ItemName = ioh.Item.ItemName,
+                UomId = ioh.Item.BaseUomId,
+                UomName = ioh.Item.BaseUom.UomName,
+                OnHandQty = ioh.OnHandQty,
+                ReservedQty = ioh.ReservedQty,
+                AvailableQty = ioh.OnHandQty - ioh.ReservedQty,
+                PackagingSpecId = ioh.Item.PackagingSpecId,
+                PackagingSpecName = ioh.Item.PackagingSpec?.SpecName,
+                UnitPrice = unitPriceDict.ContainsKey(ioh.ItemId) ? unitPriceDict[ioh.ItemId] : null
+            }).ToList();
         }
 
         public async Task<Item> CreateItemAsync(CreateItemRequest request, long userId = 0)

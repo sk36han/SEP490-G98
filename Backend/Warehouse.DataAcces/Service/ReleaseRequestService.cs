@@ -92,6 +92,7 @@ namespace Warehouse.DataAcces.Service
             // 6. Validate: Tất cả vật tư tồn tại + đang hoạt động
             var itemIds = request.Lines.Select(l => l.ItemId).Distinct().ToList();
             var items = await _context.Items
+                .Include(i => i.PackagingSpec)
                 .Where(i => itemIds.Contains(i.ItemId))
                 .ToDictionaryAsync(i => i.ItemId, i => i);
 
@@ -129,6 +130,12 @@ namespace Warehouse.DataAcces.Service
                 SubmittedAt = now
             };
 
+            // Calculate unit prices using FIFO strategy before creating lines
+            var itemQtyMap = request.Lines
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
+            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(request.WarehouseId, itemQtyMap);
+
             // 10. Tạo các dòng vật tư và thực hiện giữ hàng (ReservedQty)
             foreach (var line in request.Lines)
             {
@@ -141,7 +148,9 @@ namespace Warehouse.DataAcces.Service
                     ApprovedQty = 0, // Mặc định 0, sẽ được cập nhật khi duyệt
                     AllocatedQty = line.RequestedQty, // Gán AllocatedQty = RequestedQty (đã cộng vào ReservedQty của kho)
                     IssuedQty = 0,
-                    LineStatus = "Open"
+                    LineStatus = "Open",
+                    UnitCostAtIssue = unitPrices.ContainsKey(line.ItemId) ? unitPrices[line.ItemId] : 0,
+                    PackagingSpecId = line.PackagingSpecId ?? items[line.ItemId].PackagingSpecId
                 };
                 releaseRequest.ReleaseRequestLines.Add(rrLine);
 
@@ -196,12 +205,6 @@ namespace Warehouse.DataAcces.Service
                     "NewRequest"
                 );
             }
-
-            // Lấy giá bình quân gia quyền dự kiến cho response (mặc định FIFO)
-            var itemQtyMap = request.Lines
-                .GroupBy(l => l.ItemId)
-                .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
-            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(request.WarehouseId, itemQtyMap, "FIFO");
 
             // 13. Trả về response chi tiết
             return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms, unitPrices);
@@ -275,6 +278,8 @@ namespace Warehouse.DataAcces.Service
                     .ThenInclude(l => l.Item)
                 .Include(r => r.ReleaseRequestLines)
                     .ThenInclude(l => l.Uom)
+                .Include(r => r.ReleaseRequestLines)
+                    .ThenInclude(l => l.PackagingSpec)
                 .FirstOrDefaultAsync(r => r.ReleaseRequestId == id);
 
             if (rr == null) return null;
@@ -295,7 +300,7 @@ namespace Warehouse.DataAcces.Service
             var itemQtyMap = rr.ReleaseRequestLines
                 .GroupBy(l => l.ItemId)
                 .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
-            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(rr.WarehouseId, itemQtyMap, "FIFO");
+            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(rr.WarehouseId, itemQtyMap);
 
             return new ReleaseRequestDetailResponse
             {
@@ -326,6 +331,7 @@ namespace Warehouse.DataAcces.Service
                 } : null,
                 TotalItems = rr.ReleaseRequestLines.Count,
                 TotalRequestedQty = rr.ReleaseRequestLines.Sum(l => l.RequestedQty),
+                TotalAmount = rr.ReleaseRequestLines.Sum(l => l.RequestedQty * (l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0))),
                 CreatedAt = rr.CreatedAt,
                 SubmittedAt = rr.SubmittedAt,
                 ApprovedAt = lastApproval?.ActionAt,
@@ -344,7 +350,9 @@ namespace Warehouse.DataAcces.Service
                     IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus,
                     StockQty = 0, // Sẽ tính sau nếu cần, hoặc bỏ qua nếu frontend không dùng
-                    UnitPrice = unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0
+                    UnitPrice = l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0),
+                    PackagingSpecId = l.PackagingSpecId,
+                    PackagingSpecName = l.PackagingSpec?.SpecName
                 }).ToList(),
                 Approvals = approvals.Select(a => new RRApprovalResponse
                 {
@@ -463,6 +471,7 @@ namespace Warehouse.DataAcces.Service
                 // Validate vật tư tồn tại + hoạt động
                 var itemIds = request.Lines.Select(l => l.ItemId).Distinct().ToList();
                 var items = await _context.Items
+                    .Include(i => i.PackagingSpec)
                     .Where(i => itemIds.Contains(i.ItemId))
                     .ToDictionaryAsync(i => i.ItemId, i => i);
 
@@ -502,6 +511,12 @@ namespace Warehouse.DataAcces.Service
                     }
                     _context.ReleaseRequestLines.Remove(line);
                 }
+
+                // Calculate unit prices using FIFO strategy for the updated request
+                var itemQtyMap = request.Lines
+                    .GroupBy(l => l.ItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
+                var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(rr.WarehouseId, itemQtyMap);
 
                 // 9b. Cập nhật dòng cũ + thêm dòng mới
                 foreach (var lineReq in request.Lines)
@@ -559,6 +574,8 @@ namespace Warehouse.DataAcces.Service
                         existingLine.AllocatedQty = lineReq.RequestedQty; // Cập nhật AllocatedQty = Số_mới
                         existingLine.UomId = lineReq.UomId;
                         existingLine.Note = lineReq.Note;
+                        existingLine.UnitCostAtIssue = unitPrices.ContainsKey(lineReq.ItemId) ? unitPrices[lineReq.ItemId] : 0;
+                        existingLine.PackagingSpecId = lineReq.PackagingSpecId ?? items[lineReq.ItemId].PackagingSpecId;
                     }
                     else
                     {
@@ -572,7 +589,9 @@ namespace Warehouse.DataAcces.Service
                             ApprovedQty = 0, // Mặc định 0, sẽ được cập nhật khi duyệt
                             AllocatedQty = lineReq.RequestedQty, // Gán AllocatedQty cho dòng mới
                             IssuedQty = 0,
-                            LineStatus = "Open"
+                            LineStatus = "Open",
+                            UnitCostAtIssue = unitPrices.ContainsKey(lineReq.ItemId) ? unitPrices[lineReq.ItemId] : 0,
+                            PackagingSpecId = lineReq.PackagingSpecId ?? items[lineReq.ItemId].PackagingSpecId
                         };
                         rr.ReleaseRequestLines.Add(newLine);
 
@@ -981,6 +1000,7 @@ namespace Warehouse.DataAcces.Service
                 },
                 TotalItems = rr.ReleaseRequestLines.Count,
                 TotalRequestedQty = rr.ReleaseRequestLines.Sum(l => l.RequestedQty),
+                TotalAmount = rr.ReleaseRequestLines.Sum(l => l.RequestedQty * (l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0))),
                 CreatedAt = rr.CreatedAt,
                 SubmittedAt = rr.SubmittedAt,
                 Lines = rr.ReleaseRequestLines.Select(l => new ReleaseRequestLineResponse
@@ -998,16 +1018,17 @@ namespace Warehouse.DataAcces.Service
                     IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus,
                     StockQty = 0,
-                    UnitPrice = unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0
+                    UnitPrice = l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0),
+                    PackagingSpecId = l.PackagingSpecId,
+                    PackagingSpecName = items.ContainsKey(l.ItemId) && items[l.ItemId].PackagingSpec != null ? items[l.ItemId].PackagingSpec!.SpecName : null
                 }).ToList()
             };
         }
         /// <summary>
-        /// Tính giá bình quân gia quyền cho mỗi item dựa trên số lượng cần xuất,
-        /// mô phỏng lấy hàng từ nhiều lô (FIFO/LIFO).
+        /// Tính giá đơn giá bình quân gia quyền dự kiến dựa trên FIFO (Lô cũ nhất).
         /// </summary>
         private async Task<Dictionary<long, decimal>> GetItemWeightedUnitPricesFromLotsAsync(
-            long warehouseId, Dictionary<long, decimal> itemQtyMap, string pickingStrategy)
+            long warehouseId, Dictionary<long, decimal> itemQtyMap)
         {
             var itemIds = itemQtyMap.Keys.ToList();
 
@@ -1023,11 +1044,11 @@ namespace Warehouse.DataAcces.Service
             foreach (var itemId in itemIds)
             {
                 var requestedQty = itemQtyMap[itemId];
-                var lots = allLots.Where(lot => lot.ItemId == itemId).ToList();
-
-                lots = pickingStrategy == "LIFO"
-                    ? lots.OrderByDescending(lot => lot.ReceiptDate).ToList()
-                    : lots.OrderBy(lot => lot.ReceiptDate).ToList();
+                // Sắp xếp lô theo FIFO
+                var lots = allLots
+                    .Where(lot => lot.ItemId == itemId)
+                    .OrderBy(lot => lot.ReceiptDate)
+                    .ToList();
 
                 if (lots.Count == 0) { result[itemId] = 0; continue; }
 
