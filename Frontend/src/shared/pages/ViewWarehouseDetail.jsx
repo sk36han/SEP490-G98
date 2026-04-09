@@ -1,3 +1,14 @@
+/**
+ * ViewWarehouseDetail - Chi tiết kho
+ * Hiển thị thông tin kho, danh sách vật tư trong kho và lịch sử biến động
+ *
+ * API:
+ *   GET  /api/Warehouse/{id}/detail          → WarehouseDetailResponse (kèm items)
+ *   PUT  /api/Warehouse/update-warehouse/{id}
+ *   PATCH /api/Warehouse/toggle-status/{id}
+ *   GET  /api/Warehouse/history?warehouseId=...
+ */
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -24,61 +35,80 @@ import {
     Building2,
     Edit,
     Save,
+    Loader,
+    RefreshCw,
 } from 'lucide-react';
-import { getWarehouseDetail } from '../lib/warehouseService';
+import { getWarehouseDetail, getWarehouseHistory, updateWarehouse, toggleWarehouseStatus } from '../lib/warehouseService';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
-
-// Mock data for items in warehouse
-const MOCK_WAREHOUSE_ITEMS = [
-    { id: 1, itemId: 1, itemName: 'Vật tư A', itemCode: 'ITEM-001', uom: 'Cái', categoryName: 'Vật tư điện', brandName: 'Brand A', systemQty: 150, onHandQty: 145, reservedQty: 10, qcdg: 50 },
-    { id: 2, itemId: 2, itemName: 'Vật tư B', itemCode: 'ITEM-002', uom: 'Cái', categoryName: 'Vật tư cơ khí', brandName: 'Brand B', systemQty: 85, onHandQty: 90, reservedQty: 5, qcdg: 30 },
-    { id: 3, itemId: 3, itemName: 'Vật tư C', itemCode: 'ITEM-003', uom: 'Kg', categoryName: 'Vật tư xây dựng', brandName: 'Brand C', systemQty: 200, onHandQty: 200, reservedQty: 0, qcdg: 20 },
-    { id: 4, itemId: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', categoryName: 'Vật tư điện', brandName: 'Brand D', systemQty: 50, onHandQty: 48, reservedQty: 2, qcdg: 15 },
-    { id: 5, itemId: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', categoryName: 'Vật tư cơ khí', brandName: 'Brand E', systemQty: 120, onHandQty: 120, reservedQty: 0, qcdg: 40 },
-    { id: 6, itemId: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', categoryName: 'Vật tư xây dựng', brandName: 'Brand F', systemQty: 75, onHandQty: 75, reservedQty: 0, qcdg: 25 },
-    { id: 7, itemId: 7, itemName: 'Vật tư G', itemCode: 'ITEM-007', uom: 'Hộp', categoryName: 'Vật tư điện', brandName: 'Brand G', systemQty: 300, onHandQty: 295, reservedQty: 8, qcdg: 100 },
-    { id: 8, itemId: 8, itemName: 'Vật tư H', itemCode: 'ITEM-008', uom: 'Kg', categoryName: 'Vật tư cơ khí', brandName: 'Brand H', systemQty: 180, onHandQty: 185, reservedQty: 0, qcdg: 60 },
-    { id: 9, itemId: 9, itemName: 'Vật tư I', itemCode: 'ITEM-009', uom: 'Cái', categoryName: 'Vật tư xây dựng', brandName: 'Brand I', systemQty: 95, onHandQty: 95, reservedQty: 0, qcdg: 30 },
-    { id: 10, itemId: 10, itemName: 'Vật tư J', itemCode: 'ITEM-010', uom: 'Thùng', categoryName: 'Vật tư điện', brandName: 'Brand J', systemQty: 45, onHandQty: 45, reservedQty: 3, qcdg: 10 },
-    { id: 11, itemId: 11, itemName: 'Vật tư K', itemCode: 'ITEM-011', uom: 'Cái', categoryName: 'Vật tư cơ khí', brandName: 'Brand K', systemQty: 220, onHandQty: 218, reservedQty: 5, qcdg: 80 },
-    { id: 12, itemId: 12, itemName: 'Vật tư L', itemCode: 'ITEM-012', uom: 'Kg', categoryName: 'Vật tư xây dựng', brandName: 'Brand L', systemQty: 160, onHandQty: 165, reservedQty: 0, qcdg: 50 },
-    { id: 13, itemId: 13, itemName: 'Vật tư M', itemCode: 'ITEM-013', uom: 'Hộp', categoryName: 'Vật tư điện', brandName: 'Brand M', systemQty: 88, onHandQty: 88, reservedQty: 0, qcdg: 30 },
-    { id: 14, itemId: 14, itemName: 'Vật tư N', itemCode: 'ITEM-014', uom: 'Cái', categoryName: 'Vật tư cơ khí', brandName: 'Brand N', systemQty: 112, onHandQty: 110, reservedQty: 4, qcdg: 35 },
-    { id: 15, itemId: 15, itemName: 'Vật tư O', itemCode: 'ITEM-015', uom: 'Thùng', categoryName: 'Vật tư xây dựng', brandName: 'Brand O', systemQty: 60, onHandQty: 60, reservedQty: 0, qcdg: 20 },
-    { id: 16, itemId: 16, itemName: 'Vật tư P', itemCode: 'ITEM-016', uom: 'Cái', categoryName: 'Vật tư điện', brandName: 'Brand P', systemQty: 135, onHandQty: 138, reservedQty: 2, qcdg: 45 },
-    { id: 17, itemId: 17, itemName: 'Vật tư Q', itemCode: 'ITEM-017', uom: 'Kg', categoryName: 'Vật tư cơ khí', brandName: 'Brand Q', systemQty: 99, onHandQty: 99, reservedQty: 0, qcdg: 30 },
-    { id: 18, itemId: 18, itemName: 'Vật tư R', itemCode: 'ITEM-018', uom: 'Hộp', categoryName: 'Vật tư xây dựng', brandName: 'Brand R', systemQty: 250, onHandQty: 248, reservedQty: 6, qcdg: 80 },
-    { id: 19, itemId: 19, itemName: 'Vật tư S', itemCode: 'ITEM-019', uom: 'Cái', categoryName: 'Vật tư điện', brandName: 'Brand S', systemQty: 42, onHandQty: 42, reservedQty: 0, qcdg: 15 },
-    { id: 20, itemId: 20, itemName: 'Vật tư T', itemCode: 'ITEM-020', uom: 'Thùng', categoryName: 'Vật tư cơ khí', brandName: 'Brand T', systemQty: 78, onHandQty: 80, reservedQty: 1, qcdg: 25 },
-    { id: 4, itemId: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', categoryName: 'Vật tư điện', brandName: 'Brand D', systemQty: 50, onHandQty: 48, reservedQty: 2 },
-    { id: 5, itemId: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', categoryName: 'Vật tư cơ khí', brandName: 'Brand E', systemQty: 120, onHandQty: 120, reservedQty: 0 },
-    { id: 6, itemId: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', categoryName: 'Vật tư xây dựng', brandName: 'Brand F', systemQty: 75, onHandQty: 75, reservedQty: 0 },
-
-];
-
-// Mock warehouse data
-const MOCK_WAREHOUSE = {
-    warehouseId: 1,
-    warehouseCode: 'WH-HCM',
-    warehouseName: 'Kho Hồ Chí Minh',
-    address: '123 Đường Nguyễn Trãi, Quận 1, TP. Hồ Chí Minh',
-    isActive: true,
-    createdAt: '2024-01-15T08:00:00',
-    createdByName: 'Nguyễn Văn A',
-    phone: '028 1234 5678',
-    email: 'kho.hcm@company.vn',
-    managerName: 'Trần Thị B',
-    description: 'Kho hàng chính phục vụ khu vực TP. Hồ Chí Minh và các tỉnh miền Nam',
-    totalItems: 10,
-    totalQty: 1278,
-};
 
 const STATUS_CONFIG = {
     true: { bgColor: 'rgba(16,185,129,0.2)', label: 'Hoạt động', color: '#059669' },
     false: { bgColor: 'rgba(239,68,68,0.2)', label: 'Tắt', color: '#dc2626' },
 };
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const fmt = (v) => (v == null ? '0' : Number(v).toLocaleString('vi-VN'));
+
+const fmtDateTime = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (isNaN(d.getTime())) return dateStr;
+    return (
+        d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+        ' ' +
+        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    );
+};
+
+const fmtDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+// ── Map backend response → component state ────────────────────────────────────
+const mapDetail = (data) => ({
+    warehouseId: data.warehouseId ?? data.WarehouseId ?? data.id,
+    warehouseCode: data.warehouseCode ?? data.WarehouseCode ?? '',
+    warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
+    address: data.address ?? data.Address ?? '-',
+    isActive: data.isActive ?? data.IsActive ?? true,
+    createdAt: data.createdAt ?? data.CreatedAt ?? '',
+    createdByName: data.createdByName ?? data.CreatedByName ?? '',
+    phone: data.phone ?? data.Phone ?? '',
+    email: data.email ?? data.Email ?? '',
+    managerName: data.managerName ?? data.ManagerName ?? '',
+    description: data.description ?? data.Description ?? '',
+    itemCount: data.itemCount ?? data.ItemCount ?? data.Items?.length ?? 0,
+    // items: raw WarehouseItemDto[]
+    items: (data.items ?? data.Items ?? []).map((it, idx) => ({
+        id: it.itemId ?? it.ItemId ?? idx + 1,
+        itemId: it.itemId ?? it.ItemId ?? idx + 1,
+        itemName: it.itemName ?? it.ItemName ?? '',
+        itemCode: it.itemCode ?? it.ItemCode ?? '',
+        uom: it.unitName ?? it.UnitName ?? it.uom ?? '',
+        categoryName: it.categoryName ?? it.CategoryName ?? '',
+        brandName: it.brandName ?? it.BrandName ?? '',
+        systemQty: it.systemQty ?? it.SystemQty ?? 0,
+        onHandQty: it.onHandQty ?? it.OnHandQty ?? 0,
+        reservedQty: it.reservedQty ?? it.ReservedQty ?? 0,
+        qcdg: it.qcdg ?? it.QCDG ?? it.minimumQty ?? 0,
+        hasInventoryRecord: it.hasInventoryRecord ?? it.HasInventoryRecord ?? false,
+    })),
+});
+
+const mapHistory = (item, idx) => ({
+    id: item.historyId ?? item.HistoryId ?? item.id ?? idx,
+    actionType: item.actionType ?? item.ActionType ?? item.type ?? '',
+    description: item.description ?? item.Description ?? '',
+    quantity: item.quantity ?? item.Quantity ?? null,
+    referenceNo: item.referenceNo ?? item.ReferenceNo ?? '',
+    performedByName: item.performedByName ?? item.PerformedByName ?? '',
+    createdAt: item.createdAt ?? item.CreatedAt ?? '',
+});
 
 const ViewWarehouseDetail = () => {
     const { id } = useParams();
@@ -86,91 +116,67 @@ const ViewWarehouseDetail = () => {
     const { toast, showToast, clearToast } = useToast();
 
     const [warehouse, setWarehouse] = useState(null);
-    const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Line filter / search
     const [lineSearchKeyword, setLineSearchKeyword] = useState('');
     const [stockFilter, setStockFilter] = useState('all');
+
+    // Edit mode
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({ warehouseName: '', address: '' });
     const [submitting, setSubmitting] = useState(false);
 
+    // Status toggle dialog
+    const [statusDialogConfig, setStatusDialogConfig] = useState({ open: false, action: null });
+    const [statusSubmitting, setStatusSubmitting] = useState(false);
+
+    // ── Load warehouse detail ────────────────────────────────────────────────
     const fetchWarehouseDetail = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            // Try API first, fallback to mock
-            let data;
-            try {
-                data = await getWarehouseDetail(Number(id));
-            } catch {
-                data = MOCK_WAREHOUSE;
+            const data = await getWarehouseDetail(Number(id));
+            if (data) {
+                setWarehouse(mapDetail(data));
             }
-            setWarehouse({
-                warehouseId: data.warehouseId ?? data.WarehouseId,
-                warehouseCode: data.warehouseCode ?? data.WarehouseCode ?? '',
-                warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
-                address: data.address ?? data.Address ?? '-',
-                isActive: data.isActive ?? data.IsActive ?? true,
-                createdAt: data.createdAt ?? data.CreatedAt,
-                createdByName: data.createdByName ?? data.CreatedByName ?? '',
-                phone: data.phone ?? data.Phone ?? '',
-                email: data.email ?? data.Email ?? '',
-                managerName: data.managerName ?? data.ManagerName ?? '',
-                description: data.description ?? data.Description ?? '',
-                totalItems: data.totalItems ?? 0,
-                totalQty: data.totalQty ?? 0,
-            });
-
-            // Items from API or mock
-            const warehouseItems = (data.items ?? data.Items ?? MOCK_WAREHOUSE_ITEMS).map((item, idx) => ({
-                id: item.itemId ?? item.ItemId ?? idx + 1,
-                itemId: item.itemId ?? item.ItemId ?? idx + 1,
-                itemName: item.itemName ?? item.ItemName ?? '',
-                itemCode: item.itemCode ?? item.ItemCode ?? '',
-                uom: item.unitName ?? item.UnitName ?? item.uom ?? '',
-                categoryName: item.categoryName ?? item.CategoryName ?? '',
-                brandName: item.brandName ?? item.BrandName ?? '',
-                systemQty: item.systemQty ?? item.SystemQty ?? 0,
-                onHandQty: item.onHandQty ?? item.OnHandQty ?? 0,
-                reservedQty: item.reservedQty ?? item.ReservedQty ?? 0,
-                qcdg: item.qcdg ?? item.QCDG ?? item.minimumQty ?? 0,
-            }));
-            setItems(warehouseItems);
         } catch (err) {
-            console.error('Error fetching warehouse detail:', err);
-            setError(err?.message || 'Không thể tải thông tin kho');
+            console.error('Lỗi khi tải chi tiết kho:', err);
+            const msg = err?.response?.data?.message || err?.message || 'Không thể tải thông tin kho';
+            setError(msg);
+            showToast(msg, 'error');
         } finally {
             setLoading(false);
         }
-    }, [id]);
+    }, [id, showToast]);
 
     useEffect(() => {
         fetchWarehouseDetail();
     }, [fetchWarehouseDetail]);
 
+    // ── Filtered items ───────────────────────────────────────────────────────
     const filteredLines = useMemo(() => {
-        return items.filter(item => {
-            if (stockFilter === 'out-of-stock') return item.onHandQty === 0;
-            if (stockFilter === 'low-stock') return item.onHandQty > 0 && item.onHandQty < 20;
-            if (stockFilter === 'available') return item.onHandQty >= 20;
+        if (!warehouse?.items) return [];
+        return warehouse.items.filter((item) => {
+            if (stockFilter === 'out-of-stock') return Number(item.onHandQty) === 0;
+            if (stockFilter === 'low-stock') return Number(item.onHandQty) > 0 && Number(item.onHandQty) < 20;
+            if (stockFilter === 'available') return Number(item.onHandQty) >= 20;
             return true;
-        }).filter(item => {
+        }).filter((item) => {
             if (!lineSearchKeyword.trim()) return true;
             const kw = lineSearchKeyword.toLowerCase();
             return (
-                item.itemName?.toLowerCase().includes(kw) ||
-                item.itemCode?.toLowerCase().includes(kw) ||
-                item.categoryName?.toLowerCase().includes(kw)
+                (item.itemName ?? '').toLowerCase().includes(kw) ||
+                (item.itemCode ?? '').toLowerCase().includes(kw) ||
+                (item.categoryName ?? '').toLowerCase().includes(kw)
             );
         });
-    }, [items, stockFilter, lineSearchKeyword]);
+    }, [warehouse, stockFilter, lineSearchKeyword]);
 
+    // ── Edit handlers ────────────────────────────────────────────────────────
     const handleEditClick = () => {
-        setEditForm({
-            warehouseName: warehouse.warehouseName,
-            address: warehouse.address,
-        });
+        setEditForm({ warehouseName: warehouse.warehouseName, address: warehouse.address });
         setIsEditing(true);
     };
 
@@ -179,15 +185,15 @@ const ViewWarehouseDetail = () => {
             showToast('Vui lòng nhập tên kho', 'error');
             return;
         }
-        if (!editForm.address.trim()) {
-            showToast('Vui lòng nhập địa chỉ', 'error');
-            return;
-        }
         setSubmitting(true);
         try {
-            // API call would go here
-            await new Promise(resolve => setTimeout(resolve, 500));
-            setWarehouse(prev => ({
+            await updateWarehouse({
+                id: warehouse.warehouseId,
+                warehouseName: editForm.warehouseName.trim(),
+                address: editForm.address.trim(),
+                isActive: warehouse.isActive,
+            });
+            setWarehouse((prev) => ({
                 ...prev,
                 warehouseName: editForm.warehouseName,
                 address: editForm.address,
@@ -195,53 +201,41 @@ const ViewWarehouseDetail = () => {
             setIsEditing(false);
             showToast('Cập nhật thông tin kho thành công!', 'success');
         } catch (err) {
-            showToast('Có lỗi xảy ra khi cập nhật', 'error');
+            console.error('Lỗi khi cập nhật kho:', err);
+            showToast(err?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleCancelClick = () => {
-        setIsEditing(false);
-    };
+    const handleCancelClick = () => setIsEditing(false);
 
-    const [statusDialogConfig, setStatusDialogConfig] = useState({ open: false, action: null });
-
-    const handleStatusClick = (isActive) => {
-        setStatusDialogConfig({ open: true, action: isActive ? 'disable' : 'enable' });
+    // ── Status toggle handlers ────────────────────────────────────────────────
+    const handleStatusClick = (currentIsActive) => {
+        setStatusDialogConfig({ open: true, action: currentIsActive ? 'disable' : 'enable' });
     };
 
     const handleStatusConfirm = async () => {
-        setSubmitting(true);
+        setStatusSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (statusDialogConfig.action === 'disable') {
-                setWarehouse(prev => ({ ...prev, isActive: false }));
-                showToast('Kho đã bị vô hiệu hóa!', 'success');
-            } else {
-                setWarehouse(prev => ({ ...prev, isActive: true }));
-                showToast('Kho đã được kích hoạt!', 'success');
-            }
+            await toggleWarehouseStatus(warehouse.warehouseId);
+            setWarehouse((prev) => ({ ...prev, isActive: !prev.isActive }));
             setStatusDialogConfig({ open: false, action: null });
+            showToast(
+                statusDialogConfig.action === 'disable'
+                    ? 'Kho đã bị vô hiệu hóa!'
+                    : 'Kho đã được kích hoạt!',
+                'success'
+            );
         } catch (err) {
-            showToast('Có lỗi xảy ra', 'error');
+            console.error('Lỗi khi toggle trạng thái kho:', err);
+            showToast(err?.response?.data?.message || 'Có lỗi xảy ra', 'error');
         } finally {
-            setSubmitting(false);
+            setStatusSubmitting(false);
         }
     };
 
-    const formatDateTime = (dateStr) => {
-        if (!dateStr) return '—';
-        const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-        if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    };
-
-    const formatNumber = (num) => {
-        if (num == null || num === '') return '0';
-        return Number(num).toLocaleString('vi-VN');
-    };
-
+    // ── Loading state ────────────────────────────────────────────────────────
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -250,24 +244,23 @@ const ViewWarehouseDetail = () => {
         );
     }
 
-    if (error) {
+    if (error || !warehouse) {
         return (
             <Box sx={{ p: 3 }}>
-                <Typography color="error">{error}</Typography>
-                <Button onClick={() => navigate('/inventory')} sx={{ mt: 2 }}>
-                    Quay lại
-                </Button>
+                <Typography color="error" sx={{ mb: 2 }}>{error || 'Không tìm thấy kho'}</Typography>
+                <button type="button" onClick={() => navigate('/inventory')} className="back-button">
+                    <ArrowLeft size={20} />
+                    Quay lại danh sách kho
+                </button>
             </Box>
         );
     }
-
-    if (!warehouse) return null;
 
     const statusConfig = STATUS_CONFIG[warehouse.isActive] ?? STATUS_CONFIG[true];
 
     return (
         <div className="create-supplier-page">
-            {/* Header */}
+            {/* ── Header ─────────────────────────────────────────────────── */}
             <div className="page-header">
                 <div className="page-header-left">
                     <button type="button" onClick={() => navigate('/inventory')} className="back-button">
@@ -295,7 +288,7 @@ const ViewWarehouseDetail = () => {
                 </div>
             </div>
 
-            {/* Form Card */}
+            {/* ── Form Card ───────────────────────────────────────────────── */}
             <div className="form-card">
                 <form className="form-wrapper">
                     {/* Intro */}
@@ -321,7 +314,7 @@ const ViewWarehouseDetail = () => {
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 6,
-                                        cursor: warehouse.isActive ? 'pointer' : 'default',
+                                        cursor: 'pointer',
                                         userSelect: 'none',
                                     }}
                                 >
@@ -331,14 +324,16 @@ const ViewWarehouseDetail = () => {
                         </div>
                     </div>
 
-                    {/* Layout 2 cột */}
+                    {/* 2-column layout */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
-                        {/* Trái: Warehouse Lines */}
+                        {/* Left: Items table */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* Danh sách vật tư trong kho */}
-                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+                            <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư trong kho</h2>
+                                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                        {filteredLines.length} / {warehouse.items?.length ?? 0} vật tư
+                                    </span>
                                 </div>
 
                                 {/* Search + Filter */}
@@ -368,7 +363,7 @@ const ViewWarehouseDetail = () => {
                                             { value: 'available', label: 'Còn hàng' },
                                             { value: 'low-stock', label: 'Sắp hết' },
                                             { value: 'out-of-stock', label: 'Hết hàng' },
-                                        ].map(opt => (
+                                        ].map((opt) => (
                                             <button
                                                 key={opt.value}
                                                 type="button"
@@ -399,7 +394,9 @@ const ViewWarehouseDetail = () => {
                                                 <tr>
                                                     <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
                                                         <Package size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
-                                                        <p style={{ fontSize: '14px', margin: 0 }}>Không có vật tư nào</p>
+                                                        <p style={{ fontSize: '14px', margin: 0 }}>
+                                                            {warehouse.items?.length > 0 ? 'Không có vật tư phù hợp' : 'Chưa có vật tư trong kho'}
+                                                        </p>
                                                     </td>
                                                 </tr>
                                             ) : (
@@ -419,23 +416,28 @@ const ViewWarehouseDetail = () => {
                                                                         {line.itemName}
                                                                     </span>
                                                                     <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                                                                        Mã: {line.itemCode} • ĐVT: {line.uom} • QCĐG: {line.qcdg || line.minimumQty || 0}
+                                                                        Mã: {line.itemCode} • ĐVT: {line.uom || '-'} • QCĐG: {fmt(line.qcdg)}
                                                                     </span>
                                                                 </div>
                                                             </div>
                                                         </td>
                                                         <td>
-                                                            <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 600, color: line.onHandQty === 0 ? '#dc2626' : line.onHandQty < 20 ? '#f59e0b' : '#374151' }}>
-                                                                {formatNumber(line.onHandQty)}
+                                                            <div style={{
+                                                                textAlign: 'right',
+                                                                paddingRight: '8px',
+                                                                fontWeight: 600,
+                                                                color: Number(line.onHandQty) === 0 ? '#dc2626' : Number(line.onHandQty) < 20 ? '#f59e0b' : '#374151',
+                                                            }}>
+                                                                {fmt(line.onHandQty)}
                                                             </div>
                                                         </td>
                                                         <td>
                                                             <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#f59e0b' }}>
-                                                                {formatNumber(line.reservedQty)}
+                                                                {fmt(line.reservedQty)}
                                                             </div>
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
-                                                            {formatNumber(Math.max(0, line.onHandQty - line.reservedQty))}
+                                                            {fmt(Math.max(0, Number(line.onHandQty) - Number(line.reservedQty)))}
                                                         </td>
                                                     </tr>
                                                 ))
@@ -445,7 +447,7 @@ const ViewWarehouseDetail = () => {
                                 </div>
                             </div>
 
-                            {/* Mô tả */}
+                            {/* Description */}
                             {warehouse.description && (
                                 <div className="info-section" style={{ margin: 0 }}>
                                     <div className="section-header-with-toggle">
@@ -458,15 +460,13 @@ const ViewWarehouseDetail = () => {
                             )}
                         </div>
 
-                        {/* Phải: Thông tin kho */}
+                        {/* Right: Info panel */}
                         <div className="info-section" style={{ margin: 0 }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Thông tin kho</h2>
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                
-
                                 <div className="form-field">
                                     <label className="form-label">Tên kho</label>
                                     <div className="input-wrapper">
@@ -475,7 +475,7 @@ const ViewWarehouseDetail = () => {
                                             <input
                                                 type="text"
                                                 value={editForm.warehouseName}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, warehouseName: e.target.value }))}
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, warehouseName: e.target.value }))}
                                                 className="form-input"
                                                 placeholder="Nhập tên kho"
                                             />
@@ -493,7 +493,7 @@ const ViewWarehouseDetail = () => {
                                             <input
                                                 type="text"
                                                 value={editForm.address}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, address: e.target.value }))}
                                                 className="form-input"
                                                 placeholder="Nhập địa chỉ"
                                             />
@@ -537,7 +537,7 @@ const ViewWarehouseDetail = () => {
                                     <label className="form-label">Ngày tạo</label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
-                                        <input type="text" value={formatDateTime(warehouse.createdAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        <input type="text" value={fmtDate(warehouse.createdAt)} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                     </div>
                                 </div>
 
@@ -548,15 +548,21 @@ const ViewWarehouseDetail = () => {
                                         <input type="text" value={warehouse.createdByName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                     </div>
                                 </div>
+
+                                {/* Summary */}
+                                <div style={{ padding: '14px', backgroundColor: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd', marginTop: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                                        <div>
+                                            <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600, marginBottom: '4px' }}>SỐ LOẠI VẬT TƯ</div>
+                                            <div style={{ fontSize: '18px', fontWeight: 700, color: '#0c4a6e' }}>{warehouse.itemCount}</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </form>
             </div>
-
-            {toast && (
-                <Toast message={toast.message} type={toast.type} onClose={clearToast} />
-            )}
 
             {/* Status Confirmation Dialog */}
             <Dialog
@@ -581,8 +587,7 @@ const ViewWarehouseDetail = () => {
                     <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
                         {statusDialogConfig.action === 'disable'
                             ? `Bạn có chắc chắn muốn vô hiệu hóa kho "${warehouse?.warehouseName}"? Sau khi vô hiệu hóa, kho sẽ không còn hoạt động.`
-                            : `Bạn có chắc chắn muốn kích hoạt lại kho "${warehouse?.warehouseName}"? Kho sẽ hoạt động trở lại.`
-                        }
+                            : `Bạn có chắc chắn muốn kích hoạt lại kho "${warehouse?.warehouseName}"? Kho sẽ hoạt động trở lại.`}
                     </p>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
@@ -598,10 +603,10 @@ const ViewWarehouseDetail = () => {
                         type="button"
                         className="btn btn-primary"
                         onClick={handleStatusConfirm}
-                        disabled={submitting}
+                        disabled={statusSubmitting}
                         style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}
                     >
-                        Xác nhận
+                        {statusSubmitting ? 'Đang xử lý…' : 'Xác nhận'}
                     </button>
                 </DialogActions>
             </Dialog>
