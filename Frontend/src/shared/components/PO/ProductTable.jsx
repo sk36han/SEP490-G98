@@ -58,8 +58,10 @@ const ProductTable = ({
                         name: it.itemName ?? '',
                         sku: it.itemCode ?? '',
                         unitPrice: Number(it.purchasePrice ?? 0),
-                        uom: it.uomName || '',
+                        uom: it.baseUomName || it.uomName || '',
                         image: it.imageUrl || null,
+                        hasCO: !!(it.requiresCO || it.requiresCo),
+                        hasCQ: !!(it.requiresCQ || it.requiresCq),
                     }));
                 setProducts(mapped);
                 setFilteredProducts(mapped);
@@ -196,6 +198,12 @@ const ProductTable = ({
                                                     <span>Mã: {product.sku}</span>
                                                     <span>•</span>
                                                     <span>ĐVT: {product.uom}</span>
+                                                    {(product.hasCO) && (
+                                                        <span className="co-cq-badge co-badge">CO</span>
+                                                    )}
+                                                    {(product.hasCQ) && (
+                                                        <span className="co-cq-badge cq-badge">CQ</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -342,22 +350,18 @@ const ProductTable = ({
                                         {formatCurrency(line.totalPrice)}
                                     </td>
                                     <td style={{ textAlign: 'center', verticalAlign: 'middle' }} title="Chứng chỉ xuất xứ (CO)">
-                                        <input
-                                            type="checkbox"
-                                            checked={!!line.hasCO}
-                                            readOnly
-                                            disabled
-                                            style={{ width: 18, height: 18, cursor: 'default', margin: 0 }}
-                                        />
+                                        {line.hasCO ? (
+                                            <span className="co-cq-badge co-badge" title="Yêu cầu CO">CO</span>
+                                        ) : (
+                                            <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                        )}
                                     </td>
                                     <td style={{ textAlign: 'center', verticalAlign: 'middle' }} title="Chứng chỉ chất lượng (CQ)">
-                                        <input
-                                            type="checkbox"
-                                            checked={!!line.hasCQ}
-                                            readOnly
-                                            disabled
-                                            style={{ width: 18, height: 18, cursor: 'default', margin: 0 }}
-                                        />
+                                        {line.hasCQ ? (
+                                            <span className="co-cq-badge cq-badge" title="Yêu cầu CQ">CQ</span>
+                                        ) : (
+                                            <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                        )}
                                     </td>
                                     <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                                         <div className="po-action-buttons">

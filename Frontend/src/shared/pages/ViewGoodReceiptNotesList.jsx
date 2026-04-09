@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Button,
@@ -221,30 +222,34 @@ export default function ViewGoodReceiptNotes() {
     }, []);
 
     // Fetch data from API
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const response = await getGoodReceiptNotes({ page: page + 1, pageSize });
-                // Map dữ liệu từ API sang format UI
-                const mappedList = (response.items ?? []).map((item) => ({
-                    ...item,
-                    actualQtyTotal: item.totalReceivedQty ?? item.TotalReceivedQty ?? item.actualQtyTotal ?? 0,
-                    totalValue: item.totalAmount ?? item.TotalAmount ?? item.netAmount ?? item.NetAmount ?? item.totalValue ?? 0,
-                    createdAt: item.createdAt ?? item.CreatedAt ?? '',
-                }));
-                setList(mappedList);
-            } catch (err) {
-                console.error('Error fetching GRN list:', err);
-                setError('Không thể tải danh sách phiếu nhập kho');
-                setList([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await getGoodReceiptNotes({ page: page + 1, pageSize });
+            // Map dữ liệu từ API sang format UI
+            const mappedList = (response.items ?? []).map((item) => ({
+                ...item,
+                actualQtyTotal: item.totalReceivedQty ?? item.TotalReceivedQty ?? item.actualQtyTotal ?? 0,
+                totalValue: item.totalAmount ?? item.TotalAmount ?? item.netAmount ?? item.NetAmount ?? item.totalValue ?? 0,
+                createdAt: item.createdAt ?? item.CreatedAt ?? '',
+            }));
+            setList(mappedList);
+        } catch (err) {
+            console.error('Error fetching GRN list:', err);
+            setError('Không thể tải danh sách phiếu nhập kho');
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
     }, [page, pageSize]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('goodReceiptNotes', () => fetchDataRef.current?.());
 
     // Sync temp order when popup opens
     useEffect(() => {

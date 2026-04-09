@@ -10,7 +10,6 @@ import {
   TableBody, TableCell, TableContainer, TableHead, TableRow,
   InputAdornment, Autocomplete, Divider, CircularProgress,
 } from "@mui/material";
-import StoreIcon from "@mui/icons-material/Store";
 import { ArrowLeft, ImagePlus, Save, Plus } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
@@ -23,18 +22,6 @@ import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
 import CreateBrandDialog from "../components/CreateBrandDialog";
 import UomFormDialog from "../components/UomFormDialog";
-
-const INVENTORY_ACCOUNT_OPTIONS = [
-  { code: "1561", label: "1561 - Hang ton kho" },
-  { code: "1562", label: "1562 - Hang mua dang di duong" },
-  { code: "157", label: "157 - Hang gui ban" },
-];
-
-const REVENUE_ACCOUNT_OPTIONS = [
-  { code: "5111", label: "5111 - Doanh thu ban hang" },
-  { code: "5112", label: "5111 - Doanh thu ban thanh pham" },
-  { code: "5113", label: "5113 - Doanh thu cung cap dich vu" },
-];
 
 const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tạo mới đơn vị tính" };
 const CREATE_PACK_OPTION = { id: "CREATE_PACK", name: "Tạo mới quy cách đóng gói" };
@@ -100,7 +87,7 @@ const EditItem = () => {
     itemCode: "", itemName: "", itemType: "Product", description: "",
     categoryId: "", brandId: "", baseUomId: "", packagingSpecId: "", specId: "",
     laThongSo: false, requiresCO: false, requiresCQ: false, isActive: true,
-    defaultWarehouseId: "", inventoryAccount: "", revenueAccount: "",
+    defaultWarehouseId: "",
     purchasePrice: "", onHandQty: "", reservedQty: "",
   });
 
@@ -126,7 +113,7 @@ const EditItem = () => {
           categoryId: item.categoryId ?? "", brandId: item.brandId ?? "", baseUomId: item.baseUomId ?? "",
           packagingSpecId: item.packagingSpecId ?? "", specId: item.specId ?? "",
           laThongSo: item.hasSpecifications ?? false, requiresCO: item.requiresCO ?? false, requiresCQ: item.requiresCQ ?? false, isActive: item.isActive ?? true,
-          defaultWarehouseId: item.defaultWarehouseId ?? "", inventoryAccount: item.inventoryAccount ?? "", revenueAccount: item.revenueAccount ?? "",
+          defaultWarehouseId: item.defaultWarehouseId ?? "",
           purchasePrice: item.purchasePrice ?? "", onHandQty: item.onHandQty ?? "", reservedQty: item.reservedQty ?? "",
         });
       })
@@ -163,7 +150,6 @@ const EditItem = () => {
         hasSpecifications: Boolean(form.laThongSo), requiresCo: Boolean(form.requiresCO), requiresCq: Boolean(form.requiresCQ),
         isActive: Boolean(form.isActive),
         defaultWarehouseId: form.defaultWarehouseId !== "" && form.defaultWarehouseId != null ? Number(form.defaultWarehouseId) : null,
-        inventoryAccount: form.inventoryAccount?.trim() || null, revenueAccount: form.revenueAccount?.trim() || null,
         purchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
       });
       showToast("Cap nhat san pham thanh cong!", "success");
@@ -334,7 +320,7 @@ const EditItem = () => {
                     onChange={(e, newValue) => { if (newValue && newValue.id === "CREATE_BRAND") { setCreateBrandOpen(true); return; } setForm((prev) => ({ ...prev, brandId: newValue?.id ?? "" })); }}
                     isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)} ListboxProps={{ sx: autocompleteListboxSx }}
                     renderOption={(props, option) => option && option.id === "CREATE_BRAND" ? <Box component="li" {...props} key={option.id} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.name} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.id}>{option.name}</Box>}
-                    renderInput={(params) => <TextField {...params} label="Nhan hieu" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} InputProps={{ ...params.InputProps, startAdornment: <><InputAdornment position="start"><StoreIcon sx={{ color: "action.active", fontSize: 20 }} /></InputAdornment>{params.InputProps.startAdornment}</> }} />}
+                    renderInput={(params) => <TextField {...params} label="Nhan hieu" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />}
                     sx={autocompleteRootSx} />
 
                   <TextField select fullWidth size="small" label="Loại sản phẩm" name="itemType" value={form.itemType} onChange={handleChange} sx={selectInputSx} SelectProps={{ MenuProps: selectMenuProps }} InputLabelProps={{ shrink: true }}>
@@ -349,21 +335,11 @@ const EditItem = () => {
               </Paper>
 
               <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
-                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Tuy chinh & tai khoan</Typography>
+                <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Tùy chỉnh</Typography>
                 <Stack spacing={1.5}>
                   <FormControlLabel control={<Checkbox name="requiresCO" checked={form.requiresCO} onChange={handleChange} />} label="Yeu cau CO" />
                   <FormControlLabel control={<Checkbox name="requiresCQ" checked={form.requiresCQ} onChange={handleChange} />} label="Yeu cau CQ" />
                   <FormControlLabel control={<Checkbox name="isActive" checked={form.isActive} onChange={handleChange} />} label="Dang hoat dong" />
-                  <Autocomplete size="small" fullWidth options={INVENTORY_ACCOUNT_OPTIONS} getOptionLabel={(opt) => typeof opt === "string" ? opt : opt?.label ?? ""}
-                    value={INVENTORY_ACCOUNT_OPTIONS.find((o) => o.code === form.inventoryAccount) ?? null}
-                    onChange={(_, newValue) => setForm((prev) => ({ ...prev, inventoryAccount: newValue?.code ?? "" }))}
-                    renderInput={(params) => <TextField {...params} label="Tai khoan kho" InputLabelProps={{ shrink: true }} sx={inputSx} />}
-                    sx={{ "& .MuiOutlinedInput-root": inputSx["& .MuiOutlinedInput-root"] }} />
-                  <Autocomplete size="small" fullWidth options={REVENUE_ACCOUNT_OPTIONS} getOptionLabel={(opt) => typeof opt === "string" ? opt : opt?.label ?? ""}
-                    value={REVENUE_ACCOUNT_OPTIONS.find((o) => o.code === form.revenueAccount) ?? null}
-                    onChange={(_, newValue) => setForm((prev) => ({ ...prev, revenueAccount: newValue?.code ?? "" }))}
-                    renderInput={(params) => <TextField {...params} label="Tai khoan doanh thu" InputLabelProps={{ shrink: true }} sx={inputSx} />}
-                    sx={{ "& .MuiOutlinedInput-root": inputSx["& .MuiOutlinedInput-root"] }} />
                 </Stack>
               </Paper>
             </Box>

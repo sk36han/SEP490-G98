@@ -1,7 +1,9 @@
 /*
  * Danh sách Thông số kỹ thuật – Mock data, kết nối API SpecificationController.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { usePolling } from '../hooks/usePolling';
+import PollingManager from '../lib/pollingManager';
 import {
     Box,
     Button,
@@ -321,6 +323,11 @@ const ViewSpecList = () => {
         fetchList();
     }, [fetchList]);
 
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('specs', () => fetchListRef.current?.());
+
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalItems);
 
@@ -348,6 +355,7 @@ const ViewSpecList = () => {
         setPage(0);
         setTimeout(() => fetchList(), 50);
         setAddSubmitting(false);
+        PollingManager.triggerRefreshByFetchKey('Spec');
     };
 
     const handleOpenEditSpec = (spec) => {
@@ -380,6 +388,7 @@ const ViewSpecList = () => {
         setEditForm({ specificationCode: '', specificationName: '', unit: '', isActive: true, createdAt: '' });
         setTimeout(() => fetchList(), 50);
         setEditSubmitting(false);
+        PollingManager.triggerRefreshByFetchKey('Spec');
     };
 
     return (

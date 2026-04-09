@@ -21,10 +21,6 @@ const GRNDiscountSection = ({
     addAdditionalCost,
     removeAdditionalCost,
     updateAdditionalCost,
-    isPaid,
-    setIsPaid,
-    paymentMethod,
-    setPaymentMethod,
     shippingFee,
     setShippingFee,
 }) => {
@@ -156,39 +152,6 @@ const GRNDiscountSection = ({
                             >
                                 + Thêm chi phí
                             </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Thông tin thanh toán */}
-                <div className="grn-payment-section" style={{ marginTop: '16px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
-                    <div className="grn-form-two-columns">
-                        <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <input
-                                type="checkbox"
-                                id="isPaid"
-                                checked={isPaid || false}
-                                onChange={(e) => setIsPaid(e.target.checked)}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            <label htmlFor="isPaid" style={{ cursor: 'pointer', fontWeight: 500 }}>
-                                Đã thanh toán
-                            </label>
-                        </div>
-                        <div className="form-field">
-                            <label className="form-label">Phương thức thanh toán</label>
-                            <select
-                                value={paymentMethod || ''}
-                                onChange={(e) => setPaymentMethod(e.target.value)}
-                                className="form-input"
-                                style={{ height: '36px' }}
-                            >
-                                <option value="">Chọn phương thức</option>
-                                <option value="cash">Tiền mặt</option>
-                                <option value="bank_transfer">Chuyển khoản</option>
-                                <option value="credit">Thẻ tín dụng</option>
-                                <option value="other">Khác</option>
-                            </select>
                         </div>
                     </div>
                 </div>

@@ -1,9 +1,11 @@
 /*
  * Danh sách Thương hiệu – kết nối BrandController.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { parseDate } from '../lib/dateUtils';
 import { getBrandList, createBrand, updateBrand } from '../lib/brandService';
+import { usePolling } from '../hooks/usePolling';
+import PollingManager from '../lib/pollingManager';
 import { formatDateOnly } from '../lib/dateUtils';
 import {
     Box,
@@ -106,7 +108,7 @@ const ViewBrandList = () => {
     const [addSubmitting, setAddSubmitting] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editBrandId, setEditBrandId] = useState(null);
-    const [editForm, setEditForm] = useState({ brandCode: '', brandName: '', isActive: true, createdAt: '' });
+    const [editForm, setEditForm] = useState({ brandName: '', isActive: true });
     const [editSubmitting, setEditSubmitting] = useState(false);
     const [fetchError, setFetchError] = useState(null);
     const { toast, showToast, clearToast } = useToast();
@@ -115,7 +117,6 @@ const ViewBrandList = () => {
     const allColumns = [
         { id: 'brandName', label: 'Tên thương hiệu', sortable: true },
         { id: 'isActive', label: 'Trạng thái', sortable: true },
-        { id: 'createdAt', label: 'Ngày tạo', sortable: true },
     ];
 
     const savedColumnOrder = (() => {
@@ -241,7 +242,7 @@ const ViewBrandList = () => {
                 brandName: searchTerm.trim() || undefined,
                 isActive:
                     filterStatus === 'active' ? true :
-                    filterStatus === 'inactive' ? false : undefined,
+                        filterStatus === 'inactive' ? false : undefined,
             });
             setRows(result.items || []);
             setTotalItems(result.totalItems || 0);
@@ -257,6 +258,11 @@ const ViewBrandList = () => {
     useEffect(() => {
         fetchList();
     }, [fetchList]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('brands', () => fetchListRef.current?.());
 
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalItems);
@@ -652,22 +658,6 @@ const ViewBrandList = () => {
                                             >
                                                 STT
                                             </TableCell>
-                                            {/* Brand Code column (always visible, not in configurable list) */}
-                                            <TableCell
-                                                sx={{
-                                                    ...headCellBaseSx,
-                                                    width: 140,
-                                                    minWidth: 140,
-                                                    maxWidth: 140,
-                                                }}
-                                            >
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                    <GripVertical size={14} style={{ color: '#9ca3af', flexShrink: 0 }} />
-                                                    <Typography variant="inherit" sx={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>
-                                                        Mã thương hiệu
-                                                    </Typography>
-                                                </Box>
-                                            </TableCell>
                                             {columnOrder.filter(id => visibleColumnIds.has(id)).map((colId) => {
                                                 const col = allColumns.find(c => c.id === colId);
                                                 if (!col) return null;
@@ -771,20 +761,6 @@ const ViewBrandList = () => {
                                                 >
                                                     {page * pageSize + index + 1}
                                                 </TableCell>
-                                                {/* Brand Code */}
-                                                <TableCell sx={{ ...bodyCellBaseSx, width: 140, minWidth: 140, maxWidth: 140 }}>
-                                                    <Typography
-                                                        sx={{
-                                                            fontSize: '12px',
-                                                            color: '#6b7280',
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis',
-                                                            whiteSpace: 'nowrap',
-                                                        }}
-                                                    >
-                                                        {b.brandCode}
-                                                    </Typography>
-                                                </TableCell>
                                                 {columnOrder.filter(id => visibleColumnIds.has(id)).map((colId) => {
                                                     return (
                                                         <TableCell
@@ -797,10 +773,8 @@ const ViewBrandList = () => {
                                                                     onClick={() => {
                                                                         setEditBrandId(b.brandId);
                                                                         setEditForm({
-                                                                            brandCode: b.brandCode ?? '',
                                                                             brandName: b.brandName ?? '',
                                                                             isActive: b.isActive ?? true,
-                                                                            createdAt: b.createdAt ?? '',
                                                                         });
                                                                         setEditDialogOpen(true);
                                                                     }}
@@ -825,7 +799,6 @@ const ViewBrandList = () => {
                                                                     {b.brandName}
                                                                 </Box>
                                                             )}
-                                                            {colId === 'createdAt' && (b.createdAt ? formatDateOnly(b.createdAt) : '—')}
                                                             {colId === 'isActive' && (
                                                                 <Chip
                                                                     label={b.isActive ? '• Hoạt động' : '• Tạm dừng'}
@@ -1109,7 +1082,7 @@ const ViewBrandList = () => {
                 open={editDialogOpen}
                 onClose={() => {
                     setEditDialogOpen(false);
-                    setEditForm({ brandCode: '', brandName: '', isActive: true, createdAt: '' });
+                    setEditForm({ brandName: '', isActive: true });
                     setEditBrandId(null);
                 }}
                 maxWidth="xs"
@@ -1146,7 +1119,7 @@ const ViewBrandList = () => {
                     <IconButton
                         onClick={() => {
                             setEditDialogOpen(false);
-                            setEditForm({ brandCode: '', brandName: '', isActive: true, createdAt: '' });
+                            setEditForm({ brandName: '', isActive: true });
                             setEditBrandId(null);
                         }}
                         size="small"
@@ -1163,26 +1136,6 @@ const ViewBrandList = () => {
 
                 <DialogContent sx={{ px: 3, pt: 2, pb: 2.5 }}>
                     <>
-                        {/* Mã thương hiệu (readonly) */}
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                fontWeight: 500,
-                                fontSize: '12px',
-                                color: 'text.secondary',
-                                display: 'block',
-                                mb: 0.5,
-                                mt: 1,
-                            }}
-                        >
-                            Mã thương hiệu
-                        </Typography>
-                        <Box sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.06)', pb: 1, mb: 2 }}>
-                            <Typography sx={{ fontSize: '14px', color: '#374151' }}>
-                                {editForm.brandCode || '—'}
-                            </Typography>
-                        </Box>
-
                         {/* Tên thương hiệu */}
                         <Typography
                             variant="caption"
@@ -1265,29 +1218,6 @@ const ViewBrandList = () => {
                             <option value="false" style={{ color: '#ef4444' }}>Ngừng hoạt động</option>
                         </Box>
 
-                        {/* Ngày tạo (readonly) */}
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                fontWeight: 500,
-                                fontSize: '12px',
-                                color: 'text.secondary',
-                                display: 'block',
-                                mb: 0.5,
-                            }}
-                        >
-                            Ngày tạo
-                        </Typography>
-                        <Box
-                            sx={{
-                                borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
-                                pb: 1,
-                            }}
-                        >
-                            <Typography sx={{ fontSize: '14px', color: '#374151' }}>
-                                {editForm.createdAt ? formatDateOnly(editForm.createdAt) : '—'}
-                            </Typography>
-                        </Box>
                     </>
                 </DialogContent>
 
@@ -1354,6 +1284,7 @@ const ViewBrandList = () => {
             setAddDialogOpen(false);
             setAddForm({ brandName: '' });
             fetchList();
+            PollingManager.triggerRefreshByFetchKey('Brand');
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không thể tạo thương hiệu';
             showToast(msg, 'error');
@@ -1372,9 +1303,10 @@ const ViewBrandList = () => {
                 isActive: editForm.isActive,
             });
             setEditDialogOpen(false);
-            setEditForm({ brandCode: '', brandName: '', isActive: true, createdAt: '' });
+            setEditForm({ brandName: '', isActive: true });
             setEditBrandId(null);
             fetchList();
+            PollingManager.triggerRefreshByFetchKey('Brand');
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không thể cập nhật thương hiệu';
             showToast(msg, 'error');

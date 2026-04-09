@@ -1,0 +1,145 @@
+/* PurchaseReturnList.css */
+.list-page-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #f8fafc;
+    overflow: hidden;
+}
+
+/* Header & Summary Section */
+.list-header-section {
+    padding: 24px;
+    flex-shrink: 0;
+}
+
+.list-title-group h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.list-title-group span {
+    font-size: 12px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.summary-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: transform 0.2s;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.summary-icon-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Main Content Area */
+.list-main-content {
+    flex: 1;
+    padding: 0 24px 24px 24px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.list-paper-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Toolbar */
+.list-toolbar {
+    padding: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Status Chips Custom */
+.status-chip-custom {
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    height: 24px !important;
+    border: none !important;
+}
+
+/* Table Customization */
+.custom-table-container {
+    flex: 1;
+    overflow: auto;
+}
+
+.custom-table-head th {
+    background-color: #f8fafc !important;
+    color: #64748b !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    padding: 12px 16px !important;
+}
+
+.custom-table-row:hover {
+    background-color: #f1f5f9 !important;
+}
+
+.custom-table-cell {
+    padding: 14px 16px !important;
+    font-size: 13px !important;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.link-cell {
+    color: #0284c7;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.link-cell:hover {
+    text-decoration: underline;
+}
+
+/* Pagination */
+.list-pagination {
+    padding: 12px 16px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+}

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Card,
@@ -292,7 +293,7 @@ const ViewInventoryAdjustmentList = () => {
     );
 
     // Fetch data
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -341,11 +342,16 @@ const ViewInventoryAdjustmentList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchTerm, filterValues]);
 
     useEffect(() => {
         fetchData();
-    }, [searchTerm, filterValues]);
+    }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('inventoryAdjustments', () => fetchDataRef.current?.());
 
     // Pagination helpers
     const totalCount = totalRows;

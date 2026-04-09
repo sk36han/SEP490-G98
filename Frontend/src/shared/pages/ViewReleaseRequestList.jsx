@@ -1,8 +1,9 @@
 /*
  * Danh sách Yêu cầu xuất hàng.
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Button,
@@ -233,6 +234,11 @@ export default function ViewReleaseRequestList() {
     }, [page, pageSize]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('releaseRequests', () => fetchDataRef.current?.());
 
     useEffect(() => {
         if (Boolean(columnSelectorAnchor)) setTempColumnOrder(columnOrder);

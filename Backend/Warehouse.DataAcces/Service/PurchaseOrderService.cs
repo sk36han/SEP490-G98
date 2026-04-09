@@ -220,10 +220,10 @@ namespace Warehouse.DataAcces.Service
             var po = new PurchaseOrder
             {
                 Pocode = poCode,
-                RequestedBy = requestedByUserId,
-                SupplierId = request.SupplierId,
+                    RequestedBy = requestedByUserId,
+                    SupplierId = request.SupplierId,
                 RequestedDate = DateOnly.FromDateTime(now),
-                Justification = request.Justification,
+                    Justification = request.Justification,
                 // Sử dụng Status từ request, nếu null thì để database tự set default
                    Status = request.Status ?? "PENDING",
                 CurrentStageNo = 1,

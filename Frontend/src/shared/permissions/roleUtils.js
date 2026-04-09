@@ -33,7 +33,7 @@ export const getPermissionRole = (originalRole) => {
     const upper = str.toUpperCase().replace(/[-\s]/g, '_');
     // Viết tắt tiếng Việt
     if (upper === 'GD') return 'DIRECTOR';
-    if (upper === 'TK' || upper === 'WK') return 'WAREHOUSE_KEEPER';
+    if (upper === 'TK') return 'WAREHOUSE_KEEPER';
     if (upper === 'SP') return 'SALE_SUPPORT';
     if (upper === 'SE') return 'SALE_ENGINEER';
     if (upper === 'KT') return 'ACCOUNTANTS';
@@ -70,8 +70,8 @@ export const getRoleFromToken = (token) => {
             atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
         );
         const payload = JSON.parse(jsonPayload);
-        return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || 
-               payload.role || payload.Role || payload.roles?.[0] || null;
+        return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+            payload.role || payload.Role || payload.roles?.[0] || null;
     } catch (error) {
         return null;
     }

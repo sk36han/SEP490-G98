@@ -1,5 +1,6 @@
 import apiClient from './axios';
 import authService from './authService';
+import { invalidate } from './pollingManager';
 
 /** Backend endpoints (ReleaseRequestController):
  *   POST /api/ReleaseRequest/create
@@ -197,6 +198,7 @@ export async function createReleaseRequest(data) {
         };
         console.log('[createReleaseRequest] payload:', JSON.stringify(payload, null, 2));
         const response = await apiClient.post('/ReleaseRequest/create', payload);
+        invalidate('release-request');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] createReleaseRequest failed:', error);
@@ -241,6 +243,7 @@ export async function updateReleaseRequest(id, data) {
             }));
         }
         const response = await apiClient.put(`/ReleaseRequest/update/${id}`, payload);
+        invalidate('release-request');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] updateReleaseRequest failed:', error);

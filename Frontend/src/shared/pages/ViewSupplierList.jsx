@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -306,6 +307,11 @@ export default function ViewSupplierList() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [searchTerm, filterValues]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('suppliers', () => fetchDataRef.current?.());
 
     // Client-side sort on current page data
     const sortedRows = useMemo(() => {

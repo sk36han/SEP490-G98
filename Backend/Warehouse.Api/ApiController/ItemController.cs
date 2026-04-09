@@ -170,6 +170,25 @@ namespace Warehouse.Api.ApiController
             }
         }
 
+        [HttpGet("export-excel")]
+        [Authorize(Roles = "TK,KT,GD,Admin")]
+        public async Task<IActionResult> ExportItemListExcel()
+        {
+            try
+            {
+                var (content, fileName) = await _itemService.ExportItemListExcelAsync();
+                return File(
+                    content,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    fileName
+                );
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Đã xảy ra lỗi khi xuất Excel.", detail = ex.Message });
+            }
+        }
+
         [HttpPatch("{id:long}/status")]
         [Authorize(Roles = "TK,KT,GD")]
         public async Task<IActionResult> UpdateItemStatus(long id, [FromQuery] bool isActive)

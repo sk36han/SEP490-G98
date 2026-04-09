@@ -1,8 +1,10 @@
 /*
  * Danh sách Danh mục sản phẩm – kết nối API CategoryController.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { formatDateOnly } from '../lib/dateUtils';
+import { usePolling } from '../hooks/usePolling';
+import PollingManager from '../lib/pollingManager';
 import {
     Box,
     Button,
@@ -26,18 +28,15 @@ import {
     FormControl,
     Select,
     MenuItem,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
     FormGroup,
 } from '@mui/material';
-import { Plus, Filter, Columns, Package, X, GripVertical, Layers } from 'lucide-react';
+import { Plus, Filter, Columns, Package, GripVertical, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SearchInput from '../components/SearchInput';
 import CategoryFilterPopup from '../components/CategoryFilterPopup';
-import { getCategoryList, createCategory, getCategoryById, updateCategory } from '../lib/categoryService';
+import CreateCategoryDialog from '../components/CreateCategoryDialog';
+import EditCategoryDialog from '../components/EditCategoryDialog';
+import { getCategoryList } from '../lib/categoryService';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -101,14 +100,9 @@ const ViewCategoryList = () => {
     const [filterDateTo, setFilterDateTo] = useState('');
     const [filterAnchor, setFilterAnchor] = useState(null);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
-    const [addForm, setAddForm] = useState({ categoryName: '' });
-    const [addSubmitting, setAddSubmitting] = useState(false);
     const [columnsAnchor, setColumnsAnchor] = useState(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editCategoryId, setEditCategoryId] = useState(null);
-    const [editForm, setEditForm] = useState({ categoryCode: '', categoryName: '', isActive: true, createdAt: '' });
-    const [editLoading, setEditLoading] = useState(false);
-    const [editSubmitting, setEditSubmitting] = useState(false);
 
     // Column management
     const allColumns = [
@@ -255,6 +249,11 @@ const ViewCategoryList = () => {
     useEffect(() => {
         fetchList();
     }, [fetchList]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('categories', () => fetchListRef.current?.());
 
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalItems);
@@ -785,19 +784,7 @@ const ViewCategoryList = () => {
                                                                         component="button"
                                                                         onClick={() => {
                                                                             setEditCategoryId(c.categoryId);
-                                                                            setEditLoading(true);
                                                                             setEditDialogOpen(true);
-                                                                            getCategoryById(c.categoryId)
-                                                                                .then((data) => {
-                                                                                    setEditForm({
-                                                                                        categoryCode: data.categoryCode ?? '',
-                                                                                        categoryName: data.categoryName ?? '',
-                                                                                        isActive: data.isActive ?? true,
-                                                                                        createdAt: data.createdAt ?? '',
-                                                                                    });
-                                                                                })
-                                                                                .catch(() => setEditDialogOpen(false))
-                                                                                .finally(() => setEditLoading(false));
                                                                         }}
                                                                         sx={{
                                                                             overflow: 'hidden',
@@ -950,439 +937,24 @@ const ViewCategoryList = () => {
             </Box>
 
             {/* Add Category Dialog */}
-            <Dialog
+            <CreateCategoryDialog
                 open={addDialogOpen}
-                onClose={() => {
-                    setAddDialogOpen(false);
-                    setAddForm({ categoryName: '' });
-                }}
-                maxWidth="xs"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: '14px',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                        border: '1px solid rgba(0, 0, 0, 0.06)',
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        px: 3,
-                        py: 2.5,
-                        borderBottom: '1px solid',
-                        borderColor: 'rgba(0, 0, 0, 0.06)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }}
-                >
-                    <Typography
-                        component="span"
-                        sx={{
-                            fontWeight: 600,
-                            fontSize: '18px',
-                            color: 'text.primary',
-                        }}
-                    >
-                        Thêm danh mục
-                    </Typography>
-                    <IconButton
-                        onClick={() => {
-                            setAddDialogOpen(false);
-                            setAddForm({ categoryName: '' });
-                        }}
-                        size="small"
-                        sx={{
-                            color: 'text.secondary',
-                            '&:hover': {
-                                bgcolor: 'rgba(0, 0, 0, 0.04)',
-                            },
-                        }}
-                    >
-                        <X size={20} />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent sx={{ px: 3, pt: 2, pb: 2.5 }}>
-                    <Typography
-                        variant="caption"
-                        sx={{
-                            fontWeight: 500,
-                            fontSize: '12px',
-                            color: 'text.secondary',
-                            display: 'block',
-                            mb: 1,
-                            mt: 1,
-                        }}
-                    >
-                        Tên danh mục
-                    </Typography>
-                    <Box
-                        component="input"
-                        type="text"
-                        value={addForm.categoryName}
-                        onChange={(e) => setAddForm({ categoryName: e.target.value })}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                handleAddCategory();
-                            }
-                        }}
-                        placeholder="Nhập tên danh mục"
-                        sx={{
-                            width: '100%',
-                            border: 'none',
-                            outline: 'none',
-                            borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
-                            pb: 1,
-                            fontSize: '14px',
-                            color: 'text.primary',
-                            bgcolor: 'transparent',
-                            '&:focus': {
-                                borderBottom: '1px solid #0284c7',
-                            },
-                            '&::placeholder': {
-                                color: '#9ca3af',
-                                fontSize: '14px',
-                            },
-                        }}
-                    />
-                </DialogContent>
-
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2.5,
-                        borderTop: '1px solid',
-                        borderColor: 'rgba(0, 0, 0, 0.06)',
-                        gap: 1.5,
-                    }}
-                >
-                    <Button
-                        onClick={() => {
-                            setAddDialogOpen(false);
-                            setAddForm({ categoryName: '' });
-                        }}
-                        size="small"
-                        sx={{
-                            textTransform: 'none',
-                            fontWeight: 500,
-                            fontSize: '13px',
-                            color: 'text.secondary',
-                            px: 2,
-                            '&:hover': {
-                                bgcolor: 'rgba(0, 0, 0, 0.04)',
-                            },
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        onClick={handleAddCategory}
-                        variant="contained"
-                        disabled={addSubmitting}
-                        size="small"
-                        sx={{
-                            textTransform: 'none',
-                            fontWeight: 500,
-                            fontSize: '13px',
-                            px: 3,
-                            py: 0.75,
-                            borderRadius: '8px',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                boxShadow: '0 2px 8px rgba(25, 118, 210, 0.24)',
-                            },
-                        }}
-                    >
-                        Tạo
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                onClose={() => setAddDialogOpen(false)}
+                onSuccess={() => { fetchList(); PollingManager.triggerRefreshByFetchKey('Category'); }}
+            />
 
             {/* Edit Category Dialog */}
-            <Dialog
+            <EditCategoryDialog
                 open={editDialogOpen}
                 onClose={() => {
                     setEditDialogOpen(false);
-                    setEditForm({ categoryName: '' });
                     setEditCategoryId(null);
                 }}
-                maxWidth="xs"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: '14px',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                        border: '1px solid rgba(0, 0, 0, 0.06)',
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        px: 3,
-                        py: 2.5,
-                        borderBottom: '1px solid',
-                        borderColor: 'rgba(0, 0, 0, 0.06)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }}
-                >
-                    <Typography
-                        variant="h6"
-                        sx={{
-                            fontWeight: 600,
-                            fontSize: '18px',
-                            color: 'text.primary',
-                        }}
-                    >
-                        Sửa danh mục
-                    </Typography>
-                    <IconButton
-                        onClick={() => {
-                            setEditDialogOpen(false);
-                            setEditForm({ categoryCode: '', categoryName: '', isActive: true, createdAt: '' });
-                            setEditCategoryId(null);
-                        }}
-                        size="small"
-                        sx={{
-                            color: 'text.secondary',
-                            '&:hover': {
-                                bgcolor: 'rgba(0, 0, 0, 0.04)',
-                            },
-                        }}
-                    >
-                        <X size={20} />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent sx={{ px: 3, pt: 2, pb: 2.5 }}>
-                    {editLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                            <CircularProgress size={24} />
-                        </Box>
-                    ) : (
-                        <>
-                            {/* Mã danh mục */}
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    fontWeight: 500,
-                                    fontSize: '12px',
-                                    color: 'text.secondary',
-                                    display: 'block',
-                                    mb: 0.5,
-                                    mt: 1,
-                                }}
-                            >
-                                Mã danh mục
-                            </Typography>
-                            <Box sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.06)', pb: 1, mb: 2 }}>
-                                <Typography sx={{ fontSize: '14px', color: '#374151' }}>
-                                    {editForm.categoryCode || '—'}
-                                </Typography>
-                            </Box>
-
-                            {/* Tên danh mục */}
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    fontWeight: 500,
-                                    fontSize: '12px',
-                                    color: 'text.secondary',
-                                    display: 'block',
-                                    mb: 0.5,
-                                }}
-                            >
-                                Tên danh mục
-                            </Typography>
-                            <Box
-                                component="input"
-                                type="text"
-                                value={editForm.categoryName}
-                                onChange={(e) => setEditForm((prev) => ({ ...prev, categoryName: e.target.value }))}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleEditCategory();
-                                    }
-                                }}
-                                placeholder="Nhập tên danh mục"
-                                sx={{
-                                    width: '100%',
-                                    border: 'none',
-                                    outline: 'none',
-                                    borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
-                                    pb: 1,
-                                    fontSize: '14px',
-                                    color: '#374151',
-                                    bgcolor: 'transparent',
-                                    mb: 2,
-                                    '&:focus': {
-                                        borderBottom: '1px solid #2563eb',
-                                    },
-                                    '&::placeholder': {
-                                        color: '#9ca3af',
-                                        fontSize: '14px',
-                                    },
-                                }}
-                            />
-
-                            {/* Trạng thái */}
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    fontWeight: 500,
-                                    fontSize: '12px',
-                                    color: 'text.secondary',
-                                    display: 'block',
-                                    mb: 0.5,
-                                }}
-                            >
-                                Trạng thái
-                            </Typography>
-                            <Box
-                                component="select"
-                                value={editForm.isActive}
-                                onChange={(e) => setEditForm((prev) => ({ ...prev, isActive: e.target.value === 'true' }))}
-                                sx={{
-                                    width: '100%',
-                                    border: 'none',
-                                    outline: 'none',
-                                    borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
-                                    pb: 1,
-                                    mb: 2,
-                                    fontSize: '14px',
-                                    color: editForm.isActive ? '#10b981' : '#ef4444',
-                                    fontWeight: 500,
-                                    bgcolor: 'transparent',
-                                    cursor: 'pointer',
-                                    '&:focus': {
-                                        borderBottom: '1px solid #2563eb',
-                                    },
-                                }}
-                            >
-                                <option value="true" style={{ color: '#10b981' }}>Hoạt động</option>
-                                <option value="false" style={{ color: '#ef4444' }}>Ngừng hoạt động</option>
-                            </Box>
-
-                            {/* Ngày tạo */}
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    fontWeight: 500,
-                                    fontSize: '12px',
-                                    color: 'text.secondary',
-                                    display: 'block',
-                                    mb: 0.5,
-                                }}
-                            >
-                                Ngày tạo
-                            </Typography>
-                            <Box
-                                sx={{
-                                    borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
-                                    pb: 1,
-                                }}
-                            >
-                                <Typography sx={{ fontSize: '14px', color: '#374151' }}>
-                                    {editForm.createdAt ? formatDateOnly(editForm.createdAt) : '—'}
-                                </Typography>
-                            </Box>
-                        </>
-                    )}
-                </DialogContent>
-
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2.5,
-                        borderTop: '1px solid',
-                        borderColor: 'rgba(0, 0, 0, 0.06)',
-                        gap: 1.5,
-                    }}
-                >
-                    <Button
-                        onClick={() => {
-                            setEditDialogOpen(false);
-                            setEditForm({ categoryCode: '', categoryName: '', isActive: true, createdAt: '' });
-                            setEditCategoryId(null);
-                        }}
-                        size="small"
-                        sx={{
-                            textTransform: 'none',
-                            fontWeight: 500,
-                            fontSize: '13px',
-                            color: 'text.secondary',
-                            px: 2,
-                            '&:hover': {
-                                bgcolor: 'rgba(0, 0, 0, 0.04)',
-                            },
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        onClick={handleEditCategory}
-                        variant="contained"
-                        disabled={editSubmitting || editLoading}
-                        size="small"
-                        sx={{
-                            textTransform: 'none',
-                            fontWeight: 500,
-                            fontSize: '13px',
-                            px: 3,
-                            py: 0.75,
-                            borderRadius: '8px',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                boxShadow: '0 2px 8px rgba(25, 118, 210, 0.24)',
-                            },
-                        }}
-                    >
-                        Lưu
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                onSuccess={() => { fetchList(); PollingManager.triggerRefreshByFetchKey('Category'); }}
+                categoryId={editCategoryId}
+            />
         </Box>
     );
-
-    function handleAddCategory() {
-        const name = (addForm.categoryName || '').trim();
-        if (!name || name.length < 2) {
-            return;
-        }
-        setAddSubmitting(true);
-        createCategory({ categoryName: name, parentId: null })
-            .then(() => {
-                setAddDialogOpen(false);
-                setAddForm({ categoryName: '' });
-                fetchList();
-            })
-            .catch(() => {
-                // keep dialog open on error
-            })
-            .finally(() => setAddSubmitting(false));
-    }
-
-    function handleEditCategory() {
-        const name = (editForm.categoryName || '').trim();
-        if (!name || name.length < 2) {
-            return;
-        }
-        setEditSubmitting(true);
-        updateCategory(editCategoryId, { categoryName: name, parentId: null })
-            .then(() => {
-                setEditDialogOpen(false);
-                setEditForm({ categoryName: '' });
-                setEditCategoryId(null);
-                fetchList();
-            })
-            .catch(() => {
-                // keep dialog open on error
-            })
-            .finally(() => setEditSubmitting(false));
-    }
 };
 
 export default ViewCategoryList;

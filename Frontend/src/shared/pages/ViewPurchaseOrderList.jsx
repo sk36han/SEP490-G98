@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
-    Card,
-    CardContent,
     Button,
     Typography,
     IconButton,
@@ -26,10 +25,17 @@ import {
     Chip,
     TableSortLabel,
     Paper,
-    CircularProgress,
-    Alert,
 } from '@mui/material';
-import { FileText, Filter, Eye, Edit, Columns, Plus, ArrowUpDown, GripVertical, RefreshCw, ShoppingCart } from 'lucide-react';
+import {
+    FileText,
+    Filter,
+    Columns,
+    Plus,
+    RefreshCw,
+    ShoppingCart,
+    CloudOff,
+    GripVertical,
+} from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -38,24 +44,57 @@ import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import { getPurchaseOrders } from '../lib/purchaseOrderService';
 import '../styles/ListView.css';
 
+const LS_COL_ORDER = 'poColumnOrder';
+const LS_SORT = 'poSortConfig';
+const LS_VISIBLE_COLUMNS = 'poVisibleColumnIds';
+const LS_FILTER = 'poFilterValues';
+
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const API_PAGE_SIZE = 100;
+const MAX_API_PAGES = 100;
 
 const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
-    <Box sx={{
-        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
-        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
-        display: 'flex', alignItems: 'center', gap: 2,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-    }}>
-        <Box sx={{
-            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+    <Box
+        sx={{
+            flex: '1 1 200px',
+            minWidth: 200,
+            bgcolor: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '14px',
+            p: 2.5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}
+    >
+        <Box
+            sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '12px',
+                bgcolor: bgColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+            }}
+        >
             <Icon size={22} color={color} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
-            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>
+                {label}
+            </Typography>
+            <Typography
+                sx={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#111827',
+                    lineHeight: 1.2,
+                    mt: 0.25,
+                }}
+            >
                 {value}
             </Typography>
         </Box>
@@ -65,501 +104,903 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
 const APPROVAL_STATUS_STYLE = {
     DRAFT: {
         bgColor: 'rgba(107, 114, 128, 0.2)',
+        color: '#4b5563',
         label: 'Bản nháp',
-        dot: '•'
+    },
+    PENDING: {
+        bgColor: 'rgba(251, 191, 36, 0.2)',
+        color: '#92400e',
+        label: 'Chờ duyệt',
     },
     PENDING_ACC: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
-        label: 'Đợi duyệt',
-        dot: '•'
+        color: '#92400e',
+        label: 'Chờ duyệt',
     },
     PENDING_DIR: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
-        label: 'Đợi duyệt',
-        dot: '•'
+        color: '#92400e',
+        label: 'Chờ duyệt',
     },
     APPROVED: {
         bgColor: 'rgba(16, 185, 129, 0.2)',
+        color: '#065f46',
         label: 'Đã duyệt',
-        dot: '•'
     },
     REJECTED: {
         bgColor: 'rgba(239, 68, 68, 0.2)',
+        color: '#991b1b',
         label: 'Từ chối',
-        dot: '•'
     },
 };
 
 const RECEIVING_STATUS_STYLE = {
     PendingRcv: {
         bgColor: 'rgba(59, 130, 246, 0.2)',
+        color: '#1d4ed8',
         label: 'Đang đợi hàng về',
-        dot: '•'
     },
     PartialRcv: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
+        color: '#92400e',
         label: 'Đã về một phần hàng',
-        dot: '•'
-    },
-    Received: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Đã về đủ hàng',
-        dot: '•'
-    },
-    FullRcv: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Đã về đủ hàng',
-        dot: '•'
     },
     PartRcv: {
         bgColor: 'rgba(251, 191, 36, 0.2)',
+        color: '#92400e',
         label: 'Đã về một phần hàng',
-        dot: '•'
+    },
+    Received: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
+        color: '#065f46',
+        label: 'Đã về đủ hàng',
+    },
+    FullRcv: {
+        bgColor: 'rgba(16, 185, 129, 0.2)',
+        color: '#065f46',
+        label: 'Đã về đủ hàng',
+    },
+    Closed: {
+        bgColor: 'rgba(107, 114, 128, 0.2)',
+        color: '#4b5563',
+        label: 'Đã đóng',
+    },
+    Cancelled: {
+        bgColor: 'rgba(239, 68, 68, 0.2)',
+        color: '#991b1b',
+        label: 'Đã hủy',
     },
 };
 
 const PO_COLUMNS = [
-    { id: 'stt', label: 'STT', sortable: false, getValue: (row, index, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + index + 1 },
-    { id: 'orderCode', label: 'Mã đơn đặt hàng nhập', sortable: true, getValue: (row) => row.orderCode ?? '' },
-    { id: 'warehouseName', label: 'Kho nhận', sortable: true, getValue: (row) => row.warehouseName ?? '' },
-    { id: 'approvalStatus', label: 'Trạng thái duyệt', sortable: true, getValue: (row) => APPROVAL_STATUS_STYLE[row.approvalStatus?.toUpperCase()]?.label ?? row.approvalStatus ?? '' },
-    { id: 'receivingStatus', label: 'Trạng thái nhập hàng', sortable: true, getValue: (row) => RECEIVING_STATUS_STYLE[row.receivingStatus?.toUpperCase()]?.label ?? row.receivingStatus ?? '' },
-    { id: 'supplierName', label: 'Nhà cung cấp', sortable: true, getValue: (row) => row.supplierName ?? '' },
-    { id: 'creator', label: 'Nhân viên tạo', sortable: true, getValue: (row) => row.creator ?? '' },
-    { id: 'responsiblePerson', label: 'Nhân viên phụ trách', sortable: true, getValue: (row) => row.responsiblePerson ?? '' },
-    { id: 'totalReceivedQuantity', label: 'Số lượng nhập', sortable: true, getValue: (row) => row.totalReceivedQuantity ?? 0 },
-    { id: 'orderValue', label: 'Giá trị đơn', sortable: true, getValue: (row) => row.orderValue ?? 0 },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => row.createdAt ?? '' },
+    {
+        id: 'stt',
+        label: 'STT',
+        sortable: false,
+        getValue: (row, index, { pageNumber, pageSize }) =>
+            (pageNumber - 1) * pageSize + index + 1,
+    },
+    {
+        id: 'orderCode',
+        label: 'Mã đơn đặt hàng nhập',
+        sortable: true,
+        getValue: (row) => row.orderCode ?? '',
+    },
+    {
+        id: 'warehouseName',
+        label: 'Kho nhận',
+        sortable: true,
+        getValue: (row) => row.warehouseName ?? '',
+    },
+    {
+        id: 'approvalStatus',
+        label: 'Trạng thái duyệt',
+        sortable: true,
+        getValue: (row) =>
+            APPROVAL_STATUS_STYLE[String(row.approvalStatus ?? '').toUpperCase()]?.label ??
+            row.approvalStatus ??
+            '',
+    },
+    {
+        id: 'receivingStatus',
+        label: 'Trạng thái nhập hàng',
+        sortable: true,
+        getValue: (row) =>
+            RECEIVING_STATUS_STYLE[row.receivingStatus]?.label ?? row.receivingStatus ?? '',
+    },
+    {
+        id: 'supplierName',
+        label: 'Nhà cung cấp',
+        sortable: true,
+        getValue: (row) => row.supplierName ?? '',
+    },
+    {
+        id: 'creator',
+        label: 'Nhân viên tạo',
+        sortable: true,
+        getValue: (row) => row.creator ?? '',
+    },
+    {
+        id: 'responsiblePerson',
+        label: 'Nhân viên phụ trách',
+        sortable: true,
+        getValue: (row) => row.responsiblePerson ?? '',
+    },
+    {
+        id: 'totalReceivedQuantity',
+        label: 'Số lượng nhập',
+        sortable: true,
+        getValue: (row) => row.totalReceivedQuantity ?? 0,
+    },
+    {
+        id: 'orderValue',
+        label: 'Giá trị đơn',
+        sortable: true,
+        getValue: (row) => row.orderValue ?? 0,
+    },
+    {
+        id: 'createdAt',
+        label: 'Ngày tạo',
+        sortable: true,
+        getValue: (row) => row.createdAt ?? '',
+    },
 ];
 
-/** Mặc định hiển thị tất cả các cột */
 const DEFAULT_VISIBLE_COLUMN_IDS = PO_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = PO_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 
-/** Danh sách đơn mua - dữ liệu từ API */
-
-const formatCurrency = (value) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
+const BODY_CELL_SX = {
+    py: 1.75,
+    px: 2,
+    fontSize: '13px',
+    lineHeight: '20px',
+    verticalAlign: 'middle',
+    borderBottom: '1px solid #f3f4f6',
+    color: '#374151',
 };
 
-// UTC-safe: parse ISO string as UTC to avoid browser timezone shift
+const CHECKBOX_CELL_SX = {
+    ...BODY_CELL_SX,
+    width: 56,
+    minWidth: 56,
+    maxWidth: 56,
+};
+
+const formatCurrency = (value) =>
+    new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+    }).format(Number(value) || 0);
+
 const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    const d = new Date(dateStr + (String(dateStr).endsWith('Z') ? '' : 'Z'));
     if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return (
+        d.toLocaleDateString('vi-VN') +
+        ' ' +
+        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    );
 };
+
+const normalizeText = (value) =>
+    value ? removeDiacritics(String(value).toLowerCase()) : '';
+
+const upper = (value) => String(value ?? '').toUpperCase();
+
+const mapPOItem = (item) => ({
+    purchaseOrderId: item.purchaseOrderId ?? item.PurchaseOrderId ?? 0,
+    orderCode: item.poCode ?? item.PoCode ?? '',
+    warehouseName: item.warehouseName ?? item.WarehouseName ?? '',
+    approvalStatus: upper(item.status ?? item.Status ?? 'DRAFT'),
+    status: upper(item.status ?? item.Status ?? 'DRAFT'),
+    receivingStatus:
+        item.lifecycleStatus ??
+        item.LifecycleStatus ??
+        item.receivingStatus ??
+        'PendingRcv',
+    supplierName: item.supplierName ?? item.SupplierName ?? '',
+    creator: item.requestedByName ?? item.RequestedByName ?? item.creator ?? '',
+    creatorId: item.requestedBy ?? item.RequestedBy ?? null,
+    responsiblePerson:
+        item.responsibleUserName ??
+        item.ResponsibleUserName ??
+        item.responsiblePerson ??
+        '',
+    totalReceivedQuantity: item.totalReceivedQty ?? item.TotalReceivedQty ?? 0,
+    orderValue: item.totalAmount ?? item.TotalAmount ?? 0,
+    createdAt: item.createdAt ?? item.CreatedAt ?? '',
+});
 
 export default function ViewPurchaseOrderList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
     const location = useLocation();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    const currentUserId = authService.getUser()?.userId ?? authService.getUser()?.UserId ?? null;
+
+    const user = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(user));
+    const currentUserId = user?.userId ?? user?.UserId ?? null;
+    const currentUserName = authService.getCurrentUserName();
 
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [totalItems, setTotalItems] = useState(0);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterValues, setFilterValues] = useState(() => {
-        const saved = localStorage.getItem('poFilterValues');
+        const saved = localStorage.getItem(LS_FILTER);
         return saved ? JSON.parse(saved) : {};
     });
+
+    const activeFilterCount = useMemo(
+        () =>
+            Object.values(filterValues).filter(
+                (v) => v !== undefined && v !== null && v !== ''
+            ).length,
+        [filterValues]
+    );
+
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
+
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
-        const saved = localStorage.getItem('poVisibleColumnIds');
-        return saved ? new Set(JSON.parse(saved)) : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        try {
+            const saved = JSON.parse(localStorage.getItem(LS_VISIBLE_COLUMNS));
+            return Array.isArray(saved)
+                ? new Set(saved)
+                : new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        } catch {
+            return new Set(DEFAULT_VISIBLE_COLUMN_IDS);
+        }
     });
-    const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [orderBy, setOrderBy] = useState(() => {
-        const saved = localStorage.getItem('poSortConfig');
-        return saved ? JSON.parse(saved).orderBy : null;
-    });
-    const [order, setOrder] = useState(() => {
-        const saved = localStorage.getItem('poSortConfig');
-        return saved ? JSON.parse(saved).order : 'asc';
-    });
-    const [selectedIds, setSelectedIds] = useState(new Set());
+
     const [columnOrder, setColumnOrder] = useState(() => {
-        const saved = localStorage.getItem('poColumnOrder');
-        return saved ? JSON.parse(saved) : PO_COLUMNS.map(c => c.id);
+        try {
+            const allIds = PO_COLUMNS.map((c) => c.id);
+            const saved = JSON.parse(localStorage.getItem(LS_COL_ORDER));
+            if (Array.isArray(saved) && saved.length > 0) {
+                const validIds = new Set(allIds);
+                const filtered = saved.filter((id) => validIds.has(id));
+                const missing = allIds.filter((id) => !filtered.includes(id));
+                return [...filtered, ...missing];
+            }
+            return allIds;
+        } catch {
+            return PO_COLUMNS.map((c) => c.id);
+        }
     });
+
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
+    const [tempVisibleColumnIds, setTempVisibleColumnIds] = useState(
+        () => new Set(visibleColumnIds)
+    );
+    const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
-    const [sortConfig, setSortConfig] = useState(() => {
-        const saved = localStorage.getItem('poSortConfig');
-        return saved ? JSON.parse(saved) : { orderBy: null, order: 'asc' };
+
+    const [orderBy, setOrderBy] = useState(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(LS_SORT));
+            return saved?.orderBy || null;
+        } catch {
+            return null;
+        }
     });
 
-    // Áp dụng filter từ sidebar (Tất cả / Chờ duyệt / Đã duyệt)
-    useEffect(() => {
-        const status = location.state?.approvalStatus;
-        if (status !== undefined) {
-            setFilterValues((prev) => ({ ...prev, approvalStatus: status || undefined }));
-        }
-    }, [location.state?.approvalStatus]);
-
-    useEffect(() => {
-        if (sortConfig.orderBy) {
-            setOrderBy(sortConfig.orderBy);
-            setOrder(sortConfig.order);
-        }
-    }, []);
-
-    // Fetch data từ API
-    const fetchList = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const [order, setOrder] = useState(() => {
         try {
-            const apiPage = page + 1; // API dùng 1-based
-            const result = await getPurchaseOrders({
-                page: apiPage,
-                pageSize,
-                poCode: searchTerm.trim() || undefined,
-                supplierName: filterValues.supplier || undefined,
-                status: filterValues.approvalStatus || undefined,
-                fromDate: filterValues.fromDate || undefined,
-                toDate: filterValues.toDate || undefined,
-                requestedByName: filterValues.creator || undefined,
-            });
-            
-            // Map dữ liệu từ API sang format UI
-            const mappedList = (result.items ?? []).map((item) => ({
-                purchaseOrderId: item.purchaseOrderId ?? item.purchaseOrderId ?? 0,
-                orderCode: item.poCode ?? item.orderCode ?? '',
-                warehouseName: item.warehouseName ?? item.WarehouseName ?? '',
-                approvalStatus: item.status ?? item.Status ?? 'DRAFT',
-                receivingStatus: item.lifecycleStatus ?? item.LifecycleStatus ?? item.receivingStatus ?? 'PendingRcv',
-                supplierName: item.supplierName ?? item.SupplierName ?? '',
-                creator: item.requestedByName ?? item.RequestedByName ?? item.creator ?? '',
-                creatorId: item.requestedBy ?? item.RequestedBy ?? null,
-                responsiblePerson: item.responsibleUserName ?? item.ResponsibleUserName ?? item.responsiblePerson ?? '',
-                totalReceivedQuantity: item.totalReceivedQty ?? item.TotalReceivedQty ?? 0,
-                orderValue: item.totalAmount ?? item.TotalAmount ?? 0,
-                createdAt: item.createdAt ?? item.CreatedAt ?? '',
-            }));
-            
-            setList(mappedList);
-            setTotalItems(result.totalItems ?? 0);
-        } catch (err) {
-            setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách đơn mua.');
-            setList([]);
-        } finally {
-            setLoading(false);
+            const saved = JSON.parse(localStorage.getItem(LS_SORT));
+            return saved?.order || 'asc';
+        } catch {
+            return 'asc';
         }
-    }, [page, pageSize, searchTerm, filterValues]);
+    });
 
-    useEffect(() => {
-        fetchList();
-    }, [fetchList]);
+    const [selectedIds, setSelectedIds] = useState(new Set());
 
-    const handleRefresh = () => {
-        fetchList();
-    };
-
-    const handleColumnVisibilityChange = (columnId, checked) => {
-        setVisibleColumnIds((prev) => {
-            const next = new Set(prev);
-            if (checked) next.add(columnId);
-            else next.delete(columnId);
-            // Lưu vào localStorage
-            localStorage.setItem('poVisibleColumnIds', JSON.stringify([...next]));
-            return next;
-        });
-    };
-    const handleSelectAllColumns = (checked) => {
-        const newSet = checked ? new Set(DEFAULT_VISIBLE_COLUMN_IDS) : new Set();
-        setVisibleColumnIds(newSet);
-        localStorage.setItem('poVisibleColumnIds', JSON.stringify([...newSet]));
-    };
-    const visibleColumns = PO_COLUMNS
-        .filter((col) => visibleColumnIds.has(col.id))
-        .sort((a, b) => {
-            // Giữ cột STT cố định bên trái, không bị drag reorder
-            if (a.id === 'stt' && b.id !== 'stt') return -1;
-            if (b.id === 'stt' && a.id !== 'stt') return 1;
-            return columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id);
-        });
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     useEffect(() => {
         if (columnSelectorOpen) {
             setTempColumnOrder(columnOrder);
+            setTempVisibleColumnIds(new Set(visibleColumnIds));
         }
-    }, [columnSelectorOpen, columnOrder]);
+    }, [columnSelectorOpen, columnOrder, visibleColumnIds]);
 
-    const handleSortRequest = (columnId) => {
-        if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
-        
-        let newOrder, newOrderBy;
-        if (orderBy === columnId) {
-            if (order === 'asc') {
-                newOrder = 'desc';
-                newOrderBy = columnId;
-            } else {
-                newOrder = 'asc';
-                newOrderBy = null;
+    useEffect(() => {
+        const status = location.state?.approvalStatus;
+        if (status !== undefined) {
+            setFilterValues((prev) => {
+                const next = {
+                    ...prev,
+                    approvalStatus: status || undefined,
+                };
+                localStorage.setItem(LS_FILTER, JSON.stringify(next));
+                return next;
+            });
+        }
+    }, [location.state?.approvalStatus]);
+
+    const fetchAllPages = useCallback(async (filters) => {
+        const allItems = [];
+        let currentPage = 1;
+        let totalItemsFromApi = 0;
+
+        while (currentPage <= MAX_API_PAGES) {
+            const result = await getPurchaseOrders({
+                page: currentPage,
+                pageSize: API_PAGE_SIZE,
+                status: filters.approvalStatus,
+                lifecycleStatus: filters.receivingStatus,
+                supplierName: filters.supplier,
+                warehouseName: filters.warehouse,
+                fromDate: filters.fromDate,
+                toDate: filters.toDate,
+                requestedByName: filters.creator,
+            });
+
+            const items = Array.isArray(result?.items) ? result.items : [];
+            totalItemsFromApi = result?.totalItems ?? totalItemsFromApi;
+
+            allItems.push(...items);
+
+            if (items.length === 0) break;
+            if (totalItemsFromApi > 0 && allItems.length >= totalItemsFromApi) break;
+            if (items.length < API_PAGE_SIZE) break;
+
+            currentPage += 1;
+        }
+
+        const dedupedMap = new Map();
+        allItems.forEach((item) => {
+            const id = item.purchaseOrderId ?? item.PurchaseOrderId;
+            if (id != null && !dedupedMap.has(String(id))) {
+                dedupedMap.set(String(id), item);
             }
-        } else {
-            newOrderBy = columnId;
-            newOrder = 'asc';
+        });
+
+        return {
+            totalItems: totalItemsFromApi || dedupedMap.size,
+            items: Array.from(dedupedMap.values()),
+        };
+    }, []);
+
+    const fetchList = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const result = await fetchAllPages(filterValues);
+            const mappedList = (result.items ?? []).map(mapPOItem);
+            setList(mappedList);
+        } catch (err) {
+            setError(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    'Không tải được danh sách đơn mua.'
+            );
+            setList([]);
+        } finally {
+            setLoading(false);
         }
-        
-        setOrderBy(newOrderBy);
-        setOrder(newOrder);
+    }, [fetchAllPages, filterValues]);
+
+    useEffect(() => {
+        fetchList();
+    }, [fetchList]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('purchaseOrders', () => fetchListRef.current?.());
+
+    const handleRefresh = () => {
         setPage(0);
-        
-        // Lưu cấu hình sort
-        localStorage.setItem('poSortConfig', JSON.stringify({ orderBy: newOrderBy, order: newOrder }));
+        fetchList();
     };
 
-    const handleDragStart = (e, columnId) => {
-        setDraggedColumn(columnId);
+    const visibleColumns = useMemo(
+        () =>
+            columnOrder
+                .map((id) => PO_COLUMNS.find((c) => c.id === id))
+                .filter((c) => c && visibleColumnIds.has(c.id)),
+        [columnOrder, visibleColumnIds]
+    );
+
+    const handleDragStart = (e, colId) => {
+        setDraggedColumn(colId);
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', colId);
     };
+
+    const handleDragEnd = () => setDraggedColumn(null);
 
     const handleDragOver = (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
     };
 
-    const handleDrop = (e, targetColumnId) => {
+    const handleDrop = (e, targetId) => {
         e.preventDefault();
-        if (!draggedColumn || draggedColumn === targetColumnId) return;
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedColumn;
 
-        const newOrder = [...columnOrder];
-        const draggedIndex = newOrder.indexOf(draggedColumn);
-        const targetIndex = newOrder.indexOf(targetColumnId);
+        if (!sourceId || sourceId === targetId) {
+            setDraggedColumn(null);
+            return;
+        }
 
-        newOrder.splice(draggedIndex, 1);
-        newOrder.splice(targetIndex, 0, draggedColumn);
+        const arr = [...columnOrder];
+        const from = arr.indexOf(sourceId);
+        const to = arr.indexOf(targetId);
 
-        setColumnOrder(newOrder);
-        // Lưu cấu hình column order
-        localStorage.setItem('poColumnOrder', JSON.stringify(newOrder));
+        if (from === -1 || to === -1) {
+            setDraggedColumn(null);
+            return;
+        }
+
+        arr.splice(from, 1);
+        arr.splice(to, 0, sourceId);
+        setColumnOrder(arr);
+        localStorage.setItem(LS_COL_ORDER, JSON.stringify(arr));
         setDraggedColumn(null);
     };
 
-    const handleDragEnd = () => {
-        setDraggedColumn(null);
-    };
-
-    // Shared cell styles for perfect alignment
-    const BODY_CELL_SX = {
-        py: 1.75,
-        px: 2,
-        fontSize: '13px',
-        lineHeight: '20px',
-        verticalAlign: 'middle',
-        borderBottom: '1px solid #f3f4f6',
-        color: '#374151',
-    };
-
-    const CHECKBOX_CELL_SX = {
-        ...BODY_CELL_SX,
-        width: 48,
-        minWidth: 48,
-        maxWidth: 48,
-    };
-
-    const handlePopupDragStart = (e, columnId) => {
-        setDraggedPopupColumn(columnId);
+    const handlePopupDragStart = (e, colId) => {
+        setDraggedPopupColumn(colId);
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', colId);
     };
+
+    const handlePopupDragEnd = () => setDraggedPopupColumn(null);
 
     const handlePopupDragOver = (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
     };
 
-    const handlePopupDrop = (e, targetColumnId) => {
+    const handlePopupDrop = (e, targetId) => {
         e.preventDefault();
-        if (!draggedPopupColumn || draggedPopupColumn === targetColumnId) return;
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedPopupColumn;
 
-        const newOrder = [...tempColumnOrder];
-        const draggedIndex = newOrder.indexOf(draggedPopupColumn);
-        const targetIndex = newOrder.indexOf(targetColumnId);
+        if (!sourceId || sourceId === targetId) {
+            setDraggedPopupColumn(null);
+            return;
+        }
 
-        newOrder.splice(draggedIndex, 1);
-        newOrder.splice(targetIndex, 0, draggedPopupColumn);
+        const arr = [...tempColumnOrder];
+        const from = arr.indexOf(sourceId);
+        const to = arr.indexOf(targetId);
 
-        setTempColumnOrder(newOrder);
-        setDraggedPopupColumn(null);
-    };
+        if (from === -1 || to === -1) {
+            setDraggedPopupColumn(null);
+            return;
+        }
 
-    const handlePopupDragEnd = () => {
+        arr.splice(from, 1);
+        arr.splice(to, 0, sourceId);
+        setTempColumnOrder(arr);
         setDraggedPopupColumn(null);
     };
 
     const handleSaveColumnOrder = () => {
         setColumnOrder(tempColumnOrder);
-        localStorage.setItem('poColumnOrder', JSON.stringify(tempColumnOrder));
+        setVisibleColumnIds(new Set(tempVisibleColumnIds));
+        localStorage.setItem(LS_COL_ORDER, JSON.stringify(tempColumnOrder));
+        localStorage.setItem(
+            LS_VISIBLE_COLUMNS,
+            JSON.stringify([...tempVisibleColumnIds])
+        );
         setColumnSelectorAnchor(null);
     };
 
     const handleCancelColumnOrder = () => {
         setTempColumnOrder(columnOrder);
+        setTempVisibleColumnIds(new Set(visibleColumnIds));
         setColumnSelectorAnchor(null);
     };
 
+    const handleSortRequest = (columnId) => {
+        if (!SORTABLE_COLUMN_IDS.includes(columnId)) return;
+
+        let nextOrderBy;
+        let nextOrder;
+
+        if (orderBy === columnId) {
+            if (order === 'asc') {
+                nextOrderBy = columnId;
+                nextOrder = 'desc';
+            } else {
+                nextOrderBy = null;
+                nextOrder = 'asc';
+            }
+        } else {
+            nextOrderBy = columnId;
+            nextOrder = 'asc';
+        }
+
+        setOrderBy(nextOrderBy);
+        setOrder(nextOrder);
+        setPage(0);
+        localStorage.setItem(
+            LS_SORT,
+            JSON.stringify({ orderBy: nextOrderBy, order: nextOrder })
+        );
+    };
+
     const filteredAndSortedRows = useMemo(() => {
-        const normalize = (str) => (str ? removeDiacritics(String(str).toLowerCase()) : '');
-        const term = searchTerm.trim() ? normalize(searchTerm.trim()) : '';
+        const term = searchTerm.trim() ? normalizeText(searchTerm.trim()) : '';
+        const selectedApprovalStatus = upper(filterValues.approvalStatus);
         let result = [...list];
 
-        // Ẩn PO DRAFT mà người dùng không phải người tạo
         result = result.filter((row) => {
-            const isDraft = (row.approvalStatus || '').toUpperCase() === 'DRAFT';
-            const isCreator = row.creatorId != null && String(row.creatorId) === String(currentUserId);
-            return !isDraft || isCreator;
+            const status = upper(row.approvalStatus);
+            const isOwnDraft =
+                status === 'DRAFT' &&
+                (String(row.creatorId) === String(currentUserId) ||
+                    normalizeText(row.creator) === normalizeText(currentUserName));
+
+            if (!selectedApprovalStatus) {
+                return (
+                    status === 'APPROVED' ||
+                    status === 'REJECTED' ||
+                    status === 'PENDING' ||
+                    status === 'PENDING_ACC' ||
+                    status === 'PENDING_DIR' ||
+                    isOwnDraft
+                );
+            }
+
+            if (selectedApprovalStatus === 'DRAFT') {
+                return isOwnDraft;
+            }
+
+            return status === selectedApprovalStatus;
         });
 
         if (term) {
-            result = result.filter((row) =>
-                normalize(row.orderCode ?? '').includes(term) ||
-                normalize(row.supplierName ?? '').includes(term) ||
-                normalize(row.creator ?? '').includes(term) ||
-                normalize(row.responsiblePerson ?? '').includes(term) ||
-                normalize(row.warehouseName ?? '').includes(term)
+            result = result.filter(
+                (row) =>
+                    normalizeText(row.orderCode).includes(term) ||
+                    normalizeText(row.supplierName).includes(term) ||
+                    normalizeText(row.creator).includes(term) ||
+                    normalizeText(row.responsiblePerson).includes(term) ||
+                    normalizeText(row.warehouseName).includes(term)
             );
         }
-        if (filterValues.approvalStatus) {
-            result = result.filter((row) => row.approvalStatus?.toUpperCase() === filterValues.approvalStatus.toUpperCase());
-        }
-        if (filterValues.receivingStatus) {
-            result = result.filter((row) => row.receivingStatus?.toUpperCase() === filterValues.receivingStatus.toUpperCase());
-        }
-        if (filterValues.supplier) {
-            result = result.filter((row) => normalize(row.supplierName ?? '').includes(normalize(filterValues.supplier)));
-        }
-        if (filterValues.warehouse) {
-            result = result.filter((row) => normalize(row.warehouseName ?? '').includes(normalize(filterValues.warehouse)));
-        }
-        if (filterValues.creator) {
-            result = result.filter((row) => normalize(row.creator ?? '').includes(normalize(filterValues.creator)));
-        }
-        if (filterValues.product) {
-            // TODO: Filter by product when product list is available in PO data
-        }
-        if (filterValues.fromDate) {
-            result = result.filter((row) => {
-                const d = row.createdAt;
-                return d && String(d).slice(0, 10) >= filterValues.fromDate;
-            });
-        }
-        if (filterValues.toDate) {
-            result = result.filter((row) => {
-                const d = row.createdAt;
-                return d && String(d).slice(0, 10) <= filterValues.toDate;
-            });
+
+        if (filterValues.responsiblePerson) {
+            result = result.filter((row) =>
+                normalizeText(row.responsiblePerson).includes(
+                    normalizeText(filterValues.responsiblePerson)
+                )
+            );
         }
 
         result.sort((a, b) => {
-            if (!orderBy) return 0;
-            
+            if (!orderBy) {
+                const isOwnDraftCheck = (row) =>
+                    upper(row.approvalStatus) === 'DRAFT' &&
+                    (String(row.creatorId) === String(currentUserId) ||
+                        normalizeText(row.creator) === normalizeText(currentUserName));
+
+                const aIsOwnDraft = isOwnDraftCheck(a);
+                const bIsOwnDraft = isOwnDraftCheck(b);
+
+                if (aIsOwnDraft !== bIsOwnDraft) {
+                    return aIsOwnDraft ? -1 : 1;
+                }
+
+                const timeA = new Date(a.createdAt).getTime() || 0;
+                const timeB = new Date(b.createdAt).getTime() || 0;
+                return timeB - timeA;
+            }
+
             const aVal = a[orderBy];
             const bVal = b[orderBy];
             const isDate = ['createdAt'].includes(orderBy);
             const isNumber = ['orderValue', 'totalReceivedQuantity'].includes(orderBy);
+
             let cmp = 0;
+
             if (isDate) {
-                const tA = new Date(aVal).getTime();
-                const tB = new Date(bVal).getTime();
+                const tA = new Date(aVal).getTime() || 0;
+                const tB = new Date(bVal).getTime() || 0;
                 cmp = tA - tB;
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else {
-                const strA = String(aVal ?? '').toLowerCase();
-                const strB = String(bVal ?? '').toLowerCase();
-                cmp = strA.localeCompare(strB);
+                cmp = String(aVal ?? '').localeCompare(String(bVal ?? ''), 'vi', {
+                    sensitivity: 'base',
+                });
             }
+
             return order === 'asc' ? cmp : -cmp;
         });
+
         return result;
-    }, [list, searchTerm, filterValues, orderBy, order]);
+    }, [list, searchTerm, filterValues, orderBy, order, currentUserId, currentUserName]);
+
+    useEffect(() => {
+        setPage(0);
+        setSelectedIds(new Set());
+    }, [searchTerm, filterValues]);
 
     const totalCount = filteredAndSortedRows.length;
-    const start = totalCount === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalCount);
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
-    const rows = filteredAndSortedRows.slice(page * pageSize, (page + 1) * pageSize);
-
-    useEffect(() => setPage(0), [searchTerm, filterValues]);
+    const safePage = totalPages === 0 ? 0 : Math.min(page, totalPages - 1);
+    const rows = filteredAndSortedRows.slice(
+        safePage * pageSize,
+        (safePage + 1) * pageSize
+    );
+    const start = totalCount === 0 ? 0 : safePage * pageSize + 1;
+    const end = Math.min((safePage + 1) * pageSize, totalCount);
 
     const handleFilterApply = (values) => {
         setFilterValues(values);
-        localStorage.setItem('poFilterValues', JSON.stringify(values));
+        localStorage.setItem(LS_FILTER, JSON.stringify(values));
         setPage(0);
     };
-    const handlePageChange = (newPage) => setPage(newPage);
+
     const handlePageSizeChange = (e) => {
         setPageSize(Number(e.target.value));
         setPage(0);
     };
 
     const handleSelectAll = (checked) => {
-        if (checked) {
-            setSelectedIds(new Set(rows.map(row => row.purchaseOrderId)));
-        } else {
-            setSelectedIds(new Set());
-        }
+        setSelectedIds(checked ? new Set(rows.map((r) => r.purchaseOrderId)) : new Set());
     };
 
     const handleSelectRow = (id, checked) => {
-        setSelectedIds(prev => {
+        setSelectedIds((prev) => {
             const next = new Set(prev);
-            if (checked) {
-                next.add(id);
-            } else {
-                next.delete(id);
-            }
+            if (checked) next.add(id);
+            else next.delete(id);
             return next;
         });
     };
 
-    const isAllSelected = rows.length > 0 && rows.every(row => selectedIds.has(row.purchaseOrderId));
-    const isSomeSelected = rows.some(row => selectedIds.has(row.purchaseOrderId)) && !isAllSelected;
+    const isAllSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.purchaseOrderId));
+    const isSomeSelected =
+        rows.some((r) => selectedIds.has(r.purchaseOrderId)) && !isAllSelected;
+
+    const renderApprovalStatus = (status) => {
+        const style = APPROVAL_STATUS_STYLE[upper(status)] || {
+            bgColor: 'rgba(107,114,128,0.15)',
+            color: '#374151',
+            label: status || '-',
+        };
+
+        return (
+            <Chip
+                label={`• ${style.label}`}
+                size="small"
+                sx={{
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    lineHeight: '16px',
+                    borderRadius: '999px',
+                    minWidth: 96,
+                    height: '26px',
+                    bgcolor: style.bgColor,
+                    color: style.color,
+                    border: 'none',
+                    boxShadow: 'none',
+                    '& .MuiChip-label': {
+                        px: 1.5,
+                        py: 0,
+                        textAlign: 'left',
+                        display: 'block',
+                        width: '100%',
+                    },
+                }}
+            />
+        );
+    };
+
+    const renderReceivingStatus = (status) => {
+        const style = RECEIVING_STATUS_STYLE[status] || {
+            bgColor: 'rgba(107,114,128,0.15)',
+            color: '#374151',
+            label: status || '-',
+        };
+
+        return (
+            <Chip
+                label={`• ${style.label}`}
+                size="small"
+                sx={{
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    lineHeight: '16px',
+                    borderRadius: '999px',
+                    minWidth: 132,
+                    height: '26px',
+                    bgcolor: style.bgColor,
+                    color: style.color,
+                    border: 'none',
+                    boxShadow: 'none',
+                    '& .MuiChip-label': {
+                        px: 1.5,
+                        py: 0,
+                        textAlign: 'left',
+                        display: 'block',
+                        width: '100%',
+                    },
+                }}
+            />
+        );
+    };
+
+    const renderCellContent = (column, row, index) => {
+        switch (column.id) {
+            case 'stt':
+                return column.getValue(row, index, {
+                    pageNumber: safePage + 1,
+                    pageSize,
+                });
+
+            case 'orderCode':
+                return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                        <Box
+                            component="a"
+                            href="#"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                navigate(`/purchase-orders/${row.purchaseOrderId}`);
+                            }}
+                            sx={{
+                                color: '#3b82f6',
+                                textDecoration: 'none',
+                                cursor: 'pointer',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                '&:hover': { textDecoration: 'underline' },
+                            }}
+                            title={row.orderCode ?? ''}
+                        >
+                            {row.orderCode ?? ''}
+                        </Box>
+                    </Box>
+                );
+
+            case 'approvalStatus':
+                return renderApprovalStatus(row.approvalStatus);
+
+            case 'receivingStatus':
+                return renderReceivingStatus(row.receivingStatus);
+
+            case 'orderValue':
+                return formatCurrency(row.orderValue);
+
+            case 'totalReceivedQuantity':
+                return Number(row.totalReceivedQuantity || 0).toLocaleString('vi-VN');
+
+            case 'createdAt':
+                return formatDate(row.createdAt);
+
+            default: {
+                const value =
+                    column.getValue(row, index, {
+                        pageNumber: safePage + 1,
+                        pageSize,
+                    }) || '-';
+
+                return (
+                    <Box
+                        sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                        title={String(value)}
+                    >
+                        {value}
+                    </Box>
+                );
+            }
+        }
+    };
+
+    const summarySource = filteredAndSortedRows;
 
     return (
-        <Box sx={{ 
-            height: '100%', 
-            minHeight: 0, 
-            minWidth: 0, 
-            overflow: 'hidden', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            bgcolor: '#fafafa',
-        }}>
-            {/* Header Section */}
-            <Box sx={{ 
-                flexShrink: 0, 
-                px: { xs: 2, sm: 2 }, 
-                py: 2.5,
+        <Box
+            sx={{
+                height: '100%',
+                minHeight: 0,
+                minWidth: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
                 bgcolor: '#fafafa',
-            }}>
-                <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
+            }}
+        >
+            <Box
+                sx={{
+                    flexShrink: 0,
+                    px: { xs: 2, sm: 2 },
+                    py: 2.5,
+                    bgcolor: '#fafafa',
+                }}
+            >
+                <Typography
+                    variant="h5"
+                    component="h1"
+                    fontWeight="600"
+                    sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
+                >
                     Danh sách đơn mua
                 </Typography>
-                <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
+
+                <Typography
+                    variant="body2"
+                    sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}
+                >
                     Purchase Orders
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={ShoppingCart} label="Tổng đơn mua" value={(totalItems || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={FileText} label="Đang xử lý" value={rows.filter(r => ['PENDING', 'PROCESSING'].includes(r.status)).length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
-                    <SummaryCard icon={FileText} label="Hoàn thành" value={rows.filter(r => r.status === 'COMPLETED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard
+                        icon={ShoppingCart}
+                        label="Đang hiển thị"
+                        value={summarySource.length.toLocaleString()}
+                        color="#6b7280"
+                        bgColor="rgba(107,114,128,0.1)"
+                    />
+                    <SummaryCard
+                        icon={FileText}
+                        label="Chờ duyệt"
+                        value={summarySource
+                            .filter((r) =>
+                                ['PENDING', 'PENDING_ACC', 'PENDING_DIR'].includes(
+                                    upper(r.approvalStatus)
+                                )
+                            )
+                            .length.toLocaleString()}
+                        color="#d97706"
+                        bgColor="rgba(245,158,11,0.1)"
+                    />
+                    <SummaryCard
+                        icon={FileText}
+                        label="Bản nháp của tôi"
+                        value={summarySource
+                            .filter(
+                                (r) =>
+                                    upper(r.approvalStatus) === 'DRAFT' &&
+                                    (String(r.creatorId) === String(currentUserId) ||
+                                        normalizeText(r.creator) ===
+                                            normalizeText(currentUserName))
+                            )
+                            .length.toLocaleString()}
+                        color="#6b7280"
+                        bgColor="rgba(107,114,128,0.1)"
+                    />
                 </Box>
             </Box>
 
-            <PurchaseOrderFilterPopup open={filterOpen} onClose={() => setFilterOpen(false)} initialValues={filterValues} onApply={handleFilterApply} />
+            <PurchaseOrderFilterPopup
+                open={filterOpen}
+                onClose={() => setFilterOpen(false)}
+                initialValues={filterValues}
+                onApply={handleFilterApply}
+            />
 
-            {/* Main Content Wrapper with Border */}
-            <Box sx={{ flex: 1, px: { xs: 2, sm: 2 }, pb: 2, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box
+                sx={{
+                    flex: 1,
+                    px: { xs: 2, sm: 2 },
+                    pb: 2,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
+            >
                 <Paper
                     className="list-view"
                     elevation={0}
@@ -574,33 +1015,39 @@ export default function ViewPurchaseOrderList() {
                         bgcolor: '#ffffff',
                     }}
                 >
-                    {/* Toolbar Section */}
                     <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #f3f4f6' }}>
-                        <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: isMobile ? 'column' : 'row',
+                                gap: 1.5,
+                                alignItems: isMobile ? 'stretch' : 'center',
+                                flexWrap: 'wrap',
+                            }}
+                        >
                             <SearchInput
                                 placeholder="Tìm theo mã PO, nhà cung cấp, nhân viên, kho..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                sx={{ 
-                                    flex: '1 1 200px', 
-                                    minWidth: isMobile ? '100%' : 200, 
+                                sx={{
+                                    flex: '1 1 200px',
+                                    minWidth: isMobile ? '100%' : 200,
                                     maxWidth: isMobile ? '100%' : 480,
                                     '& .MuiOutlinedInput-root': {
                                         bgcolor: '#f3f4f6',
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '10px',
                                         fontSize: '13px',
-                                        '& fieldset': {
-                                            border: 'none',
-                                        },
+                                        '& fieldset': { border: 'none' },
                                         '&:hover': {
                                             bgcolor: '#f9fafb',
                                             borderColor: '#d1d5db',
                                         },
                                         '&.Mui-focused': {
                                             bgcolor: '#ffffff',
-                                            borderColor: '#3b82f6',
-                                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                            borderColor: '#0284c7',
+                                            boxShadow:
+                                                '0 0 0 3px rgba(2,132,199,0.10)',
                                         },
                                         '& input::placeholder': {
                                             color: '#9ca3af',
@@ -609,15 +1056,17 @@ export default function ViewPurchaseOrderList() {
                                     },
                                 }}
                             />
+
                             <Tooltip title="Bộ lọc">
-                                <IconButton 
-                                    color="primary" 
-                                    onClick={() => setFilterOpen(true)} 
-                                    aria-label="Bộ lọc" 
-                                    sx={{ 
+                                <IconButton
+                                    color="primary"
+                                    onClick={() => setFilterOpen(true)}
+                                    aria-label="Bộ lọc"
+                                    sx={{
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
                                         borderRadius: '10px',
+                                        position: 'relative',
                                         '&:hover': {
                                             bgcolor: '#f9fafb',
                                             borderColor: '#d1d5db',
@@ -625,14 +1074,28 @@ export default function ViewPurchaseOrderList() {
                                     }}
                                 >
                                     <Filter size={18} />
+                                    {activeFilterCount > 0 && (
+                                        <Box
+                                            sx={{
+                                                position: 'absolute',
+                                                top: 4,
+                                                right: 4,
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: '50%',
+                                                bgcolor: '#0284c7',
+                                            }}
+                                        />
+                                    )}
                                 </IconButton>
                             </Tooltip>
+
                             <Tooltip title="Chọn cột hiển thị">
-                                <IconButton 
-                                    color="primary" 
-                                    onClick={(e) => setColumnSelectorAnchor(e.currentTarget)} 
-                                    aria-label="Chọn cột" 
-                                    sx={{ 
+                                <IconButton
+                                    color="primary"
+                                    onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
+                                    aria-label="Chọn cột"
+                                    sx={{
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
                                         borderRadius: '10px',
@@ -645,13 +1108,14 @@ export default function ViewPurchaseOrderList() {
                                     <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
+
                             <Tooltip title="Làm mới">
-                                <IconButton 
-                                    color="primary" 
-                                    onClick={handleRefresh} 
-                                    aria-label="Làm mới" 
+                                <IconButton
+                                    color="primary"
+                                    onClick={handleRefresh}
+                                    aria-label="Làm mới"
                                     disabled={loading}
-                                    sx={{ 
+                                    sx={{
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#ffffff',
                                         borderRadius: '10px',
@@ -664,25 +1128,34 @@ export default function ViewPurchaseOrderList() {
                                     <RefreshCw size={18} className={loading ? 'spin' : ''} />
                                 </IconButton>
                             </Tooltip>
+
                             {permissionRole === 'SALE_SUPPORT' && (
-                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                    <Button 
-                                        className="list-page-btn" 
-                                        variant="contained" 
-                                        startIcon={<Plus size={18} />} 
-                                        onClick={() => navigate('/purchase-orders/create')} 
-                                        sx={{ 
-                                            fontSize: '13px', 
-                                            fontWeight: 500, 
-                                            textTransform: 'none', 
-                                            borderRadius: '10px', 
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        gap: 1.5,
+                                        alignItems: 'center',
+                                        ml: isMobile ? 0 : 'auto',
+                                    }}
+                                >
+                                    <Button
+                                        className="list-page-btn"
+                                        variant="contained"
+                                        startIcon={<Plus size={18} />}
+                                        onClick={() => navigate('/purchase-orders/create')}
+                                        sx={{
+                                            fontSize: '13px',
+                                            fontWeight: 500,
+                                            textTransform: 'none',
+                                            borderRadius: '10px',
                                             height: 38,
                                             px: 2.5,
                                             bgcolor: '#0284c7',
-                                            boxShadow: '0 1px 2px rgba(2, 132, 199, 0.25)',
+                                            boxShadow: '0 1px 2px rgba(2,132,199,0.25)',
                                             '&:hover': {
                                                 bgcolor: '#0369a1',
-                                                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.30)',
+                                                boxShadow:
+                                                    '0 4px 12px rgba(2,132,199,0.30)',
                                             },
                                         }}
                                     >
@@ -693,147 +1166,207 @@ export default function ViewPurchaseOrderList() {
                         </Box>
                     </Box>
 
-                    <Popover 
-                        open={columnSelectorOpen} 
-                        anchorEl={columnSelectorAnchor} 
-                        onClose={handleCancelColumnOrder} 
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} 
+                    <Popover
+                        open={columnSelectorOpen}
+                        anchorEl={columnSelectorAnchor}
+                        onClose={handleCancelColumnOrder}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                        slotProps={{ 
-                            paper: { 
+                        slotProps={{
+                            paper: {
                                 elevation: 0,
-                                sx: { 
-                                    mt: 1, 
+                                sx: {
+                                    mt: 1,
                                     width: 340,
                                     maxHeight: '70vh',
                                     borderRadius: '14px',
-                                    border: '1px solid rgba(0, 0, 0, 0.08)',
-                                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                    boxShadow:
+                                        '0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
                                     overflow: 'hidden',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                } 
-                            } 
+                                },
+                            },
                         }}
                     >
-                        {/* Header */}
-                        <Box sx={{ 
-                            px: 2.5, 
-                            py: 2, 
-                            borderBottom: '1px solid #f3f4f6',
-                            flexShrink: 0,
-                        }}>
-                            <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                borderBottom: '1px solid #f3f4f6',
+                                flexShrink: 0,
+                            }}
+                        >
+                            <Typography
+                                variant="subtitle2"
+                                fontWeight={600}
+                                sx={{ fontSize: '15px', color: '#111827' }}
+                            >
                                 Chọn cột & Sắp xếp
                             </Typography>
                         </Box>
 
-                        {/* Body */}
-                        <Box sx={{ 
-                            px: 2.5, 
-                            py: 2, 
-                            flex: 1,
-                            minHeight: 0,
-                            overflowY: 'auto',
-                            '&::-webkit-scrollbar': {
-                                width: '6px',
-                            },
-                            '&::-webkit-scrollbar-track': {
-                                bgcolor: 'transparent',
-                            },
-                            '&::-webkit-scrollbar-thumb': {
-                                bgcolor: '#d1d5db',
-                                borderRadius: '3px',
-                                '&:hover': {
-                                    bgcolor: '#9ca3af',
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                flex: 1,
+                                minHeight: 0,
+                                overflowY: 'auto',
+                                '&::-webkit-scrollbar': { width: '6px' },
+                                '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+                                '&::-webkit-scrollbar-thumb': {
+                                    bgcolor: '#d1d5db',
+                                    borderRadius: '3px',
+                                    '&:hover': { bgcolor: '#9ca3af' },
                                 },
-                            },
-                        }}>
+                            }}
+                        >
                             <FormGroup>
-                                <FormControlLabel 
+                                <FormControlLabel
                                     control={
-                                        <Checkbox 
-                                            checked={visibleColumnIds.size === PO_COLUMNS.length} 
-                                            indeterminate={visibleColumnIds.size > 0 && visibleColumnIds.size < PO_COLUMNS.length} 
-                                            onChange={(e) => handleSelectAllColumns(e.target.checked)}
+                                        <Checkbox
+                                            checked={
+                                                tempVisibleColumnIds.size === PO_COLUMNS.length
+                                            }
+                                            indeterminate={
+                                                tempVisibleColumnIds.size > 0 &&
+                                                tempVisibleColumnIds.size < PO_COLUMNS.length
+                                            }
+                                            onChange={(e) =>
+                                                setTempVisibleColumnIds(
+                                                    e.target.checked
+                                                        ? new Set(DEFAULT_VISIBLE_COLUMN_IDS)
+                                                        : new Set()
+                                                )
+                                            }
                                             sx={{
                                                 color: '#9ca3af',
-                                                '&.Mui-checked': { color: '#3b82f6' },
-                                                '&.MuiCheckbox-indeterminate': { color: '#3b82f6' },
+                                                '&.Mui-checked': { color: '#0284c7' },
+                                                '&.MuiCheckbox-indeterminate': {
+                                                    color: '#0284c7',
+                                                },
                                             }}
                                         />
-                                    } 
-                                    label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
-                                    sx={{ mb: 1, py: 0.5 }} 
-                                />
-                                {PO_COLUMNS.sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
-                                    <Box 
-                                        key={col.id} 
-                                        sx={{ 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            gap: 1,
-                                            bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
-                                            opacity: draggedPopupColumn === col.id ? 0.5 : 1,
-                                            transition: 'all 0.2s',
-                                            borderRadius: '8px',
-                                            px: 0.75,
-                                            py: 0.25,
-                                            '&:hover': {
-                                                bgcolor: '#f9fafb',
-                                            },
-                                        }}
-                                        onDragOver={handlePopupDragOver}
-                                        onDrop={(e) => handlePopupDrop(e, col.id)}
-                                    >
-                                        <Box
-                                            draggable
-                                            onDragStart={(e) => handlePopupDragStart(e, col.id)}
-                                            onDragEnd={handlePopupDragEnd}
-                                            sx={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center',
-                                                cursor: 'grab',
-                                                '&:active': { cursor: 'grabbing' },
-                                                color: '#9ca3af',
-                                                '&:hover': { color: '#6b7280' }
+                                    }
+                                    label={
+                                        <Typography
+                                            sx={{
+                                                fontSize: '13px',
+                                                fontWeight: 500,
+                                                color: '#374151',
                                             }}
                                         >
-                                            <GripVertical size={14} />
+                                            Tất cả
+                                        </Typography>
+                                    }
+                                    sx={{ mb: 1, py: 0.5 }}
+                                />
+
+                                {PO_COLUMNS.slice()
+                                    .sort(
+                                        (a, b) =>
+                                            tempColumnOrder.indexOf(a.id) -
+                                            tempColumnOrder.indexOf(b.id)
+                                    )
+                                    .map((col) => (
+                                        <Box
+                                            key={col.id}
+                                            sx={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 1,
+                                                bgcolor:
+                                                    draggedPopupColumn === col.id
+                                                        ? '#f9fafb'
+                                                        : 'transparent',
+                                                opacity:
+                                                    draggedPopupColumn === col.id ? 0.5 : 1,
+                                                transition: 'all 0.2s',
+                                                borderRadius: '8px',
+                                                px: 0.75,
+                                                py: 0.25,
+                                                '&:hover': { bgcolor: '#f9fafb' },
+                                            }}
+                                            onDragOver={handlePopupDragOver}
+                                            onDrop={(e) => handlePopupDrop(e, col.id)}
+                                        >
+                                            <Box
+                                                draggable
+                                                onDragStart={(e) =>
+                                                    handlePopupDragStart(e, col.id)
+                                                }
+                                                onDragEnd={handlePopupDragEnd}
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    cursor: 'grab',
+                                                    '&:active': { cursor: 'grabbing' },
+                                                    color: '#9ca3af',
+                                                    '&:hover': { color: '#6b7280' },
+                                                }}
+                                            >
+                                                <GripVertical size={14} />
+                                            </Box>
+
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={tempVisibleColumnIds.has(
+                                                            col.id
+                                                        )}
+                                                        onChange={(e) => {
+                                                            setTempVisibleColumnIds((prev) => {
+                                                                const next = new Set(prev);
+                                                                if (e.target.checked) {
+                                                                    next.add(col.id);
+                                                                } else {
+                                                                    next.delete(col.id);
+                                                                }
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        sx={{
+                                                            color: '#9ca3af',
+                                                            '&.Mui-checked': {
+                                                                color: '#0284c7',
+                                                            },
+                                                        }}
+                                                    />
+                                                }
+                                                label={
+                                                    <Typography
+                                                        sx={{
+                                                            fontSize: '13px',
+                                                            color: '#374151',
+                                                        }}
+                                                    >
+                                                        {col.label}
+                                                    </Typography>
+                                                }
+                                                sx={{ flex: 1, m: 0, py: 0.5 }}
+                                            />
                                         </Box>
-                                        <FormControlLabel 
-                                            control={
-                                                <Checkbox 
-                                                    checked={visibleColumnIds.has(col.id)} 
-                                                    onChange={(e) => handleColumnVisibilityChange(col.id, e.target.checked)}
-                                                    sx={{
-                                                        color: '#9ca3af',
-                                                        '&.Mui-checked': { color: '#3b82f6' },
-                                                    }}
-                                                />
-                                            } 
-                                            label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
-                                            sx={{ flex: 1, m: 0, py: 0.5 }}
-                                        />
-                                    </Box>
-                                ))}
+                                    ))}
                             </FormGroup>
                         </Box>
 
-                        {/* Footer */}
-                        <Box sx={{ 
-                            px: 2.5, 
-                            py: 2, 
-                            display: 'flex', 
-                            gap: 1.5, 
-                            borderTop: '1px solid #f3f4f6',
-                            flexShrink: 0,
-                        }}>
-                            <Button 
-                                variant="outlined" 
+                        <Box
+                            sx={{
+                                px: 2.5,
+                                py: 2,
+                                display: 'flex',
+                                gap: 1.5,
+                                borderTop: '1px solid #f3f4f6',
+                                flexShrink: 0,
+                            }}
+                        >
+                            <Button
+                                variant="outlined"
                                 onClick={handleCancelColumnOrder}
-                                sx={{ 
-                                    flex: 1, 
+                                sx={{
+                                    flex: 1,
                                     textTransform: 'none',
                                     fontSize: '13px',
                                     fontWeight: 500,
@@ -849,11 +1382,11 @@ export default function ViewPurchaseOrderList() {
                             >
                                 Hủy
                             </Button>
-                            <Button 
-                                variant="contained" 
+                            <Button
+                                variant="contained"
                                 onClick={handleSaveColumnOrder}
-                                sx={{ 
-                                    flex: 1, 
+                                sx={{
+                                    flex: 1,
                                     textTransform: 'none',
                                     fontSize: '13px',
                                     fontWeight: 500,
@@ -863,7 +1396,8 @@ export default function ViewPurchaseOrderList() {
                                     boxShadow: 'none',
                                     '&:hover': {
                                         bgcolor: '#0369a1',
-                                        boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                                        boxShadow:
+                                            '0 2px 8px rgba(2,132,199,0.25)',
                                     },
                                 }}
                             >
@@ -872,38 +1406,106 @@ export default function ViewPurchaseOrderList() {
                         </Box>
                     </Popover>
 
-                {/* Table Section */}
-                <Box sx={{ 
-                    flex: 1, 
-                    minHeight: 0, 
-                    overflow: 'hidden', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                }}>
-                    {error && (
-                        <Alert severity="error" onClose={() => setError(null)} sx={{ m: 2, mb: 0 }}>
-                            {error}
-                        </Alert>
-                    )}
-                    {loading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                            <CircularProgress size={32} />
-                        </Box>
-                    ) : rows.length === 0 ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, px: 2, color: 'text.secondary' }}>
-                            <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
-                            <Typography sx={{ fontSize: '13px' }}>Chưa có dữ liệu đơn mua hàng</Typography>
-                        </Box>
-                    ) : (
-                        <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                                <Table size="small" stickyHeader>
+                    <Box
+                        sx={{
+                            flex: 1,
+                            minHeight: 0,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                        }}
+                    >
+                        {loading ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    flex: 1,
+                                    py: 8,
+                                }}
+                            >
+                                <Typography
+                                    sx={{ fontSize: '14px', color: '#9ca3af' }}
+                                >
+                                    Đang tải…
+                                </Typography>
+                            </Box>
+                        ) : error ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flex: 1,
+                                    gap: 1.5,
+                                }}
+                            >
+                                <CloudOff size={40} style={{ color: '#d1d5db' }} />
+                                <Typography
+                                    sx={{
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        color: '#374151',
+                                    }}
+                                >
+                                    Không thể kết nối đến máy chủ
+                                </Typography>
+                                <Typography
+                                    sx={{ fontSize: '13px', color: '#9ca3af' }}
+                                >
+                                    {error}
+                                </Typography>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={fetchList}
+                                    sx={{
+                                        mt: 0.5,
+                                        fontSize: '13px',
+                                        textTransform: 'none',
+                                        borderRadius: '8px',
+                                        borderColor: 'rgba(2,132,199,0.30)',
+                                        color: '#0284c7',
+                                        '&:hover': {
+                                            bgcolor: 'rgba(2,132,199,0.06)',
+                                        },
+                                    }}
+                                >
+                                    Thử lại
+                                </Button>
+                            </Box>
+                        ) : rows.length === 0 ? (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flex: 1,
+                                    gap: 1,
+                                    color: 'text.secondary',
+                                }}
+                            >
+                                <CloudOff
+                                    size={48}
+                                    style={{ marginBottom: 8, opacity: 0.35 }}
+                                />
+                                <Typography sx={{ fontSize: '13px' }}>
+                                    Không có dữ liệu phù hợp
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                                <Table stickyHeader size="small">
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell 
-                                                padding="checkbox" 
-                                                sx={{ 
-                                                    fontWeight: 600, 
-                                                    bgcolor: '#fafafa', 
+                                            <TableCell
+                                                padding="checkbox"
+                                                sx={{
+                                                    fontWeight: 600,
+                                                    bgcolor: '#fafafa',
                                                     width: 56,
                                                     minWidth: 56,
                                                     maxWidth: 56,
@@ -915,75 +1517,115 @@ export default function ViewPurchaseOrderList() {
                                                 <Checkbox
                                                     checked={isAllSelected}
                                                     indeterminate={isSomeSelected}
-                                                    onChange={(e) => handleSelectAll(e.target.checked)}
+                                                    onChange={(e) =>
+                                                        handleSelectAll(e.target.checked)
+                                                    }
                                                     size="small"
                                                 />
                                             </TableCell>
-                                            {visibleColumns.map((col) => (
+
+                                            {visibleColumns.map((column) => (
                                                 <TableCell
-                                                    key={col.id}
-                                                    sx={{ 
-                                                        fontWeight: 600, 
-                                                        bgcolor: draggedColumn === col.id ? 'action.hover' : '#fafafa', 
+                                                    key={column.id}
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        bgcolor:
+                                                            draggedColumn === column.id
+                                                                ? 'action.hover'
+                                                                : '#fafafa',
                                                         whiteSpace: 'nowrap',
-                                                        opacity: draggedColumn === col.id ? 0.5 : 1,
+                                                        opacity:
+                                                            draggedColumn === column.id
+                                                                ? 0.5
+                                                                : 1,
                                                         transition: 'all 0.2s',
-                                                        borderBottom: '2px solid #e5e7eb',
+                                                        borderBottom:
+                                                            '2px solid #e5e7eb',
                                                         fontSize: '12px',
                                                         color: '#6b7280',
                                                         py: 1.5,
                                                         px: 2,
                                                     }}
-                                                    align={col.id === 'orderValue' || col.id === 'totalReceivedQuantity' ? 'right' : 'left'}
+                                                    align={
+                                                        column.id === 'stt'
+                                                            ? 'center'
+                                                            : 'left'
+                                                    }
                                                     onDragOver={handleDragOver}
-                                                    onDrop={(e) => handleDrop(e, col.id)}
+                                                    onDrop={(e) => handleDrop(e, column.id)}
                                                 >
-                                                    <Box sx={{ 
-                                                        display: 'flex', 
-                                                        alignItems: 'center', 
-                                                        gap: 0.5,
-                                                        '&:hover .drag-icon': {
-                                                            opacity: 0.6,
-                                                        },
-                                                    }}>
-                                                        {col.sortable && (
-                                                            <Box
-                                                                draggable
-                                                                onDragStart={(e) => handleDragStart(e, col.id)}
-                                                                onDragEnd={handleDragEnd}
-                                                                className="drag-icon"
-                                                                sx={{ 
-                                                                    display: 'flex', 
-                                                                    alignItems: 'center',
-                                                                    cursor: 'grab',
-                                                                    '&:active': { cursor: 'grabbing' },
-                                                                    color: '#9ca3af',
-                                                                    opacity: 0,
-                                                                    transition: 'opacity 0.2s',
-                                                                }}
-                                                            >
-                                                                <GripVertical size={14} />
-                                                            </Box>
-                                                        )}
-                                                        {col.sortable ? (
-                                                            <TableSortLabel 
-                                                                active={orderBy === col.id} 
-                                                                direction={orderBy === col.id ? order : 'asc'} 
-                                                                onClick={() => handleSortRequest(col.id)}
-                                                                sx={{ 
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 0.5,
+                                                            '&:hover .drag-icon': {
+                                                                opacity: 0.6,
+                                                            },
+                                                        }}
+                                                    >
+                                                        <Box
+                                                            draggable
+                                                            onDragStart={(e) =>
+                                                                handleDragStart(
+                                                                    e,
+                                                                    column.id
+                                                                )
+                                                            }
+                                                            onDragEnd={handleDragEnd}
+                                                            className="drag-icon"
+                                                            sx={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                cursor: 'grab',
+                                                                '&:active': {
+                                                                    cursor: 'grabbing',
+                                                                },
+                                                                color: '#9ca3af',
+                                                                opacity: 0,
+                                                                transition:
+                                                                    'opacity 0.2s',
+                                                            }}
+                                                        >
+                                                            <GripVertical size={14} />
+                                                        </Box>
+
+                                                        {column.sortable ? (
+                                                            <TableSortLabel
+                                                                active={orderBy === column.id}
+                                                                direction={
+                                                                    orderBy === column.id
+                                                                        ? order
+                                                                        : 'asc'
+                                                                }
+                                                                onClick={() =>
+                                                                    handleSortRequest(
+                                                                        column.id
+                                                                    )
+                                                                }
+                                                                sx={{
                                                                     flex: 1,
-                                                                    '& .MuiTableSortLabel-icon': {
-                                                                        fontSize: '14px',
-                                                                        opacity: orderBy === col.id ? 1 : 0,
-                                                                    },
+                                                                    '& .MuiTableSortLabel-icon':
+                                                                        {
+                                                                            fontSize:
+                                                                                '14px',
+                                                                            opacity:
+                                                                                orderBy ===
+                                                                                column.id
+                                                                                    ? 1
+                                                                                    : 0,
+                                                                        },
                                                                 }}
                                                                 hideSortIcon={false}
                                                             >
-                                                                {col.label}
+                                                                {column.label}
                                                             </TableSortLabel>
                                                         ) : (
-                                                            <Typography variant="inherit" sx={{ flex: 1 }}>
-                                                                {col.label}
+                                                            <Typography
+                                                                variant="inherit"
+                                                                sx={{ flex: 1 }}
+                                                            >
+                                                                {column.label}
                                                             </Typography>
                                                         )}
                                                     </Box>
@@ -991,298 +1633,177 @@ export default function ViewPurchaseOrderList() {
                                             ))}
                                         </TableRow>
                                     </TableHead>
+
                                     <TableBody>
                                         {rows.map((row, index) => (
-                                            <TableRow 
-                                                key={row.purchaseOrderId} 
-                                                hover 
-                                                sx={{ 
+                                            <TableRow
+                                                key={row.purchaseOrderId}
+                                                hover
+                                                sx={{
                                                     height: 56,
-                                                    '&:last-child td': { borderBottom: 0 },
+                                                    '&:last-child td': {
+                                                        borderBottom: 0,
+                                                    },
                                                     '&:hover': {
                                                         bgcolor: '#f9fafb',
                                                     },
                                                     '& .MuiTableCell-root': BODY_CELL_SX,
-                                                    '& .MuiTableCell-paddingCheckbox': CHECKBOX_CELL_SX,
+                                                    '& .MuiTableCell-paddingCheckbox':
+                                                        CHECKBOX_CELL_SX,
                                                 }}
                                             >
                                                 <TableCell padding="checkbox">
                                                     <Checkbox
-                                                        checked={selectedIds.has(row.purchaseOrderId)}
-                                                        onChange={(e) => handleSelectRow(row.purchaseOrderId, e.target.checked)}
+                                                        checked={selectedIds.has(
+                                                            row.purchaseOrderId
+                                                        )}
+                                                        onChange={(e) =>
+                                                            handleSelectRow(
+                                                                row.purchaseOrderId,
+                                                                e.target.checked
+                                                            )
+                                                        }
                                                         size="small"
                                                     />
                                                 </TableCell>
-                                                {visibleColumns.map((col) => {
-                                                    const opts = { pageNumber: page + 1, pageSize };
-                                                    
-                                                    // STT column
-                                                    if (col.id === 'stt') {
-                                                        return (
-                                                            <TableCell 
-                                                                key={col.id} 
-                                                                align="center"
-                                                                sx={{ fontVariantNumeric: 'tabular-nums' }}
-                                                            >
-                                                                {col.getValue(row, index, opts)}
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    
-                                                    // Order Code column (link in flex box)
-                                                    if (col.id === 'orderCode') {
-                                                        return (
-                                                            <TableCell key={col.id} align="left">
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Box
-                                                                        component="a"
-                                                                        href={`/purchase-orders/${row.purchaseOrderId}`}
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault();
-                                                                            navigate(`/purchase-orders/${row.purchaseOrderId}`);
-                                                                        }}
-                                                                        sx={{
-                                                                            color: '#3b82f6',
-                                                                            textDecoration: 'none',
-                                                                            fontWeight: 500,
-                                                                            cursor: 'pointer',
-                                                                            overflow: 'hidden',
-                                                                            textOverflow: 'ellipsis',
-                                                                            whiteSpace: 'nowrap',
-                                                                            '&:hover': {
-                                                                                textDecoration: 'underline',
-                                                                            },
-                                                                        }}
-                                                                        title={col.getValue(row, index, opts)}
-                                                                    >
-                                                                        {col.getValue(row, index, opts)}
-                                                                    </Box>
-                                                                </Box>
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    
-                                                    // Approval Status chip (wrapped in flex box)
-                                                    if (col.id === 'approvalStatus') {
-                                                        const style = APPROVAL_STATUS_STYLE[row.approvalStatus?.toUpperCase()] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.approvalStatus ?? '', dot: '•' };
-                                                        return (
-                                                            <TableCell key={col.id} align="left">
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip 
-                                                                        label={`${style.dot} ${style.label}`}
-                                                                        size="small"
-                                                                        sx={{ 
-                                                                            fontWeight: 500, 
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 100,
-                                                                            height: '26px',
-                                                                            bgcolor: style.bgColor, 
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': {
-                                                                                px: 1.5,
-                                                                                py: 0,
-                                                                                textAlign: 'left',
-                                                                                display: 'block',
-                                                                                width: '100%',
-                                                                            }
-                                                                        }} 
-                                                                    />
-                                                                </Box>
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    
-                                                    // Receiving Status chip (wrapped in flex box)
-                                                    if (col.id === 'receivingStatus') {
-                                                        const style = RECEIVING_STATUS_STYLE[row.receivingStatus] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: row.receivingStatus ?? '', dot: '•' };
-                                                        return (
-                                                            <TableCell key={col.id} align="left">
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip 
-                                                                        label={`${style.dot} ${style.label}`}
-                                                                        size="small"
-                                                                        sx={{ 
-                                                                            fontWeight: 500, 
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 110,
-                                                                            height: '26px',
-                                                                            bgcolor: style.bgColor, 
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': {
-                                                                                px: 1.5,
-                                                                                py: 0,
-                                                                                textAlign: 'left',
-                                                                                display: 'block',
-                                                                                width: '100%',
-                                                                            }
-                                                                        }} 
-                                                                    />
-                                                                </Box>
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    
-                                                    // Số lượng nhập (number)
-                                                    if (col.id === 'totalReceivedQuantity') {
-                                                        return (
-                                                            <TableCell 
-                                                                key={col.id} 
-                                                                align="right"
-                                                                sx={{
-                                                                    fontWeight: 500,
-                                                                    fontVariantNumeric: 'tabular-nums',
-                                                                    pr: 3,
-                                                                }}
-                                                            >
-                                                                {col.getValue(row)}
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    
-                                                    // Giá trị đơn (number + currency)
-                                                    if (col.id === 'orderValue') {
-                                                        return (
-                                                            <TableCell 
-                                                                key={col.id} 
-                                                                align="right"
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    fontVariantNumeric: 'tabular-nums',
-                                                                    pr: 3,
-                                                                }}
-                                                            >
-                                                                {formatCurrency(col.getValue(row))}
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    
-                                                    // Date column
-                                                    if (col.id === 'createdAt') {
-                                                        const dateValue = row[col.id];
-                                                        const d = dateValue ? (dateValue.endsWith('Z') ? new Date(dateValue) : new Date(dateValue + 'Z')) : null;
-                                                        const datePart = d ? d.toLocaleDateString('vi-VN') : '-';
-                                                        const timePart = d ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
-                                                        return (
-                                                            <TableCell
-                                                                key={col.id}
-                                                                align="left"
-                                                                sx={{
-                                                                    color: '#6b7280',
-                                                                    fontVariantNumeric: 'tabular-nums',
-                                                                }}
-                                                            >
-                                                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
-                                                                    <span>Ngày tạo: {datePart}</span>
-                                                                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>Thời gian tạo: {timePart}</span>
-                                                                </div>
-                                                            </TableCell>
-                                                        );
-                                                    }
-                                                    
-                                                    // Default text columns with ellipsis
-                                                    return (
-                                                        <TableCell 
-                                                            key={col.id} 
-                                                            align="left"
-                                                            sx={{
-                                                                maxWidth: 200,
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                            }}
-                                                            title={col.getValue(row)}
-                                                        >
-                                                            {col.getValue(row)}
-                                                        </TableCell>
-                                                    );
-                                                })}
+
+                                                {visibleColumns.map((column) => (
+                                                    <TableCell
+                                                        key={column.id}
+                                                        align={
+                                                            column.id === 'stt'
+                                                                ? 'center'
+                                                                : 'left'
+                                                        }
+                                                        sx={
+                                                            column.id === 'stt'
+                                                                ? {
+                                                                      fontVariantNumeric:
+                                                                          'tabular-nums',
+                                                                  }
+                                                                : column.id ===
+                                                                      'approvalStatus' ||
+                                                                  column.id ===
+                                                                      'receivingStatus'
+                                                                ? undefined
+                                                                : {
+                                                                      maxWidth: 220,
+                                                                      overflow:
+                                                                          'hidden',
+                                                                      textOverflow:
+                                                                          'ellipsis',
+                                                                      whiteSpace:
+                                                                          'nowrap',
+                                                                  }
+                                                        }
+                                                    >
+                                                        {renderCellContent(
+                                                            column,
+                                                            row,
+                                                            index
+                                                        )}
+                                                    </TableCell>
+                                                ))}
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
                         )}
-                </Box>
+                    </Box>
 
-                {/* Pagination Section */}
-                <Box sx={{ 
-                    flexShrink: 0, 
-                    px: 2,
-                    py: 2,
-                    borderTop: '1px solid #f3f4f6',
-                    display: 'flex', 
-                    flexWrap: 'wrap', 
-                    alignItems: 'center', 
-                    justifyContent: 'flex-end', 
-                    gap: 2 
-                }}>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>Số dòng / trang:</Typography>
-                    <FormControl size="small" sx={{ minWidth: 72 }}>
-                        <Select 
-                            value={pageSize} 
-                            onChange={handlePageSizeChange} 
-                            sx={{ 
-                                height: 32, 
+                    <Box
+                        sx={{
+                            flexShrink: 0,
+                            px: 2,
+                            py: 2,
+                            borderTop: '1px solid #f3f4f6',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: 2,
+                        }}
+                    >
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            Số dòng / trang:
+                        </Typography>
+
+                        <FormControl size="small" sx={{ minWidth: 72 }}>
+                            <Select
+                                value={pageSize}
+                                onChange={handlePageSizeChange}
+                                sx={{
+                                    height: 32,
+                                    fontSize: '13px',
+                                    borderRadius: '8px',
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: 'rgba(0,0,0,0.1)',
+                                    },
+                                }}
+                            >
+                                {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                                    <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>
+                                        {n}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            component="span"
+                            sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}
+                        >
+                            {start}–{end} / {totalCount} (Tổng {totalPages} trang)
+                        </Typography>
+
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={safePage <= 0}
+                            onClick={() => setPage((p) => Math.max(0, p - 1))}
+                            sx={{
+                                minWidth: 36,
+                                textTransform: 'none',
                                 fontSize: '13px',
                                 borderRadius: '8px',
-                                '& .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: 'rgba(0, 0, 0, 0.1)',
+                                borderColor: 'rgba(0,0,0,0.1)',
+                                '&:hover': {
+                                    borderColor: 'rgba(0,0,0,0.2)',
                                 },
                             }}
                         >
-                            {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                                <MenuItem key={n} value={n} sx={{ fontSize: '13px' }}>{n}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                        {start}–{end} / {totalCount} (Tổng {totalPages} trang)
-                    </Typography>
-                    <Button 
-                        size="small" 
-                        variant="outlined" 
-                        disabled={page <= 0} 
-                        onClick={() => handlePageChange(page - 1)} 
-                        sx={{ 
-                            minWidth: 36, 
-                            textTransform: 'none',
-                            fontSize: '13px',
-                            borderRadius: '8px',
-                            borderColor: 'rgba(0, 0, 0, 0.1)',
-                            '&:hover': {
-                                borderColor: 'rgba(0, 0, 0, 0.2)',
-                            },
-                        }}
-                    >
-                        Trước
-                    </Button>
-                    <Button 
-                        size="small" 
-                        variant="outlined" 
-                        disabled={end >= totalCount || totalCount === 0} 
-                        onClick={() => handlePageChange(page + 1)} 
-                        sx={{ 
-                            minWidth: 36, 
-                            textTransform: 'none',
-                            fontSize: '13px',
-                            borderRadius: '8px',
-                            borderColor: 'rgba(0, 0, 0, 0.1)',
-                            '&:hover': {
-                                borderColor: 'rgba(0, 0, 0, 0.2)',
-                            },
-                        }}
-                    >
-                        Sau
-                    </Button>
-                </Box>
+                            Trước
+                        </Button>
+
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={safePage >= totalPages - 1 || totalCount === 0}
+                            onClick={() =>
+                                setPage((p) => Math.min(totalPages - 1, p + 1))
+                            }
+                            sx={{
+                                minWidth: 36,
+                                textTransform: 'none',
+                                fontSize: '13px',
+                                borderRadius: '8px',
+                                borderColor: 'rgba(0,0,0,0.1)',
+                                '&:hover': {
+                                    borderColor: 'rgba(0,0,0,0.2)',
+                                },
+                            }}
+                        >
+                            Sau
+                        </Button>
+                    </Box>
                 </Paper>
             </Box>
         </Box>

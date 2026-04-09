@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Thông số kỹ thuật (Item Parameter) – kết nối ItemParameterController.
@@ -56,6 +57,7 @@ export async function createItemParameter(payload) {
         paramName: payload.paramName ?? payload.ParamName,
         dataType: payload.dataType ?? payload.DataType ?? 'string',
     });
+    invalidate('spec');
     return response?.data?.data ?? response?.data;
 }
 
@@ -68,6 +70,7 @@ export async function updateItemParameter(id, payload) {
         dataType: payload.dataType ?? payload.DataType ?? 'string',
         isActive: payload.isActive,
     });
+    invalidate('spec');
     return response?.data?.data ?? response?.data;
 }
 
@@ -78,5 +81,6 @@ export async function toggleItemParameterStatus(id, isActive) {
     const response = await apiClient.patch(`/ItemParameter/change-status-item-parameter/${id}`, null, {
         params: { isActive: !!isActive },
     });
+    invalidate('spec');
     return response?.data?.data ?? response?.data;
 }

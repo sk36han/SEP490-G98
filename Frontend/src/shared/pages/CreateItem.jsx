@@ -47,22 +47,8 @@ import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecS
 import { getCategoryList, createCategory } from "../lib/categoryService";
 import { getBrandList, createBrand } from "../lib/brandService";
 import { getItemParameterList, createItemParameter } from "../lib/itemParameterService";
-import { getWarehouseList } from "../lib/warehouseService";
 import UomFormDialog from "../components/UomFormDialog";
 import "../styles/CreateSupplier.css";
-
-// Account options
-const INVENTORY_ACCOUNT_OPTIONS = [
-  { code: "1561", label: "1561 - Hàng tồn kho" },
-  { code: "1562", label: "1562 - Hàng mua đang đi đường" },
-  { code: "157", label: "157 - Hàng gửi bán" },
-];
-
-const REVENUE_ACCOUNT_OPTIONS = [
-  { code: "5111", label: "5111 - Doanh thu bán hàng" },
-  { code: "5112", label: "5112 - Doanh thu bán thành phẩm" },
-  { code: "5113", label: "5113 - Doanh thu cung cấp dịch vụ" },
-];
 
 // Design tokens (match ViewItemDetail)
 const EDIT_BG = "#f8fafc";
@@ -133,9 +119,6 @@ const INITIAL_FORM = {
   requiresCO: false,
   requiresCQ: false,
   isActive: true,
-  defaultWarehouseId: [],
-  inventoryAccount: "",
-  revenueAccount: "",
   purchasePrice: "",
   onHandQty: "",
   reservedQty: "",
@@ -405,7 +388,6 @@ const CreateItem = () => {
   const [specOptions, setSpecOptions] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [brandOptions, setBrandOptions] = useState([]);
-  const [warehouseOptions, setWarehouseOptions] = useState([]);
 
   // Local options for create-new
   const [localMasterCategories, setLocalMasterCategories] = useState([]);
@@ -492,13 +474,12 @@ const CreateItem = () => {
 
   const loadOptions = useCallback(async () => {
     try {
-      const [uomRes, packList, catRes, brandRes, specRes, warehouseRes] = await Promise.all([
+      const [uomRes, packList, catRes, brandRes, specRes] = await Promise.all([
         getUomList({ page: 1, pageSize: PAGE_SIZE }),
         getPackagingSpecList(),
         getCategoryList({ page: 1, pageSize: PAGE_SIZE }),
         getBrandList({ page: 1, pageSize: PAGE_SIZE }),
         getItemParameterList({ page: 1, pageSize: PAGE_SIZE }),
-        getWarehouseList({ pageNumber: 1, pageSize: 100 }),
       ]);
       const uomItems = Array.isArray(uomRes?.items) ? uomRes.items : (Array.isArray(uomRes) ? uomRes : []);
       setUomOptions(uomItems.map((u) => ({ id: u.uomId ?? u.UomId, name: u.uomName ?? u.UomName ?? "" })));
@@ -518,13 +499,6 @@ const CreateItem = () => {
         specCode: s.paramCode ?? s.ParamCode ?? "",
         specName: s.paramName ?? s.ParamName ?? "",
       })));
-      const whItems = Array.isArray(warehouseRes?.items) ? warehouseRes.items : (Array.isArray(warehouseRes) ? warehouseRes : []);
-      const whList = (Array.isArray(whItems) ? whItems : []).map((w) => ({
-        id: w?.warehouseId ?? w?.WarehouseId,
-        name: (w?.warehouseName ?? w?.WarehouseName) ?? "",
-        code: w?.warehouseCode ?? w?.WarehouseCode ?? "",
-      })).filter((w) => w.id != null && w.id !== "");
-      setWarehouseOptions(whList);
     } catch { /* keep empty on error */ }
   }, []);
 
@@ -578,11 +552,6 @@ const CreateItem = () => {
         requiresCo: Boolean(form.requiresCO),
         requiresCq: Boolean(form.requiresCQ),
         isActive: Boolean(form.isActive),
-        defaultWarehouseId: Array.isArray(form.defaultWarehouseId) && form.defaultWarehouseId.length > 0
-          ? form.defaultWarehouseId.map((id) => Number(id))
-          : null,
-        inventoryAccount: form.inventoryAccount?.trim() || null,
-        revenueAccount: form.revenueAccount?.trim() || null,
         initialPurchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
         priceEffectiveFrom: null,
       };
@@ -598,9 +567,7 @@ const CreateItem = () => {
   };
 
   const handleBack = () => { navigate(-1); };
-  const handleCancel = () => { setForm({ ...INITIAL_FORM, defaultWarehouseId: [] }); navigate("/products"); };
-
-  const warehouseList = Array.isArray(warehouseOptions) ? warehouseOptions : [];
+  const handleCancel = () => { setForm({ ...INITIAL_FORM }); navigate("/products"); };
 
   const allCategoryOptions = [...categoryOptions, ...localMasterCategories];
   const allBrandOptions = [...brandOptions, ...localMasterBrands];
@@ -742,34 +709,12 @@ const CreateItem = () => {
                   </div>
                 </div>
 
-                {/* CARD 2: Thông tin kế toán */}
+                {/* CARD 2: Thông tin giá */}
                 <div className="info-section" style={{ margin: 0 }}>
                   <div className="section-header-with-toggle">
-                    <h2 className="section-title">Thông tin kế toán</h2>
+                    <h2 className="section-title">Thông tin giá</h2>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                    <div style={FIELD_WRAPPER}>
-                      <div style={LABEL_STYLE}>Tài khoản kho</div>
-                      <EditSelectUnderline
-                        name="inventoryAccount"
-                        value={form.inventoryAccount || ""}
-                        onChange={handleChange}
-                        options={INVENTORY_ACCOUNT_OPTIONS.map((o) => ({ value: o.code, label: o.label }))}
-                        placeholder="Chọn tài khoản kho"
-                      />
-                    </div>
-
-                    <div style={FIELD_WRAPPER}>
-                      <div style={LABEL_STYLE}>Tài khoản doanh thu</div>
-                      <EditSelectUnderline
-                        name="revenueAccount"
-                        value={form.revenueAccount || ""}
-                        onChange={handleChange}
-                        options={REVENUE_ACCOUNT_OPTIONS.map((o) => ({ value: o.code, label: o.label }))}
-                        placeholder="Chọn tài khoản doanh thu"
-                      />
-                    </div>
-
                     <div style={FIELD_WRAPPER}>
                       <CheckboxToggle
                         checked={showPurchasePrice}
@@ -910,55 +855,6 @@ const CreateItem = () => {
                       </div>
                     </div>
 
-                    {/* Nhóm 4: Kho */}
-                    <div style={FIELD_WRAPPER}>
-                      <div style={LABEL_STYLE}>Kho</div>
-                      <Autocomplete
-                        multiple
-                        size="small"
-                        options={warehouseList}
-                        getOptionLabel={(option) => option.name || ""}
-                        isOptionEqualToValue={(option, val) => String(option.id) === String(val)}
-                        value={warehouseList.filter((w) => form.defaultWarehouseId?.includes(String(w.id)))}
-                        onChange={(_, newVal) => {
-                          setForm((prev) => ({ ...prev, defaultWarehouseId: newVal.map((w) => String(w.id)) }));
-                        }}
-                        renderTags={(value, getTagProps) =>
-                          value.map((option, index) => (
-                            <Chip
-                              label={option.name}
-                              size="small"
-                              {...getTagProps({ index })}
-                              sx={{ fontSize: "12px", height: 22 }}
-                            />
-                          ))
-                        }
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            variant="standard"
-                            placeholder={form.defaultWarehouseId?.length === 0 ? "Chọn kho mặc định" : ""}
-                            sx={{
-                              "& .MuiInput-root": {
-                                fontSize: "14px", fontWeight: 500, color: "#334155",
-                                minHeight: ROW_HEIGHT,
-                                padding: "0 0 6px 0",
-                                "&:before": { borderBottom: "1px solid rgba(0,0,0,0.1)" },
-                                "&:hover:not(.Mui-disabled):before": { borderBottom: "1px solid #3b82f6" },
-                                "&:after": { borderBottom: "1px solid #3b82f6" },
-                              },
-                              "& .MuiInput-input": { padding: "0", fontSize: "14px" },
-                              "& .MuiAutocomplete-popupIndicator": { padding: "0 0 6px 0" },
-                              "& .MuiAutocomplete-clearIndicator": { padding: "0 0 6px 0" },
-                            }}
-                          />
-                        )}
-                        PaperComponent={(props) => (
-                          <Paper {...props} sx={{ borderRadius: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.12)", ...props?.sx }} />
-                        )}
-                        sx={{ "& .MuiAutocomplete-endAdornment": { top: "50%", transform: "translateY(-50%)" } }}
-                      />
-                    </div>
                   </div>
                 </div>
               </div>

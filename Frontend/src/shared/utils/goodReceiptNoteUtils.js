@@ -37,17 +37,22 @@ export const validateGRNForm = (formData, lines) => {
         const hasInvalidLine = lines.some((line, index) => {
             if (!line.itemName?.trim()) return true;
             const receivedQty = Number(line.receivedQty);
+            // Số lượng phải là số nguyên dương
+            if (!Number.isInteger(receivedQty) || receivedQty <= 0) {
+                errors[`line_${index}`] = 'Số lượng nhập phải là số nguyên lớn hơn 0';
+                return true;
+            }
             const orderedQty = Number(line.orderedQty) || 0;
             const remainingQty = Number(line.remainingQty) || orderedQty;
-            // Allow 0, but not exceed ordered/remaining qty
+            // Không vượt quá ordered/remaining qty
             if (receivedQty > remainingQty) {
-                errors[`line_${index}`] = `Số lượng thực tế (${receivedQty}) vượt quá số lượng đặt (${remainingQty})`;
+                errors[`line_${index}`] = `Số lượng nhập (${receivedQty}) vượt quá số lượng đặt (${remainingQty})`;
                 return true;
             }
             return false;
         });
         if (hasInvalidLine) {
-            errors.lines = 'Số lượng thực tế không được vượt quá số lượng đặt hàng';
+            errors.lines = 'Mỗi sản phẩm phải có số lượng nhập lớn hơn 0';
         }
     }
 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import { formatDateTime, parseDate } from '../lib/dateUtils';
 import { getGoodsDeliveryNotes } from '../lib/goodsDeliveryNoteService';
 import {
@@ -262,6 +263,11 @@ export default function ViewGoodDeliveryNoteList() {
     }, [page, pageSize]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('goodDeliveryNotes', () => fetchDataRef.current?.());
 
     useEffect(() => {
         if (columnSelectorAnchor) {

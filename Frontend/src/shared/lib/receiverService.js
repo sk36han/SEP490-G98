@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Receiver API - maps to backend ReceiverController / ReceiverResponse.
@@ -50,10 +51,10 @@ export async function getReceivers(params = {}) {
         : Array.isArray(payload?.Items)
             ? payload.Items
             : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.Items)
-            ? data.Items
-            : [];
+                ? data.items
+                : Array.isArray(data?.Items)
+                    ? data.Items
+                    : [];
     const items = rawItems
         .filter((row) => row != null && typeof row === 'object')
         .map((row) => ({
@@ -134,6 +135,7 @@ export async function createReceiver(data) {
             district: data.district?.trim() || null,
             ward: data.ward?.trim() || null,
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
@@ -169,6 +171,7 @@ export async function updateReceiver(id, data) {
             district: data.district?.trim() || null,
             ward: data.ward?.trim() || null,
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
@@ -187,10 +190,10 @@ export async function updateReceiver(id, data) {
 
 /**
  * Lay chi tiet mot nguoi nhan.
- * GET /api/Receiver/{id} - backend tra ve ReceiverResponse truc tiep.
+ * GET /api/Receiver/get-receiver-by-id/{id} - backend tra ve ReceiverResponse truc tiep.
  */
 export async function getReceiverDetail(id) {
-    const response = await apiClient.get(`/Receiver/${id}`);
+    const response = await apiClient.get(`/Receiver/get-receiver-by-id/${id}`);
     const data = response?.data ?? {};
     const raw = data.data ?? data.Data ?? data;
     return {
@@ -225,6 +228,7 @@ export async function toggleReceiverStatus(id, isActive) {
         const response = await apiClient.patch(`/Receiver/change-status/${id}`, null, {
             params: { isActive: !!isActive },
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 401) {
