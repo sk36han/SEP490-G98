@@ -12,6 +12,8 @@ import {
     MapPin,
     Truck,
     Phone,
+    FileText,
+    ClipboardList,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -54,7 +56,6 @@ const LIFECYCLE_STATUS_META = {
     CLOSED: { label: 'Đã đóng', bg: 'rgba(59, 130, 246, 0.18)', color: '#1d4ed8' },
 };
 
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -79,7 +80,6 @@ const getStatusMeta = (status) =>
 const getLifecycleStatusMeta = (lifecycleStatus) =>
     LIFECYCLE_STATUS_META[String(lifecycleStatus || '').toUpperCase().replace(/[ _-]/g, '')]
     ?? {
-        // fallback for camelCase keys from backend (e.g. IssuePartial, IssueFull)
         label: lifecycleStatus || '-',
         bg: 'rgba(107, 114, 128, 0.15)',
         color: '#4b5563',
@@ -193,7 +193,7 @@ export default function CreateGoodDeliveryNote() {
     const [rrList, setRrList] = useState([]);
     const [rrListLoading, setRrListLoading] = useState(false);
 
-    // Load from URL params on mount (fetch from API)
+    // Load from URL params on mount
     useEffect(() => {
         const queryId = searchParams.get('releaseRequestId') || searchParams.get('rrId');
         if (!queryId) return;
@@ -213,7 +213,7 @@ export default function CreateGoodDeliveryNote() {
         loadRR();
     }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Fetch release request list for dropdown
+    // Fetch release request list
     useEffect(() => {
         const loadRRList = async () => {
             setRrListLoading(true);
@@ -229,7 +229,7 @@ export default function CreateGoodDeliveryNote() {
         loadRRList();
     }, []);
 
-    // Load items with prices on mount
+    // Load items on mount
     useEffect(() => {
         const loadItems = async () => {
             try {
@@ -268,7 +268,6 @@ export default function CreateGoodDeliveryNote() {
 
     const remainingSelectableLines = useMemo(() => {
         if (!selectedReleaseRequestDetail) return [];
-
         const selectedLineIds = new Set(lines.map((line) => line.releaseRequestLineId));
         return (selectedReleaseRequestDetail.lines || [])
             .map((line, idx) => buildSelectableLine(line, idx))
@@ -278,7 +277,6 @@ export default function CreateGoodDeliveryNote() {
     const filteredProducts = useMemo(() => {
         const keyword = normalizeText(searchKeyword.trim());
         if (!keyword) return remainingSelectableLines;
-
         return remainingSelectableLines.filter(
             (line) =>
                 normalizeText(line.itemName).includes(keyword) ||
@@ -305,13 +303,13 @@ export default function CreateGoodDeliveryNote() {
     const shippingFee = toNumber(formData.shippingFee);
     const grandTotal = subtotal + shippingFee;
     const currentReleaseRequestMeta = getStatusMeta(selectedReleaseRequestDetail?.status);
+    const currentLifecycleMeta = getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus);
 
     // ─── Handlers ───────────────────────────────────────────────────────────────
     const handleSelectReleaseRequest = useCallback(
         async (summary, options = {}) => {
             if (!summary?.releaseRequestId) return;
 
-            // Fetch full detail to get lines (dropdown only returns header, not lines)
             let detail = summary;
             if (!summary.lines || summary.lines.length === 0) {
                 try {
@@ -322,7 +320,6 @@ export default function CreateGoodDeliveryNote() {
                 }
             }
 
-            // Build item price lookup from items state
             const itemPrices = {};
             items.forEach((it) => {
                 if (it.itemId) {
@@ -459,12 +456,10 @@ export default function CreateGoodDeliveryNote() {
             showToast('Vui lòng chọn yêu cầu xuất tham chiếu trước.', 'warning');
             return;
         }
-
         if (!remainingSelectableLines.length) {
             showToast('Không còn vật tư nào chưa xuất để thêm vào phiếu.', 'warning');
             return;
         }
-
         setShowProductSearch(true);
         setSearchKeyword('');
         setSelectedSearchLineIds([]);
@@ -519,7 +514,6 @@ export default function CreateGoodDeliveryNote() {
             selectedSearchLineIds.includes(line.releaseRequestLineId)
         );
         if (!linesToAdd.length) return;
-
         linesToAdd.forEach(addLineFromReleaseRequest);
         closeProductSearch();
     };
@@ -539,24 +533,16 @@ export default function CreateGoodDeliveryNote() {
         setLines((prev) =>
             prev.map((line, lineIndex) => {
                 if (lineIndex !== index) return line;
-
                 if (field === 'actualQty') {
                     const actualQty = Math.min(Math.max(toNumber(value), 0), line.remainingQty);
-                    return {
-                        ...line,
-                        actualQty,
-                        lineTotal: actualQty * toNumber(line.unitPrice),
-                    };
+                    return { ...line, actualQty, lineTotal: actualQty * toNumber(line.unitPrice) };
                 }
-
                 if (field === 'requiresCertificateCopy') {
                     return { ...line, requiresCertificateCopy: Boolean(value) };
                 }
-
                 if (field === 'note') {
                     return { ...line, note: String(value).slice(0, MAX_LINE_NOTE_LENGTH) };
                 }
-
                 return line;
             })
         );
@@ -569,35 +555,28 @@ export default function CreateGoodDeliveryNote() {
     // ─── Validation ─────────────────────────────────────────────────────────────
     const validateForm = () => {
         const nextErrors = {};
-
         if (!formData.releaseRequestId) {
             nextErrors.releaseRequestCode = 'Yêu cầu xuất tham chiếu là bắt buộc';
         }
-
         if (!formData.issueDate) {
             nextErrors.issueDate = 'Ngày xuất hàng là bắt buộc';
         }
-
         if (!lines.length) {
             nextErrors.lines = 'Vui lòng thêm ít nhất 1 vật tư vào phiếu xuất';
         } else {
             const invalidLine = lines.find(
                 (line) => toNumber(line.actualQty) <= 0 || toNumber(line.actualQty) > toNumber(line.remainingQty)
             );
-
             if (invalidLine) {
                 nextErrors.lines = 'Số lượng xuất phải lớn hơn 0 và không vượt quá số lượng còn phải xuất';
             }
         }
-
         if (shippingFee < 0) {
             nextErrors.shippingFee = 'Phí vận chuyển phải lớn hơn hoặc bằng 0';
         }
-
         if (formData.isPaid && !formData.paymentMethod) {
             nextErrors.paymentMethod = 'Vui lòng chọn phương thức thanh toán';
         }
-
         setErrors(nextErrors);
         return Object.keys(nextErrors).length === 0;
     };
@@ -632,35 +611,17 @@ export default function CreateGoodDeliveryNote() {
         },
     });
 
-    const buildTransportPayload = () => ({
-        gdnid: 0,
-        carrierName: formData.carrierName.trim() || null,
-        driverName: formData.driverName.trim() || null,
-        driverPhone: formData.driverPhone.trim() || null,
-        licensePlate: formData.licensePlate.trim() || null,
-        note: formData.transportNote.trim() || null,
-    });
-
     const handleSubmit = async (event) => {
         event.preventDefault();
-
         if (!validateForm()) {
             showToast('Vui lòng kiểm tra lại thông tin phiếu xuất.', 'error');
             return;
         }
-
         if (submitting) return;
-
         const payload = buildPayload();
-
         try {
             setSubmitting(true);
-
-            // Real API call
             await createGoodsDeliveryNote(payload);
-
-            console.log('Create Goods Delivery Note payload:', payload);
-
             showToast('Tạo phiếu xuất hàng thành công!', 'success');
             setTimeout(() => navigate('/goods-delivery-notes'), 1200);
         } catch (error) {
@@ -682,22 +643,11 @@ export default function CreateGoodDeliveryNote() {
                     </button>
                 </div>
                 <div className="page-header-actions">
-                    <button
-                        type="button"
-                        onClick={() => navigate(-1)}
-                        className="btn btn-cancel"
-                        disabled={submitting}
-                    >
+                    <button type="button" onClick={() => navigate(-1)} className="btn btn-cancel" disabled={submitting}>
                         <X size={15} />
                         Hủy
                     </button>
-
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={submitting}
-                        onClick={handleSubmit}
-                    >
+                    <button type="button" className="btn btn-primary" disabled={submitting} onClick={handleSubmit}>
                         {submitting ? (
                             <>
                                 <Loader size={15} className="spinner" />
@@ -722,19 +672,170 @@ export default function CreateGoodDeliveryNote() {
                         </p>
                     </div>
 
-                    {/* Main Grid */}
-                    <div className="gdn-create-main-grid" style={{ height: '760px' }}>
-                        {/* LEFT: Product lines */}
-                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', height: '760px' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Chi tiết vật tư xuất</h2>
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={fillAllRemainingQuantities}
-                                        disabled={!lines.length}
-                                    >
+                    {/* ── Card 1: Thông tin phiếu xuất ── */}
+                    <div className="gdn-card gdn-card-info">
+                        <div className="gdn-card-header">
+                            <FileText size={18} className="gdn-card-header-icon" />
+                            <h2 className="gdn-card-title">Thông tin phiếu xuất</h2>
+                        </div>
+                        <div className="gdn-info-grid">
+                            <div className="gdn-info-field" ref={releaseRequestDropdownRef}>
+                                <label className="form-label">
+                                    Yêu cầu xuất tham chiếu <span className="required-mark">*</span>
+                                </label>
+                                <div className="input-wrapper">
+                                    <Search size={15} className="input-icon-left" />
+                                    <input
+                                        type="text"
+                                        value={releaseRequestQuery}
+                                        onChange={handleReleaseRequestSearchChange}
+                                        onFocus={() => setReleaseRequestDropdownOpen(true)}
+                                        placeholder="Tìm theo mã yêu cầu, người nhận, kho..."
+                                        className={`form-input ${errors.releaseRequestCode ? 'error' : ''}`}
+                                    />
+                                </div>
+                                {errors.releaseRequestCode && (
+                                    <span className="error-message">{errors.releaseRequestCode}</span>
+                                )}
+
+                                {releaseRequestDropdownOpen && (
+                                    <div className="gdn-rr-dropdown">
+                                        {rrListLoading ? (
+                                            <div className="gdn-rr-dropdown-loading">Đang tải...</div>
+                                        ) : filteredReleaseRequests.length === 0 ? (
+                                            <div className="gdn-rr-dropdown-empty">Không tìm thấy yêu cầu xuất nào</div>
+                                        ) : (
+                                            filteredReleaseRequests.map((rr) => {
+                                                const sMeta = getStatusMeta(rr.status);
+                                                const lMeta = getLifecycleStatusMeta(rr.lifecycleStatus);
+                                                return (
+                                                    <div
+                                                        key={rr.releaseRequestId}
+                                                        className="gdn-rr-item"
+                                                        onClick={() => handleSelectReleaseRequest(rr)}
+                                                    >
+                                                        <div className="gdn-rr-item-header">
+                                                            <span className="gdn-rr-item-code">{rr.releaseRequestCode}</span>
+                                                            <div className="gdn-rr-item-badges">
+                                                                <span className="gdn-badge" style={{ backgroundColor: sMeta.bg, color: sMeta.color }}>
+                                                                    {sMeta.label}
+                                                                </span>
+                                                                <span className="gdn-badge" style={{ backgroundColor: lMeta.bg, color: lMeta.color }}>
+                                                                    {lMeta.label}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="gdn-rr-item-meta">
+                                                            <span>{rr.receiverName}</span>
+                                                            <span>•</span>
+                                                            <span>{rr.warehouseName}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                )}
+
+                                {formData.releaseRequestId && (
+                                    <div className="gdn-rr-selected">
+                                        <div className="gdn-rr-selected-inner">
+                                            <span className="gdn-rr-selected-code">{formData.releaseRequestCode}</span>
+                                            <div className="gdn-rr-selected-badges">
+                                                <span className="gdn-badge" style={{ backgroundColor: currentReleaseRequestMeta.bg, color: currentReleaseRequestMeta.color }}>
+                                                    {currentReleaseRequestMeta.label}
+                                                </span>
+                                                <span className="gdn-badge" style={{ backgroundColor: currentLifecycleMeta.bg, color: currentLifecycleMeta.color }}>
+                                                    {currentLifecycleMeta.label}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button type="button" className="gdn-rr-clear-btn" onClick={clearReleaseRequestSelection} title="Bỏ chọn">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="gdn-info-field">
+                                <label className="form-label">Kho xuất</label>
+                                <div className="input-wrapper">
+                                    <input
+                                        type="text"
+                                        value={formData.warehouseName}
+                                        readOnly
+                                        className="form-input"
+                                        placeholder="—"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="gdn-info-field">
+                                <label className="form-label">Ngày xuất hàng <span className="required-mark">*</span></label>
+                                <div className="input-wrapper">
+                                    <input
+                                        type="date"
+                                        name="issueDate"
+                                        value={formData.issueDate}
+                                        onChange={handleChange}
+                                        className={`form-input ${errors.issueDate ? 'error' : ''}`}
+                                    />
+                                </div>
+                                {errors.issueDate && <span className="error-message">{errors.issueDate}</span>}
+                            </div>
+
+                            <div className="gdn-info-field">
+                                <label className="form-label">Người tạo</label>
+                                <div className="input-wrapper">
+                                    <input
+                                        type="text"
+                                        value={formData.createdByName}
+                                        readOnly
+                                        className="form-input"
+                                        placeholder="—"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="gdn-info-field">
+                                <label className="form-label">Người yêu cầu</label>
+                                <div className="input-wrapper">
+                                    <input
+                                        type="text"
+                                        value={formData.requestedByName}
+                                        readOnly
+                                        className="form-input"
+                                        placeholder="—"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="gdn-info-field">
+                                <label className="form-label">Ngày yêu cầu</label>
+                                <div className="input-wrapper">
+                                    <input
+                                        type="text"
+                                        value={formData.requestedDate}
+                                        readOnly
+                                        className="form-input"
+                                        placeholder="—"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Main Grid ── */}
+                    <div className="gdn-main-grid">
+                        {/* LEFT: Chi tiết vật tư xuất */}
+                        <div className="gdn-main-left">
+                            <div className="gdn-card">
+                                <div className="gdn-card-header">
+                                    <ClipboardList size={18} className="gdn-card-header-icon" />
+                                    <h2 className="gdn-card-title">Chi tiết vật tư xuất</h2>
+                                </div>
+                                <div className="gdn-product-actions">
+                                    <button type="button" className="btn btn-secondary btn-sm" onClick={fillAllRemainingQuantities} disabled={!lines.length}>
                                         <Save size={14} />
                                         Điền SL còn lại
                                     </button>
@@ -743,1301 +844,382 @@ export default function CreateGoodDeliveryNote() {
                                         Thêm vật tư
                                     </button>
                                 </div>
-                            </div>
 
-                            {errors.lines && (
-                                <div className="error-message" style={{ marginBottom: '16px' }}>
-                                    {errors.lines}
-                                </div>
-                            )}
+                                {errors.lines && (
+                                    <div className="error-message gdn-error">{errors.lines}</div>
+                                )}
 
-                            {/* Product Search Dropdown */}
-                            {showProductSearch && (
-                                <div className="gdn-product-search-panel">
-                                    <div style={{ position: 'relative' }}>
-                                        <Search
-                                            size={20}
-                                            style={{
-                                                position: 'absolute',
-                                                left: '12px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                color: '#9ca3af',
-                                                zIndex: 1,
-                                            }}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={searchKeyword}
-                                            onChange={(event) => setSearchKeyword(event.target.value)}
-                                            placeholder="Tìm vật tư còn phải xuất trong yêu cầu tham chiếu..."
-                                            autoFocus
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 44px 12px 44px',
-                                                border: '2px solid #0284c7',
-                                                borderRadius: '10px',
-                                                fontSize: '14px',
-                                                outline: 'none',
-                                                boxSizing: 'border-box',
-                                                boxShadow: '0 0 0 4px rgba(2, 132, 199, 0.08)',
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={closeProductSearch}
-                                            style={{
-                                                position: 'absolute',
-                                                right: '8px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                background: 'transparent',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                padding: '4px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                color: '#6b7280',
-                                            }}
-                                        >
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-
-                                    <div className="gdn-product-search-dropdown">
-                                        {filteredProducts.length === 0 ? (
-                                            <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>
-                                                <Package
-                                                    size={32}
-                                                    style={{ margin: '0 auto 8px', opacity: 0.5 }}
-                                                />
-                                                <p style={{ margin: 0, fontSize: '13px' }}>
-                                                    Không còn vật tư phù hợp để thêm
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div
-                                                    style={{
-                                                        padding: '10px 16px',
-                                                        borderBottom: '1px solid #f3f4f6',
-                                                        backgroundColor: '#f8fafc',
-                                                    }}
-                                                >
-                                                    <label
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px',
-                                                            cursor: 'pointer',
-                                                            fontSize: '13px',
-                                                            color: '#334155',
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={allFilteredSelected}
-                                                            ref={(element) => {
-                                                                if (element) {
-                                                                    element.indeterminate =
-                                                                        !allFilteredSelected && someFilteredSelected;
-                                                                }
-                                                            }}
-                                                            onChange={(event) =>
-                                                                toggleSelectAllFilteredProducts(event.target.checked)
-                                                            }
-                                                            style={{
-                                                                cursor: 'pointer',
-                                                                width: '16px',
-                                                                height: '16px',
-                                                            }}
-                                                        />
-                                                        Chọn tất cả ({filteredProducts.length})
-                                                    </label>
-                                                </div>
-
-                                                {filteredProducts.map((product) => {
-                                                    const checked = selectedSearchLineIds.includes(
-                                                        product.releaseRequestLineId
-                                                    );
-                                                    return (
-                                                        <div
-                                                            key={product.id}
-                                                            style={{
-                                                                padding: '12px 16px',
-                                                                borderBottom: '1px solid #f3f4f6',
-                                                                transition: 'background-color 0.15s',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '12px',
-                                                                cursor: 'pointer',
-                                                                backgroundColor: checked ? '#eff6ff' : 'transparent',
-                                                            }}
-                                                            onClick={() =>
-                                                                toggleSearchLineSelection(product.releaseRequestLineId)
-                                                            }
-                                                            onMouseEnter={(event) => {
-                                                                if (!checked)
-                                                                    event.currentTarget.style.backgroundColor = '#f9fafb';
-                                                            }}
-                                                            onMouseLeave={(event) => {
-                                                                event.currentTarget.style.backgroundColor = checked
-                                                                    ? '#eff6ff'
-                                                                    : 'transparent';
-                                                            }}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={checked}
-                                                                onChange={() =>
-                                                                    toggleSearchLineSelection(product.releaseRequestLineId)
-                                                                }
-                                                                onClick={(event) => event.stopPropagation()}
-                                                                style={{
-                                                                    cursor: 'pointer',
-                                                                    width: '16px',
-                                                                    height: '16px',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            />
-
-                                                            <div
-                                                                style={{
-                                                                    width: '40px',
-                                                                    height: '40px',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #e5e7eb',
-                                                                    backgroundColor: '#f3f4f6',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            >
-                                                                <Package size={20} color="#9ca3af" />
-                                                            </div>
-
-                                                            <div style={{ flex: 1 }}>
-                                                                <div
-                                                                    style={{
-                                                                        display: 'flex',
-                                                                        justifyContent: 'space-between',
-                                                                        alignItems: 'start',
-                                                                        marginBottom: '4px',
-                                                                        gap: '16px',
-                                                                    }}
-                                                                >
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '14px',
-                                                                            fontWeight: 500,
-                                                                            color: '#1f2937',
-                                                                        }}
-                                                                    >
-                                                                        {product.itemName}
-                                                                    </span>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '14px',
-                                                                            fontWeight: 600,
-                                                                            color: '#0284c7',
-                                                                        }}
-                                                                    >
-                                                                        {formatCurrency(product.unitPrice)}
-                                                                    </span>
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        display: 'flex',
-                                                                        gap: '12px',
-                                                                        fontSize: '12px',
-                                                                        color: '#6b7280',
-                                                                        flexWrap: 'wrap',
-                                                                    }}
-                                                                >
-                                                                    <span>Mã: {product.itemCode || '-'}</span>
-                                                                    <span>•</span>
-                                                                    <span>DVT: {product.uomName || '-'}</span>
-                                                                    <span>•</span>
-                                                                    <span>
-                                                                        Còn phải xuất:{' '}
-                                                                        {formatQuantity(product.remainingQty)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-
-                                                <div
-                                                    style={{
-                                                        padding: '12px 16px',
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        alignItems: 'center',
-                                                        backgroundColor: '#fff',
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            fontSize: '13px',
-                                                            color: '#64748b',
-                                                            fontWeight: 500,
-                                                        }}
-                                                    >
-                                                        Đã chọn: {selectedSearchLineIds.length} dòng vật tư
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-sm"
-                                                        onClick={addSelectedProducts}
-                                                        disabled={!selectedSearchLineIds.length}
-                                                    >
-                                                        Thêm đã chọn
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Empty state */}
-                            {!lines.length ? (
-                                <div
-                                    style={{
-                                        flex: 1,
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                        gap: '16px',
-                                        padding: '60px 20px',
-                                        color: '#9ca3af',
-                                        textAlign: 'center',
-                                    }}
-                                >
-                                    <Package size={64} strokeWidth={1.5} />
-                                    <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>
-                                        Chưa có vật tư xuất nào
-                                    </p>
-                                    <p style={{ fontSize: '14px', margin: 0 }}>
-                                        Chọn yêu cầu xuất tham chiếu rồi thêm vật tư cần xuất vào phiếu.
-                                    </p>
-                                </div>
-                            ) : (
-                                /* Lines table */
-                                <div
-                                    className="table-container"
-                                    style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
-                                >
-                                    <table className="product-table">
-                                        <thead>
-                                            <tr>
-                                                <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
-                                                <th style={{ minWidth: '260px' }}>Vật tư</th>
-                                                <th style={{ width: '90px', textAlign: 'right' }}>SL YC</th>
-                                                <th style={{ width: '90px', textAlign: 'right' }}>Đã cấp</th>
-                                                <th style={{ width: '90px', textAlign: 'right' }}>Đã xuất</th>
-                                                <th style={{ width: '100px', textAlign: 'right' }}>Còn xuất</th>
-                                                <th style={{ width: '120px', textAlign: 'center' }}>SL thực xuất</th>
-                                                <th style={{ width: '130px', textAlign: 'right' }}>Đơn giá</th>
-                                                <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
-                                                <th style={{ width: '80px', textAlign: 'center' }}>Bản sao CC</th>
-                                                <th style={{ width: '180px' }}>Ghi chú dòng</th>
-                                                <th style={{ width: '50px' }}></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {lines.map((line, index) => (
-                                                <tr key={line.id}>
-                                                    <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                            <div
-                                                                style={{
-                                                                    width: '40px',
-                                                                    height: '40px',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #e5e7eb',
-                                                                    backgroundColor: '#f3f4f6',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            >
-                                                                <Package size={20} color="#9ca3af" />
-                                                            </div>
-                                                            <div
-                                                                style={{
-                                                                    display: 'flex',
-                                                                    flexDirection: 'column',
-                                                                    gap: 2,
-                                                                    minWidth: 0,
-                                                                }}
-                                                            >
-                                                                <span
-                                                                    style={{
-                                                                        fontSize: 14,
-                                                                        fontWeight: 500,
-                                                                        color: '#0284c7',
-                                                                    }}
-                                                                >
-                                                                    {line.itemName}
-                                                                </span>
-                                                                <span
-                                                                    style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}
-                                                                >
-                                                                    Mã: {line.itemCode || '-'} • DVT: {line.uomName || '-'}
-                                                                </span>
-                                                                <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                                                    Tồn: {formatQuantity(line.availableQty)}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatQuantity(line.requestedQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatQuantity(line.allocatedQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatQuantity(line.issuedQty)}
-                                                    </td>
-                                                    <td
-                                                        style={{
-                                                            textAlign: 'right',
-                                                            fontWeight: 700,
-                                                            color: '#0f766e',
-                                                        }}
-                                                    >
-                                                        {formatQuantity(line.remainingQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max={line.remainingQty}
-                                                                step="0.001"
-                                                                value={line.actualQty}
-                                                                onChange={(event) =>
-                                                                    updateLine(index, 'actualQty', event.target.value)
-                                                                }
-                                                                className="form-input"
-                                                                style={{
-                                                                    textAlign: 'right',
-                                                                    width: '76px',
-                                                                    padding: '4px 6px',
-                                                                    fontSize: '13px',
-                                                                }}
-                                                            />
-                                                            <span
-                                                                style={{
-                                                                    fontSize: '12px',
-                                                                    color: '#9ca3af',
-                                                                    fontWeight: 500,
-                                                                }}
-                                                            >
-                                                                / {formatQuantity(line.remainingQty)}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatCurrency(line.unitPrice)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#0284c7' }}>
-                                                        {formatCurrency(line.lineTotal)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={line.requiresCertificateCopy}
-                                                            onChange={(event) =>
-                                                                updateLine(
-                                                                    index,
-                                                                    'requiresCertificateCopy',
-                                                                    event.target.checked
-                                                                )
-                                                            }
-                                                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                                        />
-                                                    </td>
-                                                    <td>
-                                                        <input
-                                                            type="text"
-                                                            value={line.note}
-                                                            onChange={(event) =>
-                                                                updateLine(index, 'note', event.target.value)
-                                                            }
-                                                            placeholder="Ghi chú dòng"
-                                                            className="form-input"
-                                                            style={{ padding: '8px 10px', fontSize: '13px' }}
-                                                        />
-                                                    </td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeLine(index)}
-                                                            className="btn-icon-only"
-                                                            style={{ color: '#ef4444' }}
-                                                            title="Xóa dòng"
-                                                        >
-                                                            <Trash2 size={18} />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* RIGHT: Info panels */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '760px', overflowY: 'auto' }}>
-                            {/* General Info */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Thông tin chung</h2>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {/* Release Request Selector */}
-                                    <div className="form-field" ref={releaseRequestDropdownRef}>
-                                        <label className="form-label">
-                                            Yêu cầu xuất tham chiếu{' '}
-                                            <span className="required-mark">*</span>
-                                        </label>
-
-                                        <div style={{ position: 'relative' }}>
-                                            <Search
-                                                style={{
-                                                    position: 'absolute',
-                                                    left: '12px',
-                                                    top: '50%',
-                                                    transform: 'translateY(-50%)',
-                                                    color: '#9ca3af',
-                                                }}
-                                                size={16}
-                                            />
+                                {/* Product Search */}
+                                {showProductSearch && (
+                                    <div className="gdn-product-search-panel">
+                                        <div className="gdn-product-search-bar">
+                                            <Search size={16} className="gdn-search-icon" />
                                             <input
                                                 type="text"
-                                                value={releaseRequestQuery}
-                                                onChange={handleReleaseRequestSearchChange}
-                                                onFocus={() => setReleaseRequestDropdownOpen(true)}
-                                                placeholder="Tìm theo mã yêu cầu, người nhận, kho..."
-                                                className={`form-input ${errors.releaseRequestCode ? 'error' : ''}`}
+                                                value={searchKeyword}
+                                                onChange={(e) => setSearchKeyword(e.target.value)}
+                                                placeholder="Tìm vật tư còn phải xuất..."
+                                                autoFocus
                                             />
-                                        </div>
-
-                                        {errors.releaseRequestCode && (
-                                            <span className="error-message">{errors.releaseRequestCode}</span>
-                                        )}
-
-                                        {releaseRequestDropdownOpen && (
-                                            <div
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    right: 0,
-                                                    marginTop: '4px',
-                                                    backgroundColor: 'white',
-                                                    border: '1px solid #e5e7eb',
-                                                    borderRadius: '10px',
-                                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                                    maxHeight: '320px',
-                                                    overflowY: 'auto',
-                                                    zIndex: 200,
-                                                }}
-                                            >
-                                                {filteredReleaseRequests.length === 0 ? (
-                                                    <div
-                                                        style={{
-                                                            padding: '20px',
-                                                            textAlign: 'center',
-                                                            color: '#9ca3af',
-                                                            fontSize: '13px',
-                                                        }}
-                                                    >
-                                                        Không tìm thấy yêu cầu xuất nào
-                                                    </div>
-                                                ) : (
-                                                    filteredReleaseRequests.map((rr) => {
-                                                        const statusMeta = getStatusMeta(rr.status);
-                                                        const lifecycleMeta = getLifecycleStatusMeta(rr.lifecycleStatus);
-                                                        return (
-                                                            <div
-                                                                key={rr.releaseRequestId}
-                                                                style={{
-                                                                    padding: '12px 16px',
-                                                                    borderBottom: '1px solid #f3f4f6',
-                                                                    cursor: 'pointer',
-                                                                    transition: 'background-color 0.15s',
-                                                                }}
-                                                                onClick={() => handleSelectReleaseRequest(rr)}
-                                                                onMouseEnter={(e) =>
-                                                                    (e.currentTarget.style.backgroundColor = '#f9fafb')
-                                                                }
-                                                                onMouseLeave={(e) =>
-                                                                    (e.currentTarget.style.backgroundColor = 'transparent')
-                                                                }
-                                                            >
-                                                                <div
-                                                                    style={{
-                                                                        display: 'flex',
-                                                                        justifyContent: 'space-between',
-                                                                        alignItems: 'center',
-                                                                        marginBottom: '6px',
-                                                                    }}
-                                                                >
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize: '14px',
-                                                                            fontWeight: 600,
-                                                                            color: '#1f2937',
-                                                                        }}
-                                                                    >
-                                                                        {rr.releaseRequestCode}
-                                                                    </span>
-                                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                                                        <span
-                                                                            style={{
-                                                                                fontSize: '10px',
-                                                                                fontWeight: 600,
-                                                                                padding: '1px 6px',
-                                                                                borderRadius: '9999px',
-                                                                                backgroundColor: statusMeta.bg,
-                                                                                color: statusMeta.color,
-                                                                            }}
-                                                                        >
-                                                                            {statusMeta.label}
-                                                                        </span>
-                                                                        <span
-                                                                            style={{
-                                                                                fontSize: '10px',
-                                                                                fontWeight: 600,
-                                                                                padding: '1px 6px',
-                                                                                borderRadius: '9999px',
-                                                                                backgroundColor: lifecycleMeta.bg,
-                                                                                color: lifecycleMeta.color,
-                                                                            }}
-                                                                            title="Trạng thái xuất kho"
-                                                                        >
-                                                                            {lifecycleMeta.label}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        display: 'flex',
-                                                                        gap: '12px',
-                                                                        fontSize: '12px',
-                                                                        color: '#6b7280',
-                                                                        flexWrap: 'wrap',
-                                                                    }}
-                                                                >
-                                                                    <span>{rr.receiverName}</span>
-                                                                    <span>•</span>
-                                                                    <span>{rr.warehouseName}</span>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Show selected RR info */}
-                                    {formData.releaseRequestId && (
-                                        <div
-                                            style={{
-                                                padding: '10px 12px',
-                                                backgroundColor: '#f0fdf4',
-                                                border: '1px solid #bbf7d0',
-                                                borderRadius: '8px',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <span
-                                                    style={{
-                                                        fontSize: '13px',
-                                                        fontWeight: 600,
-                                                        color: '#15803d',
-                                                    }}
-                                                >
-                                                    {formData.releaseRequestCode}
-                                                </span>
-                                                <span
-                                                    style={{
-                                                        fontSize: '12px',
-                                                        color: '#166534',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            fontSize: '10px',
-                                                            fontWeight: 600,
-                                                            padding: '1px 6px',
-                                                            borderRadius: '9999px',
-                                                            backgroundColor: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).bg,
-                                                            color: getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).color,
-                                                        }}
-                                                        title="Trạng thái xuất kho"
-                                                    >
-                                                        {getLifecycleStatusMeta(selectedReleaseRequestDetail?.lifecycleStatus).label}
-                                                    </span>
-                                                    <span>•</span>
-                                                    <span
-                                                        style={{
-                                                            fontSize: '10px',
-                                                            fontWeight: 600,
-                                                            padding: '1px 6px',
-                                                            borderRadius: '9999px',
-                                                            backgroundColor: currentReleaseRequestMeta.bg,
-                                                            color: currentReleaseRequestMeta.color,
-                                                        }}
-                                                    >
-                                                        {currentReleaseRequestMeta.label}
-                                                    </span>
-                                                    <span>•</span>
-                                                    <span>{formData.warehouseName}</span>
-                                                </span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={clearReleaseRequestSelection}
-                                                style={{
-                                                    background: 'transparent',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    color: '#9ca3af',
-                                                    padding: '4px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                                title="Bỏ chọn"
-                                            >
+                                            <button type="button" className="gdn-search-close" onClick={closeProductSearch}>
                                                 <X size={16} />
                                             </button>
                                         </div>
-                                    )}
-
-                                    <div className="form-field">
-                                        <label className="form-label">Người tạo</label>
-                                        <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                value={formData.createdByName}
-                                                readOnly
-                                                className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
-                                            />
+                                        <div className="gdn-product-search-dropdown">
+                                            {filteredProducts.length === 0 ? (
+                                                <div className="gdn-product-search-empty">
+                                                    <Package size={28} />
+                                                    <p>Không còn vật tư phù hợp để thêm</p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="gdn-product-search-select-all">
+                                                        <label>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={allFilteredSelected}
+                                                                ref={(el) => { if (el) el.indeterminate = !allFilteredSelected && someFilteredSelected; }}
+                                                                onChange={(e) => toggleSelectAllFilteredProducts(e.target.checked)}
+                                                            />
+                                                            Chọn tất cả ({filteredProducts.length})
+                                                        </label>
+                                                    </div>
+                                                    {filteredProducts.map((product) => {
+                                                        const checked = selectedSearchLineIds.includes(product.releaseRequestLineId);
+                                                        return (
+                                                            <div
+                                                                key={product.id}
+                                                                className={`gdn-product-search-item ${checked ? 'selected' : ''}`}
+                                                                onClick={() => toggleSearchLineSelection(product.releaseRequestLineId)}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={() => toggleSearchLineSelection(product.releaseRequestLineId)}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                                <div className="gdn-product-search-item-thumb">
+                                                                    <Package size={16} />
+                                                                </div>
+                                                                <div className="gdn-product-search-item-info">
+                                                                    <span className="gdn-product-search-item-name">{product.itemName}</span>
+                                                                    <span className="gdn-product-search-item-sub">
+                                                                        Mã: {product.itemCode || '-'} • DVT: {product.uomName || '-'} • Còn phải xuất: {formatQuantity(product.remainingQty)}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="gdn-product-search-item-price">{formatCurrency(product.unitPrice)}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    <div className="gdn-product-search-footer">
+                                                        <span>Đã chọn: {selectedSearchLineIds.length} dòng</span>
+                                                        <button type="button" className="btn btn-sm" onClick={addSelectedProducts} disabled={!selectedSearchLineIds.length}>
+                                                            Thêm đã chọn
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
+                                )}
 
-                                    <div className="form-field">
-                                        <label className="form-label">
-                                            Ngày xuất hàng <span className="required-mark">*</span>
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <input
-                                                type="date"
-                                                name="issueDate"
-                                                value={formData.issueDate}
-                                                onChange={handleChange}
-                                                className={`form-input ${errors.issueDate ? 'error' : ''}`}
-                                            />
+                                {/* Lines Table or Empty State */}
+                                {!lines.length ? (
+                                    <div className="gdn-empty-state">
+                                        <div className="gdn-empty-icon">
+                                            <Package size={48} strokeWidth={1.5} />
                                         </div>
-                                        {errors.issueDate && (
-                                            <span className="error-message">{errors.issueDate}</span>
-                                        )}
+                                        <p className="gdn-empty-title">Chưa có vật tư xuất nào</p>
+                                        <p className="gdn-empty-desc">Chọn yêu cầu xuất tham chiếu rồi thêm vật tư cần xuất vào phiếu.</p>
                                     </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Kho xuất</label>
-                                        <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                value={formData.warehouseName}
-                                                readOnly
-                                                className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
-                                            />
+                                ) : (
+                                    <>
+                                        <div className="table-container gdn-table-container">
+                                            <table className="product-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
+                                                        <th style={{ minWidth: '240px' }}>Vật tư</th>
+                                                        <th style={{ width: '85px', textAlign: 'right' }}>SL YC</th>
+                                                        <th style={{ width: '80px', textAlign: 'right' }}>Đã cấp</th>
+                                                        <th style={{ width: '80px', textAlign: 'right' }}>Đã xuất</th>
+                                                        <th style={{ width: '90px', textAlign: 'right' }}>Còn xuất</th>
+                                                        <th style={{ width: '130px', textAlign: 'center' }}>SL thực xuất</th>
+                                                        <th style={{ width: '120px', textAlign: 'right' }}>Đơn giá</th>
+                                                        <th style={{ width: '130px', textAlign: 'right' }}>Thành tiền</th>
+                                                        <th style={{ width: '70px', textAlign: 'center' }}>CC</th>
+                                                        <th style={{ width: '160px' }}>Ghi chú</th>
+                                                        <th style={{ width: '46px' }}></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {lines.map((line, index) => (
+                                                        <tr key={line.id}>
+                                                            <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                                            <td>
+                                                                <div className="gdn-line-item">
+                                                                    <div className="gdn-line-thumb"><Package size={18} /></div>
+                                                                    <div className="gdn-line-info">
+                                                                        <span className="gdn-line-name">{line.itemName}</span>
+                                                                        <span className="gdn-line-sub">Mã: {line.itemCode || '-'} • DVT: {line.uomName || '-'} • Tồn: {formatQuantity(line.availableQty)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: 'right' }}>{formatQuantity(line.requestedQty)}</td>
+                                                            <td style={{ textAlign: 'right' }}>{formatQuantity(line.allocatedQty)}</td>
+                                                            <td style={{ textAlign: 'right' }}>{formatQuantity(line.issuedQty)}</td>
+                                                            <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f766e' }}>{formatQuantity(line.remainingQty)}</td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <div className="gdn-qty-input-wrap">
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        max={line.remainingQty}
+                                                                        step="0.001"
+                                                                        value={line.actualQty}
+                                                                        onChange={(e) => updateLine(index, 'actualQty', e.target.value)}
+                                                                        className="form-input gdn-qty-input"
+                                                                    />
+                                                                    <span className="gdn-qty-suffix">/ {formatQuantity(line.remainingQty)}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: 'right' }}>{formatCurrency(line.unitPrice)}</td>
+                                                            <td style={{ textAlign: 'right', fontWeight: 700, color: '#0284c7' }}>{formatCurrency(line.lineTotal)}</td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={line.requiresCertificateCopy}
+                                                                    onChange={(e) => updateLine(index, 'requiresCertificateCopy', e.target.checked)}
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    value={line.note}
+                                                                    onChange={(e) => updateLine(index, 'note', e.target.value)}
+                                                                    placeholder="Ghi chú"
+                                                                    className="form-input gdn-note-input"
+                                                                />
+                                                            </td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <button type="button" onClick={() => removeLine(index)} className="btn-icon-only gdn-remove-btn" title="Xóa dòng">
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Người yêu cầu</label>
-                                        <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                value={formData.requestedByName}
-                                                readOnly
-                                                className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
-                                            />
+                                        {/* Summary bar */}
+                                        <div className="gdn-lines-summary">
+                                            <span><strong>{lines.length}</strong> dòng vật tư</span>
+                                            <span>•</span>
+                                            <span>Tổng SL thực xuất: <strong>{totalDeliveredQty.toLocaleString('vi-VN')}</strong></span>
+                                            <span>•</span>
+                                            <span>Tổng tiền hàng: <strong className="gdn-summary-total">{formatCurrency(subtotal)}</strong></span>
                                         </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Ngày yêu cầu</label>
-                                        <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                value={formData.requestedDate}
-                                                readOnly
-                                                className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Ngày dự kiến</label>
-                                        <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                value={formData.expectedDate}
-                                                readOnly
-                                                className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                    </>
+                                )}
                             </div>
+                        </div>
 
-                            {/* Receiver Info */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Người nhận hàng</h2>
+                        {/* RIGHT: Sidebar cards */}
+                        <div className="gdn-main-right">
+                            {/* Người nhận hàng */}
+                            <div className="gdn-card">
+                                <div className="gdn-card-header">
+                                    <h2 className="gdn-card-title">Người nhận hàng</h2>
                                 </div>
-
                                 {formData.receiverName ? (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '10px',
-                                            fontSize: '14px',
-                                            color: '#334155',
-                                        }}
-                                    >
-                                        <div>
-                                            <span style={{ fontWeight: 600 }}>Tên: </span>
-                                            <span>{formData.receiverName}</span>
+                                    <div className="gdn-receiver-info">
+                                        <div className="gdn-receiver-row">
+                                            <span className="gdn-receiver-label">Tên</span>
+                                            <span className="gdn-receiver-value">{formData.receiverName}</span>
                                         </div>
                                         {formData.receiverPhone && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Phone size={14} color="#6b7280" />
-                                                <span>{formData.receiverPhone}</span>
+                                            <div className="gdn-receiver-row">
+                                                <span className="gdn-receiver-label">SĐT</span>
+                                                <span className="gdn-receiver-value gdn-receiver-value-icon">
+                                                    <Phone size={13} />{formData.receiverPhone}
+                                                </span>
                                             </div>
                                         )}
                                         {formData.receiverCompanyName && (
-                                            <div>
-                                                <span style={{ fontWeight: 600 }}>Công ty: </span>
-                                                <span>{formData.receiverCompanyName}</span>
+                                            <div className="gdn-receiver-row">
+                                                <span className="gdn-receiver-label">Công ty</span>
+                                                <span className="gdn-receiver-value">{formData.receiverCompanyName}</span>
                                             </div>
                                         )}
                                         {formData.receiverAddress && (
-                                            <div style={{ display: 'flex', alignItems: 'start', gap: '6px' }}>
-                                                <MapPin size={14} color="#6b7280" style={{ flexShrink: 0, marginTop: '2px' }} />
-                                                <span>{formData.receiverAddress}</span>
+                                            <div className="gdn-receiver-row">
+                                                <span className="gdn-receiver-label">Địa chỉ</span>
+                                                <span className="gdn-receiver-value gdn-receiver-value-icon">
+                                                    <MapPin size={13} />{formData.receiverAddress}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
                                 ) : (
-                                    <div style={{ color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }}>
-                                        Chọn yêu cầu xuất tham chiếu để hiển thị thông tin người nhận
-                                    </div>
+                                    <div className="gdn-empty-inline">Chọn yêu cầu xuất tham chiếu để hiển thị.</div>
                                 )}
                             </div>
 
-                            {/* Transport Info */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">
-                                        <Truck size={16} style={{ marginRight: '6px' }} />
-                                        Vận chuyển
-                                    </h2>
+                            {/* Vận chuyển */}
+                            <div className="gdn-card">
+                                <div className="gdn-card-header">
+                                    <Truck size={16} className="gdn-card-header-icon" />
+                                    <h2 className="gdn-card-title">Vận chuyển</h2>
                                 </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div className="gdn-transport-grid">
                                     <div className="form-field">
-                                        <label className="form-label">Tên hãng vận chuyển</label>
+                                        <label className="form-label">Hãng vận chuyển</label>
                                         <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                name="carrierName"
-                                                value={formData.carrierName}
-                                                onChange={handleChange}
-                                                placeholder="Nhập tên hãng vận chuyển"
-                                                className="form-input"
-                                            />
+                                            <input type="text" name="carrierName" value={formData.carrierName} onChange={handleChange} placeholder="Tên hãng vận chuyển" className="form-input" />
                                         </div>
                                     </div>
-
                                     <div className="form-field">
-                                        <label className="form-label">Tên tài xế</label>
+                                        <label className="form-label">Tài xế</label>
                                         <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                name="driverName"
-                                                value={formData.driverName}
-                                                onChange={handleChange}
-                                                placeholder="Nhập tên tài xế"
-                                                className="form-input"
-                                            />
+                                            <input type="text" name="driverName" value={formData.driverName} onChange={handleChange} placeholder="Tên tài xế" className="form-input" />
                                         </div>
                                     </div>
-
                                     <div className="form-field">
                                         <label className="form-label">SĐT tài xế</label>
                                         <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                name="driverPhone"
-                                                value={formData.driverPhone}
-                                                onChange={handleChange}
-                                                placeholder="Nhập số điện thoại tài xế"
-                                                className="form-input"
-                                            />
+                                            <input type="text" name="driverPhone" value={formData.driverPhone} onChange={handleChange} placeholder="Số điện thoại" className="form-input" />
                                         </div>
                                     </div>
-
                                     <div className="form-field">
                                         <label className="form-label">Biển số xe</label>
                                         <div className="input-wrapper">
-                                            <input
-                                                type="text"
-                                                name="licensePlate"
-                                                value={formData.licensePlate}
-                                                onChange={handleChange}
-                                                placeholder="Nhập biển số xe"
-                                                className="form-input"
-                                            />
+                                            <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleChange} placeholder="Biển số xe" className="form-input" />
                                         </div>
                                     </div>
+                                </div>
+                                <div className="form-field">
+                                    <label className="form-label">Ghi chú vận chuyển</label>
+                                    <textarea
+                                        name="transportNote"
+                                        value={formData.transportNote}
+                                        onChange={handleChange}
+                                        placeholder="Ghi chú vận chuyển..."
+                                        rows={2}
+                                        className="form-input"
+                                    />
+                                    <span className="gdn-char-counter">{formData.transportNote.length}/{MAX_TRANSPORT_NOTE_LENGTH}</span>
+                                </div>
+                            </div>
+
+                            {/* Chiến lược xuất kho */}
+                            <div className="gdn-card">
+                                <div className="gdn-card-header">
+                                    <h2 className="gdn-card-title">Chiến lược xuất kho</h2>
+                                </div>
+                                <div className="gdn-strategy-options">
+                                    {[
+                                        { value: 'FIFO', label: 'FIFO', desc: 'Nhập trước xuất trước' },
+                                        { value: 'LIFO', label: 'LIFO', desc: 'Nhập sau xuất trước' },
+                                    ].map((opt) => {
+                                        const selected = formData.pickingStrategy === opt.value;
+                                        return (
+                                            <label key={opt.value} className={`gdn-strategy-option ${selected ? 'selected' : ''}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="pickingStrategy"
+                                                    value={opt.value}
+                                                    checked={selected}
+                                                    onChange={(e) => setFormData((prev) => ({ ...prev, pickingStrategy: e.target.value }))}
+                                                />
+                                                <div className="gdn-strategy-option-body">
+                                                    <span className="gdn-strategy-option-label">{opt.label}</span>
+                                                    <span className="gdn-strategy-option-desc">{opt.desc}</span>
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <div className="gdn-helper-note">
+                                    Chiến lược xác định lô hàng được xuất trước dựa theo ngày nhập kho.
+                                </div>
+                            </div>
+
+                            {/* Thanh toán & Tổng tiền */}
+                            <div className="gdn-card gdn-card-payment">
+                                <div className="gdn-card-header">
+                                    <h2 className="gdn-card-title">Thanh toán & Tổng tiền</h2>
+                                </div>
+                                <div className="gdn-payment-section">
+                                    <label className="gdn-payment-checkbox">
+                                        <input type="checkbox" name="isPaid" checked={formData.isPaid} onChange={handleChange} />
+                                        <span>Đã thanh toán</span>
+                                    </label>
+
+                                    {formData.isPaid && (
+                                        <div className="form-field">
+                                            <label className="form-label">Phương thức</label>
+                                            <div className="input-wrapper">
+                                                <select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className={`form-input ${errors.paymentMethod ? 'error' : ''}`}>
+                                                    {PAYMENT_METHOD_OPTIONS.map((opt) => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            {errors.paymentMethod && <span className="error-message">{errors.paymentMethod}</span>}
+                                        </div>
+                                    )}
 
                                     <div className="form-field">
-                                        <label className="form-label">Ghi chú vận chuyển</label>
-                                        <textarea
-                                            name="transportNote"
-                                            value={formData.transportNote}
-                                            onChange={handleChange}
-                                            placeholder="Ghi chú vận chuyển..."
-                                            rows={3}
-                                            className="form-input"
-                                            style={{ resize: 'vertical' }}
-                                        />
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'flex-end',
-                                                fontSize: '12px',
-                                                color:
-                                                    formData.transportNote.length >= MAX_TRANSPORT_NOTE_LENGTH
-                                                        ? '#ef4444'
-                                                        : '#6b7280',
-                                                marginTop: '4px',
-                                                fontWeight: 500,
-                                            }}
-                                        >
-                                            {formData.transportNote.length}/{MAX_TRANSPORT_NOTE_LENGTH} ký tự
+                                        <label className="form-label">Phí vận chuyển</label>
+                                        <div className="input-wrapper">
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                name="shippingFee"
+                                                value={formData.shippingFee}
+                                                onChange={handleChange}
+                                                className={`form-input ${errors.shippingFee ? 'error' : ''}`}
+                                                placeholder="0"
+                                            />
+                                            <span className="input-suffix">₫</span>
                                         </div>
+                                        {errors.shippingFee && <span className="error-message">{errors.shippingFee}</span>}
+                                    </div>
+                                </div>
+
+                                <div className="gdn-payment-summary">
+                                    <div className="gdn-payment-row">
+                                        <span>Tiền hàng</span>
+                                        <span className="gdn-payment-amount">{formatCurrency(subtotal)}</span>
+                                    </div>
+                                    <div className="gdn-payment-row">
+                                        <span>Phí vận chuyển</span>
+                                        <span className={`gdn-payment-amount ${shippingFee > 0 ? 'accent' : ''}`}>+ {formatCurrency(shippingFee)}</span>
+                                    </div>
+                                    <div className="gdn-payment-total-row">
+                                        <span>Thành tiền</span>
+                                        <span className="gdn-payment-total-amount">{formatCurrency(grandTotal)}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Bottom Row */}
-                    <div className="gdn-create-bottom-grid">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
-                            {/* Notes */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Ghi chú phiếu xuất</h2>
-                                </div>
-                                <div className="form-field">
-                                    <textarea
-                                        name="note"
-                                        value={formData.note}
-                                        onChange={handleChange}
-                                        placeholder="Nhập ghi chú cho phiếu xuất hàng..."
-                                        rows={4}
-                                        className={`form-input ${errors.note ? 'error' : ''}`}
-                                        style={{ resize: 'vertical' }}
-                                    />
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'flex-end',
-                                            fontSize: '12px',
-                                            color:
-                                                formData.note.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280',
-                                            marginTop: '4px',
-                                            fontWeight: 500,
-                                        }}
-                                    >
-                                        {formData.note.length}/{MAX_NOTE_LENGTH} ký tự
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Summary Cards */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng hợp phiếu xuất</h2>
-                                </div>
-                                <div className="gdn-summary-cards">
-                                    <div
-                                        style={{
-                                            padding: '12px',
-                                            backgroundColor: '#f8fafc',
-                                            border: '1px solid #e2e8f0',
-                                            borderRadius: '10px',
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                fontSize: '13px',
-                                                color: '#64748b',
-                                                marginBottom: '6px',
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            Tổng số lượng xuất
-                                        </div>
-                                        <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>
-                                            {totalDeliveredQty} sản phẩm
-                                        </div>
-                                    </div>
-                                    <div
-                                        style={{
-                                            padding: '12px',
-                                            backgroundColor: '#f8fafc',
-                                            border: '1px solid #e2e8f0',
-                                            borderRadius: '10px',
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                fontSize: '13px',
-                                                color: '#64748b',
-                                                marginBottom: '6px',
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            Số dòng vật tư
-                                        </div>
-                                        <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>
-                                            {lines.length} dòng
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div style={{ marginTop: '16px' }}>
-                                    <div
-                                        style={{
-                                            padding: '14px',
-                                            backgroundColor: '#f8fafc',
-                                            border: '1px solid #e2e8f0',
-                                            borderRadius: '10px',
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                fontSize: '14px',
-                                                marginBottom: '8px',
-                                            }}
-                                        >
-                                            <span style={{ color: '#475569', fontWeight: 600 }}>Tổng tiền hàng</span>
-                                            <span style={{ color: '#10b981', fontWeight: 700 }}>
-                                                + {formatCurrency(subtotal)}
-                                            </span>
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                fontSize: '14px',
-                                            }}
-                                        >
-                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí vận chuyển</span>
-                                            <span
-                                                style={{
-                                                    color: shippingFee > 0 ? '#ef4444' : '#64748b',
-                                                    fontWeight: 700,
-                                                }}
-                                            >
-                                                + {formatCurrency(shippingFee)}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            padding: '16px',
-                                            backgroundColor: '#e0f2fe',
-                                            borderRadius: '12px',
-                                            borderLeft: '4px solid #0284c7',
-                                            marginTop: '12px',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7' }}>
-                                            Tổng tiền
-                                        </span>
-                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#0284c7' }}>
-                                            {formatCurrency(grandTotal)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                    {/* ── Card cuối: Ghi chú phiếu xuất ── */}
+                    <div className="gdn-card gdn-card-note">
+                        <div className="gdn-card-header">
+                            <h2 className="gdn-card-title">Ghi chú phiếu xuất</h2>
                         </div>
-
-                        {/* Picking Strategy */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Chiến lược xuất kho</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
-                                {[
-                                    { value: 'FIFO', label: 'FIFO', desc: 'Nhập trước xuất trước' },
-                                    { value: 'LIFO', label: 'LIFO', desc: 'Nhập sau xuất trước' },
-                                ].map((opt) => {
-                                    const selected = formData.pickingStrategy === opt.value;
-                                    return (
-                                        <label
-                                            key={opt.value}
-                                            style={{
-                                                flex: 1,
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '4px',
-                                                padding: '14px 16px',
-                                                borderRadius: '10px',
-                                                border: selected ? '2px solid #0284c7' : '2px solid #e2e8f0',
-                                                backgroundColor: selected ? '#f0f9ff' : '#ffffff',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.15s ease',
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <input
-                                                    type="radio"
-                                                    name="pickingStrategy"
-                                                    value={opt.value}
-                                                    checked={selected}
-                                                    onChange={(e) => {
-                                                        setFormData((prev) => ({ ...prev, pickingStrategy: e.target.value }));
-                                                    }}
-                                                    style={{ width: '16px', height: '16px', accentColor: '#0284c7', cursor: 'pointer' }}
-                                                />
-                                                <span style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>
-                                                    {opt.label}
-                                                </span>
-                                            </div>
-                                            <span style={{ fontSize: '12px', color: '#64748b', paddingLeft: '26px' }}>
-                                                {opt.desc}
-                                            </span>
-                                        </label>
-                                    );
-                                })}
-                            </div>
-
-                            <div
-                                style={{
-                                    marginTop: '10px',
-                                    padding: '8px 12px',
-                                    backgroundColor: '#fefce8',
-                                    border: '1px solid #fde68a',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    color: '#854d0e',
-                                    lineHeight: '1.5',
-                                }}
-                            >
-                                ⚠ Chiến lược xác định lô hàng được xuất trước dựa theo ngày nhập kho.
-                            </div>
-                        </div>
-
-                        {/* Payment */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thanh toán</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div className="form-field">
-                                    <label
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            cursor: 'pointer',
-                                            fontSize: '14px',
-                                            color: '#334155',
-                                            fontWeight: 500,
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            name="isPaid"
-                                            checked={formData.isPaid}
-                                            onChange={handleChange}
-                                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                        />
-                                        Đã thanh toán
-                                    </label>
-                                </div>
-
-                                {formData.isPaid && (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '12px',
-                                            animation: 'slideDown 0.2s ease-out',
-                                        }}
-                                    >
-                                        <div className="form-field">
-                                            <label className="form-label">Phương thức thanh toán</label>
-                                            <div className="input-wrapper">
-                                                <select
-                                                    name="paymentMethod"
-                                                    value={formData.paymentMethod}
-                                                    onChange={handleChange}
-                                                    className={`form-input ${errors.paymentMethod ? 'error' : ''}`}
-                                                    style={{ paddingLeft: '16px' }}
-                                                >
-                                                    {PAYMENT_METHOD_OPTIONS.map((opt) => (
-                                                        <option key={opt.value} value={opt.value}>
-                                                            {opt.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            {errors.paymentMethod && (
-                                                <span className="error-message">{errors.paymentMethod}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="form-field">
-                                    <label className="form-label">Phí vận chuyển</label>
-                                    <div className="input-wrapper">
-                                        <input
-                                            type="text"
-                                            inputMode="numeric"
-                                            name="shippingFee"
-                                            value={formData.shippingFee}
-                                            onChange={handleChange}
-                                            className={`form-input ${errors.shippingFee ? 'error' : ''}`}
-                                            style={{ paddingLeft: '16px', paddingRight: '34px' }}
-                                            placeholder="0"
-                                        />
-                                        <span
-                                            style={{
-                                                position: 'absolute',
-                                                right: '12px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                color: '#64748b',
-                                                fontSize: '14px',
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            ₫
-                                        </span>
-                                    </div>
-                                    {errors.shippingFee && (
-                                        <span className="error-message">{errors.shippingFee}</span>
-                                    )}
-                                </div>
-
-                                <div
-                                    style={{
-                                        padding: '14px',
-                                        backgroundColor: '#f0fdf4',
-                                        border: '1px solid #bbf7d0',
-                                        borderRadius: '10px',
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            fontSize: '14px',
-                                            marginBottom: '8px',
-                                        }}
-                                    >
-                                        <span style={{ color: '#475569', fontWeight: 600 }}>Tiền hàng</span>
-                                        <span style={{ color: '#10b981', fontWeight: 700 }}>
-                                            {formatCurrency(subtotal)}
-                                        </span>
-                                    </div>
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            fontSize: '14px',
-                                        }}
-                                    >
-                                        <span style={{ color: '#475569', fontWeight: 600 }}>Phí vận chuyển</span>
-                                        <span
-                                            style={{
-                                                color: shippingFee > 0 ? '#f59e0b' : '#64748b',
-                                                fontWeight: 700,
-                                            }}
-                                        >
-                                            + {formatCurrency(shippingFee)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div
-                                    style={{
-                                        padding: '16px',
-                                        backgroundColor: '#dcfce7',
-                                        borderRadius: '12px',
-                                        borderLeft: '4px solid #16a34a',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                    }}
-                                >
-                                    <span style={{ fontSize: '15px', fontWeight: 700, color: '#15803d' }}>
-                                        Thành tiền
-                                    </span>
-                                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#15803d' }}>
-                                        {formatCurrency(grandTotal)}
-                                    </span>
-                                </div>
-                            </div>
+                        <div className="form-field">
+                            <textarea
+                                name="note"
+                                value={formData.note}
+                                onChange={handleChange}
+                                placeholder="Nhập ghi chú cho phiếu xuất hàng (nếu có)..."
+                                rows={3}
+                                className={`form-input ${errors.note ? 'error' : ''}`}
+                            />
+                            <span className="gdn-char-counter">{formData.note.length}/{MAX_NOTE_LENGTH}</span>
                         </div>
                     </div>
                 </form>

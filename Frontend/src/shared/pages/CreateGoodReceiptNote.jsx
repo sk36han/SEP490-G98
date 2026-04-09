@@ -111,8 +111,6 @@ const CreateGoodReceiptNote = () => {
         discount: 0,
         discountAmountFixed: 0,
         additionalCosts: [],
-        isPaid: false,
-        paymentMethod: '',
         shippingFee: 0,
     });
 
@@ -149,6 +147,7 @@ const CreateGoodReceiptNote = () => {
                 ...prev,
                 supplierId: normalized.supplierId ?? prev.supplierId,
                 supplierName: normalized.supplierName || fallbackName || prev.supplierName,
+                warehouseId: prev.warehouseId || normalized.warehouseId || null,
             }));
         } catch (err) {
             // Fallback hiển thị tối thiểu theo PO nếu API chi tiết NCC bị lỗi
@@ -278,14 +277,15 @@ const CreateGoodReceiptNote = () => {
                         itemName: line.itemName ?? line.ItemName ?? '',
                         itemSku: line.sku ?? line.Sku ?? '',
                         uom: line.uom ?? line.Uom ?? '',
+                        uomId: line.uomId ?? line.UomId ?? null,
                         orderedQty: ordered,
                         remainingQty: remaining,
                         receivedQty: defaultReceivedQty,
                         unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
                         totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
                         note: '',
-                        hasCO: false,
-                        hasCQ: false,
+                        hasCO: !!(line.requiresCo ?? line.requiresCO ?? false),
+                        hasCQ: !!(line.requiresCq ?? line.requiresCQ ?? false),
                         isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
                     };
                 });
@@ -385,9 +385,10 @@ const CreateGoodReceiptNote = () => {
                             unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
                             totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
                             uom: line.uomName ?? line.UomName ?? '',
+                            uomId: line.uomId ?? line.UomId ?? null,
                             note: '',
-                            hasCO: false,
-                            hasCQ: false,
+                            hasCO: !!(line.requiresCo ?? line.requiresCO ?? false),
+                            hasCQ: !!(line.requiresCq ?? line.requiresCQ ?? false),
                             isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
                         };
                     });
@@ -444,7 +445,10 @@ const CreateGoodReceiptNote = () => {
                     sku: item.itemCode,
                     unitPrice: item.purchasePrice || 0,
                     uom: item.baseUomName || '',
+                    uomId: item.baseUomId || null,
                     image: null,
+                    requiresCo: !!(item.requiresCo || item.requiresCO),
+                    requiresCq: !!(item.requiresCq || item.requiresCQ),
                 }));
             setProductList(mappedItems);
         } catch (err) {
@@ -469,16 +473,6 @@ const CreateGoodReceiptNote = () => {
         const value = e.target.value;
         setFormData((prev) => ({ ...prev, shippingFee: value }));
         if (errors.shippingFee) setErrors((prev) => ({ ...prev, shippingFee: '' }));
-    };
-
-    const handlePaymentMethodChange = (e) => {
-        const { value } = e.target;
-        setFormData((prev) => ({ ...prev, paymentMethod: value }));
-    };
-
-    const handleIsPaidChange = (e) => {
-        const checked = e.target.checked;
-        setFormData((prev) => ({ ...prev, isPaid: checked, paymentMethod: checked ? prev.paymentMethod : '' }));
     };
 
     const addAdditionalCost = () => {
@@ -545,11 +539,14 @@ const CreateGoodReceiptNote = () => {
             itemName: product.name,
             itemImage: product.image,
             uom: product.uom ?? '',
+            uomId: product.uomId || null,
             orderedQty: 1,
             receivedQty: 1,
             unitPrice: product.unitPrice,
             totalPrice: product.unitPrice,
             note: '',
+            hasCO: !!(product.requiresCo || product.requiresCO),
+            hasCQ: !!(product.requiresCq || product.requiresCQ),
         };
         setLines((prev) => [...prev, newLine]);
         setSearchKeyword('');
@@ -582,11 +579,14 @@ const CreateGoodReceiptNote = () => {
                     itemName: product.name,
                     itemImage: product.image,
                     uom: product.uom ?? '',
+                    uomId: product.uomId || null,
                     orderedQty: 1,
                     receivedQty: 1,
+                    unitPrice: product.unitPrice,
+                    totalPrice: product.unitPrice,
                     note: '',
-                    hasCO: false,
-                    hasCQ: false,
+                    hasCO: !!(product.requiresCo || product.requiresCO),
+                    hasCQ: !!(product.requiresCq || product.requiresCQ),
                 });
             } else {
                 duplicateCount++;
@@ -627,10 +627,11 @@ const CreateGoodReceiptNote = () => {
             prev.map((line, i) => {
                 if (i !== index) return line;
                 let safeValue = value;
-                // Giới hạn receivedQty không vượt quá remainingQty
+                // Giới hạn receivedQty không vượt quá remainingQty, phải > 0, và phải là số nguyên
                 if (field === 'receivedQty') {
                     const maxQty = Number(line.remainingQty) || Number(line.orderedQty) || 0;
-                    safeValue = Math.min(value, maxQty);
+                    const intValue = Math.floor(Number(value));
+                    safeValue = Math.max(1, Math.min(intValue, maxQty)); // Luôn >= 1, số nguyên
                 }
                 const updatedLine = { ...line, [field]: safeValue };
                 // Tự động tính totalPrice khi receivedQty hoặc unitPrice thay đổi
@@ -640,6 +641,15 @@ const CreateGoodReceiptNote = () => {
                 return updatedLine;
             })
         );
+        // Xóa lỗi cho dòng này khi thay đổi receivedQty
+        if (field === 'receivedQty') {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[`line_${index}`];
+                delete next.lines;
+                return next;
+            });
+        }
     };
 
     const removeLine = (index) => {
@@ -692,8 +702,6 @@ const CreateGoodReceiptNote = () => {
                 DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
                 DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
                 Note: formData.justification || null,
-                IsPaid: formData.isPaid || false,
-                PaymentMethod: formData.paymentMethod || null,
                 ShippingFee: Number(formData.shippingFee) || 0,
                 Lines: lines.map(line => ({
                     ItemId: Number(line.itemId),
@@ -725,7 +733,8 @@ const CreateGoodReceiptNote = () => {
             Boolean(formData.warehouseName) &&
             lines.length > 0 &&
             !submitting &&
-            !lines.some((l) => !l.itemName?.trim()),
+            !lines.some((l) => !l.itemName?.trim()) &&
+            !lines.some((l) => Number(l.receivedQty) <= 0),
         [formData.warehouseName, lines, submitting]
     );
 
@@ -733,7 +742,9 @@ const CreateGoodReceiptNote = () => {
         ? 'Vui lòng chọn kho nhận'
         : lines.length === 0
             ? 'Vui lòng thêm ít nhất 1 sản phẩm'
-            : '';
+            : lines.some((l) => Number(l.receivedQty) <= 0)
+                ? 'Số lượng nhập của mỗi sản phẩm phải lớn hơn 0'
+                : '';
 
     // Lọc PO theo từ khóa
     const filteredPoCodes = useMemo(() => {
@@ -1259,10 +1270,11 @@ const CreateGoodReceiptNote = () => {
                                                                 type="number"
                                                                 value={line.receivedQty != null ? line.receivedQty : ''}
                                                                 onChange={(e) => updateLine(index, 'receivedQty', Number(e.target.value))}
-                                                                min="0"
-                                                                className="form-input"
+                                                                min="1"
+                                                                step="1"
+                                                                className={`form-input ${errors[`line_${index}`] ? 'error' : ''}`}
                                                                 style={{ textAlign: 'right' }}
-
+                                                                title={errors[`line_${index}`] || ''}
                                                             />
                                                         </td>
                                                         <td style={{ textAlign: 'center', verticalAlign: 'middle', fontSize: '14px', color: 'var(--slate-700)' }}>
@@ -1563,10 +1575,6 @@ const CreateGoodReceiptNote = () => {
                                 addAdditionalCost={addAdditionalCost}
                                 removeAdditionalCost={removeAdditionalCost}
                                 updateAdditionalCost={updateAdditionalCost}
-                                isPaid={formData.isPaid}
-                                setIsPaid={(val) => setFormData(prev => ({ ...prev, isPaid: val }))}
-                                paymentMethod={formData.paymentMethod}
-                                setPaymentMethod={(val) => setFormData(prev => ({ ...prev, paymentMethod: val }))}
                                 shippingFee={formData.shippingFee}
                                 setShippingFee={(val) => setFormData(prev => ({ ...prev, shippingFee: val }))}
                             />

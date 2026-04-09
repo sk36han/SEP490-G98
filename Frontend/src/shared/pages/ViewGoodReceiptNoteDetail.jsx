@@ -35,7 +35,7 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
-import { getGRNDetail, approveGRN } from '../lib/goodReceiptNoteService';
+import { getGRNDetail, approveGoodReceiptNote } from '../lib/goodReceiptNoteService';
 import '../styles/CreateSupplier.css';
 
 const MAX_REASON_LENGTH = 250;
@@ -72,9 +72,11 @@ const ViewGoodReceiptNoteDetail = () => {
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
 
-    // Kế toán: có thể duyệt GRN
+    // Kế toán & Giám đốc: có thể duyệt GRN và xác nhận thanh toán
     // Thủ Kho: chỉ xem (readonly)
     const isAccountant = permissionRole === 'ACCOUNTANTS';
+    const isDirector = permissionRole === 'DIRECTOR';
+    const isPaymentEditor = isAccountant || isDirector;
     const isWarehouseKeeper = permissionRole === 'WAREHOUSE_KEEPER';
 
     const [loading, setLoading] = useState(true);
@@ -179,17 +181,21 @@ const ViewGoodReceiptNoteDetail = () => {
             const isApprove = confirmDialogType === 'approve';
 
             if (isApprove) {
-                await approveGRN(grnData.grnId, {
+                await approveGoodReceiptNote(grnData.grnId, {
                     note: reason,
+                    IsPaid: isPaid,
+                    PaymentMethod: paymentMethod,
+                });
+                // Sync lại isPaid & paymentMethod vào grnData sau khi backend xác nhận
+                setGrnData((prev) => ({
+                    ...prev,
+                    status: 'APPROVED',
                     isPaid: isPaid,
                     paymentMethod: paymentMethod,
-                });
+                }));
+            } else {
+                setGrnData((prev) => ({ ...prev, status: 'REJECTED' }));
             }
-
-            setGrnData((prev) => ({
-                ...prev,
-                status: isApprove ? 'POSTED' : 'REJECTED',
-            }));
 
             showToast(
                 isApprove
@@ -211,10 +217,11 @@ const ViewGoodReceiptNoteDetail = () => {
     };
 
     // Kiểm tra điều kiện hiển thị nút
-    // GRN đã được duyệt/từ chối/ghi sổ → hiện Trả hàng, ẩn Duyệt/Hủy
-    const isGRNFinalized = ['APPROVED', 'REJECTED', 'POSTED'].includes(grnData?.status);
-    const showReturnButton = isAccountant && isGRNFinalized;
-    const showApproveButton = isAccountant && !isGRNFinalized;
+    // GRN đã được duyệt → hiện Trả hàng, ẩn Duyệt/Hủy
+    // KHÔNG hiện Trả hàng khi REJECTED (không thể trả hàng đã bị từ chối)
+    const isGRNFinalized = ['APPROVED', 'POSTED'].includes(grnData?.status);
+    const showReturnButton = isPaymentEditor && isGRNFinalized;
+    const showApproveButton = isPaymentEditor && !isGRNFinalized;
     // Hiện nút Trả hàng cho mọi role (nếu chưa có nút Trả hàng ở trên)
     const showGeneralReturnButton = !showReturnButton && grnData?.grnId;
 
@@ -285,8 +292,8 @@ const ViewGoodReceiptNoteDetail = () => {
                         </span>
                     </div>
 
-                    {/* Thanh toán - chỉ hiện khi duyệt & Kế Toán mới được xác nhận */}
-                    {confirmDialogType === 'approve' && isAccountant && (
+                    {/* Thanh toán - chỉ hiện khi duyệt & Kế Toán/Giám Đốc mới được xác nhận */}
+                    {confirmDialogType === 'approve' && isPaymentEditor && (
                         <>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
                                 <span style={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>Đã thanh toán?</span>
