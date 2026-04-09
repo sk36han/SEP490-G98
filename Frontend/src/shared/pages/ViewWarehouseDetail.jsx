@@ -37,6 +37,8 @@ import {
     Save,
     Loader,
     RefreshCw,
+    History,
+    FileText,
 } from 'lucide-react';
 import { getWarehouseDetail, getWarehouseHistory, updateWarehouse, toggleWarehouseStatus } from '../lib/warehouseService';
 import Toast from '../../components/Toast/Toast';
@@ -67,6 +69,21 @@ const fmtDate = (dateStr) => {
     const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
     if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const fmtQty = (v) => {
+    const n = Number(v) || 0;
+    if (n > 0) return `+${n.toLocaleString('vi-VN')}`;
+    if (n < 0) return n.toLocaleString('vi-VN');
+    return '0';
+};
+
+const ACTION_COLORS = {
+    IMPORT: { bg: 'rgba(16,185,129,0.15)', color: '#059669', label: 'Nhập kho' },
+    EXPORT: { bg: 'rgba(239,68,68,0.15)', color: '#dc2626', label: 'Xuất kho' },
+    ADJUST: { bg: 'rgba(245,158,11,0.15)', color: '#d97706', label: 'Điều chỉnh' },
+    RETURN_IN: { bg: 'rgba(59,130,246,0.15)', color: '#2563eb', label: 'Trả về' },
+    RETURN_OUT: { bg: 'rgba(139,92,246,0.15)', color: '#7c3aed', label: 'Xuất trả' },
 };
 
 // ── Map backend response → component state ────────────────────────────────────
@@ -132,6 +149,17 @@ const ViewWarehouseDetail = () => {
     const [statusDialogConfig, setStatusDialogConfig] = useState({ open: false, action: null });
     const [statusSubmitting, setStatusSubmitting] = useState(false);
 
+    // Tab: items vs history
+    const [activeTab, setActiveTab] = useState('items');
+
+    // History state
+    const [historyList, setHistoryList] = useState([]);
+    const [historyTotal, setHistoryTotal] = useState(0);
+    const [historyPage, setHistoryPage] = useState(0);
+    const [historyPageSize, setHistoryPageSize] = useState(10);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyError, setHistoryError] = useState(null);
+
     // ── Load warehouse detail ────────────────────────────────────────────────
     const fetchWarehouseDetail = useCallback(async () => {
         setLoading(true);
@@ -151,9 +179,37 @@ const ViewWarehouseDetail = () => {
         }
     }, [id, showToast]);
 
+    // ── Load history ────────────────────────────────────────────────────────
+    const fetchHistory = useCallback(async (pageNum = 0) => {
+        setHistoryLoading(true);
+        setHistoryError(null);
+        try {
+            const result = await getWarehouseHistory({
+                warehouseId: Number(id),
+                pageNumber: pageNum + 1,
+                pageSize: historyPageSize,
+            });
+            setHistoryList(result.items ?? []);
+            setHistoryTotal(result.totalItems ?? 0);
+            setHistoryPage(pageNum);
+        } catch (err) {
+            console.error('Lỗi khi tải lịch sử kho:', err);
+            setHistoryError(err?.message || 'Không thể tải lịch sử kho');
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [id, historyPageSize]);
+
     useEffect(() => {
         fetchWarehouseDetail();
     }, [fetchWarehouseDetail]);
+
+    // Load history when tab switches to history
+    useEffect(() => {
+        if (activeTab === 'history' && historyList.length === 0) {
+            fetchHistory(0);
+        }
+    }, [activeTab]);
 
     // ── Filtered items ───────────────────────────────────────────────────────
     const filteredLines = useMemo(() => {
@@ -326,145 +382,294 @@ const ViewWarehouseDetail = () => {
 
                     {/* 2-column layout */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
-                        {/* Left: Items table */}
+                        {/* Left: Items + History tabs */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Danh sách vật tư trong kho</h2>
-                                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                                        {filteredLines.length} / {warehouse.items?.length ?? 0} vật tư
-                                    </span>
-                                </div>
-
-                                {/* Search + Filter */}
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-                                    <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px' }}>
-                                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
-                                        <input
-                                            type="text"
-                                            value={lineSearchKeyword}
-                                            onChange={(e) => setLineSearchKeyword(e.target.value)}
-                                            placeholder="Tìm vật tư theo tên, mã, danh mục..."
-                                            className="form-input line-search-input"
-                                        />
-                                        {lineSearchKeyword && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setLineSearchKeyword('')}
-                                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', color: '#9ca3af' }}
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                        {[
-                                            { value: 'all', label: 'Tất cả' },
-                                            { value: 'available', label: 'Còn hàng' },
-                                            { value: 'low-stock', label: 'Sắp hết' },
-                                            { value: 'out-of-stock', label: 'Hết hàng' },
-                                        ].map((opt) => (
-                                            <button
-                                                key={opt.value}
-                                                type="button"
-                                                onClick={() => setStockFilter(opt.value)}
-                                                className={`variance-chip ${stockFilter === opt.value ? 'active' : ''}`}
-                                                data-variance={opt.value}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Table */}
-                                <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                                    <table className="product-table">
-                                        <thead>
-                                            <tr>
-                                                <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
-                                                <th style={{ textAlign: 'left' }}>Vật tư</th>
-                                                <th style={{ width: '100px', textAlign: 'right' }}>Tồn kho</th>
-                                                <th style={{ width: '100px', textAlign: 'right' }}>Đang giao dịch</th>
-                                                <th style={{ width: '100px', textAlign: 'right' }}>Khả dụng</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredLines.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-                                                        <Package size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
-                                                        <p style={{ fontSize: '14px', margin: 0 }}>
-                                                            {warehouse.items?.length > 0 ? 'Không có vật tư phù hợp' : 'Chưa có vật tư trong kho'}
-                                                        </p>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                filteredLines.map((line, index) => (
-                                                    <tr key={line.id}>
-                                                        <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                                <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
-                                                                    <ImageIcon size={20} color="#9ca3af" />
-                                                                </div>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                                    <span
-                                                                        style={{ fontSize: 14, fontWeight: 500, color: '#2196F3', cursor: 'pointer' }}
-                                                                        onClick={() => navigate(`/items/${line.itemId}`)}
-                                                                    >
-                                                                        {line.itemName}
-                                                                    </span>
-                                                                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                                                                        Mã: {line.itemCode} • ĐVT: {line.uom || '-'} • QCĐG: {fmt(line.qcdg)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div style={{
-                                                                textAlign: 'right',
-                                                                paddingRight: '8px',
-                                                                fontWeight: 600,
-                                                                color: Number(line.onHandQty) === 0 ? '#dc2626' : Number(line.onHandQty) < 20 ? '#f59e0b' : '#374151',
-                                                            }}>
-                                                                {fmt(line.onHandQty)}
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#f59e0b' }}>
-                                                                {fmt(line.reservedQty)}
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
-                                                            {fmt(Math.max(0, Number(line.onHandQty) - Number(line.reservedQty)))}
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                            {/* Tab header */}
+                            <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('items')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'items' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: activeTab === 'items' ? '#2196F3' : '#6b7280',
+                                        fontWeight: activeTab === 'items' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                    }}
+                                >
+                                    <Package size={16} />
+                                    Vật tư ({warehouse.items?.length ?? 0})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setActiveTab('history'); }}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'history' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: activeTab === 'history' ? '#2196F3' : '#6b7280',
+                                        fontWeight: activeTab === 'history' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                    }}
+                                >
+                                    <History size={16} />
+                                    Lịch sử biến động ({historyTotal})
+                                </button>
                             </div>
 
-                            {/* Description */}
-                            {warehouse.description && (
-                                <div className="info-section" style={{ margin: 0 }}>
-                                    <div className="section-header-with-toggle">
-                                        <h2 className="section-title">Mô tả</h2>
+                            {/* ── Items tab ─────────────────────────────────────── */}
+                            {activeTab === 'items' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <div className="info-section" style={{ margin: 0 }}>
+                                        <div className="section-header-with-toggle">
+                                            <h2 className="section-title">Danh sách vật tư trong kho</h2>
+                                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                                {filteredLines.length} / {warehouse.items?.length ?? 0} vật tư
+                                            </span>
+                                        </div>
+
+                                        {/* Search + Filter */}
+                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                            <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px' }}>
+                                                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+                                                <input
+                                                    type="text"
+                                                    value={lineSearchKeyword}
+                                                    onChange={(e) => setLineSearchKeyword(e.target.value)}
+                                                    placeholder="Tìm vật tư theo tên, mã, danh mục..."
+                                                    className="form-input line-search-input"
+                                                />
+                                                {lineSearchKeyword && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setLineSearchKeyword('')}
+                                                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', color: '#9ca3af' }}
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                {[
+                                                    { value: 'all', label: 'Tất cả' },
+                                                    { value: 'available', label: 'Còn hàng' },
+                                                    { value: 'low-stock', label: 'Sắp hết' },
+                                                    { value: 'out-of-stock', label: 'Hết hàng' },
+                                                ].map((opt) => (
+                                                    <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        onClick={() => setStockFilter(opt.value)}
+                                                        className={`variance-chip ${stockFilter === opt.value ? 'active' : ''}`}
+                                                        data-variance={opt.value}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Table */}
+                                        <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                                            <table className="product-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
+                                                        <th style={{ textAlign: 'left' }}>Vật tư</th>
+                                                        <th style={{ width: '100px', textAlign: 'right' }}>Tồn kho</th>
+                                                        <th style={{ width: '100px', textAlign: 'right' }}>Đang giao dịch</th>
+                                                        <th style={{ width: '100px', textAlign: 'right' }}>Khả dụng</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filteredLines.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                                                                <Package size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
+                                                                <p style={{ fontSize: '14px', margin: 0 }}>
+                                                                    {warehouse.items?.length > 0 ? 'Không có vật tư phù hợp' : 'Chưa có vật tư trong kho'}
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        filteredLines.map((line, index) => (
+                                                            <tr key={line.id}>
+                                                                <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                                                <td>
+                                                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                                        <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
+                                                                            <ImageIcon size={20} color="#9ca3af" />
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                            <span
+                                                                                style={{ fontSize: 14, fontWeight: 500, color: '#2196F3', cursor: 'pointer' }}
+                                                                                onClick={() => navigate(`/items/${line.itemId}`)}
+                                                                            >
+                                                                                {line.itemName}
+                                                                            </span>
+                                                                            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                                                Mã: {line.itemCode} • ĐVT: {line.uom || '-'} • QCĐG: {fmt(line.qcdg)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div style={{
+                                                                        textAlign: 'right',
+                                                                        paddingRight: '8px',
+                                                                        fontWeight: 600,
+                                                                        color: Number(line.onHandQty) === 0 ? '#dc2626' : Number(line.onHandQty) < 20 ? '#f59e0b' : '#374151',
+                                                                    }}>
+                                                                        {fmt(line.onHandQty)}
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#f59e0b' }}>
+                                                                        {fmt(line.reservedQty)}
+                                                                    </div>
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
+                                                                    {fmt(Math.max(0, Number(line.onHandQty) - Number(line.reservedQty)))}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                    <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#374151', minHeight: '60px' }}>
-                                        {warehouse.description}
+
+                                    {/* Description */}
+                                    {warehouse.description && (
+                                        <div className="info-section" style={{ margin: 0 }}>
+                                            <div className="section-header-with-toggle">
+                                                <h2 className="section-title">Mô tả</h2>
+                                            </div>
+                                            <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#374151', minHeight: '60px' }}>
+                                                {warehouse.description}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── History tab ──────────────────────────────────── */}
+                            {activeTab === 'history' && (
+                                <div>
+                                    <div className="info-section" style={{ margin: 0 }}>
+                                        <div className="section-header-with-toggle">
+                                            <h2 className="section-title">Lịch sử biến động kho</h2>
+                                        </div>
+
+                                        {historyLoading ? (
+                                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px' }}>
+                                                <CircularProgress size={28} />
+                                            </div>
+                                        ) : historyError ? (
+                                            <div style={{ textAlign: 'center', padding: '40px', color: '#dc2626' }}>
+                                                <p>{historyError}</p>
+                                                <button type="button" className="btn btn-secondary" onClick={() => fetchHistory(historyPage)}>
+                                                    <RefreshCw size={14} /> Thử lại
+                                                </button>
+                                            </div>
+                                        ) : historyList.length === 0 ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px', color: '#9ca3af' }}>
+                                                <History size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
+                                                <p style={{ fontSize: '14px', margin: 0 }}>Chưa có lịch sử biến động kho</p>
+                                            </div>
+                                        ) : (
+                                            <div style={{ overflowX: 'auto' }}>
+                                                <table className="product-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th style={{ width: 40, textAlign: 'center' }}>STT</th>
+                                                            <th>Phiếu</th>
+                                                            <th>Vật tư</th>
+                                                            <th style={{ width: 100, textAlign: 'right' }}>Số lượng</th>
+                                                            <th style={{ width: 160 }}>Ngày giao dịch</th>
+                                                            <th>Người duyệt</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {historyList.map((item, index) => {
+                                                            const qtyColor = Number(item.quantity) >= 0 ? '#059669' : '#dc2626';
+                                                            return (
+                                                                <tr key={item.id ?? index}>
+                                                                    <td style={{ textAlign: 'center', fontSize: 13 }}>{historyPage * historyPageSize + index + 1}</td>
+                                                                    <td>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                            <FileText size={14} color="#9ca3af" />
+                                                                            <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>
+                                                                                {item.referenceNo || item.voucherCode || '—'}
+                                                                            </span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ fontSize: 13 }}>{item.itemName || '—'}</td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: qtyColor, fontSize: 13 }}>
+                                                                        {fmtQty(item.quantity)}
+                                                                    </td>
+                                                                    <td style={{ fontSize: 12, color: '#6b7280' }}>{fmtDateTime(item.transactionDate ?? item.createdAt)}</td>
+                                                                    <td style={{ fontSize: 13, color: '#374151' }}>{item.approverName || item.performedByName || '—'}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+
+                                                {/* Pagination */}
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                                        {historyPage * historyPageSize + 1}–{Math.min((historyPage + 1) * historyPageSize, historyTotal)} / {historyTotal}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fetchHistory(historyPage - 1)}
+                                                        disabled={historyPage <= 0}
+                                                        style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: historyPage <= 0 ? 'not-allowed' : 'pointer', fontSize: 12, opacity: historyPage <= 0 ? 0.4 : 1 }}
+                                                    >
+                                                        ← Trước
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fetchHistory(historyPage + 1)}
+                                                        disabled={(historyPage + 1) * historyPageSize >= historyTotal}
+                                                        style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: (historyPage + 1) * historyPageSize >= historyTotal ? 'not-allowed' : 'pointer', fontSize: 12, opacity: (historyPage + 1) * historyPageSize >= historyTotal ? 0.4 : 1 }}
+                                                    >
+                                                        Sau →
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
                         </div>
+                    </div>
 
-                        {/* Right: Info panel */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thông tin kho</h2>
-                            </div>
+                    {/* Right: Info panel */}
+                    <div className="info-section" style={{ margin: 0 }}>
+                        <div className="section-header-with-toggle">
+                            <h2 className="section-title">Thông tin kho</h2>
+                        </div>
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Thông tin kho</h2>
+                                </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div className="form-field">
