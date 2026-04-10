@@ -1311,7 +1311,7 @@ export default function ViewSalesReportDetail() {
                                                     <TH>{salesMode === 'inbound' ? 'Giá trị nhập hàng' : 'Giá trị xuất hàng'}</TH>
                                                     <TH>Tỷ trọng</TH>
                                                     <TH>Kỳ so sánh</TH>
-                                                    <TH>Tăng / Giảm</TH>
+                                                    <TH>Chênh lệch</TH>
                                                     <TH>Tăng trưởng</TH>
                                                 </TableRow>
                                             </TableHead>
@@ -1436,7 +1436,7 @@ export default function ViewSalesReportDetail() {
                                                     <TH>{salesMode === 'inbound' ? 'Giá trị nhập hàng' : 'Giá trị xuất hàng'}</TH>
                                                     <TH>Tỷ trọng</TH>
                                                     <TH>Kỳ so sánh</TH>
-                                                    <TH>Tăng / Giảm</TH>
+                                                    <TH>Chênh lệch</TH>
                                                     <TH>Tăng trưởng</TH>
                                                 </TableRow>
                                             </TableHead>
