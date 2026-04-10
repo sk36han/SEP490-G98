@@ -462,7 +462,7 @@ export default function ViewSalesReportDetail() {
     // ── Mode toggle cho tab Doanh số ──────────────────────────────────
     const [salesMode, setSalesMode] = useState('outbound'); // 'outbound' | 'inbound'
     // ── Collapse state cho breakdown inline ─────────────────────────
-    const [expandedItems, setExpandedItems] = useState({}); // { [key]: boolean }
+    const [expandedItems, setExpandedItems] = useState({ 'q-0': true, 'q-1': true, 'q-2': true, 'q-3': true, 'm-0': true, 'm-1': true, 'm-2': true }); // default all ON
     const toggleExpand = (key) => setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }));
     // ── So sánh kỳ: tách Quý/Năm thành 2 dropdown riêng ──
     const [compareQ, setCompareQ] = useState(null);   // Quý so sánh (cấp Quý)
@@ -680,8 +680,6 @@ export default function ViewSalesReportDetail() {
     const [itemSearch, setItemSearch] = useState('');
     const [itemPage, setItemPage] = useState(0);
     const [itemRowsPerPage, setItemRowsPerPage] = useState(5);
-    const [itemMode, setItemMode] = useState('delivery'); // 'delivery' | 'grn'
-    const [supplierMode, setSupplierMode] = useState('delivery'); // 'delivery' | 'grn'
 
     const itemTop = MOCK_ITEMS_DATA.slice(0, 8);
     const itemBest = itemTop[0];
@@ -694,14 +692,14 @@ export default function ViewSalesReportDetail() {
     }), []);
 
     const itemFiltered = useMemo(() => {
-        const data = itemMode === 'grn' ? MOCK_GRN_ITEMS_DATA : MOCK_ITEMS_DATA;
+        const data = salesMode === 'inbound' ? MOCK_GRN_ITEMS_DATA : MOCK_ITEMS_DATA;
         if (!itemSearch.trim()) return data;
         const kw = itemSearch.toLowerCase();
         return data.filter(i =>
             i.code.toLowerCase().includes(kw) ||
             i.name.toLowerCase().includes(kw)
         );
-    }, [itemSearch, itemMode]);
+    }, [itemSearch, salesMode]);
 
     const itemPaginated = useMemo(() => {
         return itemFiltered.slice(itemPage * itemRowsPerPage, (itemPage + 1) * itemRowsPerPage);
@@ -716,14 +714,14 @@ export default function ViewSalesReportDetail() {
     const [supplierRowsPerPage, setSupplierRowsPerPage] = useState(5);
 
     const supplierFiltered = useMemo(() => {
-        const data = supplierMode === 'grn' ? MOCK_GRN_SUPPLIER_DATA : MOCK_RECEIVER_DATA;
+        const data = salesMode === 'inbound' ? MOCK_GRN_SUPPLIER_DATA : MOCK_RECEIVER_DATA;
         if (!supplierSearch.trim()) return data;
         const kw = supplierSearch.toLowerCase();
         return data.filter(s =>
             s.code.toLowerCase().includes(kw) ||
             s.name.toLowerCase().includes(kw)
         );
-    }, [supplierSearch, supplierMode]);
+    }, [supplierSearch, salesMode]);
 
     const supplierPaginated = useMemo(() => {
         return supplierFiltered.slice(supplierPage * supplierRowsPerPage, (supplierPage + 1) * supplierRowsPerPage);
@@ -788,7 +786,6 @@ export default function ViewSalesReportDetail() {
                     <HeaderCard
                         label="Kỳ báo cáo"
                         value={currentRow.periodLabel}
-                        meta={currentRow.level === LEVEL.YEAR ? 'Cấp: Năm' : currentRow.level === LEVEL.QUARTER ? 'Cấp: Quý' : 'Cấp: Tháng'}
                         color="#374151"
                     />
                     <HeaderCard
@@ -882,9 +879,6 @@ export default function ViewSalesReportDetail() {
                                 </>
                             )}
                         </Box>
-                        <Typography sx={{ fontSize: '12px', color: compareRow ? '#374151' : '#9ca3af', fontWeight: 600, mt: 0.5 }}>
-                            {compareRow ? compareRow.periodLabel : '—'}
-                        </Typography>
                     </Box>
 
                     {/* Xuất hàng kỳ so sánh */}
@@ -895,6 +889,9 @@ export default function ViewSalesReportDetail() {
                         color="#2563eb"
                     />
 
+                    {/* Chênh lệch xuất */}
+                    <DiffCard label="Chênh lệch xuất" diff={diffOut} pct={pctOut} />
+
                     {/* Nhập hàng kỳ so sánh */}
                     <CompareCard
                         label="Nhập hàng kỳ so sánh"
@@ -902,9 +899,6 @@ export default function ViewSalesReportDetail() {
                         meta={compareRow ? `${formatNumber(compareRow.grnNotes)} phiếu · ${formatNumber(compareRow.grnQty)} số lượng` : ''}
                         color="#059669"
                     />
-
-                    {/* Chênh lệch xuất */}
-                    <DiffCard label="Chênh lệch xuất" diff={diffOut} pct={pctOut} />
 
                     {/* Chênh lệch nhập */}
                     <DiffCard label="Chênh lệch nhập" diff={diffIn} pct={pctIn} />
@@ -914,7 +908,7 @@ export default function ViewSalesReportDetail() {
                 <Paper elevation={0} sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff' }}>
 
                     {/* Tab bar */}
-                    <Box sx={{ borderBottom: '1px solid #f3f4f6', px: 1, flexShrink: 0 }}>
+                    <Box sx={{ borderBottom: '1px solid #f3f4f6', px: 1, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}
                             sx={{
                                 minHeight: 44,
@@ -947,20 +941,20 @@ export default function ViewSalesReportDetail() {
                         </Tabs>
                     </Box>
 
+                    {/* Toggle Xuất / Nhập — dùng chung cho cả 3 tab */}
+                    <Box sx={{ px: 2, pt: 2, pb: 0, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #f3f4f6', pb: 1 }}>
+                        <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                            <Box onClick={() => setSalesMode('outbound')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: salesMode === 'outbound' ? '#2563eb' : '#fff', color: salesMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: salesMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất hàng</Box>
+                            <Box onClick={() => setSalesMode('inbound')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: salesMode === 'inbound' ? '#059669' : '#fff', color: salesMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: salesMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập hàng</Box>
+                        </Box>
+                    </Box>
+
                     {/* Tab content */}
                     <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
 
                         {/* ── Tab: Doanh số ── */}
                         {activeTab === 0 && (
                             <Box>
-
-                                {/* Toggle Xuất / Nhập */}
-                                <Box sx={{ px: 2, pt: 2, pb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                                        <Box onClick={() => setSalesMode('outbound')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: salesMode === 'outbound' ? '#2563eb' : '#fff', color: salesMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: salesMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất hàng</Box>
-                                        <Box onClick={() => setSalesMode('inbound')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: salesMode === 'inbound' ? '#059669' : '#fff', color: salesMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: salesMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập hàng</Box>
-                                    </Box>
-                                </Box>
 
                                 {/* ── YEAR detail: Chi tiết theo Quý (collapse inline đến Tháng) ── */}
                                 {currentRow?.level === LEVEL.YEAR && quarterBreakdown && (
@@ -980,7 +974,6 @@ export default function ViewSalesReportDetail() {
                                                         <TH>Kỳ so sánh</TH>
                                                         <TH>Chênh lệch</TH>
                                                         <TH>Tăng trưởng</TH>
-                                                        <TH></TH>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
@@ -1007,13 +1000,21 @@ export default function ViewSalesReportDetail() {
                                                             <React.Fragment key={qi}>
                                                                 <TableRow hover sx={{ bgcolor: isCurrentPeriod ? '#f0f9ff' : undefined, '&:last-child td': { borderBottom: 0 } }}>
                                                                     <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
-                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                            <Box onClick={() => toggleExpand(`q-${qi}`)} sx={{ cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', '&:hover': { color: '#374151' } }}>
-                                                                                <Typography sx={{ fontSize: '12px', lineHeight: 1 }}>{qExpanded ? '▾' : '▸'}</Typography>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                                <Box onClick={() => toggleExpand(`q-${qi}`)} sx={{ cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', width: 16, '&:hover': { color: '#374151' } }}>
+                                                                                    <Typography sx={{ fontSize: '14px', lineHeight: 1 }}>{qExpanded ? '▾' : '▸'}</Typography>
+                                                                                </Box>
+                                                                                <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : '#111827' }}>
+                                                                                    {q.label}
+                                                                                </Typography>
                                                                             </Box>
-                                                                            <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : '#111827' }}>
-                                                                                {q.label}
-                                                                            </Typography>
+                                                                            <Tooltip title="Xem chi tiết Quý">
+                                                                                <IconButton size="small" onClick={() => navigateToPeriod(q.label)}
+                                                                                    sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
+                                                                                    <Eye size={14} />
+                                                                                </IconButton>
+                                                                            </Tooltip>
                                                                         </Box>
                                                                     </TableCell>
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(qNotes)}</TableCell>
@@ -1022,14 +1023,6 @@ export default function ViewSalesReportDetail() {
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{prevVal != null ? formatVND(prevVal) : '—'}</TableCell>
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(chgVal), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 500 }}>{chgVal != null ? formatSignedCurrency(chgVal) : '—'}</TableCell>
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(growth), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 600 }}>{growth != null ? formatSignedPercent(growth) : '—'}</TableCell>
-                                                                    <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }}>
-                                                                        <Tooltip title="Xem chi tiết Quý">
-                                                                            <IconButton size="small" onClick={() => navigateToPeriod(q.label)}
-                                                                                sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
-                                                                                <Eye size={14} />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                    </TableCell>
                                                                 </TableRow>
                                                                 {/* Tháng con inline */}
                                                                 {qExpanded && childMonths.map((m, mi) => {
@@ -1093,7 +1086,6 @@ export default function ViewSalesReportDetail() {
                                                         <TH>Kỳ so sánh</TH>
                                                         <TH>Chênh lệch</TH>
                                                         <TH>Tăng trưởng</TH>
-                                                        <TH></TH>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
@@ -1118,13 +1110,21 @@ export default function ViewSalesReportDetail() {
                                                             <React.Fragment key={mi}>
                                                                 <TableRow hover sx={{ bgcolor: isCurrentPeriod ? '#f0f9ff' : undefined, '&:last-child td': { borderBottom: 0 } }}>
                                                                     <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
-                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                            <Box onClick={() => toggleExpand(`m-${mi}`)} sx={{ cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', '&:hover': { color: '#374151' } }}>
-                                                                                <Typography sx={{ fontSize: '12px', lineHeight: 1 }}>{mExpanded ? '▾' : '▸'}</Typography>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                                <Box onClick={() => toggleExpand(`m-${mi}`)} sx={{ cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', width: 16, '&:hover': { color: '#374151' } }}>
+                                                                                    <Typography sx={{ fontSize: '14px', lineHeight: 1 }}>{mExpanded ? '▾' : '▸'}</Typography>
+                                                                                </Box>
+                                                                                <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : '#111827' }}>
+                                                                                    {m.label}
+                                                                                </Typography>
                                                                             </Box>
-                                                                            <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : '#111827' }}>
-                                                                                {m.label}
-                                                                            </Typography>
+                                                                            <Tooltip title="Xem chi tiết Tháng">
+                                                                                <IconButton size="small" onClick={() => navigateToPeriod(fullLabel)}
+                                                                                    sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
+                                                                                    <Eye size={14} />
+                                                                                </IconButton>
+                                                                            </Tooltip>
                                                                         </Box>
                                                                     </TableCell>
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(mNotes)}</TableCell>
@@ -1133,14 +1133,6 @@ export default function ViewSalesReportDetail() {
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{prevMVal != null ? formatVND(prevMVal) : '—'}</TableCell>
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mChg), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 500 }}>{mChg != null ? formatSignedCurrency(mChg) : '—'}</TableCell>
                                                                     <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mGrowth), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 600 }}>{mGrowth != null ? formatSignedPercent(mGrowth) : '—'}</TableCell>
-                                                                    <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }}>
-                                                                        <Tooltip title="Xem chi tiết Tháng">
-                                                                            <IconButton size="small" onClick={() => navigateToPeriod(fullLabel)}
-                                                                                sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
-                                                                                <Eye size={14} />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                    </TableCell>
                                                                 </TableRow>
                                                                 {/* Tuần con inline */}
                                                                 {mExpanded && weeks.map((w, wi) => {
@@ -1162,7 +1154,6 @@ export default function ViewSalesReportDetail() {
                                                                             <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>—</TableCell>
                                                                             <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>—</TableCell>
                                                                             <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>—</TableCell>
-                                                                            <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }} />
                                                                         </TableRow>
                                                                     );
                                                                 })}
@@ -1220,19 +1211,11 @@ export default function ViewSalesReportDetail() {
                         {activeTab === 1 && (
                             <Box>
 
-                                {/* Toggle Xuất / Nhập */}
-                                <Box sx={{ px: 2, pt: 2, pb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                                        <Box onClick={() => setItemMode('delivery')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: itemMode === 'delivery' ? '#0284c7' : '#fff', color: itemMode === 'delivery' ? '#fff' : '#6b7280', '&:hover': { bgcolor: itemMode === 'delivery' ? '#0284c7' : '#f9fafb' } }}>Xuất hàng</Box>
-                                        <Box onClick={() => setItemMode('grn')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: itemMode === 'grn' ? '#0284c7' : '#fff', color: itemMode === 'grn' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: itemMode === 'grn' ? '#0284c7' : '#f9fafb' } }}>Nhập hàng</Box>
-                                    </Box>
-                                </Box>
-
                                 {/* Summary */}
                                 <Box sx={{ display: 'flex', gap: 1.5, p: 2, flexWrap: 'wrap' }}>
                                     <SummaryCard label="Số lượng vật tư" value={formatNumber(itemFiltered.length)} color="#374151" />
-                                    <SummaryCard label={itemMode === 'grn' ? 'Tổng SL nhập' : 'Số lượng vật tư đã xuất'} value={formatNumber(itemMode === 'grn' ? MOCK_GRN_ITEMS_DATA.reduce((s, i) => s + i.grnQty, 0) : itemStats.totalQty)} color="#2563eb" />
-                                    <SummaryCard label={itemMode === 'grn' ? 'Tổng giá trị nhập' : 'Tổng giá trị xuất'} value={formatVND(itemMode === 'grn' ? MOCK_GRN_ITEMS_DATA.reduce((s, i) => s + i.grnValue, 0) : itemStats.totalValue)} color="#111827" />
+                                    <SummaryCard label={salesMode === 'inbound' ? 'Tổng SL nhập' : 'Số lượng vật tư đã xuất'} value={formatNumber(salesMode === 'inbound' ? MOCK_GRN_ITEMS_DATA.reduce((s, i) => s + i.grnQty, 0) : itemStats.totalQty)} color="#2563eb" />
+                                    <SummaryCard label={salesMode === 'inbound' ? 'Tổng giá trị nhập' : 'Tổng giá trị xuất'} value={formatVND(salesMode === 'inbound' ? MOCK_GRN_ITEMS_DATA.reduce((s, i) => s + i.grnValue, 0) : itemStats.totalValue)} color="#111827" />
                                 </Box>
 
                                 {/* Top vật tư nổi bật */}
@@ -1242,9 +1225,9 @@ export default function ViewSalesReportDetail() {
                                         <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Top vật tư nổi bật</Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', gap: 1.5, p: 2, flexWrap: 'wrap' }}>
-                                        {(itemMode === 'grn' ? MOCK_GRN_ITEMS_DATA : itemTop).slice(0, 5).map((item, idx) => {
-                                            const val = itemMode === 'grn' ? item.grnValue : item.totalValue;
-                                            const growth = itemMode === 'grn' ? item.grnGrowth : item.growth;
+                                        {(salesMode === 'inbound' ? MOCK_GRN_ITEMS_DATA : itemTop).slice(0, 5).map((item, idx) => {
+                                            const val = salesMode === 'inbound' ? item.grnValue : item.totalValue;
+                                            const growth = salesMode === 'inbound' ? item.grnGrowth : item.growth;
                                             return (
                                                 <Box key={item.code} sx={{ flex: '1 1 180px', minWidth: 180, bgcolor: '#f9fafb', border: '1px solid #f3f4f6', borderRadius: '10px', p: 1.5 }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
@@ -1297,22 +1280,22 @@ export default function ViewSalesReportDetail() {
                                                     <THLeft>Mã vật tư</THLeft>
                                                     <THLeft>Tên vật tư</THLeft>
                                                     <THLeft>ĐVT</THLeft>
-                                                    <TH>{itemMode === 'grn' ? 'Phiếu nhập' : 'Phiếu liên quan'}</TH>
-                                                    <TH>{itemMode === 'grn' ? 'Tổng SL nhập' : 'Tổng SL xuất'}</TH>
-                                                    <TH>{itemMode === 'grn' ? 'Giá trị nhập hàng' : 'Giá trị xuất hàng'}</TH>
+                                                    <TH>{salesMode === 'inbound' ? 'Phiếu nhập' : 'Phiếu liên quan'}</TH>
+                                                    <TH>{salesMode === 'inbound' ? 'Tổng SL nhập' : 'Tổng SL xuất'}</TH>
+                                                    <TH>{salesMode === 'inbound' ? 'Giá trị nhập hàng' : 'Giá trị xuất hàng'}</TH>
                                                     <TH>Tỷ trọng</TH>
-                                                    <TH>Kỳ trước</TH>
+                                                    <TH>Kỳ so sánh</TH>
                                                     <TH>Tăng / Giảm</TH>
                                                     <TH>Tăng trưởng</TH>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
                                                 {itemPaginated.map((item, i) => {
-                                                    const val = itemMode === 'grn' ? item.grnValue : item.totalValue;
-                                                    const notes = itemMode === 'grn' ? item.grnNotes : item.deliveryNotes;
-                                                    const qty = itemMode === 'grn' ? item.grnQty : item.totalQty;
-                                                    const share = itemMode === 'grn' ? item.grnShare : item.share;
-                                                    const growth = itemMode === 'grn' ? item.grnGrowth : item.growth;
+                                                    const val = salesMode === 'inbound' ? item.grnValue : item.totalValue;
+                                                    const notes = salesMode === 'inbound' ? item.grnNotes : item.deliveryNotes;
+                                                    const qty = salesMode === 'inbound' ? item.grnQty : item.totalQty;
+                                                    const share = salesMode === 'inbound' ? item.grnShare : item.share;
+                                                    const growth = salesMode === 'inbound' ? item.grnGrowth : item.growth;
                                                     const prevVal = val / (1 + growth / 100);
                                                     const chgVal = calcChange(val, prevVal);
                                                     return (
@@ -1341,7 +1324,7 @@ export default function ViewSalesReportDetail() {
                                         onPageChange={(_, p) => setItemPage(p)}
                                         rowsPerPage={itemRowsPerPage}
                                         onRowsPerPageChange={(e) => { setItemRowsPerPage(parseInt(e.target.value, 10)); setItemPage(0); }}
-                                        rowsPerPageOptions={[5, 10, 20]}
+                                        rowsPerPageOptions={[10, 20, 50, 100]}
                                         sx={{
                                             borderTop: '1px solid #f3f4f6',
                                             '& .MuiTablePagination-toolbar': { minHeight: 44 },
@@ -1356,30 +1339,21 @@ export default function ViewSalesReportDetail() {
                         {activeTab === 2 && (
                             <Box>
 
-                                {/* Toggle Xuất / Nhập */}
-                                <Box sx={{ px: 2, pt: 2, pb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                                        <Box onClick={() => setSupplierMode('delivery')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: supplierMode === 'delivery' ? '#0284c7' : '#fff', color: supplierMode === 'delivery' ? '#fff' : '#6b7280', '&:hover': { bgcolor: supplierMode === 'delivery' ? '#0284c7' : '#f9fafb' } }}>Xuất hàng</Box>
-                                        <Box onClick={() => setSupplierMode('grn')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: supplierMode === 'grn' ? '#0284c7' : '#fff', color: supplierMode === 'grn' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: supplierMode === 'grn' ? '#0284c7' : '#f9fafb' } }}>Nhập hàng</Box>
-                                    </Box>
-                                </Box>
-
                                 {/* Summary */}
                                 <Box sx={{ display: 'flex', gap: 1.5, p: 2, flexWrap: 'wrap' }}>
-                                    <SummaryCard label={supplierMode === 'grn' ? 'Số NCC phát sinh' : 'Số receiver phát sinh'} value={formatNumber(supplierFiltered.length)} color="#374151" />
-                                    <SummaryCard label={supplierMode === 'grn' ? 'Tổng phiếu nhập' : 'Tổng phiếu xuất'} value={formatNumber(supplierMode === 'grn' ? MOCK_GRN_SUPPLIER_DATA.reduce((s, i) => s + i.grnNotes, 0) : receiverStats.totalNotes)} color="#2563eb" />
-                                    <SummaryCard label={supplierMode === 'grn' ? 'Tổng giá trị nhập' : 'Tổng giá trị xuất'} value={formatVND(supplierMode === 'grn' ? MOCK_GRN_SUPPLIER_DATA.reduce((s, i) => s + i.grnValue, 0) : receiverStats.totalValue)} color="#111827" />
-                                    <SummaryCard label={supplierMode === 'grn' ? 'NCC nhập hàng nhiều nhất' : 'Receiver doanh số cao nhất'} value={supplierMode === 'grn' ? (MOCK_GRN_SUPPLIER_DATA[0]?.name || '—') : (receiverStats.bestReceiver || '—')} color="#059669" />
+                                    <SummaryCard label={salesMode === 'inbound' ? 'Số NCC phát sinh' : 'Số khách hàng phát sinh'} value={formatNumber(supplierFiltered.length)} color="#374151" />
+                                    <SummaryCard label={salesMode === 'inbound' ? 'Tổng phiếu nhập' : 'Tổng phiếu xuất'} value={formatNumber(salesMode === 'inbound' ? MOCK_GRN_SUPPLIER_DATA.reduce((s, i) => s + i.grnNotes, 0) : receiverStats.totalNotes)} color="#2563eb" />
+                                    <SummaryCard label={salesMode === 'inbound' ? 'Tổng giá trị nhập' : 'Tổng giá trị xuất'} value={formatVND(salesMode === 'inbound' ? MOCK_GRN_SUPPLIER_DATA.reduce((s, i) => s + i.grnValue, 0) : receiverStats.totalValue)} color="#111827" />
                                 </Box>
 
                                 {/* Top nổi bật */}
                                 <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden', mx: 2, mb: 1.5 }}>
                                     <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        {supplierMode === 'grn' ? <Truck size={16} color="#6b7280" /> : <Users size={16} color="#6b7280" />}
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Top {supplierMode === 'grn' ? 'nhà cung cấp' : 'khách hàng'} nổi bật</Typography>
+                                        {salesMode === 'inbound' ? <Truck size={16} color="#6b7280" /> : <Users size={16} color="#6b7280" />}
+                                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Top {salesMode === 'inbound' ? 'nhà cung cấp' : 'khách hàng'} nổi bật</Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', gap: 1.5, p: 2, flexWrap: 'wrap' }}>
-                                        {(supplierMode === 'grn' ? MOCK_GRN_SUPPLIER_DATA : MOCK_RECEIVER_DATA).slice(0, 5).map((r, idx) => (
+                                        {(salesMode === 'inbound' ? MOCK_GRN_SUPPLIER_DATA : MOCK_RECEIVER_DATA).slice(0, 5).map((r, idx) => (
                                             <Box key={r.code} sx={{ flex: '1 1 180px', minWidth: 180, bgcolor: '#f9fafb', border: '1px solid #f3f4f6', borderRadius: '10px', p: 1.5 }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1388,12 +1362,12 @@ export default function ViewSalesReportDetail() {
                                                         </Box>
                                                         <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{r.code}</Typography>
                                                     </Box>
-                                                    <Typography sx={{ fontSize: '12px', color: changeColor(supplierMode === 'grn' ? r.grnGrowth : r.growth), fontWeight: 500 }}>
-                                                        {formatSignedPercent(supplierMode === 'grn' ? r.grnGrowth : r.growth)}
+                                                    <Typography sx={{ fontSize: '12px', color: changeColor(salesMode === 'inbound' ? r.grnGrowth : r.growth), fontWeight: 500 }}>
+                                                        {formatSignedPercent(salesMode === 'inbound' ? r.grnGrowth : r.growth)}
                                                     </Typography>
                                                 </Box>
                                                 <Typography sx={{ fontSize: '11px', color: '#6b7280', mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</Typography>
-                                                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{formatVND(supplierMode === 'grn' ? r.grnValue : r.totalValue)}</Typography>
+                                                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{formatVND(salesMode === 'inbound' ? r.grnValue : r.totalValue)}</Typography>
                                             </Box>
                                         ))}
                                     </Box>
@@ -1402,12 +1376,12 @@ export default function ViewSalesReportDetail() {
                                 {/* Danh sách */}
                                 <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden', mx: 2, mb: 2 }}>
                                     <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        {supplierMode === 'grn' ? <Truck size={16} color="#6b7280" /> : <Users size={16} color="#6b7280" />}
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Danh sách {supplierMode === 'grn' ? 'nhà cung cấp' : 'khách hàng'} trong kỳ</Typography>
+                                        {salesMode === 'inbound' ? <Truck size={16} color="#6b7280" /> : <Users size={16} color="#6b7280" />}
+                                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Danh sách {salesMode === 'inbound' ? 'nhà cung cấp' : 'khách hàng'} trong kỳ</Typography>
                                         <Box sx={{ flex: 1 }} />
                                         <TextField
                                             size="small"
-                                            placeholder={`Tìm mã, tên ${supplierMode === 'grn' ? 'nhà cung cấp' : 'khách hàng'}…`}
+                                            placeholder={`Tìm mã, tên ${salesMode === 'inbound' ? 'nhà cung cấp' : 'khách hàng'}…`}
                                             value={supplierSearch}
                                             onChange={(e) => { setSupplierSearch(e.target.value); setSupplierPage(0); }}
                                             InputProps={{
@@ -1429,26 +1403,26 @@ export default function ViewSalesReportDetail() {
                                             <TableHead>
                                                 <TableRow>
                                                     <THLeft>STT</THLeft>
-                                                    <THLeft>{supplierMode === 'grn' ? 'Mã NCC' : 'Mã khách hàng'}</THLeft>
-                                                    <THLeft>{supplierMode === 'grn' ? 'Tên nhà cung cấp' : 'Tên khách hàng'}</THLeft>
-                                                    <TH>{supplierMode === 'grn' ? 'Phiếu nhập' : 'Số phiếu xuất'}</TH>
-                                                    <TH>{supplierMode === 'grn' ? 'Tổng SL nhập' : 'Tổng SL xuất'}</TH>
-                                                    <TH>{supplierMode === 'grn' ? 'Giá trị nhập hàng' : 'Giá trị xuất hàng'}</TH>
+                                                    <THLeft>{salesMode === 'inbound' ? 'Mã NCC' : 'Mã khách hàng'}</THLeft>
+                                                    <THLeft>{salesMode === 'inbound' ? 'Tên nhà cung cấp' : 'Tên khách hàng'}</THLeft>
+                                                    <TH>{salesMode === 'inbound' ? 'Phiếu nhập' : 'Số phiếu xuất'}</TH>
+                                                    <TH>{salesMode === 'inbound' ? 'Tổng SL nhập' : 'Tổng SL xuất'}</TH>
+                                                    <TH>{salesMode === 'inbound' ? 'Giá trị nhập hàng' : 'Giá trị xuất hàng'}</TH>
                                                     <TH>Tỷ trọng</TH>
-                                                    <TH>Kỳ trước</TH>
+                                                    <TH>Kỳ so sánh</TH>
                                                     <TH>Tăng / Giảm</TH>
                                                     <TH>Tăng trưởng</TH>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
                                                 {supplierPaginated.map((r, i) => {
-                                                    const val = supplierMode === 'grn' ? r.grnValue : r.totalValue;
-                                                    const prevVal = val / (1 + (supplierMode === 'grn' ? r.grnGrowth : r.growth) / 100);
+                                                    const val = salesMode === 'inbound' ? r.grnValue : r.totalValue;
+                                                    const prevVal = val / (1 + (salesMode === 'inbound' ? r.grnGrowth : r.growth) / 100);
                                                     const chgVal = calcChange(val, prevVal);
-                                                    const growth = supplierMode === 'grn' ? r.grnGrowth : r.growth;
-                                                    const notes = supplierMode === 'grn' ? r.grnNotes : r.deliveryNotes;
-                                                    const qty = supplierMode === 'grn' ? r.grnQty : r.totalQty;
-                                                    const share = supplierMode === 'grn' ? r.grnShare : r.share;
+                                                    const growth = salesMode === 'inbound' ? r.grnGrowth : r.growth;
+                                                    const notes = salesMode === 'inbound' ? r.grnNotes : r.deliveryNotes;
+                                                    const qty = salesMode === 'inbound' ? r.grnQty : r.totalQty;
+                                                    const share = salesMode === 'inbound' ? r.grnShare : r.share;
                                                     return (
                                                         <TableRow key={r.code} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
                                                             <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontSize: '12px' }}>{supplierPage * supplierRowsPerPage + i + 1}</TableCell>
@@ -1474,7 +1448,7 @@ export default function ViewSalesReportDetail() {
                                         onPageChange={(_, p) => setSupplierPage(p)}
                                         rowsPerPage={supplierRowsPerPage}
                                         onRowsPerPageChange={(e) => { setSupplierRowsPerPage(parseInt(e.target.value, 10)); setSupplierPage(0); }}
-                                        rowsPerPageOptions={[5, 10, 20]}
+                                        rowsPerPageOptions={[10, 20, 50, 100]}
                                         sx={{
                                             borderTop: '1px solid #f3f4f6',
                                             '& .MuiTablePagination-toolbar': { minHeight: 44 },
