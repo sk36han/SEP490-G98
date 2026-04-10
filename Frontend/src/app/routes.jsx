@@ -135,10 +135,10 @@ const AppRoutes = () => (
         <Route path="/inventory/adjustments" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentList /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments/create" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><CreateInventoryAdjustment /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/stocktakes/create" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><CreateStocktake /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/stocktakes/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewStocktakeDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/stocktakes/report/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><StocktakeReport /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/stocktakes" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewStocktakeList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/create" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><CreateStocktake /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/report/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><StocktakeReport /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewStocktakeDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><Outlet /></MainLayout></ProtectedRoute>}>
             <Route path="stocktakes" element={<ViewStocktakeList />} />
         </Route>

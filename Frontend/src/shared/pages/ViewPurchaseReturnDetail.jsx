@@ -460,34 +460,51 @@ export default function ViewPurchaseReturnDetail() {
             setLoading(true);
             setLoadError('');
 
+            // Gọi API lấy chi tiết PR
             const detail = await getPurchaseReturnDetail(Number(id));
+
+            // Khởi tạo GRN call SONG SONG ngay khi có relatedGrnId
+            // (chạy nền trong khi vẫn đang xử lý mapping)
+            let grnCallDone = false;
+            let mappedGrn = null;
+            const grnCallPromise = (async () => {
+                if (!detail?.relatedGrnId) return null;
+                try {
+                    const grnData = await getGRNDetail(detail.relatedGrnId);
+                    return mapGrnToProductSource(grnData);
+                } catch {
+                    return null;
+                } finally {
+                    grnCallDone = true;
+                }
+            })();
+
+            // Map PR data (chạy SONG SONG với grnCall)
             const mapped = mapApiToLegacyState(detail);
 
-            if (detail?.relatedGrnId) {
-                try {
-                    const grn = await getGRNDetail(detail.relatedGrnId);
-                    const mappedGrn = mapGrnToProductSource(grn);
+            // Chờ GRN call xong
+            mappedGrn = await grnCallPromise;
 
-                    // Đồng bộ "SL đã nhập" từ GRN thật theo RelatedGrnlineId
-                    const grnLineQtyMap = new Map(mappedGrn.lines.map((x) => [Number(x.grnLineId), toNumber(x.receivedQty)]));
-                    mapped.lines = mapped.lines.map((line) => {
-                        const qtyFromGrn = grnLineQtyMap.get(Number(line.grnLineId));
-                        return {
-                            ...line,
-                            receivedQty: qtyFromGrn ?? line.receivedQty,
-                        };
-                    });
-
-                    setGrnSource((prev) => ({
-                        ...prev,
-                        [mapped.relatedGRNCode || mappedGrn.code]: mappedGrn.lines,
-                    }));
-                    mapped.grnReceiptDate = mappedGrn.receiptDate ? new Date(mappedGrn.receiptDate).toLocaleDateString('en-CA') : '';
-                } catch {
-                    // keep legacy source fallback
-                }
+            // Gộp GRN data vào mapped nếu có
+            if (mappedGrn) {
+                const grnLineQtyMap = new Map(mappedGrn.lines.map((x) => [Number(x.grnLineId), toNumber(x.receivedQty)]));
+                mapped.lines = mapped.lines.map((line) => {
+                    const qtyFromGrn = grnLineQtyMap.get(Number(line.grnLineId));
+                    return {
+                        ...line,
+                        receivedQty: qtyFromGrn ?? line.receivedQty,
+                    };
+                });
+                mapped.grnReceiptDate = mappedGrn.receiptDate
+                    ? new Date(mappedGrn.receiptDate).toLocaleDateString('en-CA')
+                    : '';
+                setGrnSource((prev) => ({
+                    ...prev,
+                    [mapped.relatedGRNCode || mappedGrn.code]: mappedGrn.lines,
+                }));
             }
 
+            // Set state 1 lần duy nhất với dữ liệu đã gộp đầy đủ
             setDetailData(mapped);
             setDraft(getInitialDraftFromData(mapped));
         } catch (err) {

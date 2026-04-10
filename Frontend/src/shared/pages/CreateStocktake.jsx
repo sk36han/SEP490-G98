@@ -22,6 +22,7 @@ import {
     X,
     Search,
     Printer,
+    Plus,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -36,7 +37,10 @@ import {
     submitStocktakeResults,
     approveStocktakePlan,
     startStocktakeExecution,
+    createStocktakeDraft,
+    submitStocktakePlan,
 } from '../lib/stocktakeService';
+import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsByWarehouse } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
 
@@ -80,6 +84,12 @@ const CreateStocktake = () => {
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
 
+    // ── CREATE MODE vs VIEW MODE ──────────────────────────────────────────────
+    // id có giá trị → đang xem/sửa chi tiết (id là stocktakeId)
+    // id === 'create' hoặc undefined → đang tạo mới phiếu kiểm kê
+    const isCreateMode = !id || id === 'create';
+    // ────────────────────────────────────────────────────────────────────────
+
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const isDirector = permissionRole === 'DIRECTOR';
 
@@ -95,6 +105,16 @@ const CreateStocktake = () => {
     const [selectedLineIds, setSelectedLineIds] = useState([]);
     const [savedLineIds, setSavedLineIds] = useState([]);
 
+    // Create mode state
+    const [warehouseOptions, setWarehouseOptions] = useState([]);
+    const [createForm, setCreateForm] = useState({
+        warehouseId: '',
+        mode: 'PERIODIC',
+        plannedAt: '',
+        note: '',
+    });
+    const [createErrors, setCreateErrors] = useState({});
+
     // Variance filter state
     const [varianceFilter, setVarianceFilter] = useState('all');
     const [lineSearchKeyword, setLineSearchKeyword] = useState('');
@@ -103,17 +123,36 @@ const CreateStocktake = () => {
 
     // Derive stocktakeData from detail + lines
     const stocktakeData = useMemo(() => {
+        if (isCreateMode) {
+            // Trong chế độ tạo mới, dùng createForm
+            return {
+                ...createForm,
+                warehouseName: warehouseOptions.find(w => String(w.warehouseId) === String(createForm.warehouseId))?.warehouseName || '',
+            };
+        }
         if (!detailData) return null;
         return {
             ...detailData,
             lines,
             totalLines,
         };
-    }, [detailData, lines, totalLines]);
+    }, [isCreateMode, detailData, lines, totalLines, createForm, warehouseOptions]);
+
+    // Load warehouses for create mode
+    useEffect(() => {
+        if (isCreateMode) {
+            getWarehouseList({ pageNumber: 1, pageSize: 200 })
+                .then(res => setWarehouseOptions(res.items || []))
+                .catch(() => setWarehouseOptions([]));
+        }
+    }, [isCreateMode]);
 
     // Load header + lines
     const fetchData = useCallback(async () => {
-        if (!id) return;
+        if (isCreateMode) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const detail = await getStocktakeDetail(id);
@@ -477,6 +516,58 @@ const CreateStocktake = () => {
         }
     };
 
+    // ── CREATE MODE handlers ──────────────────────────────────────────────────
+
+    const validateCreateForm = () => {
+        const errors = {};
+        if (!createForm.warehouseId) {
+            errors.warehouseId = 'Vui lòng chọn kho cần kiểm kê.';
+        }
+        if (!createForm.mode) {
+            errors.mode = 'Vui lòng chọn hình thức kiểm kê.';
+        }
+        setCreateErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleCreateChange = (field, value) => {
+        setCreateForm(prev => ({ ...prev, [field]: value }));
+        if (createErrors[field]) {
+            setCreateErrors(prev => ({ ...prev, [field]: undefined }));
+        }
+    };
+
+    const handleCreateSubmit = async (submitAction = 'DRAFT') => {
+        if (!validateCreateForm()) return;
+        try {
+            setSubmitting(true);
+            const payload = {
+                warehouseId: parseInt(createForm.warehouseId),
+                mode: createForm.mode,
+                plannedAt: createForm.plannedAt || null,
+                note: createForm.note || null,
+                status: submitAction,
+            };
+            const result = await createStocktakeDraft(payload);
+            showToast('Tạo phiếu kiểm kê thành công!', 'success');
+
+            // Nếu gửi duyệt luôn (PENDING_APPROVAL) thì chuyển hướng về danh sách
+            if (submitAction === 'PENDING_APPROVAL') {
+                // Gọi thêm submitPlan nếu cần
+                await submitStocktakePlan(result.id ?? result.stocktakeId ?? id);
+                setTimeout(() => navigate('/inventory/stocktakes'), 1500);
+            } else {
+                // Chuyển sang trang xem chi tiết vừa tạo
+                const newId = result.id ?? result.stocktakeId ?? id;
+                setTimeout(() => navigate(`/inventory/stocktakes/${newId}`), 1500);
+            }
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi tạo phiếu kiểm kê.', 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const isValidImageUrl = (url) => {
         if (!url || typeof url !== 'string') return false;
         try {
@@ -494,6 +585,176 @@ const CreateStocktake = () => {
             </div>
         );
     }
+
+    // ── CREATE MODE UI ────────────────────────────────────────────────────────
+    if (isCreateMode) {
+        return (
+            <div className="create-supplier-page">
+                {/* Header */}
+                <div className="page-header">
+                    <div className="page-header-left">
+                        <button type="button" onClick={() => navigate('/inventory/stocktakes')} className="back-button">
+                            <ArrowLeft size={20} />
+                            <span>Quay lại</span>
+                        </button>
+                    </div>
+                    <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => handleCreateSubmit('DRAFT')}
+                            disabled={submitting}
+                        >
+                            {submitting ? (
+                                <><span className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }}></span>Đang lưu...</>
+                            ) : (
+                                <><Save size={15} />Lưu bản nháp</>
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => handleCreateSubmit('PENDING_APPROVAL')}
+                            disabled={submitting}
+                        >
+                            {submitting ? (
+                                <><span className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }}></span>Đang xử lý...</>
+                            ) : (
+                                <><CheckCircle size={15} />Gửi duyệt</>
+                            )}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Create Form Card */}
+                <div className="form-card">
+                    <form className="form-wrapper">
+                        <div className="form-card-intro">
+                            <h1 className="page-title">Tạo phiếu kiểm kê kho</h1>
+                            <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
+                                Điền thông tin để tạo phiếu kiểm kê mới
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                            {/* Kho */}
+                            <div className="form-field">
+                                <label className="form-label">
+                                    Kho cần kiểm kê <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <div className="input-wrapper">
+                                    <Warehouse className="input-icon" size={16} />
+                                    <select
+                                        className="form-input"
+                                        value={createForm.warehouseId}
+                                        onChange={e => handleCreateChange('warehouseId', e.target.value)}
+                                        style={{ appearance: 'none', cursor: 'pointer' }}
+                                    >
+                                        <option value="">-- Chọn kho --</option>
+                                        {warehouseOptions.map(w => (
+                                            <option key={w.warehouseId} value={w.warehouseId}>{w.warehouseName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {createErrors.warehouseId && (
+                                    <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                                        {createErrors.warehouseId}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Hình thức */}
+                            <div className="form-field">
+                                <label className="form-label">
+                                    Hình thức kiểm kê <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <div className="input-wrapper">
+                                    <Package className="input-icon" size={16} />
+                                    <select
+                                        className="form-input"
+                                        value={createForm.mode}
+                                        onChange={e => handleCreateChange('mode', e.target.value)}
+                                        style={{ appearance: 'none', cursor: 'pointer' }}
+                                    >
+                                        <option value="PERIODIC">Định kỳ</option>
+                                        <option value="ADHOC">Đột xuất</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Ngày giờ dự kiến */}
+                            <div className="form-field">
+                                <label className="form-label">Ngày giờ dự kiến kiểm kê</label>
+                                <div className="input-wrapper">
+                                    <Calendar className="input-icon" size={16} />
+                                    <input
+                                        type="datetime-local"
+                                        className="form-input"
+                                        value={createForm.plannedAt}
+                                        onChange={e => handleCreateChange('plannedAt', e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Người tạo (readonly) */}
+                            <div className="form-field">
+                                <label className="form-label">Người tạo</label>
+                                <div className="input-wrapper">
+                                    <User className="input-icon" size={16} />
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={authService.getUser()?.fullName || authService.getUser()?.username || 'Kế toán'}
+                                        readOnly
+                                        style={{ backgroundColor: '#f5f5f5' }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Ghi chú */}
+                            <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                                <label className="form-label">Ghi chú</label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows={4}
+                                    placeholder="Nhập ghi chú (nếu có)"
+                                    value={createForm.note}
+                                    onChange={e => handleCreateChange('note', e.target.value)}
+                                    maxLength={1000}
+                                />
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
+                                    {createForm.note.length}/1000
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Hướng dẫn */}
+                        <div style={{
+                            marginTop: '24px',
+                            padding: '16px',
+                            backgroundColor: '#f0f9ff',
+                            borderRadius: '12px',
+                            borderLeft: '4px solid #2196F3',
+                        }}>
+                            <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600, color: '#1e40af' }}>
+                                Hướng dẫn
+                            </h3>
+                            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#374151', lineHeight: 1.8 }}>
+                                <li><strong>Lưu bản nháp:</strong> Phiếu được tạo với trạng thái "Bản nháp", có thể chỉnh sửa sau.</li>
+                                <li><strong>Gửi duyệt:</strong> Phiếu được chuyển lên giám đốc duyệt trước khi bắt đầu kiểm kê.</li>
+                                <li><strong>Định kỳ:</strong> Kiểm kê toàn bộ vật tư trong kho theo lịch trình.</li>
+                                <li><strong>Đột xuất:</strong> Kiểm kê không báo trước, thường do yêu cầu đặc biệt.</li>
+                            </ul>
+                        </div>
+                    </form>
+                </div>
+
+                {/* Toast Notification */}
+                {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+            </div>
+        );
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     if (!stocktakeData) {
         return (

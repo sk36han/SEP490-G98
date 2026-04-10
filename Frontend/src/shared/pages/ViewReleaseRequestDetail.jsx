@@ -685,7 +685,7 @@ export default function ViewReleaseRequestDetail() {
 
             {/* Dialog: Duyệt */}
             <Dialog open={approveDialogOpen} onClose={() => !processing && setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DialogTitle component="div" sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CheckCircle size={20} color="#16a34a" />Duyệt yêu cầu xuất hàng
                 </DialogTitle>
                 <DialogContent>
@@ -710,7 +710,7 @@ export default function ViewReleaseRequestDetail() {
 
             {/* Dialog: Từ chối */}
             <Dialog open={rejectDialogOpen} onClose={() => !processing && setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DialogTitle component="div" sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
                     <XCircle size={20} color="#dc2626" />Từ chối yêu cầu xuất hàng
                 </DialogTitle>
                 <DialogContent>

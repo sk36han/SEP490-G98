@@ -48,8 +48,8 @@ export async function getPackagingSpecById(id) {
  */
 export async function createPackagingSpec(payload) {
     const response = await apiClient.post(BASE, {
-        specName: payload.specName ?? payload.SpecName,
-        description: payload.description ?? payload.Description ?? null,
+        SpecName: payload.specName ?? payload.SpecName,
+        Description: payload.description ?? payload.Description ?? null,
     });
     invalidate('packaging-spec');
     return response?.data?.data ?? response?.data;
@@ -60,9 +60,9 @@ export async function createPackagingSpec(payload) {
  */
 export async function updatePackagingSpec(id, payload) {
     const response = await apiClient.put(`${BASE}/${id}`, {
-        specName: payload.specName ?? payload.SpecName,
-        description: payload.description ?? payload.Description ?? null,
-        isActive: payload.isActive,
+        SpecName: payload.specName ?? payload.SpecName,
+        Description: payload.description ?? payload.Description ?? null,
+        IsActive: payload.isActive,
     });
     invalidate('packaging-spec');
     return response?.data?.data ?? response?.data;
