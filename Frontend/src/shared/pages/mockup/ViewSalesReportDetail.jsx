@@ -117,143 +117,143 @@ const MOCK_DATA = [
 
 const MOCK_QUARTER_BREAKDOWN = {
     '2026': [
-        { label: 'Quý 1 / 2026', deliveryNotes: 82, totalQty: 4_180, totalValue: 1_620_000_000 },
-        { label: 'Quý 2 / 2026', deliveryNotes: 68, totalQty: 3_420, totalValue: 1_320_000_000 },
-        { label: 'Quý 3 / 2026', deliveryNotes: 55, totalQty: 2_840, totalValue: 1_090_000_000 },
-        { label: 'Quý 4 / 2026', deliveryNotes: 40, totalQty: 2_140, totalValue: 820_000_000 },
+        { label: 'Quý 1 / 2026', deliveryNotes: 82, totalQty: 4_180, totalValue: 1_620_000_000, grnNotes: 65, grnQty: 3_740, grnValue: 1_540_000_000 },
+        { label: 'Quý 2 / 2026', deliveryNotes: 68, totalQty: 3_420, totalValue: 1_320_000_000, grnNotes: 54, grnQty: 3_050, grnValue: 1_260_000_000 },
+        { label: 'Quý 3 / 2026', deliveryNotes: 55, totalQty: 2_840, totalValue: 1_090_000_000, grnNotes: 44, grnQty: 2_530, grnValue: 1_040_000_000 },
+        { label: 'Quý 4 / 2026', deliveryNotes: 40, totalQty: 2_140, totalValue: 820_000_000, grnNotes: 35, grnQty: 1_880, grnValue: 780_000_000 },
     ],
     '2025': [
-        { label: 'Quý 1 / 2025', deliveryNotes: 295, totalQty: 15_100, totalValue: 1_310_000_000 },
-        { label: 'Quý 2 / 2025', deliveryNotes: 270, totalQty: 13_900, totalValue: 1_120_000_000 },
-        { label: 'Quý 3 / 2025', deliveryNotes: 255, totalQty: 13_130, totalValue: 960_000_000 },
-        { label: 'Quý 4 / 2025', deliveryNotes: 260, totalQty: 13_470, totalValue: 530_000_000 },
+        { label: 'Quý 1 / 2025', deliveryNotes: 295, totalQty: 15_100, totalValue: 1_310_000_000, grnNotes: 250, grnQty: 13_500, grnValue: 1_240_000_000 },
+        { label: 'Quý 2 / 2025', deliveryNotes: 270, totalQty: 13_900, totalValue: 1_120_000_000, grnNotes: 228, grnQty: 12_400, grnValue: 1_060_000_000 },
+        { label: 'Quý 3 / 2025', deliveryNotes: 255, totalQty: 13_130, totalValue: 960_000_000, grnNotes: 216, grnQty: 11_720, grnValue: 910_000_000 },
+        { label: 'Quý 4 / 2025', deliveryNotes: 260, totalQty: 13_470, totalValue: 530_000_000, grnNotes: 226, grnQty: 12_180, grnValue: 470_000_000 },
     ],
 };
 
 const MOCK_MONTH_BREAKDOWN = {
     '2026': [
-        { label: 'Tháng 1', deliveryNotes: 28, totalQty: 1_420, totalValue: 550_000_000 },
-        { label: 'Tháng 2', deliveryNotes: 22, totalQty: 1_130, totalValue: 440_000_000 },
-        { label: 'Tháng 3', deliveryNotes: 32, totalQty: 1_630, totalValue: 630_000_000 },
-        { label: 'Tháng 4', deliveryNotes: 22, totalQty: 1_100, totalValue: 430_000_000 },
-        { label: 'Tháng 5', deliveryNotes: 24, totalQty: 1_220, totalValue: 470_000_000 },
-        { label: 'Tháng 6', deliveryNotes: 22, totalQty: 1_100, totalValue: 420_000_000 },
-        { label: 'Tháng 7', deliveryNotes: 18, totalQty: 920, totalValue: 355_000_000 },
-        { label: 'Tháng 8', deliveryNotes: 19, totalQty: 960, totalValue: 370_000_000 },
-        { label: 'Tháng 9', deliveryNotes: 18, totalQty: 960, totalValue: 365_000_000 },
-        { label: 'Tháng 10', deliveryNotes: 14, totalQty: 700, totalValue: 270_000_000 },
-        { label: 'Tháng 11', deliveryNotes: 13, totalQty: 720, totalValue: 280_000_000 },
-        { label: 'Tháng 12', deliveryNotes: 13, totalQty: 720, totalValue: 270_000_000 },
+        { label: 'Tháng 1', deliveryNotes: 28, totalQty: 1_420, totalValue: 550_000_000, grnNotes: 22, grnQty: 1_260, grnValue: 520_000_000 },
+        { label: 'Tháng 2', deliveryNotes: 22, totalQty: 1_130, totalValue: 440_000_000, grnNotes: 18, grnQty: 1_010, grnValue: 420_000_000 },
+        { label: 'Tháng 3', deliveryNotes: 32, totalQty: 1_630, totalValue: 630_000_000, grnNotes: 25, grnQty: 1_470, grnValue: 600_000_000 },
+        { label: 'Tháng 4', deliveryNotes: 22, totalQty: 1_100, totalValue: 430_000_000, grnNotes: 17, grnQty: 980, grnValue: 410_000_000 },
+        { label: 'Tháng 5', deliveryNotes: 24, totalQty: 1_220, totalValue: 470_000_000, grnNotes: 19, grnQty: 1_090, grnValue: 450_000_000 },
+        { label: 'Tháng 6', deliveryNotes: 22, totalQty: 1_100, totalValue: 420_000_000, grnNotes: 18, grnQty: 980, grnValue: 400_000_000 },
+        { label: 'Tháng 7', deliveryNotes: 18, totalQty: 920, totalValue: 355_000_000, grnNotes: 14, grnQty: 820, grnValue: 340_000_000 },
+        { label: 'Tháng 8', deliveryNotes: 19, totalQty: 960, totalValue: 370_000_000, grnNotes: 15, grnQty: 860, grnValue: 355_000_000 },
+        { label: 'Tháng 9', deliveryNotes: 18, totalQty: 960, totalValue: 365_000_000, grnNotes: 15, grnQty: 850, grnValue: 345_000_000 },
+        { label: 'Tháng 10', deliveryNotes: 14, totalQty: 700, totalValue: 270_000_000, grnNotes: 12, grnQty: 620, grnValue: 258_000_000 },
+        { label: 'Tháng 11', deliveryNotes: 13, totalQty: 720, totalValue: 280_000_000, grnNotes: 11, grnQty: 640, grnValue: 265_000_000 },
+        { label: 'Tháng 12', deliveryNotes: 13, totalQty: 720, totalValue: 270_000_000, grnNotes: 12, grnQty: 620, grnValue: 257_000_000 },
     ],
     '2025': [
-        { label: 'Tháng 1', deliveryNotes: 98, totalQty: 5_030, totalValue: 430_000_000 },
-        { label: 'Tháng 2', deliveryNotes: 88, totalQty: 4_510, totalValue: 380_000_000 },
-        { label: 'Tháng 3', deliveryNotes: 109, totalQty: 5_560, totalValue: 500_000_000 },
-        { label: 'Tháng 4', deliveryNotes: 88, totalQty: 4_530, totalValue: 360_000_000 },
-        { label: 'Tháng 5', deliveryNotes: 92, totalQty: 4_740, totalValue: 390_000_000 },
-        { label: 'Tháng 6', deliveryNotes: 90, totalQty: 4_630, totalValue: 370_000_000 },
-        { label: 'Tháng 7', deliveryNotes: 84, totalQty: 4_310, totalValue: 310_000_000 },
-        { label: 'Tháng 8', deliveryNotes: 86, totalQty: 4_420, totalValue: 330_000_000 },
-        { label: 'Tháng 9', deliveryNotes: 85, totalQty: 4_400, totalValue: 320_000_000 },
-        { label: 'Tháng 10', deliveryNotes: 86, totalQty: 4_410, totalValue: 170_000_000 },
-        { label: 'Tháng 11', deliveryNotes: 86, totalQty: 4_510, totalValue: 180_000_000 },
-        { label: 'Tháng 12', deliveryNotes: 88, totalQty: 4_550, totalValue: 180_000_000 },
+        { label: 'Tháng 1', deliveryNotes: 98, totalQty: 5_030, totalValue: 430_000_000, grnNotes: 82, grnQty: 4_480, grnValue: 408_000_000 },
+        { label: 'Tháng 2', deliveryNotes: 88, totalQty: 4_510, totalValue: 380_000_000, grnNotes: 74, grnQty: 4_020, grnValue: 360_000_000 },
+        { label: 'Tháng 3', deliveryNotes: 109, totalQty: 5_560, totalValue: 500_000_000, grnNotes: 94, grnQty: 5_000, grnValue: 472_000_000 },
+        { label: 'Tháng 4', deliveryNotes: 88, totalQty: 4_530, totalValue: 360_000_000, grnNotes: 74, grnQty: 4_040, grnValue: 340_000_000 },
+        { label: 'Tháng 5', deliveryNotes: 92, totalQty: 4_740, totalValue: 390_000_000, grnNotes: 78, grnQty: 4_230, grnValue: 370_000_000 },
+        { label: 'Tháng 6', deliveryNotes: 90, totalQty: 4_630, totalValue: 370_000_000, grnNotes: 76, grnQty: 4_130, grnValue: 350_000_000 },
+        { label: 'Tháng 7', deliveryNotes: 84, totalQty: 4_310, totalValue: 310_000_000, grnNotes: 71, grnQty: 3_850, grnValue: 294_000_000 },
+        { label: 'Tháng 8', deliveryNotes: 86, totalQty: 4_420, totalValue: 330_000_000, grnNotes: 73, grnQty: 3_940, grnValue: 313_000_000 },
+        { label: 'Tháng 9', deliveryNotes: 85, totalQty: 4_400, totalValue: 320_000_000, grnNotes: 72, grnQty: 3_930, grnValue: 303_000_000 },
+        { label: 'Tháng 10', deliveryNotes: 86, totalQty: 4_410, totalValue: 170_000_000, grnNotes: 74, grnQty: 3_970, grnValue: 160_000_000 },
+        { label: 'Tháng 11', deliveryNotes: 86, totalQty: 4_510, totalValue: 180_000_000, grnNotes: 76, grnQty: 4_060, grnValue: 155_000_000 },
+        { label: 'Tháng 12', deliveryNotes: 88, totalQty: 4_550, totalValue: 180_000_000, grnNotes: 76, grnQty: 4_150, grnValue: 155_000_000 },
     ],
 };
 
 const MOCK_WEEK_BREAKDOWN = {
     '2026': {
         1: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 8, totalQty: 410, totalValue: 158_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 7, totalQty: 380, totalValue: 148_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 8, totalQty: 390, totalValue: 155_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 5, totalQty: 240, totalValue: 89_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 8, totalQty: 410, totalValue: 158_000_000, grnNotes: 6, grnQty: 360, grnValue: 148_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 7, totalQty: 380, totalValue: 148_000_000, grnNotes: 5, grnQty: 330, grnValue: 138_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 8, totalQty: 390, totalValue: 155_000_000, grnNotes: 6, grnQty: 340, grnValue: 145_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 5, totalQty: 240, totalValue: 89_000_000, grnNotes: 4, grnQty: 210, grnValue: 82_000_000 },
         ],
         2: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 6, totalQty: 310, totalValue: 120_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 320, totalValue: 125_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 280, totalValue: 108_000_000 },
-            { label: 'Tuần 4', days: '22–28', deliveryNotes: 5, totalQty: 220, totalValue: 87_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 6, totalQty: 310, totalValue: 120_000_000, grnNotes: 5, grnQty: 270, grnValue: 110_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 320, totalValue: 125_000_000, grnNotes: 5, grnQty: 280, grnValue: 115_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 280, totalValue: 108_000_000, grnNotes: 4, grnQty: 245, grnValue: 98_000_000 },
+            { label: 'Tuần 4', days: '22–28', deliveryNotes: 5, totalQty: 220, totalValue: 87_000_000, grnNotes: 4, grnQty: 190, grnValue: 80_000_000 },
         ],
         3: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 9, totalQty: 460, totalValue: 178_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 9, totalQty: 470, totalValue: 185_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 8, totalQty: 440, totalValue: 162_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 6, totalQty: 260, totalValue: 105_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 9, totalQty: 460, totalValue: 178_000_000, grnNotes: 7, grnQty: 400, grnValue: 168_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 9, totalQty: 470, totalValue: 185_000_000, grnNotes: 7, grnQty: 410, grnValue: 175_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 8, totalQty: 440, totalValue: 162_000_000, grnNotes: 6, grnQty: 385, grnValue: 152_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 6, totalQty: 260, totalValue: 105_000_000, grnNotes: 5, grnQty: 225, grnValue: 95_000_000 },
         ],
         4: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 6, totalQty: 300, totalValue: 118_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 310, totalValue: 120_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 270, totalValue: 105_000_000 },
-            { label: 'Tuần 4', days: '22–30', deliveryNotes: 5, totalQty: 220, totalValue: 87_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 6, totalQty: 300, totalValue: 118_000_000, grnNotes: 5, grnQty: 260, grnValue: 108_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 310, totalValue: 120_000_000, grnNotes: 5, grnQty: 270, grnValue: 110_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 270, totalValue: 105_000_000, grnNotes: 4, grnQty: 235, grnValue: 95_000_000 },
+            { label: 'Tuần 4', days: '22–30', deliveryNotes: 5, totalQty: 220, totalValue: 87_000_000, grnNotes: 4, grnQty: 190, grnValue: 80_000_000 },
         ],
         5: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 7, totalQty: 350, totalValue: 135_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 320, totalValue: 126_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 6, totalQty: 330, totalValue: 112_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 5, totalQty: 220, totalValue: 97_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 7, totalQty: 350, totalValue: 135_000_000, grnNotes: 6, grnQty: 305, grnValue: 125_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 320, totalValue: 126_000_000, grnNotes: 5, grnQty: 280, grnValue: 116_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 6, totalQty: 330, totalValue: 112_000_000, grnNotes: 5, grnQty: 288, grnValue: 102_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 5, totalQty: 220, totalValue: 97_000_000, grnNotes: 4, grnQty: 192, grnValue: 88_000_000 },
         ],
         6: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 6, totalQty: 300, totalValue: 115_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 290, totalValue: 110_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 270, totalValue: 102_000_000 },
-            { label: 'Tuần 4', days: '22–30', deliveryNotes: 5, totalQty: 240, totalValue: 93_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 6, totalQty: 300, totalValue: 115_000_000, grnNotes: 5, grnQty: 260, grnValue: 105_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 6, totalQty: 290, totalValue: 110_000_000, grnNotes: 5, grnQty: 252, grnValue: 100_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 270, totalValue: 102_000_000, grnNotes: 4, grnQty: 235, grnValue: 92_000_000 },
+            { label: 'Tuần 4', days: '22–30', deliveryNotes: 5, totalQty: 240, totalValue: 93_000_000, grnNotes: 4, grnQty: 208, grnValue: 85_000_000 },
         ],
         7: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 5, totalQty: 250, totalValue: 97_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 5, totalQty: 240, totalValue: 92_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 4, totalQty: 220, totalValue: 85_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 4, totalQty: 210, totalValue: 81_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 5, totalQty: 250, totalValue: 97_000_000, grnNotes: 4, grnQty: 218, grnValue: 87_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 5, totalQty: 240, totalValue: 92_000_000, grnNotes: 4, grnQty: 209, grnValue: 82_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 4, totalQty: 220, totalValue: 85_000_000, grnNotes: 3, grnQty: 192, grnValue: 75_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 4, totalQty: 210, totalValue: 81_000_000, grnNotes: 3, grnQty: 183, grnValue: 71_000_000 },
         ],
         8: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 5, totalQty: 255, totalValue: 99_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 5, totalQty: 250, totalValue: 96_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 255, totalValue: 88_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 4, totalQty: 200, totalValue: 87_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 5, totalQty: 255, totalValue: 99_000_000, grnNotes: 4, grnQty: 222, grnValue: 89_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 5, totalQty: 250, totalValue: 96_000_000, grnNotes: 4, grnQty: 218, grnValue: 86_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 5, totalQty: 255, totalValue: 88_000_000, grnNotes: 4, grnQty: 222, grnValue: 78_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 4, totalQty: 200, totalValue: 87_000_000, grnNotes: 3, grnQty: 174, grnValue: 77_000_000 },
         ],
         9: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 5, totalQty: 260, totalValue: 100_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 5, totalQty: 255, totalValue: 98_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 4, totalQty: 240, totalValue: 88_000_000 },
-            { label: 'Tuần 4', days: '22–30', deliveryNotes: 4, totalQty: 205, totalValue: 79_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 5, totalQty: 260, totalValue: 100_000_000, grnNotes: 4, grnQty: 226, grnValue: 90_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 5, totalQty: 255, totalValue: 98_000_000, grnNotes: 4, grnQty: 222, grnValue: 88_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 4, totalQty: 240, totalValue: 88_000_000, grnNotes: 3, grnQty: 209, grnValue: 78_000_000 },
+            { label: 'Tuần 4', days: '22–30', deliveryNotes: 4, totalQty: 205, totalValue: 79_000_000, grnNotes: 3, grnQty: 178, grnValue: 69_000_000 },
         ],
         10: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 4, totalQty: 195, totalValue: 75_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 4, totalQty: 190, totalValue: 73_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 3, totalQty: 165, totalValue: 65_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 3, totalQty: 150, totalValue: 57_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 4, totalQty: 195, totalValue: 75_000_000, grnNotes: 3, grnQty: 170, grnValue: 65_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 4, totalQty: 190, totalValue: 73_000_000, grnNotes: 3, grnQty: 165, grnValue: 63_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 3, totalQty: 165, totalValue: 65_000_000, grnNotes: 2, grnQty: 144, grnValue: 55_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 3, totalQty: 150, totalValue: 57_000_000, grnNotes: 2, grnQty: 130, grnValue: 48_000_000 },
         ],
         11: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 4, totalQty: 200, totalValue: 78_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 3, totalQty: 185, totalValue: 72_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 3, totalQty: 175, totalValue: 68_000_000 },
-            { label: 'Tuần 4', days: '22–30', deliveryNotes: 3, totalQty: 160, totalValue: 62_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 4, totalQty: 200, totalValue: 78_000_000, grnNotes: 3, grnQty: 174, grnValue: 68_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 3, totalQty: 185, totalValue: 72_000_000, grnNotes: 2, grnQty: 161, grnValue: 62_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 3, totalQty: 175, totalValue: 68_000_000, grnNotes: 2, grnQty: 152, grnValue: 58_000_000 },
+            { label: 'Tuần 4', days: '22–30', deliveryNotes: 3, totalQty: 160, totalValue: 62_000_000, grnNotes: 2, grnQty: 139, grnValue: 52_000_000 },
         ],
         12: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 4, totalQty: 200, totalValue: 76_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 3, totalQty: 185, totalValue: 70_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 3, totalQty: 175, totalValue: 68_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 3, totalQty: 160, totalValue: 56_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 4, totalQty: 200, totalValue: 76_000_000, grnNotes: 3, grnQty: 174, grnValue: 66_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 3, totalQty: 185, totalValue: 70_000_000, grnNotes: 2, grnQty: 161, grnValue: 60_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 3, totalQty: 175, totalValue: 68_000_000, grnNotes: 2, grnQty: 152, grnValue: 58_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 3, totalQty: 160, totalValue: 56_000_000, grnNotes: 2, grnQty: 139, grnValue: 47_000_000 },
         ],
     },
     '2025': {
         1: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 28, totalQty: 1_420, totalValue: 122_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 26, totalQty: 1_320, totalValue: 115_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 24, totalQty: 1_250, totalValue: 105_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 20, totalQty: 1_040, totalValue: 88_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 28, totalQty: 1_420, totalValue: 122_000_000, grnNotes: 24, grnQty: 1_236, grnValue: 112_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 26, totalQty: 1_320, totalValue: 115_000_000, grnNotes: 22, grnQty: 1_148, grnValue: 105_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 24, totalQty: 1_250, totalValue: 105_000_000, grnNotes: 20, grnQty: 1_088, grnValue: 95_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 20, totalQty: 1_040, totalValue: 88_000_000, grnNotes: 17, grnQty: 904, grnValue: 78_000_000 },
         ],
         2: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 25, totalQty: 1_280, totalValue: 108_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 23, totalQty: 1_180, totalValue: 102_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 22, totalQty: 1_100, totalValue: 92_000_000 },
-            { label: 'Tuần 4', days: '22–28', deliveryNotes: 18, totalQty: 950, totalValue: 78_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 25, totalQty: 1_280, totalValue: 108_000_000, grnNotes: 21, grnQty: 1_114, grnValue: 98_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 23, totalQty: 1_180, totalValue: 102_000_000, grnNotes: 19, grnQty: 1_027, grnValue: 92_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 22, totalQty: 1_100, totalValue: 92_000_000, grnNotes: 18, grnQty: 957, grnValue: 82_000_000 },
+            { label: 'Tuần 4', days: '22–28', deliveryNotes: 18, totalQty: 950, totalValue: 78_000_000, grnNotes: 15, grnQty: 826, grnValue: 68_000_000 },
         ],
         3: [
-            { label: 'Tuần 1', days: '01–07', deliveryNotes: 30, totalQty: 1_520, totalValue: 136_000_000 },
-            { label: 'Tuần 2', days: '08–14', deliveryNotes: 29, totalQty: 1_490, totalValue: 138_000_000 },
-            { label: 'Tuần 3', days: '15–21', deliveryNotes: 27, totalQty: 1_380, totalValue: 122_000_000 },
-            { label: 'Tuần 4', days: '22–31', deliveryNotes: 23, totalQty: 1_170, totalValue: 104_000_000 },
+            { label: 'Tuần 1', days: '01–07', deliveryNotes: 30, totalQty: 1_520, totalValue: 136_000_000, grnNotes: 26, grnQty: 1_322, grnValue: 126_000_000 },
+            { label: 'Tuần 2', days: '08–14', deliveryNotes: 29, totalQty: 1_490, totalValue: 138_000_000, grnNotes: 25, grnQty: 1_296, grnValue: 128_000_000 },
+            { label: 'Tuần 3', days: '15–21', deliveryNotes: 27, totalQty: 1_380, totalValue: 122_000_000, grnNotes: 23, grnQty: 1_200, grnValue: 112_000_000 },
+            { label: 'Tuần 4', days: '22–31', deliveryNotes: 23, totalQty: 1_170, totalValue: 104_000_000, grnNotes: 19, grnQty: 1_018, grnValue: 94_000_000 },
         ],
     },
 };
@@ -404,6 +404,35 @@ const SummaryCard = ({ label, value, color }) => (
     </Box>
 );
 
+// ── Card cho header summary ──────────────────────────────────────────────────
+const HeaderCard = ({ label, value, meta, color }) => (
+    <Box sx={{ flex: '1 1 200px', minWidth: 200, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+        <Typography sx={{ fontSize: '20px', fontWeight: 700, color: color || '#111827', lineHeight: 1.2 }}>{value}</Typography>
+        {meta && <Typography sx={{ fontSize: '11px', color: '#9ca3af' }}>{meta}</Typography>}
+    </Box>
+);
+
+const CompareCard = ({ label, value, meta, color }) => (
+    <Box sx={{ flex: '1 1 160px', minWidth: 160, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+        <Typography sx={{ fontSize: '16px', fontWeight: 700, color: color || '#111827', lineHeight: 1.2 }}>{value}</Typography>
+        {meta && <Typography sx={{ fontSize: '11px', color: '#9ca3af' }}>{meta}</Typography>}
+    </Box>
+);
+
+const DiffCard = ({ label, diff, pct }) => (
+    <Box sx={{ flex: '1 1 160px', minWidth: 160, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+        <Typography sx={{ fontSize: '16px', fontWeight: 700, color: changeColor(diff), lineHeight: 1.2 }}>
+            {diff != null ? formatSignedCurrency(diff) : '—'}
+        </Typography>
+        <Typography sx={{ fontSize: '11px', color: changeColor(pct) }}>
+            {pct != null ? formatSignedPercent(pct) : ''}
+        </Typography>
+    </Box>
+);
+
 // ── Section Block ────────────────────────────────────────────────────────────
 const SectionHeader = ({ icon: Icon, title }) => (
     <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -430,11 +459,17 @@ export default function ViewSalesReportDetail() {
     const params = useParams();
     const [searchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState(0);
+    // ── Mode toggle cho tab Doanh số ──────────────────────────────────
+    const [salesMode, setSalesMode] = useState('outbound'); // 'outbound' | 'inbound'
+    // ── Collapse state cho breakdown inline ─────────────────────────
+    const [expandedItems, setExpandedItems] = useState({}); // { [key]: boolean }
+    const toggleExpand = (key) => setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }));
     // ── So sánh kỳ: tách Quý/Năm thành 2 dropdown riêng ──
     const [compareQ, setCompareQ] = useState(null);   // Quý so sánh (cấp Quý)
     const [compareQYear, setCompareQYear] = useState(null); // Năm so sánh (cấp Quý)
     const [compareM, setCompareM] = useState(null);   // Tháng so sánh (cấp Tháng)
     const [compareMYear, setCompareMYear] = useState(null); // Năm so sánh (cấp Tháng)
+    const [selectedCompareYear, setSelectedCompareYear] = useState(null); // Năm so sánh (cấp Năm)
 
     // ── Back navigation dựa trên from context ──
     const from = searchParams.get('from');
@@ -487,7 +522,7 @@ export default function ViewSalesReportDetail() {
         return years.filter(y => parseInt(y) < currentYear).map(y => ({ value: y, label: `Năm ${y}` }));
     }, [currentRow]);
 
-    const selectedCompareYear = useMemo(() => compareYearOptions[0]?.value ?? null, [compareYearOptions]);
+    const effectiveCompareYear = selectedCompareYear ?? compareYearOptions[0]?.value ?? null;
 
     // ── Options cho cấp QUÝ: dropdown Quý + dropdown Năm riêng ─────────
     const compareQOptions = useMemo(() => {
@@ -545,8 +580,8 @@ export default function ViewSalesReportDetail() {
     const compareRow = useMemo(() => {
         if (!currentRow) return null;
         if (currentRow.level === LEVEL.YEAR) {
-            if (!selectedCompareYear) return null;
-            return MOCK_DATA.find(r => r.level === LEVEL.YEAR && r.periodLabel === selectedCompareYear) || null;
+            if (!effectiveCompareYear) return null;
+            return MOCK_DATA.find(r => r.level === LEVEL.YEAR && r.periodLabel === effectiveCompareYear) || null;
         }
         if (currentRow.level === LEVEL.QUARTER) {
             const q = selectedCompareQ ?? compareQOptions[0]?.value;
@@ -561,16 +596,17 @@ export default function ViewSalesReportDetail() {
             return MOCK_DATA.find(r => r.level === LEVEL.MONTH && r.periodLabel === `Tháng ${m} / ${y}`) || null;
         }
         return null;
-    }, [currentRow, selectedCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions]);
+    }, [currentRow, effectiveCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions]);
 
-    const compPrev = compareRow?.totalValue ?? null;
-    const compChange = calcChange(currentRow?.totalValue, compPrev);
-    const compGrowth = calcGrowth(compChange, compPrev);
+    const diffOut = currentRow ? (currentRow.totalValue - (compareRow?.totalValue ?? 0)) : null;
+    const pctOut = compareRow && compareRow.totalValue > 0 ? (diffOut / compareRow.totalValue) * 100 : null;
+    const diffIn = currentRow ? (currentRow.grnValue - (compareRow?.grnValue ?? 0)) : null;
+    const pctIn = compareRow && compareRow.grnValue > 0 ? (diffIn / compareRow.grnValue) * 100 : null;
 
     // ── Label kỳ so sánh đang chọn (luôn hiện, kể cả khi không có data) ──
     const selectedComparePeriodLabel = useMemo(() => {
         if (!currentRow) return null;
-        if (currentRow.level === LEVEL.YEAR && selectedCompareYear) return `Năm ${selectedCompareYear}`;
+        if (currentRow.level === LEVEL.YEAR && effectiveCompareYear) return `Năm ${effectiveCompareYear}`;
         if (currentRow.level === LEVEL.QUARTER) {
             const q = selectedCompareQ ?? compareQOptions[0]?.value;
             const y = selectedCompareQY ?? compareQYOptions[0]?.value;
@@ -584,7 +620,7 @@ export default function ViewSalesReportDetail() {
             return null;
         }
         return null;
-    }, [currentRow, selectedCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions]);
+    }, [currentRow, effectiveCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions]);
 
     // ── Navigate sang detail kỳ ───────────────────────────────────────────
     const navigateToPeriod = (periodLabel) => {
@@ -747,15 +783,131 @@ export default function ViewSalesReportDetail() {
             {/* ── Main Content ── */}
             <Box sx={{ flex: 1, px: { xs: 2, sm: 3 }, pb: 3, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
-                {/* ── Summary Cards ── */}
+                {/* ── TẦNG 1: Snapshot kỳ hiện tại ── */}
+                <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
+                    <HeaderCard
+                        label="Kỳ báo cáo"
+                        value={currentRow.periodLabel}
+                        meta={currentRow.level === LEVEL.YEAR ? 'Cấp: Năm' : currentRow.level === LEVEL.QUARTER ? 'Cấp: Quý' : 'Cấp: Tháng'}
+                        color="#374151"
+                    />
+                    <HeaderCard
+                        label="Xuất hàng"
+                        value={formatVND(currentRow.totalValue)}
+                        meta={`${formatNumber(currentRow.deliveryNotes)} phiếu · ${formatNumber(currentRow.totalQty)} số lượng`}
+                        color="#2563eb"
+                    />
+                    <HeaderCard
+                        label="Nhập hàng (GRN)"
+                        value={formatVND(currentRow.grnValue)}
+                        meta={`${formatNumber(currentRow.grnNotes)} phiếu · ${formatNumber(currentRow.grnQty)} số lượng`}
+                        color="#059669"
+                    />
+                </Box>
+
+                {/* ── TẦNG 2: Summary nhanh kỳ so sánh ── */}
                 <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
-                    <SummaryCard label="Kỳ báo cáo" value={currentRow.periodLabel} color="#374151" />
-                    <SummaryCard label="Tổng doanh số" value={formatVND(currentRow.totalValue)} color="#111827" />
-                    <SummaryCard label="Tổng phiếu xuất" value={formatNumber(currentRow.deliveryNotes)} color="#2563eb" />
-                    <SummaryCard label="Tổng số lượng xuất" value={formatNumber(currentRow.totalQty)} color="#059669" />
-                    <SummaryCard label="Tổng phiếu nhập" value={formatNumber(currentRow.grnNotes)} color="#7c3aed" />
-                    <SummaryCard label="Tổng SL nhập" value={formatNumber(currentRow.grnQty)} color="#0891b2" />
-                    <SummaryCard label="Tổng giá trị nhập" value={formatVND(currentRow.grnValue)} color="#b45309" />
+                    {/* Kỳ so sánh */}
+                    <Box sx={{ flex: '0 0 auto', minWidth: 200, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                        <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>Kỳ so sánh</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                            {currentRow?.level === LEVEL.YEAR && (
+                                <FormControl size="small" sx={{ minWidth: 130 }}>
+                                    <Select
+                                        value={selectedCompareYear ?? ''}
+                                        onChange={(e) => { setSelectedCompareYear(e.target.value); }}
+                                        displayEmpty
+                                        sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                    >
+                                        {compareYearOptions.map(opt => (
+                                            <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
+                            {currentRow?.level === LEVEL.QUARTER && (
+                                <>
+                                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                                        <Select
+                                            value={selectedCompareQ ?? ''}
+                                            onChange={(e) => { setCompareQ(e.target.value); }}
+                                            displayEmpty
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                        >
+                                            {compareQOptions.map(opt => (
+                                                <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size="small" sx={{ minWidth: 90 }}>
+                                        <Select
+                                            value={selectedCompareQY ?? ''}
+                                            onChange={(e) => { setCompareQYear(e.target.value); }}
+                                            displayEmpty
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                        >
+                                            {compareQYOptions.map(opt => (
+                                                <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </>
+                            )}
+                            {currentRow?.level === LEVEL.MONTH && (
+                                <>
+                                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                                        <Select
+                                            value={selectedCompareM ?? ''}
+                                            onChange={(e) => { setCompareM(e.target.value); }}
+                                            displayEmpty
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                        >
+                                            {compareMOptions.map(opt => (
+                                                <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size="small" sx={{ minWidth: 90 }}>
+                                        <Select
+                                            value={selectedCompareMY ?? ''}
+                                            onChange={(e) => { setCompareMYear(e.target.value); }}
+                                            displayEmpty
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                        >
+                                            {compareMYOptions.map(opt => (
+                                                <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </>
+                            )}
+                        </Box>
+                        <Typography sx={{ fontSize: '12px', color: compareRow ? '#374151' : '#9ca3af', fontWeight: 600, mt: 0.5 }}>
+                            {compareRow ? compareRow.periodLabel : '—'}
+                        </Typography>
+                    </Box>
+
+                    {/* Xuất hàng kỳ so sánh */}
+                    <CompareCard
+                        label="Xuất hàng kỳ so sánh"
+                        value={compareRow ? formatVND(compareRow.totalValue) : '—'}
+                        meta={compareRow ? `${formatNumber(compareRow.deliveryNotes)} phiếu · ${formatNumber(compareRow.totalQty)} số lượng` : ''}
+                        color="#2563eb"
+                    />
+
+                    {/* Nhập hàng kỳ so sánh */}
+                    <CompareCard
+                        label="Nhập hàng kỳ so sánh"
+                        value={compareRow ? formatVND(compareRow.grnValue) : '—'}
+                        meta={compareRow ? `${formatNumber(compareRow.grnNotes)} phiếu · ${formatNumber(compareRow.grnQty)} số lượng` : ''}
+                        color="#059669"
+                    />
+
+                    {/* Chênh lệch xuất */}
+                    <DiffCard label="Chênh lệch xuất" diff={diffOut} pct={pctOut} />
+
+                    {/* Chênh lệch nhập */}
+                    <DiffCard label="Chênh lệch nhập" diff={diffIn} pct={pctIn} />
                 </Box>
 
                 {/* ── Tabs ── */}
@@ -802,122 +954,15 @@ export default function ViewSalesReportDetail() {
                         {activeTab === 0 && (
                             <Box>
 
-                                {/* So sánh kỳ */}
-                                <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden', m: 2, mb: 1.5 }}>
-                                    <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827', mr: 1 }}>So sánh với kỳ</Typography>
-                                        {/* Dropdowns bên trái chữ */}
-                                        {currentRow?.level === LEVEL.YEAR && (
-                                            <FormControl size="small" sx={{ minWidth: 140 }}>
-                                                <Select
-                                                    value={selectedCompareYear ?? ''}
-                                                    onChange={(e) => {}}
-                                                    displayEmpty
-                                                    sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
-                                                >
-                                                    {compareYearOptions.map(opt => (
-                                                        <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-                                        )}
-                                        {currentRow?.level === LEVEL.QUARTER && (
-                                            <>
-                                                <FormControl size="small" sx={{ minWidth: 120 }}>
-                                                    <Select
-                                                        value={selectedCompareQ ?? ''}
-                                                        onChange={(e) => { setCompareQ(e.target.value); }}
-                                                        displayEmpty
-                                                        sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
-                                                    >
-                                                        {compareQOptions.map(opt => (
-                                                            <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControl size="small" sx={{ minWidth: 100 }}>
-                                                    <Select
-                                                        value={selectedCompareQY ?? ''}
-                                                        onChange={(e) => { setCompareQYear(e.target.value); }}
-                                                        displayEmpty
-                                                        sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
-                                                    >
-                                                        {compareQYOptions.map(opt => (
-                                                            <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
-                                            </>
-                                        )}
-                                        {currentRow?.level === LEVEL.MONTH && (
-                                            <>
-                                                <FormControl size="small" sx={{ minWidth: 120 }}>
-                                                    <Select
-                                                        value={selectedCompareM ?? ''}
-                                                        onChange={(e) => { setCompareM(e.target.value); }}
-                                                        displayEmpty
-                                                        sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
-                                                    >
-                                                        {compareMOptions.map(opt => (
-                                                            <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControl size="small" sx={{ minWidth: 100 }}>
-                                                    <Select
-                                                        value={selectedCompareMY ?? ''}
-                                                        onChange={(e) => { setCompareMYear(e.target.value); }}
-                                                        displayEmpty
-                                                        sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
-                                                    >
-                                                        {compareMYOptions.map(opt => (
-                                                            <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
-                                            </>
-                                        )}
+                                {/* Toggle Xuất / Nhập */}
+                                <Box sx={{ px: 2, pt: 2, pb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <Box onClick={() => setSalesMode('outbound')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: salesMode === 'outbound' ? '#2563eb' : '#fff', color: salesMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: salesMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất hàng</Box>
+                                        <Box onClick={() => setSalesMode('inbound')} sx={{ px: 2, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: salesMode === 'inbound' ? '#059669' : '#fff', color: salesMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: salesMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập hàng</Box>
                                     </Box>
-                                    <Box sx={{ display: 'flex', gap: 1.5, p: 2.5, flexWrap: 'wrap' }}>
-                                        <SummaryCard label="Kỳ so sánh" value={compareRow ? compareRow.periodLabel : '—'} color="#9ca3af" />
-                                        <SummaryCard label="Giá trị kỳ so sánh" value={compPrev != null ? formatVND(compPrev) : '—'} color="#9ca3af" />
-                                        <Box sx={{ flex: '1 1 180px', minWidth: 180, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                <ChangeIcon value={compChange} />
-                                                <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>Tăng / Giảm</Typography>
-                                            </Box>
-                                            <Typography sx={{ fontSize: '18px', fontWeight: 700, color: changeColor(compChange), lineHeight: 1.2 }}>
-                                                {compChange != null ? formatSignedCurrency(compChange) : '—'}
-                                            </Typography>
-                                        </Box>
-                                        <Box sx={{ flex: '1 1 180px', minWidth: 180, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                <ChangeIcon value={compGrowth} />
-                                                <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>Tăng trưởng</Typography>
-                                            </Box>
-                                            <Typography sx={{ fontSize: '18px', fontWeight: 700, color: changeColor(compGrowth), lineHeight: 1.2 }}>
-                                                {compGrowth != null ? formatSignedPercent(compGrowth) : '—'}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                </Paper>
+                                </Box>
 
-                                {/* Kỳ so sánh — {periodLabel} */}
-                                {selectedComparePeriodLabel && (
-                                    <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden', m: 2, mb: 1.5 }}>
-                                        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6' }}>
-                                            <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Kỳ so sánh — {selectedComparePeriodLabel}</Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', gap: 1.5, p: 2.5, flexWrap: 'wrap' }}>
-                                            <SummaryCard label="Kỳ báo cáo" value={compareRow ? compareRow.periodLabel : '—'} color="#9ca3af" />
-                                            <SummaryCard label="Tổng doanh số" value={compareRow ? formatVND(compareRow.totalValue) : '—'} color="#9ca3af" />
-                                            <SummaryCard label="Tổng phiếu xuất" value={compareRow ? formatNumber(compareRow.deliveryNotes) : '—'} color="#9ca3af" />
-                                            <SummaryCard label="Tổng số lượng xuất" value={compareRow ? formatNumber(compareRow.totalQty) : '—'} color="#9ca3af" />
-                                        </Box>
-                                    </Paper>
-                                )}
-
-                                {/* Chi tiết Quý */}
+                                {/* ── YEAR detail: Chi tiết theo Quý (collapse inline đến Tháng) ── */}
                                 {currentRow?.level === LEVEL.YEAR && quarterBreakdown && (
                                     <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden', m: 2, mb: 1.5 }}>
                                         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -929,34 +974,99 @@ export default function ViewSalesReportDetail() {
                                                 <TableHead>
                                                     <TableRow>
                                                         <THLeft>Quý</THLeft>
-                                                        <TH>Số phiếu xuất</TH>
-                                                        <TH>Tổng SL xuất</TH>
-                                                        <TH>Giá trị xuất hàng</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Số phiếu xuất' : 'Số phiếu nhập'}</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Số lượng xuất' : 'Số lượng nhập'}</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Giá trị xuất' : 'Giá trị nhập'}</TH>
+                                                        <TH>Kỳ so sánh</TH>
+                                                        <TH>Chênh lệch</TH>
+                                                        <TH>Tăng trưởng</TH>
+                                                        <TH></TH>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
-                                                    {quarterBreakdown.map((r, i) => {
-                                                        const isCurrentPeriod = r.label === currentRow?.periodLabel;
+                                                    {quarterBreakdown.map((q, qi) => {
+                                                        const isCurrentPeriod = q.label === currentRow?.periodLabel;
+                                                        const qExpanded = expandedItems[`q-${qi}`] || false;
+                                                        const qNotes = salesMode === 'outbound' ? q.deliveryNotes : q.grnNotes;
+                                                        const qQty = salesMode === 'outbound' ? q.totalQty : q.grnQty;
+                                                        const qVal = salesMode === 'outbound' ? q.totalValue : q.grnValue;
+                                                        // compare data
+                                                        const qYear = parseInt(q.label.match(/(\d{4})$/)?.[1] || currentRow?.periodLabel);
+                                                        const qNum = parseInt(q.label.match(/Quý (\d)/)?.[1]);
+                                                        const prevYear = qYear - 1;
+                                                        const qCompareRow = MOCK_DATA.find(r => r.level === LEVEL.QUARTER && r.periodLabel === `Quý ${qNum} / ${prevYear}`);
+                                                        const prevVal = salesMode === 'outbound' ? qCompareRow?.totalValue : qCompareRow?.grnValue;
+                                                        const chgVal = calcChange(qVal, prevVal);
+                                                        const growth = calcGrowth(chgVal, prevVal);
+                                                        // tháng con của quý này
+                                                        const qIdx = qNum - 1;
+                                                        const monthStart = qIdx * 3;
+                                                        const childMonths = (MOCK_MONTH_BREAKDOWN[qYear] || []).slice(monthStart, monthStart + 3);
+
                                                         return (
-                                                            <TableRow key={i} hover sx={{ bgcolor: isCurrentPeriod ? '#f0f9ff' : undefined, '&:last-child td': { borderBottom: 0 } }}>
-                                                                <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
-                                                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
-                                                                        <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : undefined }}>
-                                                                            {r.label}
-                                                                        </Typography>
-                                                                        <Tooltip title="Xem chi tiết">
-                                                                            <IconButton size="small"
-                                                                                onClick={() => navigateToPeriod(r.label)}
+                                                            <React.Fragment key={qi}>
+                                                                <TableRow hover sx={{ bgcolor: isCurrentPeriod ? '#f0f9ff' : undefined, '&:last-child td': { borderBottom: 0 } }}>
+                                                                    <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                            <Box onClick={() => toggleExpand(`q-${qi}`)} sx={{ cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', '&:hover': { color: '#374151' } }}>
+                                                                                <Typography sx={{ fontSize: '12px', lineHeight: 1 }}>{qExpanded ? '▾' : '▸'}</Typography>
+                                                                            </Box>
+                                                                            <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : '#111827' }}>
+                                                                                {q.label}
+                                                                            </Typography>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(qNotes)}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(qQty)}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatVND(qVal)}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{prevVal != null ? formatVND(prevVal) : '—'}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(chgVal), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 500 }}>{chgVal != null ? formatSignedCurrency(chgVal) : '—'}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(growth), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 600 }}>{growth != null ? formatSignedPercent(growth) : '—'}</TableCell>
+                                                                    <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }}>
+                                                                        <Tooltip title="Xem chi tiết Quý">
+                                                                            <IconButton size="small" onClick={() => navigateToPeriod(q.label)}
                                                                                 sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
                                                                                 <Eye size={14} />
                                                                             </IconButton>
                                                                         </Tooltip>
-                                                                    </Box>
-                                                                </TableCell>
-                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(r.deliveryNotes)}</TableCell>
-                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(r.totalQty)}</TableCell>
-                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatVND(r.totalValue)}</TableCell>
-                                                            </TableRow>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                                {/* Tháng con inline */}
+                                                                {qExpanded && childMonths.map((m, mi) => {
+                                                                    const fullLabel = `${m.label} / ${qYear}`;
+                                                                    const mNotes = salesMode === 'outbound' ? m.deliveryNotes : m.grnNotes;
+                                                                    const mQty = salesMode === 'outbound' ? m.totalQty : m.grnQty;
+                                                                    const mVal = salesMode === 'outbound' ? m.totalValue : m.grnValue;
+                                                                    const prevMRow = MOCK_DATA.find(r => r.level === LEVEL.MONTH && r.periodLabel === fullLabel && parseInt(r.periodLabel) < qYear);
+                                                                    const prevMVal = salesMode === 'outbound' ? prevMRow?.totalValue : prevMRow?.grnValue;
+                                                                    const mChg = calcChange(mVal, prevMVal);
+                                                                    const mGrowth = calcGrowth(mChg, prevMVal);
+                                                                    return (
+                                                                        <TableRow key={`m-${qi}-${mi}`} sx={{ bgcolor: '#fafbfc', '&:last-child td': { borderBottom: 0 } }}>
+                                                                            <TableCell sx={{ py: 1.25, px: 2, pl: 5, borderBottom: '1px solid #f3f4f6' }}>
+                                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                                    <Box sx={{ width: 16, height: 16 }} />
+                                                                                    <Typography sx={{ fontSize: '13px', color: '#374151' }}>{m.label}</Typography>
+                                                                                </Box>
+                                                                            </TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: '#6b7280' }}>{formatNumber(mNotes)}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: '#6b7280' }}>{formatNumber(mQty)}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 600, color: '#374151' }}>{formatVND(mVal)}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{prevMVal != null ? formatVND(prevMVal) : '—'}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mChg), fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{mChg != null ? formatSignedCurrency(mChg) : '—'}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mGrowth), fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{mGrowth != null ? formatSignedPercent(mGrowth) : '—'}</TableCell>
+                                                                            <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }}>
+                                                                                <Tooltip title="Xem chi tiết Tháng">
+                                                                                    <IconButton size="small" onClick={() => navigateToPeriod(fullLabel)}
+                                                                                        sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
+                                                                                        <Eye size={14} />
+                                                                                    </IconButton>
+                                                                                </Tooltip>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    );
+                                                                })}
+                                                            </React.Fragment>
                                                         );
                                                     })}
                                                 </TableBody>
@@ -965,48 +1075,98 @@ export default function ViewSalesReportDetail() {
                                     </Paper>
                                 )}
 
-                                {/* Chi tiết Tháng */}
-                                {monthBreakdown && (
+                                {/* ── QUARTER detail: Chi tiết theo Tháng (collapse inline đến Tuần) ── */}
+                                {currentRow?.level === LEVEL.QUARTER && monthBreakdown && (
                                     <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden', m: 2, mb: 1.5 }}>
                                         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Chi tiết theo Tháng</Typography>
-                                            <Chip label={currentRow?.level === LEVEL.QUARTER ? currentRow.periodLabel : `Năm ${currentRow?.periodLabel}`} size="small" sx={{ bgcolor: 'rgba(2,132,199,0.1)', color: '#0369a1', fontSize: '11px', height: 20 }} />
+                                            <Chip label={currentRow.periodLabel} size="small" sx={{ bgcolor: 'rgba(2,132,199,0.1)', color: '#0369a1', fontSize: '11px', height: 20 }} />
                                         </Box>
                                         <TableContainer>
                                             <Table size="small">
                                                 <TableHead>
                                                     <TableRow>
                                                         <THLeft>Tháng</THLeft>
-                                                        <TH>Số phiếu xuất</TH>
-                                                        <TH>Tổng SL xuất</TH>
-                                                        <TH>Giá trị xuất hàng</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Số phiếu xuất' : 'Số phiếu nhập'}</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Số lượng xuất' : 'Số lượng nhập'}</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Giá trị xuất' : 'Giá trị nhập'}</TH>
+                                                        <TH>Kỳ so sánh</TH>
+                                                        <TH>Chênh lệch</TH>
+                                                        <TH>Tăng trưởng</TH>
+                                                        <TH></TH>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
-                                                    {monthBreakdown.map((r, i) => {
-                                                        const isCurrentPeriod = currentRow?.level === LEVEL.MONTH &&
-                                                            currentRow?.periodLabel === `${r.label} / ${params.year}`;
-                                                        const fullLabel = `${r.label} / ${params.year}`;
+                                                    {monthBreakdown.map((m, mi) => {
+                                                        const fullLabel = `${m.label} / ${params.year}`;
+                                                        const isCurrentPeriod = currentRow?.level === LEVEL.MONTH && currentRow?.periodLabel === fullLabel;
+                                                        const mExpanded = expandedItems[`m-${mi}`] || false;
+                                                        const mNotes = salesMode === 'outbound' ? m.deliveryNotes : m.grnNotes;
+                                                        const mQty = salesMode === 'outbound' ? m.totalQty : m.grnQty;
+                                                        const mVal = salesMode === 'outbound' ? m.totalValue : m.grnValue;
+                                                        // compare
+                                                        const mNum = parseInt(m.label.replace('Tháng ', ''));
+                                                        const mYear = parseInt(params.year);
+                                                        const prevMRow = MOCK_DATA.find(r => r.level === LEVEL.MONTH && r.periodLabel === fullLabel && parseInt(r.periodLabel.split(' / ')[1]) < mYear);
+                                                        const prevMVal = salesMode === 'outbound' ? prevMRow?.totalValue : prevMRow?.grnValue;
+                                                        const mChg = calcChange(mVal, prevMVal);
+                                                        const mGrowth = calcGrowth(mChg, prevMVal);
+                                                        // tuần con
+                                                        const weeks = (MOCK_WEEK_BREAKDOWN[mYear]?.[mNum] || []);
+
                                                         return (
-                                                            <TableRow key={i} hover sx={{ bgcolor: isCurrentPeriod ? '#f0f9ff' : undefined, '&:last-child td': { borderBottom: 0 } }}>
-                                                                <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
-                                                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
-                                                                        <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : undefined }}>
-                                                                            {r.label}
-                                                                        </Typography>
-                                                                        <Tooltip title="Xem chi tiết">
-                                                                            <IconButton size="small"
-                                                                                onClick={() => navigateToPeriod(fullLabel)}
+                                                            <React.Fragment key={mi}>
+                                                                <TableRow hover sx={{ bgcolor: isCurrentPeriod ? '#f0f9ff' : undefined, '&:last-child td': { borderBottom: 0 } }}>
+                                                                    <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                            <Box onClick={() => toggleExpand(`m-${mi}`)} sx={{ cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', '&:hover': { color: '#374151' } }}>
+                                                                                <Typography sx={{ fontSize: '12px', lineHeight: 1 }}>{mExpanded ? '▾' : '▸'}</Typography>
+                                                                            </Box>
+                                                                            <Typography sx={{ fontWeight: 500, color: isCurrentPeriod ? '#0369a1' : '#111827' }}>
+                                                                                {m.label}
+                                                                            </Typography>
+                                                                        </Box>
+                                                                    </TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(mNotes)}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(mQty)}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatVND(mVal)}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{prevMVal != null ? formatVND(prevMVal) : '—'}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mChg), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 500 }}>{mChg != null ? formatSignedCurrency(mChg) : '—'}</TableCell>
+                                                                    <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mGrowth), fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 600 }}>{mGrowth != null ? formatSignedPercent(mGrowth) : '—'}</TableCell>
+                                                                    <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }}>
+                                                                        <Tooltip title="Xem chi tiết Tháng">
+                                                                            <IconButton size="small" onClick={() => navigateToPeriod(fullLabel)}
                                                                                 sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
                                                                                 <Eye size={14} />
                                                                             </IconButton>
                                                                         </Tooltip>
-                                                                    </Box>
-                                                                </TableCell>
-                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(r.deliveryNotes)}</TableCell>
-                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(r.totalQty)}</TableCell>
-                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatVND(r.totalValue)}</TableCell>
-                                                            </TableRow>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                                {/* Tuần con inline */}
+                                                                {mExpanded && weeks.map((w, wi) => {
+                                                                    const wNotes = salesMode === 'outbound' ? w.deliveryNotes : w.grnNotes;
+                                                                    const wQty = salesMode === 'outbound' ? w.totalQty : w.grnQty;
+                                                                    const wVal = salesMode === 'outbound' ? w.totalValue : w.grnValue;
+                                                                    return (
+                                                                        <TableRow key={`w-${mi}-${wi}`} sx={{ bgcolor: '#fafbfc', '&:last-child td': { borderBottom: 0 } }}>
+                                                                            <TableCell sx={{ py: 1.25, px: 2, pl: 5, borderBottom: '1px solid #f3f4f6' }}>
+                                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                                    <Box sx={{ width: 16, height: 16 }} />
+                                                                                    <Typography sx={{ fontSize: '13px', color: '#374151' }}>{w.label}</Typography>
+                                                                                    <Typography sx={{ fontSize: '11px', color: '#9ca3af' }}>({w.days})</Typography>
+                                                                                </Box>
+                                                                            </TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: '#6b7280' }}>{formatNumber(wNotes)}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: '#6b7280' }}>{formatNumber(wQty)}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 600, color: '#374151' }}>{formatVND(wVal)}</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>—</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>—</TableCell>
+                                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>—</TableCell>
+                                                                            <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }} />
+                                                                        </TableRow>
+                                                                    );
+                                                                })}
+                                                            </React.Fragment>
                                                         );
                                                     })}
                                                 </TableBody>
@@ -1015,8 +1175,8 @@ export default function ViewSalesReportDetail() {
                                     </Paper>
                                 )}
 
-                                {/* Chi tiết Tuần */}
-                                {weekBreakdown && (
+                                {/* ── MONTH detail: Chi tiết theo Tuần ── */}
+                                {currentRow?.level === LEVEL.MONTH && weekBreakdown && (
                                     <Paper elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: '14px', bgcolor: '#fff', overflow: 'hidden', m: 2, mb: 1.5 }}>
                                         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Chi tiết theo Tuần</Typography>
@@ -1028,21 +1188,26 @@ export default function ViewSalesReportDetail() {
                                                     <TableRow>
                                                         <THLeft>Tuần</THLeft>
                                                         <THLeft>Ngày</THLeft>
-                                                        <TH>Số phiếu xuất</TH>
-                                                        <TH>Tổng SL xuất</TH>
-                                                        <TH>Giá trị xuất hàng</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Số phiếu xuất' : 'Số phiếu nhập'}</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Số lượng xuất' : 'Số lượng nhập'}</TH>
+                                                        <TH>{salesMode === 'outbound' ? 'Giá trị xuất' : 'Giá trị nhập'}</TH>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
-                                                    {weekBreakdown.map((r, i) => (
-                                                        <TableRow key={i} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                                                            <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 500 }}>{r.label}</TableCell>
-                                                            <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontSize: '12px' }}>{r.days}</TableCell>
-                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(r.deliveryNotes)}</TableCell>
-                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(r.totalQty)}</TableCell>
-                                                            <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatVND(r.totalValue)}</TableCell>
-                                                        </TableRow>
-                                                    ))}
+                                                    {weekBreakdown.map((w, wi) => {
+                                                        const wNotes = salesMode === 'outbound' ? w.deliveryNotes : w.grnNotes;
+                                                        const wQty = salesMode === 'outbound' ? w.totalQty : w.grnQty;
+                                                        const wVal = salesMode === 'outbound' ? w.totalValue : w.grnValue;
+                                                        return (
+                                                            <TableRow key={wi} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                                                <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 500, fontSize: '13px' }}>{w.label}</TableCell>
+                                                                <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontSize: '12px' }}>{w.days}</TableCell>
+                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(wNotes)}</TableCell>
+                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatNumber(wQty)}</TableCell>
+                                                                <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: '13px' }}>{formatVND(wVal)}</TableCell>
+                                                            </TableRow>
+                                                        );
+                                                    })}
                                                 </TableBody>
                                             </Table>
                                         </TableContainer>
