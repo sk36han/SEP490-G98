@@ -22,7 +22,7 @@ namespace Warehouse.Api.ApiController
         /// Tạo yêu cầu xuất kho
         /// </summary>
         [HttpPost("create")]
-        [Authorize(Roles = "ADMIN,GD,KT,SE")]
+        [Authorize(Roles = "SP,GD,KT,SE,TK")]
         public async Task<IActionResult> CreateReleaseRequest([FromBody] CreateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
@@ -93,7 +93,7 @@ namespace Warehouse.Api.ApiController
         /// Cập nhật yêu cầu xuất kho
         /// </summary>
         [HttpPut("update/{id:long}")]
-        [Authorize(Roles = "ADMIN,GD,KT,SE")]
+        [Authorize(Roles = "SP,KT,TK,SE")]
         public async Task<IActionResult> UpdateReleaseRequest(long id, [FromBody] UpdateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
@@ -126,7 +126,7 @@ namespace Warehouse.Api.ApiController
         /// Đóng yêu cầu xuất kho (giải phóng tồn kho đã giữ)
         /// </summary>
         [HttpPut("close/{id:long}")]
-        [Authorize(Roles = "KT,GD,ADMIN,SE")]
+        [Authorize(Roles = "KT,SP,SE")]
         public async Task<IActionResult> CloseReleaseRequest(long id)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -152,10 +152,10 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
-        /// Duyệt/Từ chối yêu cầu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
+        /// Duyệt/Từ chối yêu cầu xuất kho (giai đoạn: Kế toán )
         /// </summary>
         [HttpPut("approve/{id:long}")]
-        [Authorize(Roles = "KT,ADMIN, SE")]
+        [Authorize(Roles = "KT")]
         public async Task<IActionResult> ApproveReleaseRequest(long id, [FromBody] ApproveReleaseRequest request)
         {
             if (!ModelState.IsValid)
@@ -189,7 +189,7 @@ namespace Warehouse.Api.ApiController
         /// Hủy yêu cầu xuất kho (giải phóng tồn kho đã giữ)
         /// </summary>
         [HttpPut("cancel/{id:long}")]
-        [Authorize(Roles = "ADMIN,GD,KT,SE")]
+        [Authorize(Roles = "SP,KT,SE")]
         public async Task<IActionResult> CancelReleaseRequest(long id)
         {
             try

@@ -12,17 +12,17 @@ import { X } from 'lucide-react';
 
 const APPROVAL_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
-    { value: 'Draft', label: 'Bản nháp' },
-    { value: 'Pending', label: 'Chờ duyệt' },
-    { value: 'Approved', label: 'Đã duyệt' },
-    { value: 'Rejected', label: 'Từ chối' },
+    { value: 'DRAFT', label: 'Bản nháp' },
+    { value: 'Pending_Acc', label: 'Chờ duyệt' },
+    { value: 'APPROVED', label: 'Đã duyệt' },
+    { value: 'REJECTED', label: 'Từ chối' },
 ];
 
 const RECEIVING_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
-    { value: 'Pending', label: 'Chờ nhập' },
-    { value: 'Partial', label: 'Nhập một phần' },
-    { value: 'Completed', label: 'Nhập toàn bộ' },
+    { value: 'PendingRcv', label: 'Chờ nhập' },
+    { value: 'PartialRcv', label: 'Nhập một phần' },
+    { value: 'FullRcv', label: 'Nhập toàn bộ' },
 ];
 
 /**
@@ -34,6 +34,7 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
     const [supplier, setSupplier] = useState('');
     const [warehouse, setWarehouse] = useState('');
     const [creator, setCreator] = useState('');
+    const [responsiblePerson, setResponsiblePerson] = useState('');
     const [product, setProduct] = useState('');
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
@@ -55,6 +56,7 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
         setSupplier(initialValues.supplier ?? '');
         setWarehouse(initialValues.warehouse ?? '');
         setCreator(initialValues.creator ?? '');
+        setResponsiblePerson(initialValues.responsiblePerson ?? '');
         setProduct(initialValues.product ?? '');
         setFromDate(initialValues.fromDate ?? '');
         setToDate(initialValues.toDate ?? '');
@@ -67,12 +69,13 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
             supplier: supplier || undefined,
             warehouse: warehouse || undefined,
             creator: creator || undefined,
+            responsiblePerson: responsiblePerson || undefined,
             product: product || undefined,
             fromDate: fromDate || undefined,
             toDate: toDate || undefined,
         });
         onClose();
-    }, [approvalStatusOption, receivingStatusOption, supplier, warehouse, creator, product, fromDate, toDate, onApply, onClose]);
+    }, [approvalStatusOption, receivingStatusOption, supplier, warehouse, creator, responsiblePerson, product, fromDate, toDate, onApply, onClose]);
 
     const handleClear = useCallback(() => {
         setApprovalStatusOption(APPROVAL_STATUS_OPTIONS[0]);
@@ -80,6 +83,7 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
         setSupplier('');
         setWarehouse('');
         setCreator('');
+        setResponsiblePerson('');
         setProduct('');
         setFromDate('');
         setToDate('');
@@ -89,6 +93,7 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
             supplier: undefined,
             warehouse: undefined,
             creator: undefined,
+            responsiblePerson: undefined,
             product: undefined,
             fromDate: undefined,
             toDate: undefined,
@@ -337,6 +342,35 @@ export default function PurchaseOrderFilterPopup({ open, onClose, initialValues 
                         onChange={(e) => setCreator(e.target.value)}
                         fullWidth
                         placeholder="Tìm theo tên nhân viên"
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                height: 40,
+                                bgcolor: '#f3f4f6',
+                                borderRadius: '10px',
+                                fontSize: '13px',
+                                '& fieldset': { border: 'none' },
+                                '&:hover': { bgcolor: '#e5e7eb' },
+                                '&.Mui-focused': {
+                                    bgcolor: '#ffffff',
+                                    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+                                    '& fieldset': { border: '1px solid #3b82f6' },
+                                },
+                            },
+                            '& .MuiInputBase-input': { fontSize: '13px' },
+                        }}
+                    />
+                </Box>
+
+                <Box>
+                    <Typography variant="body2" sx={{ fontSize: '12px', color: '#6b7280', mb: 0.75, fontWeight: 500 }}>
+                        Nhân viên phụ trách
+                    </Typography>
+                    <TextField
+                        size="small"
+                        value={responsiblePerson}
+                        onChange={(e) => setResponsiblePerson(e.target.value)}
+                        fullWidth
+                        placeholder="Tìm theo tên nhân viên phụ trách"
                         sx={{
                             '& .MuiOutlinedInput-root': {
                                 height: 40,

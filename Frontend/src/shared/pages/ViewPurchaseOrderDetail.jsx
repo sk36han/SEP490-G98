@@ -83,7 +83,7 @@ const mapOrderDetail = (data) => ({
     supplierName: data.supplierName ?? data.SupplierName ?? '',
     warehouseId: data.warehouseId ?? data.WarehouseId ?? null,
     warehouseName: data.warehouseName ?? data.WarehouseName ?? '',
-    creatorId: data.requestedBy ?? data.RequestedBy ?? null,
+    creatorId: data.requestedBy ?? data.RequestedBy ?? data.createdBy ?? data.CreatedBy ?? null,
     creatorName: data.requestedByName || data.RequestedByName || '',
     responsibleUserId: data.responsibleUserId ?? data.ResponsibleUserId ?? null,
     responsiblePersonName: data.responsibleUserName || data.ResponsibleUserName || '',
@@ -438,11 +438,15 @@ const ViewPurchaseOrderDetail = () => {
 
                 const mapped = mapOrderDetail(data);
 
-                const currentUserId = userInfo?.userId ?? userInfo?.UserId ?? null;
+                // Dùng authService.getCurrentUserId() thay vì tự đọc userInfo
+                // vì userInfo trong localStorage có thể thiếu trường userId
+                const currentUserId = authService.getCurrentUserId();
                 const isDraft = (mapped.approvalStatus || '').toUpperCase() === 'DRAFT';
                 const isCreator = mapped.creatorId != null && String(mapped.creatorId) === String(currentUserId);
 
-                if (isDraft && !isCreator) {
+                // Nếu là DRAFT: chỉ chặn khi CHẮC CHẮN không phải người tạo
+                // creatorId null (backend chưa trả) → cho phép xem (tránh chặn nhầm creator)
+                if (isDraft && mapped.creatorId != null && !isCreator) {
                     setAccessDenied(true);
                     return mapped;
                 }

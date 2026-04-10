@@ -213,3 +213,15 @@ export async function updateItem(itemId, payload) {
     const response = await apiClient.put(`/Item/update-item/${itemId}`, payload);
     return response?.data;
 }
+
+/**
+ * Xuất danh sách vật tư ra Excel.
+ * GET /Item/export-excel
+ * @returns {Promise<Blob>}
+ */
+export async function exportItemsExcel() {
+    const response = await apiClient.get('/Item/export-excel', {
+        responseType: 'blob',
+    });
+    return response?.data;
+}

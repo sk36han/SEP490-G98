@@ -9,5 +9,7 @@ namespace Warehouse.Entities.ModelResponse
         public bool IsActive { get; set; }
         public string? RoleName { get; set; }
         public DateTime? LastLoginAt { get; set; }
+        public string? Gender { get; set; }
+        public DateOnly? Dob { get; set; }
     }
 }
