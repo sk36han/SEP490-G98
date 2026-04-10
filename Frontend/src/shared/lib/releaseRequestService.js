@@ -39,10 +39,6 @@ function getCurrentUserId() {
 
 function mapReleaseRequestRow(row) {
     if (row == null || typeof row !== 'object') return null;
-
-    // API có thể trả receiver lồng trong object hoặc flatten ở top-level
-    const r = row.receiver ?? {};
-
     return {
         releaseRequestId: row.releaseRequestId ?? row.ReleaseRequestId,
         releaseRequestCode: row.releaseRequestCode ?? row.ReleaseRequestCode ?? '',
@@ -54,27 +50,26 @@ function mapReleaseRequestRow(row) {
         note: row.note ?? row.Note ?? null,
         warehouseId: row.warehouseId ?? row.WarehouseId,
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
-        // Receiver — ưu tiên top-level, fallback vào receiver object
-        receiverId: row.receiverId ?? row.ReceiverId ?? r.receiverId ?? r.ReceiverId,
-        receiverName: row.receiverName ?? row.ReceiverName ?? r.receiverName ?? r.ReceiverName ?? '',
-        receiverPhone: row.receiverPhone ?? row.ReceiverPhone ?? r.phone ?? r.Phone ?? '',
-        receiverEmail: row.receiverEmail ?? row.ReceiverEmail ?? r.email ?? r.Email ?? '',
-        receiverPosition: row.receiverPosition ?? row.ReceiverPosition ?? r.position ?? r.Position ?? '',
-        // Company
-        companyId: row.companyId ?? row.CompanyId ?? r.companyId ?? r.CompanyId ?? null,
-        companyName: row.companyName ?? row.CompanyName ?? r.companyName ?? r.CompanyName ?? '',
-        // Address
-        addressId: row.addressId ?? row.AddressId ?? r.addressId ?? r.AddressId ?? null,
-        address: row.address ?? row.Address ?? r.address ?? r.Address ?? '',
-        city: row.city ?? row.City ?? r.city ?? r.City ?? '',
-        district: row.district ?? row.District ?? r.district ?? r.District ?? '',
-        ward: row.ward ?? row.Ward ?? r.ward ?? r.Ward ?? '',
+        receiverId: row.receiverId ?? row.ReceiverId,
+        receiverName: row.receiverName ?? row.ReceiverName ?? '',
+        receiverPhone: row.receiverPhone ?? row.ReceiverPhone ?? '',
+        receiverEmail: row.receiverEmail ?? row.ReceiverEmail ?? '',
+        receiverPosition: row.receiverPosition ?? row.ReceiverPosition ?? '',
+        companyId: row.companyId ?? row.CompanyId ?? null,
+        companyName: row.companyName ?? row.CompanyName ?? '',
+        addressId: row.addressId ?? row.AddressId ?? null,
+        address: row.address ?? row.Address ?? row.receiverAddress ?? row.ReceiverAddress ?? '',
+        city: row.city ?? row.City ?? '',
+        district: row.district ?? row.District ?? '',
+        ward: row.ward ?? row.Ward ?? '',
         requestedBy: row.requestedBy ?? row.RequestedBy,
         requestedByName: row.requestedByName ?? row.RequestedByName ?? '',
         totalItems: row.totalItems ?? row.TotalItems ?? 0,
         totalRequestedQty: row.totalRequestedQty ?? row.TotalRequestedQty ?? 0,
+        totalAmount: row.totalAmount ?? row.TotalAmount ?? 0,
         createdAt: row.createdAt ?? row.CreatedAt ?? null,
         submittedAt: row.submittedAt ?? row.SubmittedAt ?? null,
+        approvedAt: row.approvedAt ?? row.ApprovedAt ?? null,
     };
 }
 
@@ -93,6 +88,41 @@ function mapReleaseRequestLineRow(row) {
         issuedQty: row.issuedQty ?? row.IssuedQty ?? 0,
         lineStatus: row.lineStatus ?? row.LineStatus ?? '',
         note: row.note ?? row.Note ?? null,
+        stockQty: row.stockQty ?? row.StockQty ?? 0,
+        unitPrice: row.unitPrice ?? row.UnitPrice ?? 0,
+        lineTotal: row.lineTotal ?? row.LineTotal ?? 0,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? '',
+    };
+}
+
+function mapApprovalRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
+        approvalId: row.approvalId ?? row.ApprovalId,
+        stageNo: row.stageNo ?? row.StageNo ?? 0,
+        decision: row.decision ?? row.Decision ?? '',
+        reason: row.reason ?? row.Reason ?? null,
+        actionBy: row.actionBy ?? row.ActionBy,
+        actionByName: row.actionByName ?? row.ActionByName ?? '',
+        actionAt: row.actionAt ?? row.ActionAt ?? null,
+    };
+}
+
+function mapReceiverRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
+        receiverId: row.receiverId ?? row.ReceiverId,
+        receiverName: row.receiverName ?? row.ReceiverName ?? '',
+        phone: row.phone ?? row.Phone ?? '',
+        email: row.email ?? row.Email ?? '',
+        companyId: row.companyId ?? row.CompanyId ?? null,
+        companyName: row.companyName ?? row.CompanyName ?? '',
+        notes: row.notes ?? row.Notes ?? null,
+        address: row.address ?? row.Address ?? '',
+        city: row.city ?? row.City ?? '',
+        district: row.district ?? row.District ?? '',
+        ward: row.ward ?? row.Ward ?? '',
     };
 }
 
@@ -127,6 +157,7 @@ export async function getReleaseRequests(params = {}) {
 
 /**
  * Lấy chi tiết yêu cầu xuất kho.
+ * Backend trả: ReleaseRequestDetailResponse (kèm Lines, Receiver, Approvals)
  * @param {number|string} id
  */
 export async function getReleaseRequestDetail(id) {
@@ -137,8 +168,23 @@ export async function getReleaseRequestDetail(id) {
 
         return {
             ...mapReleaseRequestRow(body),
-            receiver: body.receiver ?? null,
+            // Receiver embed (flatten lên top-level để UI đọc trực tiếp)
+            receiver: body.receiver ? mapReceiverRow(body.receiver) : null,
+            receiverName: body.receiver?.receiverName ?? body.receiver?.ReceiverName ?? '',
+            receiverPhone: body.receiver?.phone ?? body.receiver?.Phone ?? '',
+            receiverEmail: body.receiver?.email ?? body.receiver?.Email ?? '',
+            receiverPosition: body.receiver?.position ?? body.receiver?.Position ?? '',
+            companyId: body.receiver?.companyId ?? body.receiver?.CompanyId ?? body.companyId ?? body.CompanyId ?? null,
+            companyName: body.receiver?.companyName ?? body.receiver?.CompanyName ?? body.companyName ?? body.CompanyName ?? '',
+            addressId: body.receiver?.addressId ?? body.receiver?.AddressId ?? null,
+            address: body.receiver?.address ?? body.receiver?.Address ?? '',
+            city: body.receiver?.city ?? body.receiver?.City ?? '',
+            district: body.receiver?.district ?? body.receiver?.District ?? '',
+            ward: body.receiver?.ward ?? body.receiver?.Ward ?? '',
+            // Lines
             lines: (body.Lines ?? body.lines ?? []).map(mapReleaseRequestLineRow),
+            // Approvals
+            approvals: (body.Approvals ?? body.approvals ?? []).map(mapApprovalRow),
         };
     } catch (error) {
         console.error('[releaseRequestService] getReleaseRequestDetail failed:', error);
