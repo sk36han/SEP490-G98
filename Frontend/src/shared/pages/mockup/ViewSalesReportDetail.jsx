@@ -3,7 +3,7 @@
  * Nhận params từ URL: /reports/sales/detail/{year|quarter|month}/{...params}
  * Style đồng bộ với các trang detail khác trong hệ thống.
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     Box,
@@ -598,6 +598,17 @@ export default function ViewSalesReportDetail() {
         return null;
     }, [currentRow, effectiveCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions]);
 
+    // ── Tính giá trị so sánh cho từng item/row dựa trên kỳ so sánh đang chọn ──
+    // Chia tỷ trọng của compareRow cho các row con (item, supplier) theo share hiện tại
+    const totalCurrentValue = MOCK_ITEMS_DATA.reduce((s, i) => s + (salesMode === 'inbound' ? i.grnValue : i.totalValue), 0);
+    const totalCurrentSupplierValue = (salesMode === 'inbound' ? MOCK_GRN_SUPPLIER_DATA : MOCK_RECEIVER_DATA).reduce((s, i) => s + (salesMode === 'inbound' ? i.grnValue : i.totalValue), 0);
+
+    const getCompareVal = (rowShare) => {
+        const compareTotal = salesMode === 'inbound' ? compareRow?.grnValue : compareRow?.totalValue;
+        if (!compareTotal || !rowShare) return null;
+        return compareTotal * rowShare / 100;
+    };
+
     const diffOut = currentRow ? (currentRow.totalValue - (compareRow?.totalValue ?? 0)) : null;
     const pctOut = compareRow && compareRow.totalValue > 0 ? (diffOut / compareRow.totalValue) * 100 : null;
     const diffIn = currentRow ? (currentRow.grnValue - (compareRow?.grnValue ?? 0)) : null;
@@ -621,6 +632,22 @@ export default function ViewSalesReportDetail() {
         }
         return null;
     }, [currentRow, effectiveCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions]);
+
+    // ── Auto-set initial compare period on mount (runs once after render) ──
+    useEffect(() => {
+        if (currentRow?.level === LEVEL.YEAR && compareYearOptions[0]?.value) {
+            setSelectedCompareYear(compareYearOptions[0].value);
+        }
+        if (currentRow?.level === LEVEL.QUARTER) {
+            if (compareQOptions[0]?.value) setCompareQ(compareQOptions[0].value);
+            if (compareQYOptions[0]?.value) setCompareQYear(compareQYOptions[0].value);
+        }
+        if (currentRow?.level === LEVEL.MONTH) {
+            if (compareMOptions[0]?.value) setCompareM(compareMOptions[0].value);
+            if (compareMYOptions[0]?.value) setCompareMYear(compareMYOptions[0].value);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // empty deps = run once on mount
 
     // ── Navigate sang detail kỳ ───────────────────────────────────────────
     const navigateToPeriod = (periodLabel) => {
@@ -679,7 +706,7 @@ export default function ViewSalesReportDetail() {
     // ── Item tab data ─────────────────────────────────────────────────────
     const [itemSearch, setItemSearch] = useState('');
     const [itemPage, setItemPage] = useState(0);
-    const [itemRowsPerPage, setItemRowsPerPage] = useState(5);
+    const [itemRowsPerPage, setItemRowsPerPage] = useState(10);
 
     const itemTop = MOCK_ITEMS_DATA.slice(0, 8);
     const itemBest = itemTop[0];
@@ -711,7 +738,7 @@ export default function ViewSalesReportDetail() {
     // ── Supplier tab data ─ combined delivery + GRN ───────────────────────
     const [supplierSearch, setSupplierSearch] = useState('');
     const [supplierPage, setSupplierPage] = useState(0);
-    const [supplierRowsPerPage, setSupplierRowsPerPage] = useState(5);
+    const [supplierRowsPerPage, setSupplierRowsPerPage] = useState(10);
 
     const supplierFiltered = useMemo(() => {
         const data = salesMode === 'inbound' ? MOCK_GRN_SUPPLIER_DATA : MOCK_RECEIVER_DATA;
@@ -783,11 +810,10 @@ export default function ViewSalesReportDetail() {
 
                 {/* ── TẦNG 1: Snapshot kỳ hiện tại ── */}
                 <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
-                    <HeaderCard
-                        label="Kỳ báo cáo"
-                        value={currentRow.periodLabel}
-                        color="#374151"
-                    />
+                    <Box sx={{ flex: '0 0 auto', minWidth: 120, bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>Kỳ báo cáo</Typography>
+                        <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#374151', lineHeight: 1.2 }}>{currentRow.periodLabel}</Typography>
+                    </Box>
                     <HeaderCard
                         label="Xuất hàng"
                         value={formatVND(currentRow.totalValue)}
@@ -811,10 +837,10 @@ export default function ViewSalesReportDetail() {
                             {currentRow?.level === LEVEL.YEAR && (
                                 <FormControl size="small" sx={{ minWidth: 130 }}>
                                     <Select
-                                        value={selectedCompareYear ?? ''}
+                                        value={effectiveCompareYear ?? ''}
                                         onChange={(e) => { setSelectedCompareYear(e.target.value); }}
                                         displayEmpty
-                                        sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                        sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' }, '& .MuiSelect-icon': { fontSize: '20px' } }}
                                     >
                                         {compareYearOptions.map(opt => (
                                             <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
@@ -829,7 +855,7 @@ export default function ViewSalesReportDetail() {
                                             value={selectedCompareQ ?? ''}
                                             onChange={(e) => { setCompareQ(e.target.value); }}
                                             displayEmpty
-                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' }, '& .MuiSelect-icon': { fontSize: '20px' } }}
                                         >
                                             {compareQOptions.map(opt => (
                                                 <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
@@ -841,7 +867,7 @@ export default function ViewSalesReportDetail() {
                                             value={selectedCompareQY ?? ''}
                                             onChange={(e) => { setCompareQYear(e.target.value); }}
                                             displayEmpty
-                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' }, '& .MuiSelect-icon': { fontSize: '20px' } }}
                                         >
                                             {compareQYOptions.map(opt => (
                                                 <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
@@ -857,7 +883,7 @@ export default function ViewSalesReportDetail() {
                                             value={selectedCompareM ?? ''}
                                             onChange={(e) => { setCompareM(e.target.value); }}
                                             displayEmpty
-                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' }, '& .MuiSelect-icon': { fontSize: '20px' } }}
                                         >
                                             {compareMOptions.map(opt => (
                                                 <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
@@ -869,7 +895,7 @@ export default function ViewSalesReportDetail() {
                                             value={selectedCompareMY ?? ''}
                                             onChange={(e) => { setCompareMYear(e.target.value); }}
                                             displayEmpty
-                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' } }}
+                                            sx={{ fontSize: '13px', height: 32, borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' }, '& .MuiSelect-icon': { fontSize: '20px' } }}
                                         >
                                             {compareMYOptions.map(opt => (
                                                 <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '13px' }}>{opt.label}</MenuItem>
@@ -897,7 +923,7 @@ export default function ViewSalesReportDetail() {
                         label="Nhập hàng kỳ so sánh"
                         value={compareRow ? formatVND(compareRow.grnValue) : '—'}
                         meta={compareRow ? `${formatNumber(compareRow.grnNotes)} phiếu · ${formatNumber(compareRow.grnQty)} số lượng` : ''}
-                        color="#059669"
+                        color="#7c3aed"
                     />
 
                     {/* Chênh lệch nhập */}
@@ -1037,9 +1063,17 @@ export default function ViewSalesReportDetail() {
                                                                     return (
                                                                         <TableRow key={`m-${qi}-${mi}`} sx={{ bgcolor: '#fafbfc', '&:last-child td': { borderBottom: 0 } }}>
                                                                             <TableCell sx={{ py: 1.25, px: 2, pl: 5, borderBottom: '1px solid #f3f4f6' }}>
-                                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                                    <Box sx={{ width: 16, height: 16 }} />
-                                                                                    <Typography sx={{ fontSize: '13px', color: '#374151' }}>{m.label}</Typography>
+                                                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                                        <Box sx={{ width: 16, height: 16 }} />
+                                                                                        <Typography sx={{ fontSize: '13px', color: '#374151' }}>{m.label}</Typography>
+                                                                                    </Box>
+                                                                                    <Tooltip title="Xem chi tiết Tháng">
+                                                                                        <IconButton size="small" onClick={() => navigateToPeriod(fullLabel)}
+                                                                                            sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
+                                                                                            <Eye size={14} />
+                                                                                        </IconButton>
+                                                                                    </Tooltip>
                                                                                 </Box>
                                                                             </TableCell>
                                                                             <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: '#6b7280' }}>{formatNumber(mNotes)}</TableCell>
@@ -1048,14 +1082,6 @@ export default function ViewSalesReportDetail() {
                                                                             <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{prevMVal != null ? formatVND(prevMVal) : '—'}</TableCell>
                                                                             <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mChg), fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{mChg != null ? formatSignedCurrency(mChg) : '—'}</TableCell>
                                                                             <TableCell align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: changeColor(mGrowth), fontVariantNumeric: 'tabular-nums', fontSize: '12px' }}>{mGrowth != null ? formatSignedPercent(mGrowth) : '—'}</TableCell>
-                                                                            <TableCell sx={{ py: 1.25, px: 1, borderBottom: '1px solid #f3f4f6' }}>
-                                                                                <Tooltip title="Xem chi tiết Tháng">
-                                                                                    <IconButton size="small" onClick={() => navigateToPeriod(fullLabel)}
-                                                                                        sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
-                                                                                        <Eye size={14} />
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                            </TableCell>
                                                                         </TableRow>
                                                                     );
                                                                 })}
@@ -1295,9 +1321,9 @@ export default function ViewSalesReportDetail() {
                                                     const notes = salesMode === 'inbound' ? item.grnNotes : item.deliveryNotes;
                                                     const qty = salesMode === 'inbound' ? item.grnQty : item.totalQty;
                                                     const share = salesMode === 'inbound' ? item.grnShare : item.share;
-                                                    const growth = salesMode === 'inbound' ? item.grnGrowth : item.growth;
-                                                    const prevVal = val / (1 + growth / 100);
+                                                    const prevVal = getCompareVal(share);
                                                     const chgVal = calcChange(val, prevVal);
+                                                    const growth = calcGrowth(chgVal, prevVal);
                                                     return (
                                                         <TableRow key={item.code} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
                                                             <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontSize: '12px' }}>{itemPage * itemRowsPerPage + i + 1}</TableCell>
@@ -1417,12 +1443,12 @@ export default function ViewSalesReportDetail() {
                                             <TableBody>
                                                 {supplierPaginated.map((r, i) => {
                                                     const val = salesMode === 'inbound' ? r.grnValue : r.totalValue;
-                                                    const prevVal = val / (1 + (salesMode === 'inbound' ? r.grnGrowth : r.growth) / 100);
+                                                    const share = salesMode === 'inbound' ? r.grnShare : r.share;
+                                                    const prevVal = getCompareVal(share);
                                                     const chgVal = calcChange(val, prevVal);
-                                                    const growth = salesMode === 'inbound' ? r.grnGrowth : r.growth;
+                                                    const growth = calcGrowth(chgVal, prevVal);
                                                     const notes = salesMode === 'inbound' ? r.grnNotes : r.deliveryNotes;
                                                     const qty = salesMode === 'inbound' ? r.grnQty : r.totalQty;
-                                                    const share = salesMode === 'inbound' ? r.grnShare : r.share;
                                                     return (
                                                         <TableRow key={r.code} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
                                                             <TableCell sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', color: '#9ca3af', fontSize: '12px' }}>{supplierPage * supplierRowsPerPage + i + 1}</TableCell>
