@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import { formatDateTime, parseDate } from '../lib/dateUtils';
 import { getGoodsDeliveryNotes } from '../lib/goodsDeliveryNoteService';
 import {
@@ -262,6 +263,11 @@ export default function ViewGoodDeliveryNoteList() {
     }, [page, pageSize]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('goodDeliveryNotes', () => fetchDataRef.current?.());
 
     useEffect(() => {
         if (columnSelectorAnchor) {
@@ -911,8 +917,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/goods-delivery-notes/detail/${row.releaseRequestId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.releaseRequestId}`); }}
+                                                                        href={`/goods-delivery-notes/detail/${row.gdnId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.gdnId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

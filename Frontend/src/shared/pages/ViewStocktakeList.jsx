@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getStocktakeList } from '../lib/stocktakeService';
@@ -252,7 +253,7 @@ const ViewStocktakeList = () => {
     );
 
     // Fetch data from API
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
 
@@ -287,11 +288,16 @@ const ViewStocktakeList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, pageSize, searchTerm, filterValues, currentUserId]);
 
     useEffect(() => {
         fetchData();
-    }, [searchTerm, filterValues, page, pageSize]);
+    }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('stocktakes', () => fetchDataRef.current?.());
 
     // Pagination helpers (API returns paginated data)
     const totalCount = totalRows;

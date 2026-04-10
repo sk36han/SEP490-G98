@@ -115,7 +115,7 @@ const AppRoutes = () => (
         <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
         <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
         <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
         <Route path="/categories/create" element={<Navigate to="/categories" replace />} />
         <Route path="/categories/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><EditCategory /></MainLayout></ProtectedRoute>} />

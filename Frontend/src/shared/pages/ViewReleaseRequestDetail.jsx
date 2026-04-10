@@ -124,7 +124,6 @@ export default function ViewReleaseRequestDetail() {
             setLines(result.lines ?? []);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Không tải được chi tiết yêu cầu xuất hàng.';
-            console.log('[ViewReleaseRequestDetail] API error:', err);
             showToast(msg, 'error');
         } finally {
             setLoading(false);
@@ -155,7 +154,14 @@ export default function ViewReleaseRequestDetail() {
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const canApprove = data?.status === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS';
-    const canCreateGDN = data?.status === 'APPROVED' && permissionRole === 'WAREHOUSE_KEEPER';
+    // Chỉ hiện nút tạo phiếu xuất kho khi:
+    // - Release Request đã được duyệt (APPROVED)
+    // - VÀ lifecycle status là "Đang đợi xuất hàng" (IssuePending) HOẶC "Xuất một phần" (IssuePartial)
+    // - VÀ role là THỦ KHO
+    const canCreateGDN =
+        data?.status === 'APPROVED' &&
+        permissionRole === 'WAREHOUSE_KEEPER' &&
+        ['IssuePending', 'IssuePartial'].includes(data?.lifecycleStatus);
 
     const handleCreateGDN = () => {
         navigate(`/good-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);

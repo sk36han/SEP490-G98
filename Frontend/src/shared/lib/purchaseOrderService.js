@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Purchase Order API – kết nối PurchaseOrderController.
@@ -82,6 +83,7 @@ export async function getPurchaseOrders({
  */
 export async function createPurchaseOrder(payload) {
     const response = await apiClient.post('/PurchaseOrder/create', payload);
+    invalidate('purchase-order');
     return response?.data;
 }
 

@@ -1,9 +1,11 @@
 /*
  * Danh sách Thương hiệu – kết nối BrandController.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { parseDate } from '../lib/dateUtils';
 import { getBrandList, createBrand, updateBrand } from '../lib/brandService';
+import { usePolling } from '../hooks/usePolling';
+import PollingManager from '../lib/pollingManager';
 import { formatDateOnly } from '../lib/dateUtils';
 import {
     Box,
@@ -256,6 +258,11 @@ const ViewBrandList = () => {
     useEffect(() => {
         fetchList();
     }, [fetchList]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('brands', () => fetchListRef.current?.());
 
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalItems);
@@ -1277,6 +1284,7 @@ const ViewBrandList = () => {
             setAddDialogOpen(false);
             setAddForm({ brandName: '' });
             fetchList();
+            PollingManager.triggerRefreshByFetchKey('Brand');
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không thể tạo thương hiệu';
             showToast(msg, 'error');
@@ -1298,6 +1306,7 @@ const ViewBrandList = () => {
             setEditForm({ brandName: '', isActive: true });
             setEditBrandId(null);
             fetchList();
+            PollingManager.triggerRefreshByFetchKey('Brand');
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không thể cập nhật thương hiệu';
             showToast(msg, 'error');

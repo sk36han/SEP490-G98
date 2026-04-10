@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Item API – kết nối ItemController.
@@ -189,6 +190,7 @@ function mapItemDisplayRow(row) {
  */
 export async function createItem(payload) {
     const response = await apiClient.post('/Item/create-item', payload);
+    invalidate('item');
     return response?.data;
 }
 
@@ -202,6 +204,7 @@ export async function updateItemStatus(itemId, isActive) {
     const response = await apiClient.patch(`/Item/${itemId}/status`, null, {
         params: { isActive: !!isActive },
     });
+    invalidate('item');
     return response?.data;
 }
 
@@ -211,6 +214,7 @@ export async function updateItemStatus(itemId, isActive) {
  */
 export async function updateItem(itemId, payload) {
     const response = await apiClient.put(`/Item/update-item/${itemId}`, payload);
+    invalidate('item');
     return response?.data;
 }
 

@@ -195,7 +195,6 @@ const menuCatalog = {
         label: 'Nhà cung cấp',
         children: [
             createChild('/suppliers', 'Danh sách nhà cung cấp'),
-            createChild('/suppliers/create', 'Tạo nhà cung cấp'),
         ],
     }),
 
@@ -230,7 +229,6 @@ const menuCatalog = {
         label: 'Đơn mua',
         children: [
             createChild('/purchase-orders', 'Danh sách đơn mua'),
-            createChild('/purchase-orders/create', 'Tạo đơn mua'),
         ],
     }),
 
@@ -250,7 +248,6 @@ const menuCatalog = {
         label: 'Phiếu nhập kho',
         children: [
             createChild('/good-receipt-notes', 'Danh sách phiếu nhập kho'),
-            createChild('/good-receipt-notes/create', 'Tạo phiếu nhập kho'),
         ],
     }),
 
@@ -270,7 +267,6 @@ const menuCatalog = {
         label: 'Yêu cầu xuất hàng',
         children: [
             createChild('/release-request', 'Danh sách yêu cầu xuất hàng'),
-            createChild('/release-request/create', 'Tạo yêu cầu xuất hàng'),
         ],
     }),
 
@@ -281,7 +277,6 @@ const menuCatalog = {
         label: 'Phiếu xuất hàng',
         children: [
             createChild('/goods-delivery-notes', 'Danh sách phiếu xuất hàng'),
-            createChild('/goods-delivery-notes/create', 'Tạo phiếu xuất hàng'),
         ],
     }),
 
@@ -346,8 +341,6 @@ const roleMenus = {
         menuCatalog.suppliersSimple,
         menuCatalog.purchaseOrdersManage,
         menuCatalog.goodReceiptNotesList,
-        menuCatalog.releaseRequestsManage,
-        menuCatalog.goodsDeliveryNotesManage,
     ],
     SALE_ENGINEER: [
         ...COMMON_ITEMS,

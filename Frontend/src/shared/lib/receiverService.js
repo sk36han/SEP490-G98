@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Receiver API - maps to backend ReceiverController / ReceiverResponse.
@@ -134,6 +135,7 @@ export async function createReceiver(data) {
             district: data.district?.trim() || null,
             ward: data.ward?.trim() || null,
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
@@ -169,6 +171,7 @@ export async function updateReceiver(id, data) {
             district: data.district?.trim() || null,
             ward: data.ward?.trim() || null,
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
@@ -225,6 +228,7 @@ export async function toggleReceiverStatus(id, isActive) {
         const response = await apiClient.patch(`/Receiver/change-status/${id}`, null, {
             params: { isActive: !!isActive },
         });
+        invalidate('receiver');
         return response.data;
     } catch (error) {
         if (error.response?.status === 401) {

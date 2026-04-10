@@ -319,42 +319,42 @@ namespace Warehouse.DataAcces.Service
             if (!string.IsNullOrEmpty(request.PaymentMethod) && request.PaymentMethod.Length > 30)
                 throw new InvalidOperationException("Phương thức thanh toán không được vượt quá 30 ký tự.");
 
-            // 12b. Validate PickingStrategy
-            var pickingStrategy = (request.PickingStrategy ?? "FIFO").ToUpperInvariant();
-            if (pickingStrategy != "FIFO" && pickingStrategy != "LIFO")
-                throw new InvalidOperationException("Chiến lược xuất kho chỉ chấp nhận 'FIFO' hoặc 'LIFO'.");
+            // 12b. Enforce FIFO Picking Strategy
+            var pickingStrategy = "FIFO";
 
             // 13. Generate GDN Code
             var gdnCode = await GenerateNextGdnCodeAsync();
 
-            // 14. Calculate totals – UnitPrice lấy từ InventoryLot.UnitCost (lot đầu tiên theo FIFO/LIFO)
+            // 14. Calculate totals – UnitPrice tính bình quân gia quyền từ các lô (FIFO/LIFO)
             decimal totalDeliveredQty = 0;
             decimal totalDeliveredAmount = 0;
 
-            // Truy vấn lot đầu tiên (theo FIFO/LIFO) cho mỗi item trong kho này
-            var allLots = await _context.InventoryLots
-                .Where(lot => lot.WarehouseId == request.WarehouseId
-                           && itemIds.Contains(lot.ItemId)
-                           && lot.IsActive
-                           && lot.Quantity > 0)
-                .ToListAsync();
+            // Xây dựng map ItemId → Số lượng cần xuất
+            var itemQtyMap = request.Lines
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.ActualQty));
 
-            var firstLotByItem = allLots
-                .GroupBy(lot => lot.ItemId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => pickingStrategy == "LIFO"
-                        ? g.OrderByDescending(lot => lot.ReceiptDate).First()
-                        : g.OrderBy(lot => lot.ReceiptDate).First()
-                );
+            var unitPriceByItem = await GetItemWeightedUnitPricesFromLotsAsync(request.WarehouseId, itemQtyMap);
 
             foreach (var line in request.Lines)
             {
-                if (!firstLotByItem.ContainsKey(line.ItemId))
-                    throw new InvalidOperationException(
-                        $"Vật tư '{items[line.ItemId].ItemName}' không có lô hàng nào trong kho '{warehouse.WarehouseName}'.");
+                decimal unitPrice = 0;
+                // Ưu tiên lấy giá đã chốt từ RR
+                if (line.ReleaseRequestLineId.HasValue && rrLines.ContainsKey(line.ReleaseRequestLineId.Value))
+                {
+                    unitPrice = rrLines[line.ReleaseRequestLineId.Value].UnitCostAtIssue ?? 0;
+                }
 
-                var unitPrice = firstLotByItem[line.ItemId].UnitCost;
+                // Nếu RR không có giá hoặc không theo RR, lấy giá tính toán theo FIFO
+                if (unitPrice <= 0)
+                {
+                    unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
+                }
+
+                if (unitPrice <= 0)
+                    throw new InvalidOperationException(
+                        $"Vật tư '{items[line.ItemId].ItemName}' không có lô hàng nào hợp lệ và không có giá từ yêu cầu.");
+
                 totalDeliveredQty += line.ActualQty;
                 totalDeliveredAmount += line.ActualQty * unitPrice;
             }
@@ -390,10 +390,20 @@ namespace Warehouse.DataAcces.Service
             _context.GoodsDeliveryNotes.Add(gdn);
             await _context.SaveChangesAsync();
 
-            // 16. Create GDN Lines – gán UnitPrice từ InventoryLot.UnitCost
+            // 16. Create GDN Lines – gán UnitPrice (Ưu tiên từ RR)
             foreach (var line in request.Lines)
             {
-                var unitPrice = firstLotByItem[line.ItemId].UnitCost;
+                decimal unitPrice = 0;
+                if (line.ReleaseRequestLineId.HasValue && rrLines.ContainsKey(line.ReleaseRequestLineId.Value))
+                {
+                    unitPrice = rrLines[line.ReleaseRequestLineId.Value].UnitCostAtIssue ?? 0;
+                }
+
+                if (unitPrice <= 0)
+                {
+                    unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
+                }
+
                 var gdnLine = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
@@ -844,20 +854,9 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO/LIFO) ====================
+        // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO ONLY) ====================
         private async Task ProcessGDNApprovalInventoryAsync(GoodsDeliveryNote gdn, long userId)
         {
-            // Xác định chiến lược xuất kho từ Note (hoặc mặc định FIFO)
-            var pickingStrategy = "FIFO";
-            if (!string.IsNullOrEmpty(gdn.Note))
-            {
-                var noteUpper = gdn.Note.ToUpperInvariant();
-                if (noteUpper.Contains("[LIFO]"))
-                    pickingStrategy = "LIFO";
-                else if (noteUpper.Contains("[FIFO]"))
-                    pickingStrategy = "FIFO";
-            }
-
             var txn = new InventoryTransaction
             {
                 TxnType = "OUTBOUND",
@@ -888,16 +887,14 @@ namespace Warehouse.DataAcces.Service
                     inv.UpdatedAt = DateTime.UtcNow;
                 }
 
-                // 2. Trừ tồn kho từ InventoryLots theo FIFO hoặc LIFO
-                var lotsQuery = _context.InventoryLots
+                // 2. Trừ tồn kho từ InventoryLots theo FIFO (Ngày nhập cũ nhất trước)
+                var lots = await _context.InventoryLots
                     .Where(lot => lot.ItemId == line.ItemId
                                && lot.WarehouseId == gdn.WarehouseId
                                && lot.IsActive
-                               && lot.Quantity > 0);
-
-                var lots = pickingStrategy == "LIFO"
-                    ? await lotsQuery.OrderByDescending(lot => lot.ReceiptDate).ToListAsync()
-                    : await lotsQuery.OrderBy(lot => lot.ReceiptDate).ToListAsync();
+                               && lot.Quantity > 0)
+                    .OrderBy(lot => lot.ReceiptDate)
+                    .ToListAsync();
 
                 decimal remainingQty = line.ActualQty;
                 long? firstLotId = null;
@@ -925,7 +922,7 @@ namespace Warehouse.DataAcces.Service
                         QtyChange = -deductQty,
                         UomId = line.UomId,
                         LotId = lot.LotId,
-                        Note = $"Xuất kho theo GDN {gdn.Gdncode} ({pickingStrategy}) - Lot #{lot.LotId}"
+                        Note = $"Xuất kho FIFO theo GDN {gdn.Gdncode} - Lot #{lot.LotId}"
                     });
                 }
 
@@ -979,12 +976,71 @@ namespace Warehouse.DataAcces.Service
             return $"{prefix}{(countThisYear + 1):D4}";
         }
 
+        /// <summary>
+        /// Tính giá đơn giá bình quân gia quyền dựa trên FIFO (Lô cũ nhất).
+        /// </summary>
+        private async Task<Dictionary<long, decimal>> GetItemWeightedUnitPricesFromLotsAsync(
+            long warehouseId, Dictionary<long, decimal> itemQtyMap)
+        {
+            var itemIds = itemQtyMap.Keys.ToList();
+
+            var allLots = await _context.InventoryLots
+                .Where(lot => lot.WarehouseId == warehouseId
+                           && itemIds.Contains(lot.ItemId)
+                           && lot.IsActive
+                           && lot.Quantity > 0)
+                .ToListAsync();
+
+            var result = new Dictionary<long, decimal>();
+
+            foreach (var itemId in itemIds)
+            {
+                var requestedQty = itemQtyMap[itemId];
+
+                // Sắp xếp lô theo FIFO
+                var lots = allLots
+                    .Where(lot => lot.ItemId == itemId)
+                    .OrderBy(lot => lot.ReceiptDate)
+                    .ToList();
+
+                if (lots.Count == 0)
+                {
+                    result[itemId] = 0;
+                    continue;
+                }
+
+                // Mô phỏng lấy hàng từ nhiều lô và tính tổng giá trị
+                decimal remainingQty = requestedQty;
+                decimal totalCost = 0;
+                decimal totalPickedQty = 0;
+
+                foreach (var lot in lots)
+                {
+                    if (remainingQty <= 0) break;
+
+                    var pickQty = Math.Min(lot.Quantity, remainingQty);
+                    totalCost += pickQty * lot.UnitCost;
+                    totalPickedQty += pickQty;
+                    remainingQty -= pickQty;
+                }
+
+                // Tính giá bình quân gia quyền
+                result[itemId] = totalPickedQty > 0
+                    ? Math.Round(totalCost / totalPickedQty, 2)
+                    : 0;
+            }
+
+            return result;
+        }
+
         // ==================== UPDATE & CANCEL (Medium Priority) ====================
 
         public async Task<GoodsDeliveryNoteResponse> UpdateGDNAsync(long gdnId, long userId, CreateGDNRequest request)
         {
             var gdn = await _context.GoodsDeliveryNotes
                 .Include(g => g.GoodsDeliveryNoteLines)
+                .Include(g => g.ReleaseRequest)
+                    .ThenInclude(rr => rr.ReleaseRequestLines)
                 .Include(g => g.ReleaseRequest)
                     .ThenInclude(rr => rr.Receiver)
                         .ThenInclude(r => r.Company)
@@ -1011,28 +1067,56 @@ namespace Warehouse.DataAcces.Service
             gdn.Note = request.Note;
             gdn.ShippingFee = request.ShippingFee ?? 0;
 
+            // 12b. Enforce FIFO Picking Strategy
+            var pickingStrategy = "FIFO";
+
+            // Xây dựng map ItemId → Số lượng cần xuất
+            var itemQtyMap = request.Lines
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.ActualQty));
+
+            var unitPriceByItem = await GetItemWeightedUnitPricesFromLotsAsync(gdn.WarehouseId, itemQtyMap);
+
             // Xóa line cũ và thêm line mới (đơn giản hóa)
             _context.GoodsDeliveryNoteLines.RemoveRange(gdn.GoodsDeliveryNoteLines);
             
             decimal totalQty = 0;
             decimal totalAmount = 0;
 
+            var rrLines = gdn.ReleaseRequest?.ReleaseRequestLines.ToDictionary(l => l.ReleaseRequestLineId, l => l)
+                        ?? new Dictionary<long, ReleaseRequestLine>();
+
             foreach (var lineReq in request.Lines)
             {
+                decimal unitPrice = 0;
+                // Ưu tiên lấy giá từ RR
+                if (lineReq.ReleaseRequestLineId.HasValue && rrLines.ContainsKey(lineReq.ReleaseRequestLineId.Value))
+                {
+                    unitPrice = rrLines[lineReq.ReleaseRequestLineId.Value].UnitCostAtIssue ?? 0;
+                }
+
+                // Fallback nếu không có giá RR
+                if (unitPrice <= 0)
+                {
+                    unitPrice = unitPriceByItem.ContainsKey(lineReq.ItemId) ? unitPriceByItem[lineReq.ItemId] : 0;
+                }
+
+                var lineTotal = lineReq.ActualQty * unitPrice;
+
                 var line = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
                     ItemId = lineReq.ItemId,
                     UomId = lineReq.UomId,
                     ActualQty = lineReq.ActualQty,
-                    UnitPrice = lineReq.UnitPrice,
-                    LineTotal = lineReq.ActualQty * lineReq.UnitPrice,
+                    UnitPrice = unitPrice,
+                    LineTotal = lineTotal,
                     ReleaseRequestLineId = lineReq.ReleaseRequestLineId,
                     Note = lineReq.Note
                 };
                 gdn.GoodsDeliveryNoteLines.Add(line);
                 totalQty += line.ActualQty;
-                totalAmount += (line.LineTotal ?? 0);
+                totalAmount += lineTotal;
             }
 
             gdn.TotalDeliveredQty = totalQty;
@@ -1108,6 +1192,9 @@ namespace Warehouse.DataAcces.Service
                 .Include(g => g.Warehouse)
                 .Include(g => g.CreatedByNavigation)
                 .Include(g => g.GoodsDeliveryNoteLines)
+                    .ThenInclude(l => l.Item)
+                .Include(g => g.GoodsDeliveryNoteLines)
+                    .ThenInclude(l => l.Uom)
                 .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
             if (gdn == null)
@@ -1124,38 +1211,58 @@ namespace Warehouse.DataAcces.Service
             if (user == null)
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
-            if (!request.IsAllItemsFulfilled && request.Lines != null && request.Lines.Any())
+            // 11. Cập nhật số lượng thực xuất (nếu có gửi kèm danh sách chi tiết)
+            if (request.Lines != null && request.Lines.Any())
             {
                 var linesDict = gdn.GoodsDeliveryNoteLines.ToDictionary(l => l.GdnlineId, l => l);
-                decimal newTotalQty = 0;
-                decimal newTotalAmount = 0;
+                string partialNote = "";
 
                 foreach (var lineReq in request.Lines)
                 {
-                    if (linesDict.ContainsKey(lineReq.GdnLineId))
+                    if (!linesDict.TryGetValue(lineReq.GdnLineId, out var line))
+                        throw new KeyNotFoundException($"Dòng vật tư với ID {lineReq.GdnLineId} không thuộc phiếu xuất {gdn.Gdncode}.");
+
+                    if (lineReq.ActualQty > line.RequestedQty)
+                        throw new InvalidOperationException(
+                            $"Số lượng thực xuất ({lineReq.ActualQty}) của '{line.Item?.ItemName ?? line.ItemId.ToString()}' " +
+                            $"không được vượt quá số lượng ban đầu ({line.RequestedQty}).");
+
+                    if (lineReq.ActualQty < line.RequestedQty)
                     {
-                        var line = linesDict[lineReq.GdnLineId];
-                        line.ActualQty = lineReq.ActualQty;
-                        line.LineTotal = line.ActualQty * (line.UnitPrice ?? 0);
+                        var diff = line.RequestedQty - lineReq.ActualQty;
+                        partialNote += $"- {line.Item?.ItemName ?? line.ItemId.ToString()}: Xuất thiếu {diff} {line.Uom?.UomName}. ";
                     }
+
+                    line.ActualQty = lineReq.ActualQty;
+                    line.LineTotal = line.ActualQty * (line.UnitPrice ?? 0);
+                    _context.Entry(line).State = EntityState.Modified;
                 }
 
+                if (!string.IsNullOrEmpty(partialNote))
+                {
+                    var partialMsg = $"[Lưu ý Xuất thiếu] {partialNote.Trim()}";
+                    gdn.Note = string.IsNullOrEmpty(gdn.Note) ? partialMsg : $"{gdn.Note} | {partialMsg}";
+                }
+
+                gdn.TotalDeliveredQty = gdn.GoodsDeliveryNoteLines.Sum(l => l.ActualQty);
+                gdn.TotalDeliveredAmount = gdn.GoodsDeliveryNoteLines.Sum(l => l.LineTotal ?? 0);
+            }
+            else if (request.IsAllItemsFulfilled)
+            {
                 foreach (var line in gdn.GoodsDeliveryNoteLines)
                 {
-                    newTotalQty += line.ActualQty;
-                    newTotalAmount += (line.LineTotal ?? 0);
+                    line.ActualQty = line.RequestedQty ?? 0;
+                    line.LineTotal = line.ActualQty * (line.UnitPrice ?? 0);
+                    _context.Entry(line).State = EntityState.Modified;
                 }
-                gdn.TotalDeliveredQty = newTotalQty;
-                gdn.TotalDeliveredAmount = newTotalAmount;
+                gdn.TotalDeliveredQty = gdn.GoodsDeliveryNoteLines.Sum(l => l.ActualQty);
+                gdn.TotalDeliveredAmount = gdn.GoodsDeliveryNoteLines.Sum(l => l.LineTotal ?? 0);
             }
 
             if (!string.IsNullOrEmpty(request.Note))
             {
                 var noteAddition = $"Xác nhận bởi Thủ kho: {request.Note}".Trim();
-                if (string.IsNullOrEmpty(gdn.Note))
-                    gdn.Note = noteAddition;
-                else if (!gdn.Note.Contains(noteAddition))
-                    gdn.Note = $"{gdn.Note} | {noteAddition}";
+                gdn.Note = string.IsNullOrEmpty(gdn.Note) ? noteAddition : $"{gdn.Note} | {noteAddition}";
             }
 
             if (await _stocktakeService.IsWarehouseFrozenAsync(gdn.WarehouseId))

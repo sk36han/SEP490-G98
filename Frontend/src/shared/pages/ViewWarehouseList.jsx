@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -183,34 +184,38 @@ const ViewWarehouseList = () => {
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     // Load data
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const res = await getWarehouses({ pageNumber: page + 1, pageSize });
-                let items = res.items ?? [];
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await getWarehouses({ pageNumber: page + 1, pageSize });
+            let items = res.items ?? [];
 
-                if (searchTerm) {
-                    const term = removeDiacritics(searchTerm.toLowerCase());
-                    items = items.filter(item =>
-                        removeDiacritics((item.warehouseCode ?? '').toLowerCase()).includes(term) ||
-                        removeDiacritics((item.warehouseName ?? '').toLowerCase()).includes(term) ||
-                        removeDiacritics((item.address ?? '').toLowerCase()).includes(term)
-                    );
-                }
-
-                setList(items);
-                setTotalRows(items.length);
-            } catch (err) {
-                console.error('Error fetching warehouses:', err);
-                setList([]);
-                setTotalRows(0);
-            } finally {
-                setLoading(false);
+            if (searchTerm) {
+                const term = removeDiacritics(searchTerm.toLowerCase());
+                items = items.filter(item =>
+                    removeDiacritics((item.warehouseCode ?? '').toLowerCase()).includes(term) ||
+                    removeDiacritics((item.warehouseName ?? '').toLowerCase()).includes(term) ||
+                    removeDiacritics((item.address ?? '').toLowerCase()).includes(term)
+                );
             }
-        };
-        fetchData();
+
+            setList(items);
+            setTotalRows(items.length);
+        } catch (err) {
+            console.error('Error fetching warehouses:', err);
+            setList([]);
+            setTotalRows(0);
+        } finally {
+            setLoading(false);
+        }
     }, [page, pageSize, searchTerm]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('warehouses', () => fetchDataRef.current?.());
 
     // Sync tempColumnOrder when popup opens
     useEffect(() => {

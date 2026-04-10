@@ -82,5 +82,9 @@ namespace Warehouse.Entities.ModelRequest
         /// </summary>
         [MaxLength(500, ErrorMessage = "Ghi chú dòng không được vượt quá 500 ký tự.")]
         public string? Note { get; set; }
+
+        /// Tùy chọn đóng gói
+        /// </summary>
+        public long? PackagingSpecId { get; set; }
     }
 }
