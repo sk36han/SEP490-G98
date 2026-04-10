@@ -285,13 +285,25 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<ReceiverResponse> GetReceiverByIdAsync(long id)
         {
-            var receiver = await _receiverRepository.GetByIdAsync(id);
+            // Một query kèm Company — tránh lệ thuộc repo FindAsync (không Include navigation)
+            // và đảm bảo CompanyName/CompanyCode luôn điền khi FK hợp lệ.
+            var receiver = await _context.Receivers
+                .AsNoTracking()
+                .Include(r => r.Company)
+                .FirstOrDefaultAsync(r => r.ReceiverId == id);
             if (receiver == null)
             {
                 throw new KeyNotFoundException($"Không tìm thấy người nhận với ID = {id}");
             }
 
-            return MapToResponse(receiver);
+            var response = MapToResponse(receiver);
+            if (receiver.Company != null)
+            {
+                response.CompanyName = receiver.Company.CompanyName;
+                response.CompanyCode = receiver.Company.CompanyCode;
+            }
+
+            return response;
         }
 
         // ── Helper: map entity → response ──────────────────────────────────────

@@ -8,6 +8,7 @@ import apiClient from './axios';
  * POST /PurchaseReturnNote/approve/{id} - duyet phieu tra hang
  * POST /PurchaseReturnNote/cancel/{id} - huy phieu tra hang
  * POST /PurchaseReturnNote/refund/{id} - hoan tien phieu tra hang
+ * PUT  /PurchaseReturnNote/update/{id} - cap nhat phieu (DRAFT / SUBMITTED)
  */
 
 /**
@@ -62,6 +63,22 @@ export async function getPurchaseReturnNotes({ page = 1, pageSize = 20 } = {}) {
  */
 export async function createPurchaseReturn(payload) {
     const response = await apiClient.post('/PurchaseReturnNote/create', payload);
+    return response?.data;
+}
+
+/**
+ * Cap nhat phieu tra hang (ngay tra, ly do, ghi chu phi, phi, dong hang).
+ * @param {number} id - purchaseReturnId
+ * @param {{
+ *   ReturnDate: string,
+ *   Reason: string|null,
+ *   Note: string|null,
+ *   FeeAmount: number,
+ *   Lines: { RelatedGrnlineId: number, ReturnQty: number, Reason?: string|null, Note?: string|null }[]
+ * }} payload
+ */
+export async function updatePurchaseReturn(id, payload) {
+    const response = await apiClient.put(`/PurchaseReturnNote/update/${id}`, payload);
     return response?.data;
 }
 

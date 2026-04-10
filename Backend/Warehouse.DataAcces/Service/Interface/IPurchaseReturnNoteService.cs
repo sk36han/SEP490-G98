@@ -12,5 +12,6 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<PurchaseReturnNoteResponse> ApprovePRNAsync(long prnId, long userId);
         Task<PurchaseReturnNoteResponse> CancelPRNAsync(long prnId, long userId);
         Task<PurchaseReturnNoteResponse> RefundPRNAsync(long prnId, long userId, RefundPRNRequest request);
+        Task<PurchaseReturnNoteDetailResponse> UpdatePRNAsync(long prnId, long userId, UpdatePRNRequest request);
     }
 }

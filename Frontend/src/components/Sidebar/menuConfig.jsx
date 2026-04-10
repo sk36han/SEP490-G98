@@ -85,11 +85,6 @@ const menuCatalog = {
             createChild('/admin/users/deactivated', 'Người dùng đã vô hiệu hóa'),
         ],
     }),
-    adminNotifications: createItem({
-        path: '/admin/notifications',
-        icon: icon(Bell),
-        label: 'Cài đặt thông báo',
-    }),
     adminAuditLog: createItem({
         path: '/admin/audit-log',
         icon: icon(ClipboardList),
@@ -318,7 +313,6 @@ const menuCatalog = {
 const roleMenus = {
     ADMIN: [
         menuCatalog.adminUsers,
-        menuCatalog.adminNotifications,
         menuCatalog.adminAuditLog,
     ],
     WAREHOUSE_KEEPER: [

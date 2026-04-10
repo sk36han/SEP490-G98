@@ -53,6 +53,40 @@ namespace Warehouse.Api.ApiController
             }
         }
 
+        [HttpPut("update/{id:long}")]
+        public async Task<IActionResult> UpdatePRN(long id, [FromBody] UpdatePRNRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+            {
+                return Unauthorized(new { message = "Khong xac dinh duoc nguoi dung." });
+            }
+
+            try
+            {
+                var result = await _purchaseReturnNoteService.UpdatePRNAsync(id, currentUserId, request);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return StatusCode(500, new { message = "Da xay ra loi he thong.", detail });
+            }
+        }
+
         [HttpPost("create")]
         public async Task<IActionResult> CreatePRN([FromBody] CreatePRNRequest request)
         {

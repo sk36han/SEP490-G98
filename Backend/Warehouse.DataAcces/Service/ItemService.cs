@@ -293,7 +293,8 @@ namespace Warehouse.DataAcces.Service
                     BrandName = i.Brand != null ? i.Brand.BrandName : null,
                     BaseUomName = i.BaseUom.UomName,
                     PackagingSpecName = i.PackagingSpec != null ? i.PackagingSpec.SpecName : null,
-                    i.DefaultWarehouseId
+                    i.DefaultWarehouseId,
+                    DefaultWarehouseName = i.DefaultWarehouse != null ? i.DefaultWarehouse.WarehouseName : null
                 })
                 .FirstOrDefaultAsync();
 
@@ -387,7 +388,9 @@ namespace Warehouse.DataAcces.Service
                     UpdatedAt = item.UpdatedAt,
                     ImageUrl = item.ImageUrl,
                     PurchasePrice = purchasePrice,
-                    SalePrice = salePrice
+                    SalePrice = salePrice,
+                    DefaultWarehouseId = item.DefaultWarehouseId,
+                    DefaultWarehouseName = item.DefaultWarehouseName
                 },
                 VariantsByWarehouse = variants,
                 InventoryHistory = history

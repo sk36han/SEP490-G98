@@ -41,6 +41,8 @@ import {
     FileText,
 } from 'lucide-react';
 import { getWarehouseDetail, getWarehouseHistory, updateWarehouse, toggleWarehouseStatus } from '../lib/warehouseService';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser, canEditWarehouse } from '../permissions/roleUtils';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateSupplier.css';
@@ -131,6 +133,12 @@ const ViewWarehouseDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
+
+    const permissionRole = useMemo(
+        () => getPermissionRole(getRawRoleFromUser(authService.getUser())),
+        []
+    );
+    const allowWarehouseEdit = canEditWarehouse(permissionRole);
 
     const [warehouse, setWarehouse] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -232,6 +240,7 @@ const ViewWarehouseDetail = () => {
 
     // ── Edit handlers ────────────────────────────────────────────────────────
     const handleEditClick = () => {
+        if (!allowWarehouseEdit) return;
         setEditForm({ warehouseName: warehouse.warehouseName, address: warehouse.address });
         setIsEditing(true);
     };
@@ -268,6 +277,7 @@ const ViewWarehouseDetail = () => {
 
     // ── Status toggle handlers ────────────────────────────────────────────────
     const handleStatusClick = (currentIsActive) => {
+        if (!allowWarehouseEdit) return;
         setStatusDialogConfig({ open: true, action: currentIsActive ? 'disable' : 'enable' });
     };
 
@@ -326,10 +336,12 @@ const ViewWarehouseDetail = () => {
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {!isEditing ? (
-                        <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
-                            <Edit size={15} />
-                            Chỉnh sửa
-                        </button>
+                        allowWarehouseEdit ? (
+                            <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
+                                <Edit size={15} />
+                                Chỉnh sửa
+                            </button>
+                        ) : null
                     ) : (
                         <>
                             <button type="button" className="btn btn-secondary" onClick={handleCancelClick} disabled={submitting}>
@@ -370,9 +382,10 @@ const ViewWarehouseDetail = () => {
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 6,
-                                        cursor: 'pointer',
+                                        cursor: allowWarehouseEdit ? 'pointer' : 'default',
                                         userSelect: 'none',
                                     }}
+                                    title={allowWarehouseEdit ? undefined : 'Bạn không có quyền thay đổi trạng thái kho'}
                                 >
                                     {statusConfig.label}
                                 </div>

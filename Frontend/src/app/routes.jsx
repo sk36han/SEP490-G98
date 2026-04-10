@@ -14,7 +14,6 @@ import Profile from '../shared/pages/Profile';
 // ── Admin ─────────────────────────────────────────────────────────────────────
 import ViewUserAccountList from '../shared/pages/ViewUserAccountList';
 import ViewDeactivatedUsersList from '../shared/pages/ViewDeactivatedUsersList';
-import AdminNotifications from '../shared/pages/AdminNotifications';
 import ViewAdminAuditLog from '../shared/pages/ViewAdminAuditLog';
 
 // ── Home ───────────────────────────────────────────────────────────────────────
@@ -110,11 +109,10 @@ const AppRoutes = () => (
         <Route path="/admin/users/deactivated" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewDeactivatedUsersList /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotifications /></MainLayout></ProtectedRoute>} />
-        <Route path="/admin/notifications" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><AdminNotifications /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewAdminAuditLog /></MainLayout></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
         <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
         <Route path="/categories/create" element={<Navigate to="/categories" replace />} />

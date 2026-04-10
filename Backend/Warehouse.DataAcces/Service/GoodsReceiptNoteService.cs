@@ -573,21 +573,39 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Không tìm thấy phiếu nhập kho.");
             }
 
-            var lines = grn.GoodsReceiptNoteLines.Select(l => new GRNLineDetailResponse
+            var grnLineIds = grn.GoodsReceiptNoteLines.Select(x => x.GrnlineId).ToList();
+            var committedByLine = await _context.PurchaseReturnNoteLines
+                .Where(prl => prl.RelatedGrnlineId != null
+                    && grnLineIds.Contains(prl.RelatedGrnlineId.Value)
+                    && prl.PurchaseReturn != null
+                    && prl.PurchaseReturn.Status != null
+                    && prl.PurchaseReturn.Status.ToUpper() != "CANCELLED")
+                .GroupBy(prl => prl.RelatedGrnlineId!.Value)
+                .Select(g => new { GrnlineId = g.Key, Qty = g.Sum(x => x.ReturnQty) })
+                .ToDictionaryAsync(x => x.GrnlineId, x => x.Qty);
+
+            var lines = grn.GoodsReceiptNoteLines.Select(l =>
             {
-                GrnlineId = l.GrnlineId,
-                ItemId = l.ItemId,
-                ItemName = l.Item != null ? l.Item.ItemName : null,
-                ItemCode = l.Item != null ? l.Item.ItemCode : null,
-                ExpectedQty = l.ExpectedQty ?? 0,
-                ActualQty = l.ActualQty,
-                UomId = l.UomId,
-                UomName = l.Uom != null ? l.Uom.UomName : null,
-                UnitPrice = l.UnitPrice,
-                LineTotal = l.LineTotal,
-                HasCO = l.RequiresCocq,
-                HasCQ = l.RequiresCocq,
-                PurchaseOrderLineId = l.PurchaseOrderLineId
+                var committed = committedByLine.TryGetValue(l.GrnlineId, out var q) ? q : 0m;
+                var available = Math.Max(0m, l.ActualQty - committed);
+                return new GRNLineDetailResponse
+                {
+                    GrnlineId = l.GrnlineId,
+                    ItemId = l.ItemId,
+                    ItemName = l.Item != null ? l.Item.ItemName : null,
+                    ItemCode = l.Item != null ? l.Item.ItemCode : null,
+                    ExpectedQty = l.ExpectedQty ?? 0,
+                    ActualQty = l.ActualQty,
+                    UomId = l.UomId,
+                    UomName = l.Uom != null ? l.Uom.UomName : null,
+                    UnitPrice = l.UnitPrice,
+                    LineTotal = l.LineTotal,
+                    HasCO = l.RequiresCocq,
+                    HasCQ = l.RequiresCocq,
+                    PurchaseOrderLineId = l.PurchaseOrderLineId,
+                    QtyCommittedForReturn = committed,
+                    QtyAvailableForReturn = available,
+                };
             }).ToList();
 
             return new GRNDetailResponse
@@ -602,6 +620,14 @@ namespace Warehouse.DataAcces.Service
                 PurchaseOrderCode = grn.PurchaseOrder?.Pocode,
                 SupplierId = grn.SupplierId,
                 SupplierName = grn.Supplier?.SupplierName,
+                SupplierCode = grn.Supplier?.SupplierCode,
+                SupplierPhone = grn.Supplier?.Phone,
+                SupplierEmail = grn.Supplier?.Email,
+                SupplierTaxCode = grn.Supplier?.TaxCode,
+                SupplierAddressProvince = grn.Supplier?.City,
+                SupplierAddressDistrict = grn.Supplier?.District,
+                SupplierAddressWard = grn.Supplier?.Ward,
+                SupplierAddressStreet = grn.Supplier?.Address,
                 WarehouseId = grn.WarehouseId,
                 WarehouseName = grn.Warehouse?.WarehouseName,
                 CreatedBy = grn.CreatedBy,

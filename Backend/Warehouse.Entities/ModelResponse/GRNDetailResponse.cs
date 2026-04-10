@@ -20,6 +20,14 @@ namespace Warehouse.Entities.ModelResponse
         // Supplier
         public long SupplierId { get; set; }
         public string? SupplierName { get; set; }
+        public string? SupplierCode { get; set; }
+        public string? SupplierPhone { get; set; }
+        public string? SupplierEmail { get; set; }
+        public string? SupplierTaxCode { get; set; }
+        public string? SupplierAddressProvince { get; set; }
+        public string? SupplierAddressDistrict { get; set; }
+        public string? SupplierAddressWard { get; set; }
+        public string? SupplierAddressStreet { get; set; }
 
         // Warehouse
         public long WarehouseId { get; set; }
@@ -67,5 +75,11 @@ namespace Warehouse.Entities.ModelResponse
 
         public long? PurchaseOrderLineId { get; set; }
         public string? Note { get; set; }
+
+        /// <summary>Tong SL da ghi tren cac phieu tra hang chua huy (DRAFT/SUBMITTED/APPROVED).</summary>
+        public decimal QtyCommittedForReturn { get; set; }
+
+        /// <summary>Con co the tra = ActualQty - QtyCommittedForReturn.</summary>
+        public decimal QtyAvailableForReturn { get; set; }
     }
 }
