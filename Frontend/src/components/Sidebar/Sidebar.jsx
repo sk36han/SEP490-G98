@@ -96,6 +96,9 @@ const getExtraMatchPaths = (item) => {
     if (item.id === 'goods-delivery-notes-mgmt') {
         return ['/goods-delivery-notes', '/goods-delivery-notes/create'];
     }
+    if (item.id === 'reports-mgmt') {
+        return ['/reports/sales'];
+    }
     return [];
 };
 

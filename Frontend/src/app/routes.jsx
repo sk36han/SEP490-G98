@@ -77,6 +77,8 @@ import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
 import ViewNotifications from '../shared/pages/ViewNotifications';
 import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
 import SalesRevenueTarget from '../shared/pages/mockup/SalesRevenueTarget';
+import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
+import ViewSalesReportDetail from '../shared/pages/mockup/ViewSalesReportDetail';
 
 const ROLES_WS = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT'];
 const ROLES_WSA = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS'];
@@ -168,6 +170,12 @@ const AppRoutes = () => (
 
         {/* ── Mockup: Sales Revenue Target (Finance Alert) ── */}
         <Route path="/mockup/sales-target" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><SalesRevenueTarget /></MainLayout></ProtectedRoute>} />
+
+        {/* ── Mockup: Báo cáo doanh số ── */}
+        <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/year/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/quarter/:quarter/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/month/:month/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
     </Routes>
 );
 

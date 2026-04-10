@@ -309,6 +309,9 @@ const menuCatalog = {
         path: '/reports',
         icon: icon(BarChart3),
         label: 'Báo cáo',
+        children: [
+            createChild('/reports/sales', 'Báo cáo tài chính'),
+        ],
     }),
 };
 
