@@ -91,7 +91,7 @@ const MOCK_DATA = [
     // Quý 3/2026
     { id: 'q3-2026', level: LEVEL.QUARTER, periodLabel: 'Quý 3 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'y2026', deliveryNotes: 55, grnNotes: 47, lineItems: 418, totalQty: 2_840, grnQty: 2527, grnValue: 1_035_500_000, totalValue: 1_090_000_000,
-      prevValue: 960_000_000, change: 130_000_000, growth: 13.5 },
+      prevValue: 1_150_000_000, change: -60_000_000, growth: -5.2 },
     // Tháng 7/2026
     { id: 'm7-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 7 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'q3-2026', deliveryNotes: 18, grnNotes: 15, lineItems: 138, totalQty: 920, grnQty: 818, grnValue: 337_250_000, totalValue: 355_000_000,
@@ -107,7 +107,7 @@ const MOCK_DATA = [
     // Quý 4/2026
     { id: 'q4-2026', level: LEVEL.QUARTER, periodLabel: 'Quý 4 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'y2026', deliveryNotes: 40, grnNotes: 34, lineItems: 300, totalQty: 2_140, grnQty: 1904, grnValue: 779_000_000, totalValue: 820_000_000,
-      prevValue: 530_000_000, change: 290_000_000, growth: 54.7 },
+      prevValue: 920_000_000, change: -100_000_000, growth: -10.9 },
     // Tháng 10/2026
     { id: 'm10-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 10 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'q4-2026', deliveryNotes: 14, grnNotes: 12, lineItems: 100, totalQty: 700, grnQty: 623, grnValue: 256_500_000, totalValue: 270_000_000,
@@ -123,7 +123,7 @@ const MOCK_DATA = [
     // Năm 2025
     { id: 'y2025', level: LEVEL.YEAR, periodLabel: '2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       deliveryNotes: 1_080, grnNotes: 920, lineItems: 8_140, totalQty: 55_600, grnQty: 49_800, totalValue: 3_920_000_000,
-      prevValue: 3_100_000_000, change: 820_000_000, growth: 26.5 },
+      prevValue: 4_200_000_000, change: -280_000_000, growth: -6.7 },
     // Quý 1/2025
     { id: 'q1-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 1 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'y2025', deliveryNotes: 295, grnNotes: 253, lineItems: 2_210, totalQty: 15_100, grnQty: 13439, grnValue: 1_244_500_000, totalValue: 1_310_000_000,
@@ -370,13 +370,19 @@ export default function Viewsalesreportlist() {
         let data = searchTerm.trim()
             ? MOCK_DATA.filter(row => row.periodLabel.toLowerCase().includes(searchTerm.toLowerCase()))
             : MOCK_DATA;
-        if (quickFilter === 'positive') {
-            data = data.filter(r => r.growth > 0);
-        } else if (quickFilter === 'negative') {
-            data = data.filter(r => r.growth < 0);
+        if (quickFilter !== 'all') {
+            data = data.filter(r => {
+                const prevRow = getPreviousPeriodRow(r, MOCK_DATA);
+                if (!prevRow) return false;
+                const prevVal = dataMode === 'inbound' ? (prevRow.grnValue || 0) : prevRow.totalValue;
+                const currVal = dataMode === 'inbound' ? (r.grnValue || 0) : r.totalValue;
+                const change = currVal - prevVal;
+                const g = prevVal > 0 ? (change / prevVal) * 100 : 0;
+                return quickFilter === 'positive' ? g > 0 : g < 0;
+            });
         }
         return data;
-    }, [searchTerm, quickFilter]);
+    }, [searchTerm, quickFilter, dataMode]);
 
     // Build tree: filter để quyết định hiển thị,
     // nhưng comparison LUÔN lấy từ MOCK_DATA gốc (không lọc)
@@ -563,8 +569,8 @@ export default function Viewsalesreportlist() {
 
                             {/* Toggle Nhập / Xuất */}
                             <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', bgcolor: '#fff' }}>
-                                <Box onClick={() => setDataMode('outbound')} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'outbound' ? '#2563eb' : '#fff', color: dataMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: dataMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất</Box>
-                                <Box onClick={() => setDataMode('inbound')} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'inbound' ? '#059669' : '#fff', color: dataMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: dataMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập</Box>
+                                <Box onClick={() => { setDataMode('outbound'); setQuickFilter('all'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'outbound' ? '#2563eb' : '#fff', color: dataMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: dataMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất</Box>
+                                <Box onClick={() => { setDataMode('inbound'); setQuickFilter('all'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'inbound' ? '#059669' : '#fff', color: dataMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: dataMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập</Box>
                             </Box>
 
                             {/* Quick filter */}
