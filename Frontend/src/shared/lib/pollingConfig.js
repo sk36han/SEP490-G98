@@ -92,7 +92,7 @@ export const pollingConfig = {
     goodDeliveryNotes: {
         pageKey: 'goodDeliveryNotes',
         fetchKey: 'GoodsDeliveryNote',
-        paths: ['/good-delivery-notes', '/good-delivery-notes/create', '/goods-delivery-notes/detail'],
+        paths: ['/good-delivery-notes', '/good-delivery-notes/create', '/good-delivery-notes/detail'],
         interval: 30_000,
     },
 

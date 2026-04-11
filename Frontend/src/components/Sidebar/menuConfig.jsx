@@ -266,12 +266,12 @@ const menuCatalog = {
     }),
 
     goodsDeliveryNotesManage: createItem({
-        id: 'goods-delivery-notes-mgmt',
-        path: '/goods-delivery-notes',
+        id: 'good-delivery-notes-mgmt',
+        path: '/good-delivery-notes',
         icon: icon(FileText),
         label: 'Phiếu xuất hàng',
         children: [
-            createChild('/goods-delivery-notes', 'Danh sách phiếu xuất hàng'),
+            createChild('/good-delivery-notes', 'Danh sách phiếu xuất hàng'),
         ],
     }),
 

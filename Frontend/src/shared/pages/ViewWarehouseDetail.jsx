@@ -41,10 +41,7 @@ import {
     FileText,
 } from 'lucide-react';
 import { getWarehouseDetail, getWarehouseHistory, updateWarehouse, toggleWarehouseStatus } from '../lib/warehouseService';
-import authService from '../lib/authService';
-import { getPermissionRole, getRawRoleFromUser, canEditWarehouse } from '../permissions/roleUtils';
-import Toast from '../../components/Toast/Toast';
-import { useToast } from '../hooks/useToast';
+import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 
 const STATUS_CONFIG = {
@@ -132,13 +129,7 @@ const mapHistory = (item, idx) => ({
 const ViewWarehouseDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { toast, showToast, clearToast } = useToast();
-
-    const permissionRole = useMemo(
-        () => getPermissionRole(getRawRoleFromUser(authService.getUser())),
-        []
-    );
-    const allowWarehouseEdit = canEditWarehouse(permissionRole);
+    const { showToast } = useToastContext();
 
     const [warehouse, setWarehouse] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -152,6 +143,10 @@ const ViewWarehouseDetail = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({ warehouseName: '', address: '' });
     const [submitting, setSubmitting] = useState(false);
+    const [isFormDirty, setIsFormDirty] = useState(false);
+
+    // Unsaved changes dialog
+    const [unsavedDialogConfig, setUnsavedDialogConfig] = useState({ open: false, action: null }); // action: 'back' | 'cancel'
 
     // Status toggle dialog
     const [statusDialogConfig, setStatusDialogConfig] = useState({ open: false, action: null });
@@ -240,8 +235,8 @@ const ViewWarehouseDetail = () => {
 
     // ── Edit handlers ────────────────────────────────────────────────────────
     const handleEditClick = () => {
-        if (!allowWarehouseEdit) return;
         setEditForm({ warehouseName: warehouse.warehouseName, address: warehouse.address });
+        setIsFormDirty(false);
         setIsEditing(true);
     };
 
@@ -250,9 +245,13 @@ const ViewWarehouseDetail = () => {
             showToast('Vui lòng nhập tên kho', 'error');
             return;
         }
+        if (!editForm.address.trim()) {
+            showToast('Vui lòng nhập địa chỉ kho', 'error');
+            return;
+        }
         setSubmitting(true);
         try {
-            await updateWarehouse({
+            const res = await updateWarehouse({
                 id: warehouse.warehouseId,
                 warehouseName: editForm.warehouseName.trim(),
                 address: editForm.address.trim(),
@@ -264,20 +263,32 @@ const ViewWarehouseDetail = () => {
                 address: editForm.address,
             }));
             setIsEditing(false);
-            showToast('Cập nhật thông tin kho thành công!', 'success');
+            setIsFormDirty(false);
+            const serverMsg = res?.message || res?.Message || res?.data?.message || 'Cập nhật thông tin kho thành công!';
+            showToast(serverMsg, 'success');
         } catch (err) {
             console.error('Lỗi khi cập nhật kho:', err);
-            showToast(err?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật', 'error');
+            const serverMsg = err?.response?.data?.message || err?.response?.data?.Message || err?.message || 'Có lỗi xảy ra khi cập nhật';
+            showToast(serverMsg, 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleCancelClick = () => setIsEditing(false);
+    const handleCancelClick = () => {
+        if (isFormDirty) {
+            setUnsavedDialogConfig({ open: true, action: 'cancel' });
+        } else {
+            setIsEditing(false);
+        }
+    };
+
+    const handleBackWithChanges = () => {
+        setUnsavedDialogConfig({ open: true, action: 'back' });
+    };
 
     // ── Status toggle handlers ────────────────────────────────────────────────
     const handleStatusClick = (currentIsActive) => {
-        if (!allowWarehouseEdit) return;
         setStatusDialogConfig({ open: true, action: currentIsActive ? 'disable' : 'enable' });
     };
 
@@ -329,19 +340,17 @@ const ViewWarehouseDetail = () => {
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div className="page-header">
                 <div className="page-header-left">
-                    <button type="button" onClick={() => navigate('/inventory')} className="back-button">
+                    <button type="button" onClick={() => isEditing ? handleBackWithChanges() : navigate('/inventory')} className="back-button">
                         <ArrowLeft size={20} />
                         <span>Quay lại</span>
                     </button>
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {!isEditing ? (
-                        allowWarehouseEdit ? (
-                            <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
-                                <Edit size={15} />
-                                Chỉnh sửa
-                            </button>
-                        ) : null
+                        <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
+                            <Edit size={15} />
+                            Chỉnh sửa
+                        </button>
                     ) : (
                         <>
                             <button type="button" className="btn btn-secondary" onClick={handleCancelClick} disabled={submitting}>
@@ -382,10 +391,9 @@ const ViewWarehouseDetail = () => {
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 6,
-                                        cursor: allowWarehouseEdit ? 'pointer' : 'default',
+                                        cursor: 'pointer',
                                         userSelect: 'none',
                                     }}
-                                    title={allowWarehouseEdit ? undefined : 'Bạn không có quyền thay đổi trạng thái kho'}
                                 >
                                     {statusConfig.label}
                                 </div>
@@ -530,8 +538,9 @@ const ViewWarehouseDetail = () => {
                                                                         </div>
                                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                                             <span
-                                                                                style={{ fontSize: 14, fontWeight: 500, color: '#2196F3', cursor: 'pointer' }}
+                                                                                style={{ fontSize: 14, fontWeight: 500, color: '#2196F3', cursor: 'pointer', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
                                                                                 onClick={() => navigate(`/items/${line.itemId}`)}
+                                                                                title={line.itemName}
                                                                             >
                                                                                 {line.itemName}
                                                                             </span>
@@ -672,17 +681,12 @@ const ViewWarehouseDetail = () => {
                                 </div>
                             )}
                         </div>
-                    </div>
 
-                    {/* Right: Info panel */}
-                    <div className="info-section" style={{ margin: 0 }}>
-                        <div className="section-header-with-toggle">
-                            <h2 className="section-title">Thông tin kho</h2>
-                        </div>
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Thông tin kho</h2>
-                                </div>
+                        {/* Right: Info panel */}
+                        <div className="info-section" style={{ margin: 0 }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Thông tin kho</h2>
+                            </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div className="form-field">
@@ -693,7 +697,7 @@ const ViewWarehouseDetail = () => {
                                             <input
                                                 type="text"
                                                 value={editForm.warehouseName}
-                                                onChange={(e) => setEditForm((prev) => ({ ...prev, warehouseName: e.target.value }))}
+                                                onChange={(e) => { setEditForm((prev) => ({ ...prev, warehouseName: e.target.value })); setIsFormDirty(true); }}
                                                 className="form-input"
                                                 placeholder="Nhập tên kho"
                                             />
@@ -711,7 +715,7 @@ const ViewWarehouseDetail = () => {
                                             <input
                                                 type="text"
                                                 value={editForm.address}
-                                                onChange={(e) => setEditForm((prev) => ({ ...prev, address: e.target.value }))}
+                                                onChange={(e) => { setEditForm((prev) => ({ ...prev, address: e.target.value })); setIsFormDirty(true); }}
                                                 className="form-input"
                                                 placeholder="Nhập địa chỉ"
                                             />
@@ -759,14 +763,6 @@ const ViewWarehouseDetail = () => {
                                     </div>
                                 </div>
 
-                                <div className="form-field">
-                                    <label className="form-label">Người tạo</label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={16} />
-                                        <input type="text" value={warehouse.createdByName || '—'} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                                    </div>
-                                </div>
-
                                 {/* Summary */}
                                 <div style={{ padding: '14px', backgroundColor: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd', marginTop: '4px' }}>
                                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
@@ -781,6 +777,58 @@ const ViewWarehouseDetail = () => {
                     </div>
                 </form>
             </div>
+
+            {/* Unsaved Changes Dialog */}
+            <Dialog
+                open={unsavedDialogConfig.open}
+                onClose={() => setUnsavedDialogConfig({ open: false, action: null })}
+                fullWidth
+                maxWidth="xs"
+                PaperProps={{
+                    sx: {
+                        width: '100%',
+                        maxWidth: '420px',
+                        borderRadius: '16px',
+                        border: '1px solid #e5e7eb',
+                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                    },
+                }}
+            >
+                <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
+                    Có thay đổi chưa được lưu
+                </DialogTitle>
+                <DialogContent sx={{ px: 3, pb: 2 }}>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
+                        Bạn có thay đổi chưa lưu. Bạn có muốn{' '}
+                        {unsavedDialogConfig.action === 'back' ? 'rời khỏi trang này' : 'hủy bỏ các thay đổi'} không?
+                    </p>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
+                    <button
+                        type="button"
+                        onClick={() => setUnsavedDialogConfig({ open: false, action: null })}
+                        className="btn btn-secondary"
+                        style={{ minWidth: '80px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}
+                    >
+                        Ở lại
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                            setUnsavedDialogConfig({ open: false, action: null });
+                            if (unsavedDialogConfig.action === 'back') {
+                                navigate('/inventory');
+                            } else {
+                                setIsEditing(false);
+                            }
+                        }}
+                        style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}
+                    >
+                        {unsavedDialogConfig.action === 'back' ? 'Rời đi' : 'Hủy thay đổi'}
+                    </button>
+                </DialogActions>
+            </Dialog>
 
             {/* Status Confirmation Dialog */}
             <Dialog
