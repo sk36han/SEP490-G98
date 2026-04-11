@@ -270,7 +270,7 @@ export default function CreateGoodDeliveryNote() {
             };
             await createGoodsDeliveryNote(payload);
             showToast('Tạo phiếu thành công!', 'success');
-            setTimeout(() => navigate('/goods-delivery-notes'), 1200);
+            setTimeout(() => navigate('/good-delivery-notes'), 1200);
         } catch (e) {
             showToast(e.message || 'Lỗi server', 'error');
         } finally {

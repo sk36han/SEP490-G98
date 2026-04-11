@@ -27,12 +27,12 @@ import {
     User,
     Loader,
     Check,
+    Pencil,
 } from 'lucide-react';
-import Toast from '../../components/Toast/Toast';
-import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
+import { useToastContext } from '../../app/context/ToastContext';
 import { hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
 import '../styles/CreateSupplier.css';
 
@@ -137,7 +137,7 @@ const styles = {
         background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
         border: '1px solid #e5e7eb',
         borderRadius: 20,
-        padding: 24,
+        padding: 10,
         boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
     },
     heroTop: {
@@ -246,7 +246,7 @@ const styles = {
         width: '100%',
         borderCollapse: 'separate',
         borderSpacing: 0,
-        minWidth: 980,
+        tableLayout: 'fixed',
     },
     th: {
         position: 'sticky',
@@ -263,9 +263,9 @@ const styles = {
         whiteSpace: 'nowrap',
     },
     td: {
-        padding: '14px 12px',
+        padding: '12px 10px',
         borderBottom: '1px solid #f1f5f9',
-        fontSize: 14,
+        fontSize: 13,
         color: '#111827',
         verticalAlign: 'middle',
         backgroundColor: '#ffffff',
@@ -375,7 +375,7 @@ const styles = {
 const ViewPurchaseOrderDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { toast, showToast, clearToast } = useToast();
+    const { showToast } = useToastContext();
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
@@ -865,6 +865,17 @@ const ViewPurchaseOrderDetail = () => {
                         </button>
                     )}
 
+                    {orderData.approvalStatus === 'DRAFT' && permissionRole !== 'WAREHOUSE_KEEPER' && (
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => navigate(`/purchase-orders/edit/${orderData.purchaseOrderId}`)}
+                        >
+                            <Pencil size={16} className="btn-icon" />
+                            Chỉnh sửa
+                        </button>
+                    )}
+
                     {permissionRole === 'WAREHOUSE_KEEPER' &&
                         orderData.approvalStatus === 'APPROVED' &&
                         hasPendingGRNState.checking && (
@@ -998,15 +1009,15 @@ const ViewPurchaseOrderDetail = () => {
                         <thead>
                             <tr>
                                 <th style={{ ...styles.th, width: 56, textAlign: 'center' }}>STT</th>
-                                <th style={styles.th}>Sản phẩm</th>
-                                <th style={{ ...styles.th, width: 86, textAlign: 'center' }}>ĐVT</th>
-                                <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>SL đặt</th>
-                                <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>SL nhập</th>
-                                <th style={{ ...styles.th, width: 150, textAlign: 'right' }}>Đơn giá</th>
-                                <th style={{ ...styles.th, width: 150, textAlign: 'right' }}>Thành tiền</th>
-                                <th style={{ ...styles.th, width: 70, textAlign: 'center' }}>CO</th>
-                                <th style={{ ...styles.th, width: 70, textAlign: 'center' }}>CQ</th>
-                                <th style={{ ...styles.th, width: 110, textAlign: 'center' }}>Trạng thái</th>
+                                <th style={{ ...styles.th, minWidth: 220 }}>Sản phẩm</th>
+                                <th style={{ ...styles.th, width: 80, textAlign: 'center' }}>ĐVT</th>
+                                <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đặt</th>
+                                <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đã nhận</th>
+                                <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Đơn giá</th>
+                                <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Giá sau CK</th>
+                                <th style={{ ...styles.th, width: 140, textAlign: 'right' }}>Thành tiền</th>
+                                <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CO</th>
+                                <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CQ</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1024,19 +1035,29 @@ const ViewPurchaseOrderDetail = () => {
                                         </td>
 
                                         <td style={styles.td}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span
+                                                    style={{
+                                                        fontSize: 13,
+                                                        fontWeight: 600,
+                                                        color: '#111827',
+                                                        lineHeight: 1.4,
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden',
+                                                    }}
+                                                    title={line.itemName}
+                                                >
                                                     {line.itemName || '—'}
                                                 </span>
-
                                                 {line.itemCode && (
-                                                    <span style={{ fontSize: 12, color: '#64748b' }}>
-                                                        Mã: {line.itemCode}
+                                                    <span style={{ fontSize: 11, color: '#64748b' }}>
+                                                        {line.itemCode}
                                                     </span>
                                                 )}
-
                                                 {line.note && (
-                                                    <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                                                    <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
                                                         {line.note}
                                                     </span>
                                                 )}
@@ -1076,6 +1097,22 @@ const ViewPurchaseOrderDetail = () => {
                                                 ...styles.td,
                                                 textAlign: 'right',
                                                 fontVariantNumeric: 'tabular-nums',
+                                                fontWeight: 700,
+                                                color: '#10b981',
+                                            }}
+                                        >
+                                            {formatCurrency(
+                                                orderData.discount > 0
+                                                    ? (Number(line.unitPrice) || 0) * (orderData.discountType === 'amount' ? 1 : (100 - (orderData.discount ?? 0)) / 100)
+                                                    : (Number(line.unitPrice) || 0)
+                                            )}
+                                        </td>
+
+                                        <td
+                                            style={{
+                                                ...styles.td,
+                                                textAlign: 'right',
+                                                fontVariantNumeric: 'tabular-nums',
                                                 fontWeight: 800,
                                                 color: '#1d4ed8',
                                             }}
@@ -1097,20 +1134,6 @@ const ViewPurchaseOrderDetail = () => {
                                             ) : (
                                                 <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
                                             )}
-                                        </td>
-
-                                        <td style={{ ...styles.td, textAlign: 'center' }}>
-                                            <Chip
-                                                label={lineStatusStyle.label}
-                                                size="small"
-                                                sx={{
-                                                    backgroundColor: lineStatusStyle.bgColor,
-                                                    color: lineStatusStyle.color,
-                                                    fontWeight: 700,
-                                                    fontSize: '10px',
-                                                    height: 22,
-                                                }}
-                                            />
                                         </td>
                                     </tr>
                                 );
@@ -1195,8 +1218,6 @@ const ViewPurchaseOrderDetail = () => {
         </div>
     </div>
 </div>
-
-            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>
     );
 };

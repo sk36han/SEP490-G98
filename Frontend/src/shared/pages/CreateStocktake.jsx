@@ -24,9 +24,6 @@ import {
     Printer,
     Plus,
 } from 'lucide-react';
-import Toast from '../../components/Toast/Toast';
-import { useToast } from '../hooks/useToast';
-
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import {
@@ -42,6 +39,7 @@ import {
 } from '../lib/stocktakeService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsByWarehouse } from '../lib/itemService';
+import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 
 // Format date string as UTC to avoid timezone shift
@@ -82,7 +80,7 @@ const isInProgressStatus = (status) => {
 const CreateStocktake = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { toast, showToast, clearToast } = useToast();
+    const { showToast } = useToastContext();
 
     // ── CREATE MODE vs VIEW MODE ──────────────────────────────────────────────
     // id có giá trị → đang xem/sửa chi tiết (id là stocktakeId)
@@ -541,24 +539,25 @@ const CreateStocktake = () => {
         if (!validateCreateForm()) return;
         try {
             setSubmitting(true);
-            const payload = {
+
+            // 1. Always create as DRAFT first
+            const draftPayload = {
                 warehouseId: parseInt(createForm.warehouseId),
                 mode: createForm.mode,
-                plannedAt: createForm.plannedAt || null,
+                plannedAt: createForm.plannedAt ? createForm.plannedAt + ':00' : null,
                 note: createForm.note || null,
-                status: submitAction,
+                status: 'DRAFT',
             };
-            const result = await createStocktakeDraft(payload);
-            showToast('Tạo phiếu kiểm kê thành công!', 'success');
+            const draft = await createStocktakeDraft(draftPayload);
+            const newId = draft.id ?? draft.stocktakeId;
 
-            // Nếu gửi duyệt luôn (PENDING_APPROVAL) thì chuyển hướng về danh sách
+            // 2. If requesting approval, call submit separately
             if (submitAction === 'PENDING_APPROVAL') {
-                // Gọi thêm submitPlan nếu cần
-                await submitStocktakePlan(result.id ?? result.stocktakeId ?? id);
+                await submitStocktakePlan(newId);
+                showToast('Đã tạo và gửi duyệt phiếu kiểm kê!', 'success');
                 setTimeout(() => navigate('/inventory/stocktakes'), 1500);
             } else {
-                // Chuyển sang trang xem chi tiết vừa tạo
-                const newId = result.id ?? result.stocktakeId ?? id;
+                showToast('Đã lưu bản nháp phiếu kiểm kê!', 'success');
                 setTimeout(() => navigate(`/inventory/stocktakes/${newId}`), 1500);
             }
         } catch (err) {
@@ -748,9 +747,6 @@ const CreateStocktake = () => {
                         </div>
                     </form>
                 </div>
-
-                {/* Toast Notification */}
-                {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
             </div>
         );
     }
@@ -1370,11 +1366,6 @@ const CreateStocktake = () => {
                     )}
                 </DialogActions>
             </Dialog>
-
-            {/* Toast Notification */}
-            {toast && (
-                <Toast message={toast.message} type={toast.type} onClose={clearToast} />
-            )}
         </div>
     );
 };
