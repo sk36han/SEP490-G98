@@ -26,7 +26,6 @@ import {
     useMediaQuery,
 } from '@mui/material';
 import {
-    Filter,
     Columns,
     GripVertical,
     CloudOff,
@@ -37,7 +36,6 @@ import {
     Eye,
 } from 'lucide-react';
 import SearchInput from '../../components/SearchInput';
-import SalesReportFilterPopup from '../../components/SalesReportFilterPopup';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
 const LS_COL_ORDER  = 'salesReportColumnOrder';
@@ -56,145 +54,145 @@ const MONTH_OPTIONS   = ['Tất cả', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Thá
 const MOCK_DATA = [
     // Năm 2026
     { id: 'y2026', level: LEVEL.YEAR, periodLabel: '2026',   scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      deliveryNotes: 245, lineItems: 1_840, totalQty: 12_580, totalValue: 4_850_000_000,
+      deliveryNotes: 245, grnNotes: 210, lineItems: 1_840, totalQty: 12_580, grnQty: 11_240, totalValue: 4_850_000_000,
       prevValue: 3_920_000_000, change: 930_000_000, growth: 23.7 },
     // Quý 1/2026
     { id: 'q1-2026', level: LEVEL.QUARTER, periodLabel: 'Quý 1 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2026', deliveryNotes: 82, lineItems: 610, totalQty: 4_180, totalValue: 1_620_000_000,
+      parentId: 'y2026', deliveryNotes: 82, grnNotes: 70, lineItems: 610, totalQty: 4_180, grnQty: 3_740, totalValue: 1_620_000_000,
       prevValue: 1_310_000_000, change: 310_000_000, growth: 23.7 },
     // Tháng 1/2026
     { id: 'm1-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 1 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q1-2026', deliveryNotes: 28, lineItems: 198, totalQty: 1_420, totalValue: 550_000_000,
+      parentId: 'q1-2026', deliveryNotes: 28, grnNotes: 24, lineItems: 198, totalQty: 1_420, grnQty: 1_260, totalValue: 550_000_000,
       prevValue: 430_000_000, change: 120_000_000, growth: 27.9 },
     // Tháng 2/2026
     { id: 'm2-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 2 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q1-2026', deliveryNotes: 22, lineItems: 166, totalQty: 1_130, totalValue: 440_000_000,
+      parentId: 'q1-2026', deliveryNotes: 22, grnNotes: 19, lineItems: 166, totalQty: 1_130, grnQty: 1_010, totalValue: 440_000_000,
       prevValue: 380_000_000, change: 60_000_000, growth: 15.8 },
     // Tháng 3/2026
     { id: 'm3-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 3 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q1-2026', deliveryNotes: 32, lineItems: 246, totalQty: 1_630, totalValue: 630_000_000,
+      parentId: 'q1-2026', deliveryNotes: 32, grnNotes: 27, lineItems: 246, totalQty: 1_630, grnQty: 1_470, totalValue: 630_000_000,
       prevValue: 500_000_000, change: 130_000_000, growth: 26.0 },
     // Quý 2/2026
     { id: 'q2-2026', level: LEVEL.QUARTER, periodLabel: 'Quý 2 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2026', deliveryNotes: 68, lineItems: 512, totalQty: 3_420, totalValue: 1_320_000_000,
+      parentId: 'y2026', deliveryNotes: 68, grnNotes: 58, lineItems: 512, totalQty: 3_420, grnQty: 3_043, totalValue: 1_320_000_000, grnValue: 1_254_000_000,
       prevValue: 1_120_000_000, change: 200_000_000, growth: 17.9 },
     // Tháng 4/2026
     { id: 'm4-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 4 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q2-2026', deliveryNotes: 22, lineItems: 170, totalQty: 1_100, totalValue: 430_000_000,
+      parentId: 'q2-2026', deliveryNotes: 22, grnNotes: 18, lineItems: 170, totalQty: 1_100, grnQty: 979, grnValue: 408_500_000, totalValue: 430_000_000,
       prevValue: 360_000_000, change: 70_000_000, growth: 19.4 },
     // Tháng 5/2026
     { id: 'm5-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 5 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q2-2026', deliveryNotes: 24, lineItems: 182, totalQty: 1_220, totalValue: 470_000_000,
+      parentId: 'q2-2026', deliveryNotes: 24, grnNotes: 20, lineItems: 182, totalQty: 1_220, grnQty: 1085, grnValue: 446_500_000, totalValue: 470_000_000,
       prevValue: 390_000_000, change: 80_000_000, growth: 20.5 },
     // Tháng 6/2026
     { id: 'm6-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 6 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q2-2026', deliveryNotes: 22, lineItems: 160, totalQty: 1_100, totalValue: 420_000_000,
+      parentId: 'q2-2026', deliveryNotes: 22, grnNotes: 18, lineItems: 160, totalQty: 1_100, grnQty: 979, grnValue: 399_000_000, totalValue: 420_000_000,
       prevValue: 370_000_000, change: 50_000_000, growth: 13.5 },
     // Quý 3/2026
     { id: 'q3-2026', level: LEVEL.QUARTER, periodLabel: 'Quý 3 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2026', deliveryNotes: 55, lineItems: 418, totalQty: 2_840, totalValue: 1_090_000_000,
-      prevValue: 960_000_000, change: 130_000_000, growth: 13.5 },
+      parentId: 'y2026', deliveryNotes: 55, grnNotes: 47, lineItems: 418, totalQty: 2_840, grnQty: 2527, grnValue: 1_035_500_000, totalValue: 1_090_000_000,
+      prevValue: 1_150_000_000, change: -60_000_000, growth: -5.2 },
     // Tháng 7/2026
     { id: 'm7-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 7 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q3-2026', deliveryNotes: 18, lineItems: 138, totalQty: 920, totalValue: 355_000_000,
+      parentId: 'q3-2026', deliveryNotes: 18, grnNotes: 15, lineItems: 138, totalQty: 920, grnQty: 818, grnValue: 337_250_000, totalValue: 355_000_000,
       prevValue: 310_000_000, change: 45_000_000, growth: 14.5 },
     // Tháng 8/2026
     { id: 'm8-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 8 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q3-2026', deliveryNotes: 19, lineItems: 142, totalQty: 960, totalValue: 370_000_000,
+      parentId: 'q3-2026', deliveryNotes: 19, grnNotes: 16, lineItems: 142, totalQty: 960, grnQty: 854, grnValue: 351_500_000, totalValue: 370_000_000,
       prevValue: 330_000_000, change: 40_000_000, growth: 12.1 },
     // Tháng 9/2026
     { id: 'm9-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 9 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q3-2026', deliveryNotes: 18, lineItems: 138, totalQty: 960, totalValue: 365_000_000,
+      parentId: 'q3-2026', deliveryNotes: 18, grnNotes: 15, lineItems: 138, totalQty: 960, grnQty: 854, grnValue: 346_750_000, totalValue: 365_000_000,
       prevValue: 320_000_000, change: 45_000_000, growth: 14.1 },
     // Quý 4/2026
     { id: 'q4-2026', level: LEVEL.QUARTER, periodLabel: 'Quý 4 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2026', deliveryNotes: 40, lineItems: 300, totalQty: 2_140, totalValue: 820_000_000,
-      prevValue: 530_000_000, change: 290_000_000, growth: 54.7 },
+      parentId: 'y2026', deliveryNotes: 40, grnNotes: 34, lineItems: 300, totalQty: 2_140, grnQty: 1904, grnValue: 779_000_000, totalValue: 820_000_000,
+      prevValue: 920_000_000, change: -100_000_000, growth: -10.9 },
     // Tháng 10/2026
     { id: 'm10-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 10 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q4-2026', deliveryNotes: 14, lineItems: 100, totalQty: 700, totalValue: 270_000_000,
+      parentId: 'q4-2026', deliveryNotes: 14, grnNotes: 12, lineItems: 100, totalQty: 700, grnQty: 623, grnValue: 256_500_000, totalValue: 270_000_000,
       prevValue: 170_000_000, change: 100_000_000, growth: 58.8 },
     // Tháng 11/2026
     { id: 'm11-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 11 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q4-2026', deliveryNotes: 13, lineItems: 98, totalQty: 720, totalValue: 280_000_000,
+      parentId: 'q4-2026', deliveryNotes: 13, grnNotes: 11, lineItems: 98, totalQty: 720, grnQty: 640, grnValue: 266_000_000, totalValue: 280_000_000,
       prevValue: 180_000_000, change: 100_000_000, growth: 55.6 },
     // Tháng 12/2026
     { id: 'm12-2026', level: LEVEL.MONTH, periodLabel: 'Tháng 12 / 2026', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q4-2026', deliveryNotes: 13, lineItems: 102, totalQty: 720, totalValue: 270_000_000,
+      parentId: 'q4-2026', deliveryNotes: 13, grnNotes: 11, lineItems: 102, totalQty: 720, grnQty: 640, grnValue: 256_500_000, totalValue: 270_000_000,
       prevValue: 180_000_000, change: 90_000_000, growth: 50.0 },
     // Năm 2025
     { id: 'y2025', level: LEVEL.YEAR, periodLabel: '2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      deliveryNotes: 1_080, lineItems: 8_140, totalQty: 55_600, totalValue: 3_920_000_000,
-      prevValue: 3_100_000_000, change: 820_000_000, growth: 26.5 },
+      deliveryNotes: 1_080, grnNotes: 920, lineItems: 8_140, totalQty: 55_600, grnQty: 49_800, totalValue: 3_920_000_000,
+      prevValue: 4_200_000_000, change: -280_000_000, growth: -6.7 },
     // Quý 1/2025
     { id: 'q1-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 1 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2025', deliveryNotes: 295, lineItems: 2_210, totalQty: 15_100, totalValue: 1_310_000_000,
+      parentId: 'y2025', deliveryNotes: 295, grnNotes: 253, lineItems: 2_210, totalQty: 15_100, grnQty: 13439, grnValue: 1_244_500_000, totalValue: 1_310_000_000,
       prevValue: 1_080_000_000, change: 230_000_000, growth: 21.3 },
     { id: 'm1-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 1 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q1-2025', deliveryNotes: 98, lineItems: 736, totalQty: 5_030, totalValue: 430_000_000,
+      parentId: 'q1-2025', deliveryNotes: 98, grnNotes: 84, lineItems: 736, totalQty: 5_030, grnQty: 4476, grnValue: 408_500_000, totalValue: 430_000_000,
       prevValue: 350_000_000, change: 80_000_000, growth: 22.9 },
     { id: 'm2-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 2 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q1-2025', deliveryNotes: 88, lineItems: 660, totalQty: 4_510, totalValue: 380_000_000,
+      parentId: 'q1-2025', deliveryNotes: 88, grnNotes: 75, lineItems: 660, totalQty: 4_510, grnQty: 4013, grnValue: 361_000_000, totalValue: 380_000_000,
       prevValue: 320_000_000, change: 60_000_000, growth: 18.8 },
     { id: 'm3-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 3 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q1-2025', deliveryNotes: 109, lineItems: 814, totalQty: 5_560, totalValue: 500_000_000,
+      parentId: 'q1-2025', deliveryNotes: 109, grnNotes: 93, lineItems: 814, totalQty: 5_560, grnQty: 4948, grnValue: 475_000_000, totalValue: 500_000_000,
       prevValue: 410_000_000, change: 90_000_000, growth: 22.0 },
 
     // Quý 2/2025
     { id: 'q2-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 2 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2025', deliveryNotes: 270, lineItems: 2_030, totalQty: 13_900, totalValue: 1_120_000_000,
+      parentId: 'y2025', deliveryNotes: 270, grnNotes: 232, lineItems: 2_030, totalQty: 13_900, grnQty: 12371, grnValue: 1_064_000_000, totalValue: 1_120_000_000,
       prevValue: 960_000_000, change: 160_000_000, growth: 16.7 },
     { id: 'm4-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 4 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q2-2025', deliveryNotes: 88, lineItems: 662, totalQty: 4_530, totalValue: 360_000_000,
+      parentId: 'q2-2025', deliveryNotes: 88, grnNotes: 75, lineItems: 662, totalQty: 4_530, grnQty: 4031, grnValue: 342_000_000, totalValue: 360_000_000,
       prevValue: 320_000_000, change: 40_000_000, growth: 12.5 },
     { id: 'm5-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 5 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q2-2025', deliveryNotes: 92, lineItems: 694, totalQty: 4_740, totalValue: 390_000_000,
+      parentId: 'q2-2025', deliveryNotes: 92, grnNotes: 79, lineItems: 694, totalQty: 4_740, grnQty: 4218, grnValue: 370_500_000, totalValue: 390_000_000,
       prevValue: 330_000_000, change: 60_000_000, growth: 18.2 },
     { id: 'm6-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 6 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q2-2025', deliveryNotes: 90, lineItems: 674, totalQty: 4_630, totalValue: 370_000_000,
+      parentId: 'q2-2025', deliveryNotes: 90, grnNotes: 77, lineItems: 674, totalQty: 4_630, grnQty: 4120, grnValue: 351_500_000, totalValue: 370_000_000,
       prevValue: 310_000_000, change: 60_000_000, growth: 19.4 },
 
     // Quý 3/2025
     { id: 'q3-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 3 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2025', deliveryNotes: 255, lineItems: 1_920, totalQty: 13_130, totalValue: 960_000_000,
+      parentId: 'y2025', deliveryNotes: 255, grnNotes: 219, lineItems: 1_920, totalQty: 13_130, grnQty: 11685, grnValue: 912_000_000, totalValue: 960_000_000,
       prevValue: 840_000_000, change: 120_000_000, growth: 14.3 },
     { id: 'm7-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 7 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q3-2025', deliveryNotes: 84, lineItems: 630, totalQty: 4_310, totalValue: 310_000_000,
+      parentId: 'q3-2025', deliveryNotes: 84, grnNotes: 72, lineItems: 630, totalQty: 4_310, grnQty: 3835, grnValue: 294_500_000, totalValue: 310_000_000,
       prevValue: 270_000_000, change: 40_000_000, growth: 14.8 },
     { id: 'm8-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 8 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q3-2025', deliveryNotes: 86, lineItems: 646, totalQty: 4_420, totalValue: 330_000_000,
+      parentId: 'q3-2025', deliveryNotes: 86, grnNotes: 73, lineItems: 646, totalQty: 4_420, grnQty: 3933, grnValue: 313_500_000, totalValue: 330_000_000,
       prevValue: 280_000_000, change: 50_000_000, growth: 17.9 },
     { id: 'm9-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 9 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q3-2025', deliveryNotes: 85, lineItems: 644, totalQty: 4_400, totalValue: 320_000_000,
+      parentId: 'q3-2025', deliveryNotes: 85, grnNotes: 73, lineItems: 644, totalQty: 4_400, grnQty: 3916, grnValue: 304_000_000, totalValue: 320_000_000,
       prevValue: 290_000_000, change: 30_000_000, growth: 10.3 },
 
     // Quý 4/2025
     { id: 'q4-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 4 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'y2025', deliveryNotes: 260, lineItems: 1_980, totalQty: 13_470, totalValue: 530_000_000,
+      parentId: 'y2025', deliveryNotes: 260, grnNotes: 223, lineItems: 1_980, totalQty: 13_470, grnQty: 11988, grnValue: 503_500_000, totalValue: 530_000_000,
       prevValue: 460_000_000, change: 70_000_000, growth: 15.2 },
     { id: 'm10-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 10 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q4-2025', deliveryNotes: 86, lineItems: 646, totalQty: 4_410, totalValue: 170_000_000,
+      parentId: 'q4-2025', deliveryNotes: 86, grnNotes: 73, lineItems: 646, totalQty: 4_410, grnQty: 3924, grnValue: 161_500_000, totalValue: 170_000_000,
       prevValue: 150_000_000, change: 20_000_000, growth: 13.3 },
     { id: 'm11-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 11 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q4-2025', deliveryNotes: 86, lineItems: 660, totalQty: 4_510, totalValue: 180_000_000,
+      parentId: 'q4-2025', deliveryNotes: 86, grnNotes: 73, lineItems: 660, totalQty: 4_510, grnQty: 4013, grnValue: 171_000_000, totalValue: 180_000_000,
       prevValue: 155_000_000, change: 25_000_000, growth: 16.1 },
     { id: 'm12-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 12 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
-      parentId: 'q4-2025', deliveryNotes: 88, lineItems: 674, totalQty: 4_550, totalValue: 180_000_000,
+      parentId: 'q4-2025', deliveryNotes: 88, grnNotes: 75, lineItems: 674, totalQty: 4_550, grnQty: 4049, grnValue: 171_000_000, totalValue: 180_000_000,
       prevValue: 155_000_000, change: 25_000_000, growth: 16.1 },
 ];
 
 // ── Column definitions ─────────────────────────────────────────────────────
 const ALL_COLUMNS = [
     { id: 'periodLabel',   label: 'Kỳ báo cáo',       align: 'left',  width: 220, minWidth: 220 },
-    { id: 'deliveryNotes', label: 'Số phiếu xuất',     align: 'right', width: 110, minWidth: 110 },
-    { id: 'totalQty',     label: 'Tổng SL xuất',        align: 'right', width: 110, minWidth: 110 },
-    { id: 'totalValue',   label: 'Giá trị xuất hàng',  align: 'right', width: 160, minWidth: 160 },
-    { id: 'prevValue',    label: 'Kỳ trước',            align: 'right', width: 140, minWidth: 140 },
-    { id: 'change',      label: 'Tăng / Giảm',          align: 'right', width: 140, minWidth: 140 },
-    { id: 'growth',      label: 'Tăng trưởng',           align: 'right', width: 100, minWidth: 100 },
+    { id: 'notes',         label: 'Số phiếu',          align: 'right', width: 110, minWidth: 110 },
+    { id: 'qty',           label: 'Tổng SL',            align: 'right', width: 110, minWidth: 110 },
+    { id: 'value',         label: 'Giá trị',            align: 'right', width: 160, minWidth: 160 },
+    { id: 'prevValue',     label: 'Cùng kỳ năm trước', align: 'right', width: 140, minWidth: 140 },
+    { id: 'change',        label: 'Chênh lệch',         align: 'right', width: 140, minWidth: 140 },
+    { id: 'growth',        label: 'Tăng trưởng',        align: 'right', width: 100, minWidth: 100 },
 ];
 
-const DEFAULT_VISIBLE = ['periodLabel', 'deliveryNotes', 'totalQty', 'totalValue', 'prevValue', 'change', 'growth'];
+const DEFAULT_VISIBLE = ['periodLabel', 'notes', 'qty', 'value', 'prevValue', 'change', 'growth'];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -252,10 +250,8 @@ const getPreviousPeriodRow = (row, rawData) => {
         const label = row.periodLabel;
         const qNum = parseInt(label.match(/Quý (\d)/)?.[1] || '0');
         const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
-        let prevQ = qNum - 1;
-        let prevY = yrNum;
-        if (prevQ === 0) { prevQ = 4; prevY = yrNum - 1; }
-        const prevLabel = `Quý ${prevQ} / ${prevY}`;
+        const prevY = yrNum - 1;
+        const prevLabel = `Quý ${qNum} / ${prevY}`;
         return rawData.find(r => r.level === LEVEL.QUARTER && r.periodLabel === prevLabel);
     }
 
@@ -263,10 +259,8 @@ const getPreviousPeriodRow = (row, rawData) => {
         const label = row.periodLabel;
         const mNum = parseInt(label.match(/Tháng (\d+)/)?.[1] || '0');
         const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
-        let prevM = mNum - 1;
-        let prevY = yrNum;
-        if (prevM === 0) { prevM = 12; prevY = yrNum - 1; }
-        const prevLabel = `Tháng ${prevM} / ${prevY}`;
+        const prevY = yrNum - 1;
+        const prevLabel = `Tháng ${mNum} / ${prevY}`;
         return rawData.find(r => r.level === LEVEL.MONTH && r.periodLabel === prevLabel);
     }
 
@@ -274,15 +268,16 @@ const getPreviousPeriodRow = (row, rawData) => {
 };
 
 /** Tính comparison object từ row và rawData gốc */
-const getComputedComparison = (row, rawData) => {
+const getComputedComparison = (row, rawData, dataMode) => {
     const prevRow = getPreviousPeriodRow(row, rawData);
     if (!prevRow) return { compPrev: null, compChange: null, compGrowth: null };
 
-    const compPrev = prevRow.totalValue;
-    const compChange = calcChange(row.totalValue, compPrev);
-    const compGrowth = calcGrowth(compChange, compPrev);
+    const currVal = dataMode === 'inbound' ? (row.grnValue || 0) : row.totalValue;
+    const prevVal = dataMode === 'inbound' ? (prevRow.grnValue || 0) : prevRow.totalValue;
+    const compChange = calcChange(currVal, prevVal);
+    const compGrowth = calcGrowth(compChange, prevVal);
 
-    return { compPrev, compChange, compGrowth };
+    return { compPrev: prevVal, compChange, compGrowth };
 };
 
 // ── Font style theo cấp (nhấn mạnh YEAR > QUARTER > MONTH) ──────────────────
@@ -330,10 +325,12 @@ export default function Viewsalesreportlist() {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    // Search / filter
-    const [searchTerm, setSearchTerm]         = useState('');
-    const [filterAnchor, setFilterAnchor]     = useState(null);
-    const [filterValues, setFilterValues]     = useState({});
+    // Search
+    const [searchTerm, setSearchTerm] = useState('');
+    // Data mode: 'outbound' (xuất) | 'inbound' (nhập)
+    const [dataMode, setDataMode] = useState('outbound');
+    // Quick filter: 'all' | 'positive' | 'negative'
+    const [quickFilter, setQuickFilter] = useState('all');
 
     // Column management
     const [columnOrder, setColumnOrder] = useState(() => {
@@ -370,35 +367,22 @@ export default function Viewsalesreportlist() {
 
     // Apply search filter to mock data
     const filteredData = useMemo(() => {
-        const fv = filterValues;
-        return MOCK_DATA.filter(row => {
-            // Year filter
-            if (fv.year && fv.year !== 'all') {
-                if (!row.periodLabel.startsWith(fv.year)) return false;
-            }
-            // Quarter filter
-            if (fv.quarter && fv.quarter !== 'Tất cả') {
-                const qNum = fv.quarter.replace('Quý ', '');
-                if (row.level === LEVEL.QUARTER && !row.periodLabel.includes(`Quý ${qNum}`)) return false;
-                if (row.level === LEVEL.MONTH) {
-                    const monthNum = parseInt(row.periodLabel.match(/Tháng (\d+)/)?.[1] || '0');
-                    const qStart = (parseInt(qNum) - 1) * 3 + 1;
-                    if (monthNum < qStart || monthNum > qStart + 2) return false;
-                }
-            }
-            // Month filter
-            if (fv.month && fv.month !== 'Tất cả') {
-                if (row.level === LEVEL.MONTH && !row.periodLabel.includes(fv.month)) return false;
-            }
-            // Search
-            if (searchTerm.trim()) {
-                const kw = searchTerm.toLowerCase();
-                const match = row.periodLabel.toLowerCase().includes(kw);
-                if (!match) return false;
-            }
-            return true;
-        });
-    }, [filterValues, searchTerm]);
+        let data = searchTerm.trim()
+            ? MOCK_DATA.filter(row => row.periodLabel.toLowerCase().includes(searchTerm.toLowerCase()))
+            : MOCK_DATA;
+        if (quickFilter !== 'all') {
+            data = data.filter(r => {
+                const prevRow = getPreviousPeriodRow(r, MOCK_DATA);
+                if (!prevRow) return false;
+                const prevVal = dataMode === 'inbound' ? (prevRow.grnValue || 0) : prevRow.totalValue;
+                const currVal = dataMode === 'inbound' ? (r.grnValue || 0) : r.totalValue;
+                const change = currVal - prevVal;
+                const g = prevVal > 0 ? (change / prevVal) * 100 : 0;
+                return quickFilter === 'positive' ? g > 0 : g < 0;
+            });
+        }
+        return data;
+    }, [searchTerm, quickFilter, dataMode]);
 
     // Build tree: filter để quyết định hiển thị,
     // nhưng comparison LUÔN lấy từ MOCK_DATA gốc (không lọc)
@@ -409,27 +393,30 @@ export default function Viewsalesreportlist() {
 
         filteredData.forEach(row => {
             // Luôn tính comparison từ raw dataset gốc, không dùng filteredData
-            const { compPrev, compChange, compGrowth } = getComputedComparison(row, rawData);
+            const { compPrev, compChange, compGrowth } = getComputedComparison(row, rawData, dataMode);
 
             if (row.level === LEVEL.YEAR) {
                 result.push({ ...row, depth: 0, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)),
                     compPrev, compChange, compGrowth });
             } else if (row.level === LEVEL.QUARTER) {
+                // Chỉ hiện nếu Year cha đang expand
                 const parent = filteredData.find(r => r.id === row.parentId);
                 if (parent && expandedIds.has(parent.id)) {
                     result.push({ ...row, depth: 1, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)),
                         compPrev, compChange, compGrowth });
                 }
             } else if (row.level === LEVEL.MONTH) {
+                // Chỉ hiện nếu Year cha VÀ Quarter cha đang expand
                 const quarter = filteredData.find(r => r.id === row.parentId);
-                if (quarter && expandedIds.has(quarter.id)) {
+                const year = quarter ? filteredData.find(r => r.id === quarter.parentId) : null;
+                if (quarter && year && expandedIds.has(quarter.id) && expandedIds.has(year.id)) {
                     result.push({ ...row, depth: 2, hasChildren: false,
                         compPrev, compChange, compGrowth });
                 }
             }
         });
         return result;
-    }, [filteredData, expandedIds]);
+    }, [filteredData, expandedIds, dataMode]);
 
     const totalItems = treeRows.length;
 
@@ -475,18 +462,16 @@ export default function Viewsalesreportlist() {
         setColumnSelectorAnchor(null);
     };
 
-    // ── Filter ────────────────────────────────────────────────────────────
-    const handleFilterApply = useCallback((values) => {
-        setFilterValues(values);
-    }, []);
-
     // ── Summary totals ────────────────────────────────────────────────────
     const summaryTotals = useMemo(() => {
         const visibleRows = filteredData;
+        const years = visibleRows.filter(r => r.level === LEVEL.YEAR);
         return {
-            totalSales:   visibleRows.filter(r => r.level === LEVEL.YEAR).reduce((s, r) => s + r.totalValue, 0),
-            totalNotes:   visibleRows.filter(r => r.level === LEVEL.YEAR).reduce((s, r) => s + r.deliveryNotes, 0),
-            totalQty:     visibleRows.filter(r => r.level === LEVEL.YEAR).reduce((s, r) => s + r.totalQty, 0),
+            totalSales: years.reduce((s, r) => s + r.totalValue, 0),
+            totalNotes: years.reduce((s, r) => s + r.deliveryNotes, 0),
+            totalQty: years.reduce((s, r) => s + r.totalQty, 0),
+            totalGrnNotes: years.reduce((s, r) => s + (r.grnNotes || 0), 0),
+            totalGrnQty: years.reduce((s, r) => s + (r.grnQty || 0), 0),
         };
     }, [filteredData]);
 
@@ -530,6 +515,20 @@ export default function Viewsalesreportlist() {
                         color="#059669"
                         bgColor="rgba(5,150,105,0.1)"
                     />
+                    <SummaryCard
+                        icon={FileBarChart}
+                        label="Tổng phiếu nhập"
+                        value={formatNumber(summaryTotals.totalGrnNotes)}
+                        color="#7c3aed"
+                        bgColor="rgba(124,58,237,0.1)"
+                    />
+                    <SummaryCard
+                        icon={FileBarChart}
+                        label="Tổng số lượng nhập"
+                        value={formatNumber(summaryTotals.totalGrnQty)}
+                        color="#0891b2"
+                        bgColor="rgba(8,145,178,0.1)"
+                    />
                 </Box>
             </Box>
 
@@ -568,18 +567,18 @@ export default function Viewsalesreportlist() {
                                 }}
                             />
 
-                            <Tooltip title="Bộ lọc">
-                                <IconButton color="primary"
-                                    onClick={(e) => setFilterAnchor(e.currentTarget)}
-                                    aria-label="Bộ lọc"
-                                    sx={{
-                                        border: '1px solid #e5e7eb', bgcolor: '#ffffff',
-                                        borderRadius: '10px',
-                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                    }}>
-                                    <Filter size={18} />
-                                </IconButton>
-                            </Tooltip>
+                            {/* Toggle Nhập / Xuất */}
+                            <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', bgcolor: '#fff' }}>
+                                <Box onClick={() => { setDataMode('outbound'); setQuickFilter('all'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'outbound' ? '#2563eb' : '#fff', color: dataMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: dataMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất</Box>
+                                <Box onClick={() => { setDataMode('inbound'); setQuickFilter('all'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'inbound' ? '#059669' : '#fff', color: dataMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: dataMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập</Box>
+                            </Box>
+
+                            {/* Quick filter */}
+                            <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', bgcolor: '#fff' }}>
+                                <Box onClick={() => setQuickFilter('all')} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: quickFilter === 'all' ? '#6b7280' : '#fff', color: quickFilter === 'all' ? '#fff' : '#6b7280', '&:hover': { bgcolor: quickFilter === 'all' ? '#6b7280' : '#f9fafb' } }}>Tất cả</Box>
+                                <Box onClick={() => setQuickFilter('positive')} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: quickFilter === 'positive' ? '#16a34a' : '#fff', color: quickFilter === 'positive' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: quickFilter === 'positive' ? '#16a34a' : '#f9fafb' } }}>+Tăng</Box>
+                                <Box onClick={() => setQuickFilter('negative')} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: quickFilter === 'negative' ? '#dc2626' : '#fff', color: quickFilter === 'negative' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: quickFilter === 'negative' ? '#dc2626' : '#f9fafb' } }}>-Giảm</Box>
+                            </Box>
 
                             <Tooltip title="Chọn cột hiển thị">
                                 <IconButton color="primary"
@@ -613,14 +612,6 @@ export default function Viewsalesreportlist() {
                             </Button>
                         </Box>
                     </Box>
-
-                    {/* ── Filter Popup ── */}
-                    <SalesReportFilterPopup
-                        open={Boolean(filterAnchor)}
-                        onClose={() => setFilterAnchor(null)}
-                        initialValues={filterValues}
-                        onApply={handleFilterApply}
-                    />
 
                     {/* ── Column Selector Popover ── */}
                     <Popover
@@ -825,16 +816,18 @@ export default function Viewsalesreportlist() {
                                                             let weight = lf.fontWeight;
                                                             let fontSize = lf.fontSize;
 
-                                                            if (col.id === 'deliveryNotes') {
-                                                                val = formatNumber(row.deliveryNotes);
-                                                            } else if (col.id === 'totalQty') {
-                                                                val = formatNumber(row.totalQty);
-                                                            } else if (col.id === 'totalValue') {
-                                                                val = formatVND(row.totalValue);
+                                                            if (col.id === 'notes') {
+                                                                val = formatNumber(dataMode === 'inbound' ? (row.grnNotes || 0) : row.deliveryNotes);
+                                                                color = dataMode === 'inbound' ? '#7c3aed' : lf.color;
+                                                            } else if (col.id === 'qty') {
+                                                                val = formatNumber(dataMode === 'inbound' ? (row.grnQty || 0) : row.totalQty);
+                                                                color = dataMode === 'inbound' ? '#0891b2' : lf.color;
+                                                            } else if (col.id === 'value') {
                                                                 const vf = VALUE_FONT[row.level] || VALUE_FONT.MONTH;
                                                                 fontSize = vf.fontSize;
                                                                 weight = vf.fontWeight;
                                                                 color = vf.color;
+                                                                val = formatVND(dataMode === 'inbound' ? (row.grnValue || 0) : row.totalValue);
                                                             } else if (col.id === 'prevValue') {
                                                                 val = row.compPrev != null ? formatVND(row.compPrev) : '—';
                                                                 color = '#9ca3af';
