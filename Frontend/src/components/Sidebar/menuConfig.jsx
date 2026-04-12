@@ -10,6 +10,7 @@ import {
     RotateCcw,
     BarChart3,
     DollarSign,
+    MapPin,
 } from 'lucide-react';
 
 const icon = (Icon) => <Icon size={22} />;
@@ -287,6 +288,16 @@ const menuCatalog = {
         label: 'Trả hàng',
         children: [
             createChild('/purchase-returns', 'Danh sách phiếu trả hàng'),
+        ],
+    }),
+
+    deliveries: createItem({
+        id: 'deliveries-mgmt',
+        path: '/deliveries',
+        icon: icon(MapPin),
+        label: 'Giao hàng',
+        children: [
+            createChild('/deliveries', 'Danh sách giao hàng'),
         ],
     }),
 
