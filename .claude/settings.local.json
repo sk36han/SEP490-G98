@@ -17,7 +17,9 @@
       "Bash(git -C \"D:/SEP490 SP26/SEP490-G98/\" branch -a)",
       "Bash(git:*)",
       "Bash(ls -la *.jsx)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Read(//workspace/Frontend/**)",
+      "Read(//d/workspace/Frontend/**)"
     ]
   }
 }

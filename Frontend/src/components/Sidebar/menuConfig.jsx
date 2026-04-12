@@ -344,6 +344,7 @@ const roleMenus = {
         menuCatalog.goodReceiptNotesManage,
         menuCatalog.releaseRequestsManage,
         menuCatalog.goodsDeliveryNotesManage,
+        menuCatalog.deliveries,
     ],
     SALE_SUPPORT: [
         ...COMMON_ITEMS,
@@ -359,6 +360,7 @@ const roleMenus = {
         menuCatalog.receiversSimple,
         menuCatalog.releaseRequestsManage,
         menuCatalog.goodsDeliveryNotesManage,
+        menuCatalog.deliveries,
     ],
     ACCOUNTANTS: [
         ...COMMON_ITEMS,

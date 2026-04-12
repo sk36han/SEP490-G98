@@ -564,11 +564,6 @@ const ViewDeliveryList = () => {
                                     <Typography variant="body2" sx={{ mb: 2 }}>{error}</Typography>
                                     <Button variant="outlined" size="small" onClick={() => fetchData()} sx={{ textTransform: 'none' }}>Thử lại</Button>
                                 </Box>
-                            ) : paginatedList.length === 0 ? (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 6, px: 2, color: 'text.secondary' }}>
-                                    <Truck size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
-                                    <Typography>Chưa có dữ liệu giao hàng</Typography>
-                                </Box>
                             ) : (
                                 <TableContainer sx={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', maxWidth: '100%', overflow: 'auto', boxSizing: 'border-box' }}>
                                     <Table size="small" stickyHeader sx={{ minWidth: '100%', width: 'max-content', tableLayout: 'fixed' }}>
