@@ -360,6 +360,12 @@ namespace Warehouse.DataAcces.Service
             grn.PostedAt = DateTime.UtcNow;
             grn.ApprovedAt = DateTime.UtcNow;
 
+            // Thanh toán — lưu theo xác nhận kế toán khi duyệt
+            grn.IsPaid = request.IsPaid;
+            grn.PaymentMethod = request.IsPaid && !string.IsNullOrWhiteSpace(request.PaymentMethod)
+                ? request.PaymentMethod.Trim()
+                : null;
+
             // Tính tổng giá trị GRN để phân bổ shipping
             var totalGrnAmount = grn.GoodsReceiptNoteLines
                 .Sum(l => (l.UnitPrice ?? 0) * l.ActualQty);

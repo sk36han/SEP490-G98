@@ -479,8 +479,8 @@ export default function ViewPurchaseOrderList() {
         } catch (err) {
             setError(
                 err?.response?.data?.message ||
-                    err?.message ||
-                    'Không tải được danh sách đơn mua.'
+                err?.message ||
+                'Không tải được danh sách đơn mua.'
             );
             setList([]);
         } finally {
@@ -680,19 +680,8 @@ export default function ViewPurchaseOrderList() {
         }
 
         result.sort((a, b) => {
+            // Mặc định: mới nhất → cũ nhất (không ghim bản nháp lên đầu)
             if (!orderBy) {
-                const isOwnDraftCheck = (row) =>
-                    upper(row.approvalStatus) === 'DRAFT' &&
-                    (String(row.creatorId) === String(currentUserId) ||
-                        normalizeText(row.creator) === normalizeText(currentUserName));
-
-                const aIsOwnDraft = isOwnDraftCheck(a);
-                const bIsOwnDraft = isOwnDraftCheck(b);
-
-                if (aIsOwnDraft !== bIsOwnDraft) {
-                    return aIsOwnDraft ? -1 : 1;
-                }
-
                 const timeA = new Date(a.createdAt).getTime() || 0;
                 const timeB = new Date(b.createdAt).getTime() || 0;
                 return timeB - timeA;
@@ -974,7 +963,7 @@ export default function ViewPurchaseOrderList() {
                                     upper(r.approvalStatus) === 'DRAFT' &&
                                     (String(r.creatorId) === String(currentUserId) ||
                                         normalizeText(r.creator) ===
-                                            normalizeText(currentUserName))
+                                        normalizeText(currentUserName))
                             )
                             .length.toLocaleString()}
                         color="#6b7280"
@@ -1606,15 +1595,15 @@ export default function ViewPurchaseOrderList() {
                                                                 sx={{
                                                                     flex: 1,
                                                                     '& .MuiTableSortLabel-icon':
-                                                                        {
-                                                                            fontSize:
-                                                                                '14px',
-                                                                            opacity:
-                                                                                orderBy ===
+                                                                    {
+                                                                        fontSize:
+                                                                            '14px',
+                                                                        opacity:
+                                                                            orderBy ===
                                                                                 column.id
-                                                                                    ? 1
-                                                                                    : 0,
-                                                                        },
+                                                                                ? 1
+                                                                                : 0,
+                                                                    },
                                                                 }}
                                                                 hideSortIcon={false}
                                                             >
@@ -1678,23 +1667,23 @@ export default function ViewPurchaseOrderList() {
                                                         sx={
                                                             column.id === 'stt'
                                                                 ? {
-                                                                      fontVariantNumeric:
-                                                                          'tabular-nums',
-                                                                  }
+                                                                    fontVariantNumeric:
+                                                                        'tabular-nums',
+                                                                }
                                                                 : column.id ===
-                                                                      'approvalStatus' ||
-                                                                  column.id ===
-                                                                      'receivingStatus'
-                                                                ? undefined
-                                                                : {
-                                                                      maxWidth: 220,
-                                                                      overflow:
-                                                                          'hidden',
-                                                                      textOverflow:
-                                                                          'ellipsis',
-                                                                      whiteSpace:
-                                                                          'nowrap',
-                                                                  }
+                                                                    'approvalStatus' ||
+                                                                    column.id ===
+                                                                    'receivingStatus'
+                                                                    ? undefined
+                                                                    : {
+                                                                        maxWidth: 220,
+                                                                        overflow:
+                                                                            'hidden',
+                                                                        textOverflow:
+                                                                            'ellipsis',
+                                                                        whiteSpace:
+                                                                            'nowrap',
+                                                                    }
                                                         }
                                                     >
                                                         {renderCellContent(
