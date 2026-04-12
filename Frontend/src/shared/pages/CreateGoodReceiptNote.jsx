@@ -49,9 +49,10 @@ import { useToast } from '../hooks/useToast';
 import {
     formatCurrency,
     validateGRNForm,
+    getLocalDateYmd,
     calculateGRNTotals,
+    getPoGrossTotalForDiscount,
     MAX_JUSTIFICATION_LENGTH,
-    DISCOUNT_TYPES,
 } from '../utils/goodReceiptNoteUtils';
 
 // 9. Styles
@@ -90,6 +91,23 @@ const normalizeSupplier = (supplier) => ({
     city: supplier?.city ?? supplier?.City ?? '',
 });
 
+/** Tên ĐVT từ dòng PO (API có thể trả uomName / UomName / uom). */
+const resolvePoLineUomLabel = (line) =>
+    line?.uomName ??
+    line?.UomName ??
+    line?.baseUomName ??
+    line?.BaseUomName ??
+    line?.uom ??
+    line?.Uom ??
+    '';
+
+/** Ô chỉ đọc trên form GRN — nền xám, dễ phân biệt với ô nhập liệu. */
+const READONLY_FIELD_STYLE = {
+    backgroundColor: '#e5e7eb',
+    color: '#374151',
+    cursor: 'default',
+};
+
 const CreateGoodReceiptNote = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -103,14 +121,10 @@ const CreateGoodReceiptNote = () => {
         purchaseOrderCode: '',
         supplierId: '',
         supplierName: '',
-        receiptDate: new Date().toISOString().slice(0, 10),
+        receiptDate: getLocalDateYmd(),
         creatorId: currentUser?.userId || '',
         creatorName: currentUser?.fullName || currentUser?.FullName || '',
         justification: '',
-        discountType: 'percent',
-        discount: 0,
-        discountAmountFixed: 0,
-        additionalCosts: [],
         shippingFee: 0,
     });
 
@@ -234,6 +248,8 @@ const CreateGoodReceiptNote = () => {
                     poDetail = {
                         ...po,
                         ...detail,
+                        poId: detail.purchaseOrderId ?? detail.PurchaseOrderId ?? po.poId,
+                        poCode: detail.poCode ?? detail.POCode ?? po.poCode,
                         lifecycleStatus: detail.lifecycleStatus ?? detail.LifecycleStatus ?? po.lifecycleStatus ?? po.LifecycleStatus ?? '',
                         lines: detail.lines ?? detail.Lines ?? [],
                     };
@@ -267,8 +283,7 @@ const CreateGoodReceiptNote = () => {
                     const received = line.receivedQty ?? 0;
                     const remaining = ordered - received;
 
-                    // PartRcv: Fill = remaining (không cho sửa)
-                    // PendingRcv: Fill = ordered (cho sửa)
+                    // PartRcv: mặc định = số còn thiếu; vẫn cho sửa trong giới hạn remaining
                     const defaultReceivedQty = isPartRcv ? remaining : ordered;
 
                     return {
@@ -276,7 +291,7 @@ const CreateGoodReceiptNote = () => {
                         itemId: line.itemId ?? line.ItemId,
                         itemName: line.itemName ?? line.ItemName ?? '',
                         itemSku: line.sku ?? line.Sku ?? '',
-                        uom: line.uom ?? line.Uom ?? '',
+                        uom: resolvePoLineUomLabel(line),
                         uomId: line.uomId ?? line.UomId ?? null,
                         orderedQty: ordered,
                         remainingQty: remaining,
@@ -286,7 +301,6 @@ const CreateGoodReceiptNote = () => {
                         note: '',
                         hasCO: !!(line.requiresCo ?? line.requiresCO ?? false),
                         hasCQ: !!(line.requiresCq ?? line.requiresCQ ?? false),
-                        isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
                     };
                 });
 
@@ -339,6 +353,10 @@ const CreateGoodReceiptNote = () => {
                     if (detail) {
                         poDetail = {
                             ...selectedPO,
+                            ...detail,
+                            poId: detail.purchaseOrderId ?? detail.PurchaseOrderId ?? selectedPO.poId,
+                            poCode: detail.poCode ?? detail.POCode ?? selectedPO.poCode,
+                            lifecycleStatus: detail.lifecycleStatus ?? detail.LifecycleStatus ?? selectedPO.lifecycleStatus ?? selectedPO.LifecycleStatus ?? '',
                             lines: detail.lines ?? detail.Lines ?? [],
                         };
                     }
@@ -370,8 +388,6 @@ const CreateGoodReceiptNote = () => {
                         const received = line.receivedQty ?? 0;
                         const remaining = ordered - received;
 
-                        // PartRcv: Fill = remaining (không cho sửa)
-                        // PendingRcv: Fill = ordered (cho sửa)
                         const defaultReceivedQty = isPartRcv ? remaining : ordered;
 
                         return {
@@ -384,12 +400,11 @@ const CreateGoodReceiptNote = () => {
                             receivedQty: defaultReceivedQty,
                             unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
                             totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
-                            uom: line.uomName ?? line.UomName ?? '',
+                            uom: resolvePoLineUomLabel(line),
                             uomId: line.uomId ?? line.UomId ?? null,
                             note: '',
                             hasCO: !!(line.requiresCo ?? line.requiresCO ?? false),
                             hasCQ: !!(line.requiresCq ?? line.requiresCQ ?? false),
-                            isLockedQty: isPartRcv, // Khóa số lượng nếu PartRcv
                         };
                     });
 
@@ -463,39 +478,6 @@ const CreateGoodReceiptNote = () => {
         if (name === 'justification' && value.length > MAX_JUSTIFICATION_LENGTH) return;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
-    };
-
-    const setDiscountType = (type) => {
-        setFormData((prev) => ({ ...prev, discountType: type }));
-    };
-
-    const handleShippingFeeChange = (e) => {
-        const value = e.target.value;
-        setFormData((prev) => ({ ...prev, shippingFee: value }));
-        if (errors.shippingFee) setErrors((prev) => ({ ...prev, shippingFee: '' }));
-    };
-
-    const addAdditionalCost = () => {
-        setFormData((prev) => ({
-            ...prev,
-            additionalCosts: [...(prev.additionalCosts || []), { id: Date.now(), name: '', amount: 0 }],
-        }));
-    };
-
-    const removeAdditionalCost = (id) => {
-        setFormData((prev) => ({
-            ...prev,
-            additionalCosts: (prev.additionalCosts || []).filter((c) => c.id !== id),
-        }));
-    };
-
-    const updateAdditionalCost = (id, field, value) => {
-        setFormData((prev) => ({
-            ...prev,
-            additionalCosts: (prev.additionalCosts || []).map((c) =>
-                c.id === id ? { ...c, [field]: field === 'amount' ? Number(value) || 0 : value } : c
-            ),
-        }));
     };
 
     const handleSearchChange = (e) => {
@@ -676,8 +658,8 @@ const CreateGoodReceiptNote = () => {
         }
     };
 
-    const totals = useMemo(() => calculateGRNTotals(lines, formData), [lines, formData]);
-    const { subtotal, discountAmount, grandTotal, totalQuantityOrdered, totalAdditionalCosts } = totals;
+    const totals = useMemo(() => calculateGRNTotals(lines, formData, selectedPODetails), [lines, formData, selectedPODetails]);
+    const { subtotal, discountAmount, grandTotal, totalQuantityOrdered } = totals;
 
     const validateForm = () => {
         const result = validateGRNForm(formData, lines);
@@ -695,12 +677,12 @@ const CreateGoodReceiptNote = () => {
             setSubmitting(true);
             // Chuẩn bị payload cho API
             const payload = {
-                PurchaseOrderId: Number(selectedPODetails?.poId),
+                PurchaseOrderId: Number(selectedPODetails?.poId ?? selectedPODetails?.purchaseOrderId ?? selectedPODetails?.PurchaseOrderId),
                 ReceiptDate: formData.receiptDate,
                 WarehouseId: Number(formData.warehouseId),
                 SupplierId: Number(formData.supplierId),
-                DiscountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
-                DiscountValue: Number(formData.discountType === 'percent' ? formData.discount : formData.discountAmountFixed) || 0,
+                DiscountType: 'Amount',
+                DiscountValue: Number(discountAmount) || 0,
                 Note: formData.justification || null,
                 ShippingFee: Number(formData.shippingFee) || 0,
                 Lines: lines.map(line => ({
@@ -1167,7 +1149,7 @@ const CreateGoodReceiptNote = () => {
                                                     </th>
                                                     <th style={{ width: '40px' }}>STT</th>
                                                     <th>Sản phẩm *</th>
-                                                    <th style={{ width: '100px' }}>SL đặt *</th>
+                                                    <th style={{ width: '100px' }}>SL đặt</th>
                                                     <th style={{ width: '100px' }}>SL nhập *</th>
                                                     <th style={{ width: '70px', textAlign: 'center' }}>ĐVT</th>
                                                     <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ xuất xứ (CO)">CO</th>
@@ -1258,11 +1240,14 @@ const CreateGoodReceiptNote = () => {
                                                         <td>
                                                             <input
                                                                 type="number"
+                                                                readOnly
                                                                 value={line.orderedQty != null ? line.orderedQty : ''}
-                                                                onChange={(e) => updateLine(index, 'orderedQty', Number(e.target.value))}
-                                                                min="0"
                                                                 className="form-input"
-                                                                style={{ textAlign: 'right' }}
+                                                                title="Số lượng đặt theo đơn mua hàng (chỉ xem)"
+                                                                style={{
+                                                                    textAlign: 'right',
+                                                                    ...READONLY_FIELD_STYLE,
+                                                                }}
                                                             />
                                                         </td>
                                                         <td>
@@ -1274,7 +1259,7 @@ const CreateGoodReceiptNote = () => {
                                                                 step="1"
                                                                 className={`form-input ${errors[`line_${index}`] ? 'error' : ''}`}
                                                                 style={{ textAlign: 'right' }}
-                                                                title={errors[`line_${index}`] || ''}
+                                                                title={errors[`line_${index}`] || 'Tối đa bằng số còn thiếu trên đơn'}
                                                             />
                                                         </td>
                                                         <td style={{ textAlign: 'center', verticalAlign: 'middle', fontSize: '14px', color: 'var(--slate-700)' }}>
@@ -1344,7 +1329,7 @@ const CreateGoodReceiptNote = () => {
                                                 readOnly
                                                 placeholder="Nhà cung cấp được lấy từ PO"
                                                 className="form-input"
-                                                style={{ backgroundColor: '#f5f5f5' }}
+                                                style={READONLY_FIELD_STYLE}
                                             />
                                         </div>
                                     </div>
@@ -1414,10 +1399,14 @@ const CreateGoodReceiptNote = () => {
                                             type="date"
                                             name="receiptDate"
                                             value={formData.receiptDate}
+                                            min={getLocalDateYmd()}
                                             onChange={handleChange}
-                                            className="form-input"
+                                            className={`form-input ${errors.receiptDate ? 'error' : ''}`}
                                         />
                                     </div>
+                                    {errors.receiptDate && (
+                                        <span className="error-message">{errors.receiptDate}</span>
+                                    )}
                                 </div>
                                 <div className="form-field" ref={poDropdownRef}>
                                     <label htmlFor="purchaseOrderCode" className="form-label">
@@ -1490,7 +1479,7 @@ const CreateGoodReceiptNote = () => {
                                                 </div>
                                                 {selectedPODetails.lifecycleStatus?.toUpperCase() === 'PARTRCV' && (
                                                     <div style={{ gridColumn: '1 / -1', padding: '8px 12px', backgroundColor: '#fef3c7', borderRadius: '6px', color: '#92400e', fontSize: '12px' }}>
-                                                        <strong>Lưu ý:</strong> Đơn hàng đã được nhập một phần. Số lượng thực tế được tự động fill theo số còn thiếu và không thể chỉnh sửa.
+                                                        <strong>Lưu ý:</strong> Đơn hàng đã được nhập một phần. SL nhập mặc định theo số còn thiếu; có thể chỉnh trong giới hạn đó.
                                                     </div>
                                                 )}
                                                 {selectedPODetails.lifecycleStatus?.toUpperCase() === 'PENDINGRCV' && (
@@ -1515,7 +1504,7 @@ const CreateGoodReceiptNote = () => {
                                             value={formData.creatorName}
                                             readOnly
                                             className="form-input"
-                                            style={{ backgroundColor: '#f5f5f5' }}
+                                            style={READONLY_FIELD_STYLE}
                                         />
                                     </div>
                                 </div>
@@ -1562,21 +1551,15 @@ const CreateGoodReceiptNote = () => {
                             </div>
 
                             <GRNDiscountSection
-                                formData={formData}
-                                discountType={formData.discountType}
-                                setDiscountType={setDiscountType}
                                 subtotal={subtotal}
                                 discountAmount={discountAmount}
                                 grandTotal={grandTotal}
                                 totalQuantityOrdered={totalQuantityOrdered}
-                                totalAdditionalCosts={totalAdditionalCosts}
                                 formatCurrency={formatCurrency}
-                                handleChange={handleChange}
-                                addAdditionalCost={addAdditionalCost}
-                                removeAdditionalCost={removeAdditionalCost}
-                                updateAdditionalCost={updateAdditionalCost}
                                 shippingFee={formData.shippingFee}
                                 setShippingFee={(val) => setFormData(prev => ({ ...prev, shippingFee: val }))}
+                                poHeaderDiscount={Number(selectedPODetails?.discountAmount ?? selectedPODetails?.DiscountAmount ?? 0)}
+                                poHeaderTotal={getPoGrossTotalForDiscount(selectedPODetails)}
                             />
                         </div>
                         <div />

@@ -2,6 +2,27 @@
 // Utility functions for Good Receipt Note
 // ============================================
 
+/** Ngày hiện tại theo giờ máy (YYYY-MM-DD), dùng cho date input / min. */
+export const getLocalDateYmd = (d = new Date()) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
+
+/** true nếu chuỗi YYYY-MM-DD là ngày trước hôm nay (theo giờ máy). */
+export const isYmdBeforeToday = (ymd) => {
+    if (!ymd || typeof ymd !== 'string') return false;
+    const parts = ymd.trim().split('-').map(Number);
+    if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false;
+    const [y, mo, d] = parts;
+    const picked = new Date(y, mo - 1, d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    picked.setHours(0, 0, 0, 0);
+    return picked < today;
+};
+
 /**
  * Format currency to VND format
  * @param {number} value 
@@ -28,6 +49,8 @@ export const validateGRNForm = (formData, lines) => {
     // Validate receipt date
     if (!formData.receiptDate) {
         errors.receiptDate = 'Vui lòng chọn ngày nhập';
+    } else if (isYmdBeforeToday(formData.receiptDate)) {
+        errors.receiptDate = 'Ngày nhập dự kiến không được trong quá khứ';
     }
 
     // Validate lines
@@ -108,22 +131,55 @@ export const mapPOListForDropdown = (poList) => {
 };
 
 /**
+ * Tổng giá trị hàng trên PO (Σ orderedQty × unitPrice) — dùng làm mẫu số chiết khấu cho khớp đơn mua.
+ * Header TotalAmount đôi khi lệch với tổng dòng; ưu tiên tổng từ lines.
+ */
+export const getPoGrossTotalForDiscount = (poDetail) => {
+    if (!poDetail) return 0;
+    const lines = poDetail.lines ?? poDetail.Lines ?? [];
+    if (Array.isArray(lines) && lines.length > 0) {
+        const sum = lines.reduce((s, line) => {
+            const q = Number(line.orderedQty ?? line.OrderedQty ?? 0);
+            const p = Number(line.unitPrice ?? line.UnitPrice ?? 0);
+            return s + q * p;
+        }, 0);
+        if (sum > 0) return sum;
+    }
+    return Number(poDetail.totalAmount ?? poDetail.TotalAmount ?? 0) || 0;
+};
+
+/**
+ * Chiết khấu PO phân bổ cho lần nhập GRN: (tạm tính GRN / tổng giá trị hàng PO) × chiết khấu PO.
+ * @param {number} grnSubtotal - Tạm tính GRN (sum line.totalPrice)
+ * @param {number} poGrossTotal - Tổng giá trị đặt trên PO (ưu tiên Σ dòng)
+ * @param {number} poDiscountAmount - PO DiscountAmount
+ */
+export const computeProportionalPoDiscountOnGrn = (grnSubtotal, poGrossTotal, poDiscountAmount) => {
+    const s = Number(grnSubtotal) || 0;
+    const t = Number(poGrossTotal) || 0;
+    const d = Number(poDiscountAmount) || 0;
+    if (t <= 0 || d <= 0 || s <= 0) return 0;
+    const raw = (s * d) / t;
+    return Math.min(s, Math.round(raw));
+};
+
+/**
  * Calculate GRN totals
- * @param {Array} lines 
- * @param {Object} formData 
+ * @param {Array} lines
+ * @param {Object} formData
+ * @param {Object | null} poDetail - Chi tiết PO (để lấy chiết khấu readonly theo đơn mua)
  * @returns {Object} - { subtotal, discountAmount, grandTotal, totalQuantityOrdered, totalAdditionalCosts }
  */
-export const calculateGRNTotals = (lines, formData) => {
+export const calculateGRNTotals = (lines, formData, poDetail = null) => {
     const totalQuantityOrdered = lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
     const subtotal = lines.reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
-    const discountAmount = formData.discountType === 'amount'
-        ? (Number(formData.discountAmountFixed) || 0)
-        : (subtotal * (Number(formData.discount) || 0)) / 100;
-    const totalAdditionalCosts = (formData.additionalCosts || []).reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const poGross = getPoGrossTotalForDiscount(poDetail);
+    const poDisc = Number(poDetail?.discountAmount ?? poDetail?.DiscountAmount ?? 0);
+    const discountAmount = computeProportionalPoDiscountOnGrn(subtotal, poGross, poDisc);
     const shippingFee = Number(formData.shippingFee) || 0;
-    const grandTotal = subtotal - discountAmount + totalAdditionalCosts + shippingFee;
+    const grandTotal = subtotal - discountAmount + shippingFee;
 
-    return { subtotal, discountAmount, grandTotal, totalQuantityOrdered, totalAdditionalCosts, shippingFee };
+    return { subtotal, discountAmount, grandTotal, totalQuantityOrdered, shippingFee };
 };
 
 /**
@@ -132,14 +188,18 @@ export const calculateGRNTotals = (lines, formData) => {
  * @param {Array} lines 
  * @returns {Object}
  */
-export const prepareGRNPayload = (formData, lines) => {
+export const prepareGRNPayload = (formData, lines, poDetail = null) => {
+    const subtotal = (lines || []).reduce((sum, line) => sum + (Number(line.totalPrice) || 0), 0);
+    const poGross = getPoGrossTotalForDiscount(poDetail);
+    const poDisc = Number(poDetail?.discountAmount ?? poDetail?.DiscountAmount ?? 0);
+    const discountValue = computeProportionalPoDiscountOnGrn(subtotal, poGross, poDisc);
     return {
         purchaseOrderId: Number(formData.purchaseOrderId),
         receiptDate: formData.receiptDate,
         warehouseId: Number(formData.warehouseId),
         supplierId: Number(formData.supplierId),
-        discountType: formData.discountType === 'percent' ? 'Percentage' : 'Amount',
-        discountValue: Number(formData.discountType === 'amount' ? formData.discountAmountFixed : formData.discount) || 0,
+        discountType: 'Amount',
+        discountValue,
         shippingFee: Number(formData.shippingFee) || 0,
         note: formData.justification || null,
         lines: lines.map(line => ({
@@ -182,14 +242,10 @@ export const getInitialGRNFormData = (currentUser) => ({
     purchaseOrderCode: '',
     supplierId: '',
     supplierName: '',
-    receiptDate: new Date().toISOString().slice(0, 10),
+    receiptDate: getLocalDateYmd(),
     creatorId: currentUser?.userId || '',
     creatorName: currentUser?.fullName || currentUser?.FullName || '',
     justification: '',
-    discountType: 'percent',
-    discount: 0,
-    discountAmountFixed: 0,
-    additionalCosts: [],
     shippingFee: 0,
 });
 
