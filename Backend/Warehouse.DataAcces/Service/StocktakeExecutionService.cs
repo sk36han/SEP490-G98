@@ -88,6 +88,9 @@ namespace Warehouse.DataAcces.Service
                     $"Nhân viên kho bắt đầu thực hiện đếm thực tế cho phiếu {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}."
                 );
 
+                // 5. Commit transaction để lưu thay đổi vào database
+                await transaction.CommitAsync();
+
                 // 6. Trả về kết quả mới nhất
                 return await _stocktakeService.GetStocktakeDetailAsync(session.StocktakeId) 
                        ?? throw new Exception("Lỗi sau khi lưu dữ liệu.");
