@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
-import { getGRNDetail, approveGoodReceiptNote } from '../lib/goodReceiptNoteService';
+import { getGRNDetail, approveGoodReceiptNote, rejectGoodReceiptNote } from '../lib/goodReceiptNoteService';
 import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 
@@ -58,6 +58,16 @@ const safeFormatDateTime = (value) => {
     } catch {
         return value;
     }
+};
+
+const buildSupplierAddress = (data) => {
+    const parts = [
+        data.SupplierAddressStreet ?? data.supplierAddressStreet ?? '',
+        data.SupplierAddressWard ?? data.supplierAddressWard ?? '',
+        data.SupplierAddressDistrict ?? data.supplierAddressDistrict ?? '',
+        data.SupplierAddressProvince ?? data.supplierAddressProvince ?? '',
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : '';
 };
 
 const safeFormatTimeOnly = (value) => {
@@ -244,6 +254,10 @@ const ViewGoodReceiptNoteDetail = () => {
                         referencePoCode: data.PurchaseOrderCode ?? data.purchaseOrderCode ?? '',
                         warehouseName: data.WarehouseName ?? data.warehouseName ?? '',
                         supplierName: data.SupplierName ?? data.supplierName ?? '',
+                        supplierPhone: data.SupplierPhone ?? data.supplierPhone ?? '',
+                        supplierEmail: data.SupplierEmail ?? data.supplierEmail ?? '',
+                        supplierTaxCode: data.SupplierTaxCode ?? data.supplierTaxCode ?? '',
+                        supplierAddress: buildSupplierAddress(data),
                         receiptDate: safeFormatDateOnly(receiptDate),
                         creatorName: data.CreatedByName ?? data.createdByName ?? '',
                         createdAt: safeFormatDateTime(createdAt),
@@ -256,24 +270,49 @@ const ViewGoodReceiptNoteDetail = () => {
                         netAmount: Number((data.NetAmount ?? data.netAmount) || 0),
                         lines: mappedLines,
                         history: [
+                            // Posted
                             data.PostedAt
                                 ? {
                                       action: 'Đã ghi sổ phiếu nhập kho',
                                       date: safeFormatDateOnly(data.PostedAt),
                                       time: safeFormatTimeOnly(data.PostedAt),
+                                      user: data.PostedByName ?? data.postedByName ?? '',
                                   }
                                 : null,
+                            // Approved
+                            data.ApprovedAt
+                                ? {
+                                      action: 'Duyệt phiếu nhập kho',
+                                      date: safeFormatDateOnly(data.ApprovedAt),
+                                      time: safeFormatTimeOnly(data.ApprovedAt),
+                                      user: data.ApprovedByName ?? data.approvedByName ?? '',
+                                  }
+                                : null,
+                            // Rejected
+                            data.RejectedAt
+                                ? {
+                                      action: 'Từ chối phiếu nhập kho',
+                                      date: safeFormatDateOnly(data.RejectedAt),
+                                      time: safeFormatTimeOnly(data.RejectedAt),
+                                      user: data.RejectedByName ?? data.rejectedByName ?? '',
+                                      reason: data.RejectedReason ?? data.rejectedReason ?? '',
+                                  }
+                                : null,
+                            // Submitted
                             data.SubmittedAt
                                 ? {
                                       action: 'Gửi yêu cầu duyệt phiếu',
                                       date: safeFormatDateOnly(data.SubmittedAt),
                                       time: safeFormatTimeOnly(data.SubmittedAt),
+                                      user: data.SubmittedByName ?? data.submittedByName ?? '',
                                   }
                                 : null,
+                            // Created
                             {
                                 action: `Tạo mới phiếu nhập kho ${grnCode}`,
                                 date: safeFormatDateOnly(createdAt),
                                 time: safeFormatTimeOnly(createdAt),
+                                user: data.CreatedByName ?? data.createdByName ?? '',
                             },
                         ].filter(Boolean),
                     });
@@ -324,6 +363,8 @@ const ViewGoodReceiptNoteDetail = () => {
                     paymentMethod,
                 }));
             } else {
+                // Gọi API reject
+                await rejectGoodReceiptNote(grnData.grnId, reason);
                 setGrnData((prev) => ({
                     ...prev,
                     status: 'REJECTED',
@@ -351,17 +392,14 @@ const ViewGoodReceiptNoteDetail = () => {
     };
 
     const normalizedStatus = String(grnData?.status || '').toUpperCase();
-    const isGRNFinalized = ['APPROVED', 'POSTED'].includes(normalizedStatus);
     const canReview = !['APPROVED', 'POSTED', 'REJECTED'].includes(normalizedStatus);
     const showApproveButton = isPaymentEditor && canReview;
-    const showReturnButton = isPaymentEditor && isGRNFinalized;
-    const showGeneralReturnButton =
-        !showReturnButton && Boolean(grnData?.grnId) && normalizedStatus !== 'REJECTED';
+    const showReturnButton = isPaymentEditor && normalizedStatus === 'APPROVED';
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
 
-    const canConfirmAction = !submitting && (!includeReason || reasonText.trim().length > 0);
+    const canConfirmAction = !submitting && (confirmDialogType !== 'reject' || includeReason);
 
     const calculatedSubtotal =
         grnData?.lines?.reduce(
@@ -694,6 +732,22 @@ const ViewGoodReceiptNoteDetail = () => {
                         />
                     </div>
 
+                    {confirmDialogType === 'reject' && (
+                        <div
+                            style={{
+                                marginBottom: 16,
+                                padding: 12,
+                                backgroundColor: '#fef3c7',
+                                borderRadius: 8,
+                                border: '1px solid #fcd34d',
+                            }}
+                        >
+                            <span style={{ fontSize: 13, color: '#92400e' }}>
+                                Bắt buộc nhập lý do từ chối phiếu nhập kho.
+                            </span>
+                        </div>
+                    )}
+
                     {includeReason && (
                         <>
                             <TextField
@@ -819,27 +873,6 @@ const ViewGoodReceiptNoteDetail = () => {
                     )}
 
                     {showReturnButton && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() =>
-                                navigate(
-                                    `/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`
-                                )
-                            }
-                            disabled={submitting}
-                            style={{
-                                backgroundColor: '#f59e0b',
-                                borderColor: '#f59e0b',
-                                color: '#fff',
-                            }}
-                        >
-                            <RotateCcw size={16} className="btn-icon" />
-                            Trả hàng
-                        </button>
-                    )}
-
-                    {showGeneralReturnButton && (
                         <button
                             type="button"
                             className="btn btn-secondary"
@@ -1078,11 +1111,87 @@ const ViewGoodReceiptNoteDetail = () => {
                                         gap: 16,
                                     }}
                                 >
-                                    <ReadonlyField
-                                        label="Nhà cung cấp"
-                                        value={grnData.supplierName || '-'}
-                                        icon={Package}
-                                    />
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 12,
+                                        }}
+                                    >
+                                        <div className="form-field">
+                                            <label className="form-label">Nhà cung cấp</label>
+                                            <div className="input-wrapper">
+                                                {Package && <Package className="input-icon" size={16} />}
+                                                <input
+                                                    type="text"
+                                                    value={grnData.supplierName || '-'}
+                                                    readOnly
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#f5f5f5', fontWeight: 600 }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {grnData.supplierPhone && (
+                                            <div className="form-field">
+                                                <label className="form-label">Số điện thoại</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierPhone || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierEmail && (
+                                            <div className="form-field">
+                                                <label className="form-label">Email</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierEmail || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierTaxCode && (
+                                            <div className="form-field">
+                                                <label className="form-label">Mã số thuế</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierTaxCode || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierAddress && (
+                                            <div className="form-field">
+                                                <label className="form-label">Địa chỉ</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierAddress || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                     <ReadonlyField
                                         label="Nhân viên tạo"
                                         value={grnData.creatorName || '-'}
@@ -1307,7 +1416,39 @@ const ViewGoodReceiptNoteDetail = () => {
                                                             >
                                                                 {item.time}
                                                             </span>
+                                                            {item.user ? (
+                                                                <>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: 12,
+                                                                            color: '#9ca3af',
+                                                                        }}
+                                                                    >
+                                                                        |
+                                                                    </span>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: 12,
+                                                                            color: '#6b7280',
+                                                                        }}
+                                                                    >
+                                                                        {item.user}
+                                                                    </span>
+                                                                </>
+                                                            ) : null}
                                                         </div>
+                                                        {item.reason ? (
+                                                            <div
+                                                                style={{
+                                                                    fontSize: 12,
+                                                                    color: '#b91c1c',
+                                                                    fontStyle: 'italic',
+                                                                    marginTop: 4,
+                                                                }}
+                                                            >
+                                                                Lý do: {item.reason}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             ))}

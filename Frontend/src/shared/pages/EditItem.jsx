@@ -13,7 +13,8 @@ import {
 import { ArrowLeft, ImagePlus, Save, Plus } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
-import { getItemDetail, updateItem } from "../lib/itemService";
+import { getItemForDisplayById, updateItem, uploadItemImage } from "../lib/itemService";
+import { ImageDialog } from "../components/ImageDialog";
 import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecService";
 import { getItemParameterList, createItemParameter } from "../lib/itemParameterService";
 import { useMasterData } from "../../app/context/MasterDataContext";
@@ -82,46 +83,160 @@ const EditItem = () => {
   const [createBrandOpen, setCreateBrandOpen] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Image states
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [imageServerUrl, setImageServerUrl] = useState(""); // URL from backend (for existing image)
+  const [imageFile, setImageFile] = useState(null);
+  const [imageFileName, setImageFileName] = useState("");
+  const [imageOriginalWidth, setImageOriginalWidth] = useState(0);
+  const [imageOriginalHeight, setImageOriginalHeight] = useState(0);
+  const [imageDialogTempUrl, setImageDialogTempUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
   const [form, setForm] = useState({
     itemCode: "", itemName: "", itemType: "Product", description: "",
     categoryId: "", brandId: "", baseUomId: "", packagingSpecId: "", specId: "",
     laThongSo: false, requiresCO: false, requiresCQ: false, isActive: true,
     defaultWarehouseId: "",
     purchasePrice: "", onHandQty: "", reservedQty: "",
+    imageUrl: "",
   });
 
   const loadPackagingAndSpecOptions = useCallback(async () => {
     try {
       const [packRes, specRes] = await Promise.all([getPackagingSpecList(), getItemParameterList({ page: 1, pageSize: PAGE_SIZE })]);
-      const packArr = Array.isArray(packRes) ? packRes : [];
-      setPackagingOptions(packArr.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
-      const specArr = Array.isArray(specRes?.items) ? specRes.items : (Array.isArray(specRes) ? specRes : []);
-      setSpecOptions(specArr.map((s) => ({ specId: s.paramId ?? s.ParamId, specCode: s.paramCode ?? s.ParamCode ?? "", specName: s.paramName ?? s.ParamName ?? "" })));
-    } catch { /* keep empty */ }
+      console.log("[EditItem] packRes:", JSON.stringify(packRes));
+      console.log("[EditItem] specRes:", JSON.stringify(specRes));
+      const packItems = Array.isArray(packRes?.items) ? packRes.items : (Array.isArray(packRes) ? packRes : []);
+      console.log("[EditItem] packItems:", packItems);
+      setPackagingOptions(packItems.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
+      const specItems = Array.isArray(specRes?.items) ? specRes.items : (Array.isArray(specRes) ? specRes : []);
+      console.log("[EditItem] specItems:", specItems);
+      setSpecOptions(specItems.map((s) => ({ specId: s.paramId ?? s.ParamId, specCode: s.paramCode ?? s.ParamCode ?? "", specName: s.paramName ?? s.ParamName ?? "" })));
+      setOptionsLoaded(true);
+    } catch (err) {
+      console.error("[EditItem] loadPackagingAndSpecOptions error:", err);
+    }
   }, []);
 
   useEffect(() => {
     setLoading(true);
+    setOptionsLoaded(false);
     setNotFound(false);
-    Promise.all([getItemDetail(id), loadPackagingAndSpecOptions()])
+    Promise.all([getItemForDisplayById(id), loadPackagingAndSpecOptions()])
       .then(([item]) => {
+        console.log("[EditItem] item loaded:", JSON.stringify(item));
         setNotFound(false);
         if (item.purchasePrice != null && item.purchasePrice !== "") setShowPurchasePrice(true);
+
+        // Load existing image
+        const existingImageUrl = item.imageUrl ?? item.ImageUrl ?? "";
+        setImageServerUrl(existingImageUrl);
+        setImagePreviewUrl(existingImageUrl);
+
         setForm({
-          itemCode: item.itemCode ?? "", itemName: item.itemName ?? "", itemType: item.itemType || "Product", description: item.description ?? "",
-          categoryId: item.categoryId ?? "", brandId: item.brandId ?? "", baseUomId: item.baseUomId ?? "",
-          packagingSpecId: item.packagingSpecId ?? "", specId: item.specId ?? "",
-          laThongSo: item.hasSpecifications ?? false, requiresCO: item.requiresCO ?? false, requiresCQ: item.requiresCQ ?? false, isActive: item.isActive ?? true,
+          itemCode: item.itemCode ?? "",
+          itemName: item.itemName ?? "",
+          itemType: item.itemType || "Product",
+          description: item.description ?? "",
+          categoryId: item.categoryId ?? "",
+          brandId: item.brandId ?? "",
+          baseUomId: item.baseUomId ?? "",
+          packagingSpecId: item.packagingSpecId ?? "",
+          specId: item.specId ?? "",
+          laThongSo: item.hasSpecifications ?? false,
+          requiresCO: item.requiresCO ?? false,
+          requiresCQ: item.requiresCQ ?? false,
+          isActive: item.isActive ?? true,
           defaultWarehouseId: item.defaultWarehouseId ?? "",
-          purchasePrice: item.purchasePrice ?? "", onHandQty: item.onHandQty ?? "", reservedQty: item.reservedQty ?? "",
+          purchasePrice: item.purchasePrice ?? "",
+          onHandQty: item.onHandQty ?? "",
+          reservedQty: item.reservedQty ?? "",
+          imageUrl: existingImageUrl,
         });
       })
-      .catch((err) => { console.error("[EditItem] load error:", err); setNotFound(true); })
+      .catch((err) => {
+        console.error("[EditItem] load error:", err);
+        setNotFound(true);
+      })
       .finally(() => setLoading(false));
   }, [id, loadPackagingAndSpecOptions]);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  // Image handlers
+  const handleOpenImageDialog = () => {
+    setImageDialogTempUrl(imagePreviewUrl);
+    setImageDialogOpen(true);
+  };
+
+  const handleDialogBrowseFile = (file) => {
+    const url = URL.createObjectURL(file);
+    if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== "") {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    setImageDialogTempUrl(url);
+    setImageFile(file);
+    setImageFileName(file.name);
+    const img = new window.Image();
+    img.onload = () => {
+      setImageOriginalWidth(img.naturalWidth);
+      setImageOriginalHeight(img.naturalHeight);
+    };
+    img.src = url;
+  };
+
+  const handleApplyImage = async (croppedDataUrl) => {
+    setImagePreviewUrl(croppedDataUrl);
+    setImageDialogOpen(false);
+    setImageFile(null);
+
+    // Convert cropped dataURL to File and upload
+    setImageUploading(true);
+    try {
+      const fetchRes = await fetch(croppedDataUrl);
+      const blob = await fetchRes.blob();
+      const fileName = imageFileName || 'item-image.jpg';
+      const croppedFile = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+      setImageFile(croppedFile);
+      const result = await uploadItemImage(croppedFile);
+      setImageServerUrl(result.url || '');
+    } catch (err) {
+      console.error('[EditItem] Image upload error:', err);
+      showToast('Tải ảnh lên thất bại. Vui lòng thử lại.', 'error');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (imageDialogTempUrl && imageDialogTempUrl !== "" && imageDialogTempUrl !== imagePreviewUrl) {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    if (imagePreviewUrl && imagePreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    // Reset to server URL (or empty if no existing image)
+    setImagePreviewUrl(imageServerUrl || "");
+    setImageFile(null);
+    setImageFileName("");
+    setImageOriginalWidth(0);
+    setImageOriginalHeight(0);
+    setImageDialogOpen(false);
+    setImageDialogTempUrl("");
+    setImageServerUrl("");
+    setForm((prev) => ({ ...prev, imageUrl: "" }));
+  };
+
+  const handleCloseImageDialog = () => {
+    if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== "" && !imageDialogTempUrl.startsWith("data:")) {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    setImageDialogOpen(false);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -144,13 +259,19 @@ const EditItem = () => {
     setSubmitting(true);
     try {
       await updateItem(id, {
-        itemName: name, itemType: form.itemType || null, description: form.description?.trim() || null, categoryId,
-        brandId: form.brandId !== "" && form.brandId != null ? Number(form.brandId) : null, baseUomId,
+        itemName: name,
+        itemType: form.itemType || null,
+        description: form.description?.trim() || null,
+        categoryId,
+        brandId: form.brandId !== "" && form.brandId != null ? Number(form.brandId) : null,
+        baseUomId,
         packagingSpecId: form.packagingSpecId !== "" && form.packagingSpecId != null ? Number(form.packagingSpecId) : null,
-        hasSpecifications: Boolean(form.laThongSo), requiresCo: Boolean(form.requiresCO), requiresCq: Boolean(form.requiresCQ),
+        requiresCo: Boolean(form.requiresCO),
+        requiresCq: Boolean(form.requiresCQ),
         isActive: Boolean(form.isActive),
         defaultWarehouseId: form.defaultWarehouseId !== "" && form.defaultWarehouseId != null ? Number(form.defaultWarehouseId) : null,
         purchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
+        imageUrl: form.imageUrl || null,
       });
       showToast("Cap nhat san pham thanh cong!", "success");
       timerRef.current = setTimeout(() => navigate("/products"), 1500);
@@ -227,7 +348,7 @@ const EditItem = () => {
                     <Box sx={{ minWidth: 0 }}>
                       <Autocomplete size="small" fullWidth options={[CREATE_PACK_OPTION, ...packagingOptions]} getOptionLabel={(opt) => (opt && opt.name) || ""}
                         value={packagingOptions.find((o) => String(o.id) === String(form.packagingSpecId)) ?? null}
-                        onOpen={async () => { try { const list = await getPackagingSpecList(); setPackagingOptions((Array.isArray(list) ? list : []).map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" }))); } catch { /* keep */ } }}
+                        onOpen={async () => { try { const list = await getPackagingSpecList(); const items = Array.isArray(list?.items) ? list.items : (Array.isArray(list) ? list : []); setPackagingOptions(items.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" }))); } catch { /* keep */ } }}
                         onChange={(e, newValue) => { if (newValue && newValue.id === "CREATE_PACK") { setCreatePackOpen(true); return; } setForm((prev) => ({ ...prev, packagingSpecId: newValue?.id ?? "" })); }}
                         isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)} ListboxProps={{ sx: autocompleteListboxSx }}
                         renderOption={(props, option) => option && option.id === "CREATE_PACK" ? <Box component="li" {...props} key={option.id} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.name} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.id}>{option.name}</Box>}
@@ -292,13 +413,28 @@ const EditItem = () => {
             <Box sx={{ width: { xs: "100%", md: 260 }, minWidth: { xs: "100%", md: 260 }, flexShrink: 0 }}>
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
                 <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Hình ảnh sản phẩm</Typography>
-                <Box sx={{ border: "2px dashed", borderColor: "divider", borderRadius: 2, py: 4, px: 2, textAlign: "center", bgcolor: "grey.50", "&:hover": { borderColor: "primary.light", bgcolor: "action.hover" } }}>
-                  <Stack alignItems="center" spacing={1}>
-                    <Box sx={{ color: "text.secondary" }}><ImagePlus size={40} /></Box>
-                    <Typography variant="body2" color="text.secondary">Keo tha hoac them anh tu URL</Typography>
-                    <Typography component="span" variant="caption" sx={{ color: "primary.main", cursor: "pointer", fontWeight: 500 }}>Tai anh len tu thiet bi</Typography>
-                    <Typography variant="caption" color="text.secondary">(Dung luong anh toi da 2MB)</Typography>
-                  </Stack>
+                <Box
+                  onClick={handleOpenImageDialog}
+                  sx={{ border: "2px dashed", borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "grey.50", cursor: "pointer", "&:hover": { borderColor: "primary.light" } }}
+                >
+                  {imagePreviewUrl ? (
+                    <Box sx={{ position: "relative" }}>
+                      <img src={imagePreviewUrl} alt="Item" style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+                      {imageUploading && (
+                        <Box sx={{ position: "absolute", inset: 0, bgcolor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <CircularProgress size={24} sx={{ color: "white" }} />
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box sx={{ py: 4, px: 2, textAlign: "center" }}>
+                      <Stack alignItems="center" spacing={1}>
+                        <Box sx={{ color: "text.secondary" }}><ImagePlus size={40} /></Box>
+                        <Typography variant="body2" color="text.secondary">Keo tha hoac them anh</Typography>
+                        <Typography component="span" variant="caption" sx={{ color: "primary.main", fontWeight: 500 }}>Tai anh len tu thiet bi</Typography>
+                      </Stack>
+                    </Box>
+                  )}
                 </Box>
               </Paper>
 
@@ -383,6 +519,18 @@ const EditItem = () => {
               showToast(err.message || "Khong tao duoc thong so", "error");
             }
           }} />
+
+        <ImageDialog
+          open={imageDialogOpen}
+          onClose={handleCloseImageDialog}
+          previewUrl={imageDialogTempUrl}
+          fileName={imageFileName}
+          originalWidth={imageOriginalWidth}
+          originalHeight={imageOriginalHeight}
+          onBrowseFile={handleDialogBrowseFile}
+          onApply={handleApplyImage}
+          onRemove={handleRemoveImage}
+        />
 
         <CreateBrandDialog open={createBrandOpen} onClose={() => setCreateBrandOpen(false)}
           onSuccess={({ brandId }) => {

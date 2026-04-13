@@ -133,3 +133,17 @@ export async function approveGRN(grnId, payload) {
     const response = await apiClient.post(`/GoodsReceiptNote/approve/${grnId}`, payload);
     return response?.data;
 }
+
+/**
+ * Từ chối GRN qua API phê duyệt tập trung.
+ * POST /Approvals/{requestType}/{id}/reject
+ * @param {number} grnId - ID của GRN
+ * @param {string} reason - Lý do từ chối (bắt buộc)
+ * @returns {Promise<any>}
+ */
+export async function rejectGoodReceiptNote(grnId, reason) {
+    const response = await apiClient.post(`/Approvals/goodsreceipt/${grnId}/reject`, {
+        Reason: reason,
+    });
+    return response?.data;
+}

@@ -41,7 +41,7 @@ import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
 import CreateSpecDialog from "../components/CreateSpecDialog";
 import CreateBrandDialog from "../components/CreateBrandDialog";
 import { ImageDialog } from "../components/ImageDialog";
-import { createItem as createItemApi } from "../lib/itemService";
+import { createItem as createItemApi, uploadItemImage } from "../lib/itemService";
 import { getUomList, createUom } from "../lib/uomService";
 import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecService";
 import { getCategoryList, createCategory } from "../lib/categoryService";
@@ -413,6 +413,8 @@ const CreateItem = () => {
   const [imageOriginalWidth, setImageOriginalWidth] = useState(0);
   const [imageOriginalHeight, setImageOriginalHeight] = useState(0);
   const [imageDialogTempUrl, setImageDialogTempUrl] = useState("");
+  const [imageUploadedUrl, setImageUploadedUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Open image dialog
   const handleOpenImageDialog = () => {
@@ -438,9 +440,26 @@ const CreateItem = () => {
   };
 
   // Apply cropped image from dialog (receives pre-cropped dataURL from ImageDialog)
-  const handleApplyImage = (croppedDataUrl) => {
+  const handleApplyImage = async (croppedDataUrl) => {
     setImagePreviewUrl(croppedDataUrl);
     setImageDialogOpen(false);
+
+    // Upload cropped image to server immediately
+    setImageUploading(true);
+    try {
+      const fetchRes = await fetch(croppedDataUrl);
+      const blob = await fetchRes.blob();
+      const fileName = imageFileName || 'item-image.jpg';
+      const croppedFile = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+      setImageFile(croppedFile);
+      const result = await uploadItemImage(croppedFile);
+      setImageUploadedUrl(result.url || '');
+    } catch (err) {
+      console.error('[CreateItem] Image upload error:', err);
+      showToast('Tải ảnh lên thất bại. Vui lòng thử lại.', 'error');
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   // Remove image
@@ -458,6 +477,7 @@ const CreateItem = () => {
     setImageOriginalHeight(0);
     setImageDialogOpen(false);
     setImageDialogTempUrl("");
+    setImageUploadedUrl("");
   };
 
   // Close dialog without applying
@@ -488,8 +508,8 @@ const CreateItem = () => {
       ]);
       const uomItems = Array.isArray(uomRes?.items) ? uomRes.items : (Array.isArray(uomRes) ? uomRes : []);
       setUomOptions(uomItems.map((u) => ({ id: u.uomId ?? u.UomId, name: u.uomName ?? u.UomName ?? "" })));
-      const packArr = Array.isArray(packList) ? packList : [];
-      setPackagingOptions(packArr.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
+      const packItems = Array.isArray(packList?.items) ? packList.items : (Array.isArray(packList) ? packList : []);
+      setPackagingOptions(packItems.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
       const catItems = Array.isArray(catRes?.items) ? catRes.items : (Array.isArray(catRes) ? catRes : []);
       setCategoryOptions(catItems.map((c) => ({
         id: c.categoryId ?? c.CategoryId,
@@ -544,6 +564,21 @@ const CreateItem = () => {
     setSubmitting(true);
     try {
       const specId = form.specId !== "" && form.specId != null ? Number(form.specId) : null;
+
+      // Upload image first if user selected one
+      let imageUrl = null;
+      if (imageFile) {
+        setImageUploading(true);
+        try {
+          const result = await uploadItemImage(imageFile);
+          imageUrl = result.url;
+        } catch (uploadErr) {
+          console.warn("[CreateItem] Image upload failed:", uploadErr);
+        } finally {
+          setImageUploading(false);
+        }
+      }
+
       const payload = {
         itemName: name,
         itemType: form.itemType || null,
@@ -559,6 +594,7 @@ const CreateItem = () => {
         isActive: Boolean(form.isActive),
         initialPurchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
         priceEffectiveFrom: null,
+        imageUrls: imageUrl ? [imageUrl] : null,
       };
       await createItemApi(payload);
       showToast("Tạo sản phẩm thành công.", "success");
