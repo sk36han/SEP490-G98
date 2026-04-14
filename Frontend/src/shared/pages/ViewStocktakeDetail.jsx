@@ -91,10 +91,9 @@ const ViewStocktakeDetail = () => {
     const isDirector = permissionRole === 'DIRECTOR';
     const isAccountant = permissionRole === 'ACCOUNTANTS';
     const isWarehouseKeeper = permissionRole === 'WAREHOUSE_KEEPER';
-    const currentUserId = authService.getUser()?.userId ?? authService.getUser()?.UserId ?? null;
-    const isCreator = detailData?.createdBy === currentUserId;
-    const canOperate = isAccountant && isCreator; // Acc + là creator mới được thao tác
-
+    const currentUserId = authService.getCurrentUserId();
+    const isCreator = String(detailData?.createdBy ?? '') === String(currentUserId ?? '');
+    const canOperate = isAccountant;
     // Derive stocktakeData from detail + lines
     const stocktakeData = useMemo(() => {
         if (!detailData) return null;
@@ -175,12 +174,26 @@ const ViewStocktakeDetail = () => {
 
     // Count editing handlers
     const startCounting = async () => {
+        const execId = stocktakeData.id ?? stocktakeData.stocktakeId;
+        if (!execId) return;
         try {
-            const result = await startStocktakeExecution(stocktakeData.id);
+            setSubmitting(true);
+            const result = await startStocktakeExecution(execId);
+            console.log('[DEBUG] startCounting result:', result);
+            setDetailData(prev => prev ? { ...prev, ...result } : null);
+            setIsCounting(true);
+            // Reload lines from execution endpoint
+            try {
+                const lineResult = await getStocktakeLines(execId);
+                setLines(lineResult.items ?? []);
+                setTotalLines(lineResult.totalItems ?? 0);
+            } catch { /* silent */ }
             showToast('Đã bắt đầu kiểm kê!', 'success');
-            await fetchData();
         } catch (err) {
+            console.error('[DEBUG] startCounting error:', err);
             showToast(err?.response?.data?.message || err?.message || 'Lỗi khi bắt đầu kiểm kê.', 'error');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -503,7 +516,7 @@ const ViewStocktakeDetail = () => {
                 </div>
                 <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {/* DRAFT: Acc + Creator - Chỉnh sửa / Gửi duyệt */}
-                    {!isCounting && !basicEditing && stocktakeData?.status === 'DRAFT' && canOperate && (
+                    {!isCounting && !basicEditing && normalizeStocktakeStatus(stocktakeData?.status) === 'DRAFT' && canOperate && (
                         <>
                             <button type="button" className="btn btn-secondary" onClick={() => setBasicEditing(true)}>
                                 <Edit size={15} />
@@ -541,7 +554,7 @@ const ViewStocktakeDetail = () => {
                         </>
                     )}
                     {/* PENDING_APPROVAL: Director - duyệt kế hoạch hoặc duyệt kết quả */}
-                    {!isCounting && !basicEditing && stocktakeData?.status === 'PENDING_APPROVAL' && isDirector && (
+                    {!isCounting && !basicEditing && normalizeStocktakeStatus(stocktakeData?.status) === 'PENDING_APPROVAL' && isDirector && (
                         <>
                             <button type="button" className="btn btn-cancel" onClick={handleRejectPlan}>
                                 <XCircle size={15} />
@@ -576,7 +589,7 @@ const ViewStocktakeDetail = () => {
                         </>
                     )}
                     {/* IN_PROGRESS: Director/Acc (không phải creator) - In */}
-                    {!basicEditing && !isCounting && stocktakeData?.status === 'IN_PROGRESS' && !canOperate && (
+                    {!basicEditing && !isCounting && normalizeStocktakeStatus(stocktakeData?.status) === 'IN_PROGRESS' && !canOperate && (
                         <>
                             <button type="button" className="btn btn-secondary" onClick={() => showToast('In PDF', 'info')}>
                                 <Printer size={15} />
@@ -657,7 +670,7 @@ const ViewStocktakeDetail = () => {
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', minHeight: '600px' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
-                                    {!isCounting && stocktakeData?.status === 'APPROVED' && canOperate && !submitting && (
+                                    {!isCounting && normalizeStocktakeStatus(stocktakeData?.status) === 'APPROVED' && canOperate && !submitting && (
                                         <button
                                             type="button"
                                             className="btn btn-secondary"

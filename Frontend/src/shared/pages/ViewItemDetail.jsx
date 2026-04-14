@@ -36,7 +36,6 @@ import {
     Layers,
     Tag,
     Scale,
-    MapPin,
     Warehouse,
     CheckCircle,
 } from 'lucide-react';
@@ -84,7 +83,7 @@ const formatDateTimeFull = (v) => {
 
 // ─── Edit form constants ──────────────────────────────────────────────────
 const NUMBER_FIELDS = new Set([
-    'categoryId', 'brandId', 'baseUomId', 'packagingSpecId', 'specId', 'defaultWarehouseId',
+    'categoryId', 'brandId', 'baseUomId', 'packagingSpecId', 'specId',
 ]);
 
 const CREATE_UOM_OPTION = { id: 'CREATE_UOM', code: '', name: 'Tạo mới đơn vị tính' };
@@ -386,8 +385,7 @@ export default function ViewItemDetail() {
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
     const timerRef = useRef(null);
-    const { uoms, categories, brands, warehouses } = useMasterData() || {};
-    const masterWarehouses = warehouses || [];
+    const { uoms, categories, brands } = useMasterData() || {};
     const masterCategories = categories || [];
     const masterBrands = brands || [];
 
@@ -448,7 +446,6 @@ export default function ViewItemDetail() {
             packagingSpecId: item.packagingSpecId ?? '',
             requiresCO: item.requiresCO ?? false,
             requiresCQ: item.requiresCQ ?? false,
-            defaultWarehouseId: item.defaultWarehouseId ?? '',
         });
         setIsEditing(true);
         setIsDirty(false);
@@ -487,7 +484,7 @@ export default function ViewItemDetail() {
                 packagingSpecId: formData.packagingSpecId || null,
                 requiresCo: formData.requiresCO,
                 requiresCq: formData.requiresCQ,
-                defaultWarehouseId: formData.defaultWarehouseId || null,
+                defaultWarehouseId: item.defaultWarehouseId ?? null,
             });
             showToast('Cập nhật vật tư thành công!', 'success');
             setIsEditing(false);
@@ -554,7 +551,7 @@ export default function ViewItemDetail() {
     const itemWarehouses =
         (item.inventoryByWarehouse ?? []).length > 0
             ? item.inventoryByWarehouse
-            : [{ warehouseName: item.defaultWarehouseName || 'Kho chính', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 }];
+            : [{ warehouseName: '—', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 }];
 
     const statusConfig = item.isActive
         ? { label: 'Đang giao dịch', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> }
@@ -719,34 +716,6 @@ export default function ViewItemDetail() {
                                             </TextField>
                                         ) : (
                                             <ReadOnlyBox>{item.brandName || item.brandId || '—'}</ReadOnlyBox>
-                                        )}
-                                    </div>
-
-                                    {/* Kho mặc định */}
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Kho mặc định</div>
-                                        {isEditing ? (
-                                            <TextField select fullWidth size="small" name="defaultWarehouseId"
-                                                value={String(formData.defaultWarehouseId ?? '')} onChange={handleChange}
-                                                sx={editSelectSx} InputLabelProps={{ shrink: true }}
-                                                SelectProps={{
-                                                    displayEmpty: true,
-                                                    renderValue: (v) => v === '' ? (
-                                                        <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn kho</span>
-                                                    ) : (
-                                                        <span style={{ fontSize: '14px' }}>
-                                                            {masterWarehouses.find((o) => String(o.warehouseId) === String(v))?.warehouseName ?? 'Chọn kho'}
-                                                        </span>
-                                                    ),
-                                                    MenuProps: { PaperProps: { sx: { borderRadius: 2 } } },
-                                                }}>
-                                                <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn kho</MenuItem>
-                                                {masterWarehouses.map((o) => (
-                                                    <MenuItem key={o.warehouseId} value={String(o.warehouseId)} sx={{ fontSize: '14px' }}>{o.warehouseName}</MenuItem>
-                                                ))}
-                                            </TextField>
-                                        ) : (
-                                            <ReadOnlyBox>{item.defaultWarehouseName || item.defaultWarehouseId || '—'}</ReadOnlyBox>
                                         )}
                                     </div>
 
@@ -923,17 +892,11 @@ export default function ViewItemDetail() {
                                                 <StatBox label="Đặt trước" value={formatQty(totalPreOrder > 0 ? totalPreOrder : totalReserved)} color="#d97706" bg="#fffbeb" borderColor="#fde68a" icon={Layers} />
                                             )}
                                             <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                            {item.defaultWarehouseName && (
-                                                <StatBox label="Kho mặc định" value={item.defaultWarehouseName} color="#334155" icon={MapPin} />
-                                            )}
                                         </>
                                     ) : (
                                         <>
                                             <StatBox label="Dạng vật tư" value={item.itemType || '—'} color="#334155" icon={Tag} />
                                             <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                            {item.defaultWarehouseName && (
-                                                <StatBox label="Kho mặc định" value={item.defaultWarehouseName} color="#334155" icon={MapPin} />
-                                            )}
                                             {item.categoryName && (
                                                 <StatBox label="Danh mục" value={item.categoryName} color="#334155" icon={Layers} />
                                             )}

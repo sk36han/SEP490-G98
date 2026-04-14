@@ -66,9 +66,8 @@ namespace Warehouse.DataAcces.Service
             {
                 var grnLine = grnLines[line.RelatedGrnlineId];
 
-                var totalReturned = await _context.PurchaseReturnNoteLines
-                    .Where(l => l.RelatedGrnlineId == grnLine.GrnlineId)
-                    .SumAsync(l => l.ReturnQty);
+                var totalReturned = await ReturnLinesForAvailabilityQuery(grnLine.GrnlineId)
+                    .SumAsync(l => (decimal?)l.ReturnQty) ?? 0;
 
                 var availableQty = grnLine.ActualQty - totalReturned;
 
@@ -180,6 +179,14 @@ namespace Warehouse.DataAcces.Service
                 RefundStatus = prn.RefundStatus,
                 SupplierId = prn.SupplierId,
                 SupplierName = grn.Supplier?.SupplierName,
+                SupplierCode = grn.Supplier?.SupplierCode,
+                SupplierPhone = grn.Supplier?.Phone,
+                SupplierEmail = grn.Supplier?.Email,
+                SupplierTaxCode = grn.Supplier?.TaxCode,
+                SupplierAddressProvince = grn.Supplier?.City,
+                SupplierAddressDistrict = grn.Supplier?.District,
+                SupplierAddressWard = grn.Supplier?.Ward,
+                SupplierAddressStreet = grn.Supplier?.Address,
                 WarehouseId = prn.WarehouseId,
                 WarehouseName = grn.Warehouse?.WarehouseName,
                 TotalReturnedQty = prn.TotalReturnedQty,
@@ -220,9 +227,17 @@ namespace Warehouse.DataAcces.Service
                     FeeAmount = prn.FeeAmount,
                     RefundStatus = prn.RefundStatus,
                     RefundedAmount = prn.RefundedAmount,
-                    SupplierId = prn.SupplierId,
-                    SupplierName = prn.Supplier != null ? prn.Supplier.SupplierName : null,
-                    WarehouseId = prn.WarehouseId,
+                SupplierId = prn.SupplierId,
+                SupplierName = prn.Supplier != null ? prn.Supplier.SupplierName : null,
+                SupplierCode = prn.Supplier != null ? prn.Supplier.SupplierCode : null,
+                SupplierPhone = prn.Supplier != null ? prn.Supplier.Phone : null,
+                SupplierEmail = prn.Supplier != null ? prn.Supplier.Email : null,
+                SupplierTaxCode = prn.Supplier != null ? prn.Supplier.TaxCode : null,
+                SupplierAddressProvince = prn.Supplier != null ? prn.Supplier.City : null,
+                SupplierAddressDistrict = prn.Supplier != null ? prn.Supplier.District : null,
+                SupplierAddressWard = prn.Supplier != null ? prn.Supplier.Ward : null,
+                SupplierAddressStreet = prn.Supplier != null ? prn.Supplier.Address : null,
+                WarehouseId = prn.WarehouseId,
                     WarehouseName = prn.Warehouse != null ? prn.Warehouse.WarehouseName : null,
                     TotalReturnedQty = prn.TotalReturnedQty,
                     TotalReturnedAmount = prn.TotalReturnedAmount,
@@ -294,6 +309,14 @@ namespace Warehouse.DataAcces.Service
                 RefundedAt = prn.RefundedAt,
                 SupplierId = prn.SupplierId,
                 SupplierName = prn.Supplier?.SupplierName,
+                SupplierCode = prn.Supplier?.SupplierCode,
+                SupplierPhone = prn.Supplier?.Phone,
+                SupplierEmail = prn.Supplier?.Email,
+                SupplierTaxCode = prn.Supplier?.TaxCode,
+                SupplierAddressProvince = prn.Supplier?.City,
+                SupplierAddressDistrict = prn.Supplier?.District,
+                SupplierAddressWard = prn.Supplier?.Ward,
+                SupplierAddressStreet = prn.Supplier?.Address,
                 WarehouseId = prn.WarehouseId,
                 WarehouseName = prn.Warehouse?.WarehouseName,
                 TotalReturnedQty = prn.TotalReturnedQty,
@@ -305,6 +328,179 @@ namespace Warehouse.DataAcces.Service
                 PostedAt = prn.PostedAt,
                 Lines = lines
             };
+        }
+
+        public async Task<PurchaseReturnNoteDetailResponse> UpdatePRNAsync(long prnId, long userId, UpdatePRNRequest request)
+        {
+            if (request.Lines == null || request.Lines.Count == 0)
+            {
+                throw new InvalidOperationException("Phai co it nhat 1 dong tra hang.");
+            }
+
+            var lineIds = request.Lines.Select(l => l.RelatedGrnlineId).ToList();
+            if (lineIds.Count != lineIds.Distinct().Count())
+            {
+                throw new InvalidOperationException("Khong duoc nhap trung dong phieu nhap.");
+            }
+
+            var prn = await _context.PurchaseReturnNotes
+                .Include(p => p.PurchaseReturnNoteLines)
+                .FirstOrDefaultAsync(p => p.PurchaseReturnId == prnId);
+
+            if (prn == null)
+            {
+                throw new KeyNotFoundException("Khong tim thay phieu tra hang.");
+            }
+
+            if (prn.Status?.Equals("CANCELLED", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                throw new InvalidOperationException("Phieu tra hang da bi huy.");
+            }
+
+            if (!string.IsNullOrEmpty(prn.Status) &&
+                !prn.Status.Equals("DRAFT", StringComparison.OrdinalIgnoreCase) &&
+                !prn.Status.Equals("SUBMITTED", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Chi co the sua phieu o trang thai NHAP hoac CHO hoan hang.");
+            }
+
+            var grnId = prn.RelatedGrnid ?? throw new InvalidOperationException("Phieu tra hang khong gan phieu nhap.");
+
+            var grn = await _context.GoodsReceiptNotes
+                .Include(g => g.GoodsReceiptNoteLines)
+                    .ThenInclude(l => l.Item)
+                .FirstOrDefaultAsync(g => g.Grnid == grnId);
+
+            if (grn == null)
+            {
+                throw new KeyNotFoundException("Khong tim thay phieu nhap kho.");
+            }
+
+            if (grn.Status != "POSTED")
+            {
+                throw new InvalidOperationException("Phieu nhap khong hop le.");
+            }
+
+            var grnLineIds = request.Lines.Select(l => l.RelatedGrnlineId).ToList();
+            var grnLines = await _context.GoodsReceiptNoteLines
+                .Include(l => l.Item)
+                .Where(l => l.Grnid == grnId && grnLineIds.Contains(l.GrnlineId))
+                .ToDictionaryAsync(l => l.GrnlineId);
+
+            if (grnLines.Count != grnLineIds.Count)
+            {
+                throw new KeyNotFoundException("Co dong phieu nhap khong ton tai trong phieu nhap.");
+            }
+
+            foreach (var line in request.Lines)
+            {
+                var grnLine = grnLines[line.RelatedGrnlineId];
+
+                var totalOtherReturns = await ReturnLinesForAvailabilityQuery(grnLine.GrnlineId)
+                    .Where(l => l.PurchaseReturnId != prnId)
+                    .SumAsync(l => (decimal?)l.ReturnQty) ?? 0;
+
+                var availableQty = grnLine.ActualQty - totalOtherReturns;
+
+                if (line.ReturnQty > availableQty)
+                {
+                    throw new InvalidOperationException(
+                        $"So luong tra ({line.ReturnQty}) vuot qua so luong kha dung ({availableQty}) cho vat tu {grnLine.Item?.ItemName}.");
+                }
+
+                if (line.ReturnQty <= 0)
+                {
+                    throw new InvalidOperationException("So luong tra phai lon hon 0.");
+                }
+            }
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var oldLines = prn.PurchaseReturnNoteLines.ToList();
+                foreach (var oldLine in oldLines)
+                {
+                    var inventory = await _context.InventoryOnHands
+                        .FirstOrDefaultAsync(i => i.ItemId == oldLine.ItemId && i.WarehouseId == prn.WarehouseId);
+
+                    if (inventory != null)
+                    {
+                        inventory.ReservedQty -= oldLine.ReturnQty;
+                        if (inventory.ReservedQty < 0)
+                        {
+                            inventory.ReservedQty = 0;
+                        }
+
+                        inventory.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    _context.PurchaseReturnNoteLines.Remove(oldLine);
+                }
+
+                await _context.SaveChangesAsync();
+
+                decimal totalReturnedQty = 0;
+                decimal totalReturnedAmount = 0;
+
+                foreach (var line in request.Lines)
+                {
+                    var grnLine = grnLines[line.RelatedGrnlineId];
+                    var lineTotal = line.ReturnQty * (grnLine.UnitPrice ?? 0);
+                    totalReturnedQty += line.ReturnQty;
+                    totalReturnedAmount += lineTotal;
+
+                    var prnLine = new PurchaseReturnNoteLine
+                    {
+                        PurchaseReturnId = prn.PurchaseReturnId,
+                        ItemId = grnLine.ItemId,
+                        UomId = grnLine.UomId,
+                        ReturnQty = line.ReturnQty,
+                        UnitPrice = grnLine.UnitPrice ?? 0,
+                        LineTotal = lineTotal,
+                        Reason = line.Reason,
+                        Note = line.Note,
+                        RelatedGrnlineId = grnLine.GrnlineId
+                    };
+
+                    _context.PurchaseReturnNoteLines.Add(prnLine);
+
+                    var inv = await _context.InventoryOnHands
+                        .FirstOrDefaultAsync(i => i.ItemId == grnLine.ItemId && i.WarehouseId == grn.WarehouseId);
+
+                    if (inv != null)
+                    {
+                        inv.ReservedQty += line.ReturnQty;
+                        inv.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+
+                var netAmount = totalReturnedAmount + request.FeeAmount;
+
+                prn.ReturnDate = request.ReturnDate;
+                prn.Reason = request.Reason;
+                prn.Note = request.Note;
+                prn.FeeAmount = request.FeeAmount;
+                prn.TotalReturnedQty = totalReturnedQty;
+                prn.TotalReturnedAmount = netAmount;
+
+                await _auditLogService.LogAsync(
+                    userId,
+                    "UPDATE",
+                    "PurchaseReturnNote",
+                    prn.PurchaseReturnId,
+                    $"Cap nhat phieu tra hang {prn.ReturnCode}");
+
+                await _context.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+
+            return await GetPRNDetailAsync(prnId);
         }
 
         public async Task<PurchaseReturnNoteResponse> ApprovePRNAsync(long prnId, long userId)
@@ -330,12 +526,42 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Phieu tra hang khong o trang thai cho phep duyet.");
             }
 
+            var warehouseId = prn.WarehouseId ?? 0;
+            if (warehouseId == 0)
+            {
+                throw new InvalidOperationException("Phieu tra hang thieu kho.");
+            }
+
+            // Truoc khi duyet: phai du so luong con lai tren lot cua dong GRN (dong bo voi FIFO xuat kho).
+            foreach (var line in prn.PurchaseReturnNoteLines)
+            {
+                if (!line.RelatedGrnlineId.HasValue)
+                {
+                    throw new InvalidOperationException("Dong phieu tra hang thieu dong phieu nhap lien quan.");
+                }
+
+                var availableInLots = await _context.InventoryLots
+                    .Where(lot =>
+                        lot.GrnlineId == line.RelatedGrnlineId.Value
+                        && lot.WarehouseId == warehouseId
+                        && lot.ItemId == line.ItemId
+                        && lot.Quantity > 0)
+                    .SumAsync(l => (decimal?)l.Quantity) ?? 0m;
+
+                if (availableInLots < line.ReturnQty)
+                {
+                    throw new InvalidOperationException(
+                        $"So luong con trong lot cua dong nhap #{line.RelatedGrnlineId.Value} ({availableInLots}) nho hon so luong tra ({line.ReturnQty}). Vui long kiem tra xuat kho hoac dieu chinh so luong tra.");
+                }
+            }
+
             // Cap nhat Status
             prn.Status = "APPROVED";
             prn.ApprovedBy = userId;
             prn.ApprovedAt = DateTime.UtcNow;
 
-            // Tru ton kho - giam ReservedQty (da reserve khi tao), giam OnHandQty (hang di ra)
+            // Tru ton kho - giam ReservedQty (da reserve khi tao), giam OnHandQty (hang di ra);
+            // dong thoi tru InventoryLot theo dong GRN (giong mo hinh nhap tao lot, xuat tru lot).
             foreach (var line in prn.PurchaseReturnNoteLines)
             {
                 var inventory = await _context.InventoryOnHands
@@ -350,12 +576,11 @@ namespace Warehouse.DataAcces.Service
                     inventory.UpdatedAt = DateTime.UtcNow;
                 }
 
-                // Tao InventoryTransaction
                 var txn = new InventoryTransaction
                 {
                     TxnType = "PURCHASE_RETURN",
                     TxnDate = DateTime.UtcNow,
-                    WarehouseId = prn.WarehouseId ?? 0,
+                    WarehouseId = warehouseId,
                     ReferenceType = "PRN",
                     ReferenceId = prn.PurchaseReturnId,
                     Status = "POSTED",
@@ -365,15 +590,7 @@ namespace Warehouse.DataAcces.Service
                 _context.InventoryTransactions.Add(txn);
                 await _context.SaveChangesAsync();
 
-                var txnLine = new InventoryTransactionLine
-                {
-                    InventoryTxnId = txn.InventoryTxnId,
-                    ItemId = line.ItemId,
-                    QtyChange = -line.ReturnQty,
-                    UomId = line.UomId,
-                    Note = $"Tra hang {prn.ReturnCode}"
-                };
-                _context.InventoryTransactionLines.Add(txnLine);
+                await DeductLotsAndAddTxnLinesForPurchaseReturnAsync(prn, line, txn.InventoryTxnId, warehouseId);
             }
 
             // AuditLog
@@ -501,6 +718,78 @@ namespace Warehouse.DataAcces.Service
                 Status = prn.Status
             };
         }
+
+        /// <summary>
+        /// Tru <see cref="InventoryLot.Quantity"/> theo cac lot gan <see cref="PurchaseReturnNoteLine.RelatedGrnlineId"/>,
+        /// ghi <see cref="InventoryTransactionLine"/> (co LotId) de khop voi xuat kho FIFO.
+        /// </summary>
+        private async Task DeductLotsAndAddTxnLinesForPurchaseReturnAsync(
+            PurchaseReturnNote prn,
+            PurchaseReturnNoteLine line,
+            long inventoryTxnId,
+            long warehouseId)
+        {
+            if (!line.RelatedGrnlineId.HasValue)
+            {
+                return;
+            }
+
+            var grnLineId = line.RelatedGrnlineId.Value;
+            var lots = await _context.InventoryLots
+                .Where(lot =>
+                    lot.GrnlineId == grnLineId
+                    && lot.WarehouseId == warehouseId
+                    && lot.ItemId == line.ItemId
+                    && lot.Quantity > 0)
+                .OrderBy(lot => lot.ReceiptDate)
+                .ThenBy(lot => lot.LotId)
+                .ToListAsync();
+
+            var remaining = line.ReturnQty;
+            var code = prn.ReturnCode ?? string.Empty;
+
+            foreach (var lot in lots)
+            {
+                if (remaining <= 0)
+                {
+                    break;
+                }
+
+                var deduct = Math.Min(lot.Quantity, remaining);
+                lot.Quantity -= deduct;
+                remaining -= deduct;
+                if (lot.Quantity == 0)
+                {
+                    lot.IsActive = false;
+                }
+
+                _context.InventoryTransactionLines.Add(new InventoryTransactionLine
+                {
+                    InventoryTxnId = inventoryTxnId,
+                    ItemId = line.ItemId,
+                    QtyChange = -deduct,
+                    UomId = line.UomId,
+                    LotId = lot.LotId,
+                    Note = $"Tra hang {code} - Lot #{lot.LotId}"
+                });
+            }
+
+            if (remaining > 0)
+            {
+                throw new InvalidOperationException(
+                    $"So luong trong lot cua dong nhap #{grnLineId} khong du de tra hang ({line.ReturnQty}).");
+            }
+        }
+
+        /// <summary>
+        /// Dong PRN thuoc phieu chua bi huy — dung tinh SL con co the tra theo dong GRN.
+        /// </summary>
+        private IQueryable<PurchaseReturnNoteLine> ReturnLinesForAvailabilityQuery(long grnLineId) =>
+            _context.PurchaseReturnNoteLines.Where(l =>
+                l.RelatedGrnlineId == grnLineId
+                && l.PurchaseReturn != null
+                && l.PurchaseReturn.Status != null
+                && l.PurchaseReturn.Status.ToUpper() != "CANCELLED");
 
         private async Task<string> GenerateNextPrnCodeAsync()
         {

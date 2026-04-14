@@ -1,5 +1,5 @@
 /*
- * Danh sách Thông số kỹ thuật – Mock data, kết nối API SpecificationController.
+ * Danh sách Thông số kỹ thuật – Kết nối API SpecificationController (ItemParameterController).
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePolling } from '../hooks/usePolling';
@@ -16,7 +16,6 @@ import {
     TableHead,
     TableRow,
     TableSortLabel,
-    Chip,
     useTheme,
     useMediaQuery,
     Popover,
@@ -31,12 +30,14 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    TextField,
     FormGroup,
+    Switch,
 } from '@mui/material';
 import { Plus, Filter, Columns, Ruler, X, GripVertical } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import CategoryFilterPopup from '../components/CategoryFilterPopup';
+import { getItemParameterList, createItemParameter, updateItemParameter, toggleItemParameterStatus, getItemParameterById } from '../lib/itemParameterService';
+import { useToast } from '../hooks/useToast';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -83,33 +84,19 @@ const bodyCellBaseSx = {
     borderBottom: '1px solid #f3f4f6',
 };
 
-// Mock data
-const MOCK_DATA = [
-    { specificationId: 'SPC001', specificationCode: 'SPEC001', specificationName: 'Chiều dài', unit: 'cm', isActive: true, createdAt: '2025-01-15T08:30:00Z' },
-    { specificationId: 'SPC002', specificationCode: 'SPEC002', specificationName: 'Chiều rộng', unit: 'cm', isActive: true, createdAt: '2025-01-15T09:00:00Z' },
-    { specificationId: 'SPC003', specificationCode: 'SPEC003', specificationName: 'Chiều cao', unit: 'cm', isActive: true, createdAt: '2025-01-15T09:30:00Z' },
-    { specificationId: 'SPC004', specificationCode: 'SPEC004', specificationName: 'Trọng lượng', unit: 'kg', isActive: true, createdAt: '2025-01-16T10:00:00Z' },
-    { specificationId: 'SPC005', specificationCode: 'SPEC005', specificationName: 'Dung tích', unit: 'L', isActive: false, createdAt: '2025-01-16T11:00:00Z' },
-    { specificationId: 'SPC006', specificationCode: 'SPEC006', specificationName: 'Công suất', unit: 'W', isActive: true, createdAt: '2025-01-17T08:00:00Z' },
-    { specificationId: 'SPC007', specificationCode: 'SPEC007', specificationName: 'Điện áp', unit: 'V', isActive: true, createdAt: '2025-01-17T09:00:00Z' },
-    { specificationId: 'SPC008', specificationCode: 'SPEC008', specificationName: 'Nhiệt độ tối đa', unit: '°C', isActive: true, createdAt: '2025-01-18T10:30:00Z' },
-    { specificationId: 'SPC009', specificationCode: 'SPEC009', specificationName: 'Bước sóng', unit: 'nm', isActive: false, createdAt: '2025-01-18T14:00:00Z' },
-    { specificationId: 'SPC010', specificationCode: 'SPEC010', specificationName: 'Độ pH', unit: '', isActive: true, createdAt: '2025-01-19T08:30:00Z' },
-    { specificationId: 'SPC011', specificationCode: 'SPEC011', specificationName: 'Tốc độ', unit: 'rpm', isActive: true, createdAt: '2025-01-19T15:00:00Z' },
-    { specificationId: 'SPC012', specificationCode: 'SPEC012', specificationName: 'Áp suất', unit: 'bar', isActive: true, createdAt: '2025-01-20T09:00:00Z' },
-];
+
 
 const allColumns = [
     { id: 'specificationName', label: 'Tên thông số', sortable: true },
     { id: 'specificationCode', label: 'Mã thông số', sortable: true },
     { id: 'unit', label: 'Đơn vị', sortable: true },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true },
     { id: 'isActive', label: 'Trạng thái', sortable: true },
 ];
 
 const ViewSpecList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const { showToast } = useToast();
 
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -119,17 +106,18 @@ const ViewSpecList = () => {
     const [totalItems, setTotalItems] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
-    const [filterDateFrom, setFilterDateFrom] = useState('');
-    const [filterDateTo, setFilterDateTo] = useState('');
     const [filterAnchor, setFilterAnchor] = useState(null);
     const [columnsAnchor, setColumnsAnchor] = useState(null);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
     const [addForm, setAddForm] = useState({ specificationName: '', unit: '' });
     const [addSubmitting, setAddSubmitting] = useState(false);
+    const [addError, setAddError] = useState('');
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [editSpecId, setEditSpecId] = useState(null);
-    const [editForm, setEditForm] = useState({ specificationCode: '', specificationName: '', unit: '', isActive: true, createdAt: '' });
+    const [editForm, setEditForm] = useState({ specificationCode: '', specificationName: '', unit: '', isActive: true });
     const [editSubmitting, setEditSubmitting] = useState(false);
+    const [editError, setEditError] = useState('');
+    const [toggleLoadingId, setToggleLoadingId] = useState(null);
 
     // Column management
     const savedColumnOrder = (() => {
@@ -238,24 +226,22 @@ const ViewSpecList = () => {
 
     const handleFilterApply = useCallback((values) => {
         setFilterStatus(values.filterStatus ?? 'all');
-        setFilterDateFrom(values.fromDate ?? '');
-        setFilterDateTo(values.toDate ?? '');
         setPage(0);
     }, []);
 
     const currentPage = page + 1;
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-    // Filter + sort + paginate mock data
-    const applyFiltersAndSort = useCallback(() => {
-        let data = [...MOCK_DATA];
+    // Filter + sort + paginate client-side (sort/filter frontend, pagination backend)
+    const applyFiltersAndSort = useCallback((rawItems) => {
+        let data = [...rawItems];
 
         // Search filter
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase();
             data = data.filter(item =>
-                item.specificationName.toLowerCase().includes(term) ||
-                item.specificationCode.toLowerCase().includes(term)
+                (item.specificationName || '').toLowerCase().includes(term) ||
+                (item.specificationCode || '').toLowerCase().includes(term)
             );
         }
 
@@ -266,33 +252,12 @@ const ViewSpecList = () => {
             data = data.filter(item => item.isActive === false);
         }
 
-        // Date filters
-        if (filterDateFrom) {
-            const from = new Date(filterDateFrom + 'T00:00:00Z').getTime();
-            data = data.filter(item => {
-                if (!item.createdAt) return false;
-                const d = new Date(item.createdAt + (item.createdAt.endsWith('Z') ? '' : 'Z'));
-                return d.getTime() >= from;
-            });
-        }
-        if (filterDateTo) {
-            const to = new Date(filterDateTo + 'T23:59:59.999Z').getTime();
-            data = data.filter(item => {
-                if (!item.createdAt) return false;
-                const d = new Date(item.createdAt + (item.createdAt.endsWith('Z') ? '' : 'Z'));
-                return d.getTime() <= to;
-            });
-        }
-
         // Sort
         if (orderBy) {
             data.sort((a, b) => {
                 let aVal = a[orderBy];
                 let bVal = b[orderBy];
-                if (orderBy === 'createdAt') {
-                    aVal = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')) : new Date(0);
-                    bVal = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')) : new Date(0);
-                } else if (typeof aVal === 'string') {
+                if (typeof aVal === 'string') {
                     aVal = aVal.toLowerCase();
                     bVal = bVal.toLowerCase();
                 }
@@ -303,21 +268,31 @@ const ViewSpecList = () => {
         }
 
         return data;
-    }, [searchTerm, filterStatus, filterDateFrom, filterDateTo, orderBy, order]);
+    }, [searchTerm, filterStatus, orderBy, order]);
 
-    const fetchList = useCallback(() => {
+    const fetchList = useCallback(async () => {
         setLoading(true);
         setError(null);
-        // Simulate async
-        setTimeout(() => {
-            const filtered = applyFiltersAndSort();
+        try {
+            const result = await getItemParameterList({
+                page: currentPage,
+                pageSize: pageSize * 5, // Fetch more for client-side filtering
+                paramName: searchTerm.trim() || undefined,
+                isActive: filterStatus === 'all' ? undefined : filterStatus === 'active',
+            });
+            const filtered = applyFiltersAndSort(result.items);
             setTotalItems(filtered.length);
             const start = page * pageSize;
             const paginated = filtered.slice(start, start + pageSize);
             setRows(paginated);
+        } catch (err) {
+            setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách thông số');
+            setRows([]);
+            setTotalItems(0);
+        } finally {
             setLoading(false);
-        }, 300);
-    }, [page, pageSize, applyFiltersAndSort]);
+        }
+    }, [currentPage, pageSize, searchTerm, filterStatus, page, applyFiltersAndSort]);
 
     useEffect(() => {
         fetchList();
@@ -336,26 +311,28 @@ const ViewSpecList = () => {
         setAddDialogOpen(true);
     };
 
-    const handleAddSpec = () => {
+    const handleAddSpec = async () => {
         const name = (addForm.specificationName || '').trim();
-        const unit = (addForm.unit || '').trim();
         if (!name) return;
         setAddSubmitting(true);
-        const newSpec = {
-            specificationId: 'SPC' + String(MOCK_DATA.length + 1).padStart(3, '0'),
-            specificationCode: 'SPEC' + String(MOCK_DATA.length + 1).padStart(3, '0'),
-            specificationName: name,
-            unit: unit,
-            isActive: true,
-            createdAt: new Date().toISOString(),
-        };
-        MOCK_DATA.unshift(newSpec);
-        setAddDialogOpen(false);
-        setAddForm({ specificationName: '', unit: '' });
-        setPage(0);
-        setTimeout(() => fetchList(), 50);
-        setAddSubmitting(false);
-        PollingManager.triggerRefreshByFetchKey('Spec');
+        setAddError('');
+        try {
+            await createItemParameter({
+                specificationName: name,
+                unit: addForm.unit?.trim() || '',
+            });
+            setAddDialogOpen(false);
+            setAddForm({ specificationName: '', unit: '' });
+            showToast('Tạo thông số thành công!', 'success');
+            PollingManager.triggerRefreshByFetchKey('Spec');
+            await fetchList();
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không thể tạo thông số';
+            setAddError(msg);
+            showToast(msg, 'error');
+        } finally {
+            setAddSubmitting(false);
+        }
     };
 
     const handleOpenEditSpec = (spec) => {
@@ -365,30 +342,51 @@ const ViewSpecList = () => {
             specificationName: spec.specificationName || '',
             unit: spec.unit || '',
             isActive: spec.isActive ?? true,
-            createdAt: spec.createdAt || '',
         });
         setEditDialogOpen(true);
     };
 
-    const handleEditSpec = () => {
+    // Toggle trạng thái nhanh
+    const handleToggleStatus = async (spec, e) => {
+        e?.stopPropagation();
+        if (toggleLoadingId) return;
+        setToggleLoadingId(spec.specificationId);
+        try {
+            await toggleItemParameterStatus(spec.specificationId, !spec.isActive);
+            showToast(`Đã ${spec.isActive ? 'tắt' : 'bật'} thông số!`, 'success');
+            PollingManager.triggerRefreshByFetchKey('Spec');
+            await fetchList();
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Không thể thay đổi trạng thái', 'error');
+        } finally {
+            setToggleLoadingId(null);
+        }
+    };
+
+    const handleEditSpec = async () => {
         const name = (editForm.specificationName || '').trim();
         if (!name) return;
         setEditSubmitting(true);
-        const idx = MOCK_DATA.findIndex(s => s.specificationId === editSpecId);
-        if (idx !== -1) {
-            MOCK_DATA[idx] = {
-                ...MOCK_DATA[idx],
+        setEditError('');
+        try {
+            await updateItemParameter(editSpecId, {
                 specificationName: name,
                 unit: editForm.unit,
                 isActive: editForm.isActive,
-            };
+            });
+            setEditDialogOpen(false);
+            setEditSpecId(null);
+            setEditForm({ specificationCode: '', specificationName: '', unit: '', isActive: true });
+            showToast('Cập nhật thông số thành công!', 'success');
+            PollingManager.triggerRefreshByFetchKey('Spec');
+            await fetchList();
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Không thể cập nhật thông số';
+            setEditError(msg);
+            showToast(msg, 'error');
+        } finally {
+            setEditSubmitting(false);
         }
-        setEditDialogOpen(false);
-        setEditSpecId(null);
-        setEditForm({ specificationCode: '', specificationName: '', unit: '', isActive: true, createdAt: '' });
-        setTimeout(() => fetchList(), 50);
-        setEditSubmitting(false);
-        PollingManager.triggerRefreshByFetchKey('Spec');
     };
 
     return (
@@ -584,8 +582,6 @@ const ViewSpecList = () => {
                         onClose={() => setFilterAnchor(null)}
                         initialValues={{
                             isActive: filterStatus === 'active' ? true : filterStatus === 'inactive' ? false : null,
-                            fromDate: filterDateFrom,
-                            toDate: filterDateTo,
                         }}
                         onApply={handleFilterApply}
                     />
@@ -932,29 +928,23 @@ const ViewSpecList = () => {
                                                                     {s.unit || '—'}
                                                                 </Typography>
                                                             )}
-                                                            {colId === 'createdAt' && (
-                                                                <Typography sx={{ fontSize: '13px', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                    {s.createdAt ? (() => { const d = new Date(s.createdAt + (s.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })() : '—'}
-                                                                </Typography>
-                                                            )}
                                                             {colId === 'isActive' && (
-                                                                <Chip
-                                                                    label={s.isActive ? '• Hoạt động' : '• Tạm dừng'}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        fontWeight: 500,
-                                                                        fontSize: '12px',
-                                                                        lineHeight: '16px',
-                                                                        borderRadius: '999px',
-                                                                        minWidth: 100,
-                                                                        height: '26px',
-                                                                        bgcolor: s.isActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(107, 114, 128, 0.2)',
-                                                                        color: '#374151',
-                                                                        border: 'none',
-                                                                        boxShadow: 'none',
-                                                                        '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left' },
-                                                                    }}
-                                                                />
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                    <Switch
+                                                                        size="small"
+                                                                        checked={s.isActive}
+                                                                        onChange={(e) => handleToggleStatus(s, e)}
+                                                                        disabled={toggleLoadingId === s.specificationId}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        sx={{
+                                                                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
+                                                                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10b981' },
+                                                                        }}
+                                                                    />
+                                                                    <Typography sx={{ fontSize: '12px', color: '#374151', fontWeight: s.isActive ? 500 : 400 }}>
+                                                                        {s.isActive ? 'Hoạt động' : 'Tạm dừng'}
+                                                                    </Typography>
+                                                                </Box>
                                                             )}
                                                         </TableCell>
                                                     );
@@ -1205,6 +1195,21 @@ const ViewSpecList = () => {
                             },
                         }}
                     />
+
+                    {addError && (
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                display: 'block',
+                                mt: 1.5,
+                                color: '#ef4444',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                            }}
+                        >
+                            {addError}
+                        </Typography>
+                    )}
                 </DialogContent>
 
                 <DialogActions
@@ -1220,6 +1225,7 @@ const ViewSpecList = () => {
                         onClick={() => {
                             setAddDialogOpen(false);
                             setAddForm({ specificationName: '', unit: '' });
+                            setAddError('');
                         }}
                         size="small"
                         sx={{
@@ -1263,7 +1269,7 @@ const ViewSpecList = () => {
                 open={editDialogOpen}
                 onClose={() => {
                     setEditDialogOpen(false);
-                    setEditForm({ specificationCode: '', specificationName: '', unit: '', isActive: true, createdAt: '' });
+                    setEditForm({ specificationCode: '', specificationName: '', unit: '', isActive: true });
                     setEditSpecId(null);
                 }}
                 maxWidth="xs"
@@ -1380,6 +1386,21 @@ const ViewSpecList = () => {
                         }}
                     />
 
+                    {editError && (
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                display: 'block',
+                                mt: 1.5,
+                                color: '#ef4444',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                            }}
+                        >
+                            {editError}
+                        </Typography>
+                    )}
+
                     {/* Đơn vị */}
                     <Typography
                         variant="caption"
@@ -1435,32 +1456,6 @@ const ViewSpecList = () => {
                     >
                         <option value="true" style={{ color: '#10b981' }}>Hoạt động</option>
                         <option value="false" style={{ color: '#ef4444' }}>Ngừng hoạt động</option>
-                    </Box>
-
-                    {/* Ngày tạo */}
-                    <Typography
-                        variant="caption"
-                        sx={{
-                            fontWeight: 500,
-                            fontSize: '12px',
-                            color: 'text.secondary',
-                            display: 'block',
-                            mb: 0.5,
-                        }}
-                    >
-                        Ngày tạo
-                    </Typography>
-                    <Box
-                        sx={{
-                            borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
-                            pb: 1,
-                        }}
-                    >
-                        <Typography sx={{ fontSize: '14px', color: '#374151' }}>
-                            {editForm.createdAt
-                                ? (() => { const d = new Date(editForm.createdAt + (editForm.createdAt.endsWith('Z') ? '' : 'Z')); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); })()
-                                : '—'}
-                        </Typography>
                     </Box>
                 </DialogContent>
 

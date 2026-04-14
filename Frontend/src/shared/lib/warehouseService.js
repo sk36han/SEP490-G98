@@ -12,12 +12,14 @@ import { invalidate } from './pollingManager';
 
 function mapWarehouseRow(row) {
     if (row == null || typeof row !== 'object') return null;
+    const createdRaw = row.createdAt ?? row.CreatedAt;
     return {
         warehouseId: row.warehouseId ?? row.WarehouseId,
         warehouseCode: row.warehouseCode ?? row.WarehouseCode ?? '',
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
         address: row.address ?? row.Address ?? null,
         isActive: row.isActive ?? row.IsActive ?? true,
+        createdAt: createdRaw != null && createdRaw !== '' ? createdRaw : null,
     };
 }
 

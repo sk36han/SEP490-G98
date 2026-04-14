@@ -186,8 +186,9 @@ const selectionBodyCellSx = {
 };
 
 /** Full quyền Item: tất cả role trừ ADMIN và Giám đốc */
-const canCreateOrEditItems = (permissionRole) =>
-    ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(permissionRole);
+/** Nút tạo vật tư: Giám đốc, Kế toán, Thủ kho (khớp backend CreateItem Roles TK,KT,GD). */
+const canShowCreateItemButton = (permissionRole) =>
+    ['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS'].includes(permissionRole);
 const showAccountantColumnsForRole = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
 /** Trọng số cột để chia % độ rộng: STT nhỏ, Tên/Mô tả lớn hơn */
@@ -273,7 +274,7 @@ const ViewItemList = () => {
     const { toast, showToast, clearToast } = useToast();
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
-    const canCreateEdit = canCreateOrEditItems(permissionRole);
+    const canShowCreateItem = canShowCreateItemButton(permissionRole);
     const showAccountantColumns = showAccountantColumnsForRole(permissionRole);
     const isAccountant = isAccountantView(permissionRole);
 
@@ -869,7 +870,7 @@ const ViewItemList = () => {
                                         </Button>
                                     </Tooltip>
 
-                                    {canCreateEdit && (
+                                    {canShowCreateItem && (
                                         <Button
                                             className="list-page-btn"
                                             variant="contained"

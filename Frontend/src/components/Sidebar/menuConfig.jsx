@@ -86,11 +86,6 @@ const menuCatalog = {
             createChild('/admin/users/deactivated', 'Người dùng đã vô hiệu hóa'),
         ],
     }),
-    adminNotifications: createItem({
-        path: '/admin/notifications',
-        icon: icon(Bell),
-        label: 'Cài đặt thông báo',
-    }),
     adminAuditLog: createItem({
         path: '/admin/audit-log',
         icon: icon(ClipboardList),
@@ -272,12 +267,12 @@ const menuCatalog = {
     }),
 
     goodsDeliveryNotesManage: createItem({
-        id: 'goods-delivery-notes-mgmt',
-        path: '/goods-delivery-notes',
+        id: 'good-delivery-notes-mgmt',
+        path: '/good-delivery-notes',
         icon: icon(FileText),
         label: 'Phiếu xuất hàng',
         children: [
-            createChild('/goods-delivery-notes', 'Danh sách phiếu xuất hàng'),
+            createChild('/good-delivery-notes', 'Danh sách phiếu xuất hàng'),
         ],
     }),
 
@@ -329,7 +324,6 @@ const menuCatalog = {
 const roleMenus = {
     ADMIN: [
         menuCatalog.adminUsers,
-        menuCatalog.adminNotifications,
         menuCatalog.adminAuditLog,
     ],
     WAREHOUSE_KEEPER: [

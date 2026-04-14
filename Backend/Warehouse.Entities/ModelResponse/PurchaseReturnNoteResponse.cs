@@ -19,6 +19,14 @@ namespace Warehouse.Entities.ModelResponse
         public string? RefundMethod { get; set; }
         public long? SupplierId { get; set; }
         public string? SupplierName { get; set; }
+        public string? SupplierCode { get; set; }
+        public string? SupplierPhone { get; set; }
+        public string? SupplierEmail { get; set; }
+        public string? SupplierTaxCode { get; set; }
+        public string? SupplierAddressProvince { get; set; }
+        public string? SupplierAddressDistrict { get; set; }
+        public string? SupplierAddressWard { get; set; }
+        public string? SupplierAddressStreet { get; set; }
         public long? WarehouseId { get; set; }
         public string? WarehouseName { get; set; }
         public decimal TotalReturnedQty { get; set; }

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box,
     Typography,
+    Tooltip,
 } from '@mui/material';
 import {
     ArrowLeft,
@@ -18,9 +19,13 @@ import {
     AlertCircle,
     Edit,
     RefreshCw,
+    Globe,
 } from 'lucide-react';
 import DateRangeFilter from '../components/DateRangeFilter';
+import { getProvinces, getProvinceWithWards, getProvincesV2, getProvinceWardsDirectV2 } from '../lib/locationService';
 import { getSupplierById, getSupplierTransactions, updateSupplier } from '../lib/supplierService';
+import { useToast } from '../hooks/useToast';
+import Toast from '../../components/Toast/Toast';
 import '../styles/CreateSupplier.css';
 
 const formatCurrency = (amount) => {
@@ -46,6 +51,7 @@ const formatDateTime = (dateStr) => {
 export default function ViewSupplierDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { toast, showToast, clearToast } = useToast();
     const [supplier, setSupplier] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -58,52 +64,254 @@ export default function ViewSupplierDetail() {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({});
     const [saving, setSaving] = useState(false);
+    const [editAddressKey, setEditAddressKey] = useState(0);
+    const prefillSessionRef = useRef(0);
+
+    const [useNewAddress, setUseNewAddress] = useState(false);
+    const [provinces, setProvinces] = useState([]);
+    const [provincesV2, setProvincesV2] = useState([]);
+    const [provinceDetail, setProvinceDetail] = useState(null);
+    const [provinceWardsV2, setProvinceWardsV2] = useState(null);
+    const [loadingProvinces, setLoadingProvinces] = useState(false);
+    const [loadingWards, setLoadingWards] = useState(false);
+    const [loadingProvincesV2, setLoadingProvincesV2] = useState(false);
+    const [loadingWardsV2, setLoadingWardsV2] = useState(false);
+
+    const districtOptions = provinceDetail?.districts || [];
+    const selectedDistrict = districtOptions.find(d => String(d.code) === String(editData.districtCode));
+    const wardOptions = useNewAddress
+        ? (provinceWardsV2?.wards || [])
+        : (selectedDistrict?.wards || []);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoadingProvinces(true);
+        getProvinces()
+            .then((list) => { if (!cancelled) setProvinces(list || []); })
+            .catch(() => { if (!cancelled) setProvinces([]); })
+            .finally(() => { if (!cancelled) setLoadingProvinces(false); });
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoadingProvincesV2(true);
+        getProvincesV2()
+            .then((list) => { if (!cancelled) setProvincesV2(list || []); })
+            .catch(() => { if (!cancelled) setProvincesV2([]); })
+            .finally(() => { if (!cancelled) setLoadingProvincesV2(false); });
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        if (!isEditing || !editData.provinceCode || useNewAddress) {
+            if (useNewAddress || !editData.provinceCode) setProvinceDetail(null);
+            return;
+        }
+        let cancelled = false;
+        setLoadingWards(true);
+        getProvinceWithWards(editData.provinceCode)
+            .then((detail) => { if (!cancelled && detail) setProvinceDetail(detail); })
+            .catch(() => { if (!cancelled) setProvinceDetail(null); })
+            .finally(() => { if (!cancelled) setLoadingWards(false); });
+        return () => { cancelled = true; };
+    }, [isEditing, editData.provinceCode, useNewAddress]);
+
+    useEffect(() => {
+        if (!isEditing || !editData.provinceCode || !useNewAddress) {
+            if (!useNewAddress) setProvinceWardsV2(null);
+            return;
+        }
+        let cancelled = false;
+        setLoadingWardsV2(true);
+        getProvinceWardsDirectV2(editData.provinceCode)
+            .then((detail) => { if (!cancelled && detail) setProvinceWardsV2(detail); })
+            .catch(() => { if (!cancelled) setProvinceWardsV2(null); })
+            .finally(() => { if (!cancelled) setLoadingWardsV2(false); });
+        return () => { cancelled = true; };
+    }, [isEditing, editData.provinceCode, useNewAddress]);
+
+    const prefillAddressFromSupplier = useCallback(async (s, session) => {
+        if (!provinces.length && !provincesV2.length) return;
+        const city = (s.city || '').trim();
+        const districtName = (s.district || '').trim();
+        const wardName = (s.ward || '').trim();
+        if (!city) {
+            if (prefillSessionRef.current === session) {
+                setEditData((prev) => ({
+                    ...prev,
+                    provinceCode: '',
+                    districtCode: '',
+                    wardCode: '',
+                }));
+            }
+            return;
+        }
+        const pV1 = provinces.find((p) => p.name === city);
+        if (pV1) {
+            const code = String(pV1.code);
+            try {
+                const detail = await getProvinceWithWards(code);
+                if (prefillSessionRef.current !== session) return;
+                let dCode = '';
+                let wCode = '';
+                if (detail?.districts && districtName) {
+                    const d = detail.districts.find((x) => x.name === districtName);
+                    if (d) {
+                        dCode = String(d.code);
+                        const w = (d.wards || []).find((x) => x.name === wardName);
+                        if (w) wCode = String(w.code);
+                    }
+                }
+                setProvinceDetail(detail || null);
+                setProvinceWardsV2(null);
+                setUseNewAddress(false);
+                setEditData((prev) => ({
+                    ...prev,
+                    provinceCode: code,
+                    districtCode: dCode,
+                    wardCode: wCode,
+                }));
+            } catch {
+                if (prefillSessionRef.current === session) {
+                    setUseNewAddress(false);
+                    setEditData((prev) => ({ ...prev, provinceCode: code, districtCode: '', wardCode: '' }));
+                }
+            }
+            return;
+        }
+        const pV2 = provincesV2.find((p) => p.name === city);
+        if (pV2) {
+            const code = String(pV2.code);
+            try {
+                const detail = await getProvinceWardsDirectV2(code);
+                if (prefillSessionRef.current !== session) return;
+                let wCode = '';
+                if (detail?.wards && wardName) {
+                    const w = detail.wards.find((x) => x.name === wardName);
+                    if (w) wCode = String(w.code);
+                }
+                setProvinceWardsV2(detail || null);
+                setProvinceDetail(null);
+                setUseNewAddress(true);
+                setEditData((prev) => ({
+                    ...prev,
+                    provinceCode: code,
+                    districtCode: '',
+                    wardCode: wCode,
+                }));
+            } catch {
+                if (prefillSessionRef.current === session) {
+                    setUseNewAddress(true);
+                    setEditData((prev) => ({ ...prev, provinceCode: code, districtCode: '', wardCode: '' }));
+                }
+            }
+            return;
+        }
+        if (prefillSessionRef.current === session) {
+            setUseNewAddress(false);
+            setEditData((prev) => ({ ...prev, provinceCode: '', districtCode: '', wardCode: '' }));
+        }
+    }, [provinces, provincesV2]);
+
+    useEffect(() => {
+        if (!isEditing || !supplier) return;
+        if (provinces.length === 0 && provincesV2.length === 0) return;
+        prefillSessionRef.current += 1;
+        const session = prefillSessionRef.current;
+        prefillAddressFromSupplier(supplier, session);
+    }, [isEditing, editAddressKey, supplier?.supplierId, provinces, provincesV2, prefillAddressFromSupplier]);
 
     const handleEditToggle = () => {
+        prefillSessionRef.current += 1;
+        setUseNewAddress(false);
+        setProvinceDetail(null);
+        setProvinceWardsV2(null);
         setEditData({
             supplierName: supplier?.supplierName || '',
             taxCode: supplier?.taxCode || '',
             phone: supplier?.phone || '',
             email: supplier?.email || '',
             address: supplier?.address || '',
-            city: supplier?.city || '',
-            district: supplier?.district || '',
-            ward: supplier?.ward || '',
+            provinceCode: '',
+            districtCode: '',
+            wardCode: '',
         });
+        setEditAddressKey((k) => k + 1);
         setIsEditing(true);
     };
 
     const handleEditCancel = () => {
         setIsEditing(false);
         setEditData({});
+        setUseNewAddress(false);
+        setProvinceDetail(null);
+        setProvinceWardsV2(null);
     };
 
     const handleEditChange = (field, value) => {
-        setEditData(prev => ({ ...prev, [field]: value }));
+        setEditData((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleEditProvinceChange = (value) => {
+        setEditData((prev) => ({
+            ...prev,
+            provinceCode: value,
+            districtCode: '',
+            wardCode: '',
+        }));
+    };
+
+    const handleEditDistrictChange = (value) => {
+        setEditData((prev) => ({
+            ...prev,
+            districtCode: value,
+            wardCode: '',
+        }));
     };
 
     const handleEditSave = async () => {
         if (!editData.supplierName?.trim()) {
-            alert('Tên nhà cung cấp là bắt buộc.');
+            showToast('Tên nhà cung cấp là bắt buộc.', 'error');
             return;
         }
         setSaving(true);
         try {
-            await updateSupplier(id, {
+            const payload = {
                 supplierName: editData.supplierName.trim(),
                 taxCode: editData.taxCode?.trim() || null,
                 phone: editData.phone?.trim() || null,
                 email: editData.email?.trim() || null,
                 address: editData.address?.trim() || null,
-                city: editData.city?.trim() || null,
-                district: editData.district?.trim() || null,
-                ward: editData.ward?.trim() || null,
                 isActive: supplier?.isActive,
-            });
+            };
+            if (editData.provinceCode) {
+                const selectedProvince = useNewAddress
+                    ? provincesV2.find((p) => String(p.code) === String(editData.provinceCode))
+                    : provinces.find((p) => String(p.code) === String(editData.provinceCode));
+                if (selectedProvince) payload.city = selectedProvince.name;
+            } else {
+                payload.city = null;
+            }
+            if (!useNewAddress && editData.districtCode) {
+                const district = districtOptions.find((d) => String(d.code) === String(editData.districtCode));
+                if (district) payload.district = district.name;
+            } else {
+                payload.district = null;
+            }
+            if (editData.wardCode) {
+                const ward = wardOptions.find((w) => String(w.code) === String(editData.wardCode));
+                if (ward) payload.ward = ward.name;
+            } else {
+                payload.ward = null;
+            }
+
+            await updateSupplier(id, payload);
             setIsEditing(false);
             await fetchSupplier(true);
+            showToast('Cập nhật nhà cung cấp thành công.', 'success');
         } catch (err) {
-            alert(err.message || 'Lỗi khi cập nhật nhà cung cấp.');
+            showToast(err.message || 'Lỗi khi cập nhật nhà cung cấp.', 'error');
         } finally {
             setSaving(false);
         }
@@ -499,71 +707,204 @@ export default function ViewSupplierDetail() {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Địa chỉ</h2>
                                 </div>
-                                <div className="form-field">
-                                    <label className="form-label">Tỉnh/Thành phố</label>
-                                    <div className="input-wrapper">
-                                        <MapPin className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={isEditing ? editData.city : (supplier.city || '')}
-                                            readOnly={!isEditing}
-                                            onChange={(e) => handleEditChange('city', e.target.value)}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
-                                            placeholder="-"
-                                        />
+                                {isEditing ? (
+                                    <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                        <div className="form-field">
+                                            <label className="form-label" htmlFor="supplier-detail-country">Quốc gia</label>
+                                            <div className="input-wrapper">
+                                                <Globe className="input-icon" size={16} />
+                                                <select
+                                                    id="supplier-detail-country"
+                                                    className="form-input"
+                                                    value="Việt Nam"
+                                                    disabled
+                                                >
+                                                    <option value="Việt Nam">Việt Nam</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="form-field" style={{ display: 'flex', alignItems: 'center' }}>
+                                            <Tooltip title="Loại cấu trúc địa chỉ 2 cấp sau sát nhập" placement="top" arrow>
+                                                <label className="toggle-container" style={{ margin: 0, cursor: saving ? 'default' : 'pointer' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={useNewAddress}
+                                                        disabled={saving}
+                                                        onChange={(e) => {
+                                                            setUseNewAddress(e.target.checked);
+                                                            setEditData((prev) => ({
+                                                                ...prev,
+                                                                districtCode: '',
+                                                                wardCode: '',
+                                                            }));
+                                                        }}
+                                                        className="toggle-checkbox"
+                                                    />
+                                                    <span className="toggle-slider" />
+                                                    <span className="toggle-label">Địa chỉ mới sau sát nhập</span>
+                                                </label>
+                                            </Tooltip>
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="form-label" htmlFor="supplier-detail-province">Tỉnh/Thành phố</label>
+                                            <div className="input-wrapper">
+                                                <MapPin className="input-icon" size={16} />
+                                                <select
+                                                    id="supplier-detail-province"
+                                                    className="form-input"
+                                                    value={editData.provinceCode || ''}
+                                                    disabled={saving || (useNewAddress ? loadingProvincesV2 : loadingProvinces)}
+                                                    onChange={(e) => handleEditProvinceChange(e.target.value)}
+                                                >
+                                                    <option value="">
+                                                        {useNewAddress
+                                                            ? (loadingProvincesV2 ? 'Đang tải...' : 'Chọn tỉnh/thành phố')
+                                                            : (loadingProvinces ? 'Đang tải...' : 'Chọn tỉnh/thành phố')}
+                                                    </option>
+                                                    {(useNewAddress ? provincesV2 : provinces).map((province) => (
+                                                        <option key={province.code} value={province.code}>
+                                                            {province.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        {!useNewAddress && (
+                                            <div className="form-field">
+                                                <label className="form-label" htmlFor="supplier-detail-district">Quận/Huyện</label>
+                                                <div className="input-wrapper">
+                                                    <MapPin className="input-icon" size={16} />
+                                                    <select
+                                                        id="supplier-detail-district"
+                                                        className="form-input"
+                                                        value={editData.districtCode || ''}
+                                                        disabled={saving || !editData.provinceCode || loadingWards}
+                                                        onChange={(e) => handleEditDistrictChange(e.target.value)}
+                                                    >
+                                                        <option value="">
+                                                            {loadingWards ? 'Đang tải...' : 'Chọn quận/huyện'}
+                                                        </option>
+                                                        {districtOptions.map((district) => (
+                                                            <option key={district.code} value={district.code}>
+                                                                {district.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="form-field">
+                                            <label className="form-label" htmlFor="supplier-detail-ward">Phường/Xã</label>
+                                            <div className="input-wrapper">
+                                                <MapPin className="input-icon" size={16} />
+                                                <select
+                                                    id="supplier-detail-ward"
+                                                    className="form-input"
+                                                    value={editData.wardCode || ''}
+                                                    disabled={
+                                                        saving
+                                                        || !editData.provinceCode
+                                                        || (useNewAddress ? loadingWardsV2 : loadingWards)
+                                                        || (!useNewAddress && !editData.districtCode)
+                                                    }
+                                                    onChange={(e) => handleEditChange('wardCode', e.target.value)}
+                                                >
+                                                    <option value="">
+                                                        {useNewAddress
+                                                            ? (loadingWardsV2 ? 'Đang tải...' : 'Chọn phường/xã')
+                                                            : (loadingWards ? 'Đang tải...' : 'Chọn phường/xã')}
+                                                    </option>
+                                                    {wardOptions.map((ward) => (
+                                                        <option key={ward.code} value={ward.code}>
+                                                            {ward.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="form-field span-2">
+                                            <label className="form-label" htmlFor="supplier-detail-address">Địa chỉ cụ thể</label>
+                                            <div className="input-wrapper">
+                                                <MapPin className="input-icon" size={16} />
+                                                <input
+                                                    id="supplier-detail-address"
+                                                    type="text"
+                                                    value={editData.address || ''}
+                                                    disabled={saving}
+                                                    onChange={(e) => handleEditChange('address', e.target.value)}
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#fff' }}
+                                                    placeholder="Nhập địa chỉ cụ thể"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="form-field">
-                                    <label className="form-label">Quận/Huyện</label>
-                                    <div className="input-wrapper">
-                                        <MapPin className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={isEditing ? editData.district : (supplier.district || '')}
-                                            readOnly={!isEditing}
-                                            onChange={(e) => handleEditChange('district', e.target.value)}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
-                                            placeholder="-"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="form-field">
-                                    <label className="form-label">Phường/Xã</label>
-                                    <div className="input-wrapper">
-                                        <MapPin className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={isEditing ? editData.ward : (supplier.ward || '')}
-                                            readOnly={!isEditing}
-                                            onChange={(e) => handleEditChange('ward', e.target.value)}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
-                                            placeholder="-"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="form-field">
-                                    <label className="form-label">Địa chỉ cụ thể</label>
-                                    <div className="input-wrapper">
-                                        <MapPin className="input-icon" size={16} />
-                                        <input
-                                            type="text"
-                                            value={isEditing ? editData.address : (supplier.address || '')}
-                                            readOnly={!isEditing}
-                                            onChange={(e) => handleEditChange('address', e.target.value)}
-                                            className="form-input"
-                                            style={{ backgroundColor: isEditing ? '#fff' : '#f5f5f5' }}
-                                            placeholder="-"
-                                        />
-                                    </div>
-                                </div>
+                                ) : (
+                                    <>
+                                        <div className="form-field">
+                                            <label className="form-label">Tỉnh/Thành phố</label>
+                                            <div className="input-wrapper">
+                                                <MapPin className="input-icon" size={16} />
+                                                <input
+                                                    type="text"
+                                                    value={supplier.city || ''}
+                                                    readOnly
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#f5f5f5' }}
+                                                    placeholder="-"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="form-label">Quận/Huyện</label>
+                                            <div className="input-wrapper">
+                                                <MapPin className="input-icon" size={16} />
+                                                <input
+                                                    type="text"
+                                                    value={supplier.district || ''}
+                                                    readOnly
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#f5f5f5' }}
+                                                    placeholder="-"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="form-label">Phường/Xã</label>
+                                            <div className="input-wrapper">
+                                                <MapPin className="input-icon" size={16} />
+                                                <input
+                                                    type="text"
+                                                    value={supplier.ward || ''}
+                                                    readOnly
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#f5f5f5' }}
+                                                    placeholder="-"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="form-label">Địa chỉ cụ thể</label>
+                                            <div className="input-wrapper">
+                                                <MapPin className="input-icon" size={16} />
+                                                <input
+                                                    type="text"
+                                                    value={supplier.address || ''}
+                                                    readOnly
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#f5f5f5' }}
+                                                    placeholder="-"
+                                                />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </Box>
                     </Box>
                 </div>
             </div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </Box>
     );
 }

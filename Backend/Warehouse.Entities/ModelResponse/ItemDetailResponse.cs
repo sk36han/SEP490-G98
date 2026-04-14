@@ -28,6 +28,8 @@ namespace Warehouse.Entities.ModelResponse
         public decimal? PurchasePrice { get; set; }
         public decimal? SalePrice { get; set; }
         public string? Specification { get; set; }
+        public long? DefaultWarehouseId { get; set; }
+        public string? DefaultWarehouseName { get; set; }
     }
 
     public class ItemWarehouseVariantResponse

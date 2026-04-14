@@ -53,6 +53,7 @@ namespace Warehouse.Api.ApiController
 		/// POST: /api/warehouse/create
 		/// </summary>
 		[HttpPost("create-warehouse")]
+		[Authorize(Roles = "GD,KT,Admin")]
 		public async Task<IActionResult> CreateWarehouse([FromBody] CreateWarehouseRequest request)
 		{
 			if (!ModelState.IsValid)
@@ -84,6 +85,7 @@ namespace Warehouse.Api.ApiController
 		/// PUT: /api/warehouse/{id}
 		/// </summary>
 		[HttpPut("update-warehouse/{id}")]
+		[Authorize(Roles = "GD,KT,Admin,TK,SE")]
 		public async Task<IActionResult> UpdateWarehouse(long id, [FromBody] UpdateWarehouseRequest request)
 		{
 			if (!ModelState.IsValid)
@@ -115,6 +117,7 @@ namespace Warehouse.Api.ApiController
 		/// PATCH: /api/warehouse/toggle-status/{id}
 		/// </summary>
 		[HttpPatch("toggle-status/{id}")]
+		[Authorize(Roles = "GD,KT,Admin,TK,SE")]
 		public async Task<IActionResult> ToggleWarehouseStatus(long id)
 		{
 			try

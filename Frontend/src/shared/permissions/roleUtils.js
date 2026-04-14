@@ -14,6 +14,10 @@ export const isDirector = (permissionRole) => permissionRole === 'DIRECTOR';
 export const isWarehouseKeeper = (permissionRole) => permissionRole === 'WAREHOUSE_KEEPER';
 export const isAccountant = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
+/** Sale Support (SP) chỉ xem kho, không sửa / bật tắt kho. */
+export const canEditWarehouse = (permissionRole) =>
+    !!permissionRole && permissionRole !== 'SALE_SUPPORT';
+
 export const isPermissionRoleValid = (role) => {
     return !!role && VALID_PERMISSION_ROLES.includes(role);
 };

@@ -385,11 +385,11 @@ const EditItem = () => {
           }} />
 
         <CreateBrandDialog open={createBrandOpen} onClose={() => setCreateBrandOpen(false)}
-          onSubmit={(newBrand) => {
+          onSuccess={({ brandId }) => {
             refreshAll?.();
-            setForm((prev) => ({ ...prev, brandId: newBrand.id }));
-            setCreateBrandOpen(false);
-            showToast("Đã tạo nhãn hiệu.", "success");
+            if (brandId != null) {
+              setForm((prev) => ({ ...prev, brandId }));
+            }
           }} />
 
         {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}

@@ -91,10 +91,7 @@ const getExtraMatchPaths = (item) => {
         ];
     }
     if (item.id === 'good-delivery-notes-mgmt') {
-        return ['/release-request', '/release-request/create', '/goods-delivery-notes', '/goods-delivery-notes/create'];
-    }
-    if (item.id === 'goods-delivery-notes-mgmt') {
-        return ['/goods-delivery-notes', '/goods-delivery-notes/create'];
+        return ['/release-request', '/release-request/create', '/good-delivery-notes', '/good-delivery-notes/create'];
     }
     if (item.id === 'reports-mgmt') {
         return ['/reports/sales'];

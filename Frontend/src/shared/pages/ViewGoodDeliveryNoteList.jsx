@@ -637,7 +637,7 @@ export default function ViewGoodDeliveryNoteList() {
                                         className="list-page-btn"
                                         variant="contained"
                                         startIcon={<Plus size={18} />}
-                                        onClick={() => navigate('/goods-delivery-notes/create')}
+                                        onClick={() => navigate('/good-delivery-notes/create')}
                                         sx={{
                                             fontSize: '13px',
                                             fontWeight: 500,
@@ -917,8 +917,8 @@ export default function ViewGoodDeliveryNoteList() {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                     <Box
                                                                         component="a"
-                                                                        href={`/goods-delivery-notes/detail/${row.gdnId}`}
-                                                                        onClick={(e) => { e.preventDefault(); navigate(`/goods-delivery-notes/detail/${row.gdnId}`); }}
+                                                                        href={`/good-delivery-notes/detail/${row.gdnId}`}
+                                                                        onClick={(e) => { e.preventDefault(); navigate(`/good-delivery-notes/detail/${row.gdnId}`); }}
                                                                         sx={{
                                                                             color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer',
                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

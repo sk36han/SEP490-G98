@@ -100,8 +100,10 @@ export default function ViewReleaseRequestDetail() {
 
     const [data, setData] = useState(null);
     const [lines, setLines] = useState([]);
+    const [approvals, setApprovals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState('items'); // 'items' | 'amount'
 
     // Approve / Reject
     const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -122,6 +124,7 @@ export default function ViewReleaseRequestDetail() {
             }
             setData(result);
             setLines(result.lines ?? []);
+            setApprovals(result.approvals ?? []);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Không tải được chi tiết yêu cầu xuất hàng.';
             showToast(msg, 'error');
@@ -215,6 +218,8 @@ export default function ViewReleaseRequestDetail() {
         totalApprovedQty: lines.reduce((s, l) => s + (Number(l.approvedQty) || 0), 0),
         totalAllocatedQty: lines.reduce((s, l) => s + (Number(l.allocatedQty) || 0), 0),
         totalIssuedQty: lines.reduce((s, l) => s + (Number(l.issuedQty) || 0), 0),
+        totalLineAmount: lines.reduce((s, l) => s + (Number(l.lineTotal) || 0), 0),
+        totalWillIssueQty: lines.reduce((s, l) => s + (Number(l.approvedQty) || 0), 0),
     };
 
     if (loading) {
@@ -289,8 +294,55 @@ export default function ViewReleaseRequestDetail() {
 
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 3, alignItems: 'start' }}>
 
-                        {/* LEFT: Lines */}
+                        {/* LEFT: Lines + Tabs */}
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+
+                            {/* Tab header */}
+                            <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('items')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'items' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: activeTab === 'items' ? '#2196F3' : '#6b7280',
+                                        fontWeight: activeTab === 'items' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                    }}
+                                >
+                                    <Package size={16} />
+                                    Vật tư ({lines.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('amount')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: activeTab === 'amount' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: activeTab === 'amount' ? '#2196F3' : '#6b7280',
+                                        fontWeight: activeTab === 'amount' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                    }}
+                                >
+                                    Tổng tiền
+                                </button>
+                            </div>
 
                             {/* Thong tin kho & ngay */}
                             <div className="info-section" style={{ margin: 0 }}>
@@ -309,86 +361,173 @@ export default function ViewReleaseRequestDetail() {
                                 </Box>
                             </div>
 
-                            {/* Bang vat tu */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">
-                                        <Package size={16} style={{ marginRight: 8, color: '#2196F3' }} />
-                                        Vật tư yêu cầu xuất
-                                    </h2>
-                                    <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 400 }}>
-                                        {lines.length} vật tư
-                                    </span>
-                                </div>
+                            {/* ── Tab: Vật tư ─────────────────────────────────── */}
+                            {activeTab === 'items' && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <Package size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                            Vật tư yêu cầu xuất
+                                        </h2>
+                                        <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 400 }}>
+                                            {lines.length} vật tư
+                                        </span>
+                                    </div>
 
-                                {lines.length === 0 ? (
-                                    <Box sx={{ py: 4, textAlign: 'center', color: '#9ca3af' }}>
-                                        <Package size={40} style={{ opacity: 0.4, margin: '0 auto 8px' }} />
-                                        <Typography sx={{ fontSize: 13 }}>Chưa có vật tư nào</Typography>
-                                    </Box>
-                                ) : (
-                                    <TableContainer component={Paper} elevation={0}
-                                        sx={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
-                                        <Table size="small">
-                                            <TableHead>
-                                                <TableRow sx={{ bgcolor: '#fafafa' }}>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', width: 50, textAlign: 'center' }}>STT</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb' }}>Vật tư</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL yêu cầu</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL duyệt</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL phân bổ</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL đã xuất</TableCell>
-                                                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', width: 80 }}>Ghi chú</TableCell>
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
-                                                {lines.map((line, idx) => (
-                                                    <TableRow key={line.releaseRequestLineId ?? idx}
-                                                        sx={{ '&:last-child td': { borderBottom: 0 }, '&:hover': { bgcolor: '#fafafa' } }}>
-                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'center', borderBottom: '1px solid #f3f4f6' }}>
-                                                            {idx + 1}
-                                                        </TableCell>
-                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, borderBottom: '1px solid #f3f4f6' }}>
-                                                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                                                                <Box sx={{
-                                                                    width: 36, height: 36, display: 'flex', alignItems: 'center',
-                                                                    justifyContent: 'center', borderRadius: 6,
-                                                                    border: '1px solid #e5e7eb', bgcolor: '#f3f4f6', flexShrink: 0
-                                                                }}>
-                                                                    <ImageIcon size={18} color="#9ca3af" />
+                                    {lines.length === 0 ? (
+                                        <Box sx={{ py: 4, textAlign: 'center', color: '#9ca3af' }}>
+                                            <Package size={40} style={{ opacity: 0.4, margin: '0 auto 8px' }} />
+                                            <Typography sx={{ fontSize: 13 }}>Chưa có vật tư nào</Typography>
+                                        </Box>
+                                    ) : (
+                                        <TableContainer component={Paper} elevation={0}
+                                            sx={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+                                            <Table size="small">
+                                                <TableHead>
+                                                    <TableRow sx={{ bgcolor: '#fafafa' }}>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', width: 50, textAlign: 'center' }}>STT</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb' }}>Vật tư</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 80 }}>Tồn kho</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL yêu cầu</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL duyệt</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL phân bổ</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL đã xuất</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', width: 80 }}>Ghi chú</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {lines.map((line, idx) => (
+                                                        <TableRow key={line.releaseRequestLineId ?? idx}
+                                                            sx={{ '&:last-child td': { borderBottom: 0 }, '&:hover': { bgcolor: '#fafafa' } }}>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'center', borderBottom: '1px solid #f3f4f6' }}>
+                                                                {idx + 1}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, borderBottom: '1px solid #f3f4f6' }}>
+                                                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                                                                    <Box sx={{
+                                                                        width: 36, height: 36, display: 'flex', alignItems: 'center',
+                                                                        justifyContent: 'center', borderRadius: 6,
+                                                                        border: '1px solid #e5e7eb', bgcolor: '#f3f4f6', flexShrink: 0
+                                                                    }}>
+                                                                        <ImageIcon size={18} color="#9ca3af" />
+                                                                    </Box>
+                                                                    <Box>
+                                                                        <Typography sx={{ fontSize: 13, fontWeight: 500, color: '#1f2937' }}>
+                                                                            {line.itemName}
+                                                                        </Typography>
+                                                                        <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
+                                                                            Mã: {line.itemCode} | ĐVT: {line.uomName}
+                                                                        </Typography>
+                                                                    </Box>
                                                                 </Box>
-                                                                <Box>
-                                                                    <Typography sx={{ fontSize: 13, fontWeight: 500, color: '#1f2937' }}>
-                                                                        {line.itemName}
-                                                                    </Typography>
-                                                                    <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
-                                                                        Mã: {line.itemCode} | ĐVT: {line.uomName}
-                                                                    </Typography>
-                                                                </Box>
-                                                            </Box>
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: Number(line.stockQty) === 0 ? '#dc2626' : '#111827', fontWeight: 500 }}>
+                                                                {(Number(line.stockQty) || 0).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6' }}>
+                                                                {(Number(line.requestedQty) || 0).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#059669', fontWeight: 500 }}>
+                                                                {(Number(line.approvedQty) || 0).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#2563eb' }}>
+                                                                {(Number(line.allocatedQty) || 0).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#7c3aed' }}>
+                                                                {(Number(line.issuedQty) || 0).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 12, color: '#6b7280', borderBottom: '1px solid #f3f4f6', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={line.note}>
+                                                                {line.note || '-'}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── Tab: Tổng tiền ─────────────────────────────────── */}
+                            {activeTab === 'amount' && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <Package size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                            Tổng tiền yêu cầu xuất
+                                        </h2>
+                                        <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 400 }}>
+                                            {lines.length} vật tư
+                                        </span>
+                                    </div>
+
+                                    {lines.length === 0 ? (
+                                        <Box sx={{ py: 4, textAlign: 'center', color: '#9ca3af' }}>
+                                            <Package size={40} style={{ opacity: 0.4, margin: '0 auto 8px' }} />
+                                            <Typography sx={{ fontSize: 13 }}>Chưa có vật tư nào</Typography>
+                                        </Box>
+                                    ) : (
+                                        <TableContainer component={Paper} elevation={0}
+                                            sx={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+                                            <Table size="small">
+                                                <TableHead>
+                                                    <TableRow sx={{ bgcolor: '#fafafa' }}>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', width: 50, textAlign: 'center' }}>STT</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb' }}>Vật tư</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'center', width: 60 }}>ĐVT</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL sẽ xuất</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 110 }}>Đơn giá (đ)</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 120 }}>Thành tiền (đ)</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {lines.map((line, idx) => (
+                                                        <TableRow key={line.releaseRequestLineId ?? idx}
+                                                            sx={{ '&:last-child td': { borderBottom: 0 }, '&:hover': { bgcolor: '#fafafa' } }}>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'center', borderBottom: '1px solid #f3f4f6' }}>
+                                                                {idx + 1}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, borderBottom: '1px solid #f3f4f6' }}>
+                                                                <Typography sx={{ fontSize: 13, fontWeight: 500, color: '#1f2937' }}>
+                                                                    {line.itemName}
+                                                                </Typography>
+                                                                <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
+                                                                    Mã: {line.itemCode}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'center', borderBottom: '1px solid #f3f4f6', color: '#6b7280' }}>
+                                                                {line.uomName || '-'}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#2563eb', fontWeight: 600 }}>
+                                                                {(Number(line.approvedQty) || 0).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#374151' }}>
+                                                                {line.unitPrice ? Number(line.unitPrice).toLocaleString('vi-VN') : '-'}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#dc2626', fontWeight: 600 }}>
+                                                                {line.lineTotal ? Number(line.lineTotal).toLocaleString('vi-VN') : '-'}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                    {/* TỔNG CỘNG */}
+                                                    <TableRow sx={{ bgcolor: '#fef3c7', '& td': { borderBottom: 0 } }}>
+                                                        <TableCell colSpan={3} sx={{ px: 2, py: 1.5, fontSize: 13, fontWeight: 700, color: '#92400e', textAlign: 'right' }}>
+                                                            TỔNG CỘNG
                                                         </TableCell>
-                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6' }}>
-                                                            {(Number(line.requestedQty) || 0).toLocaleString()}
+                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>
+                                                            {summary.totalWillIssueQty.toLocaleString()}
                                                         </TableCell>
-                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#059669', fontWeight: 500 }}>
-                                                            {(Number(line.approvedQty) || 0).toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#2563eb' }}>
-                                                            {(Number(line.allocatedQty) || 0).toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#7c3aed' }}>
-                                                            {(Number(line.issuedQty) || 0).toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 12, color: '#6b7280', borderBottom: '1px solid #f3f4f6', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={line.note}>
-                                                            {line.note || '-'}
+                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, borderBottom: '1px solid #f3f4f6' }} />
+                                                        <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>
+                                                            {summary.totalLineAmount > 0 ? Number(summary.totalLineAmount).toLocaleString('vi-VN') : '-'}
                                                         </TableCell>
                                                     </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
-                                )}
-                            </div>
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Ghi chú */}
                             {data.note && (
@@ -479,6 +618,64 @@ export default function ViewReleaseRequestDetail() {
                                     </Box>
                                 </Box>
                             </div>
+
+                            {/* Tổng tiền */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Tổng tiền</h2>
+                                </div>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                        <Typography sx={{ color: '#6b7280' }}>SL sẽ xuất:</Typography>
+                                        <Typography sx={{ fontWeight: 600, color: '#2563eb' }}>{summary.totalWillIssueQty.toLocaleString()}</Typography>
+                                    </Box>
+                                    {summary.totalLineAmount > 0 ? (
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                            <Typography sx={{ color: '#6b7280' }}>Tổng tiền RR:</Typography>
+                                            <Typography sx={{ fontWeight: 700, color: '#dc2626', fontSize: '15px' }}>
+                                                {Number(summary.totalLineAmount).toLocaleString('vi-VN')} đ
+                                            </Typography>
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                            <Typography sx={{ color: '#6b7280' }}>Tổng tiền RR:</Typography>
+                                            <Typography sx={{ fontWeight: 600, color: '#9ca3af' }}>-</Typography>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </div>
+
+                            {/* Lịch sử duyệt */}
+                            {approvals.length > 0 && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <FileText size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                            Lịch sử duyệt
+                                        </h2>
+                                    </div>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                        {approvals.map((ap, i) => (
+                                            <Box key={ap.approvalId ?? i} sx={{ display: 'flex', gap: 1.5, fontSize: 13 }}>
+                                                <Box sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: ap.decision === 'APPROVED' ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, mt: 0.3 }}>
+                                                    {ap.decision === 'APPROVED'
+                                                        ? <CheckCircle size={12} color="#fff" />
+                                                        : <XCircle size={12} color="#fff" />}
+                                                </Box>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
+                                                        {ap.decision === 'APPROVED' ? 'Duyệt' : 'Từ chối'}
+                                                        {ap.reason && <Typography component="span" sx={{ fontWeight: 400, color: '#6b7280' }}> — {ap.reason}</Typography>}
+                                                    </Typography>
+                                                    <Typography sx={{ fontSize: 11, color: '#9ca3af' }}>
+                                                        {ap.actionByName} • {formatDateTime(ap.actionAt)}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </div>
+                            )}
                         </Box>
                     </Box>
                 </form>
@@ -488,7 +685,7 @@ export default function ViewReleaseRequestDetail() {
 
             {/* Dialog: Duyệt */}
             <Dialog open={approveDialogOpen} onClose={() => !processing && setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DialogTitle component="div" sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CheckCircle size={20} color="#16a34a" />Duyệt yêu cầu xuất hàng
                 </DialogTitle>
                 <DialogContent>
@@ -513,7 +710,7 @@ export default function ViewReleaseRequestDetail() {
 
             {/* Dialog: Từ chối */}
             <Dialog open={rejectDialogOpen} onClose={() => !processing && setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DialogTitle component="div" sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
                     <XCircle size={20} color="#dc2626" />Từ chối yêu cầu xuất hàng
                 </DialogTitle>
                 <DialogContent>

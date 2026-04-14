@@ -10,11 +10,12 @@ import { invalidate } from './pollingManager';
 function mapItemParameterRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
-        paramId: row.paramId ?? row.ParamId,
-        paramCode: row.paramCode ?? row.ParamCode ?? '',
-        paramName: row.paramName ?? row.ParamName ?? '',
-        dataType: row.dataType ?? row.DataType ?? '',
+        specificationId: row.paramId ?? row.ParamId ?? row.specificationId,
+        specificationCode: row.paramCode ?? row.ParamCode ?? row.specificationCode ?? '',
+        specificationName: row.paramName ?? row.ParamName ?? row.specificationName ?? '',
+        unit: row.dataType ?? row.DataType ?? row.unit ?? '',
         isActive: row.isActive ?? row.IsActive ?? true,
+        createdAt: row.createdAt ?? row.CreatedAt ?? row.createdDate ?? row.CreatedDate,
     };
 }
 
@@ -53,9 +54,8 @@ export async function getItemParameterById(id) {
  */
 export async function createItemParameter(payload) {
     const response = await apiClient.post('/ItemParameter/create-item-parameter', {
-        paramCode: payload.paramCode ?? payload.ParamCode,
-        paramName: payload.paramName ?? payload.ParamName,
-        dataType: payload.dataType ?? payload.DataType ?? 'string',
+        paramName: payload.paramName ?? payload.ParamName ?? payload.specificationName,
+        dataType: payload.dataType ?? payload.DataType ?? payload.unit ?? 'string',
     });
     invalidate('spec');
     return response?.data?.data ?? response?.data;
@@ -66,8 +66,8 @@ export async function createItemParameter(payload) {
  */
 export async function updateItemParameter(id, payload) {
     const response = await apiClient.put(`/ItemParameter/update-item-parameter/${id}`, {
-        paramName: payload.paramName ?? payload.ParamName,
-        dataType: payload.dataType ?? payload.DataType ?? 'string',
+        paramName: payload.paramName ?? payload.ParamName ?? payload.specificationName,
+        dataType: payload.dataType ?? payload.DataType ?? payload.unit ?? 'string',
         isActive: payload.isActive,
     });
     invalidate('spec');

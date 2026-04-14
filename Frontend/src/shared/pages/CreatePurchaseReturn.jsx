@@ -33,8 +33,41 @@ const toNumber = (val) => {
     return isNaN(n) ? 0 : n;
 };
 
+/** Map 1 dong GRN API -> dong form tra hang (receivedQty = SL nhap kho, maxReturnQty = con co the tra). */
+const mapGrnLineToReturnLine = (item, idx) => {
+    const actual = toNumber(item.ActualQty ?? item.actualQty ?? item.ExpectedQty ?? item.expectedQty ?? 0);
+    const committed = toNumber(item.QtyCommittedForReturn ?? item.qtyCommittedForReturn ?? 0);
+    const availableRaw = item.QtyAvailableForReturn ?? item.qtyAvailableForReturn;
+    const available =
+        availableRaw !== null && availableRaw !== undefined && availableRaw !== ''
+            ? toNumber(availableRaw)
+            : Math.max(0, actual - committed);
+    const maxReturnQty = Math.max(0, available);
+    return {
+        id: generateLineId(),
+        grnLineId: item.GrnlineId ?? item.grnlineId ?? idx,
+        productId: item.ItemId ?? item.itemId ?? idx,
+        sku: item.ItemCode ?? item.itemCode ?? '-',
+        productName: item.ItemName ?? item.itemName ?? '-',
+        uom: item.UomName ?? item.uomName ?? '-',
+        receivedQty: actual,
+        qtyCommittedForReturn: committed,
+        maxReturnQty,
+        returnQty: maxReturnQty > 0 ? Math.min(1, maxReturnQty) : 0,
+        unitPrice: toNumber(item.UnitPrice ?? item.unitPrice ?? 0),
+        totalPrice: (maxReturnQty > 0 ? Math.min(1, maxReturnQty) : 0) * toNumber(item.UnitPrice ?? item.unitPrice ?? 0),
+    };
+};
+
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(toNumber(value));
+};
+
+/** Hiển thị chuỗi NCC: rỗng/null -> — */
+const displaySupplierField = (v) => {
+    if (v === null || v === undefined) return '—';
+    const s = String(v).trim();
+    return s.length ? s : '—';
 };
 
 const CreatePurchaseReturn = () => {
@@ -49,6 +82,7 @@ const CreatePurchaseReturn = () => {
         relatedGRNId: '',
         relatedGRNCode: '',
         supplierId: '',
+        supplierCode: '',
         supplierName: '',
         supplierPhone: '',
         supplierEmail: '',
@@ -102,35 +136,28 @@ const CreatePurchaseReturn = () => {
                     relatedGRNId: Number(grnId),
                     relatedGRNCode: grnCode,
                     supplierId: data.SupplierId ?? data.supplierId ?? '',
-                    supplierName: data.SupplierName ?? data.supplierName ?? '-',
-                    supplierPhone: data.SupplierPhone ?? data.supplierPhone ?? '-',
-                    supplierEmail: data.SupplierEmail ?? data.supplierEmail ?? '-',
-                    supplierTaxCode: data.SupplierTaxCode ?? data.supplierTaxCode ?? '-',
-                    supplierAddressProvince: data.SupplierAddressProvince ?? data.supplierAddressProvince ?? '-',
-                    supplierAddressDistrict: data.SupplierAddressDistrict ?? data.supplierAddressDistrict ?? '-',
-                    supplierAddressWard: data.SupplierAddressWard ?? data.supplierAddressWard ?? '-',
-                    supplierAddressStreet: data.SupplierAddressStreet ?? data.supplierAddressStreet ?? '-',
+                    supplierCode: data.SupplierCode ?? data.supplierCode ?? '',
+                    supplierName: data.SupplierName ?? data.supplierName ?? '',
+                    supplierPhone: data.SupplierPhone ?? data.supplierPhone ?? '',
+                    supplierEmail: data.SupplierEmail ?? data.supplierEmail ?? '',
+                    supplierTaxCode: data.SupplierTaxCode ?? data.supplierTaxCode ?? '',
+                    supplierAddressProvince: data.SupplierAddressProvince ?? data.supplierAddressProvince ?? '',
+                    supplierAddressDistrict: data.SupplierAddressDistrict ?? data.supplierAddressDistrict ?? '',
+                    supplierAddressWard: data.SupplierAddressWard ?? data.supplierAddressWard ?? '',
+                    supplierAddressStreet: data.SupplierAddressStreet ?? data.supplierAddressStreet ?? '',
                     warehouseId: data.WarehouseId ?? data.warehouseId ?? '',
                     warehouseName: data.WarehouseName ?? data.warehouseName ?? '-',
                     createdByName: data.CreatedByName ?? data.createdByName ?? 'Nguyễn Văn A',
                     grnReceiptDate: grnReceiptDate,
                 }));
 
-                const autoLines = grnLines.map((item, idx) => ({
-                    id: generateLineId(),
-                    grnLineId: item.GrnlineId ?? item.grnlineId ?? idx,
-                    productId: item.ItemId ?? item.itemId ?? idx,
-                    sku: item.ItemCode ?? item.itemCode ?? '-',
-                    productName: item.ItemName ?? item.itemName ?? '-',
-                    uom: item.UomName ?? item.uomName ?? '-',
-                    receivedQty: toNumber(item.ActualQty ?? item.actualQty ?? item.ExpectedQty ?? item.expectedQty ?? 0),
-                    returnQty: 1,
-                    unitPrice: toNumber(item.UnitPrice ?? item.unitPrice ?? 0),
-                    totalPrice: toNumber(item.UnitPrice ?? item.unitPrice ?? 0),
-                }));
-
-                setLines(autoLines);
-                setSelectedProductIds(autoLines.map((item) => item.productId));
+                const autoLines = grnLines.map((item, idx) => mapGrnLineToReturnLine(item, idx));
+                const usable = autoLines.filter((l) => l.maxReturnQty > 0);
+                if (usable.length === 0 && autoLines.length > 0) {
+                    showToast('Các dòng trên phiếu nhập này không còn số lượng khả dụng để trả (đã bị giữ bởi phiếu trả khác).', 'warning');
+                }
+                setLines(usable);
+                setSelectedProductIds(usable.map((item) => item.productId));
                 setGrnQuery(grnCode);
             } catch (error) {
                 console.error('Lỗi tải GRN:', error);
@@ -251,6 +278,7 @@ const CreatePurchaseReturn = () => {
             relatedGRNId: grn.id,
             relatedGRNCode: grn.grnCode,
             supplierId: grn.supplierId,
+            supplierCode: grn.supplierCode ?? '',
             supplierName: grn.supplierName,
             supplierPhone: grn.supplierPhone ?? '',
             supplierEmail: grn.supplierEmail ?? '',
@@ -303,6 +331,8 @@ const CreatePurchaseReturn = () => {
         }
 
         const unitPrice = toNumber(product.unitPrice);
+        const maxReturnQty = toNumber(product.maxReturnQty ?? product.receivedQty);
+        const rq = maxReturnQty > 0 ? Math.min(1, maxReturnQty) : 0;
         const newLine = {
             id: generateLineId(),
             grnLineId: product.grnLineId,
@@ -311,9 +341,11 @@ const CreatePurchaseReturn = () => {
             productName: product.productName,
             uom: product.uom,
             receivedQty: toNumber(product.receivedQty),
-            returnQty: 1,
+            qtyCommittedForReturn: toNumber(product.qtyCommittedForReturn ?? 0),
+            maxReturnQty,
+            returnQty: rq,
             unitPrice,
-            totalPrice: unitPrice,
+            totalPrice: rq * unitPrice,
         };
 
         setLines((prev) => [...prev, newLine]);
@@ -365,8 +397,9 @@ const CreatePurchaseReturn = () => {
                 if (i !== index) return line;
 
                 if (field === 'returnQty') {
+                    const cap = toNumber(line.maxReturnQty ?? line.receivedQty);
                     const numValue = toNumber(value);
-                    const processedValue = Math.min(Math.max(numValue, 0), line.receivedQty);
+                    const processedValue = Math.min(Math.max(numValue, 0), cap);
                     const safeQty = isNaN(processedValue) ? 0 : processedValue;
                     const safeUnit = isNaN(line.unitPrice) ? 0 : line.unitPrice;
                     return {
@@ -410,11 +443,12 @@ const CreatePurchaseReturn = () => {
         if (!lines.length) {
             newErrors.lines = 'Vui lòng thêm ít nhất 1 vật tư trả';
         } else {
-            const invalidLine = lines.find(
-                (line) => toNumber(line.returnQty) <= 0 || toNumber(line.returnQty) > toNumber(line.receivedQty)
-            );
+            const invalidLine = lines.find((line) => {
+                const cap = toNumber(line.maxReturnQty ?? line.receivedQty);
+                return toNumber(line.returnQty) <= 0 || toNumber(line.returnQty) > cap;
+            });
             if (invalidLine) {
-                newErrors.lines = 'Số lượng trả phải lớn hơn 0 và không vượt quá số lượng đã nhập';
+                newErrors.lines = 'Số lượng trả phải lớn hơn 0 và không vượt quá số lượng còn có thể trả trên phiếu nhập';
             }
         }
 
@@ -584,14 +618,17 @@ const CreatePurchaseReturn = () => {
                                     >
                                         <input
                                             type="checkbox"
-                                            checked={lines.length > 0 && lines.every((line) => line.returnQty === line.receivedQty)}
+                                            checked={lines.length > 0 && lines.every((line) => line.returnQty === toNumber(line.maxReturnQty ?? line.receivedQty))}
                                             onChange={(e) => {
                                                 if (e.target.checked) {
-                                                    setLines((prev) => prev.map((line) => ({
-                                                        ...line,
-                                                        returnQty: line.receivedQty,
-                                                        totalPrice: line.receivedQty * line.unitPrice,
-                                                    })));
+                                                    setLines((prev) => prev.map((line) => {
+                                                        const cap = toNumber(line.maxReturnQty ?? line.receivedQty);
+                                                        return {
+                                                            ...line,
+                                                            returnQty: cap,
+                                                            totalPrice: cap * line.unitPrice,
+                                                        };
+                                                    }));
                                                 } else {
                                                     setLines((prev) => prev.map((line) => ({
                                                         ...line,
@@ -827,7 +864,7 @@ const CreatePurchaseReturn = () => {
                                             <tr>
                                                 <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
                                                 <th style={{ textAlign: 'left' }}>Vật tư</th>
-                                                <th style={{ width: '90px', textAlign: 'right' }}>SL đã nhập</th>
+                                                <th style={{ width: '110px', textAlign: 'right' }}>SL nhập / còn trả</th>
                                                 <th style={{ width: '120px', textAlign: 'center' }}>SL trả</th>
                                                 <th style={{ width: '120px', textAlign: 'right' }}>Đơn giá</th>
                                                 <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
@@ -852,20 +889,26 @@ const CreatePurchaseReturn = () => {
                                                         </div>
                                                     </td>
                                                     <td style={{ textAlign: 'right', paddingRight: '12px' }}>
-                                                        <span style={{ fontWeight: 500, color: '#374151' }}>{line.receivedQty}</span>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                                            <span style={{ fontWeight: 500, color: '#374151' }}>{line.receivedQty}</span>
+                                                            {toNumber(line.qtyCommittedForReturn) > 0 && (
+                                                                <span style={{ fontSize: '11px', color: '#d97706' }}>Đang giữ trả: {line.qtyCommittedForReturn}</span>
+                                                            )}
+                                                            <span style={{ fontSize: '11px', color: '#059669' }}>Tối đa: {toNumber(line.maxReturnQty ?? line.receivedQty)}</span>
+                                                        </div>
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                                             <input
                                                                 type="number"
-                                                                min="1"
-                                                                max={line.receivedQty}
+                                                                min="0"
+                                                                max={toNumber(line.maxReturnQty ?? line.receivedQty)}
                                                                 value={line.returnQty}
                                                                 onChange={(e) => updateLine(index, 'returnQty', e.target.value)}
                                                                 className="form-input"
                                                                 style={{ textAlign: 'right', width: '60px', padding: '4px 6px', fontSize: '13px' }}
                                                             />
-                                                            <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>/ {line.receivedQty}</span>
+                                                            <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>/ {toNumber(line.maxReturnQty ?? line.receivedQty)}</span>
                                                         </div>
                                                     </td>
                                                     <td style={{ textAlign: 'right', fontWeight: 500, color: '#374151', paddingRight: '12px' }}>
@@ -1077,12 +1120,19 @@ const CreatePurchaseReturn = () => {
                                 </div>
 
                                 {formData.supplierName ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, color: '#334155' }}>
-                                        <div><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{formData.supplierName}</span></div>
-                                        <div><span style={{ fontWeight: 600 }}>SĐT: </span><span>{formData.supplierPhone}</span></div>
-                                        <div><span style={{ fontWeight: 600 }}>Email: </span><span>{formData.supplierEmail}</span></div>
-                                        <div><span style={{ fontWeight: 600 }}>Mã số thuế: </span><span>{formData.supplierTaxCode}</span></div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 4 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
+                                            <div><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{displaySupplierField(formData.supplierName)}</span></div>
+                                            <div><span style={{ fontWeight: 600 }}>Mã NCC: </span><span>{displaySupplierField(formData.supplierCode)}</span></div>
+                                            <div><span style={{ fontWeight: 600 }}>SĐT: </span><span>{displaySupplierField(formData.supplierPhone)}</span></div>
+                                            <div><span style={{ fontWeight: 600 }}>Email: </span><span>{displaySupplierField(formData.supplierEmail)}</span></div>
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
+                                                <span>{displaySupplierField(formData.supplierTaxCode)}</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
                                             {[
                                                 { label: 'Tỉnh/Thành phố', value: formData.supplierAddressProvince },
                                                 { label: 'Quận/Huyện', value: formData.supplierAddressDistrict },
@@ -1090,12 +1140,23 @@ const CreatePurchaseReturn = () => {
                                                 { label: 'Địa chỉ cụ thể', value: formData.supplierAddressStreet },
                                             ].map(({ label, value }) => (
                                                 <div key={label}>
-                                                    <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                                                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
                                                     <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
-                                                        {value || '—'}
+                                                        {displaySupplierField(value)}
                                                     </div>
                                                 </div>
                                             ))}
+                                        </div>
+                                        <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
+                                            <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
+                                            {[
+                                                displaySupplierField(formData.supplierAddressStreet),
+                                                displaySupplierField(formData.supplierAddressWard),
+                                                displaySupplierField(formData.supplierAddressDistrict),
+                                                displaySupplierField(formData.supplierAddressProvince),
+                                            ]
+                                                .filter((p) => p !== '—')
+                                                .join(', ') || '—'}
                                         </div>
                                     </div>
                                 ) : (

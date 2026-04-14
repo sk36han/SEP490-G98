@@ -130,7 +130,12 @@ const NUMBER_FIELDS = new Set([
 ]);
 
 // Shared UI components (matching ViewItemDetail)
-
+/** Giá trị gửi API giữ nguyên (backend ItemType); label hiển thị tiếng Việt. */
+const ITEM_TYPE_OPTIONS = [
+  { value: "Product", label: "Sản phẩm" },
+  { value: "Material", label: "Nguyên vật liệu" },
+  { value: "Service", label: "Dịch vụ" },
+];
 // StatusBadge
 const StatusBadge = ({ active }) => {
   const config = active
@@ -676,6 +681,17 @@ const CreateItem = () => {
 
                       {/* Thương hiệu */}
                       <div style={FIELD_WRAPPER}>
+                        <div style={LABEL_STYLE}>Loại vật tư</div>
+                        <EditSelectUnderline
+                          name="itemType"
+                          value={form.itemType || "Product"}
+                          onChange={handleChange}
+                          options={ITEM_TYPE_OPTIONS}
+                          placeholder="Chọn loại vật tư"
+                        />
+                      </div>
+
+                      <div style={FIELD_WRAPPER}>
                         <div style={LABEL_STYLE}>Thương hiệu</div>
                         <EditSelectUnderline
                           name="brandId"
@@ -765,21 +781,7 @@ const CreateItem = () => {
                     </div>
 
                     <div style={FIELD_WRAPPER}>
-                      <div style={LABEL_STYLE}>Loại vật tư</div>
-                      <EditSelectUnderline
-                        name="itemType"
-                        value={form.itemType || "Product"}
-                        onChange={handleChange}
-                        options={[
-                          { value: "Product", label: "Product" },
-                          { value: "Material", label: "Material" },
-                          { value: "Service", label: "Service" },
-                        ]}
-                        placeholder="Chọn loại vật tư"
-                      />
-                    </div>
 
-                    <div style={FIELD_WRAPPER}>
                       <div style={LABEL_STYLE}>Danh mục</div>
                       <EditSelectUnderline
                         name="categoryId"
@@ -940,11 +942,11 @@ const CreateItem = () => {
       <CreateBrandDialog
         open={createBrandOpen}
         onClose={() => setCreateBrandOpen(false)}
-        onSuccess={async ({ id, name }) => {
-          if (id) {
-            const newBrand = { brandId: id, brandName: name };
+        onSuccess={async ({ brandId, brandName }) => {
+          if (brandId != null) {
+            const newBrand = { brandId, brandName };
             setLocalMasterBrands((prev) => [...prev, newBrand]);
-            setForm((prev) => ({ ...prev, brandId: id }));
+            setForm((prev) => ({ ...prev, brandId }));
             showToast("Tạo nhãn hiệu thành công.", "success");
           }
         }}

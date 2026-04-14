@@ -2,7 +2,7 @@
  * ViewReceiverDetail – Chi tiết người nhận
  * Người dùng: WAREHOUSE_KEEPER, SALE_ENGINEER, DIRECTOR, ACCOUNTANTS
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Box,
@@ -320,7 +320,6 @@ export default function ViewReceiverDetail() {
             addressId: '',
             address: '', city: '', district: '', ward: '',
         }));
-        setUseCustomAddress(false);
         loadAddresses(newCompanyId);
     };
 
@@ -347,6 +346,27 @@ export default function ViewReceiverDetail() {
         if (editing) loadCompanies();
         if (editing && data?.companyId) loadAddresses(data.companyId);
     }, [editing, data?.companyId, loadCompanies, loadAddresses]);
+
+    // Khi xem (không sửa): nếu API chưa trả companyName/code nhưng có companyId, tải danh sách công ty để hiển thị
+    useEffect(() => {
+        if (!data?.companyId || editing) return;
+        const hasLabel =
+            (data.companyName && String(data.companyName).trim()) ||
+            (data.companyCode && String(data.companyCode).trim());
+        if (hasLabel) return;
+        loadCompanies();
+    }, [data?.companyId, data?.companyName, data?.companyCode, editing, loadCompanies]);
+
+    const companyDisplay = useMemo(() => {
+        if (!data) return '';
+        const fromApi = [data.companyCode, data.companyName].filter(Boolean).join(' — ');
+        if (fromApi) return fromApi;
+        const id = data.companyId;
+        if (id == null || id === '') return '';
+        const c = companies.find((x) => String(x.companyId) === String(id));
+        if (!c) return '';
+        return [c.companyCode, c.companyName].filter(Boolean).join(' — ') || c.companyName || '';
+    }, [data, companies]);
 
     if (loading) {
         return (
@@ -429,7 +449,12 @@ export default function ViewReceiverDetail() {
                                 <h1 className="page-title">Chi tiết người nhận</h1>
                                 <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
                                     Mã: <span style={{ fontWeight: 600, color: '#2196F3' }}>{data.receiverCode || data.receiverId}</span>
-                                    {data.companyName && <span style={{ marginLeft: 16 }}> | Công ty: <span style={{ fontWeight: 500 }}>{data.companyName}</span></span>}
+                                    {companyDisplay && (
+                                        <span style={{ marginLeft: 16 }}>
+                                            {' '}
+                                            | Công ty: <span style={{ fontWeight: 500 }}>{companyDisplay}</span>
+                                        </span>
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -547,7 +572,7 @@ export default function ViewReceiverDetail() {
                                     </div>
                                 </div>
                             ) : (
-                                <InfoField label="Công ty" value={data.companyName} icon={Building2} />
+                                <InfoField label="Công ty" value={companyDisplay} icon={Building2} />
                             )}
                         </div>
                     </div>

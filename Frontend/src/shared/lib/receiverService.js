@@ -195,7 +195,14 @@ export async function updateReceiver(id, data) {
 export async function getReceiverDetail(id) {
     const response = await apiClient.get(`/Receiver/get-receiver-by-id/${id}`);
     const data = response?.data ?? {};
-    const raw = data.data ?? data.Data ?? data;
+    // Một số endpoint bọc { data } / { Data } / { result }; payload chi tiết có receiverId hoặc ReceiverId
+    let raw = data.data ?? data.Data ?? data.result ?? data.Result ?? data;
+    if (raw && typeof raw === 'object' && raw.receiverId == null && raw.ReceiverId == null) {
+        const inner = raw.data ?? raw.Data ?? raw.result ?? raw.Result;
+        if (inner && typeof inner === 'object' && (inner.receiverId != null || inner.ReceiverId != null)) {
+            raw = inner;
+        }
+    }
     return {
         receiverId: raw.receiverId ?? raw.ReceiverId,
         receiverCode: raw.receiverCode ?? raw.ReceiverCode ?? '',
@@ -213,8 +220,8 @@ export async function getReceiverDetail(id) {
         updatedAt: raw.updatedAt ?? raw.UpdatedAt ?? null,
         companyId: raw.companyId ?? raw.CompanyId ?? null,
         addressId: raw.addressId ?? raw.AddressId ?? null,
-        // Neu backend tra ve nested company / address
-        companyName: raw.company?.companyName ?? raw.Company?.companyName ?? raw.companyName ?? '',
+        companyName: raw.companyName ?? raw.CompanyName ?? raw.company?.companyName ?? raw.Company?.CompanyName ?? '',
+        companyCode: raw.companyCode ?? raw.CompanyCode ?? raw.company?.companyCode ?? raw.Company?.CompanyCode ?? '',
         addressName: raw.addressName ?? raw.AddressName ?? '',
     };
 }
