@@ -7,16 +7,20 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using ClosedXML.Excel;
+using System.IO;
 
 namespace Warehouse.DataAcces.Service
 {
     public class GoodsReceiptNoteService : IGoodsReceiptNoteService
     {
         private readonly Mkiwms5Context _context;
+        private readonly IAIService _aiService;
 
-        public GoodsReceiptNoteService(Mkiwms5Context context)
+        public GoodsReceiptNoteService(Mkiwms5Context context, IAIService aiService)
         {
             _context = context;
+            _aiService = aiService;
         }
 
         public async Task<PagedResponse<GoodsReceiptNoteResponse>> GetGoodsReceiptNotesAsync(int page, int pageSize)
@@ -589,6 +593,143 @@ namespace Warehouse.DataAcces.Service
                 Note = grn.Note,
                 Lines = lines
             };
+        }
+
+        public async Task<ExcelImportResult> ImportAndMatchItemsAsync(Stream excelStream)
+        {
+            var result = new ExcelImportResult();
+
+            // 1. Lấy danh sách Item hiện có trong DB để làm context cho AI
+            var dbItems = await _context.Items
+                .Where(i => i.IsActive)
+                .Select(i => new KeyValuePair<long, string>(i.ItemId, i.ItemName))
+                .ToListAsync();
+
+            if (dbItems.Count == 0)
+            {
+                throw new InvalidOperationException("Chưa có sản phẩm nào trong hệ thống để so khớp.");
+            }
+
+            using var workbook = new XLWorkbook(excelStream);
+            var worksheet = workbook.Worksheets.First();
+
+            // 2. Tự động tìm dòng header của bảng dữ liệu và map vị trí các cột
+            int headerRowIndex = 0;
+            int colName = -1, colUom = -1, colQty = -1, colPrice = -1, colTotal = -1, colStt = 1;
+
+            foreach (var row in worksheet.RowsUsed())
+            {
+                bool foundHeader = false;
+                for (int col = 1; col <= 20; col++) // Quét ngang 20 cột để tìm tên tiêu đề
+                {
+                    var cellValue = row.Cell(col).GetValue<string>().Trim().ToLower();
+                    if (string.IsNullOrWhiteSpace(cellValue)) continue;
+
+                    if (cellValue.Contains("stt")) colStt = col;
+                    else if (cellValue.Contains("tên hàng") || cellValue.Contains("tên sản phẩm")) colName = col;
+                    else if (cellValue == "đvt" || cellValue == "dvt" || cellValue.Contains("đơn vị")) colUom = col;
+                    else if (cellValue.Contains("số lượng") || cellValue == "sl") colQty = col;
+                    else if (cellValue.Contains("đơn giá") || cellValue == "giá") colPrice = col;
+                    else if (cellValue.Contains("thành tiền")) colTotal = col;
+                }
+
+                if (colName != -1) // Nếu dòng này có chứa cột "Tên hàng" thì chắc chắn là header
+                {
+                    headerRowIndex = row.RowNumber();
+                    break;
+                }
+            }
+
+            if (headerRowIndex == 0)
+            {
+                throw new InvalidOperationException(
+                    "Không tìm thấy dòng tiêu đề bảng trong file Excel. " +
+                    "File cần có dòng header chứa 'Tên hàng' hoặc 'Tên sản phẩm'.");
+            }
+
+            // 3. Đọc từng dòng sản phẩm (bắt đầu từ dòng sau header)
+            var dataRows = worksheet.RowsUsed()
+                .Where(r => r.RowNumber() > headerRowIndex);
+
+            foreach (var row in dataRows)
+            {
+                // STT - dùng để kiểm tra xem dòng này có phải dòng dữ liệu không
+                string sttValue = row.Cell(colStt).GetValue<string>().Trim();
+
+                // Bỏ qua các dòng tổng cộng, thuế, ghi chú... (không có STT là số)
+                if (!int.TryParse(sttValue, out _)) continue;
+
+                // Lấy thông tin dựa theo đúng vị trí cột đã dò được
+                string excelName = colName != -1 ? row.Cell(colName).GetValue<string>().Trim() : "";
+                if (string.IsNullOrWhiteSpace(excelName)) continue;
+
+                string? uom = colUom != -1 ? row.Cell(colUom).GetValue<string>().Trim() : null;
+
+                decimal? qty = null;
+                if (colQty != -1 && row.Cell(colQty).TryGetValue<decimal>(out var qtyVal))
+                    qty = qtyVal;
+
+                decimal? unitPrice = null;
+                if (colPrice != -1 && row.Cell(colPrice).TryGetValue<decimal>(out var priceVal))
+                    unitPrice = priceVal;
+
+                decimal? lineTotal = null;
+                if (colTotal != -1 && row.Cell(colTotal).TryGetValue<decimal>(out var totalVal))
+                    lineTotal = totalVal;
+
+                result.TotalRowsProcessed++;
+
+                // 4. Gọi AI Gemini để tìm sản phẩm khớp nhất trong DB
+                var matchedId = await _aiService.MatchItemAsync(excelName, dbItems);
+
+                var responseItem = new AIMatchItemResponse
+                {
+                    ExcelRowIndex = row.RowNumber(),
+                    NameInExcel = excelName,
+                    UomInExcel = string.IsNullOrWhiteSpace(uom) ? null : uom,
+                    QtyInExcel = qty,
+                    UnitPriceInExcel = unitPrice,
+                    LineTotalInExcel = lineTotal
+                };
+
+                if (matchedId.HasValue)
+                {
+                    // 5. Lấy thông tin chi tiết của Item đã khớp từ DB
+                    var item = await _context.Items
+                        .Include(i => i.BaseUom)
+                        .Include(i => i.Category)
+                        .Include(i => i.Brand)
+                        .FirstOrDefaultAsync(i => i.ItemId == matchedId.Value);
+
+                    if (item != null)
+                    {
+                        responseItem.IsMatched = true;
+                        responseItem.MatchedItemId = item.ItemId;
+                        responseItem.MatchedItemCode = item.ItemCode;
+                        responseItem.MatchedItemName = item.ItemName;
+                        responseItem.Description = item.Description;
+                        responseItem.UomNameInDb = item.BaseUom?.UomName;
+                        responseItem.CategoryName = item.Category?.CategoryName;
+                        responseItem.BrandName = item.Brand?.BrandName;
+                        responseItem.IsPerfectMatch = excelName.Trim().ToLower() == item.ItemName.Trim().ToLower();
+
+                        result.MatchedItems.Add(responseItem);
+                        result.TotalMatched++;
+                    }
+                    else
+                    {
+                        result.UnmatchedItems.Add(responseItem);
+                        result.TotalUnmatched++;
+                    }
+                }
+                else
+                {
+                    result.UnmatchedItems.Add(responseItem);
+                    result.TotalUnmatched++;
+                }
+            }
+
+            return result;
         }
     }
 }

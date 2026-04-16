@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using Warehouse.DataAcces.Service;
+using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
@@ -20,7 +22,8 @@ public class GoodsReceiptNoteServiceTests : IDisposable
             .Options;
 
         _context = new Mkiwms5Context(options);
-        _service = new GoodsReceiptNoteService(_context);
+        var mockAiService = new Mock<IAIService>();
+        _service = new GoodsReceiptNoteService(_context, mockAiService.Object);
 
         SeedData();
     }
