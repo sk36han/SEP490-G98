@@ -29,15 +29,19 @@ namespace Warehouse.DataAcces.Service
             if (file == null || file.Length == 0)
                 throw new ArgumentException("File không hợp lệ hoặc rỗng.");
 
-            // Kiểm tra định dạng file (chỉ cho phép .jpg, .jpeg, .png, .pdf)
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+            // Kiểm tra định dạng file (Hỗ trợ: Ảnh, Văn phòng)
+            var allowedExtensions = new[] 
+            { 
+                ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".tiff", // Ảnh
+                ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv" // Văn phòng
+            };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(extension))
-                throw new ArgumentException("Chỉ cho phép tải lên các định dạng: .jpg, .jpeg, .png, .pdf.");
+                throw new ArgumentException("Định dạng tệp không được hỗ trợ. Vui lòng sử dụng tệp ảnh hoặc tài liệu văn phòng.");
 
-            // Giới hạn dung lượng file (ví dụ: tối đa 5MB)
-            if (file.Length > 5 * 1024 * 1024)
-                throw new ArgumentException("Dung lượng file không được vượt quá 5MB.");
+            // Giới hạn dung lượng file (tối đa 50MB)
+            if (file.Length > 50 * 1024 * 1024)
+                throw new ArgumentException("Dung lượng file không được vượt quá 50MB.");
 
             // Tạo thư mục nếu chưa có
             var uploadsFolder = Path.Combine(_env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads", "evidence");

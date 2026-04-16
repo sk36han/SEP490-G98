@@ -73,6 +73,9 @@ namespace Warehouse.Entities.ModelResponse
         // Danh sách vật tư
         public List<ReleaseRequestLineResponse> Lines { get; set; } = new();
 
+        // Danh sách tệp đính kèm (Báo giá, Hợp đồng)
+        public List<ReleaseRequestAttachmentResponse> Attachments { get; set; } = new();
+
         // Lịch sử duyệt
         public List<RRApprovalResponse> Approvals { get; set; } = new();
     }
@@ -123,10 +126,24 @@ namespace Warehouse.Entities.ModelResponse
         public decimal IssuedQty { get; set; }
         public string LineStatus { get; set; } = null!;
         public decimal StockQty { get; set; }
-        
+
+        /// Giá vốn bình quân gia quyền từ InventoryOnHand (chỉ hiển thị, không cho sửa)
+        public decimal CostPrice { get; set; }
+
+        /// Giá bán do Sale nhập (từ hợp đồng / báo giá)
         public decimal? UnitPrice { get; set; }
         public decimal LineTotal => RequestedQty * (UnitPrice ?? 0);
         public long? PackagingSpecId { get; set; }
         public string? PackagingSpecName { get; set; }
+    }
+
+    /// Response cho tệp đính kèm trong Release Request
+    public class ReleaseRequestAttachmentResponse
+    {
+        public long AttachmentId { get; set; }
+        public string FileName { get; set; } = null!;
+        public string FileUrl { get; set; } = null!;
+        public string AttachmentType { get; set; } = null!; // QUOTATION, CONTRACT, ...
+        public DateTime UploadedAt { get; set; }
     }
 }

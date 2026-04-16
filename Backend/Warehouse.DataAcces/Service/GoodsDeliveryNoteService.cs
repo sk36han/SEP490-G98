@@ -369,7 +369,7 @@ namespace Warehouse.DataAcces.Service
                 WarehouseId = request.WarehouseId,
                 IssueDate = request.IssueDate,
                 CreatedBy = userId,
-                Status = request.Status ?? "PENDING_ACC",
+                Status = request.Status ?? "PENDING_ISSUE",
                 Note = $"[{pickingStrategy}] {request.Note ?? ""}".Trim(),
                 ShippingFee = shippingFee,
                 IsPaid = request.IsPaid,

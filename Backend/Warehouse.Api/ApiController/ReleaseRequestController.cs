@@ -23,7 +23,7 @@ namespace Warehouse.Api.ApiController
         /// </summary>
         [HttpPost("create")]
         [Authorize(Roles = "SP,GD,KT,SE,TK")]
-        public async Task<IActionResult> CreateReleaseRequest([FromBody] CreateReleaseRequestRequest request)
+        public async Task<IActionResult> CreateReleaseRequest([FromForm] CreateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -94,7 +94,7 @@ namespace Warehouse.Api.ApiController
         /// </summary>
         [HttpPut("update/{id:long}")]
         [Authorize(Roles = "SP,KT,TK,SE")]
-        public async Task<IActionResult> UpdateReleaseRequest(long id, [FromBody] UpdateReleaseRequestRequest request)
+        public async Task<IActionResult> UpdateReleaseRequest(long id, [FromForm] UpdateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);

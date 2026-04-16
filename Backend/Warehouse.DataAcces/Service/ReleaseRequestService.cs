@@ -15,13 +15,15 @@ namespace Warehouse.DataAcces.Service
         private readonly IStocktakeService _stocktakeService;
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDocumentAttachmentService _documentAttachmentService;
 
-        public ReleaseRequestService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService, IAuditLogService auditLogService)
+        public ReleaseRequestService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _notificationService = notificationService;
             _auditLogService = auditLogService;
+            _documentAttachmentService = documentAttachmentService;
         }
 
         // ──────────────────────────── CREATE ────────────────────────────
@@ -33,6 +35,13 @@ namespace Warehouse.DataAcces.Service
             // 1. Validate: Lines không rỗng
             if (request.Lines == null || request.Lines.Count == 0)
                 throw new InvalidOperationException("Yêu cầu xuất kho phải có ít nhất 1 vật tư.");
+
+            // 1.1. Validate: Bắt buộc có báo giá và hợp đồng
+            if (request.QuotationFiles == null || !request.QuotationFiles.Any())
+                throw new InvalidOperationException("Vui lòng tải lên ít nhất 1 tệp báo giá.");
+            
+            if (request.ContractFiles == null || !request.ContractFiles.Any())
+                throw new InvalidOperationException("Vui lòng tải lên ít nhất 1 tệp hợp đồng.");
 
             // 2. Validate: Kho xuất
             var warehouse = await _context.Warehouses
@@ -124,32 +133,34 @@ namespace Warehouse.DataAcces.Service
                 RequestedDate = DateOnly.FromDateTime(now),
                 ExpectedDate = request.ExpectedDate,
                 Purpose = request.Purpose,
-                Status = request.Status ?? "PENDING_ACC",
+                Status = request.Status ?? "APPROVED",
                 LifecycleStatus = "IssuePending",
                 CreatedAt = now,
                 SubmittedAt = now
             };
 
-            // Calculate unit prices using FIFO strategy before creating lines
-            var itemQtyMap = request.Lines
-                .GroupBy(l => l.ItemId)
-                .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
-            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(request.WarehouseId, itemQtyMap);
+            // Lấy giá vốn kho (InventoryOnHand) để fallback
+            var itemIdsForPrice = request.Lines.Select(l => l.ItemId).Distinct().ToList();
+            var unitCostsDb = await _context.InventoryOnHands
+                .Where(inv => inv.WarehouseId == request.WarehouseId && itemIdsForPrice.Contains(inv.ItemId))
+                .ToDictionaryAsync(inv => inv.ItemId, inv => inv.UnitCost);
 
             // 10. Tạo các dòng vật tư và thực hiện giữ hàng (ReservedQty)
             foreach (var line in request.Lines)
             {
+                decimal unitPrice = line.UnitPrice ?? (unitCostsDb.TryGetValue(line.ItemId, out var cost) ? cost : 0);
+
                 var rrLine = new ReleaseRequestLine
                 {
                     ItemId = line.ItemId,
                     RequestedQty = line.RequestedQty,
                     UomId = line.UomId,
                     Note = line.Note,
-                    ApprovedQty = 0, // Mặc định 0, sẽ được cập nhật khi duyệt
+                    ApprovedQty = line.RequestedQty, // Tự động duyệt luôn số lượng yêu cầu
                     AllocatedQty = line.RequestedQty, // Gán AllocatedQty = RequestedQty (đã cộng vào ReservedQty của kho)
                     IssuedQty = 0,
                     LineStatus = "Open",
-                    UnitCostAtIssue = unitPrices.ContainsKey(line.ItemId) ? unitPrices[line.ItemId] : 0,
+                    UnitCostAtIssue = unitPrice,
                     PackagingSpecId = line.PackagingSpecId ?? items[line.ItemId].PackagingSpecId
                 };
                 releaseRequest.ReleaseRequestLines.Add(rrLine);
@@ -192,13 +203,30 @@ namespace Warehouse.DataAcces.Service
                 $"Tạo mới yêu cầu xuất kho {rrCode}"
             );
 
-            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
-            if (releaseRequest.Status == "PENDING_ACC")
+            // 13. Lưu tài liệu đính kèm (Báo giá & Hợp đồng)
+            if (request.QuotationFiles != null && request.QuotationFiles.Any())
+            {
+                foreach (var file in request.QuotationFiles)
+                {
+                    await _documentAttachmentService.UploadAttachmentAsync("RR", releaseRequest.ReleaseRequestId, file, requestedByUserId, "QUOTATION");
+                }
+            }
+
+            if (request.ContractFiles != null && request.ContractFiles.Any())
+            {
+                foreach (var file in request.ContractFiles)
+                {
+                    await _documentAttachmentService.UploadAttachmentAsync("RR", releaseRequest.ReleaseRequestId, file, requestedByUserId, "CONTRACT");
+                }
+            }
+
+            // Gửi thông báo cho Thủ kho nếu đơn đã được APPROVED để chuẩn bị hàng
+            if (releaseRequest.Status == "APPROVED")
             {
                 await _notificationService.CreateForRolesAsync(
-                    new[] { "KT" },
-                    "Yêu cầu xuất kho mới chờ duyệt",
-                    $"Yêu cầu xuất kho {rrCode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ Kế toán phê duyệt.",
+                    new[] { "TK" },
+                    "Yêu cầu xuất kho mới",
+                    $"Yêu cầu xuất kho {rrCode} vừa được tạo bởi {requestedByUser.FullName} và đã được phê duyệt tự động. Vui lòng chuẩn bị hàng.",
                     "Release",
                     releaseRequest.ReleaseRequestId,
                     requestedByUserId,
@@ -207,7 +235,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // 13. Trả về response chi tiết
-            return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms, unitPrices);
+            return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms, unitCostsDb);
         }
 
         // ──────────────────────────── LIST ────────────────────────────
@@ -296,11 +324,24 @@ namespace Warehouse.DataAcces.Service
             var lastApproval = approvals
                 .LastOrDefault(a => a.Decision == "APPROVE");
 
-            // Lấy giá bình quân gia quyền dự kiến từ các lô hàng trong kho (mặc định FIFO)
-            var itemQtyMap = rr.ReleaseRequestLines
-                .GroupBy(l => l.ItemId)
-                .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
-            var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(rr.WarehouseId, itemQtyMap);
+            // Lấy giá vốn bình quân gia quyền từ InventoryOnHand
+            var itemIdsInLines = rr.ReleaseRequestLines.Select(l => l.ItemId).Distinct().ToList();
+            var costPrices = await _context.InventoryOnHands
+                .Where(inv => inv.WarehouseId == rr.WarehouseId && itemIdsInLines.Contains(inv.ItemId))
+                .ToDictionaryAsync(inv => inv.ItemId, inv => inv.UnitCost);
+
+            // Lấy danh sách tệp đính kèm (Báo giá, Hợp đồng)
+            var attachments = await _context.DocumentAttachments
+                .Where(a => a.DocType == "RR" && a.DocId == id)
+                .Select(a => new ReleaseRequestAttachmentResponse
+                {
+                    AttachmentId = a.AttachmentId,
+                    FileName = a.FileName,
+                    FileUrl = a.FileUrlOrPath,
+                    AttachmentType = a.AttachmentType,
+                    UploadedAt = a.UploadedAt
+                })
+                .ToListAsync();
 
             return new ReleaseRequestDetailResponse
             {
@@ -329,12 +370,12 @@ namespace Warehouse.DataAcces.Service
                     District = rr.Receiver.District,
                     Ward = rr.Receiver.Ward
                 } : null,
-                TotalItems = rr.ReleaseRequestLines.Count,
                 TotalRequestedQty = rr.ReleaseRequestLines.Sum(l => l.RequestedQty),
-                TotalAmount = rr.ReleaseRequestLines.Sum(l => l.RequestedQty * (l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0))),
+                TotalAmount = rr.ReleaseRequestLines.Sum(l => l.RequestedQty * (l.UnitCostAtIssue ?? 0)),
                 CreatedAt = rr.CreatedAt,
                 SubmittedAt = rr.SubmittedAt,
                 ApprovedAt = lastApproval?.ActionAt,
+                Attachments = attachments,
                 Lines = rr.ReleaseRequestLines.Select(l => new ReleaseRequestLineResponse
                 {
                     ReleaseRequestLineId = l.ReleaseRequestLineId,
@@ -347,10 +388,10 @@ namespace Warehouse.DataAcces.Service
                     Note = l.Note,
                     ApprovedQty = l.ApprovedQty,
                     AllocatedQty = l.AllocatedQty,
-                    IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus,
-                    StockQty = 0, // Sẽ tính sau nếu cần, hoặc bỏ qua nếu frontend không dùng
-                    UnitPrice = l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0),
+                    StockQty = 0,
+                    CostPrice = costPrices.TryGetValue(l.ItemId, out var cp) ? cp : 0,
+                    UnitPrice = l.UnitCostAtIssue ?? 0,
                     PackagingSpecId = l.PackagingSpecId,
                     PackagingSpecName = l.PackagingSpec?.SpecName
                 }).ToList(),
@@ -512,15 +553,17 @@ namespace Warehouse.DataAcces.Service
                     _context.ReleaseRequestLines.Remove(line);
                 }
 
-                // Calculate unit prices using FIFO strategy for the updated request
-                var itemQtyMap = request.Lines
-                    .GroupBy(l => l.ItemId)
-                    .ToDictionary(g => g.Key, g => g.Sum(l => l.RequestedQty));
-                var unitPrices = await GetItemWeightedUnitPricesFromLotsAsync(rr.WarehouseId, itemQtyMap);
+                // Lấy giá vốn kho (InventoryOnHand) để fallback khi thêm line mới hoặc update request
+                var itemIdsForPrice = request.Lines.Select(l => l.ItemId).Distinct().ToList();
+                var unitCostsDb = await _context.InventoryOnHands
+                    .Where(inv => inv.WarehouseId == rr.WarehouseId && itemIdsForPrice.Contains(inv.ItemId))
+                    .ToDictionaryAsync(inv => inv.ItemId, inv => inv.UnitCost);
 
                 // 9b. Cập nhật dòng cũ + thêm dòng mới
                 foreach (var lineReq in request.Lines)
                 {
+                    decimal unitPrice = lineReq.UnitPrice ?? (unitCostsDb.TryGetValue(lineReq.ItemId, out var cost) ? cost : 0);
+
                     if (lineReq.ReleaseRequestLineId.HasValue && lineReq.ReleaseRequestLineId > 0)
                     {
                         // Cập nhật dòng đã có
@@ -570,11 +613,11 @@ namespace Warehouse.DataAcces.Service
 
                         existingLine.ItemId = lineReq.ItemId;
                         existingLine.RequestedQty = lineReq.RequestedQty;
-                        existingLine.ApprovedQty = 0; // Luôn reset về 0 để chờ duyệt lại nếu có thay đổi
+                        existingLine.ApprovedQty = lineReq.RequestedQty; // Tự động duyệt số lượng mới
                         existingLine.AllocatedQty = lineReq.RequestedQty; // Cập nhật AllocatedQty = Số_mới
                         existingLine.UomId = lineReq.UomId;
                         existingLine.Note = lineReq.Note;
-                        existingLine.UnitCostAtIssue = unitPrices.ContainsKey(lineReq.ItemId) ? unitPrices[lineReq.ItemId] : 0;
+                        existingLine.UnitCostAtIssue = unitPrice;
                         existingLine.PackagingSpecId = lineReq.PackagingSpecId ?? items[lineReq.ItemId].PackagingSpecId;
                     }
                     else
@@ -586,11 +629,11 @@ namespace Warehouse.DataAcces.Service
                             RequestedQty = lineReq.RequestedQty,
                             UomId = lineReq.UomId,
                             Note = lineReq.Note,
-                            ApprovedQty = 0, // Mặc định 0, sẽ được cập nhật khi duyệt
+                            ApprovedQty = lineReq.RequestedQty, // Tự động duyệt dòng mới
                             AllocatedQty = lineReq.RequestedQty, // Gán AllocatedQty cho dòng mới
                             IssuedQty = 0,
                             LineStatus = "Open",
-                            UnitCostAtIssue = unitPrices.ContainsKey(lineReq.ItemId) ? unitPrices[lineReq.ItemId] : 0,
+                            UnitCostAtIssue = unitPrice,
                             PackagingSpecId = lineReq.PackagingSpecId ?? items[lineReq.ItemId].PackagingSpecId
                         };
                         rr.ReleaseRequestLines.Add(newLine);
@@ -648,10 +691,27 @@ namespace Warehouse.DataAcces.Service
                 $"Cập nhật yêu cầu xuất kho {rr.ReleaseRequestCode}"
             );
 
+            // 11. Lưu tài liệu đính kèm bổ sung
+            if (request.QuotationFiles != null && request.QuotationFiles.Any())
+            {
+                foreach (var file in request.QuotationFiles)
+                {
+                    await _documentAttachmentService.UploadAttachmentAsync("RR", rr.ReleaseRequestId, file, userId, "QUOTATION");
+                }
+            }
+
+            if (request.ContractFiles != null && request.ContractFiles.Any())
+            {
+                foreach (var file in request.ContractFiles)
+                {
+                    await _documentAttachmentService.UploadAttachmentAsync("RR", rr.ReleaseRequestId, file, userId, "CONTRACT");
+                }
+            }
+
             await _context.SaveChangesAsync();
 
-            // 10. Trả về chi tiết sau khi cập nhật
-            return await GetReleaseRequestByIdAsync(id)
+            // 12. Trả về chi tiết sau cập nhật
+            return await GetReleaseRequestByIdAsync(rr.ReleaseRequestId)
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
         }  
 
@@ -969,7 +1029,8 @@ namespace Warehouse.DataAcces.Service
             User requestedByUser,
             Dictionary<long, Item> items,
             Dictionary<long, UnitOfMeasure> uoms,
-            Dictionary<long, decimal> unitPrices)
+            Dictionary<long, decimal> costPrices,
+            List<ReleaseRequestAttachmentResponse>? attachments = null)
         {
             return new ReleaseRequestDetailResponse
             {
@@ -1000,9 +1061,10 @@ namespace Warehouse.DataAcces.Service
                 },
                 TotalItems = rr.ReleaseRequestLines.Count,
                 TotalRequestedQty = rr.ReleaseRequestLines.Sum(l => l.RequestedQty),
-                TotalAmount = rr.ReleaseRequestLines.Sum(l => l.RequestedQty * (l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0))),
+                TotalAmount = rr.ReleaseRequestLines.Sum(l => l.RequestedQty * (l.UnitCostAtIssue ?? 0)),
                 CreatedAt = rr.CreatedAt,
                 SubmittedAt = rr.SubmittedAt,
+                Attachments = attachments ?? new(),
                 Lines = rr.ReleaseRequestLines.Select(l => new ReleaseRequestLineResponse
                 {
                     ReleaseRequestLineId = l.ReleaseRequestLineId,
@@ -1018,59 +1080,12 @@ namespace Warehouse.DataAcces.Service
                     IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus,
                     StockQty = 0,
-                    UnitPrice = l.UnitCostAtIssue ?? (unitPrices.ContainsKey(l.ItemId) ? unitPrices[l.ItemId] : 0),
+                    CostPrice = costPrices.TryGetValue(l.ItemId, out var cp) ? cp : 0,
+                    UnitPrice = l.UnitCostAtIssue ?? 0,
                     PackagingSpecId = l.PackagingSpecId,
                     PackagingSpecName = items.ContainsKey(l.ItemId) && items[l.ItemId].PackagingSpec != null ? items[l.ItemId].PackagingSpec!.SpecName : null
                 }).ToList()
             };
-        }
-        /// <summary>
-        /// Tính giá đơn giá bình quân gia quyền dự kiến dựa trên FIFO (Lô cũ nhất).
-        /// </summary>
-        private async Task<Dictionary<long, decimal>> GetItemWeightedUnitPricesFromLotsAsync(
-            long warehouseId, Dictionary<long, decimal> itemQtyMap)
-        {
-            var itemIds = itemQtyMap.Keys.ToList();
-
-            var allLots = await _context.InventoryLots
-                .Where(lot => lot.WarehouseId == warehouseId
-                           && itemIds.Contains(lot.ItemId)
-                           && lot.IsActive
-                           && lot.Quantity > 0)
-                .ToListAsync();
-
-            var result = new Dictionary<long, decimal>();
-
-            foreach (var itemId in itemIds)
-            {
-                var requestedQty = itemQtyMap[itemId];
-                // Sắp xếp lô theo FIFO
-                var lots = allLots
-                    .Where(lot => lot.ItemId == itemId)
-                    .OrderBy(lot => lot.ReceiptDate)
-                    .ToList();
-
-                if (lots.Count == 0) { result[itemId] = 0; continue; }
-
-                decimal remainingQty = requestedQty;
-                decimal totalCost = 0;
-                decimal totalPickedQty = 0;
-
-                foreach (var lot in lots)
-                {
-                    if (remainingQty <= 0) break;
-                    var pickQty = Math.Min(lot.Quantity, remainingQty);
-                    totalCost += pickQty * lot.UnitCost;
-                    totalPickedQty += pickQty;
-                    remainingQty -= pickQty;
-                }
-
-                result[itemId] = totalPickedQty > 0
-                    ? Math.Round(totalCost / totalPickedQty, 2)
-                    : 0;
-            }
-
-            return result;
         }
     }
 }

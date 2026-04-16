@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Microsoft.AspNetCore.Http.Features;
 using Warehouse.Api.Helper;
 using Warehouse.Api.Hubs;
 using Warehouse.Api.Services;
@@ -23,6 +24,19 @@ namespace Warehouse.Api
 
             // Add services to the container.
             builder.Services.AddControllers();
+            
+            // Cấu hình giới hạn kích thước file upload cho Form (Multipart)
+            builder.Services.Configure<FormOptions>(options =>
+            {
+                options.MultipartBodyLengthLimit = 52428800; // 50MB
+            });
+
+            // Cấu hình giới hạn kích thước request cho Kestrel server
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.Limits.MaxRequestBodySize = 52428800; // 50MB
+            });
+
             builder.Services.AddSignalR();
             
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
