@@ -152,7 +152,7 @@ namespace Warehouse.Api.ApiController
             if (string.Equals(po.Status, "PENDING_ACC", StringComparison.OrdinalIgnoreCase)
                 && (quotationFile == null || contractAppendixFile == null))
             {
-                return BadRequest(new { message = "Đơn gửi duyệt bắt buộc phải có đủ File báo giá và Phụ lục hợp đồng." });
+                return BadRequest(new { message = "Đơn gửi duyệt bắt buộc phải có đủ File báo giá và Hợp đồng nguyên tắc." });
             }
 
             try

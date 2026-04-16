@@ -11,6 +11,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
+import Switch from '@mui/material/Switch';
 
 // 4. Icons
 import {
@@ -126,6 +127,8 @@ const CreateGoodReceiptNote = () => {
         creatorName: currentUser?.fullName || currentUser?.FullName || '',
         justification: '',
         shippingFee: 0,
+        isPaid: false,
+        paymentMethod: 'CASH',
     });
 
     const [lines, setLines] = useState([]);
@@ -675,6 +678,10 @@ const CreateGoodReceiptNote = () => {
         }
         try {
             setSubmitting(true);
+            if (formData.isPaid && !formData.paymentMethod) {
+                showToast('Vui lòng chọn phương thức thanh toán.', 'error');
+                return;
+            }
             // Chuẩn bị payload cho API
             const payload = {
                 PurchaseOrderId: Number(selectedPODetails?.poId ?? selectedPODetails?.purchaseOrderId ?? selectedPODetails?.PurchaseOrderId),
@@ -696,10 +703,16 @@ const CreateGoodReceiptNote = () => {
                     PurchaseOrderLineId: line.poLineId ? Number(line.poLineId) : null,
                     UnitPrice: Number(line.unitPrice) || 0,
                 })),
+                IsPaid: formData.isPaid,
+                PaymentMethod: formData.isPaid ? formData.paymentMethod : null,
             };
             const result = await createGoodReceiptNote(payload);
             showToast(`Tạo phiếu nhập kho thành công${result?.grnCode ? ` (${result.grnCode})` : ''}.`, 'success');
-            setTimeout(() => navigate('/good-receipt-notes'), 1500);
+            const grnId = result?.grnId ?? result?.GrnId;
+            setTimeout(
+                () => navigate(grnId ? `/good-receipt-notes/${grnId}` : '/good-receipt-notes'),
+                1500
+            );
         } catch (error) {
             const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
             showToast(msg, 'error');
@@ -1507,6 +1520,63 @@ const CreateGoodReceiptNote = () => {
                                             style={READONLY_FIELD_STYLE}
                                         />
                                     </div>
+                                </div>
+                                <div className="form-field">
+                                    <label className="form-label">Đã thanh toán?</label>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: 12,
+                                            padding: '10px 12px',
+                                            borderRadius: 12,
+                                            border: '1px solid #e5e7eb',
+                                            backgroundColor: '#f8fafc',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
+                                            Đã thanh toán?
+                                        </span>
+                                        <Switch
+                                            checked={formData.isPaid}
+                                            onChange={(e) =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    isPaid: e.target.checked,
+                                                }))
+                                            }
+                                            disabled={submitting}
+                                        />
+                                    </div>
+
+                                    {formData.isPaid && (
+                                        <div style={{ marginTop: 10 }}>
+                                            <label className="form-label">Phương thức thanh toán</label>
+                                            <select
+                                                className="form-input"
+                                                value={formData.paymentMethod}
+                                                onChange={(e) =>
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        paymentMethod: e.target.value,
+                                                    }))
+                                                }
+                                                disabled={submitting}
+                                                style={{
+                                                    padding: '10px 12px',
+                                                    borderRadius: 12,
+                                                    border: '1px solid #d1d5db',
+                                                    backgroundColor: '#ffffff',
+                                                }}
+                                            >
+                                                <option value="CASH">Tiền mặt</option>
+                                                <option value="BANK_TRANSFER">Chuyển khoản</option>
+                                                <option value="CREDIT_CARD">Thẻ tín dụng</option>
+                                                <option value="OTHER">Khác</option>
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -203,8 +203,8 @@ const ViewGoodReceiptNoteDetail = () => {
                         ? `Đã duyệt phiếu nhập kho. Lý do: ${reason}`
                         : 'Đã duyệt phiếu nhập kho.'
                     : reason
-                    ? `Đã hủy phiếu nhập kho. Lý do: ${reason}`
-                    : 'Đã hủy phiếu nhập kho.',
+                        ? `Đã hủy phiếu nhập kho. Lý do: ${reason}`
+                        : 'Đã hủy phiếu nhập kho.',
                 isApprove ? 'success' : 'info'
             );
             closeConfirmDialog();
@@ -260,7 +260,15 @@ const ViewGoodReceiptNoteDetail = () => {
         );
     }
     return (
-        <div className="create-supplier-page">
+        <div
+            className="create-supplier-page"
+            style={{
+                minHeight: 0,
+                height: 'auto',
+                paddingBottom: 0,
+                padding: 16,
+            }}
+        >
             {/* Dialog xác nhận duyệt/hủy */}
             <Dialog
                 open={confirmDialogOpen}
@@ -411,33 +419,6 @@ const ViewGoodReceiptNoteDetail = () => {
                             </button>
                         </>
                     )}
-                    {/* Nut tra hang */}
-                    {showReturnButton && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => navigate(`/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
-                            disabled={submitting}
-                            style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
-                        >
-                            <RotateCcw size={16} className="btn-icon" />
-                            Trả hàng
-                        </button>
-                    )}
-
-                    {/* Nút Trả hàng cho các role khác */}
-                    {showGeneralReturnButton && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => navigate(`/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`)}
-                            disabled={submitting}
-                            style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
-                        >
-                            <RotateCcw size={16} className="btn-icon" />
-                            Trả hàng
-                        </button>
-                    )}
                     {/* Neu la Thủ Kho - hien thi thong bao */}
                     {isWarehouseKeeper && (
                         <div
@@ -456,8 +437,8 @@ const ViewGoodReceiptNoteDetail = () => {
                 </div>
             </div>
 
-            <div className="form-card">
-                <div className="form-wrapper">
+            <div className="form-card" style={{ marginBottom: 0, padding: 16 }}>
+                <div className="form-wrapper" style={{ gap: 16 }}>
                     <div className="form-card-intro">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                             <div>
@@ -488,9 +469,9 @@ const ViewGoodReceiptNoteDetail = () => {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'flex-start' }}>
                         {/* Cột trái: Chi tiết sản phẩm nhập */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                                 <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
 
@@ -499,7 +480,16 @@ const ViewGoodReceiptNoteDetail = () => {
                                         Chưa có sản phẩm nào trong phiếu nhập kho.
                                     </div>
                                 ) : (
-                                    <div className="table-container" style={{ flex: 1, maxHeight: '500px', overflowY: 'auto' }}>
+                                    <div
+                                        className="table-container"
+                                        style={{
+                                            overflowY: 'visible',
+                                            overflowX: 'auto',
+                                            height: 'auto',
+                                            maxHeight: 'none',
+                                            flex: '0 0 auto',
+                                        }}
+                                    >
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
@@ -545,7 +535,7 @@ const ViewGoodReceiptNoteDetail = () => {
                         </div>
 
                         {/* Cột phải: Thông tin chung + Lịch sử */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <h2 className="section-title">Thông tin chung</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -640,8 +630,8 @@ const ViewGoodReceiptNoteDetail = () => {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', marginTop: 24 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'start', marginTop: 16 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <h2 className="section-title">Nhà cung cấp</h2>
                                 <div className="form-field">

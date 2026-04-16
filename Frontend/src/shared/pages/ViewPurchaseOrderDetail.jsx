@@ -1228,7 +1228,7 @@ const ViewPurchaseOrderDetail = () => {
                                     style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
                                 >
                                     <FileText size={16} />
-                                    Phụ lục hợp đồng
+                                    Hợp đồng nguyên tắc
                                 </a>
                             )}
                         </div>
