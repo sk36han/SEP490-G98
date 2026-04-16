@@ -67,6 +67,8 @@ public partial class Mkiwms5Context : DbContext
 
     public virtual DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
+    public virtual DbSet<PrintTemplate> PrintTemplates { get; set; }
+
     public virtual DbSet<PurchaseOrder> PurchaseOrders { get; set; }
 
     public virtual DbSet<PurchaseOrderLine> PurchaseOrderLines { get; set; }
@@ -672,6 +674,14 @@ public partial class Mkiwms5Context : DbContext
                 .HasConstraintName("FK_PRT_User");
         });
 
+        modelBuilder.Entity<PrintTemplate>(entity =>
+        {
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.DocumentType).HasMaxLength(50);
+            entity.Property(e => e.PaperSize).HasMaxLength(50);
+            entity.Property(e => e.TemplateName).HasMaxLength(200);
+        });
+
         modelBuilder.Entity<PurchaseOrder>(entity =>
         {
             entity.HasKey(e => e.PurchaseOrderId).HasName("PK__Purchase__036BACA4D03E22B9");
@@ -869,6 +879,7 @@ public partial class Mkiwms5Context : DbContext
             entity.HasIndex(e => e.ReleaseRequestCode, "UQ__ReleaseR__380806C548FEA8FE").IsUnique();
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.IsPartialDeliveryAllowed).HasDefaultValue(true);
             entity.Property(e => e.LifecycleStatus)
                 .HasMaxLength(20)
                 .IsUnicode(false)
