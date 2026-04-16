@@ -27,6 +27,8 @@ import {
     User,
     Loader,
     Check,
+    Paperclip,
+    FileText,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -72,6 +74,13 @@ const formatDate = (dateStr) => {
     return `${day}/${month}/${year}`;
 };
 
+const toAbsoluteFileUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
+    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 const mapOrderDetail = (data) => ({
     purchaseOrderId:
         data.purchaseOrderId ??
@@ -102,6 +111,8 @@ const mapOrderDetail = (data) => ({
     discountAmount: data.discountAmount ?? data.DiscountAmount ?? null,
     netAmount: data.netAmount ?? data.NetAmount ?? null,
     totalOrderedQty: data.totalOrderedQty ?? data.TotalOrderedQty ?? 0,
+    quotationFileUrl: toAbsoluteFileUrl(data.quotationFileUrl ?? data.QuotationFileUrl ?? ''),
+    contractAppendixFileUrl: toAbsoluteFileUrl(data.contractAppendixFileUrl ?? data.ContractAppendixFileUrl ?? ''),
     lines: (data.lines || []).map((line, index) => ({
         id: line.purchaseOrderLineId || line.id || index + 1,
         itemId: line.itemId ?? line.ItemId ?? null,
@@ -418,6 +429,8 @@ const ViewPurchaseOrderDetail = () => {
         discountAmount: null,
         netAmount: null,
         totalOrderedQty: 0,
+        quotationFileUrl: '',
+        contractAppendixFileUrl: '',
         lines: [],
     });
 
@@ -1191,6 +1204,36 @@ const ViewPurchaseOrderDetail = () => {
 
                 {orderData.justification &&
                     renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
+
+                {(orderData.quotationFileUrl || orderData.contractAppendixFileUrl) && (
+                    <div style={styles.fieldWrap}>
+                        <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
+                        <div style={{ ...styles.fieldBox, ...styles.fieldBoxMultiline, flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+                            {orderData.quotationFileUrl && (
+                                <a
+                                    href={orderData.quotationFileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
+                                >
+                                    <Paperclip size={16} />
+                                    File báo giá
+                                </a>
+                            )}
+                            {orderData.contractAppendixFileUrl && (
+                                <a
+                                    href={orderData.contractAppendixFileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
+                                >
+                                    <FileText size={16} />
+                                    Phụ lục hợp đồng
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     </div>

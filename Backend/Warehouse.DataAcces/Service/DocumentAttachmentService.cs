@@ -29,11 +29,7 @@ namespace Warehouse.DataAcces.Service
             if (file == null || file.Length == 0)
                 throw new ArgumentException("File không hợp lệ hoặc rỗng.");
 
-            // Kiểm tra định dạng file (chỉ cho phép .jpg, .jpeg, .png, .pdf)
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension))
-                throw new ArgumentException("Chỉ cho phép tải lên các định dạng: .jpg, .jpeg, .png, .pdf.");
+            // Cho phép nhiều định dạng tệp; không giới hạn phần mở rộng ở tầng service.
 
             // Giới hạn dung lượng file (ví dụ: tối đa 5MB)
             if (file.Length > 5 * 1024 * 1024)
@@ -45,6 +41,7 @@ namespace Warehouse.DataAcces.Service
                 Directory.CreateDirectory(uploadsFolder);
 
             // Tạo tên file duy nhất
+            var extension = Path.GetExtension(file.FileName);
             var uniqueFileName = $"{Guid.NewGuid()}{extension}";
             var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 

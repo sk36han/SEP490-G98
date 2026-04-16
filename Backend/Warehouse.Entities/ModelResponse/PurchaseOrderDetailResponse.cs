@@ -34,6 +34,9 @@ namespace Warehouse.Entities.ModelResponse
         public DateTime? SubmittedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
+        public string? QuotationFileUrl { get; set; }
+        public string? ContractAppendixFileUrl { get; set; }
+
         public List<PurchaseOrderLineResponse> Lines { get; set; } = new();
     }
 
