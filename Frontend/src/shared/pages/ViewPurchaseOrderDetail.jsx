@@ -1128,6 +1128,9 @@ const ViewPurchaseOrderDetail = () => {
                             {orderData.justification &&
                                 renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
 
+                            {orderData.justification &&
+                                renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
+
                             {(orderData.quotationFileUrl || orderData.contractAppendixFileUrl) && (
                                 <div style={styles.fieldWrap}>
                                     <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
@@ -1151,18 +1154,15 @@ const ViewPurchaseOrderDetail = () => {
                                                 style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
                                             >
                                                 <FileText size={16} />
-                                                Phụ lục hợp đồng
+                                                Hợp đồng nguyên tắc
                                             </a>
                                         )}
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    );
+                );
 };
 
-export default ViewPurchaseOrderDetail;
+                export default ViewPurchaseOrderDetail;

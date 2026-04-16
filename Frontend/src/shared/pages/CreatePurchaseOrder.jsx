@@ -523,7 +523,7 @@ const CreatePurchaseOrder = () => {
         e.preventDefault();
 
         if (!quotationFile || !contractAppendixFile) {
-            showToast('Vui lòng tải lên đủ 2 tệp: File báo giá và Phụ lục hợp đồng trước khi gửi duyệt.', 'error');
+            showToast('Vui lòng tải lên đủ 2 tệp: File báo giá và Hợp đồng nguyên tắc trước khi gửi duyệt.', 'error');
             return;
         }
 
@@ -589,7 +589,7 @@ const CreatePurchaseOrder = () => {
         : !quotationFile
         ? 'Vui lòng tải lên File báo giá'
         : !contractAppendixFile
-        ? 'Vui lòng tải lên Phụ lục hợp đồng'
+        ? 'Vui lòng tải lên Hợp đồng nguyên tắc'
         : '';
 
     return (
@@ -1165,7 +1165,7 @@ const CreatePurchaseOrder = () => {
 
                                     <div className="form-field">
                                         <label htmlFor="po-contract-appendix-file" className="form-label">
-                                            Phụ lục hợp đồng
+                                            Hợp đồng nguyên tắc
                                         </label>
                                         <div className="input-wrapper">
                                             <FileText className="input-icon" size={16} />

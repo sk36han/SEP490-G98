@@ -153,7 +153,7 @@ const PO_COLUMNS = [
     },
     {
         id: 'totalReceivedQuantity',
-        label: 'Số lượng nhập',
+        label: 'Số lượng đã nhập',
         sortable: true,
         getValue: (row) => row.totalReceivedQuantity ?? 0,
     },

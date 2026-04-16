@@ -231,18 +231,18 @@ const ViewGoodReceiptNoteDetail = () => {
                     const rawLines = data.Lines ?? data.lines ?? [];
                     const mappedLines = Array.isArray(rawLines)
                         ? rawLines.map((line, idx) => ({
-                              id: line.GrnlineId ?? line.grnlineId ?? idx,
-                              itemId: line.ItemId ?? line.itemId,
-                              itemName: line.ItemName ?? line.itemName ?? '',
-                              itemCode: line.ItemCode ?? line.itemCode ?? '',
-                              uom: line.UomName ?? line.uomName ?? '',
-                              orderedQty: Number((line.ExpectedQty ?? line.expectedQty) || 0),
-                              receivedQty: Number((line.ActualQty ?? line.actualQty) || 0),
-                              unitPrice: Number((line.UnitPrice ?? line.unitPrice) ?? 0),
-                              hasCO: line.HasCO ?? line.hasCO ?? false,
-                              hasCQ: line.HasCQ ?? line.hasCQ ?? false,
-                              note: (line.Note ?? line.note) || '',
-                          }))
+                            id: line.GrnlineId ?? line.grnlineId ?? idx,
+                            itemId: line.ItemId ?? line.itemId,
+                            itemName: line.ItemName ?? line.itemName ?? '',
+                            itemCode: line.ItemCode ?? line.itemCode ?? '',
+                            uom: line.UomName ?? line.uomName ?? '',
+                            orderedQty: Number((line.ExpectedQty ?? line.expectedQty) || 0),
+                            receivedQty: Number((line.ActualQty ?? line.actualQty) || 0),
+                            unitPrice: Number((line.UnitPrice ?? line.unitPrice) ?? 0),
+                            hasCO: line.HasCO ?? line.hasCO ?? false,
+                            hasCQ: line.HasCQ ?? line.hasCQ ?? false,
+                            note: (line.Note ?? line.note) || '',
+                        }))
                         : [];
 
                     setGrnData({
@@ -270,39 +270,39 @@ const ViewGoodReceiptNoteDetail = () => {
                             // Posted
                             data.PostedAt
                                 ? {
-                                      action: 'Đã ghi sổ phiếu nhập kho',
-                                      date: safeFormatDateOnly(data.PostedAt),
-                                      time: safeFormatTimeOnly(data.PostedAt),
-                                      user: data.PostedByName ?? data.postedByName ?? '',
-                                  }
+                                    action: 'Đã ghi sổ phiếu nhập kho',
+                                    date: safeFormatDateOnly(data.PostedAt),
+                                    time: safeFormatTimeOnly(data.PostedAt),
+                                    user: data.PostedByName ?? data.postedByName ?? '',
+                                }
                                 : null,
                             // Approved
                             data.ApprovedAt
                                 ? {
-                                      action: 'Duyệt phiếu nhập kho',
-                                      date: safeFormatDateOnly(data.ApprovedAt),
-                                      time: safeFormatTimeOnly(data.ApprovedAt),
-                                      user: data.ApprovedByName ?? data.approvedByName ?? '',
-                                  }
+                                    action: 'Duyệt phiếu nhập kho',
+                                    date: safeFormatDateOnly(data.ApprovedAt),
+                                    time: safeFormatTimeOnly(data.ApprovedAt),
+                                    user: data.ApprovedByName ?? data.approvedByName ?? '',
+                                }
                                 : null,
                             // Rejected
                             data.RejectedAt
                                 ? {
-                                      action: 'Từ chối phiếu nhập kho',
-                                      date: safeFormatDateOnly(data.RejectedAt),
-                                      time: safeFormatTimeOnly(data.RejectedAt),
-                                      user: data.RejectedByName ?? data.rejectedByName ?? '',
-                                      reason: data.RejectedReason ?? data.rejectedReason ?? '',
-                                  }
+                                    action: 'Từ chối phiếu nhập kho',
+                                    date: safeFormatDateOnly(data.RejectedAt),
+                                    time: safeFormatTimeOnly(data.RejectedAt),
+                                    user: data.RejectedByName ?? data.rejectedByName ?? '',
+                                    reason: data.RejectedReason ?? data.rejectedReason ?? '',
+                                }
                                 : null,
                             // Submitted
                             data.SubmittedAt
                                 ? {
-                                      action: 'Gửi yêu cầu duyệt phiếu',
-                                      date: safeFormatDateOnly(data.SubmittedAt),
-                                      time: safeFormatTimeOnly(data.SubmittedAt),
-                                      user: data.SubmittedByName ?? data.submittedByName ?? '',
-                                  }
+                                    action: 'Gửi yêu cầu duyệt phiếu',
+                                    date: safeFormatDateOnly(data.SubmittedAt),
+                                    time: safeFormatTimeOnly(data.SubmittedAt),
+                                    user: data.SubmittedByName ?? data.submittedByName ?? '',
+                                }
                                 : null,
                             // Created
                             {
@@ -374,8 +374,8 @@ const ViewGoodReceiptNoteDetail = () => {
                         ? `Đã duyệt phiếu nhập kho. Lý do: ${reason}`
                         : 'Đã duyệt phiếu nhập kho.'
                     : reason
-                    ? `Đã hủy phiếu nhập kho. Lý do: ${reason}`
-                    : 'Đã hủy phiếu nhập kho.',
+                        ? `Đã hủy phiếu nhập kho. Lý do: ${reason}`
+                        : 'Đã hủy phiếu nhập kho.',
                 isApprove ? 'success' : 'info'
             );
 
@@ -436,170 +436,17 @@ const ViewGoodReceiptNoteDetail = () => {
     }
 
     return (
-        <div className="create-supplier-page grn-detail-page">
-            <style>
-                {`
-                    .grn-detail-page {
-                        --slate-100: #f3f4f6;
-                        --slate-200: #e5e7eb;
-                    }
-
-                    .grn-detail-page .grn-page-title {
-                        margin-bottom: 0;
-                    }
-
-                    .grn-detail-page .grn-hero-card {
-                        padding: 24px;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 18px;
-                        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-                        margin-bottom: 24px;
-                    }
-
-                    .grn-detail-page .grn-hero-top {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        gap: 16px;
-                        flex-wrap: wrap;
-                    }
-
-                    .grn-detail-page .grn-hero-code {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        margin-top: 10px;
-                        padding: 7px 12px;
-                        border-radius: 999px;
-                        background: #eff6ff;
-                        color: #1d4ed8;
-                        font-weight: 700;
-                        font-size: 13px;
-                    }
-
-                    .grn-detail-page .grn-status-pill {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        padding: 9px 14px;
-                        border-radius: 999px;
-                        font-weight: 700;
-                        font-size: 13px;
-                        white-space: nowrap;
-                    }
-
-                    .grn-detail-page .grn-main-grid {
-                        display: grid;
-                        grid-template-columns: minmax(0, 1fr) 340px;
-                        gap: 24px;
-                        align-items: start;
-                    }
-
-                    .grn-detail-page .grn-left-column,
-                    .grn-detail-page .grn-right-column {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 24px;
-                        min-width: 0;
-                    }
-
-                    .grn-detail-page .grn-table-wrap {
-                        overflow: auto;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 14px;
-                        background: #ffffff;
-                    }
-
-                    .grn-detail-page .grn-table-wrap .product-table {
-                        min-width: 880px;
-                    }
-
-                    .grn-detail-page .grn-table-wrap .product-table thead th {
-                        position: sticky;
-                        top: 0;
-                        z-index: 1;
-                        background: #f8fafc;
-                    }
-
-                    .grn-detail-page .grn-summary-grid {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        gap: 12px;
-                    }
-
-                    .grn-detail-page .grn-note-box {
-                        min-height: 120px;
-                        padding: 16px;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 12px;
-                        background: #f9fafb;
-                        color: #374151;
-                        font-size: 14px;
-                        line-height: 1.6;
-                        white-space: pre-wrap;
-                        word-break: break-word;
-                    }
-
-                    .grn-detail-page .grn-timeline {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 12px;
-                    }
-
-                    .grn-detail-page .grn-timeline-item {
-                        display: flex;
-                        align-items: flex-start;
-                        gap: 12px;
-                    }
-
-                    .grn-detail-page .grn-timeline-dot {
-                        width: 10px;
-                        height: 10px;
-                        border-radius: 999px;
-                        margin-top: 6px;
-                        flex-shrink: 0;
-                    }
-
-                    .grn-detail-page .grn-timeline-content {
-                        flex: 1;
-                        padding-left: 16px;
-                    }
-
-                    .grn-detail-page .grn-payment-pill {
-                        display: inline-flex;
-                        align-items: center;
-                        padding: 5px 12px;
-                        border-radius: 999px;
-                        font-size: 13px;
-                        font-weight: 700;
-                    }
-
-                    .grn-detail-page .grn-empty-state {
-                        padding: 28px 12px;
-                        text-align: center;
-                        color: #6b7280;
-                        font-size: 14px;
-                    }
-
-                    @media (max-width: 1200px) {
-                        .grn-detail-page .grn-main-grid {
-                            grid-template-columns: 1fr;
-                        }
-                    }
-
-                    @media (max-width: 768px) {
-                        .grn-detail-page .grn-summary-grid {
-                            grid-template-columns: 1fr;
-                        }
-
-                        .grn-detail-page .grn-hero-card {
-                            padding: 18px;
-                        }
-                    }
-                `}
-            </style>
-
-            <ConfirmDialog
+        <div
+            className="create-supplier-page"
+            style={{
+                minHeight: 0,
+                height: 'auto',
+                paddingBottom: 0,
+                padding: 16,
+            }}
+        >
+            {/* Dialog xác nhận duyệt/hủy */}
+            <Dialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
                 onConfirm={handleConfirmAction}
@@ -714,28 +561,7 @@ const ViewGoodReceiptNoteDetail = () => {
                             </button>
                         </>
                     )}
-
-                    {showReturnButton && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() =>
-                                navigate(
-                                    `/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`
-                                )
-                            }
-                            disabled={submitting}
-                            style={{
-                                backgroundColor: '#f59e0b',
-                                borderColor: '#f59e0b',
-                                color: '#fff',
-                            }}
-                        >
-                            <RotateCcw size={16} className="btn-icon" />
-                            Trả hàng
-                        </button>
-                    )}
-
+                    {/* Neu la Thủ Kho - hien thi thong bao */}
                     {isWarehouseKeeper && (
                         <div
                             style={{
@@ -753,10 +579,10 @@ const ViewGoodReceiptNoteDetail = () => {
                 </div>
             </div>
 
-            <div className="form-card">
-                <div className="form-wrapper">
-                    <div className="grn-hero-card">
-                        <div className="grn-hero-top">
+            <div className="form-card" style={{ marginBottom: 0, padding: 16 }}>
+                <div className="form-wrapper" style={{ gap: 16 }}>
+                    <div className="form-card-intro">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                             <div>
                                 <h1 className="page-title" style={{ marginBottom: 0 }}>
                                     Chi tiết phiếu nhập kho
@@ -780,18 +606,27 @@ const ViewGoodReceiptNoteDetail = () => {
                         </div>
                     </div>
 
-                    <div className="grn-main-grid">
-                        <div className="grn-left-column">
-                            <SectionCard
-                                title="Chi tiết sản phẩm nhập"
-                                subtitle="Danh sách vật tư đã nhận theo phiếu nhập kho"
-                            >
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'flex-start' }}>
+                        {/* Cột trái: Chi tiết sản phẩm nhập */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+                                <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
+
                                 {grnData.lines.length === 0 ? (
                                     <div className="grn-empty-state">
                                         Chưa có sản phẩm nào trong phiếu nhập kho.
                                     </div>
                                 ) : (
-                                    <div className="grn-table-wrap">
+                                    <div
+                                        className="table-container"
+                                        style={{
+                                            overflowY: 'visible',
+                                            overflowX: 'auto',
+                                            height: 'auto',
+                                            maxHeight: 'none',
+                                            flex: '0 0 auto',
+                                        }}
+                                    >
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
@@ -893,7 +728,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                                         >
                                                             {formatCurrency(
                                                                 (Number(line.unitPrice) || 0) *
-                                                                    (Number(line.receivedQty) || 0)
+                                                                (Number(line.receivedQty) || 0)
                                                             )}
                                                         </td>
                                                         <td style={{ textAlign: 'center' }}>
@@ -942,37 +777,16 @@ const ViewGoodReceiptNoteDetail = () => {
                             </SectionCard>
                         </div>
 
-                        <div className="grn-right-column">
-                            <SectionCard
-                                title="Thông tin phiếu nhập"
-                                subtitle="Thông tin chung của chứng từ và thanh toán"
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 16,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: 12,
-                                        }}
-                                    >
-                                        <div className="form-field">
-                                            <label className="form-label">Nhà cung cấp</label>
-                                            <div className="input-wrapper">
-                                                {Package && <Package className="input-icon" size={16} />}
-                                                <input
-                                                    type="text"
-                                                    value={grnData.supplierName || '-'}
-                                                    readOnly
-                                                    className="form-input"
-                                                    style={{ backgroundColor: '#f5f5f5', fontWeight: 600 }}
-                                                />
-                                            </div>
+                        {/* Cột phải: Thông tin chung + Lịch sử */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <h2 className="section-title">Thông tin chung</h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className="form-field">
+                                        <label className="form-label">Nhân viên tạo</label>
+                                        <div className="input-wrapper">
+                                            <User className="input-icon" size={16} />
+                                            <input type="text" value={grnData.creatorName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                         </div>
 
                                         {grnData.supplierPhone && (
@@ -1294,20 +1108,55 @@ const ViewGoodReceiptNoteDetail = () => {
                                                         ) : null}
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="grn-empty-state" style={{ padding: 0 }}>
-                                            Chưa có lịch sử hiển thị.
-                                        </div>
-                                    )}
+                                            </div>
+                                    ))}
                                 </div>
-                            </SectionCard>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'start', marginTop: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div className="info-section" style={{ margin: 0 }}>
+                        <h2 className="section-title">Nhà cung cấp</h2>
+                        <div className="form-field">
+                            <label className="form-label">Nhà cung cấp</label>
+                            <div className="input-wrapper">
+                                <Package className="input-icon" size={16} />
+                                <input type="text" value={grnData.supplierName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="info-section" style={{ margin: 0 }}>
+                        <h2 className="section-title">Ghi chú</h2>
+                        <div className="form-field">
+                            <label className="form-label">Ghi chú / Lý do nhập kho</label>
+                            <textarea value={grnData.note || ''} readOnly rows={4} className="form-input" style={{ resize: 'vertical', backgroundColor: '#f5f5f5' }} />
+                        </div>
+                    </div>
+
+                    <div className="info-section" style={{ margin: 0 }}>
+                        <h2 className="section-title">Tổng hợp đơn hàng</h2>
+                        <div className="form-grid">
+                            <div className="form-field">
+                                <label className="form-label">Tổng số lượng</label>
+                                <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                    {totalQuantity} sản phẩm
+                                </div>
+                                ) : (
+                                <div className="grn-empty-state" style={{ padding: 0 }}>
+                                    Chưa có lịch sử hiển thị.
+                                </div>
+                                    )}
+                            </div>
+                        </SectionCard>
+                    </div>
+                </div>
+            </div>
         </div>
+        </div >
     );
 };
 
