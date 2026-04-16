@@ -11,7 +11,7 @@ import {
     Button,
     TextField,
 } from '@mui/material';
-import { createUom } from '../lib/uomService';
+import { createUom } from '../../shared/lib/uomService';
 
 const inputSx = {
     '& .MuiOutlinedInput-root': { borderRadius: 2, '& fieldset': { borderColor: 'divider' } },

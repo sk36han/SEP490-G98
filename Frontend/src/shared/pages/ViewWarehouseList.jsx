@@ -22,8 +22,8 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Chip,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import { Plus, Columns, GripVertical, Warehouse as WarehouseIcon, Building2 } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
@@ -36,11 +36,7 @@ import '../styles/ListView.css';
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 const LS_COL_ORDER = 'warehouseColumnOrder';
 
-// ── Status styles ─────────────────────────────────────────────────────────────
-const STATUS_STYLE = {
-    true: { bgColor: 'rgba(16,185,129,0.18)', label: 'Hoạt động', dot: '•' },
-    false: { bgColor: 'rgba(107,114,128,0.15)', label: 'Tắt', dot: '•' },
-};
+// isActive uses StatusBadge via <StatusBadge status={item.isActive} />
 
 // ── Summary Card ──────────────────────────────────────────────────────────────
 const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
@@ -779,33 +775,13 @@ const ViewWarehouseList = () => {
                                                                 );
                                                             }
                                                             if (col.id === 'isActive') {
-                                                                const style = STATUS_STYLE[item.isActive] ?? { bgColor: 'rgba(107,114,128,0.15)', label: '—', dot: '•' };
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                            <Chip
-                                                                                label={`${style.dot} ${style.label}`}
-                                                                                size="small"
-                                                                                sx={{
-                                                                                    fontWeight: 500,
-                                                                                    fontSize: '12px',
-                                                                                    lineHeight: '16px',
-                                                                                    borderRadius: '999px',
-                                                                                    minWidth: 100,
-                                                                                    height: '26px',
-                                                                                    bgcolor: style.bgColor,
-                                                                                    color: '#374151',
-                                                                                    border: 'none',
-                                                                                    boxShadow: 'none',
-                                                                                    '& .MuiChip-label': {
-                                                                                        px: 1.5,
-                                                                                        py: 0,
-                                                                                    },
-                                                                                }}
-                                                                            />
+                                                                            <StatusBadge status={item.isActive} dot="•" variant="dot" />
                                                                         </Box>
                                                                     </TableCell>
                                                                 );

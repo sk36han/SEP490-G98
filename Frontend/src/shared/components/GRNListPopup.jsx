@@ -13,19 +13,11 @@ import {
     Button,
     InputBase,
     CircularProgress,
-    Chip,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import { X, Search, RefreshCw, RotateCcw } from 'lucide-react';
 import { getGoodReceiptNotes } from '../lib/goodReceiptNoteService';
 import { formatDate } from '../lib/dateUtils';
-
-const STATUS_STYLE = {
-    DRAFT:        { bgColor: 'rgba(107,114,128,0.15)', label: 'Bản nháp', color: '#6b7280' },
-    PENDING_ACC: { bgColor: 'rgba(251,191,36,0.20)',  label: 'Đợi duyệt', color: '#b45309' },
-    APPROVED:     { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã duyệt', color: '#047857' },
-    REJECTED:     { bgColor: 'rgba(239,68,68,0.15)',   label: 'Từ chối', color: '#dc2626' },
-    POSTED:       { bgColor: 'rgba(139,92,246,0.15)',  label: 'Đã ghi sổ', color: '#7c3aed' },
-};
 
 const ROWS_PER_PAGE = 10;
 
@@ -183,7 +175,6 @@ const GRNListPopup = ({ open, onClose, onSelect }) => {
                             ) : (
                                 paginatedItems.map((grn, idx) => {
                                     const status = (grn.status || '').toUpperCase();
-                                    const statusStyle = STATUS_STYLE[status] || { bgColor: 'rgba(107,114,128,0.15)', label: grn.status || '-', color: '#6b7280' };
                                     return (
                                         <TableRow
                                             key={grn.grnId || grn.GrnId || idx}
@@ -206,17 +197,7 @@ const GRNListPopup = ({ open, onClose, onSelect }) => {
                                                 {grn.warehouseName || grn.WarehouseName || '-'}
                                             </TableCell>
                                             <TableCell sx={{ px: 2, py: 1.5 }}>
-                                                <Chip
-                                                    label={statusStyle.label}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: statusStyle.bgColor,
-                                                        color: statusStyle.color,
-                                                        fontWeight: 600,
-                                                        fontSize: '11px',
-                                                        height: 22,
-                                                    }}
-                                                />
+                                                <StatusBadge status={status} sx={{ fontWeight: 600, fontSize: '11px', height: 22 }} />
                                             </TableCell>
                                             <TableCell sx={{ px: 2, py: 1.5, textAlign: 'center' }}>
                                                 <Button

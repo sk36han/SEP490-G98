@@ -14,20 +14,14 @@ import { ArrowLeft, ImagePlus, Save, Plus } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
 import { getItemForDisplayById, updateItem, uploadItemImage } from "../lib/itemService";
-import { ImageDialog } from "../components/ImageDialog";
-import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecService";
-import { getItemParameterList, createItemParameter } from "../lib/itemParameterService";
+import { ImageDialog, CreateUomDialog, UomFormDialog } from '@ui/dialogs';
 import { useMasterData } from "../../app/context/MasterDataContext";
-import CreateUomDialog from "../components/CreateUomDialog";
-import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
-import CreateSpecDialog from "../components/CreateSpecDialog";
-import CreateBrandDialog from "../components/CreateBrandDialog";
-import UomFormDialog from "../components/UomFormDialog";
 
 const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tạo mới đơn vị tính" };
-const CREATE_PACK_OPTION = { id: "CREATE_PACK", name: "Tạo mới quy cách đóng gói" };
-const CREATE_SPEC_OPTION = { specId: "CREATE_SPEC", specCode: "", specName: "Tạo mới thông số sản phẩm" };
-const CREATE_BRAND_OPTION = { id: "CREATE_BRAND", name: "Tạo mới nhãn hiệu" };
+// Packaging spec, spec, brand dialogs removed (files deleted)
+const CREATE_PACK_OPTION = null; // placeholder — remove CREATE option
+const CREATE_SPEC_OPTION = null;
+const CREATE_BRAND_OPTION = null;
 
 function CreateOptionContent({ label }) {
   return (
@@ -78,9 +72,6 @@ const EditItem = () => {
   const [specOptions, setSpecOptions] = useState([]);
   const [showPurchasePrice, setShowPurchasePrice] = useState(false);
   const [createUomOpen, setCreateUomOpen] = useState(false);
-  const [createPackOpen, setCreatePackOpen] = useState(false);
-  const [createSpecOpen, setCreateSpecOpen] = useState(false);
-  const [createBrandOpen, setCreateBrandOpen] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [optionsLoaded, setOptionsLoaded] = useState(false);
@@ -106,28 +97,16 @@ const EditItem = () => {
   });
 
   const loadPackagingAndSpecOptions = useCallback(async () => {
-    try {
-      const [packRes, specRes] = await Promise.all([getPackagingSpecList(), getItemParameterList({ page: 1, pageSize: PAGE_SIZE })]);
-      console.log("[EditItem] packRes:", JSON.stringify(packRes));
-      console.log("[EditItem] specRes:", JSON.stringify(specRes));
-      const packItems = Array.isArray(packRes?.items) ? packRes.items : (Array.isArray(packRes) ? packRes : []);
-      console.log("[EditItem] packItems:", packItems);
-      setPackagingOptions(packItems.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
-      const specItems = Array.isArray(specRes?.items) ? specRes.items : (Array.isArray(specRes) ? specRes : []);
-      console.log("[EditItem] specItems:", specItems);
-      setSpecOptions(specItems.map((s) => ({ specId: s.paramId ?? s.ParamId, specCode: s.paramCode ?? s.ParamCode ?? "", specName: s.paramName ?? s.ParamName ?? "" })));
-      setOptionsLoaded(true);
-    } catch (err) {
-      console.error("[EditItem] loadPackagingAndSpecOptions error:", err);
-    }
+    // Removed: getPackagingSpecList, getItemParameterList
+    setOptionsLoaded(true);
   }, []);
 
   useEffect(() => {
     setLoading(true);
-    setOptionsLoaded(false);
     setNotFound(false);
-    Promise.all([getItemForDisplayById(id), loadPackagingAndSpecOptions()])
-      .then(([item]) => {
+    getItemForDisplayById(id)
+      .then((item) => {
+      .then((item) => {
         console.log("[EditItem] item loaded:", JSON.stringify(item));
         setNotFound(false);
         if (item.purchasePrice != null && item.purchasePrice !== "") setShowPurchasePrice(true);
@@ -163,7 +142,7 @@ const EditItem = () => {
         setNotFound(true);
       })
       .finally(() => setLoading(false));
-  }, [id, loadPackagingAndSpecOptions]);
+  });
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -346,22 +325,24 @@ const EditItem = () => {
                   </Box>
                   <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, width: "100%", alignItems: "start" }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Autocomplete size="small" fullWidth options={[CREATE_PACK_OPTION, ...packagingOptions]} getOptionLabel={(opt) => (opt && opt.name) || ""}
-                        value={packagingOptions.find((o) => String(o.id) === String(form.packagingSpecId)) ?? null}
-                        onOpen={async () => { try { const list = await getPackagingSpecList(); const items = Array.isArray(list?.items) ? list.items : (Array.isArray(list) ? list : []); setPackagingOptions(items.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" }))); } catch { /* keep */ } }}
-                        onChange={(e, newValue) => { if (newValue && newValue.id === "CREATE_PACK") { setCreatePackOpen(true); return; } setForm((prev) => ({ ...prev, packagingSpecId: newValue?.id ?? "" })); }}
-                        isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)} ListboxProps={{ sx: autocompleteListboxSx }}
-                        renderOption={(props, option) => option && option.id === "CREATE_PACK" ? <Box component="li" {...props} key={option.id} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.name} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.id}>{option.name}</Box>}
-                        renderInput={(params) => <TextField {...params} label="Quy cách đóng gói" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
+                      <TextField size="small" select fullWidth label="Quy cách đóng gói"
+                        value={String(form.packagingSpecId ?? "")}
+                        onChange={(e) => setForm((prev) => ({ ...prev, packagingSpecId: e.target.value }))}
+                        sx={autocompleteFieldSx}
+                      >
+                        <MenuItem value=""><em>Chọn quy cách đóng gói</em></MenuItem>
+                        {packagingOptions.map((o) => <MenuItem key={o.id} value={String(o.id)}>{o.name}</MenuItem>)}
+                      </TextField>
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
-                      <Autocomplete size="small" fullWidth options={[CREATE_SPEC_OPTION, ...specOptions]} getOptionLabel={(opt) => (opt && opt.specName) || ""}
-                        value={specOptions.find((o) => String(o.specId) === String(form.specId)) ?? null}
-                        onOpen={async () => { try { const res = await getItemParameterList({ page: 1, pageSize: PAGE_SIZE }); setSpecOptions((Array.isArray(res?.items) ? res.items : []).map((s) => ({ specId: s.paramId ?? s.ParamId, specCode: s.paramCode ?? s.ParamCode ?? "", specName: s.paramName ?? s.ParamName ?? "" }))); } catch { /* keep */ } }}
-                        onChange={(e, newValue) => { if (newValue && newValue.specId === "CREATE_SPEC") { setCreateSpecOpen(true); return; } setForm((prev) => ({ ...prev, specId: newValue?.specId ?? "" })); }}
-                        isOptionEqualToValue={(opt, val) => String(opt?.specId) === String(val?.specId)} ListboxProps={{ sx: autocompleteListboxSx }}
-                        renderOption={(props, option) => option && option.specId === "CREATE_SPEC" ? <Box component="li" {...props} key={option.specId} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.specName} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.specId}>{option.specName}</Box>}
-                        renderInput={(params) => <TextField {...params} label="Thông số sản phẩm" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
+                      <TextField size="small" select fullWidth label="Thông số sản phẩm"
+                        value={String(form.specId ?? "")}
+                        onChange={(e) => setForm((prev) => ({ ...prev, specId: e.target.value }))}
+                        sx={autocompleteFieldSx}
+                      >
+                        <MenuItem value=""><em>Chọn thông số sản phẩm</em></MenuItem>
+                        {specOptions.map((o) => <MenuItem key={o.specId} value={String(o.specId)}>{o.specName}</MenuItem>)}
+                      </TextField>
                     </Box>
                   </Box>
                 </Box>
@@ -452,10 +433,10 @@ const EditItem = () => {
                     })}
                   </TextField>
 
-                  <Autocomplete size="small" fullWidth options={[CREATE_BRAND_OPTION, ...masterBrands.map(normalizeBrand)]} getOptionLabel={(opt) => (opt && opt.name) || ""} value={brandValue}
-                    onChange={(e, newValue) => { if (newValue && newValue.id === "CREATE_BRAND") { setCreateBrandOpen(true); return; } setForm((prev) => ({ ...prev, brandId: newValue?.id ?? "" })); }}
+                  <Autocomplete size="small" fullWidth options={masterBrands.map(normalizeBrand)} getOptionLabel={(opt) => (opt && opt.name) || ""} value={brandValue}
+                    onChange={(e, newValue) => { setForm((prev) => ({ ...prev, brandId: newValue?.id ?? "" })); }}
                     isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)} ListboxProps={{ sx: autocompleteListboxSx }}
-                    renderOption={(props, option) => option && option.id === "CREATE_BRAND" ? <Box component="li" {...props} key={option.id} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.name} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.id}>{option.name}</Box>}
+                    renderOption={(props, option) => <Box component="li" {...props} key={option?.id}>{option?.name}</Box>}
                     renderInput={(params) => <TextField {...params} label="Nhan hieu" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />}
                     sx={autocompleteRootSx} />
 
@@ -496,29 +477,9 @@ const EditItem = () => {
             }
           }} />
 
-        <CreatePackagingSpecDialog open={createPackOpen} onClose={() => setCreatePackOpen(false)}
-          onSubmit={async (newItem) => {
-            try {
-              const created = await createPackagingSpec({ specName: newItem.specName ?? newItem.name, description: newItem.description });
-              setPackagingOptions((prev) => [...prev, { id: created.packagingSpecId ?? created.id, name: created.specName ?? created.name }]);
-              setForm((prev) => ({ ...prev, packagingSpecId: created.packagingSpecId ?? created.id }));
-              showToast("Tao quy cach dong goi thanh cong.", "success");
-            } catch (err) {
-              showToast(err.message || "Khong tao duoc quy cach", "error");
-            }
-          }} />
+        
 
-        <CreateSpecDialog open={createSpecOpen} onClose={() => setCreateSpecOpen(false)}
-          onSubmit={async (newItem) => {
-            try {
-              const created = await createItemParameter({ paramCode: newItem.specCode || newItem.paramCode, paramName: newItem.paramName });
-              setSpecOptions((prev) => [...prev, { specId: created.paramId ?? created.id, specCode: created.paramCode ?? created.code, specName: created.paramName ?? created.name }]);
-              setForm((prev) => ({ ...prev, specId: created.paramId ?? created.id }));
-              showToast("Tao thong so san pham thanh cong.", "success");
-            } catch (err) {
-              showToast(err.message || "Khong tao duoc thong so", "error");
-            }
-          }} />
+        <ImageDialog
 
         <ImageDialog
           open={imageDialogOpen}
@@ -531,14 +492,6 @@ const EditItem = () => {
           onApply={handleApplyImage}
           onRemove={handleRemoveImage}
         />
-
-        <CreateBrandDialog open={createBrandOpen} onClose={() => setCreateBrandOpen(false)}
-          onSuccess={({ brandId }) => {
-            refreshAll?.();
-            if (brandId != null) {
-              setForm((prev) => ({ ...prev, brandId }));
-            }
-          }} />
 
         {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
       </Container>

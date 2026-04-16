@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-} from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
     Send,
@@ -415,65 +410,33 @@ const StocktakeReport = () => {
                 </form>
             </div>
 
-            {/* Toast Notification */}
-            {/* Confirm Dialog - Xác nhận điều chỉnh tồn kho */}
-            <Dialog
-                open={sendDialogOpen}
-                onClose={() => setSendDialogOpen(false)}
-                fullWidth
-                maxWidth="xs"
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '480px',
-                        borderRadius: '16px',
-                        border: '1px solid var(--slate-200, #e5e7eb)',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                    },
-                }}
-            >
-                <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
-                    Xác nhận điều chỉnh tồn kho
-                </DialogTitle>
-                <DialogContent sx={{ px: 3, pb: 2 }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
-                        Xác nhận đủ số lượng và điều chỉnh số lượng tồn kho. Bạn có muốn tiếp tục?
-                    </p>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
-                    <button
-                        type="button"
-                        onClick={() => setSendDialogOpen(false)}
-                        className="btn btn-cancel"
-                        style={{ minWidth: '72px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={async () => {
-                            setSendDialogOpen(false);
-                            try {
-                                setSubmitting(true);
-                                await new Promise(resolve => setTimeout(resolve, 1500));
-                                showToast('Xác nhận điều chỉnh số lượng tồn kho thành công!', 'success');
-                            } catch (error) {
-                                showToast('Có lỗi xảy ra khi xác nhận', 'error');
-                            } finally {
-                                setSubmitting(false);
-                            }
-                        }}
-                        style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}
-                    >
-                        Xác nhận
-                    </button>
-                </DialogActions>
-            </Dialog>
+            
 
             {toast && (
                 <Toast message={toast.message} type={toast.type} onClose={clearToast} />
             )}
+
+            <ConfirmDialog
+                open={sendDialogOpen}
+                onClose={() => setSendDialogOpen(false)}
+                onConfirm={async () => {
+                    setSendDialogOpen(false);
+                    try {
+                        setSubmitting(true);
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        showToast('Xác nhận điều chỉnh số lượng tồn kho thành công!', 'success');
+                    } catch (error) {
+                        showToast('Có lỗi xảy ra khi xác nhận', 'error');
+                    } finally {
+                        setSubmitting(false);
+                    }
+                }}
+                title="Xác nhận điều chỉnh tồn kho"
+                message="Xác nhận đủ số lượng và điều chỉnh số lượng tồn kho. Bạn có muốn tiếp tục?"
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={submitting}
+            />
         </div>
     );
 };

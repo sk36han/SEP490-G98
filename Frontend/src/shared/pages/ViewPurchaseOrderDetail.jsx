@@ -8,13 +8,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Button,
     Chip,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
     CheckCircle,
@@ -691,135 +688,39 @@ const ViewPurchaseOrderDetail = () => {
 
     return (
         <div className="create-supplier-page" style={styles.page}>
-            <Dialog
+            <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
-                fullWidth
-                maxWidth="sm"
-                disableEscapeKeyDown={submitting}
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '560px',
-                        borderRadius: '18px',
-                        border: '1px solid #e5e7eb',
-                        boxShadow: '0 10px 28px rgba(15, 23, 42, 0.14)',
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        px: 3,
-                        pt: 2.5,
-                        pb: 1.5,
-                        fontWeight: 800,
-                        fontSize: '18px',
-                        color: '#111827',
-                        borderBottom: '1px solid #f3f4f6',
-                    }}
-                >
-                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
-                </DialogTitle>
-
-                <DialogContent sx={{ px: 3, py: 2.5 }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.7 }}>
-                        {confirmDialogType === 'approve'
-                            ? 'Bạn có chắc chắn muốn duyệt đơn mua hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
-                            : 'Bạn có chắc chắn muốn từ chối đơn mua hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
-                    </p>
-
-                    {confirmDialogType === 'reject' && (
-                        <div style={{ marginTop: 18 }}>
-                            <label
-                                style={{
-                                    display: 'block',
-                                    fontSize: '14px',
-                                    fontWeight: 600,
-                                    color: '#374151',
-                                    marginBottom: '8px',
-                                }}
-                            >
-                                Lý do từ chối <span style={{ color: '#ef4444' }}>*</span>
-                            </label>
-                            <textarea
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                disabled={submitting}
-                                rows={4}
-                                placeholder="Nhập lý do từ chối đơn hàng"
-                                maxLength={250}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 14px',
-                                    borderRadius: '12px',
-                                    border: '1px solid #d1d5db',
-                                    fontSize: '14px',
-                                    resize: 'vertical',
-                                    outline: 'none',
-                                    fontFamily: 'inherit',
-                                    boxSizing: 'border-box',
-                                    backgroundColor: '#ffffff',
-                                }}
-                            />
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'flex-end',
-                                    fontSize: '12px',
-                                    color: rejectionReason.length >= 250 ? '#ef4444' : '#6b7280',
-                                    marginTop: '6px',
-                                }}
-                            >
-                                {rejectionReason.length}/250 ký tự
-                            </div>
+                onConfirm={handleConfirmAction}
+                title={confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
+                message={confirmDialogType === 'approve'
+                    ? 'Bạn có chắc chắn muốn duyệt đơn mua hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
+                    : 'Bạn có chắc chắn muốn từ chối đơn mua hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
+                content={confirmDialogType === 'reject' && (
+                    <div style={{ marginTop: 18 }}>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+                            Lý do từ chối <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            disabled={submitting}
+                            rows={4}
+                            placeholder="Nhập lý do từ chối đơn hàng"
+                            maxLength={250}
+                            style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '14px', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', backgroundColor: '#ffffff' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: rejectionReason.length >= 250 ? '#ef4444' : '#6b7280', marginTop: '6px' }}>
+                            {rejectionReason.length}/250 ký tự
                         </div>
-                    )}
-                </DialogContent>
-
-                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5, borderTop: '1px solid #f3f4f6' }}>
-                    <Button
-                        onClick={closeConfirmDialog}
-                        disabled={submitting}
-                        sx={{
-                            minWidth: '72px',
-                            height: 40,
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            color: '#6b7280',
-                            backgroundColor: 'transparent',
-                            boxShadow: 'none',
-                            '&:hover': { backgroundColor: 'transparent', color: '#4b5563' },
-                        }}
-                    >
-                        Hủy
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmAction}
-                        disabled={confirmDialogType === 'reject' && !rejectionReason.trim()}
-                        sx={{
-                            minWidth: '110px',
-                            height: 42,
-                            borderRadius: '12px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 800,
-                            backgroundColor: confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor: confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
-                                boxShadow: 'none',
-                            },
-                            '&:disabled': { backgroundColor: '#bae6fd', color: '#ffffff' },
-                        }}
-                    >
-                        {submitting ? 'Đang xử lý...' : 'Xác nhận'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                    </div>
+                )}
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={submitting}
+                confirmDanger={confirmDialogType === 'reject'}
+                confirmDisabled={confirmDialogType === 'reject' && !rejectionReason.trim()}
+            />
 
             <div className="page-header">
                 <div className="page-header-left">

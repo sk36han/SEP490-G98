@@ -53,8 +53,8 @@ import Toast from '../../../components/Toast/Toast';
 import { useToast } from '../../hooks/useToast';
 import SearchInput from '../../components/SearchInput';
 import AlertFilterPopup from '../../components/AlertFilterPopup';
-import CreateAlertDialog from '../../components/CreateAlertDialog';
-import AlertDetailDialog from '../../components/AlertDetailDialog';
+import { default as CreateAlertDialog } from '@ui/dialogs/CreateAlert';
+import { default as AlertDetailDialog } from '@ui/dialogs/AlertDetailDialog';
 import { getItemWarehousePolicyList } from '../../lib/itemWarehousePolicyService';
 import '../../styles/ListView.css';
 

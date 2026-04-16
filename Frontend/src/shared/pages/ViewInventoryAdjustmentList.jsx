@@ -24,9 +24,9 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Chip,
 } from '@mui/material';
 import { Filter, Columns, GripVertical, Package, SlidersHorizontal } from 'lucide-react';
+import { StatusBadge } from '@ui/badges';
 import SearchInput from '../components/SearchInput';
 import InventoryAdjustmentFilterPopup from '../components/InventoryAdjustmentFilterPopup';
 import { formatDateTimeLines } from '../lib/dateUtils';
@@ -195,38 +195,6 @@ const selectionBodyCellSx = {
     px: 0,
     textAlign: 'center',
     verticalAlign: 'middle',
-};
-
-const ADJUSTMENT_STATUS_STYLE = {
-    DRAFT: {
-        bgColor: 'rgba(107, 114, 128, 0.2)',
-        label: 'Nháp',
-        dot: '•'
-    },
-    PENDING_DIR: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        label: 'Chờ duyệt',
-        dot: '•'
-    },
-    APPROVED: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Đã duyệt',
-        dot: '•'
-    },
-    POSTED: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Đã ghi sổ',
-        dot: '•'
-    },
-    REJECTED: {
-        bgColor: 'rgba(239, 68, 68, 0.2)',
-        label: 'Từ chối',
-        dot: '•'
-    },
-};
-
-const getStatusConfig = (status) => {
-    return ADJUSTMENT_STATUS_STYLE[status] || { bgColor: 'rgba(107, 114, 128, 0.2)', label: status, dot: '•' };
 };
 
 const ViewInventoryAdjustmentList = () => {
@@ -1007,40 +975,13 @@ const ViewInventoryAdjustmentList = () => {
                                                                 );
                                                             }
                                                             if (col.id === 'status') {
-                                                                const style = getStatusConfig(item.status);
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                            <Chip
-                                                                                label={`${style.dot} ${style.label}`}
-                                                                                size="small"
-                                                                                sx={{
-                                                                                    fontWeight: 500,
-                                                                                    fontSize: '12px',
-                                                                                    lineHeight: '16px',
-                                                                                    borderRadius: '999px',
-                                                                                    minWidth: 100,
-                                                                                    height: '26px',
-                                                                                    bgcolor: style.bgColor,
-                                                                                    color: '#374151',
-                                                                                    border: 'none',
-                                                                                    textAlign: 'left',
-                                                                                    justifyContent: 'flex-start',
-                                                                                    '& .MuiChip-label': {
-                                                                                        px: 1.5,
-                                                                                        py: 0,
-                                                                                        textAlign: 'left',
-                                                                                    },
-                                                                                    boxShadow: 'none',
-                                                                                    '& .MuiChip-label': {
-                                                                                        px: 1.5,
-                                                                                        py: 0,
-                                                                                    },
-                                                                                }}
-                                                                            />
+                                                                            <StatusBadge status={item.status} dot="•" variant="dot" />
                                                                         </Box>
                                                                     </TableCell>
                                                                 );

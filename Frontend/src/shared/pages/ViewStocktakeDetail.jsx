@@ -1,16 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    CircularProgress,
-} from '@mui/material';
+import { CircularProgress } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
-    Package,
-    ImageIcon,
     User,
     Warehouse,
     Calendar,
@@ -231,18 +224,6 @@ const ViewStocktakeDetail = () => {
     const handleMarkAllSufficient = () => {
         if (selectedLineIds.length === 0) return;
         setPendingMarkSufficient(true);
-    };
-
-    const confirmMarkSufficient = async () => {
-        try {
-            await bulkMatchSystemQty(id);
-            await reloadLines();
-            setSelectedLineIds([]);
-            setPendingMarkSufficient(false);
-            showToast('Đã khớp số lượng hàng loạt!', 'success');
-        } catch (err) {
-            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi khớp số lượng.', 'error');
-        }
     };
 
     const hasValue = (val) => val !== null && val !== undefined && val !== '';
@@ -1085,25 +1066,43 @@ const ViewStocktakeDetail = () => {
                 </form>
             </div>
 
-            {/* Confirm dialog for marking all sufficient */}
-            <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>
-                    {pendingMarkSufficient ? 'Xác nhận khớp số lượng' : 'Không thể thoát'}
-                </DialogTitle>
-                <DialogContent>
-                    {pendingMarkSufficient ? (
-                        <>Bạn có chắc muốn đánh dấu {selectedLineIds.length} vật tư đã chọn là "đủ" (số thực tế = số hệ thống)?</>
-                    ) : isCounting ? (
-                        <>Đang trong quá trình kiểm kê, không được thoát khỏi trang này. Vui lòng kết thúc kiểm kê trước khi quay lại.</>
-                    ) : null}
-                </DialogContent>
-                <DialogActions>
-                    <button type="button" className="btn btn-cancel" onClick={() => setConfirmDialogOpen(false)}>Hủy</button>
-                    {pendingMarkSufficient && (
-                        <button type="button" className="btn btn-primary" onClick={confirmMarkSufficient}>Xác nhận</button>
-                    )}
-                </DialogActions>
-            </Dialog>
+            {/* Confirm dialog: marking all sufficient */}
+            {confirmDialogOpen && pendingMarkSufficient && (
+                <ConfirmDialog
+                    open={confirmDialogOpen}
+                    onClose={() => {
+                        setConfirmDialogOpen(false);
+                        setPendingMarkSufficient(false);
+                    }}
+                    onConfirm={async () => {
+                        setConfirmDialogOpen(false);
+                        setPendingMarkSufficient(false);
+                        try {
+                            await bulkMatchSystemQty(id);
+                            await reloadLines();
+                            setSelectedLineIds([]);
+                            showToast('Đã khớp số lượng hàng loạt!', 'success');
+                        } catch (err) {
+                            showToast(err?.response?.data?.message || err?.message || 'Lỗi khi khớp số lượng.', 'error');
+                        }
+                    }}
+                    title="Xác nhận khớp số lượng"
+                    message={`Bạn có chắc muốn đánh dấu ${selectedLineIds.length} vật tư đã chọn là "đủ" (số thực tế = số hệ thống)?`}
+                    confirmText="Xác nhận"
+                />
+            )}
+
+            {/* Confirm dialog: cannot exit during counting */}
+            {confirmDialogOpen && isCounting && (
+                <ConfirmDialog
+                    open={confirmDialogOpen}
+                    onClose={() => setConfirmDialogOpen(false)}
+                    title="Không thể thoát"
+                    message="Đang trong quá trình kiểm kê, không được thoát khỏi trang này. Vui lòng kết thúc kiểm kê trước khi quay lại."
+                    confirmText="Đóng"
+                    onConfirm={() => setConfirmDialogOpen(false)}
+                />
+            )}
 
             {/* Toast Notification */}
             {toast && (

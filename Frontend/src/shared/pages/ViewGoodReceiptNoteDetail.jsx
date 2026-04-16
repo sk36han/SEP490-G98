@@ -8,14 +8,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatDateTime, formatDateOnly, formatTimeOnly } from '../lib/dateUtils';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Button,
     Switch,
     TextField,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
     MapPin,
@@ -602,240 +599,86 @@ const ViewGoodReceiptNoteDetail = () => {
                 `}
             </style>
 
-            <Dialog
+            <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
-                fullWidth
-                maxWidth="sm"
-                disableEscapeKeyDown={submitting}
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '620px',
-                        borderRadius: '16px',
-                        border: '1px solid #e5e7eb',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                        overflow: 'hidden',
-                        m: 2,
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        fontWeight: 700,
-                        color: '#111827',
-                        borderBottom: '1px solid #eef2f7',
-                    }}
-                >
-                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt phiếu' : 'Xác nhận hủy phiếu'}
-                </DialogTitle>
-
-                <DialogContent sx={{ px: 3, py: 2 }}>
-                    <div style={{ marginBottom: 16 }}>
-                        <span style={{ fontSize: 14, color: '#4b5563' }}>
-                            {confirmDialogType === 'approve'
-                                ? 'Bạn có chắc chắn muốn duyệt phiếu nhập kho này không?'
-                                : 'Bạn có chắc chắn muốn hủy phiếu nhập kho này không?'}
-                        </span>
-                    </div>
-
-                    {confirmDialogType === 'approve' && isPaymentEditor && (
-                        <>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    marginBottom: 12,
-                                    padding: 12,
-                                    backgroundColor: '#f9fafb',
-                                    borderRadius: 8,
-                                }}
-                            >
-                                <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                                    Đã thanh toán?
-                                </span>
-                                <Switch
-                                    checked={isPaid}
-                                    onChange={(e) => setIsPaid(e.target.checked)}
-                                    disabled={submitting}
-                                />
-                            </div>
-
-                            {isPaid && (
-                                <div style={{ marginBottom: 16 }}>
-                                    <label
-                                        style={{
-                                            display: 'block',
-                                            fontSize: 14,
-                                            fontWeight: 500,
-                                            color: '#374151',
-                                            marginBottom: 8,
-                                        }}
-                                    >
-                                        Phương thức thanh toán
-                                    </label>
-                                    <select
-                                        value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
-                                        disabled={submitting}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 12px',
-                                            borderRadius: 8,
-                                            border: '1px solid #d1d5db',
-                                            fontSize: 14,
-                                            backgroundColor: '#fff',
-                                        }}
-                                    >
-                                        <option value="cash">Tiền mặt</option>
-                                        <option value="bank_transfer">Chuyển khoản</option>
-                                        <option value="credit">Credit</option>
-                                    </select>
-                                </div>
-                            )}
-
-                            <div
-                                style={{
-                                    marginBottom: 16,
-                                    padding: 12,
-                                    backgroundColor: '#fef3c7',
-                                    borderRadius: 8,
-                                    border: '1px solid #fcd34d',
-                                }}
-                            >
-                                <span style={{ fontSize: 13, color: '#92400e' }}>
-                                    Sau khi duyệt, tồn kho sẽ được cập nhật và không thể hoàn tác.
-                                </span>
-                            </div>
-                        </>
-                    )}
-
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: 12,
-                            padding: 12,
-                            backgroundColor: '#f9fafb',
-                            borderRadius: 8,
-                        }}
-                    >
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                            Kèm lý do
-                        </span>
-                        <Switch
-                            checked={includeReason}
-                            onChange={(e) => setIncludeReason(e.target.checked)}
-                            disabled={submitting}
-                        />
-                    </div>
-
-                    {confirmDialogType === 'reject' && (
-                        <div
-                            style={{
-                                marginBottom: 16,
-                                padding: 12,
-                                backgroundColor: '#fef3c7',
-                                borderRadius: 8,
-                                border: '1px solid #fcd34d',
-                            }}
-                        >
-                            <span style={{ fontSize: 13, color: '#92400e' }}>
-                                Bắt buộc nhập lý do từ chối phiếu nhập kho.
+                onConfirm={handleConfirmAction}
+                title={confirmDialogType === 'approve' ? 'Xác nhận duyệt phiếu' : 'Xác nhận hủy phiếu'}
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={submitting}
+                confirmDanger={confirmDialogType === 'reject'}
+                confirmDisabled={!canConfirmAction}
+                content={
+                    <>
+                        <div style={{ marginBottom: 16 }}>
+                            <span style={{ fontSize: 14, color: '#4b5563' }}>
+                                {confirmDialogType === 'approve'
+                                    ? 'Bạn có chắc chắn muốn duyệt phiếu nhập kho này không?'
+                                    : 'Bạn có chắc chắn muốn hủy phiếu nhập kho này không?'}
                             </span>
                         </div>
-                    )}
 
-                    {includeReason && (
-                        <>
-                            <TextField
-                                label="Lý do"
-                                multiline
-                                rows={3}
-                                fullWidth
-                                value={reasonText}
-                                onChange={(e) => setReasonText(e.target.value)}
-                                disabled={submitting}
-                                inputProps={{ maxLength: MAX_REASON_LENGTH }}
-                                placeholder={
-                                    confirmDialogType === 'approve'
-                                        ? 'Nhập lý do duyệt'
-                                        : 'Nhập lý do hủy'
-                                }
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                            />
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'flex-end',
-                                    fontSize: 12,
-                                    color:
-                                        reasonText.length >= MAX_REASON_LENGTH
-                                            ? '#ef4444'
-                                            : '#6b7280',
-                                    marginTop: 4,
-                                }}
-                            >
-                                {reasonText.length}/{MAX_REASON_LENGTH} ký tự
+                        {confirmDialogType === 'approve' && isPaymentEditor && (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
+                                    <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>Đã thanh toán?</span>
+                                    <Switch checked={isPaid} onChange={(e) => setIsPaid(e.target.checked)} disabled={submitting} />
+                                </div>
+                                {isPaid && (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>Phương thức thanh toán</label>
+                                        <select
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            disabled={submitting}
+                                            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, backgroundColor: '#fff' }}
+                                        >
+                                            <option value="cash">Tiền mặt</option>
+                                            <option value="bank_transfer">Chuyển khoản</option>
+                                            <option value="credit">Credit</option>
+                                        </select>
+                                    </div>
+                                )}
+                                <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8, border: '1px solid #fcd34d' }}>
+                                    <span style={{ fontSize: 13, color: '#92400e' }}>Sau khi duyệt, tồn kho sẽ được cập nhật và không thể hoàn tác.</span>
+                                </div>
+                            </>
+                        )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>Kèm lý do</span>
+                            <Switch checked={includeReason} onChange={(e) => setIncludeReason(e.target.checked)} disabled={submitting} />
+                        </div>
+
+                        {confirmDialogType === 'reject' && (
+                            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8, border: '1px solid #fcd34d' }}>
+                                <span style={{ fontSize: 13, color: '#92400e' }}>Bắt buộc nhập lý do từ chối phiếu nhập kho.</span>
                             </div>
-                        </>
-                    )}
-                </DialogContent>
+                        )}
 
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2,
-                        borderTop: '1px solid #eef2f7',
-                    }}
-                >
-                    <Button
-                        onClick={closeConfirmDialog}
-                        disabled={submitting}
-                        sx={{
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            color: '#6b7280',
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmAction}
-                        disabled={!canConfirmAction}
-                        sx={{
-                            minWidth: '110px',
-                            height: 40,
-                            px: 2,
-                            borderRadius: '12px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            backgroundColor:
-                                confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor:
-                                    confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
-                                boxShadow: 'none',
-                            },
-                            '&:disabled': {
-                                backgroundColor: '#bae6fd',
-                                color: '#ffffff',
-                            },
-                        }}
-                    >
-                        {submitting ? 'Đang xử lý...' : 'Xác nhận'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                        {includeReason && (
+                            <>
+                                <TextField
+                                    label="Lý do"
+                                    multiline
+                                    rows={3}
+                                    fullWidth
+                                    value={reasonText}
+                                    onChange={(e) => setReasonText(e.target.value)}
+                                    disabled={submitting}
+                                    inputProps={{ maxLength: MAX_REASON_LENGTH }}
+                                    placeholder={confirmDialogType === 'approve' ? 'Nhập lý do duyệt' : 'Nhập lý do hủy'}
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, color: reasonText.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: 4 }}>
+                                    {reasonText.length}/{MAX_REASON_LENGTH} ký tự
+                                </div>
+                            </>
+                        )}
+                    </>
+                }
+            />
 
             <div className="page-header">
                 <div className="page-header-left">

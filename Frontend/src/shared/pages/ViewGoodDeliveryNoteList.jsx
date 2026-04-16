@@ -22,7 +22,6 @@ import {
     FormGroup,
     FormControlLabel,
     Checkbox,
-    Chip,
     TableSortLabel,
     CircularProgress,
     Alert,
@@ -30,6 +29,7 @@ import {
     Select,
     MenuItem,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import { FileText, Filter, Columns, Plus, GripVertical, RotateCcw, Package } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
@@ -88,76 +88,6 @@ const normalizeGdnStatus = (status) => {
     };
 
     return aliasMap[normalized] || normalized;
-};
-
-const STATUS_STYLE = {
-    DRAFT: {
-        bgColor: 'rgba(107, 114, 128, 0.2)',
-        color: '#4b5563',
-        label: 'Nháp',
-        dot: '•',
-    },
-    PENDING_ACC: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        color: '#b45309',
-        label: 'Chờ kế toán duyệt',
-        dot: '•',
-    },
-    PENDING_DIR: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        color: '#b45309',
-        label: 'Chờ giám đốc duyệt',
-        dot: '•',
-    },
-    PENDING_ISSUE: {
-        bgColor: 'rgba(14, 165, 233, 0.18)',
-        color: '#0369a1',
-        label: 'Chờ xuất hàng',
-        dot: '•',
-    },
-    APPROVED: {
-        bgColor: 'rgba(16, 185, 129, 0.18)',
-        color: '#047857',
-        label: 'Đã duyệt',
-        dot: '•',
-    },
-    ISSUED: {
-        bgColor: 'rgba(139, 92, 246, 0.18)',
-        color: '#6d28d9',
-        label: 'Đã xuất hàng',
-        dot: '•',
-    },
-    POSTED: {
-        bgColor: 'rgba(59, 130, 246, 0.18)',
-        color: '#1d4ed8',
-        label: 'Đã ghi sổ',
-        dot: '•',
-    },
-    REJECTED: {
-        bgColor: 'rgba(239, 68, 68, 0.18)',
-        color: '#b91c1c',
-        label: 'Từ chối',
-        dot: '•',
-    },
-    CANCELLED: {
-        bgColor: 'rgba(239, 68, 68, 0.18)',
-        color: '#b91c1c',
-        label: 'Đã hủy',
-        dot: '•',
-    },
-};
-
-const getGdnStatusMeta = (status) =>
-    STATUS_STYLE[normalizeGdnStatus(status)] || {
-        bgColor: 'rgba(107, 114, 128, 0.15)',
-        color: '#4b5563',
-        label: status || '-',
-        dot: '•',
-    };
-
-const PAYMENT_STYLE = {
-    paid: { bgColor: 'rgba(16, 185, 129, 0.2)', label: 'Đã thanh toán', dot: '•' },
-    unpaid: { bgColor: 'rgba(251, 191, 36, 0.2)', label: 'Chưa thanh toán', dot: '•' },
 };
 
 const GDN_COLUMNS = [
@@ -956,20 +886,10 @@ export default function ViewGoodDeliveryNoteList() {
                                                     }
 
                                                     if (col.id === 'status') {
-                                                        const style = getGdnStatusMeta(row.status);
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip
-                                                                        label={`${style.dot} ${style.label}`}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            fontWeight: 500, fontSize: '12px', lineHeight: '16px', borderRadius: '999px',
-                                                                            minWidth: 140, height: '26px', bgcolor: style.bgColor, color: '#374151',
-                                                                            border: 'none', boxShadow: 'none',
-                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-                                                                        }}
-                                                                    />
+                                                                    <StatusBadge status={row.status} variant="dot" dot="•" sx={{ minWidth: 140 }} />
                                                                 </Box>
                                                             </TableCell>
                                                         );
@@ -1009,20 +929,10 @@ export default function ViewGoodDeliveryNoteList() {
 
                                                     if (col.id === 'paymentDisplay') {
                                                         const paymentKey = row.isPaid ? 'paid' : 'unpaid';
-                                                        const pStyle = PAYMENT_STYLE[paymentKey] ?? { bgColor: 'rgba(107, 114, 128, 0.2)', label: getPaymentDisplay(row), dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip
-                                                                        label={`${pStyle.dot} ${pStyle.label}`}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            fontWeight: 500, fontSize: '12px', lineHeight: '16px', borderRadius: '999px',
-                                                                            minWidth: 140, height: '26px', bgcolor: pStyle.bgColor, color: '#374151',
-                                                                            border: 'none', boxShadow: 'none',
-                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-                                                                        }}
-                                                                    />
+                                                                    <StatusBadge status={paymentKey} variant="dot" dot="•" sx={{ minWidth: 140 }} />
                                                                 </Box>
                                                             </TableCell>
                                                         );

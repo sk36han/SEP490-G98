@@ -7,12 +7,13 @@ import {
     CheckCircle, XCircle, Truck,
 } from 'lucide-react';
 import {
-    Box, Typography, Chip, CircularProgress,
+    Box, Typography, CircularProgress,
     Table, TableHead, TableBody, TableRow, TableCell,
     TableContainer, Paper,
-    Dialog, DialogTitle, DialogContent, DialogActions,
     TextField,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
+import { StatusBadge } from '@ui/badges';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
@@ -41,41 +42,10 @@ function formatAddress(address, ward, district, city) {
     return parts.length ? parts.join(', ') : '';
 }
 
-const STATUS_STYLE = {
-    DRAFT:        { bg: 'rgba(107,114,128,0.15)', color: '#374151', label: 'Nháp' },
-    PENDING_ACC:  { bg: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Chờ duyệt' },
-    APPROVED:     { bg: 'rgba(16,185,129,0.18)', color: '#065f46', label: 'Đã duyệt' },
-    REJECTED:     { bg: 'rgba(239,68,68,0.15)',  color: '#991b1b', label: 'Từ chối' },
-    CANCELLED:    { bg: 'rgba(239,68,68,0.12)',  color: '#7f1d1d', label: 'Đã hủy' },
-};
-
-const LIFECYCLE_STYLE = {
-    IssueFull:    { bg: 'rgba(16,185,129,0.15)', color: '#065f46', label: 'Xuất đủ hàng' },
-    IssuePartial: { bg: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Xuất 1 phần hàng' },
-    IssuePending: { bg: 'rgba(59,130,246,0.15)', color: '#1e40af', label: 'Đang đợi xuất hàng' },
-};
-
-const StatusChip = ({ status }) => {
-    const s = STATUS_STYLE[status?.toUpperCase()] ?? { bg: 'rgba(107,114,128,0.15)', color: '#374151', label: status ?? '-' };
-    return (
-        <Chip label={s.label} size="small"
-            sx={{ fontWeight: 500, fontSize: '12px', borderRadius: '999px', height: 26,
-                minWidth: 100, bgcolor: s.bg, color: s.color, border: 'none',
-                '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' } }}
-        />
-    );
-};
-
-const LifecycleChip = ({ lifecycleStatus }) => {
-    const s = LIFECYCLE_STYLE[lifecycleStatus] ?? { bg: 'rgba(107,114,128,0.10)', color: '#374151', label: lifecycleStatus ?? '-' };
-    return (
-        <Chip label={s.label} size="small"
-            sx={{ fontWeight: 500, fontSize: '12px', borderRadius: '999px', height: 26,
-                minWidth: 130, bgcolor: s.bg, color: s.color, border: 'none',
-                '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' } }}
-        />
-    );
-};
+// LifecycleChip — uses IssueFull/IssuePartial/IssuePending from StatusBadge
+const LifecycleChip = ({ lifecycleStatus }) => (
+    <StatusBadge status={lifecycleStatus} />
+);
 
 const InfoRow = ({ icon: Icon, label, value, fullWidth }) => (
     <Box sx={{ display: 'flex', alignItems: fullWidth ? 'flex-start' : 'center', gap: 1.5, minHeight: 36 }}>
@@ -683,40 +653,42 @@ export default function ViewReleaseRequestDetail() {
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
 
-            {/* Dialog: Duyệt */}
-            <Dialog open={approveDialogOpen} onClose={() => !processing && setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle component="div" sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CheckCircle size={20} color="#16a34a" />Duyệt yêu cầu xuất hàng
-                </DialogTitle>
-                <DialogContent>
-                    <Typography sx={{ mb: 2, fontSize: 14, color: '#374151' }}>
-                        Bạn có chắc muốn duyệt yêu cầu <strong>{data?.releaseRequestCode}</strong>?
-                    </Typography>
+            <ConfirmDialog
+                open={approveDialogOpen}
+                onClose={() => !processing && setApproveDialogOpen(false)}
+                onConfirm={handleApprove}
+                title={<><CheckCircle size={20} color="#16a34a" style={{ marginRight: 8 }} />Duyệt yêu cầu xuất hàng</>}
+                message={`Bạn có chắc muốn duyệt yêu cầu ${data?.releaseRequestCode}?`}
+                content={
                     <TextField
                         label="Ghi chú (không bắt buộc)"
                         value={approveReason}
                         onChange={e => setApproveReason(e.target.value)}
                         fullWidth multiline rows={2}
                         placeholder="Nhập ghi chú nếu có..."
+                        sx={{ mt: 1 }}
                     />
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <button type="button" onClick={() => setApproveDialogOpen(false)} className="btn btn-cancel" disabled={processing}>Hủy</button>
-                    <button type="button" onClick={handleApprove} className="btn btn-success" disabled={processing}>
-                        {processing ? <><Loader size={14} className="spinner" />Đang xử lý...</> : <><CheckCircle size={14} />Xác nhận duyệt</>}
-                    </button>
-                </DialogActions>
-            </Dialog>
+                }
+                confirmText="Xác nhận duyệt"
+                cancelText="Hủy"
+                loading={processing}
+                actions={
+                    <>
+                        <button type="button" onClick={() => setApproveDialogOpen(false)} className="btn btn-cancel" disabled={processing}>Hủy</button>
+                        <button type="button" onClick={handleApprove} className="btn btn-success" disabled={processing}>
+                            {processing ? <><Loader size={14} className="spinner" />Đang xử lý...</> : <><CheckCircle size={14} />Xác nhận duyệt</>}
+                        </button>
+                    </>
+                }
+            />
 
-            {/* Dialog: Từ chối */}
-            <Dialog open={rejectDialogOpen} onClose={() => !processing && setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle component="div" sx={{ fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <XCircle size={20} color="#dc2626" />Từ chối yêu cầu xuất hàng
-                </DialogTitle>
-                <DialogContent>
-                    <Typography sx={{ mb: 2, fontSize: 14, color: '#374151' }}>
-                        Vui lòng nhập lý do từ chối yêu cầu <strong>{data?.releaseRequestCode}</strong>.
-                    </Typography>
+            <ConfirmDialog
+                open={rejectDialogOpen}
+                onClose={() => !processing && setRejectDialogOpen(false)}
+                onConfirm={handleReject}
+                title={<><XCircle size={20} color="#dc2626" style={{ marginRight: 8 }} />Từ chối yêu cầu xuất hàng</>}
+                message={`Vui lòng nhập lý do từ chối yêu cầu ${data?.releaseRequestCode}.`}
+                content={
                     <TextField
                         label="Lý do từ chối *"
                         value={rejectReason}
@@ -725,15 +697,23 @@ export default function ViewReleaseRequestDetail() {
                         required
                         placeholder="VD: Hàng không đủ số lượng trong kho..."
                         autoFocus
+                        sx={{ mt: 1 }}
                     />
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <button type="button" onClick={() => setRejectDialogOpen(false)} className="btn btn-cancel" disabled={processing}>Hủy</button>
-                    <button type="button" onClick={handleReject} className="btn btn-danger" disabled={processing}>
-                        {processing ? <><Loader size={14} className="spinner" />Đang xử lý...</> : <><XCircle size={14} />Xác nhận từ chối</>}
-                    </button>
-                </DialogActions>
-            </Dialog>
+                }
+                confirmText="Xác nhận từ chối"
+                confirmDanger
+                cancelText="Hủy"
+                loading={processing}
+                confirmDisabled={!rejectReason.trim()}
+                actions={
+                    <>
+                        <button type="button" onClick={() => setRejectDialogOpen(false)} className="btn btn-cancel" disabled={processing}>Hủy</button>
+                        <button type="button" onClick={handleReject} className="btn btn-danger" disabled={processing}>
+                            {processing ? <><Loader size={14} className="spinner" />Đang xử lý...</> : <><XCircle size={14} />Xác nhận từ chối</>}
+                        </button>
+                    </>
+                }
+            />
         </div>
     );
 }

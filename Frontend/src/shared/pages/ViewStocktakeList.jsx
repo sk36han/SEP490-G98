@@ -27,10 +27,10 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Chip,
 } from '@mui/material';
 import { Plus, Filter, Columns, GripVertical, Package, ClipboardList } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
+import { StatusBadge } from '@ui/badges';
 import StocktakeFilterPopup from '../components/StocktakeFilterPopup';
 import '../styles/ListView.css';
 
@@ -130,60 +130,7 @@ const selectionBodyCellSx = {
     verticalAlign: 'middle',
 };
 
-const STOCKTAKE_STATUS_STYLE = {
-    DRAFT: {
-        bgColor: 'rgba(107, 114, 128, 0.2)',
-        label: 'Bản nháp',
-        dot: '•'
-    },
-    APPROVED: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Được duyệt',
-        dot: '•'
-    },
-    IN_PROGRESS: {
-        bgColor: 'rgba(59, 130, 246, 0.2)',
-        label: 'Đang thực hiện',
-        dot: '•'
-    },
-    PENDING_APPROVAL: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        label: 'Chờ duyệt',
-        dot: '•'
-    },
-    COMPLETED: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        label: 'Hoàn thành',
-        dot: '•'
-    },
-    CANCELLED: {
-        bgColor: 'rgba(239, 68, 68, 0.2)',
-        label: 'Đã hủy',
-        dot: '•'
-    },
-};
-
-const getStatusConfig = (status) => {
-    return STOCKTAKE_STATUS_STYLE[status] || { bgColor: 'rgba(107, 114, 128, 0.2)', label: status, dot: '•' };
-};
-
-const MODE_STYLE = {
-    PERIODIC: {
-        bgColor: 'rgba(59, 130, 246, 0.2)',
-        label: 'Định kỳ',
-        dot: '•'
-    },
-    ADHOC: {
-        bgColor: 'rgba(168, 85, 247, 0.2)',
-        label: 'Đột xuất',
-        dot: '•'
-    },
-};
-
-const getModeConfig = (mode) => {
-    return MODE_STYLE[mode] || { bgColor: 'rgba(107, 114, 128, 0.2)', label: mode };
-};
-
+// ViewStocktakeList — status & mode use StatusBadge
 const ViewStocktakeList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -958,69 +905,25 @@ const ViewStocktakeList = () => {
                                                                 );
                                                             }
                                                             if (col.id === 'mode') {
-                                                                const modeStyle = getModeConfig(item.mode);
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                            <Chip
-                                                                                label={`${modeStyle.dot} ${modeStyle.label}`}
-                                                                                size="small"
-                                                                                sx={{
-                                                                                    fontWeight: 500,
-                                                                                    fontSize: '12px',
-                                                                                    lineHeight: '16px',
-                                                                                    borderRadius: '999px',
-                                                                                    minWidth: 80,
-                                                                                    height: '26px',
-                                                                                    bgcolor: modeStyle.bgColor,
-                                                                                    color: '#374151',
-                                                                                    border: 'none',
-                                                                                    textAlign: 'left',
-                                                                                    justifyContent: 'flex-start',
-                                                                                    '& .MuiChip-label': {
-                                                                                        px: 1.5,
-                                                                                        py: 0,
-                                                                                        textAlign: 'left',
-                                                                                    },
-                                                                                }}
-                                                                            />
+                                                                            <StatusBadge status={item.mode} dot="•" variant="dot" />
                                                                         </Box>
                                                                     </TableCell>
                                                                 );
                                                             }
                                                             if (col.id === 'status') {
-                                                                const statusStyle = getStatusConfig(item.status);
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                            <Chip
-                                                                                label={`${statusStyle.dot} ${statusStyle.label}`}
-                                                                                size="small"
-                                                                                sx={{
-                                                                                    fontWeight: 500,
-                                                                                    fontSize: '12px',
-                                                                                    lineHeight: '16px',
-                                                                                    borderRadius: '999px',
-                                                                                    minWidth: 100,
-                                                                                    height: '26px',
-                                                                                    bgcolor: statusStyle.bgColor,
-                                                                                    color: '#374151',
-                                                                                    border: 'none',
-                                                                                    textAlign: 'left',
-                                                                                    justifyContent: 'flex-start',
-                                                                                    '& .MuiChip-label': {
-                                                                                        px: 1.5,
-                                                                                        py: 0,
-                                                                                        textAlign: 'left',
-                                                                                    },
-                                                                                }}
-                                                                            />
+                                                                            <StatusBadge status={item.status} dot="•" variant="dot" />
                                                                         </Box>
                                                                     </TableCell>
                                                                 );
