@@ -40,9 +40,9 @@ import {
     updateReceiver,
     toggleReceiverStatus,
 } from '../lib/receiverService';
-import { getCompanies, createCompany } from '../lib/companyService';
-import { getAddresses, createAddress } from '../lib/addressService';
-import { FormDialog } from '../../ui/dialogs/FormDialog';
+import { getCompanies } from '../lib/companyService';
+import { getAddresses } from '../lib/addressService';
+import { CreateCompanyDialog, CreateAddressDialog } from '@ui/dialogs';
 import '../styles/CreateSupplier.css';
 
 const fmtDate = (str) => {
@@ -112,16 +112,6 @@ export default function ViewReceiverDetail() {
     const [loadingAddresses, setLoadingAddresses] = useState(false);
     const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
     const [addressDialogOpen, setAddressDialogOpen] = useState(false);
-    const [companyForm, setCompanyForm] = useState({ companyName: '' });
-    const [companyErrors, setCompanyErrors] = useState({});
-    const [addressForm, setAddressForm] = useState({
-        addressName: '',
-        addressDetail: '',
-        district: '',
-        city: '',
-        ward: '',
-    });
-    const [addressErrors, setAddressErrors] = useState({});
     const [errors, setErrors] = useState({});
 
     const fetchDetail = useCallback(async () => {
@@ -233,84 +223,12 @@ export default function ViewReceiverDetail() {
         navigate(-1);
     };
 
-    // Company dialog
-    const handleOpenCompanyDialog = () => { setCompanyDialogOpen(true); setCompanyForm({ companyName: '' }); setCompanyErrors({}); };
-    const handleCloseCompanyDialog = () => { setCompanyDialogOpen(false); };
-    const handleCompanyFormChange = (e) => {
-        const { name, value } = e.target;
-        setCompanyForm(prev => ({ ...prev, [name]: value }));
-        if (companyErrors[name]) setCompanyErrors(prev => ({ ...prev, [name]: '' }));
-    };
-    const validateCompanyForm = () => {
-        const errs = {};
-        if (!companyForm.companyName.trim()) errs.companyName = 'Tên công ty là bắt buộc.';
-        setCompanyErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-    const handleSubmitCompany = async (e) => {
-        e.preventDefault();
-        if (!validateCompanyForm()) return;
-        setSubmitting(true);
-        try {
-            const created = await createCompany({ companyName: companyForm.companyName.trim() });
-            showToast('Tạo công ty thành công!', 'success');
-            await loadCompanies();
-            if (created?.companyId) {
-                setData(prev => ({ ...prev, companyId: String(created.companyId) }));
-                loadAddresses(created.companyId);
-            }
-            setCompanyDialogOpen(false);
-        } catch (err) {
-            showToast(err?.message || 'Tạo công ty thất bại.', 'error');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     // Address dialog
     const handleOpenAddressDialog = () => {
         if (!data?.companyId) { showToast('Vui lòng chọn công ty trước.', 'warning'); return; }
         setAddressDialogOpen(true);
-        setAddressForm({ addressName: '', addressDetail: '', district: '', city: '', ward: '' });
-        setAddressErrors({});
     };
     const handleCloseAddressDialog = () => { setAddressDialogOpen(false); };
-    const handleAddressFormChange = (e) => {
-        const { name, value } = e.target;
-        setAddressForm(prev => ({ ...prev, [name]: value }));
-        if (addressErrors[name]) setAddressErrors(prev => ({ ...prev, [name]: '' }));
-    };
-    const validateAddressForm = () => {
-        const errs = {};
-        if (!addressForm.addressDetail.trim()) errs.addressDetail = 'Địa chỉ chi tiết là bắt buộc.';
-        setAddressErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-    const handleSubmitAddress = async (e) => {
-        e.preventDefault();
-        if (!validateAddressForm()) return;
-        setSubmitting(true);
-        try {
-            const created = await createAddress({
-                companyId: Number(data.companyId),
-                addressName: addressForm.addressName.trim() || null,
-                addressDetail: addressForm.addressDetail.trim(),
-                district: addressForm.district.trim() || null,
-                city: addressForm.city.trim() || null,
-                ward: addressForm.ward.trim() || null,
-            });
-            showToast('Tạo địa chỉ thành công!', 'success');
-            await loadAddresses(data.companyId);
-            if (created?.addressId) {
-                setData(prev => ({ ...prev, addressId: String(created.addressId) }));
-            }
-            setAddressDialogOpen(false);
-        } catch (err) {
-            showToast(err?.message || 'Tạo địa chỉ thất bại.', 'error');
-        } finally {
-            setSubmitting(false);
-        }
-    };
 
     const handleCompanyChange = (e) => {
         const newCompanyId = e.target.value;
@@ -566,7 +484,7 @@ export default function ViewReceiverDetail() {
                                                 ))}
                                             </select>
                                         </div>
-                                        <button type="button" onClick={handleOpenCompanyDialog} className="btn btn-cancel" style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', marginTop: 2 }}>
+                                        <button type="button" onClick={() => setCompanyDialogOpen(true)} className="btn btn-cancel" style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', marginTop: 2 }}>
                                             <Edit size={15} /> Tạo mới
                                         </button>
                                     </div>
@@ -658,100 +576,31 @@ export default function ViewReceiverDetail() {
             {toast && toast.message && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
 
             {/* Dialog: Tạo Công ty */}
-            <FormDialog
+            <CreateCompanyDialog
                 open={companyDialogOpen}
-                onClose={handleCloseCompanyDialog}
-                title="Tạo mới công ty"
-                actions={
-                    <>
-                        <button type="button" onClick={handleCloseCompanyDialog} className="btn btn-cancel">Hủy</button>
-                        <button type="button" onClick={handleSubmitCompany} className="btn btn-primary" disabled={submitting}>
-                            {submitting ? <><Loader size={15} className="btn-icon spinner" /> Đang tạo...</> : <><Edit size={15} className="btn-icon" /> Tạo công ty</>}
-                        </button>
-                    </>
-                }
-            >
-                <form onSubmit={handleSubmitCompany} style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="companyName">Tên công ty <span className="required-mark">*</span></label>
-                        <div className="input-wrapper">
-                            <Building2 className="input-icon" size={16} />
-                            <input
-                                id="companyName"
-                                type="text"
-                                name="companyName"
-                                value={companyForm.companyName}
-                                onChange={handleCompanyFormChange}
-                                placeholder="VD: Công ty ABC"
-                                className={`form-input ${companyErrors.companyName ? 'error' : ''}`}
-                            />
-                        </div>
-                        {companyErrors.companyName && <span className="error-message">{companyErrors.companyName}</span>}
-                    </div>
-                </form>
-            </FormDialog>
+                onClose={() => setCompanyDialogOpen(false)}
+                onSuccess={async (created) => {
+                    showToast('Tạo công ty thành công!', 'success');
+                    await loadCompanies();
+                    if (created?.companyId) {
+                        setData(prev => ({ ...prev, companyId: String(created.companyId) }));
+                        loadAddresses(created.companyId);
+                    }
+                }}
+            />
 
             {/* Dialog: Tạo Địa chỉ */}
-            <FormDialog
+            <CreateAddressDialog
                 open={addressDialogOpen}
-                onClose={handleCloseAddressDialog}
-                title="Tạo mới địa chỉ"
-                actions={
-                    <>
-                        <button type="button" onClick={handleCloseAddressDialog} className="btn btn-cancel">Hủy</button>
-                        <button type="button" onClick={handleSubmitAddress} className="btn btn-primary" disabled={submitting}>
-                            {submitting ? <><Loader size={15} className="btn-icon spinner" /> Đang tạo...</> : <><Edit size={15} className="btn-icon" /> Tạo địa chỉ</>}
-                        </button>
-                    </>
-                }
-            >
-                <form onSubmit={handleSubmitAddress} style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-addressName">Tên địa chỉ</label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input
-                                id="addr-addressName"
-                                type="text"
-                                name="addressName"
-                                value={addressForm.addressName}
-                                onChange={handleAddressFormChange}
-                                className="form-input"
-                                placeholder="VD: Kho chính, Văn phòng"
-                            />
-                        </div>
-                    </div>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-addressDetail">Địa chỉ chi tiết <span className="required-mark">*</span></label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input id="addr-addressDetail" type="text" name="addressDetail" value={addressForm.addressDetail} onChange={handleAddressFormChange} className={`form-input ${addressErrors.addressDetail ? 'error' : ''}`} placeholder="VD: Số 123, Đường Nguyễn Trãi" />
-                        </div>
-                        {addressErrors.addressDetail && <span className="error-message">{addressErrors.addressDetail}</span>}
-                    </div>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-city">Tỉnh / Thành phố</label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input id="addr-city" type="text" name="city" value={addressForm.city} onChange={handleAddressFormChange} className="form-input" placeholder="VD: Hồ Chí Minh" />
-                        </div>
-                    </div>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-district">Quận / Huyện</label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input id="addr-district" type="text" name="district" value={addressForm.district} onChange={handleAddressFormChange} className="form-input" placeholder="VD: Quận 1" />
-                        </div>
-                    </div>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-ward">Phường / Xã</label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input id="addr-ward" type="text" name="ward" value={addressForm.ward} onChange={handleAddressFormChange} className="form-input" placeholder="VD: Phường Bến Nghé" />
-                        </div>
-                    </div>
-                </form>
-            </FormDialog>
+                onClose={() => setAddressDialogOpen(false)}
+                onSuccess={async (created) => {
+                    showToast('Tạo địa chỉ thành công!', 'success');
+                    if (data?.companyId) {
+                        loadAddresses(data.companyId);
+                    }
+                }}
+                companyId={data?.companyId ? Number(data.companyId) : null}
+            />
         </div>
     );
 }

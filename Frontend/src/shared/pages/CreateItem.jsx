@@ -36,18 +36,7 @@ import {
 } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
-import CreateUomDialog from "../components/CreateUomDialog";
-import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
-import CreateSpecDialog from "../components/CreateSpecDialog";
-import CreateBrandDialog from "../components/CreateBrandDialog";
-import { ImageDialog } from "../components/ImageDialog";
-import { createItem as createItemApi } from "../lib/itemService";
-import { getUomList, createUom } from "../lib/uomService";
-import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecService";
-import { getCategoryList, createCategory } from "../lib/categoryService";
-import { getBrandList, createBrand } from "../lib/brandService";
-import { getItemParameterList, createItemParameter } from "../lib/itemParameterService";
-import UomFormDialog from "../components/UomFormDialog";
+import { CreateUomDialog, CreateCategoryDialog, ImageDialog, UomFormDialog } from "@ui/dialogs";
 import "../styles/CreateSupplier.css";
 
 // Design tokens (match ViewItemDetail)
@@ -320,66 +309,6 @@ const DescriptionBlock = ({ value, onChange, maxLength = 250, placeholder = "Nh�
   </div>
 );
 
-// Inline CreateCategoryDialog
-function InlineCreateCategoryDialog({ open, onClose, onSubmit }) {
-  const [categoryName, setCategoryName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (open) { setCategoryName(""); setSubmitting(false); setError(null); }
-  }, [open]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const name = (categoryName || "").trim();
-    if (!name) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await onSubmit({ categoryName: name });
-      onClose();
-    } catch (err) {
-      setError(err?.response?.data?.message ?? err?.message ?? "Không thể tạo danh mục.");
-    } finally { setSubmitting(false); }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "14px", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.06)" } }}>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ px: 3, py: 2.5, borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: "18px", color: "text.primary" }}>Thêm danh mục</Typography>
-          <IconButton size="small" onClick={onClose} sx={{ color: "text.secondary", "&:hover": { bgcolor: "rgba(0,0,0,0.04)" } }}><X size={20} /></IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ px: 3, pt: 2.5, pb: 2.5 }}>
-          <Typography variant="caption" sx={{ fontWeight: 500, fontSize: "12px", color: "text.secondary", display: "block", mb: 0.5 }}>Tên danh mục</Typography>
-          <Box
-            component="input" type="text" value={categoryName}
-            onChange={(e) => setCategoryName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(e); }}
-            placeholder="VD: Vật tư điện tử" autoFocus
-            sx={{
-              width: "100%", border: "none", outline: "none",
-              borderBottom: `1px solid ${error ? "#ef4444" : "rgba(0,0,0,0.1)"}`,
-              pb: 1, fontSize: "14px", color: "text.primary", bgcolor: "transparent",
-              "&:focus": { borderBottom: error ? "#ef4444" : "#0284c7" },
-              "&::placeholder": { color: "#9ca3af", fontSize: "14px" },
-            }}
-          />
-          {error && <Typography sx={{ fontSize: "12px", color: "#ef4444", mt: 0.5 }}>{error}</Typography>}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2.5, borderTop: "1px solid rgba(0,0,0,0.06)", gap: 1.5 }}>
-          <Button onClick={onClose} size="small" sx={{ textTransform: "none", fontWeight: 500, fontSize: "13px", color: "text.secondary", px: 2, "&:hover": { bgcolor: "rgba(0,0,0,0.04)" } }}>Hủy</Button>
-          <Button type="submit" variant="contained" disabled={submitting || !categoryName.trim()} size="small" sx={{ textTransform: "none", fontWeight: 500, fontSize: "13px", px: 3, py: 0.75, borderRadius: "8px", boxShadow: "none", "&:hover": { boxShadow: "0 2px 8px rgba(25,118,210,0.24)" } }}>
-            {submitting ? "Đang lưu…" : "Thêm"}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
-  );
-}
-
-
 // Main Component
 const CreateItem = () => {
   const navigate = useNavigate();
@@ -399,9 +328,6 @@ const CreateItem = () => {
   const [localMasterBrands, setLocalMasterBrands] = useState([]);
 
   const [createUomOpen, setCreateUomOpen] = useState(false);
-  const [createPackOpen, setCreatePackOpen] = useState(false);
-  const [createSpecOpen, setCreateSpecOpen] = useState(false);
-  const [createBrandOpen, setCreateBrandOpen] = useState(false);
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
   const [showPurchasePrice, setShowPurchasePrice] = useState(false);
 
@@ -413,6 +339,8 @@ const CreateItem = () => {
   const [imageOriginalWidth, setImageOriginalWidth] = useState(0);
   const [imageOriginalHeight, setImageOriginalHeight] = useState(0);
   const [imageDialogTempUrl, setImageDialogTempUrl] = useState("");
+  const [imageUploadedUrl, setImageUploadedUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Open image dialog
   const handleOpenImageDialog = () => {
@@ -438,9 +366,26 @@ const CreateItem = () => {
   };
 
   // Apply cropped image from dialog (receives pre-cropped dataURL from ImageDialog)
-  const handleApplyImage = (croppedDataUrl) => {
+  const handleApplyImage = async (croppedDataUrl) => {
     setImagePreviewUrl(croppedDataUrl);
     setImageDialogOpen(false);
+
+    // Upload cropped image to server immediately
+    setImageUploading(true);
+    try {
+      const fetchRes = await fetch(croppedDataUrl);
+      const blob = await fetchRes.blob();
+      const fileName = imageFileName || 'item-image.jpg';
+      const croppedFile = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+      setImageFile(croppedFile);
+      const result = await uploadItemImage(croppedFile);
+      setImageUploadedUrl(result.url || '');
+    } catch (err) {
+      console.error('[CreateItem] Image upload error:', err);
+      showToast('Tải ảnh lên thất bại. Vui lòng thử lại.', 'error');
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   // Remove image
@@ -458,6 +403,7 @@ const CreateItem = () => {
     setImageOriginalHeight(0);
     setImageDialogOpen(false);
     setImageDialogTempUrl("");
+    setImageUploadedUrl("");
   };
 
   // Close dialog without applying
@@ -481,15 +427,15 @@ const CreateItem = () => {
     try {
       const [uomRes, packList, catRes, brandRes, specRes] = await Promise.all([
         getUomList({ page: 1, pageSize: PAGE_SIZE }),
-        getPackagingSpecList(),
+        [], // getPackagingSpecList removed
         getCategoryList({ page: 1, pageSize: PAGE_SIZE }),
         getBrandList({ page: 1, pageSize: PAGE_SIZE }),
-        getItemParameterList({ page: 1, pageSize: PAGE_SIZE }),
+        [], // getItemParameterList removed
       ]);
       const uomItems = Array.isArray(uomRes?.items) ? uomRes.items : (Array.isArray(uomRes) ? uomRes : []);
       setUomOptions(uomItems.map((u) => ({ id: u.uomId ?? u.UomId, name: u.uomName ?? u.UomName ?? "" })));
-      const packArr = Array.isArray(packList) ? packList : [];
-      setPackagingOptions(packArr.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
+      const packItems = Array.isArray(packList?.items) ? packList.items : (Array.isArray(packList) ? packList : []);
+      setPackagingOptions(packItems.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
       const catItems = Array.isArray(catRes?.items) ? catRes.items : (Array.isArray(catRes) ? catRes : []);
       setCategoryOptions(catItems.map((c) => ({
         id: c.categoryId ?? c.CategoryId,
@@ -544,6 +490,21 @@ const CreateItem = () => {
     setSubmitting(true);
     try {
       const specId = form.specId !== "" && form.specId != null ? Number(form.specId) : null;
+
+      // Upload image first if user selected one
+      let imageUrl = null;
+      if (imageFile) {
+        setImageUploading(true);
+        try {
+          const result = await uploadItemImage(imageFile);
+          imageUrl = result.url;
+        } catch (uploadErr) {
+          console.warn("[CreateItem] Image upload failed:", uploadErr);
+        } finally {
+          setImageUploading(false);
+        }
+      }
+
       const payload = {
         itemName: name,
         itemType: form.itemType || null,
@@ -559,6 +520,7 @@ const CreateItem = () => {
         isActive: Boolean(form.isActive),
         initialPurchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
         priceEffectiveFrom: null,
+        imageUrls: imageUrl ? [imageUrl] : null,
       };
       await createItemApi(payload);
       showToast("Tạo sản phẩm thành công.", "success");
@@ -899,81 +861,24 @@ const CreateItem = () => {
         }}
       />
 
-      <CreatePackagingSpecDialog
-        open={createPackOpen}
-        onClose={() => setCreatePackOpen(false)}
-        onSubmit={async (newItem) => {
-          try {
-            const created = await createPackagingSpec({ specName: newItem.specName ?? newItem.name, description: newItem.description });
-            const newId = created?.packagingSpecId ?? created?.id;
-            if (newId) {
-              setPackagingOptions((prev) => [...prev, { id: newId, name: created.specName ?? created.name }]);
-              setForm((prev) => ({ ...prev, packagingSpecId: newId }));
-              showToast("Tạo quy cách đóng gói thành công.", "success");
-            }
-          } catch (err) {
-            showToast(err?.message || "Không tạo được quy cách.", "error");
-          }
-        }}
-      />
+      
 
-      <CreateSpecDialog
-        open={createSpecOpen}
-        onClose={() => setCreateSpecOpen(false)}
-        onSubmit={async (newItem) => {
-          try {
-            const created = await createItemParameter({ paramCode: newItem.specCode || newItem.paramCode, paramName: newItem.paramName });
-            const newId = created?.paramId ?? created?.id;
-            if (newId) {
-              setSpecOptions((prev) => [...prev, {
-                specId: newId,
-                specCode: created?.paramCode ?? created?.code ?? "",
-                specName: created?.paramName ?? created?.name ?? "",
-              }]);
-              setForm((prev) => ({ ...prev, specId: newId }));
-              showToast("Tạo thông số sản phẩm thành công.", "success");
-            }
-          } catch (err) {
-            showToast(err?.message || "Không tạo được thông số.", "error");
-          }
-        }}
-      />
-
-      <CreateBrandDialog
-        open={createBrandOpen}
-        onClose={() => setCreateBrandOpen(false)}
-        onSuccess={async ({ brandId, brandName }) => {
-          if (brandId != null) {
-            const newBrand = { brandId, brandName };
-            setLocalMasterBrands((prev) => [...prev, newBrand]);
-            setForm((prev) => ({ ...prev, brandId }));
-            showToast("Tạo nhãn hiệu thành công.", "success");
-          }
-        }}
-      />
-
-      <InlineCreateCategoryDialog
+      <CreateCategoryDialog
         open={createCategoryOpen}
         onClose={() => setCreateCategoryOpen(false)}
-        onSubmit={async ({ categoryName }) => {
-          try {
-            const response = await createCategory({ categoryName });
-            const data = response?.data ?? response;
+        onSuccess={async (result) => {
+            const data = result?.data ?? result;
             const newId = data?.categoryId ?? data?.id;
             if (newId) {
-              const newCategory = {
-                categoryId: newId,
-                categoryName: data?.categoryName ?? data?.name ?? categoryName,
-                categoryCode: data?.categoryCode ?? "",
-              };
-              setLocalMasterCategories((prev) => [...prev, newCategory]);
-              setForm((prev) => ({ ...prev, categoryId: newId }));
-              showToast("Tạo danh mục thành công.", "success");
+                const newCategory = {
+                    categoryId: newId,
+                    categoryName: data?.categoryName ?? data?.name ?? '',
+                    categoryCode: data?.categoryCode ?? '',
+                };
+                setLocalMasterCategories((prev) => [...prev, newCategory]);
+                setForm((prev) => ({ ...prev, categoryId: newId }));
+                showToast('Tạo danh mục thành công.', 'success');
             }
-          } catch (err) {
-            showToast(err?.message || "Không tạo được danh mục.", "error");
-            throw err;
-          }
         }}
       />
 

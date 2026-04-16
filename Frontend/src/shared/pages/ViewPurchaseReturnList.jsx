@@ -4,10 +4,10 @@ import { usePolling } from '../hooks/usePolling';
 import {
     Box, Paper, Button, Typography, IconButton, Tooltip, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Popover, FormGroup,
-    FormControlLabel, Checkbox, Chip, TableSortLabel, CircularProgress,
+    FormControlLabel, Checkbox, TableSortLabel, CircularProgress,
     Alert, FormControl, Select, MenuItem
 } from '@mui/material';
-import { FileText, Filter, Columns, Plus, GripVertical, RotateCcw, PackageCheck, Clock, CheckCircle2 } from 'lucide-react';
+import { StatusBadge } from '@ui/badges';
 import GRNListPopup from '../components/GRNListPopup';
 import SearchInput from '../components/SearchInput';
 import PurchaseReturnFilterPopup from '../components/PurchaseReturnFilterPopup';
@@ -19,13 +19,6 @@ import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils'
 import '../styles/PurchaseReturnList.css';
 
 // Constants & Configs
-const STATUS_STYLE = {
-    DRAFT: { bgColor: '#f1f5f9', color: '#64748b', label: 'Nháp' },
-    SUBMITTED: { bgColor: '#fef3c7', color: '#b45309', label: 'Chờ duyệt' },
-    APPROVED: { bgColor: '#dcfce7', color: '#166534', label: 'Đã duyệt' },
-    POSTED: { bgColor: '#f3e8ff', color: '#6b21a8', label: 'Hoàn thành' },
-    CANCELLED: { bgColor: '#fee2e2', color: '#991b1b', label: 'Đã hủy' },
-};
 
 export default function ViewPurchaseReturnList() {
     const navigate = useNavigate();
@@ -149,7 +142,6 @@ export default function ViewPurchaseReturnList() {
                                 </TableHead>
                                 <TableBody>
                                     {list.slice(page * pageSize, (page + 1) * pageSize).map((row, idx) => {
-                                        const status = STATUS_STYLE[row.status] || STATUS_STYLE.DRAFT;
                                         return (
                                             <TableRow key={row.purchaseReturnId} className="custom-table-row">
                                                 <TableCell align="center" className="custom-table-cell">
@@ -163,11 +155,7 @@ export default function ViewPurchaseReturnList() {
                                                 <TableCell className="custom-table-cell">{row.supplierName}</TableCell>
                                                 <TableCell className="custom-table-cell">{row.returnDate}</TableCell>
                                                 <TableCell className="custom-table-cell">
-                                                    <Chip 
-                                                        label={status.label} 
-                                                        className="status-chip-custom"
-                                                        style={{ backgroundColor: status.bgColor, color: status.color }}
-                                                    />
+                                                    <StatusBadge status={row.status} />
                                                 </TableCell>
                                                 <TableCell align="right" className="custom-table-cell font-bold">
                                                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.totalReturnedAmount)}

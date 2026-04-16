@@ -86,6 +86,9 @@ namespace Warehouse.DataAcces.Service
                 .Include(po => po.ResponsibleUser)
                 .Include(po => po.PurchaseOrderLines)
                     .ThenInclude(line => line.Item)
+                        .ThenInclude(item => item.BaseUom)
+                .Include(po => po.PurchaseOrderLines)
+                    .ThenInclude(line => line.Uom)
                 .FirstOrDefaultAsync(po => po.PurchaseOrderId == id);
 
             if (po == null)
@@ -127,6 +130,7 @@ namespace Warehouse.DataAcces.Service
                     ItemCode = line.Item?.ItemCode,
                     ItemName = line.Item?.ItemName,
                     UomId = line.UomId,
+                    UomName = line.Uom != null ? line.Uom.UomName : line.Item?.BaseUom?.UomName,
                     OrderedQty = line.OrderedQty,
                     ReceivedQty = line.ReceivedQty,
                     UnitPrice = line.UnitPrice ?? 0,
@@ -195,6 +199,7 @@ namespace Warehouse.DataAcces.Service
 
             var itemIds = request.Lines.Select(x => x.ItemId).Distinct().ToList();
             var items = await _context.Items
+                .Include(i => i.BaseUom)
                 .Where(i => itemIds.Contains(i.ItemId))
                 .ToDictionaryAsync(i => i.ItemId, i => i);
 
@@ -333,6 +338,7 @@ namespace Warehouse.DataAcces.Service
                     ItemCode = items[x.ItemId].ItemCode,
                     ItemName = items[x.ItemId].ItemName,
                     UomId = x.UomId,
+                    UomName = items[x.ItemId].BaseUom?.UomName,
                     OrderedQty = x.OrderedQty,
                     ReceivedQty = x.ReceivedQty,
                     UnitPrice = x.UnitPrice ?? 0,

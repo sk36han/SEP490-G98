@@ -1,5 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';import { useNavigate, useParams } from 'react-router-dom';
 import {
     getGoodsDeliveryNoteDetail,
     approveGoodsDeliveryNote,
@@ -20,7 +19,8 @@ import {
     DollarSign,
     Printer,
 } from 'lucide-react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
+import { TextField } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/ViewGoodDeliveryNoteDetail.css';
 
@@ -535,34 +535,21 @@ export default function ViewGoodDeliveryNoteDetail() {
                 </div>
             </div>
 
-            {/* Dialog */}
-            <Dialog
+            <ConfirmDialog
                 open={dialogConfig.open}
                 onClose={closeDialog}
-                fullWidth
-                maxWidth="sm"
-                disableEscapeKeyDown={processing}
-                PaperProps={{
-                    sx: {
-                        width: '100%', maxWidth: '560px',
-                        borderRadius: '16px', border: '1px solid #e5e7eb',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)', m: 2,
-                    },
-                }}
-            >
-                <DialogTitle sx={{ fontWeight: 700, color: '#111827', borderBottom: '1px solid #eef2f7' }}>
-                    {dialogTitles[dialogConfig.type] || 'Xác nhận'}
-                </DialogTitle>
-                <DialogContent sx={{ px: 3, py: 2 }}>
-                    {dialogConfig.type !== 'issue' && (
+                onConfirm={handleAction}
+                title={dialogTitles[dialogConfig.type] || 'Xác nhận'}
+                content={
+                    dialogConfig.type !== 'issue' ? (
                         <>
-                            <div style={{ marginBottom: 16, fontSize: 14, color: '#374151' }}>
+                            <p style={{ marginBottom: 16, fontSize: 14, color: '#374151' }}>
                                 {dialogConfig.type === 'approve'
                                     ? 'Bạn có chắc chắn muốn duyệt phiếu xuất kho này không?'
                                     : dialogConfig.type === 'reject'
                                     ? 'Bạn có chắc chắn muốn từ chối phiếu xuất kho này không?'
                                     : 'Bạn có chắc chắn muốn hoàn thành phiếu xuất kho này không?'}
-                            </div>
+                            </p>
                             <TextField
                                 label="Lý do"
                                 multiline rows={3}
@@ -578,32 +565,18 @@ export default function ViewGoodDeliveryNoteDetail() {
                                 {reasonText.length}/{MAX_REASON_LENGTH} ký tự
                             </div>
                         </>
-                    )}
-                    {dialogConfig.type === 'issue' && (
-                        <div style={{ fontSize: 14, color: '#374151' }}>
+                    ) : (
+                        <p style={{ fontSize: 14, color: '#374151' }}>
                             Bạn có chắc chắn muốn xác nhận xuất kho cho phiếu này?
-                        </div>
-                    )}
-                </DialogContent>
-                <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #eef2f7', gap: 1.5 }}>
-                    <Button onClick={closeDialog} disabled={processing} sx={{ textTransform: 'none', fontWeight: 600, color: '#6b7280' }}>Hủy</Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleAction}
-                        disabled={processing || (dialogConfig.type !== 'issue' && !reasonText.trim())}
-                        sx={{
-                            minWidth: 110, height: 40, px: 2, borderRadius: '12px',
-                            textTransform: 'none', fontSize: '14px', fontWeight: 700,
-                            backgroundColor: dialogConfig.type === 'reject' ? '#ef4444' : '#0ea5e9',
-                            boxShadow: 'none',
-                            '&:hover': { backgroundColor: dialogConfig.type === 'reject' ? '#dc2626' : '#0284c7', boxShadow: 'none' },
-                            '&:disabled': { backgroundColor: '#bae6fd', color: '#fff' },
-                        }}
-                    >
-                        {processing ? 'Đang xử lý...' : 'Xác nhận'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                        </p>
+                    )
+                }
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={processing}
+                confirmDanger={dialogConfig.type === 'reject'}
+                confirmDisabled={processing || (dialogConfig.type !== 'issue' && !reasonText.trim())}
+            />
         </div>
     );
 }

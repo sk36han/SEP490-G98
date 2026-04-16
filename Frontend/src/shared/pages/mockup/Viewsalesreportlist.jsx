@@ -4,7 +4,7 @@
  * Chỉ là mockup, không gọi API thật.
  */
 import React, { useState, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Button,
@@ -35,6 +35,11 @@ import {
     Download,
     Eye,
 } from 'lucide-react';
+import {
+    BarChart, Bar, Line,
+    XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+    ResponsiveContainer, Legend,
+} from 'recharts';
 import SearchInput from '../../components/SearchInput';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
@@ -44,11 +49,6 @@ const LS_EXPANDED   = 'salesReportExpanded';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const LEVEL = { YEAR: 'YEAR', QUARTER: 'QUARTER', MONTH: 'MONTH' };
-
-const YEAR_OPTIONS = ['2026', '2025', '2024'];
-const QUARTER_OPTIONS = ['Tất cả', 'Quý 1', 'Quý 2', 'Quý 3', 'Quý 4'];
-const MONTH_OPTIONS   = ['Tất cả', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-                         'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK_DATA = [
@@ -137,7 +137,6 @@ const MOCK_DATA = [
     { id: 'm3-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 3 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'q1-2025', deliveryNotes: 109, grnNotes: 93, lineItems: 814, totalQty: 5_560, grnQty: 4948, grnValue: 475_000_000, totalValue: 500_000_000,
       prevValue: 410_000_000, change: 90_000_000, growth: 22.0 },
-
     // Quý 2/2025
     { id: 'q2-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 2 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'y2025', deliveryNotes: 270, grnNotes: 232, lineItems: 2_030, totalQty: 13_900, grnQty: 12371, grnValue: 1_064_000_000, totalValue: 1_120_000_000,
@@ -151,7 +150,6 @@ const MOCK_DATA = [
     { id: 'm6-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 6 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'q2-2025', deliveryNotes: 90, grnNotes: 77, lineItems: 674, totalQty: 4_630, grnQty: 4120, grnValue: 351_500_000, totalValue: 370_000_000,
       prevValue: 310_000_000, change: 60_000_000, growth: 19.4 },
-
     // Quý 3/2025
     { id: 'q3-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 3 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'y2025', deliveryNotes: 255, grnNotes: 219, lineItems: 1_920, totalQty: 13_130, grnQty: 11685, grnValue: 912_000_000, totalValue: 960_000_000,
@@ -165,7 +163,6 @@ const MOCK_DATA = [
     { id: 'm9-2025', level: LEVEL.MONTH, periodLabel: 'Tháng 9 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'q3-2025', deliveryNotes: 85, grnNotes: 73, lineItems: 644, totalQty: 4_400, grnQty: 3916, grnValue: 304_000_000, totalValue: 320_000_000,
       prevValue: 290_000_000, change: 30_000_000, growth: 10.3 },
-
     // Quý 4/2025
     { id: 'q4-2025', level: LEVEL.QUARTER, periodLabel: 'Quý 4 / 2025', scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       parentId: 'y2025', deliveryNotes: 260, grnNotes: 223, lineItems: 1_980, totalQty: 13_470, grnQty: 11988, grnValue: 503_500_000, totalValue: 530_000_000,
@@ -183,104 +180,103 @@ const MOCK_DATA = [
 
 // ── Column definitions ─────────────────────────────────────────────────────
 const ALL_COLUMNS = [
-    { id: 'periodLabel',   label: 'Kỳ báo cáo',       align: 'left',  width: 220, minWidth: 220 },
-    { id: 'notes',         label: 'Số phiếu',          align: 'right', width: 110, minWidth: 110 },
-    { id: 'qty',           label: 'Tổng SL',            align: 'right', width: 110, minWidth: 110 },
-    { id: 'value',         label: 'Giá trị',            align: 'right', width: 160, minWidth: 160 },
-    { id: 'prevValue',     label: 'Cùng kỳ năm trước', align: 'right', width: 140, minWidth: 140 },
-    { id: 'change',        label: 'Chênh lệch',         align: 'right', width: 140, minWidth: 140 },
-    { id: 'growth',        label: 'Tăng trưởng',        align: 'right', width: 100, minWidth: 100 },
+    { id: 'periodLabel', label: 'Kỳ báo cáo',       align: 'left',  width: 220, minWidth: 220 },
+    { id: 'notes',       label: 'Số phiếu',          align: 'right', width: 110, minWidth: 110 },
+    { id: 'qty',         label: 'Tổng SL',            align: 'right', width: 110, minWidth: 110 },
+    { id: 'value',       label: 'Giá trị',            align: 'right', width: 160, minWidth: 160 },
+    { id: 'prevValue',   label: 'Cùng kỳ năm trước', align: 'right', width: 140, minWidth: 140 },
+    { id: 'change',      label: 'Chênh lệch',         align: 'right', width: 140, minWidth: 140 },
+    { id: 'growth',      label: 'Tăng trưởng',        align: 'right', width: 100, minWidth: 100 },
 ];
 
 const DEFAULT_VISIBLE = ['periodLabel', 'notes', 'qty', 'value', 'prevValue', 'change', 'growth'];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Format VND cho giá trị thường (không dấu) */
+/** Format VND */
 const formatVND = (n) => {
     if (n == null) return '—';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
 };
 
-/** Format số nguyên có dấu + / - phía trước */
+/** Format số nguyên có dấu + / - */
 const formatSignedCurrency = (n) => {
     if (n == null) return '—';
     const formatted = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Math.abs(n));
     return n >= 0 ? `+${formatted}` : `-${formatted}`;
 };
 
-/** Format phần trăm có dấu + / - và 2 số lẻ */
+/** Format phần trăm có dấu + / - */
 const formatSignedPercent = (n) => {
     if (n == null || isNaN(n)) return '—';
     return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 };
 
-/** Format số nguyên thường */
+/** Format số nguyên */
 const formatNumber = (n) => {
     if (n == null) return '—';
     return new Intl.NumberFormat('vi-VN').format(n);
 };
 
-/** Tính Tăng/Giảm = hiện tại - kỳ trước */
+/** Tính Tăng/Giảm */
 const calcChange = (curr, prev) => {
     if (curr == null || prev == null) return null;
     return curr - prev;
 };
 
-/** Tính Tăng trưởng = (change / prev) * 100, tránh chia 0 */
+/** Tính Tăng trưởng */
 const calcGrowth = (change, prev) => {
     if (change == null || prev == null || prev === 0) return null;
     return (change / prev) * 100;
 };
 
-/** Màu Tăng/Giảm: dương=xanh, âm=đỏ, 0=xám */
+/** Màu Tăng/Giảm */
 const changeColor = (v) => v > 0 ? '#16a34a' : v < 0 ? '#dc2626' : '#6b7280';
 
-/** Tìm row kỳ trước trong rawData dựa trên level của row hiện tại */
+/** Tìm row kỳ trước */
 const getPreviousPeriodRow = (row, rawData) => {
     if (!row || !rawData?.length) return null;
-
     if (row.level === LEVEL.YEAR) {
         const yearNum = parseInt(row.periodLabel);
-        const prevYear = yearNum - 1;
-        return rawData.find(r => r.level === LEVEL.YEAR && r.periodLabel === String(prevYear));
+        return rawData.find(r => r.level === LEVEL.YEAR && r.periodLabel === String(yearNum - 1));
     }
-
     if (row.level === LEVEL.QUARTER) {
-        const label = row.periodLabel;
-        const qNum = parseInt(label.match(/Quý (\d)/)?.[1] || '0');
-        const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
-        const prevY = yrNum - 1;
-        const prevLabel = `Quý ${qNum} / ${prevY}`;
-        return rawData.find(r => r.level === LEVEL.QUARTER && r.periodLabel === prevLabel);
+        const qNum = parseInt(row.periodLabel.match(/Quý (\d+)/)?.[1] || '0');
+        const yrNum = parseInt(row.periodLabel.match(/(\d{4})$/)?.[1] || '0');
+        return rawData.find(r => r.level === LEVEL.QUARTER && r.periodLabel === `Quý ${qNum} / ${yrNum - 1}`);
     }
-
     if (row.level === LEVEL.MONTH) {
-        const label = row.periodLabel;
-        const mNum = parseInt(label.match(/Tháng (\d+)/)?.[1] || '0');
-        const yrNum = parseInt(label.match(/(\d{4})$/)?.[1] || '0');
-        const prevY = yrNum - 1;
-        const prevLabel = `Tháng ${mNum} / ${prevY}`;
-        return rawData.find(r => r.level === LEVEL.MONTH && r.periodLabel === prevLabel);
+        const mNum = parseInt(row.periodLabel.match(/Tháng (\d+)/)?.[1] || '0');
+        const yrNum = parseInt(row.periodLabel.match(/(\d{4})$/)?.[1] || '0');
+        return rawData.find(r => r.level === LEVEL.MONTH && r.periodLabel === `Tháng ${mNum} / ${yrNum - 1}`);
     }
-
     return null;
 };
 
-/** Tính comparison object từ row và rawData gốc */
-const getComputedComparison = (row, rawData, dataMode) => {
+/** Comparison object */
+const getComputedComparison = (row, rawData) => {
     const prevRow = getPreviousPeriodRow(row, rawData);
     if (!prevRow) return { compPrev: null, compChange: null, compGrowth: null };
-
-    const currVal = dataMode === 'inbound' ? (row.grnValue || 0) : row.totalValue;
-    const prevVal = dataMode === 'inbound' ? (prevRow.grnValue || 0) : prevRow.totalValue;
+    const currVal = row.grnValue ?? row.totalValue ?? 0;
+    const prevVal = prevRow.grnValue ?? prevRow.totalValue ?? 0;
+    const currHasGrn = row.grnValue != null;
+    const prevHasGrn = prevRow.grnValue != null;
+    if (!currHasGrn || !prevHasGrn) {
+        return { compPrev: prevVal, compChange: null, compGrowth: null };
+    }
     const compChange = calcChange(currVal, prevVal);
     const compGrowth = calcGrowth(compChange, prevVal);
-
     return { compPrev: prevVal, compChange, compGrowth };
 };
 
-// ── Font style theo cấp (nhấn mạnh YEAR > QUARTER > MONTH) ──────────────────
+/** Chart level label */
+const CHART_LEVEL_LABELS = {
+    [LEVEL.YEAR]: 'Năm',
+    [LEVEL.QUARTER]: 'Quý',
+    [LEVEL.MONTH]: 'Tháng',
+};
+
+// ── Font style theo cấp ───────────────────────────────────────────────────
 const LEVEL_FONT = {
     YEAR:    { fontSize: '14px', fontWeight: 700, color: '#111827' },
     QUARTER: { fontSize: '13px', fontWeight: 500, color: '#374151' },
@@ -289,7 +285,6 @@ const LEVEL_FONT = {
 
 const ROW_INDENT = { YEAR: 0, QUARTER: 24, MONTH: 48 };
 
-// Font style cho cột giá trị (đậm hơn label, giữ đúng màu level)
 const VALUE_FONT = {
     YEAR:    { fontSize: '14px', fontWeight: 700, color: '#111827' },
     QUARTER: { fontSize: '13px', fontWeight: 600, color: '#374151' },
@@ -319,119 +314,203 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
+// ── Chart components ───────────────────────────────────────────────────────
+
+/** Custom tooltip cho chart chính (Giá trị + Tăng trưởng) */
+const MainChartTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <Box sx={{
+            bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)', p: 1.5, minWidth: 180,
+        }}>
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827', mb: 1 }}>
+                {label}
+            </Typography>
+            {payload.map((entry, i) => (
+                <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
+                    <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
+                        {entry.name}
+                    </Typography>
+                    <Typography sx={{
+                        fontSize: '12px', fontWeight: 600,
+                        color: entry.color === '#3b82f6' ? '#111827' : (entry.value >= 0 ? '#16a34a' : '#dc2626'),
+                    }}>
+                        {entry.name === 'Tăng trưởng'
+                            ? formatSignedPercent(entry.value)
+                            : formatVND(entry.value)
+                        }
+                    </Typography>
+                </Box>
+            ))}
+        </Box>
+    );
+};
+
+/** Custom tooltip cho chart phụ (notes / qty) */
+const SubChartTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <Box sx={{
+            bgcolor: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)', p: 1.5, minWidth: 150,
+        }}>
+            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827', mb: 1 }}>
+                {label}
+            </Typography>
+            {payload.map((entry, i) => (
+                <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
+                    <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>{entry.name}</Typography>
+                    <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>
+                        {formatNumber(entry.value)}
+                    </Typography>
+                </Box>
+            ))}
+        </Box>
+    );
+};
+
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function Viewsalesreportlist() {
     const theme    = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    // Search
+    // ── State ──────────────────────────────────────────────────────────────
     const [searchTerm, setSearchTerm] = useState('');
-    // Data mode: 'outbound' (xuất) | 'inbound' (nhập)
     const [dataMode, setDataMode] = useState('outbound');
-    // Quick filter: 'all' | 'positive' | 'negative'
     const [quickFilter, setQuickFilter] = useState('all');
+
+    // Chart state
+    const [chartLevel, setChartLevel] = useState(LEVEL.QUARTER);
+    const [chartYear, setChartYear] = useState('2026');
+
+    // Lấy danh sách năm có trong dữ liệu
+    const availableYears = useMemo(() => {
+        const years = [...new Set(MOCK_DATA.filter(r => r.level === LEVEL.YEAR).map(r => r.periodLabel))];
+        return years.sort((a, b) => b - a);
+    }, []);
 
     // Column management
     const [columnOrder, setColumnOrder] = useState(() => {
-        try {
-            const saved = JSON.parse(localStorage.getItem(LS_COL_ORDER));
-            return Array.isArray(saved) && saved.length > 0 ? saved : ALL_COLUMNS.map(c => c.id);
-        } catch { return ALL_COLUMNS.map(c => c.id); }
+        try { const s = JSON.parse(localStorage.getItem(LS_COL_ORDER)); return Array.isArray(s) && s.length ? s : ALL_COLUMNS.map(c => c.id); }
+        catch { return ALL_COLUMNS.map(c => c.id); }
     });
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
-        try {
-            const saved = JSON.parse(localStorage.getItem(LS_VISIBLE));
-            return new Set(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_VISIBLE);
-        } catch { return new Set(DEFAULT_VISIBLE); }
+        try { const s = JSON.parse(localStorage.getItem(LS_VISIBLE)); return new Set(Array.isArray(s) && s.length ? s : DEFAULT_VISIBLE); }
+        catch { return new Set(DEFAULT_VISIBLE); }
     });
-    const [tempColumnOrder, setTempColumnOrder]         = useState(columnOrder);
+    const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [draggedPopupColumn, setDraggedPopupColumn]     = useState(null);
+    const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
 
     // Expand / collapse
     const [expandedIds, setExpandedIds] = useState(() => {
         try {
-            const saved = JSON.parse(localStorage.getItem(LS_EXPANDED));
-            return new Set(Array.isArray(saved) ? saved : ['y2026', 'q1-2026', 'q2-2026', 'q3-2026', 'q4-2026', 'y2025', 'q1-2025', 'q2-2025', 'q3-2025', 'q4-2025']);
-        } catch { return new Set(['y2026', 'q1-2026', 'q2-2026', 'q3-2026', 'q4-2026', 'y2025', 'q1-2025', 'q2-2025', 'q3-2025', 'q4-2025']); }
+            const s = JSON.parse(localStorage.getItem(LS_EXPANDED));
+            return new Set(Array.isArray(s) ? s : ['y2026','q1-2026','q2-2026','q3-2026','q4-2026','y2025','q1-2025','q2-2025','q3-2025','q4-2025']);
+        } catch { return new Set(['y2026','q1-2026','q2-2026','q3-2026','q4-2026','y2025','q1-2025','q2-2025','q3-2025','q4-2025']); }
     });
 
-    // Tree report: không dùng pagination
-
-    // ── Build visible flat rows ──────────────────────────────────────────
+    // ── Derived data ──────────────────────────────────────────────────────────
     const visibleColumns = useMemo(() =>
         columnOrder.map(id => ALL_COLUMNS.find(c => c.id === id)).filter(c => c && visibleColumnIds.has(c.id)),
         [columnOrder, visibleColumnIds]
     );
 
-    // Apply search filter to mock data
     const filteredData = useMemo(() => {
         let data = searchTerm.trim()
             ? MOCK_DATA.filter(row => row.periodLabel.toLowerCase().includes(searchTerm.toLowerCase()))
             : MOCK_DATA;
         if (quickFilter !== 'all') {
             data = data.filter(r => {
-                const prevRow = getPreviousPeriodRow(r, MOCK_DATA);
-                if (!prevRow) return false;
-                const prevVal = dataMode === 'inbound' ? (prevRow.grnValue || 0) : prevRow.totalValue;
-                const currVal = dataMode === 'inbound' ? (r.grnValue || 0) : r.totalValue;
-                const change = currVal - prevVal;
-                const g = prevVal > 0 ? (change / prevVal) * 100 : 0;
-                return quickFilter === 'positive' ? g > 0 : g < 0;
+                if (quickFilter === 'positive') return r.change > 0;
+                if (quickFilter === 'negative') return r.change <= 0;
+                return true;
             });
         }
         return data;
-    }, [searchTerm, quickFilter, dataMode]);
+    }, [searchTerm, quickFilter]);
 
-    // Build tree: filter để quyết định hiển thị,
-    // nhưng comparison LUÔN lấy từ MOCK_DATA gốc (không lọc)
+    // ── Chart data ────────────────────────────────────────────────────────────
+    const chartData = useMemo(() => {
+        const yearRow = MOCK_DATA.find(r => r.level === LEVEL.YEAR && r.periodLabel === chartYear);
+        const parentId = yearRow?.id;
+        let rows = MOCK_DATA;
+        if (chartLevel === LEVEL.QUARTER) {
+            rows = MOCK_DATA.filter(r => r.level === LEVEL.QUARTER && r.parentId === parentId);
+        } else if (chartLevel === LEVEL.MONTH) {
+            // Lấy các quarter thuộc năm đang chọn
+            const quartersOfYear = MOCK_DATA.filter(r => r.level === LEVEL.QUARTER && r.parentId === parentId);
+            const quarterIds = new Set(quartersOfYear.map(q => q.id));
+            rows = MOCK_DATA.filter(r => r.level === LEVEL.MONTH && quarterIds.has(r.parentId));
+        } else {
+            rows = MOCK_DATA.filter(r => r.level === LEVEL.YEAR);
+        }
+        return rows.map(row => {
+            const { compGrowth } = getComputedComparison(row, MOCK_DATA);
+            let shortLabel = row.periodLabel;
+            if (chartLevel === LEVEL.QUARTER) shortLabel = row.periodLabel.replace('Quý ', 'Q').replace(' / ', '/');
+            if (chartLevel === LEVEL.MONTH) shortLabel = row.periodLabel.replace('Tháng ', '').replace(' / ', '/');
+            return {
+                label: row.periodLabel,
+                shortLabel,
+                value: row.totalValue,
+                growth: compGrowth ?? 0,
+                notesOutbound: row.deliveryNotes,
+                notesInbound:  row.grnNotes   || 0,
+                qtyOutbound:   row.totalQty,
+                qtyInbound:    row.grnQty     || 0,
+            };
+        });
+    }, [chartLevel, chartYear]);
+
+    // ── Tree rows ─────────────────────────────────────────────────────────────
     const treeRows = useMemo(() => {
         const result = [];
-        const rawData = MOCK_DATA; // luôn dùng dataset gốc cho comparison
         const idSet = new Set(filteredData.map(r => r.id));
-
         filteredData.forEach(row => {
-            // Luôn tính comparison từ raw dataset gốc, không dùng filteredData
-            const { compPrev, compChange, compGrowth } = getComputedComparison(row, rawData, dataMode);
-
+            const { compPrev, compChange, compGrowth } = getComputedComparison(row, MOCK_DATA);
             if (row.level === LEVEL.YEAR) {
-                result.push({ ...row, depth: 0, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)),
-                    compPrev, compChange, compGrowth });
+                result.push({ ...row, depth: 0, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)), compPrev, compChange, compGrowth });
             } else if (row.level === LEVEL.QUARTER) {
-                // Chỉ hiện nếu Year cha đang expand
                 const parent = filteredData.find(r => r.id === row.parentId);
                 if (parent && expandedIds.has(parent.id)) {
-                    result.push({ ...row, depth: 1, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)),
-                        compPrev, compChange, compGrowth });
+                    result.push({ ...row, depth: 1, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)), compPrev, compChange, compGrowth });
                 }
             } else if (row.level === LEVEL.MONTH) {
-                // Chỉ hiện nếu Year cha VÀ Quarter cha đang expand
                 const quarter = filteredData.find(r => r.id === row.parentId);
                 const year = quarter ? filteredData.find(r => r.id === quarter.parentId) : null;
                 if (quarter && year && expandedIds.has(quarter.id) && expandedIds.has(year.id)) {
-                    result.push({ ...row, depth: 2, hasChildren: false,
-                        compPrev, compChange, compGrowth });
+                    result.push({ ...row, depth: 2, hasChildren: false, compPrev, compChange, compGrowth });
                 }
             }
         });
         return result;
-    }, [filteredData, expandedIds, dataMode]);
+    }, [filteredData, expandedIds]);
 
-    const totalItems = treeRows.length;
+    // ── Summary totals ────────────────────────────────────────────────────────
+    const summaryTotals = useMemo(() => {
+        const years = filteredData.filter(r => r.level === LEVEL.YEAR);
+        return {
+            totalSales: years.reduce((s, r) => s + r.totalValue, 0),
+            totalNotes: years.reduce((s, r) => s + r.deliveryNotes, 0),
+            totalQty:   years.reduce((s, r) => s + r.totalQty, 0),
+            totalGrnNotes: years.reduce((s, r) => s + (r.grnNotes || 0), 0),
+            totalGrnQty:   years.reduce((s, r) => s + (r.grnQty   || 0), 0),
+        };
+    }, [filteredData]);
 
-    // ── Expand / collapse ─────────────────────────────────────────────────
+    // ── Handlers ───────────────────────────────────────────────────────────────
     const toggleExpand = useCallback((id) => {
         setExpandedIds(prev => {
             const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
+            next.has(id) ? next.delete(id) : next.add(id);
             localStorage.setItem(LS_EXPANDED, JSON.stringify([...next]));
             return next;
         });
     }, []);
 
-    // ── Column selector ───────────────────────────────────────────────────
     const handlePopupDragStart = (e, colId) => {
         setDraggedPopupColumn(colId);
         e.dataTransfer.effectAllowed = 'move';
@@ -440,14 +519,13 @@ export default function Viewsalesreportlist() {
     const handlePopupDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
     const handlePopupDrop = (e, targetId) => {
         e.preventDefault();
-        const sourceId = e.dataTransfer.getData('text/plain') || draggedPopupColumn;
-        if (!sourceId || sourceId === targetId) { setDraggedPopupColumn(null); return; }
+        const src = e.dataTransfer.getData('text/plain') || draggedPopupColumn;
+        if (!src || src === targetId) { setDraggedPopupColumn(null); return; }
         const arr = [...tempColumnOrder];
-        const from = arr.indexOf(sourceId);
-        const to   = arr.indexOf(targetId);
-        if (from === -1 || to === -1) { setDraggedPopupColumn(null); return; }
-        arr.splice(from, 1);
-        arr.splice(to, 0, sourceId);
+        const fi = arr.indexOf(src), ti = arr.indexOf(targetId);
+        if (fi === -1 || ti === -1) { setDraggedPopupColumn(null); return; }
+        arr.splice(fi, 1);
+        arr.splice(ti, 0, src);
         setTempColumnOrder(arr);
         setDraggedPopupColumn(null);
     };
@@ -457,23 +535,8 @@ export default function Viewsalesreportlist() {
         localStorage.setItem(LS_VISIBLE, JSON.stringify([...visibleColumnIds]));
         setColumnSelectorAnchor(null);
     };
-    const handleCancelColumnOrder = () => {
-        setTempColumnOrder(columnOrder);
-        setColumnSelectorAnchor(null);
-    };
 
-    // ── Summary totals ────────────────────────────────────────────────────
-    const summaryTotals = useMemo(() => {
-        const visibleRows = filteredData;
-        const years = visibleRows.filter(r => r.level === LEVEL.YEAR);
-        return {
-            totalSales: years.reduce((s, r) => s + r.totalValue, 0),
-            totalNotes: years.reduce((s, r) => s + r.deliveryNotes, 0),
-            totalQty: years.reduce((s, r) => s + r.totalQty, 0),
-            totalGrnNotes: years.reduce((s, r) => s + (r.grnNotes || 0), 0),
-            totalGrnQty: years.reduce((s, r) => s + (r.grnQty || 0), 0),
-        };
-    }, [filteredData]);
+    const chartBarColor = dataMode === 'inbound' ? '#059669' : '#2563eb';
 
     // ── Render ─────────────────────────────────────────────────────────────
     return (
@@ -486,49 +549,180 @@ export default function Viewsalesreportlist() {
             <Box sx={{ flexShrink: 0, px: { xs: 2, sm: 2 }, py: 2.5, bgcolor: '#fafafa' }}>
                 <Typography variant="h5" component="h1" fontWeight="600"
                     sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
-                    Báo cáo doanh số
+                    Theo dõi số liệu xuất/nhập hàng thực tế
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
-                    Theo dõi số liệu xuất hàng thực tế theo Năm, Quý, Tháng
+                    Theo dõi số liệu xuất/nhập hàng thực tế theo Năm, Quý, Tháng
                 </Typography>
 
                 {/* Summary Cards */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard
-                        icon={FileBarChart}
-                        label="Tổng doanh số"
-                        value={formatVND(summaryTotals.totalSales)}
-                        color="#6b7280"
-                        bgColor="rgba(107,114,128,0.1)"
-                    />
-                    <SummaryCard
-                        icon={FileBarChart}
-                        label="Tổng phiếu xuất"
-                        value={formatNumber(summaryTotals.totalNotes)}
-                        color="#2563eb"
-                        bgColor="rgba(37,99,235,0.1)"
-                    />
-                    <SummaryCard
-                        icon={FileBarChart}
-                        label="Tổng số lượng xuất"
-                        value={formatNumber(summaryTotals.totalQty)}
-                        color="#059669"
-                        bgColor="rgba(5,150,105,0.1)"
-                    />
-                    <SummaryCard
-                        icon={FileBarChart}
-                        label="Tổng phiếu nhập"
-                        value={formatNumber(summaryTotals.totalGrnNotes)}
-                        color="#7c3aed"
-                        bgColor="rgba(124,58,237,0.1)"
-                    />
-                    <SummaryCard
-                        icon={FileBarChart}
-                        label="Tổng số lượng nhập"
-                        value={formatNumber(summaryTotals.totalGrnQty)}
-                        color="#0891b2"
-                        bgColor="rgba(8,145,178,0.1)"
-                    />
+                    <SummaryCard icon={FileBarChart} label="Tổng doanh số" value={formatVND(summaryTotals.totalSales)} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={FileBarChart} label="Tổng phiếu xuất" value={formatNumber(summaryTotals.totalNotes)} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
+                    <SummaryCard icon={FileBarChart} label="Tổng số lượng xuất" value={formatNumber(summaryTotals.totalQty)} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={FileBarChart} label="Tổng phiếu nhập" value={formatNumber(summaryTotals.totalGrnNotes)} color="#7c3aed" bgColor="rgba(124,58,237,0.1)" />
+                    <SummaryCard icon={FileBarChart} label="Tổng số lượng nhập" value={formatNumber(summaryTotals.totalGrnQty)} color="#0891b2" bgColor="rgba(8,145,178,0.1)" />
+                </Box>
+            </Box>
+
+            {/* ══════════════════════════════════════════════════════
+                CHART SECTION — nằm giữa Summary Cards và Main Content
+            ══════════════════════════════════════════════════════ */}
+            <Box sx={{ flexShrink: 0, px: { xs: 2, sm: 2 }, pb: 2 }}>
+                <Box sx={{
+                    bgcolor: '#fff', border: '1px solid #e5e7eb',
+                    borderRadius: '12px', overflow: 'hidden',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                }}>
+                    {/* Chart section header */}
+                    <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                            Biểu đồ
+                        </Typography>
+                        {/* Chart level toggle */}
+                        <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', ml: 1 }}>
+                            {[LEVEL.YEAR, LEVEL.QUARTER, LEVEL.MONTH].map(lvl => (
+                                <Box key={lvl}
+                                    onClick={() => setChartLevel(lvl)}
+                                    sx={{
+                                        px: 1.5, py: 0.5, fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                                        bgcolor: chartLevel === lvl ? '#0284c7' : '#fff',
+                                        color: chartLevel === lvl ? '#fff' : '#6b7280',
+                                        '&:hover': { bgcolor: chartLevel === lvl ? '#0284c7' : '#f3f4f6' },
+                                    }}
+                                >
+                                    {CHART_LEVEL_LABELS[lvl]}
+                                </Box>
+                            ))}
+                        </Box>
+                        {/* Year dropdown */}
+                        <Box sx={{ ml: 1 }}>
+                            <select
+                                value={chartYear}
+                                onChange={(e) => setChartYear(e.target.value)}
+                                style={{
+                                    padding: '5px 28px 5px 10px',
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                    borderRadius: '8px',
+                                    border: '1px solid #e5e7eb',
+                                    backgroundColor: '#fff',
+                                    color: '#374151',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    appearance: 'none',
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundPosition: 'right 8px center',
+                                    paddingRight: '28px',
+                                }}
+                            >
+                                {availableYears.map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                        </Box>
+                    </Box>
+
+                    {/* ── Chart Row 1: Giá trị & Tăng trưởng ── */}
+                    <Box sx={{ borderBottom: '1px solid #f3f4f6', pb: 0.5 }}>
+                        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f3f4f6' }}>
+                            <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                Giá trị &amp; Tăng trưởng
+                            </Typography>
+                            <Typography sx={{ fontSize: '11px', color: '#9ca3af', mt: 0.25 }}>
+                                Theo {CHART_LEVEL_LABELS[chartLevel].toLowerCase()}
+                            </Typography>
+                        </Box>
+                        {chartData.length === 0 ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1 }}>
+                                <CloudOff size={28} style={{ opacity: 0.3 }} />
+                                <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>Không có dữ liệu</Typography>
+                            </Box>
+                        ) : (
+                            <Box sx={{ px: 1, pt: 1.5, pb: 1, height: 256, overflow: 'hidden' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} margin={{ top: 6, right: 56, left: 0, bottom: 28 }} barCategoryGap="20%">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                                        <XAxis dataKey="shortLabel" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} interval="preserveStartEnd" />
+                                        <YAxis yAxisId="bar" orientation="left" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1_000_000_000).toFixed(0)}B`} width={40} />
+                                        <YAxis yAxisId="line" orientation="right" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} width={44} />
+                                        <RechartsTooltip content={<MainChartTooltip />} />
+                                        <Legend wrapperStyle={{ fontSize: '11px', color: '#6b7280', paddingTop: '2px' }} />
+                                        <Bar yAxisId="bar" dataKey="value" name="Giá trị" fill={chartBarColor} radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                        <Line yAxisId="line" type="monotone" dataKey="growth" name="Tăng trưởng" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: '#f59e0b' }} activeDot={{ r: 5 }} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </Box>
+                        )}
+                    </Box>
+
+                    {/* ── Chart Row 2: Số phiếu & Tổng SL (2 cột) ── */}
+                    <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
+                        {/* Số phiếu xuất / nhập */}
+                        <Box sx={{ flex: 1, minWidth: 0, borderRight: isMobile ? 0 : '1px solid #f3f4f6' }}>
+                            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f3f4f6' }}>
+                                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                    Số phiếu xuất &amp; nhập
+                                </Typography>
+                                <Typography sx={{ fontSize: '11px', color: '#9ca3af', mt: 0.25 }}>
+                                    Theo {CHART_LEVEL_LABELS[chartLevel].toLowerCase()}
+                                </Typography>
+                            </Box>
+                            {chartData.length === 0 ? (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1 }}>
+                                    <CloudOff size={28} style={{ opacity: 0.3 }} />
+                                    <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>Không có dữ liệu</Typography>
+                                </Box>
+                            ) : (
+                                <Box sx={{ px: 1, pt: 1.5, pb: 1, height: 216, overflow: 'hidden' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 6, right: 16, left: 0, bottom: 28 }} barCategoryGap="20%">
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                                            <XAxis dataKey="shortLabel" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} interval="preserveStartEnd" />
+                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={36} />
+                                            <RechartsTooltip content={<SubChartTooltip />} />
+                                            <Legend wrapperStyle={{ fontSize: '11px', color: '#6b7280' }} />
+                                            <Bar dataKey="notesOutbound" name="Phiếu xuất" fill="#2563eb" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                            <Bar dataKey="notesInbound" name="Phiếu nhập" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                            )}
+                        </Box>
+
+                        {/* Tổng SL xuất / nhập */}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f3f4f6' }}>
+                                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                                    Tổng SL xuất &amp; nhập
+                                </Typography>
+                                <Typography sx={{ fontSize: '11px', color: '#9ca3af', mt: 0.25 }}>
+                                    Theo {CHART_LEVEL_LABELS[chartLevel].toLowerCase()}
+                                </Typography>
+                            </Box>
+                            {chartData.length === 0 ? (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1 }}>
+                                    <CloudOff size={28} style={{ opacity: 0.3 }} />
+                                    <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>Không có dữ liệu</Typography>
+                                </Box>
+                            ) : (
+                                <Box sx={{ px: 1, pt: 1.5, pb: 1, height: 216, overflow: 'hidden' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 6, right: 16, left: 0, bottom: 28 }} barCategoryGap="20%">
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                                            <XAxis dataKey="shortLabel" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={{ stroke: '#e5e7eb' }} tickLine={false} interval="preserveStartEnd" />
+                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={36} />
+                                            <RechartsTooltip content={<SubChartTooltip />} />
+                                            <Legend wrapperStyle={{ fontSize: '11px', color: '#6b7280' }} />
+                                            <Bar dataKey="qtyOutbound" name="SL xuất" fill="#7c3aed" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                            <Bar dataKey="qtyInbound" name="SL nhập" fill="#0891b2" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                            )}
+                        </Box>
+                    </Box>
                 </Box>
             </Box>
 
@@ -558,10 +752,7 @@ export default function Viewsalesreportlist() {
                                         borderRadius: '10px', fontSize: '13px',
                                         '& fieldset': { border: 'none' },
                                         '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                        '&.Mui-focused': {
-                                            bgcolor: '#ffffff', borderColor: '#0284c7',
-                                            boxShadow: '0 0 0 3px rgba(2,132,199,0.10)',
-                                        },
+                                        '&.Mui-focused': { bgcolor: '#ffffff', borderColor: '#0284c7', boxShadow: '0 0 0 3px rgba(2,132,199,0.10)' },
                                         '& input::placeholder': { color: '#9ca3af', fontSize: '13px' },
                                     },
                                 }}
@@ -569,8 +760,8 @@ export default function Viewsalesreportlist() {
 
                             {/* Toggle Nhập / Xuất */}
                             <Box sx={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', bgcolor: '#fff' }}>
-                                <Box onClick={() => { setDataMode('outbound'); setQuickFilter('all'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'outbound' ? '#2563eb' : '#fff', color: dataMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: dataMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất</Box>
-                                <Box onClick={() => { setDataMode('inbound'); setQuickFilter('all'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'inbound' ? '#059669' : '#fff', color: dataMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: dataMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập</Box>
+                                <Box onClick={() => { setDataMode('outbound'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'outbound' ? '#2563eb' : '#fff', color: dataMode === 'outbound' ? '#fff' : '#6b7280', '&:hover': { bgcolor: dataMode === 'outbound' ? '#2563eb' : '#f9fafb' } }}>Xuất</Box>
+                                <Box onClick={() => { setDataMode('inbound'); }} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: dataMode === 'inbound' ? '#059669' : '#fff', color: dataMode === 'inbound' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: dataMode === 'inbound' ? '#059669' : '#f9fafb' } }}>Nhập</Box>
                             </Box>
 
                             {/* Quick filter */}
@@ -584,30 +775,18 @@ export default function Viewsalesreportlist() {
                                 <IconButton color="primary"
                                     onClick={(e) => { setTempColumnOrder(columnOrder); setColumnSelectorAnchor(e.currentTarget); }}
                                     aria-label="Chọn cột"
-                                    sx={{
-                                        border: '1px solid #e5e7eb', bgcolor: '#ffffff',
-                                        borderRadius: '10px',
-                                        '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                    }}>
+                                    sx={{ border: '1px solid #e5e7eb', bgcolor: '#ffffff', borderRadius: '10px', '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' } }}>
                                     <Columns size={18} />
                                 </IconButton>
                             </Tooltip>
 
-                            {/* spacer to push export to right */}
                             <Box sx={{ flex: 1 }} />
 
-                            {/* Export button */}
-                            <Button
-                                variant="outlined"
-                                startIcon={<Download size={16} />}
-                                sx={{
-                                    fontSize: '13px', fontWeight: 500,
-                                    textTransform: 'none', borderRadius: '10px',
-                                    height: 38, px: 2.5,
-                                    borderColor: '#e5e7eb', color: '#374151',
-                                    '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
-                                }}
-                            >
+                            <Button variant="outlined" startIcon={<Download size={16} />} sx={{
+                                fontSize: '13px', fontWeight: 500, textTransform: 'none', borderRadius: '10px',
+                                height: 38, px: 2.5, borderColor: '#e5e7eb', color: '#374151',
+                                '&:hover': { bgcolor: '#f9fafb', borderColor: '#d1d5db' },
+                            }}>
                                 Xuất báo cáo
                             </Button>
                         </Box>
@@ -617,7 +796,7 @@ export default function Viewsalesreportlist() {
                     <Popover
                         open={Boolean(columnSelectorAnchor)}
                         anchorEl={columnSelectorAnchor}
-                        onClose={handleCancelColumnOrder}
+                        onClose={() => setColumnSelectorAnchor(null)}
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                         slotProps={{
@@ -635,15 +814,10 @@ export default function Viewsalesreportlist() {
                     >
                         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
                             <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
-                                Chọn cột & Sắp xếp
+                                Chọn cột &amp; Sắp xếp
                             </Typography>
                         </Box>
-                        <Box sx={{
-                            px: 2.5, py: 2, flex: 1, minHeight: 0, overflowY: 'auto',
-                            '&::-webkit-scrollbar': { width: '6px' },
-                            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                            '&::-webkit-scrollbar-thumb': { bgcolor: '#d1d5db', borderRadius: '3px', '&:hover': { bgcolor: '#9ca3af' } },
-                        }}>
+                        <Box sx={{ px: 2.5, py: 2, flex: 1, minHeight: 0, overflowY: 'auto' }}>
                             <FormGroup>
                                 <FormControlLabel
                                     control={
@@ -657,150 +831,104 @@ export default function Viewsalesreportlist() {
                                     label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
                                     sx={{ mb: 1, py: 0.5 }}
                                 />
-                                {ALL_COLUMNS
-                                    .slice()
-                                    .sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id))
-                                    .map((col) => (
-                                        <Box
-                                            key={col.id}
-                                            sx={{
-                                                display: 'flex', alignItems: 'center', gap: 1,
-                                                bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent',
-                                                opacity: draggedPopupColumn === col.id ? 0.5 : 1,
-                                                transition: 'all 0.2s',
-                                                borderRadius: '8px', px: 0.75, py: 0.25,
-                                                '&:hover': { bgcolor: '#f9fafb' },
-                                            }}
-                                            onDragOver={handlePopupDragOver}
-                                            onDrop={(e) => handlePopupDrop(e, col.id)}
-                                        >
-                                            <Box draggable
-                                                onDragStart={(e) => handlePopupDragStart(e, col.id)}
-                                                onDragEnd={() => setDraggedPopupColumn(null)}
-                                                sx={{
-                                                    display: 'flex', alignItems: 'center', cursor: 'grab',
-                                                    '&:active': { cursor: 'grabbing' },
-                                                    color: '#9ca3af', '&:hover': { color: '#6b7280' },
-                                                }}>
-                                                <GripVertical size={14} />
-                                            </Box>
-                                            <FormControlLabel
-                                                control={
-                                                    <Checkbox
-                                                        checked={visibleColumnIds.has(col.id)}
-                                                        onChange={(e) => {
-                                                            setVisibleColumnIds(prev => {
-                                                                const next = new Set(prev);
-                                                                e.target.checked ? next.add(col.id) : next.delete(col.id);
-                                                                return next;
-                                                            });
-                                                        }}
-                                                        sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#0284c7' } }}
-                                                    />
-                                                }
-                                                label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
-                                                sx={{ flex: 1, m: 0, py: 0.5 }}
-                                            />
+                                {ALL_COLUMNS.slice().sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
+                                    <Box key={col.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent', opacity: draggedPopupColumn === col.id ? 0.5 : 1, transition: 'all 0.2s', borderRadius: '8px', px: 0.75, py: 0.25, '&:hover': { bgcolor: '#f9fafb' } }}
+                                        onDragOver={handlePopupDragOver}
+                                        onDrop={(e) => handlePopupDrop(e, col.id)}
+                                    >
+                                        <Box draggable onDragStart={(e) => handlePopupDragStart(e, col.id)} onDragEnd={() => setDraggedPopupColumn(null)} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', '&:active': { cursor: 'grabbing' }, color: '#9ca3af', '&:hover': { color: '#6b7280' } }}>
+                                            <GripVertical size={14} />
                                         </Box>
-                                    ))
-                                }
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox checked={visibleColumnIds.has(col.id)} onChange={(e) => {
+                                                    setVisibleColumnIds(prev => { const next = new Set(prev); e.target.checked ? next.add(col.id) : next.delete(col.id); return next; });
+                                                }} sx={{ color: '#9ca3af', '&.Mui-checked': { color: '#0284c7' } }} />
+                                            }
+                                            label={<Typography sx={{ fontSize: '13px', color: '#374151' }}>{col.label}</Typography>}
+                                            sx={{ flex: 1, m: 0, py: 0.5 }}
+                                        />
+                                    </Box>
+                                ))}
                             </FormGroup>
                         </Box>
                         <Box sx={{ px: 2.5, py: 2, display: 'flex', gap: 1.5, borderTop: '1px solid #f3f4f6', flexShrink: 0 }}>
-                            <Button variant="outlined" onClick={handleCancelColumnOrder}
-                                sx={{ flex: 1, textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px',
-                                    borderColor: '#e5e7eb', color: '#6b7280', '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' } }}>
+                            <Button variant="outlined" onClick={() => setColumnSelectorAnchor(null)} sx={{ flex: 1, textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', borderColor: '#e5e7eb', color: '#6b7280', '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' } }}>
                                 Hủy
                             </Button>
-                            <Button variant="contained" onClick={handleSaveColumnOrder}
-                                sx={{ flex: 1, textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px',
-                                    bgcolor: '#0284c7', boxShadow: 'none', '&:hover': { bgcolor: '#0369a1', boxShadow: '0 2px 8px rgba(2,132,199,0.25)' } }}>
+                            <Button variant="contained" onClick={handleSaveColumnOrder} sx={{ flex: 1, textTransform: 'none', fontSize: '13px', fontWeight: 500, height: 38, borderRadius: '10px', bgcolor: '#0284c7', boxShadow: 'none', '&:hover': { bgcolor: '#0369a1' } }}>
                                 Lưu
                             </Button>
                         </Box>
                     </Popover>
 
-                    {/* ── Table / States ── */}
+                    {/* ── Table ── */}
                     <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        {treeRows.length === 0 ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 1, color: 'text.secondary', py: 6 }}>
-                                <CloudOff size={48} style={{ marginBottom: 8, opacity: 0.35 }} />
-                                <Typography sx={{ fontSize: '13px' }}>Không có dữ liệu báo cáo</Typography>
-                            </Box>
-                        ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
-                                <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>
-                                    Hiển thị {totalItems} dòng báo cáo
-                                </Typography>
-                            </Box>
-                        )}
-                        {treeRows.length > 0 && (
-                            <TableContainer sx={{ flex: 1, minHeight: 0 }}>
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
+                        <TableContainer sx={{ flex: 1, minHeight: 0 }}>
+                            <Table size="small" stickyHeader>
+                                <TableHead>
+                                    <TableRow>
+                                        {visibleColumns.map((col) => (
+                                            <TableCell key={col.id} align={col.align} sx={{
+                                                fontWeight: 600, bgcolor: '#fafafa',
+                                                borderBottom: '2px solid #e5e7eb',
+                                                fontSize: '12px', color: '#6b7280',
+                                                py: 1.5, px: 2, whiteSpace: 'nowrap',
+                                                width: col.width, minWidth: col.minWidth,
+                                            }}>
+                                                {col.label}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {treeRows.length === 0 ? (
                                         <TableRow>
-                                            {visibleColumns.map((col) => (
-                                                <TableCell key={col.id} align={col.align} sx={{
-                                                    fontWeight: 600, bgcolor: '#fafafa',
-                                                    borderBottom: '2px solid #e5e7eb',
-                                                    fontSize: '12px', color: '#6b7280',
-                                                    py: 1.5, px: 2, whiteSpace: 'nowrap',
-                                                    width: col.width, minWidth: col.minWidth,
-                                                }}>
-                                                    {col.label}
-                                                </TableCell>
-                                            ))}
+                                            <TableCell colSpan={visibleColumns.length} sx={{ py: 6, textAlign: 'center', borderBottom: '1px solid #f3f4f6' }}>
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                                    <CloudOff size={36} style={{ opacity: 0.35 }} />
+                                                    <Typography sx={{ fontSize: '13px', color: 'text.secondary' }}>
+                                                        Không có dữ liệu báo cáo
+                                                    </Typography>
+                                                </Box>
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {treeRows.map((row) => {
+                                    ) : (
+                                        treeRows.map((row) => {
                                             const isExpanded = expandedIds.has(row.id);
-
                                             return (
-                                                <TableRow key={row.id} hover
-                                                    sx={{
-                                                        height: 52,
-                                                        bgcolor: row.level === LEVEL.YEAR ? '#fff' : row.level === LEVEL.QUARTER ? '#fafbfc' : '#fcfcfd',
-                                                        '&:hover': { bgcolor: '#f9fafb' },
-                                                        '&:last-child td': { borderBottom: 0 },
-                                                    }}
-                                                >
+                                                <TableRow key={row.id} hover sx={{
+                                                    height: 52,
+                                                    bgcolor: row.level === LEVEL.YEAR ? '#fff' : row.level === LEVEL.QUARTER ? '#fafbfc' : '#fcfcfd',
+                                                    '&:hover': { bgcolor: '#f9fafb' },
+                                                    '&:last-child td': { borderBottom: 0 },
+                                                }}>
                                                     {visibleColumns.map((col) => {
                                                         const lf = LEVEL_FONT[row.level] || LEVEL_FONT.MONTH;
 
-                                                        // Kỳ báo cáo với expand button và icon xem chi tiết
                                                         if (col.id === 'periodLabel') {
                                                             return (
                                                                 <TableCell key={col.id} align="left" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6' }}>
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: `${ROW_INDENT[row.level] || 0}px` }}>
                                                                             {row.hasChildren ? (
-                                                                                <IconButton size="small"
-                                                                                    onClick={() => toggleExpand(row.id)}
-                                                                                    sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#6b7280' } }}>
+                                                                                <IconButton size="small" onClick={() => toggleExpand(row.id)} sx={{ p: 0.25, color: '#9ca3af', '&:hover': { color: '#6b7280' } }}>
                                                                                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                                                                                 </IconButton>
-                                                                            ) : (
-                                                                                <Box sx={{ width: 20, flexShrink: 0 }} />
-                                                                            )}
-                                                                            <Typography sx={{ ...lf }}>
-                                                                                {row.periodLabel}
-                                                                            </Typography>
+                                                                            ) : <Box sx={{ width: 20, flexShrink: 0 }} />}
+                                                                            <Typography sx={{ ...lf }}>{row.periodLabel}</Typography>
                                                                         </Box>
                                                                         <Tooltip title="Xem chi tiết">
-                                                                            <IconButton size="small"
-                                                                                onClick={() => {
-                                                                                    if (row.level === LEVEL.YEAR) {
-                                                                                        navigate(`/reports/sales/detail/year/${row.periodLabel}?from=list`);
-                                                                                    } else if (row.level === LEVEL.QUARTER) {
-                                                                                        const parts = row.periodLabel.match(/Quý (\d) \/ (\d{4})/);
-                                                                                        navigate(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=list`);
-                                                                                    } else if (row.level === LEVEL.MONTH) {
-                                                                                        const parts = row.periodLabel.match(/Tháng (\d+) \/ (\d{4})/);
-                                                                                        navigate(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=list`);
-                                                                                    }
-                                                                                }}
-                                                                                sx={{ p: 0.5, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
+                                                                            <IconButton size="small" onClick={() => {
+                                                                                if (row.level === LEVEL.YEAR) navigate(`/reports/sales/detail/year/${row.periodLabel}?from=list`);
+                                                                                else if (row.level === LEVEL.QUARTER) {
+                                                                                    const parts = row.periodLabel.match(/Quý (\d+) \/ (\d{4})/);
+                                                                                    navigate(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=list`);
+                                                                                } else if (row.level === LEVEL.MONTH) {
+                                                                                    const parts = row.periodLabel.match(/Tháng (\d+) \/ (\d{4})/);
+                                                                                    navigate(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=list`);
+                                                                                }
+                                                                            }} sx={{ p: 0.5, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
                                                                                 <Eye size={15} />
                                                                             </IconButton>
                                                                         </Tooltip>
@@ -809,7 +937,6 @@ export default function Viewsalesreportlist() {
                                                             );
                                                         }
 
-                                                        // Numeric columns
                                                         if (col.align === 'right') {
                                                             let val = '';
                                                             let color = lf.color;
@@ -818,46 +945,32 @@ export default function Viewsalesreportlist() {
 
                                                             if (col.id === 'notes') {
                                                                 val = formatNumber(dataMode === 'inbound' ? (row.grnNotes || 0) : row.deliveryNotes);
-                                                                color = dataMode === 'inbound' ? '#7c3aed' : lf.color;
+                                                                color = dataMode === 'inbound' ? '#7c3aed' : '#2563eb';
                                                             } else if (col.id === 'qty') {
                                                                 val = formatNumber(dataMode === 'inbound' ? (row.grnQty || 0) : row.totalQty);
-                                                                color = dataMode === 'inbound' ? '#0891b2' : lf.color;
+                                                                color = dataMode === 'inbound' ? '#0891b2' : '#059669';
                                                             } else if (col.id === 'value') {
                                                                 const vf = VALUE_FONT[row.level] || VALUE_FONT.MONTH;
-                                                                fontSize = vf.fontSize;
-                                                                weight = vf.fontWeight;
-                                                                color = vf.color;
+                                                                fontSize = vf.fontSize; weight = vf.fontWeight; color = vf.color;
                                                                 val = formatVND(dataMode === 'inbound' ? (row.grnValue || 0) : row.totalValue);
                                                             } else if (col.id === 'prevValue') {
                                                                 val = row.compPrev != null ? formatVND(row.compPrev) : '—';
                                                                 color = '#9ca3af';
                                                             } else if (col.id === 'change') {
-                                                                if (row.compChange != null) {
-                                                                    color = changeColor(row.compChange);
-                                                                    val = formatSignedCurrency(row.compChange);
-                                                                } else {
-                                                                    val = '—';
-                                                                }
+                                                                val = row.compChange != null ? formatSignedCurrency(row.compChange) : '—';
+                                                                if (row.compChange != null) color = changeColor(row.compChange);
                                                             } else if (col.id === 'growth') {
-                                                                if (row.compGrowth != null) {
-                                                                    color = changeColor(row.compGrowth);
-                                                                    val = formatSignedPercent(row.compGrowth);
-                                                                } else {
-                                                                    val = '—';
-                                                                }
+                                                                val = row.compGrowth != null ? formatSignedPercent(row.compGrowth) : '—';
+                                                                if (row.compGrowth != null) color = changeColor(row.compGrowth);
                                                             }
 
                                                             return (
-                                                                <TableCell key={col.id} align="right" sx={{
-                                                                    py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6',
-                                                                    fontSize, fontWeight: weight, color, fontVariantNumeric: 'tabular-nums',
-                                                                }}>
+                                                                <TableCell key={col.id} align="right" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', fontSize, fontWeight: weight, color, fontVariantNumeric: 'tabular-nums' }}>
                                                                     {val}
                                                                 </TableCell>
                                                             );
                                                         }
 
-                                                        // Default fallback
                                                         return (
                                                             <TableCell key={col.id} align="left" sx={{ py: 1.25, px: 2, borderBottom: '1px solid #f3f4f6', ...lf }}>
                                                                 {String(row[col.id] ?? '—')}
@@ -866,11 +979,11 @@ export default function Viewsalesreportlist() {
                                                     })}
                                                 </TableRow>
                                             );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        )}
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
                     </Box>
                 </Paper>
             </Box>

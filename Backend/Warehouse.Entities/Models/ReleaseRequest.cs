@@ -29,6 +29,8 @@ public partial class ReleaseRequest
 
     public string LifecycleStatus { get; set; } = null!;
 
+    public bool IsPartialDeliveryAllowed { get; set; }
+
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
 
     public virtual Receiver Receiver { get; set; } = null!;

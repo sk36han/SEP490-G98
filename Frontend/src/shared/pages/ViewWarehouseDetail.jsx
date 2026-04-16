@@ -15,11 +15,8 @@ import {
     Box,
     CircularProgress,
     Typography,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
     Warehouse as WarehouseIcon,
@@ -779,103 +776,51 @@ const ViewWarehouseDetail = () => {
             </div>
 
             {/* Unsaved Changes Dialog */}
-            <Dialog
+            <ConfirmDialog
                 open={unsavedDialogConfig.open}
                 onClose={() => setUnsavedDialogConfig({ open: false, action: null })}
-                fullWidth
-                maxWidth="xs"
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '420px',
-                        borderRadius: '16px',
-                        border: '1px solid #e5e7eb',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                    },
+                onConfirm={() => {
+                    setUnsavedDialogConfig({ open: false, action: null });
+                    if (unsavedDialogConfig.action === 'back') {
+                        navigate('/inventory');
+                    } else {
+                        setIsEditing(false);
+                    }
                 }}
-            >
-                <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
-                    Có thay đổi chưa được lưu
-                </DialogTitle>
-                <DialogContent sx={{ px: 3, pb: 2 }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
-                        Bạn có thay đổi chưa lưu. Bạn có muốn{' '}
-                        {unsavedDialogConfig.action === 'back' ? 'rời khỏi trang này' : 'hủy bỏ các thay đổi'} không?
-                    </p>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
-                    <button
-                        type="button"
-                        onClick={() => setUnsavedDialogConfig({ open: false, action: null })}
-                        className="btn btn-secondary"
-                        style={{ minWidth: '80px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}
-                    >
-                        Ở lại
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => {
-                            setUnsavedDialogConfig({ open: false, action: null });
-                            if (unsavedDialogConfig.action === 'back') {
-                                navigate('/inventory');
-                            } else {
-                                setIsEditing(false);
-                            }
-                        }}
-                        style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}
-                    >
-                        {unsavedDialogConfig.action === 'back' ? 'Rời đi' : 'Hủy thay đổi'}
-                    </button>
-                </DialogActions>
-            </Dialog>
+                title="Có thay đổi chưa được lưu"
+                message={`Bạn có thay đổi chưa lưu. Bạn có muốn ${unsavedDialogConfig.action === 'back' ? 'rời khỏi trang này' : 'hủy bỏ các thay đổi'} không?`}
+                confirmText={unsavedDialogConfig.action === 'back' ? 'Rời đi' : 'Hủy thay đổi'}
+                cancelText="Ở lại"
+                actions={
+                    <>
+                        <button type="button" onClick={() => setUnsavedDialogConfig({ open: false, action: null })} className="btn btn-secondary" style={{ minWidth: '80px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}>Ở lại</button>
+                        <button type="button" className="btn btn-primary" onClick={() => { setUnsavedDialogConfig({ open: false, action: null }); if (unsavedDialogConfig.action === 'back') { navigate('/inventory'); } else { setIsEditing(false); } }} style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}>{unsavedDialogConfig.action === 'back' ? 'Rời đi' : 'Hủy thay đổi'}</button>
+                    </>
+                }
+            />
 
             {/* Status Confirmation Dialog */}
-            <Dialog
+            <ConfirmDialog
                 open={statusDialogConfig.open}
                 onClose={() => setStatusDialogConfig({ open: false, action: null })}
-                fullWidth
-                maxWidth="xs"
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '480px',
-                        borderRadius: '16px',
-                        border: '1px solid var(--slate-200, #e5e7eb)',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                    },
-                }}
-            >
-                <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5, fontSize: '18px', fontWeight: 600 }}>
-                    {statusDialogConfig.action === 'disable' ? 'Vô hiệu hóa kho' : 'Kích hoạt kho'}
-                </DialogTitle>
-                <DialogContent sx={{ px: 3, pb: 2 }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>
-                        {statusDialogConfig.action === 'disable'
-                            ? `Bạn có chắc chắn muốn vô hiệu hóa kho "${warehouse?.warehouseName}"? Sau khi vô hiệu hóa, kho sẽ không còn hoạt động.`
-                            : `Bạn có chắc chắn muốn kích hoạt lại kho "${warehouse?.warehouseName}"? Kho sẽ hoạt động trở lại.`}
-                    </p>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
-                    <button
-                        type="button"
-                        onClick={() => setStatusDialogConfig({ open: false, action: null })}
-                        className="btn btn-cancel"
-                        style={{ minWidth: '72px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={handleStatusConfirm}
-                        disabled={statusSubmitting}
-                        style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}
-                    >
-                        {statusSubmitting ? 'Đang xử lý…' : 'Xác nhận'}
-                    </button>
-                </DialogActions>
-            </Dialog>
+                onConfirm={handleStatusConfirm}
+                title={statusDialogConfig.action === 'disable' ? 'Vô hiệu hóa kho' : 'Kích hoạt kho'}
+                message={
+                    statusDialogConfig.action === 'disable'
+                        ? `Bạn có chắc chắn muốn vô hiệu hóa kho "${warehouse?.warehouseName}"? Sau khi vô hiệu hóa, kho sẽ không còn hoạt động.`
+                        : `Bạn có chắc chắn muốn kích hoạt lại kho "${warehouse?.warehouseName}"? Kho sẽ hoạt động trở lại.`
+                }
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={statusSubmitting}
+                confirmDanger={statusDialogConfig.action === 'disable'}
+                actions={
+                    <>
+                        <button type="button" onClick={() => setStatusDialogConfig({ open: false, action: null })} className="btn btn-cancel" style={{ minWidth: '72px', height: '40px', borderRadius: '10px', fontSize: '14px', fontWeight: 600 }}>Hủy</button>
+                        <button type="button" className="btn btn-primary" onClick={handleStatusConfirm} disabled={statusSubmitting} style={{ minWidth: '110px', height: '40px', borderRadius: '12px', fontSize: '14px', fontWeight: 700 }}>{statusSubmitting ? 'Đang xử lý…' : 'Xác nhận'}</button>
+                    </>
+                }
+            />
         </div>
     );
 };

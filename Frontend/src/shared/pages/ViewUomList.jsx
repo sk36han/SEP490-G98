@@ -34,7 +34,7 @@ import '../styles/ListView.css';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
-import UomFormDialog from '../components/UomFormDialog';
+import UomFormDialog from '@ui/dialogs/UomFormDialog';
 import UomFilterPopup from '../components/UomFilterPopup';
 import { getUomList, createUom, updateUom, toggleUomStatus } from '../lib/uomService';
 

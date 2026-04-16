@@ -16,7 +16,6 @@ import {
     TableHead,
     TableRow,
     TableSortLabel,
-    Chip,
     useTheme,
     useMediaQuery,
     Popover,
@@ -29,6 +28,7 @@ import {
     Paper,
     Tooltip,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import { Plus, Filter, Columns, GripVertical, PackageOpen, Send } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
@@ -89,65 +89,13 @@ const CHECKBOX_CELL_SX = {
     maxWidth: 56,
 };
 
-const STATUS_STYLE = {
-    DRAFT:        { bgColor: 'rgba(107,114,128,0.15)', label: 'Nháp' },
-    PENDING_ACC:  { bgColor: 'rgba(251,191,36,0.20)', label: 'Chờ duyệt' },
-    APPROVED:     { bgColor: 'rgba(16,185,129,0.18)', label: 'Đã duyệt' },
-    REJECTED:     { bgColor: 'rgba(239,68,68,0.15)',  label: 'Từ chối' },
-    CANCELLED:    { bgColor: 'rgba(239,68,68,0.12)',  label: 'Đã hủy' },
-};
+const StatusChip = ({ status }) => (
+    <StatusBadge status={status} />
+);
 
-const LIFECYCLE_STYLE = {
-    IssueFull:    { bgColor: 'rgba(16,185,129,0.15)', label: 'Xuất đủ hàng' },
-    IssuePartial: { bgColor: 'rgba(251,191,36,0.20)', label: 'Xuất 1 phần hàng' },
-    IssuePending: { bgColor: 'rgba(59,130,246,0.15)', label: 'Đang đợi xuất hàng' },
-};
-
-const StatusChip = ({ status }) => {
-    const style = STATUS_STYLE[status?.toUpperCase()] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-' };
-    return (
-        <Chip
-            label={style.label}
-            size="small"
-            sx={{
-                fontWeight: 500,
-                fontSize: '12px',
-                lineHeight: '16px',
-                borderRadius: '999px',
-                minWidth: 100,
-                height: '26px',
-                bgcolor: style.bgColor,
-                color: '#374151',
-                border: 'none',
-                boxShadow: 'none',
-                '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-            }}
-        />
-    );
-};
-
-const LifecycleChip = ({ lifecycleStatus }) => {
-    const style = LIFECYCLE_STYLE[lifecycleStatus] ?? { bgColor: 'rgba(107,114,128,0.10)', label: lifecycleStatus ?? '-' };
-    return (
-        <Chip
-            label={style.label}
-            size="small"
-            sx={{
-                fontWeight: 500,
-                fontSize: '12px',
-                lineHeight: '16px',
-                borderRadius: '999px',
-                minWidth: 130,
-                height: '26px',
-                bgcolor: style.bgColor,
-                color: '#374151',
-                border: 'none',
-                boxShadow: 'none',
-                '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-            }}
-        />
-    );
-};
+const LifecycleChip = ({ lifecycleStatus }) => (
+    <StatusBadge status={lifecycleStatus} />
+);
 
 const RR_COLUMNS = [
     { id: 'stt',                  label: 'STT',                     sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },

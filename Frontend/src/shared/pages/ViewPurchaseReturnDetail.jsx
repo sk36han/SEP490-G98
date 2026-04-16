@@ -34,6 +34,7 @@ import { useToast } from '../hooks/useToast';
 import { getPurchaseReturnDetail, approvePurchaseReturn, refundPurchaseReturn, updatePurchaseReturn } from '../lib/purchaseReturnNoteService';
 import { getGRNDetail } from '../lib/goodReceiptNoteService';
 import GRNListPopup from '../components/GRNListPopup';
+import { ConfirmDialog } from '@ui/dialogs';
 import '../styles/CreateSupplier.css';
 
 const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
@@ -384,54 +385,6 @@ const buildPrnUpdateApiPayload = (draft) => ({
     })),
 });
 
-// --- Simple Confirm Dialog Component ---
-const ConfirmDialog = ({ title, message, onConfirm, onCancel, confirmLabel = 'Xác nhận', confirmDanger = false }) => {
-    return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-            <div style={{
-                backgroundColor: '#fff', borderRadius: '12px', padding: '24px',
-                maxWidth: '420px', width: '90%', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
-            }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: '#1f2937' }}>
-                    {title}
-                </h3>
-                <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px', lineHeight: 1.6 }}>
-                    {message}
-                </p>
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        style={{
-                            padding: '8px 16px', borderRadius: '8px',
-                            border: '1px solid #e5e7eb', backgroundColor: '#fff',
-                            color: '#374151', fontWeight: 600, cursor: 'pointer',
-                        }}
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onConfirm}
-                        style={{
-                            padding: '8px 16px', borderRadius: '8px',
-                            border: 'none',
-                            backgroundColor: confirmDanger ? '#ef4444' : '#2196F3',
-                            color: '#fff', fontWeight: 600, cursor: 'pointer',
-                        }}
-                    >
-                        {confirmLabel}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 // --- Status Badge component ---
 const StatusBadge = ({ config }) => (
     <div
@@ -471,7 +424,7 @@ export default function ViewPurchaseReturnDetail() {
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedSearchProductIds, setSelectedSearchProductIds] = useState([]);
-    const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm, confirmLabel }
+    const [confirmDialogType, setConfirmDialogType] = useState(null);
     const [showGRNListPopup, setShowGRNListPopup] = useState(false);
 
     const fetchDetail = useCallback(async () => {
@@ -869,25 +822,20 @@ export default function ViewPurchaseReturnDetail() {
 
     // --- "Tạo phiếu trả hàng" (chuyển từ Nháp sang SUBMITTED) ---
     const handleCreateReturn = () => {
-        setConfirmDialog({
-            title: 'Tạo phiếu trả hàng',
-            message: 'Xác nhận tạo phiếu trả hàng? Trạng thái sẽ chuyển từ Nháp sang Chờ hoàn hàng.',
-            confirmLabel: 'Tạo phiếu trả hàng',
-            confirmDanger: false,
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setSubmitting(true);
-                try {
-                    await approvePurchaseReturn(detailData.purchaseReturnId);
-                    await fetchDetail();
-                    showToast('Đã tạo phiếu trả hàng thành công!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể tạo phiếu trả hàng', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
-            },
-        });
+        setConfirmDialogType('create');
+    };
+
+    const handleConfirmCreateReturn = async () => {
+        setSubmitting(true);
+        try {
+            await approvePurchaseReturn(detailData.purchaseReturnId);
+            await fetchDetail();
+            showToast('Đã tạo phiếu trả hàng thành công!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Không thể tạo phiếu trả hàng', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // --- Xử lý chọn GRN từ popup ---
@@ -898,25 +846,20 @@ export default function ViewPurchaseReturnDetail() {
 
     // --- "Bắt đầu trả hàng" (SUBMITTED -> APPROVED) ---
     const handleStartReturn = () => {
-        setConfirmDialog({
-            title: 'Bắt đầu trả hàng',
-            message: 'Xác nhận bắt đầu quy trình trả hàng? Sau bước này, phần thông tin trả hàng (vật tư trả, ngày trả, ghi chú) sẽ bị khóa và không thể chỉnh sửa.',
-            confirmLabel: 'Bắt đầu trả hàng',
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setSubmitting(true);
-                try {
-                    // Dùng endpoint approve hiện có để chuyển khỏi Draft
-                    await approvePurchaseReturn(detailData.purchaseReturnId);
-                    await fetchDetail();
-                    showToast('Đã bắt đầu trả hàng!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể bắt đầu trả hàng', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
-            },
-        });
+        setConfirmDialogType('start');
+    };
+
+    const handleConfirmStartReturn = async () => {
+        setSubmitting(true);
+        try {
+            await approvePurchaseReturn(detailData.purchaseReturnId);
+            await fetchDetail();
+            showToast('Đã bắt đầu trả hàng!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Không thể bắt đầu trả hàng', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
         // --- "Xác nhận thanh toán" ---
@@ -950,32 +893,31 @@ export default function ViewPurchaseReturnDetail() {
             showToast('Vui lòng kiểm tra lại ngày ghi nhận hoàn tiền.', 'error');
             return;
         }
+    };
 
-        setConfirmDialog({
-            title: 'Xác nhận hoàn tiền',
-            message: 'Xác nhận đã hoàn tiền cho phiếu trả này? Sau khi xác nhận, thông tin hoàn tiền sẽ không thể chỉnh sửa nữa.',
-            confirmLabel: 'Xác nhận đã hoàn tiền',
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setSubmitting(true);
-                try {
-                    await refundPurchaseReturn(detailData.purchaseReturnId, {
-                        RefundMethod: draft.refundMethod,
-                        RefundReference: detailData.refundReference || '',
-                        RefundedAmount: estimatedRefundAmount,
-                        RefundStatus: 'Refunded',
-                        Note: detailData.deductionReason || '',
-                    });
-                    await fetchDetail();
-                    setIsEditingPayment(false);
-                    showToast('Đã xác nhận hoàn tiền!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận hoàn tiền', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
-            },
-        });
+    // --- "Xác nhận hoàn tiền" ---
+    const handleConfirmRefund = () => {
+        setConfirmDialogType('refund');
+    };
+
+    const handleConfirmRefundExecute = async () => {
+        setSubmitting(true);
+        try {
+            await refundPurchaseReturn(detailData.purchaseReturnId, {
+                RefundMethod: draft.refundMethod,
+                RefundReference: detailData.refundReference || '',
+                RefundedAmount: estimatedRefundAmount,
+                RefundStatus: 'Refunded',
+                Note: detailData.deductionReason || '',
+            });
+            await fetchDetail();
+            setIsEditingPayment(false);
+            showToast('Đã xác nhận hoàn tiền!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận hoàn tiền', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // Hủy edit payment
@@ -1021,14 +963,34 @@ export default function ViewPurchaseReturnDetail() {
 
     return (
         <div className="create-supplier-page">
-            {confirmDialog && (
+            {confirmDialogType === 'create' && (
                 <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmLabel={confirmDialog.confirmLabel}
-                    confirmDanger={false}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={() => setConfirmDialog(null)}
+                    open={Boolean(confirmDialogType)}
+                    onClose={() => setConfirmDialogType(null)}
+                    onConfirm={handleConfirmCreateReturn}
+                    title="Tạo phiếu trả hàng"
+                    message="Xác nhận tạo phiếu trả hàng? Trạng thái sẽ chuyển từ Nháp sang Chờ hoàn hàng."
+                    confirmText="Tạo phiếu trả hàng"
+                />
+            )}
+            {confirmDialogType === 'start' && (
+                <ConfirmDialog
+                    open={Boolean(confirmDialogType)}
+                    onClose={() => setConfirmDialogType(null)}
+                    onConfirm={handleConfirmStartReturn}
+                    title="Bắt đầu trả hàng"
+                    message="Xác nhận bắt đầu quy trình trả hàng? Sau bước này, phần thông tin trả hàng (vật tư trả, ngày trả, ghi chú) sẽ bị khóa và không thể chỉnh sửa."
+                    confirmText="Bắt đầu trả hàng"
+                />
+            )}
+            {confirmDialogType === 'refund' && (
+                <ConfirmDialog
+                    open={Boolean(confirmDialogType)}
+                    onClose={() => setConfirmDialogType(null)}
+                    onConfirm={handleConfirmRefundExecute}
+                    title="Xác nhận hoàn tiền"
+                    message="Xác nhận đã hoàn tiền cho phiếu trả này? Sau khi xác nhận, thông tin hoàn tiền sẽ không thể chỉnh sửa nữa."
+                    confirmText="Xác nhận đã hoàn tiền"
                 />
             )}
 

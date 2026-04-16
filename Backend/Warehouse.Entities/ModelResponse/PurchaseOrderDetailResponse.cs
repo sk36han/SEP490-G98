@@ -44,6 +44,8 @@ namespace Warehouse.Entities.ModelResponse
         public string? ItemCode { get; set; }
         public string? ItemName { get; set; }
         public long UomId { get; set; }
+        /// <summary>Tên đơn vị tính (hiển thị trên GRN, v.v.).</summary>
+        public string? UomName { get; set; }
         public decimal OrderedQty { get; set; }
         public decimal ReceivedQty { get; set; }
         public decimal UnitPrice { get; set; }

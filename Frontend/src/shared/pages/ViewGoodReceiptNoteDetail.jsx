@@ -8,14 +8,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatDateTime, formatDateOnly, formatTimeOnly } from '../lib/dateUtils';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Button,
     Switch,
     TextField,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
     MapPin,
@@ -33,7 +30,7 @@ import {
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
-import { getGRNDetail, approveGoodReceiptNote } from '../lib/goodReceiptNoteService';
+import { getGRNDetail, approveGoodReceiptNote, rejectGoodReceiptNote } from '../lib/goodReceiptNoteService';
 import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 
@@ -58,6 +55,16 @@ const safeFormatDateTime = (value) => {
     } catch {
         return value;
     }
+};
+
+const buildSupplierAddress = (data) => {
+    const parts = [
+        data.SupplierAddressStreet ?? data.supplierAddressStreet ?? '',
+        data.SupplierAddressWard ?? data.supplierAddressWard ?? '',
+        data.SupplierAddressDistrict ?? data.supplierAddressDistrict ?? '',
+        data.SupplierAddressProvince ?? data.supplierAddressProvince ?? '',
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : '';
 };
 
 const safeFormatTimeOnly = (value) => {
@@ -244,6 +251,10 @@ const ViewGoodReceiptNoteDetail = () => {
                         referencePoCode: data.PurchaseOrderCode ?? data.purchaseOrderCode ?? '',
                         warehouseName: data.WarehouseName ?? data.warehouseName ?? '',
                         supplierName: data.SupplierName ?? data.supplierName ?? '',
+                        supplierPhone: data.SupplierPhone ?? data.supplierPhone ?? '',
+                        supplierEmail: data.SupplierEmail ?? data.supplierEmail ?? '',
+                        supplierTaxCode: data.SupplierTaxCode ?? data.supplierTaxCode ?? '',
+                        supplierAddress: buildSupplierAddress(data),
                         receiptDate: safeFormatDateOnly(receiptDate),
                         creatorName: data.CreatedByName ?? data.createdByName ?? '',
                         createdAt: safeFormatDateTime(createdAt),
@@ -256,24 +267,49 @@ const ViewGoodReceiptNoteDetail = () => {
                         netAmount: Number((data.NetAmount ?? data.netAmount) || 0),
                         lines: mappedLines,
                         history: [
+                            // Posted
                             data.PostedAt
                                 ? {
                                       action: 'Đã ghi sổ phiếu nhập kho',
                                       date: safeFormatDateOnly(data.PostedAt),
                                       time: safeFormatTimeOnly(data.PostedAt),
+                                      user: data.PostedByName ?? data.postedByName ?? '',
                                   }
                                 : null,
+                            // Approved
+                            data.ApprovedAt
+                                ? {
+                                      action: 'Duyệt phiếu nhập kho',
+                                      date: safeFormatDateOnly(data.ApprovedAt),
+                                      time: safeFormatTimeOnly(data.ApprovedAt),
+                                      user: data.ApprovedByName ?? data.approvedByName ?? '',
+                                  }
+                                : null,
+                            // Rejected
+                            data.RejectedAt
+                                ? {
+                                      action: 'Từ chối phiếu nhập kho',
+                                      date: safeFormatDateOnly(data.RejectedAt),
+                                      time: safeFormatTimeOnly(data.RejectedAt),
+                                      user: data.RejectedByName ?? data.rejectedByName ?? '',
+                                      reason: data.RejectedReason ?? data.rejectedReason ?? '',
+                                  }
+                                : null,
+                            // Submitted
                             data.SubmittedAt
                                 ? {
                                       action: 'Gửi yêu cầu duyệt phiếu',
                                       date: safeFormatDateOnly(data.SubmittedAt),
                                       time: safeFormatTimeOnly(data.SubmittedAt),
+                                      user: data.SubmittedByName ?? data.submittedByName ?? '',
                                   }
                                 : null,
+                            // Created
                             {
                                 action: `Tạo mới phiếu nhập kho ${grnCode}`,
                                 date: safeFormatDateOnly(createdAt),
                                 time: safeFormatTimeOnly(createdAt),
+                                user: data.CreatedByName ?? data.createdByName ?? '',
                             },
                         ].filter(Boolean),
                     });
@@ -324,6 +360,8 @@ const ViewGoodReceiptNoteDetail = () => {
                     paymentMethod,
                 }));
             } else {
+                // Gọi API reject
+                await rejectGoodReceiptNote(grnData.grnId, reason);
                 setGrnData((prev) => ({
                     ...prev,
                     status: 'REJECTED',
@@ -351,17 +389,14 @@ const ViewGoodReceiptNoteDetail = () => {
     };
 
     const normalizedStatus = String(grnData?.status || '').toUpperCase();
-    const isGRNFinalized = ['APPROVED', 'POSTED'].includes(normalizedStatus);
     const canReview = !['APPROVED', 'POSTED', 'REJECTED'].includes(normalizedStatus);
     const showApproveButton = isPaymentEditor && canReview;
-    const showReturnButton = isPaymentEditor && isGRNFinalized;
-    const showGeneralReturnButton =
-        !showReturnButton && Boolean(grnData?.grnId) && normalizedStatus !== 'REJECTED';
+    const showReturnButton = isPaymentEditor && normalizedStatus === 'APPROVED';
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
 
-    const canConfirmAction = !submitting && (!includeReason || reasonText.trim().length > 0);
+    const canConfirmAction = !submitting && (confirmDialogType !== 'reject' || includeReason);
 
     const calculatedSubtotal =
         grnData?.lines?.reduce(
@@ -564,224 +599,86 @@ const ViewGoodReceiptNoteDetail = () => {
                 `}
             </style>
 
-            <Dialog
+            <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
-                fullWidth
-                maxWidth="sm"
-                disableEscapeKeyDown={submitting}
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '620px',
-                        borderRadius: '16px',
-                        border: '1px solid #e5e7eb',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                        overflow: 'hidden',
-                        m: 2,
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        fontWeight: 700,
-                        color: '#111827',
-                        borderBottom: '1px solid #eef2f7',
-                    }}
-                >
-                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt phiếu' : 'Xác nhận hủy phiếu'}
-                </DialogTitle>
+                onConfirm={handleConfirmAction}
+                title={confirmDialogType === 'approve' ? 'Xác nhận duyệt phiếu' : 'Xác nhận hủy phiếu'}
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={submitting}
+                confirmDanger={confirmDialogType === 'reject'}
+                confirmDisabled={!canConfirmAction}
+                content={
+                    <>
+                        <div style={{ marginBottom: 16 }}>
+                            <span style={{ fontSize: 14, color: '#4b5563' }}>
+                                {confirmDialogType === 'approve'
+                                    ? 'Bạn có chắc chắn muốn duyệt phiếu nhập kho này không?'
+                                    : 'Bạn có chắc chắn muốn hủy phiếu nhập kho này không?'}
+                            </span>
+                        </div>
 
-                <DialogContent sx={{ px: 3, py: 2 }}>
-                    <div style={{ marginBottom: 16 }}>
-                        <span style={{ fontSize: 14, color: '#4b5563' }}>
-                            {confirmDialogType === 'approve'
-                                ? 'Bạn có chắc chắn muốn duyệt phiếu nhập kho này không?'
-                                : 'Bạn có chắc chắn muốn hủy phiếu nhập kho này không?'}
-                        </span>
-                    </div>
-
-                    {confirmDialogType === 'approve' && isPaymentEditor && (
-                        <>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    marginBottom: 12,
-                                    padding: 12,
-                                    backgroundColor: '#f9fafb',
-                                    borderRadius: 8,
-                                }}
-                            >
-                                <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                                    Đã thanh toán?
-                                </span>
-                                <Switch
-                                    checked={isPaid}
-                                    onChange={(e) => setIsPaid(e.target.checked)}
-                                    disabled={submitting}
-                                />
-                            </div>
-
-                            {isPaid && (
-                                <div style={{ marginBottom: 16 }}>
-                                    <label
-                                        style={{
-                                            display: 'block',
-                                            fontSize: 14,
-                                            fontWeight: 500,
-                                            color: '#374151',
-                                            marginBottom: 8,
-                                        }}
-                                    >
-                                        Phương thức thanh toán
-                                    </label>
-                                    <select
-                                        value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
-                                        disabled={submitting}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 12px',
-                                            borderRadius: 8,
-                                            border: '1px solid #d1d5db',
-                                            fontSize: 14,
-                                            backgroundColor: '#fff',
-                                        }}
-                                    >
-                                        <option value="cash">Tiền mặt</option>
-                                        <option value="bank_transfer">Chuyển khoản</option>
-                                        <option value="credit">Credit</option>
-                                    </select>
+                        {confirmDialogType === 'approve' && isPaymentEditor && (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
+                                    <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>Đã thanh toán?</span>
+                                    <Switch checked={isPaid} onChange={(e) => setIsPaid(e.target.checked)} disabled={submitting} />
                                 </div>
-                            )}
+                                {isPaid && (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>Phương thức thanh toán</label>
+                                        <select
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            disabled={submitting}
+                                            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, backgroundColor: '#fff' }}
+                                        >
+                                            <option value="cash">Tiền mặt</option>
+                                            <option value="bank_transfer">Chuyển khoản</option>
+                                            <option value="credit">Credit</option>
+                                        </select>
+                                    </div>
+                                )}
+                                <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8, border: '1px solid #fcd34d' }}>
+                                    <span style={{ fontSize: 13, color: '#92400e' }}>Sau khi duyệt, tồn kho sẽ được cập nhật và không thể hoàn tác.</span>
+                                </div>
+                            </>
+                        )}
 
-                            <div
-                                style={{
-                                    marginBottom: 16,
-                                    padding: 12,
-                                    backgroundColor: '#fef3c7',
-                                    borderRadius: 8,
-                                    border: '1px solid #fcd34d',
-                                }}
-                            >
-                                <span style={{ fontSize: 13, color: '#92400e' }}>
-                                    Sau khi duyệt, tồn kho sẽ được cập nhật và không thể hoàn tác.
-                                </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>Kèm lý do</span>
+                            <Switch checked={includeReason} onChange={(e) => setIncludeReason(e.target.checked)} disabled={submitting} />
+                        </div>
+
+                        {confirmDialogType === 'reject' && (
+                            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8, border: '1px solid #fcd34d' }}>
+                                <span style={{ fontSize: 13, color: '#92400e' }}>Bắt buộc nhập lý do từ chối phiếu nhập kho.</span>
                             </div>
-                        </>
-                    )}
+                        )}
 
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: 12,
-                            padding: 12,
-                            backgroundColor: '#f9fafb',
-                            borderRadius: 8,
-                        }}
-                    >
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                            Kèm lý do
-                        </span>
-                        <Switch
-                            checked={includeReason}
-                            onChange={(e) => setIncludeReason(e.target.checked)}
-                            disabled={submitting}
-                        />
-                    </div>
-
-                    {includeReason && (
-                        <>
-                            <TextField
-                                label="Lý do"
-                                multiline
-                                rows={3}
-                                fullWidth
-                                value={reasonText}
-                                onChange={(e) => setReasonText(e.target.value)}
-                                disabled={submitting}
-                                inputProps={{ maxLength: MAX_REASON_LENGTH }}
-                                placeholder={
-                                    confirmDialogType === 'approve'
-                                        ? 'Nhập lý do duyệt'
-                                        : 'Nhập lý do hủy'
-                                }
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                            />
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'flex-end',
-                                    fontSize: 12,
-                                    color:
-                                        reasonText.length >= MAX_REASON_LENGTH
-                                            ? '#ef4444'
-                                            : '#6b7280',
-                                    marginTop: 4,
-                                }}
-                            >
-                                {reasonText.length}/{MAX_REASON_LENGTH} ký tự
-                            </div>
-                        </>
-                    )}
-                </DialogContent>
-
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2,
-                        borderTop: '1px solid #eef2f7',
-                    }}
-                >
-                    <Button
-                        onClick={closeConfirmDialog}
-                        disabled={submitting}
-                        sx={{
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            color: '#6b7280',
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmAction}
-                        disabled={!canConfirmAction}
-                        sx={{
-                            minWidth: '110px',
-                            height: 40,
-                            px: 2,
-                            borderRadius: '12px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            backgroundColor:
-                                confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor:
-                                    confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
-                                boxShadow: 'none',
-                            },
-                            '&:disabled': {
-                                backgroundColor: '#bae6fd',
-                                color: '#ffffff',
-                            },
-                        }}
-                    >
-                        {submitting ? 'Đang xử lý...' : 'Xác nhận'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                        {includeReason && (
+                            <>
+                                <TextField
+                                    label="Lý do"
+                                    multiline
+                                    rows={3}
+                                    fullWidth
+                                    value={reasonText}
+                                    onChange={(e) => setReasonText(e.target.value)}
+                                    disabled={submitting}
+                                    inputProps={{ maxLength: MAX_REASON_LENGTH }}
+                                    placeholder={confirmDialogType === 'approve' ? 'Nhập lý do duyệt' : 'Nhập lý do hủy'}
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, color: reasonText.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: 4 }}>
+                                    {reasonText.length}/{MAX_REASON_LENGTH} ký tự
+                                </div>
+                            </>
+                        )}
+                    </>
+                }
+            />
 
             <div className="page-header">
                 <div className="page-header-left">
@@ -819,27 +716,6 @@ const ViewGoodReceiptNoteDetail = () => {
                     )}
 
                     {showReturnButton && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() =>
-                                navigate(
-                                    `/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`
-                                )
-                            }
-                            disabled={submitting}
-                            style={{
-                                backgroundColor: '#f59e0b',
-                                borderColor: '#f59e0b',
-                                color: '#fff',
-                            }}
-                        >
-                            <RotateCcw size={16} className="btn-icon" />
-                            Trả hàng
-                        </button>
-                    )}
-
-                    {showGeneralReturnButton && (
                         <button
                             type="button"
                             className="btn btn-secondary"
@@ -1078,11 +954,87 @@ const ViewGoodReceiptNoteDetail = () => {
                                         gap: 16,
                                     }}
                                 >
-                                    <ReadonlyField
-                                        label="Nhà cung cấp"
-                                        value={grnData.supplierName || '-'}
-                                        icon={Package}
-                                    />
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 12,
+                                        }}
+                                    >
+                                        <div className="form-field">
+                                            <label className="form-label">Nhà cung cấp</label>
+                                            <div className="input-wrapper">
+                                                {Package && <Package className="input-icon" size={16} />}
+                                                <input
+                                                    type="text"
+                                                    value={grnData.supplierName || '-'}
+                                                    readOnly
+                                                    className="form-input"
+                                                    style={{ backgroundColor: '#f5f5f5', fontWeight: 600 }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {grnData.supplierPhone && (
+                                            <div className="form-field">
+                                                <label className="form-label">Số điện thoại</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierPhone || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierEmail && (
+                                            <div className="form-field">
+                                                <label className="form-label">Email</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierEmail || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierTaxCode && (
+                                            <div className="form-field">
+                                                <label className="form-label">Mã số thuế</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierTaxCode || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierAddress && (
+                                            <div className="form-field">
+                                                <label className="form-label">Địa chỉ</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierAddress || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                     <ReadonlyField
                                         label="Nhân viên tạo"
                                         value={grnData.creatorName || '-'}
@@ -1307,7 +1259,39 @@ const ViewGoodReceiptNoteDetail = () => {
                                                             >
                                                                 {item.time}
                                                             </span>
+                                                            {item.user ? (
+                                                                <>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: 12,
+                                                                            color: '#9ca3af',
+                                                                        }}
+                                                                    >
+                                                                        |
+                                                                    </span>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: 12,
+                                                                            color: '#6b7280',
+                                                                        }}
+                                                                    >
+                                                                        {item.user}
+                                                                    </span>
+                                                                </>
+                                                            ) : null}
                                                         </div>
+                                                        {item.reason ? (
+                                                            <div
+                                                                style={{
+                                                                    fontSize: 12,
+                                                                    color: '#b91c1c',
+                                                                    fontStyle: 'italic',
+                                                                    marginTop: 4,
+                                                                }}
+                                                            >
+                                                                Lý do: {item.reason}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             ))}

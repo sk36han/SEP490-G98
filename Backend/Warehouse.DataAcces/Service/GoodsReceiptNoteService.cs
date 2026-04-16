@@ -360,9 +360,11 @@ namespace Warehouse.DataAcces.Service
             grn.PostedAt = DateTime.UtcNow;
             grn.ApprovedAt = DateTime.UtcNow;
 
-            // Tính tổng giá trị GRN để phân bổ shipping
-            var totalGrnAmount = grn.GoodsReceiptNoteLines
-                .Sum(l => (l.UnitPrice ?? 0) * l.ActualQty);
+            // Thanh toán — lưu theo xác nhận kế toán khi duyệt
+            grn.IsPaid = request.IsPaid;
+            grn.PaymentMethod = request.IsPaid && !string.IsNullOrWhiteSpace(request.PaymentMethod)
+                ? request.PaymentMethod.Trim()
+                : null;
 
             // Lấy thông tin PO
             var purchaseOrder = grn.PurchaseOrder;
@@ -404,14 +406,8 @@ namespace Warehouse.DataAcces.Service
 
                     var purchasePrice = grnLine.UnitPrice;
 
-                    // Phân bổ shipping theo tỷ trọng giá trị
-                    var lineAmount = (purchasePrice ?? 0) * grnLine.ActualQty;
-                    var shippingRatio = totalGrnAmount > 0 ? lineAmount / totalGrnAmount : 0;
-                    var shippingForLine = grn.ShippingFee * shippingRatio;
-                    var shippingPerUnit = grnLine.ActualQty > 0 ? shippingForLine / grnLine.ActualQty : 0;
-
-                    // Cost = Purchase + Shipping phân bổ
-                    var costPrice = (purchasePrice ?? 0) + shippingPerUnit;
+                    // Giá bình quân tồn kho hiện tại chỉ lấy theo giá mua, không cộng shipping
+                    var costPrice = purchasePrice ?? 0;
 
                     if (inventory != null)
                     {
@@ -420,7 +416,7 @@ namespace Warehouse.DataAcces.Service
                         var oldCost = inventory.UnitCost;
                         var newQty = grnLine.ActualQty;
 
-                        // Tính bình quân gia quyền với Cost đã bao gồm shipping
+                        // Tính bình quân gia quyền theo giá mua
                         if (oldQty > 0 && newQty > 0 && costPrice > 0)
                         {
                             inventory.UnitCost = (oldQty * oldCost + newQty * costPrice) / (oldQty + newQty);
@@ -442,7 +438,7 @@ namespace Warehouse.DataAcces.Service
                             ItemId = grnLine.ItemId,
                             OnHandQty = grnLine.ActualQty,
                             ReservedQty = 0,
-                            UnitCost = costPrice, // Cost = Purchase + Shipping
+                            UnitCost = costPrice,
                             UpdatedAt = DateTime.UtcNow
                         };
                         _context.InventoryOnHands.Add(newInventory);
