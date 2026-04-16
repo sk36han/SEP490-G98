@@ -97,6 +97,22 @@ namespace Warehouse.DataAcces.Service
             }
 
             var totalOrderedQty = po.PurchaseOrderLines.Sum(line => line.OrderedQty);
+            var attachments = await _context.DocumentAttachments
+                .Where(x => x.DocType == "PR" && x.DocId == id)
+                .OrderByDescending(x => x.UploadedAt)
+                .ToListAsync();
+
+            var quotationFileUrl = attachments
+                .FirstOrDefault(x =>
+                    x.AttachmentType == "QUOTATION" ||
+                    x.AttachmentType == "GENERAL")
+                ?.FileUrlOrPath;
+
+            var contractAppendixFileUrl = attachments
+                .FirstOrDefault(x =>
+                    x.AttachmentType == "CONTRACT_APPENDIX" ||
+                    x.AttachmentType == "OTHER")
+                ?.FileUrlOrPath;
 
             return new PurchaseOrderDetailResponse
             {
@@ -123,6 +139,8 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = po.CreatedAt,
                 SubmittedAt = po.SubmittedAt,
                 UpdatedAt = po.UpdatedAt,
+                QuotationFileUrl = quotationFileUrl,
+                ContractAppendixFileUrl = contractAppendixFileUrl,
                 Lines = po.PurchaseOrderLines.Select(line => new PurchaseOrderLineResponse
                 {
                     PurchaseOrderLineId = line.PurchaseOrderLineId,
