@@ -49,6 +49,7 @@ namespace Warehouse.DataAcces.Service
                 Directory.CreateDirectory(uploadsFolder);
 
             // Tạo tên file duy nhất
+            var extension = Path.GetExtension(file.FileName);
             var uniqueFileName = $"{Guid.NewGuid()}{extension}";
             var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 

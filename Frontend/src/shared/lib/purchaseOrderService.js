@@ -88,6 +88,27 @@ export async function createPurchaseOrder(payload) {
 }
 
 /**
+ * Upload quotation and contract appendix attachments for a purchase order.
+ * @param {number|string} poId
+ * @param {{quotationFile?: File|null, contractAppendixFile?: File|null}} attachments
+ * @returns {Promise<any>}
+ */
+export async function uploadPurchaseOrderAttachments(poId, { quotationFile, contractAppendixFile } = {}) {
+    const formData = new FormData();
+    if (quotationFile) formData.append('quotationFile', quotationFile);
+    if (contractAppendixFile) formData.append('contractAppendixFile', contractAppendixFile);
+
+    if (!quotationFile && !contractAppendixFile) {
+        return null;
+    }
+
+    const response = await apiClient.post(`/PurchaseOrder/${poId}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response?.data;
+}
+
+/**
  * Lấy danh sách tất cả đơn mua (dùng cho dropdown chọn PO).
  * Gọi API với pageSize lớn để lấy đủ danh sách.
  * @param {string=} status - Lọc theo trạng thái (mặc định lấy Approved)
