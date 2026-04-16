@@ -441,23 +441,9 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Create,
                 AuditEntity.GoodsDeliveryNote,
                 gdn.Gdnid,
-                $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}");
+                $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}. Trạng thái: PENDING_ISSUE");
 
             await _context.SaveChangesAsync();
-
-            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
-            if (gdn.Status == "PENDING_ACC")
-            {
-                await _notificationService.CreateForRolesAsync(
-                    new[] { "KT" },
-                    "Phiếu xuất kho mới chờ duyệt",
-                    $"Phiếu xuất {gdnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
-                    "GoodsDelivery",
-                    gdn.Gdnid,
-                    userId,
-                    "NewRequest"
-                );
-            }
 
             var addr = releaseRequest.Receiver?.Company?.Addresses?
                 .OrderByDescending(a => a.IsDefault)
@@ -1268,7 +1254,8 @@ namespace Warehouse.DataAcces.Service
             if (await _stocktakeService.IsWarehouseFrozenAsync(gdn.WarehouseId))
                 throw new InvalidOperationException($"Kho '{gdn.Warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể thực hiện xuất hàng.");
 
-            await ProcessGDNApprovalInventoryAsync(gdn, userId);
+            // [Điều chỉnh] Không trừ hàng ở đây nữa, chỉ đánh dấu là đã bốc hàng xong (ISSUED)
+            // Lượng hàng Reserved vẫn giữ nguyên cho đến khi POSTED
             gdn.Status = "ISSUED";
 
             _context.DocumentApprovals.Add(new DocumentApproval
@@ -1355,6 +1342,9 @@ namespace Warehouse.DataAcces.Service
             if (gdn.Status != "ISSUED")
                 throw new InvalidOperationException($"Không thể xác nhận hoàn tất phiếu ở trạng thái {gdn.Status}. Cần phải ở trạng thái ISSUED.");
 
+            if (evidenceFile == null || evidenceFile.Length == 0)
+                throw new InvalidOperationException("Bắt buộc phải tải lên ảnh chụp Phiếu xuất kho có đầy đủ chữ ký xác nhận của Khách hàng và Thủ kho để hoàn tất.");
+
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
                     .ThenInclude(ur => ur.Role)
@@ -1374,6 +1364,9 @@ namespace Warehouse.DataAcces.Service
 
             // Update GDN
             gdn.Status = "POSTED";
+
+            // [Mới] Thực hiện trừ hàng thực tế và giải phóng ReservedQty khi hoàn tất có minh chứng
+            await ProcessGDNApprovalInventoryAsync(gdn, userId);
             if (!string.IsNullOrEmpty(note))
             {
                 var noteAddition = $"Minh chứng: {note}".Trim();
@@ -1404,7 +1397,7 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Close,
                 AuditEntity.GoodsDeliveryNote,
                 gdn.Gdnid,
-                $"Xác nhận hoàn tất xuất kho phiếu {gdn.Gdncode}. Kèm file minh chứng: {fileUrl}."
+                $"Hoàn tất xuất kho phiếu {gdn.Gdncode}. Đã tải lên ảnh Phiếu xuất có chữ ký xác nhận: {fileUrl}."
             );
 
             await _context.SaveChangesAsync();

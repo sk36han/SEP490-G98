@@ -133,7 +133,8 @@ namespace Warehouse.DataAcces.Service
                 RequestedDate = DateOnly.FromDateTime(now),
                 ExpectedDate = request.ExpectedDate,
                 Purpose = request.Purpose,
-                Status = request.Status ?? "APPROVED",
+                Status = request.Status ?? "PENDING_ACC",
+                IsPartialDeliveryAllowed = request.IsPartialDeliveryAllowed,
                 LifecycleStatus = "IssuePending",
                 CreatedAt = now,
                 SubmittedAt = now
@@ -157,7 +158,7 @@ namespace Warehouse.DataAcces.Service
                     UomId = line.UomId,
                     Note = line.Note,
                     ApprovedQty = line.RequestedQty, // Tự động duyệt luôn số lượng yêu cầu
-                    AllocatedQty = line.RequestedQty, // Gán AllocatedQty = RequestedQty (đã cộng vào ReservedQty của kho)
+                    AllocatedQty = 0, // Sẽ được gán bên dưới tùy theo logic giữ hàng
                     IssuedQty = 0,
                     LineStatus = "Open",
                     UnitCostAtIssue = unitPrice,
@@ -168,25 +169,49 @@ namespace Warehouse.DataAcces.Service
                 // Chỉ thực hiện giữ hàng (ReservedQty) nếu trạng thái không phải là DRAFT
                 if (releaseRequest.Status != "DRAFT")
                 {
-                    // Cập nhật ReservedQty trong InventoryOnHands (giữ hàng cấp kho)
                     var inventory = await _context.InventoryOnHands
                         .FirstOrDefaultAsync(ioh => ioh.WarehouseId == request.WarehouseId && ioh.ItemId == line.ItemId);
 
                     if (inventory == null)
                     {
-                        // Nếu không tìm thấy bản ghi tồn kho, báo lỗi vì không thể xuất hàng không có trong danh mục kho
                         throw new KeyNotFoundException($"Không tìm thấy bản ghi tồn kho cho vật tư ID {line.ItemId} tại kho {warehouse.WarehouseName}.");
                     }
 
-                    // Kiểm tra tồn kho khả dụng
                     var availableQty = inventory.OnHandQty - inventory.ReservedQty;
-                    if (availableQty < line.RequestedQty)
+
+                    if (!request.IsPartialDeliveryAllowed)
                     {
-                        throw new InvalidOperationException($"Vật tư '{items[line.ItemId].ItemName}' không đủ số lượng khả dụng. Yêu cầu: {line.RequestedQty}, Khả dụng: {availableQty}.");
+                        // ═══ XUẤT HẾT 1 LẦN: Phải đủ hàng mới cho gửi duyệt ═══
+                        if (availableQty < line.RequestedQty)
+                        {
+                            var shortageQty = line.RequestedQty - availableQty;
+                            throw new InvalidOperationException(
+                                $"Vật tư '{items[line.ItemId].ItemName}' không đủ số lượng khả dụng để xuất hết 1 lần. " +
+                                $"Yêu cầu: {line.RequestedQty}, Khả dụng: {availableQty}, Cần nhập thêm: {shortageQty}.");
+                        }
+                        // Giữ toàn bộ số lượng yêu cầu
+                        rrLine.AllocatedQty = line.RequestedQty;
+                        inventory.ReservedQty += line.RequestedQty;
+                    }
+                    else
+                    {
+                        // ═══ XUẤT NHIỀU LẦN: Chỉ giữ đúng số khả dụng thực tế ═══
+                        var allocateQty = Math.Min(line.RequestedQty, availableQty);
+                        rrLine.AllocatedQty = allocateQty;
+
+                        if (allocateQty > 0)
+                        {
+                            inventory.ReservedQty += allocateQty;
+                        }
+                        // Không chặn gửi duyệt dù chưa đủ hàng
                     }
 
-                    inventory.ReservedQty += line.RequestedQty;
                     inventory.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    // DRAFT: không giữ hàng, AllocatedQty = 0
+                    rrLine.AllocatedQty = 0;
                 }
             }
 
@@ -220,13 +245,13 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            // Gửi thông báo cho Thủ kho nếu đơn đã được APPROVED để chuẩn bị hàng
-            if (releaseRequest.Status == "APPROVED")
+            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái PENDING_ACC để kiểm tra hồ sơ
+            if (releaseRequest.Status == "PENDING_ACC")
             {
                 await _notificationService.CreateForRolesAsync(
-                    new[] { "TK" },
-                    "Yêu cầu xuất kho mới",
-                    $"Yêu cầu xuất kho {rrCode} vừa được tạo bởi {requestedByUser.FullName} và đã được phê duyệt tự động. Vui lòng chuẩn bị hàng.",
+                    new[] { "KT" },
+                    "Yêu cầu xuất kho mới chờ duyệt",
+                    $"Yêu cầu xuất kho {rrCode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt hồ sơ.",
                     "Release",
                     releaseRequest.ReleaseRequestId,
                     requestedByUserId,
@@ -280,6 +305,7 @@ namespace Warehouse.DataAcces.Service
                     RequestedByName = rr.RequestedByNavigation != null ? rr.RequestedByNavigation.FullName : null,
                     TotalItems = rr.ReleaseRequestLines.Count,
                     TotalRequestedQty = rr.ReleaseRequestLines.Sum(l => l.RequestedQty),
+                    IsPartialDeliveryAllowed = rr.IsPartialDeliveryAllowed,
                     CreatedAt = rr.CreatedAt
                 })
                 .ToListAsync();
@@ -370,6 +396,7 @@ namespace Warehouse.DataAcces.Service
                     District = rr.Receiver.District,
                     Ward = rr.Receiver.Ward
                 } : null,
+                IsPartialDeliveryAllowed = rr.IsPartialDeliveryAllowed,
                 TotalRequestedQty = rr.ReleaseRequestLines.Sum(l => l.RequestedQty),
                 TotalAmount = rr.ReleaseRequestLines.Sum(l => l.RequestedQty * (l.UnitCostAtIssue ?? 0)),
                 CreatedAt = rr.CreatedAt,
@@ -499,6 +526,35 @@ namespace Warehouse.DataAcces.Service
             if (request.Purpose != null)
                 rr.Purpose = request.Purpose;
 
+            // 8.1. Cập nhật flag xuất từng phần
+            if (request.IsPartialDeliveryAllowed.HasValue)
+                rr.IsPartialDeliveryAllowed = request.IsPartialDeliveryAllowed.Value;
+
+            // 8.2. Cập nhật trạng thái và validate nếu gửi duyệt
+            string oldStatus = rr.Status;
+            if (!string.IsNullOrEmpty(request.Status))
+            {
+                if (request.Status == "PENDING_ACC" && oldStatus == "DRAFT")
+                {
+                    // Kiểm tra hồ sơ bắt buộc khi gửi duyệt
+                    var hasQuotation = (request.QuotationFiles != null && request.QuotationFiles.Any()) ||
+                                      await _context.DocumentAttachments.AnyAsync(a => a.DocType == "RR" && a.DocId == id && a.AttachmentType == "QUOTATION");
+                    
+                    var hasContract = (request.ContractFiles != null && request.ContractFiles.Any()) ||
+                                     await _context.DocumentAttachments.AnyAsync(a => a.DocType == "RR" && a.DocId == id && a.AttachmentType == "CONTRACT");
+
+                    if (!hasQuotation) throw new InvalidOperationException("Vui lòng tải lên tài liệu Báo giá trước khi gửi duyệt.");
+                    if (!hasContract) throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi gửi duyệt.");
+
+                    rr.Status = "PENDING_ACC";
+                    rr.SubmittedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    rr.Status = request.Status;
+                }
+            }
+
             // 9. Cập nhật danh sách vật tư (nếu có)
             if (request.Lines != null)
             {
@@ -587,10 +643,25 @@ namespace Warehouse.DataAcces.Service
                                 if (newInv == null) throw new KeyNotFoundException($"Vật tư {existingLine.ItemId} không có trong kho mới {rr.WarehouseId}.");
                                 
                                 var availableQty = newInv.OnHandQty - newInv.ReservedQty;
-                                if (availableQty < lineReq.RequestedQty)
-                                    throw new InvalidOperationException($"Vật tư '{items[existingLine.ItemId].ItemName}' không đủ số lượng khả dụng tại kho mới. Yêu cầu: {lineReq.RequestedQty}, Khả dụng: {availableQty}.");
                                 
-                                newInv.ReservedQty += lineReq.RequestedQty;
+                                if (!rr.IsPartialDeliveryAllowed)
+                                {
+                                    // XUẤT 1 LẦN: Phải đủ hàng
+                                    if (availableQty < lineReq.RequestedQty)
+                                    {
+                                        var shortageQty = lineReq.RequestedQty - availableQty;
+                                        throw new InvalidOperationException($"Vật tư '{items[existingLine.ItemId].ItemName}' không đủ số lượng khả dụng tại kho mới để xuất 1 lần. Yêu cầu: {lineReq.RequestedQty}, Khả dụng: {availableQty}, Cần nhập thêm: {shortageQty}.");
+                                    }
+                                    existingLine.AllocatedQty = lineReq.RequestedQty;
+                                    newInv.ReservedQty += lineReq.RequestedQty;
+                                }
+                                else
+                                {
+                                    // XUẤT NHIỀU LẦN: Giữ số có thể
+                                    var allocateQty = Math.Min(lineReq.RequestedQty, availableQty);
+                                    existingLine.AllocatedQty = allocateQty;
+                                    if (allocateQty > 0) newInv.ReservedQty += allocateQty;
+                                }
                             }
                             else
                             {
@@ -600,13 +671,41 @@ namespace Warehouse.DataAcces.Service
                                     .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == existingLine.ItemId);
                                 if (inv != null)
                                 {
-                                    if (delta > 0)
+                                    if (!rr.IsPartialDeliveryAllowed)
                                     {
-                                        var availableQty = inv.OnHandQty - inv.ReservedQty;
-                                        if (availableQty < delta)
-                                            throw new InvalidOperationException($"Vật tư '{items[existingLine.ItemId].ItemName}' không đủ số lượng khả dụng. Yêu cầu thêm: {delta}, Khả dụng: {availableQty}.");
+                                        // XUẤT 1 LẦN
+                                        if (delta > 0)
+                                        {
+                                            var availableQty = inv.OnHandQty - inv.ReservedQty;
+                                            if (availableQty < delta)
+                                            {
+                                                var shortageQty = delta - availableQty;
+                                                throw new InvalidOperationException($"Vật tư '{items[existingLine.ItemId].ItemName}' không đủ số lượng khả dụng để cập nhật xuất 1 lần. Yêu cầu thêm: {delta}, Khả dụng: {availableQty}, Cần nhập thêm: {shortageQty}.");
+                                            }
+                                        }
+                                        existingLine.AllocatedQty = lineReq.RequestedQty;
+                                        inv.ReservedQty += delta;
                                     }
-                                    inv.ReservedQty += delta;
+                                    else
+                                    {
+                                        // XUẤT NHIỀU LẦN
+                                        var availableQty = inv.OnHandQty - inv.ReservedQty;
+                                        if (delta > 0)
+                                        {
+                                            var allocateDelta = Math.Min(delta, availableQty);
+                                            existingLine.AllocatedQty += allocateDelta;
+                                            if (allocateDelta > 0) inv.ReservedQty += allocateDelta;
+                                        }
+                                        else if (delta < 0)
+                                        {
+                                            // Giảm yêu cầu
+                                            var returnQty = Math.Abs(delta);
+                                            // Nhưng chỉ trả lại tối đa lượng đã lấy
+                                            var returnCap = Math.Min(returnQty, existingLine.AllocatedQty);
+                                            existingLine.AllocatedQty -= returnCap;
+                                            inv.ReservedQty -= returnCap;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -646,10 +745,26 @@ namespace Warehouse.DataAcces.Service
                             if (inv == null) throw new KeyNotFoundException($"Vật tư {lineReq.ItemId} không có trong kho {rr.WarehouseId}.");
 
                             var availableQty = inv.OnHandQty - inv.ReservedQty;
-                            if (availableQty < lineReq.RequestedQty)
-                                throw new InvalidOperationException($"Vật tư '{items[lineReq.ItemId].ItemName}' không đủ số lượng khả dụng. Yêu cầu: {lineReq.RequestedQty}, Khả dụng: {availableQty}.");
 
-                            inv.ReservedQty += lineReq.RequestedQty;
+                            if (!rr.IsPartialDeliveryAllowed)
+                            {
+                                // XUẤT 1 LẦN
+                                if (availableQty < lineReq.RequestedQty)
+                                {
+                                    var shortageQty = lineReq.RequestedQty - availableQty;
+                                    throw new InvalidOperationException($"Vật tư '{items[lineReq.ItemId].ItemName}' không đủ số lượng khả dụng để thêm mới xuất 1 lần. Yêu cầu: {lineReq.RequestedQty}, Khả dụng: {availableQty}, Cần nhập thêm: {shortageQty}.");
+                                }
+                                newLine.AllocatedQty = lineReq.RequestedQty;
+                                inv.ReservedQty += lineReq.RequestedQty;
+                            }
+                            else
+                            {
+                                // XUẤT NHIỀU LẦN
+                                var allocateQty = Math.Min(lineReq.RequestedQty, availableQty);
+                                newLine.AllocatedQty = allocateQty;
+                                if (allocateQty > 0) inv.ReservedQty += allocateQty;
+                            }
+
                             inv.UpdatedAt = DateTime.UtcNow;
                         }
                     }
@@ -949,6 +1064,20 @@ namespace Warehouse.DataAcces.Service
                 "ApprovalResult",
                 (byte)(rr.Status == "APPROVED" ? 1 : 2)
             );
+
+            // Gửi thêm thông báo cho bộ phận Thủ kho (TK) nếu đơn được phê duyệt
+            if (rr.Status == "APPROVED")
+            {
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "TK" },
+                    "Yêu cầu xuất kho mới chờ xuất hàng",
+                    $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã được Kế toán phê duyệt hồ sơ. Vui lòng chuẩn bị hàng và tạo phiếu xuất kho (GDN).",
+                    "Release",
+                    rr.ReleaseRequestId,
+                    userId,
+                    "NewRequest"
+                );
+            }
 
             return await GetReleaseRequestByIdAsync(id)
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");

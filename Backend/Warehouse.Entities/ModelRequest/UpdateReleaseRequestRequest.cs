@@ -41,6 +41,17 @@ namespace Warehouse.Entities.ModelRequest
         public string? Purpose { get; set; }
 
         /// <summary>
+        /// Trạng thái yêu cầu (để gửi duyệt: PENDING_ACC, DRAFT)
+        /// </summary>
+        [MaxLength(30)]
+        public string? Status { get; set; }
+
+        /// <summary>
+        /// Cho phép xuất từng phần
+        /// </summary>
+        public bool? IsPartialDeliveryAllowed { get; set; }
+
+        /// <summary>
         /// Tệp báo giá mới (nếu có)
         /// </summary>
         public List<IFormFile>? QuotationFiles { get; set; }

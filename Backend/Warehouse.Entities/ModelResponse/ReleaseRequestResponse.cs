@@ -14,6 +14,7 @@ namespace Warehouse.Entities.ModelResponse
         public DateOnly? RequestedDate { get; set; }
         public DateOnly? ExpectedDate { get; set; }
         public string? Purpose { get; set; }
+        public bool IsPartialDeliveryAllowed { get; set; }
 
         // Kho xuất
         public long WarehouseId { get; set; }
@@ -48,6 +49,7 @@ namespace Warehouse.Entities.ModelResponse
         public DateOnly? RequestedDate { get; set; }
         public DateOnly? ExpectedDate { get; set; }
         public string? Purpose { get; set; }
+        public bool IsPartialDeliveryAllowed { get; set; }
 
         // Kho xuất
         public long WarehouseId { get; set; }

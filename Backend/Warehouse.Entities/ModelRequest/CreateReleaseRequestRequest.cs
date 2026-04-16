@@ -34,6 +34,9 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(30)]
         public string? Status { get; set; }
 
+        /// Cho phép xuất từng phần
+        public bool IsPartialDeliveryAllowed { get; set; }
+
         /// Tệp báo giá (Bắt buộc)
         [Required(ErrorMessage = "Vui lòng tải lên ít nhất 1 tệp báo giá.")]
         public List<IFormFile> QuotationFiles { get; set; } = new();
