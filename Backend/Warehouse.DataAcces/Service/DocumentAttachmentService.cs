@@ -32,8 +32,8 @@ namespace Warehouse.DataAcces.Service
 			// Cho phép nhiều định dạng tệp; không giới hạn phần mở rộng ở tầng service.
 
 			// Giới hạn dung lượng file (ví dụ: tối đa 5MB)
-			if (file.Length > 5 * 1024 * 1024)
-				throw new ArgumentException("Dung lượng file không được vượt quá 5MB.");
+			if (file.Length > 10 * 1024 * 1024)
+				throw new ArgumentException("Dung lượng file không được vượt quá 10MB.");
 
 			// Tạo thư mục nếu chưa có
 			var uploadsFolder = Path.Combine(_env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads", "evidence");

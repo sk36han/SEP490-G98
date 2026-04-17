@@ -12,10 +12,17 @@ namespace Warehouse.Api.ApiController
     public class ReleaseRequestController : ControllerBase
     {
         private readonly IReleaseRequestService _releaseRequestService;
+        private readonly IDocumentAttachmentService _documentAttachmentService;
+        private readonly IAuditLogService _auditLogService;
 
-        public ReleaseRequestController(IReleaseRequestService releaseRequestService)
+        public ReleaseRequestController(
+            IReleaseRequestService releaseRequestService,
+            IDocumentAttachmentService documentAttachmentService,
+            IAuditLogService auditLogService)
         {
             _releaseRequestService = releaseRequestService;
+            _documentAttachmentService = documentAttachmentService;
+            _auditLogService = auditLogService;
         }
 
         /// <summary>
@@ -23,7 +30,7 @@ namespace Warehouse.Api.ApiController
         /// </summary>
         [HttpPost("create")]
         [Authorize(Roles = "SP,GD,KT,SE,TK")]
-        public async Task<IActionResult> CreateReleaseRequest([FromForm] CreateReleaseRequestRequest request)
+        public async Task<IActionResult> CreateReleaseRequest([FromBody] CreateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -94,7 +101,7 @@ namespace Warehouse.Api.ApiController
         /// </summary>
         [HttpPut("update/{id:long}")]
         [Authorize(Roles = "SP,KT,TK,SE")]
-        public async Task<IActionResult> UpdateReleaseRequest(long id, [FromForm] UpdateReleaseRequestRequest request)
+        public async Task<IActionResult> UpdateReleaseRequest(long id, [FromBody] UpdateReleaseRequestRequest request)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -212,5 +219,75 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
             }
         }
+
+        [HttpPost("{id:long}/attachments")]
+        [Authorize(Roles = "SP,KT,TK,SE")]
+        public async Task<IActionResult> UploadReleaseRequestAttachments(
+            long id,
+            IFormFile? quotationFile,
+            IFormFile? contractFile,
+            IFormFile? appendixFile)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var rr = await _releaseRequestService.GetReleaseRequestByIdAsync(id);
+                if (rr == null) return NotFound(new { message = "Không tìm thấy yêu cầu xuất kho." });
+
+                // Kiểm tra nếu đơn ở trạng thái không cho phép upload
+                var allowedStatuses = new[] { "DRAFT", "PENDING_ACC" };
+                if (!allowedStatuses.Contains(rr.Status))
+                    return BadRequest(new { message = "Chỉ có thể đính kèm tài liệu cho yêu cầu xuất kho đang ở trạng thái nháp hoặc chờ duyệt." });
+
+                // Kiểm tra nếu trạng thái là PENDING_ACC thì bắt buộc phải có đủ file (trừ khi đã có từ trước)
+                if (rr.Status == "PENDING_ACC")
+                {
+                    var existingAttachments = rr.Attachments?.Select(a => a.AttachmentType).ToList() ?? new List<string>();
+                    
+                    bool hasQuotation = existingAttachments.Contains("QUOTATION") || quotationFile != null;
+                    bool hasContract = existingAttachments.Contains("CONTRACT") || contractFile != null;
+
+                    if (!hasQuotation || !hasContract)
+                    {
+                        return BadRequest(new { message = "Vui lòng cung cấp đầy đủ Báo giá và Hợp đồng khi gửi duyệt." });
+                    }
+                }
+
+                if (quotationFile != null)
+                {
+                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, quotationFile, currentUserId, "QUOTATION");
+                }
+
+                if (contractFile != null)
+                {
+                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, contractFile, currentUserId, "CONTRACT");
+                }
+
+                if (appendixFile != null)
+                {
+                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, appendixFile, currentUserId, "CONTRACT_APPENDIX");
+                }
+
+                return Ok(new { message = "Tải lên tài liệu thành công." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống khi tải tệp.", detail });
+            }
+        }
+
+
     }
 }

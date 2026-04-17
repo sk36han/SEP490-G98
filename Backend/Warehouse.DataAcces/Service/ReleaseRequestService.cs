@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
@@ -32,17 +33,7 @@ namespace Warehouse.DataAcces.Service
             long requestedByUserId,
             CreateReleaseRequestRequest request)
         {
-            // 1. Validate: Lines không rỗng
-            if (request.Lines == null || request.Lines.Count == 0)
-                throw new InvalidOperationException("Yêu cầu xuất kho phải có ít nhất 1 vật tư.");
-
-            // 1.1. Validate: Bắt buộc có báo giá và hợp đồng
-            if (request.QuotationFiles == null || !request.QuotationFiles.Any())
-                throw new InvalidOperationException("Vui lòng tải lên ít nhất 1 tệp báo giá.");
-            
-            if (request.ContractFiles == null || !request.ContractFiles.Any())
-                throw new InvalidOperationException("Vui lòng tải lên ít nhất 1 tệp hợp đồng.");
-
+        
             // 2. Validate: Kho xuất
             var warehouse = await _context.Warehouses
                 .FirstOrDefaultAsync(w => w.WarehouseId == request.WarehouseId);
@@ -134,17 +125,22 @@ namespace Warehouse.DataAcces.Service
                 ExpectedDate = request.ExpectedDate,
                 Purpose = request.Purpose,
                 Status = request.Status ?? "PENDING_ACC",
-                IsPartialDeliveryAllowed = request.IsPartialDeliveryAllowed,
+				IsPartialDeliveryAllowed = request.IsPartialDeliveryAllowed,
                 LifecycleStatus = "IssuePending",
                 CreatedAt = now,
                 SubmittedAt = now
             };
 
             // Lấy giá vốn kho (InventoryOnHand) để fallback
+            // Lấy giá vốn kho (InventoryOnHand) để fallback
             var itemIdsForPrice = request.Lines.Select(l => l.ItemId).Distinct().ToList();
-            var unitCostsDb = await _context.InventoryOnHands
+
+            // 9. Lấy dữ liệu tồn kho hàng loạt để tối ưu hiệu năng
+            var inventories = await _context.InventoryOnHands
                 .Where(inv => inv.WarehouseId == request.WarehouseId && itemIdsForPrice.Contains(inv.ItemId))
-                .ToDictionaryAsync(inv => inv.ItemId, inv => inv.UnitCost);
+                .ToDictionaryAsync(inv => inv.ItemId, inv => inv);
+
+            var unitCostsDb = inventories.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.UnitCost);
 
             // 10. Tạo các dòng vật tư và thực hiện giữ hàng (ReservedQty)
             foreach (var line in request.Lines)
@@ -169,12 +165,9 @@ namespace Warehouse.DataAcces.Service
                 // Chỉ thực hiện giữ hàng (ReservedQty) nếu trạng thái không phải là DRAFT
                 if (releaseRequest.Status != "DRAFT")
                 {
-                    var inventory = await _context.InventoryOnHands
-                        .FirstOrDefaultAsync(ioh => ioh.WarehouseId == request.WarehouseId && ioh.ItemId == line.ItemId);
-
-                    if (inventory == null)
+                    if (!inventories.TryGetValue(line.ItemId, out var inventory))
                     {
-                        throw new KeyNotFoundException($"Không tìm thấy bản ghi tồn kho cho vật tư ID {line.ItemId} tại kho {warehouse.WarehouseName}.");
+                        throw new KeyNotFoundException($"Không tìm thấy bản ghi tồn kho cho vật tư '{items[line.ItemId].ItemName}' tại kho {warehouse.WarehouseName}.");
                     }
 
                     var availableQty = inventory.OnHandQty - inventory.ReservedQty;
@@ -215,11 +208,7 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            // 12. Lưu vào database
-            _context.ReleaseRequests.Add(releaseRequest);
-            await _context.SaveChangesAsync();
-
-            // 13. Ghi audit log
+            // 11. Audit log
             await _auditLogService.LogAsync(
                 requestedByUserId,
                 "CREATE",
@@ -228,22 +217,9 @@ namespace Warehouse.DataAcces.Service
                 $"Tạo mới yêu cầu xuất kho {rrCode}"
             );
 
-            // 13. Lưu tài liệu đính kèm (Báo giá & Hợp đồng)
-            if (request.QuotationFiles != null && request.QuotationFiles.Any())
-            {
-                foreach (var file in request.QuotationFiles)
-                {
-                    await _documentAttachmentService.UploadAttachmentAsync("RR", releaseRequest.ReleaseRequestId, file, requestedByUserId, "QUOTATION");
-                }
-            }
-
-            if (request.ContractFiles != null && request.ContractFiles.Any())
-            {
-                foreach (var file in request.ContractFiles)
-                {
-                    await _documentAttachmentService.UploadAttachmentAsync("RR", releaseRequest.ReleaseRequestId, file, requestedByUserId, "CONTRACT");
-                }
-            }
+            // 12. Lưu vào database
+            _context.ReleaseRequests.Add(releaseRequest);
+            await _context.SaveChangesAsync();
 
             // Gửi thông báo cho Kế toán nếu đơn ở trạng thái PENDING_ACC để kiểm tra hồ sơ
             if (releaseRequest.Status == "PENDING_ACC")
@@ -358,7 +334,7 @@ namespace Warehouse.DataAcces.Service
 
             // Lấy danh sách tệp đính kèm (Báo giá, Hợp đồng)
             var attachments = await _context.DocumentAttachments
-                .Where(a => a.DocType == "RR" && a.DocId == id)
+                .Where(a => a.DocType == "GIR" && a.DocId == id)
                 .Select(a => new ReleaseRequestAttachmentResponse
                 {
                     AttachmentId = a.AttachmentId,
@@ -536,12 +512,9 @@ namespace Warehouse.DataAcces.Service
             {
                 if (request.Status == "PENDING_ACC" && oldStatus == "DRAFT")
                 {
-                    // Kiểm tra hồ sơ bắt buộc khi gửi duyệt
-                    var hasQuotation = (request.QuotationFiles != null && request.QuotationFiles.Any()) ||
-                                      await _context.DocumentAttachments.AnyAsync(a => a.DocType == "RR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    
-                    var hasContract = (request.ContractFiles != null && request.ContractFiles.Any()) ||
-                                     await _context.DocumentAttachments.AnyAsync(a => a.DocType == "RR" && a.DocId == id && a.AttachmentType == "CONTRACT");
+                    // Kiểm tra hồ sơ bắt buộc khi gửi duyệt (Kiểm tra trong database)
+                    var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
 
                     if (!hasQuotation) throw new InvalidOperationException("Vui lòng tải lên tài liệu Báo giá trước khi gửi duyệt.");
                     if (!hasContract) throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi gửi duyệt.");
@@ -593,27 +566,40 @@ namespace Warehouse.DataAcces.Service
                 var linesToRemove = rr.ReleaseRequestLines
                     .Where(l => !keepLineIds.Contains(l.ReleaseRequestLineId))
                     .ToList();
+
+                // Lấy tất cả itemIds cần xử lý tồn kho (cả dòng mới, dòng update và dòng bị xóa)
+                var allItemIds = request.Lines.Select(l => l.ItemId)
+                    .Concat(linesToRemove.Select(l => l.ItemId))
+                    .Distinct()
+                    .ToList();
+
+                // Fetch tồn kho hàng loạt (cả kho cũ và kho mới nếu đổi kho)
+                var inventories = await _context.InventoryOnHands
+                    .Where(inv => (inv.WarehouseId == rr.WarehouseId || inv.WarehouseId == oldWarehouseId) && allItemIds.Contains(inv.ItemId))
+                    .ToListAsync();
+
+                var inventoriesDict = inventories
+                    .GroupBy(inv => new { inv.WarehouseId, inv.ItemId })
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var unitCostsDb = inventories
+                    .Where(inv => inv.WarehouseId == rr.WarehouseId)
+                    .ToDictionary(inv => inv.ItemId, inv => inv.UnitCost);
+
                 foreach (var line in linesToRemove)
                 {
                     // Chỉ trả lại ReservedQty nếu trạng thái hiện tại không phải là DRAFT
                     if (rr.Status != "DRAFT")
                     {
-                        var inventory = await _context.InventoryOnHands
-                            .FirstOrDefaultAsync(ioh => ioh.WarehouseId == oldWarehouseId && ioh.ItemId == line.ItemId);
-                        if (inventory != null)
+                        if (inventoriesDict.TryGetValue(new { WarehouseId = oldWarehouseId, ItemId = line.ItemId }, out var inventory))
                         {
                             inventory.ReservedQty -= line.AllocatedQty;
+                            if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
                             inventory.UpdatedAt = DateTime.UtcNow;
                         }
                     }
                     _context.ReleaseRequestLines.Remove(line);
                 }
-
-                // Lấy giá vốn kho (InventoryOnHand) để fallback khi thêm line mới hoặc update request
-                var itemIdsForPrice = request.Lines.Select(l => l.ItemId).Distinct().ToList();
-                var unitCostsDb = await _context.InventoryOnHands
-                    .Where(inv => inv.WarehouseId == rr.WarehouseId && itemIdsForPrice.Contains(inv.ItemId))
-                    .ToDictionaryAsync(inv => inv.ItemId, inv => inv.UnitCost);
 
                 // 9b. Cập nhật dòng cũ + thêm dòng mới
                 foreach (var lineReq in request.Lines)
@@ -634,13 +620,15 @@ namespace Warehouse.DataAcces.Service
                             if (rr.WarehouseId != oldWarehouseId)
                             {
                                 // Nếu đổi kho: Trả hàng kho cũ, giữ hàng kho mới
-                                var oldInv = await _context.InventoryOnHands
-                                    .FirstOrDefaultAsync(ioh => ioh.WarehouseId == oldWarehouseId && ioh.ItemId == existingLine.ItemId);
-                                if (oldInv != null) oldInv.ReservedQty -= existingLine.AllocatedQty;
+                                if (inventoriesDict.TryGetValue(new { WarehouseId = oldWarehouseId, ItemId = existingLine.ItemId }, out var oldInv))
+                                {
+                                    oldInv.ReservedQty -= existingLine.AllocatedQty;
+                                }
 
-                                var newInv = await _context.InventoryOnHands
-                                    .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == existingLine.ItemId);
-                                if (newInv == null) throw new KeyNotFoundException($"Vật tư {existingLine.ItemId} không có trong kho mới {rr.WarehouseId}.");
+                                if (!inventoriesDict.TryGetValue(new { WarehouseId = rr.WarehouseId, ItemId = existingLine.ItemId }, out var newInv))
+                                {
+                                    throw new KeyNotFoundException($"Vật tư {existingLine.ItemId} không có trong kho mới {rr.WarehouseId}.");
+                                }
                                 
                                 var availableQty = newInv.OnHandQty - newInv.ReservedQty;
                                 
@@ -667,9 +655,7 @@ namespace Warehouse.DataAcces.Service
                             {
                                 // Nếu cùng kho: Tính chênh lệch Delta = Số_mới - Số_cũ
                                 decimal delta = lineReq.RequestedQty - existingLine.AllocatedQty;
-                                var inv = await _context.InventoryOnHands
-                                    .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == existingLine.ItemId);
-                                if (inv != null)
+                                if (inventoriesDict.TryGetValue(new { WarehouseId = rr.WarehouseId, ItemId = existingLine.ItemId }, out var inv))
                                 {
                                     if (!rr.IsPartialDeliveryAllowed)
                                     {
@@ -713,7 +699,6 @@ namespace Warehouse.DataAcces.Service
                         existingLine.ItemId = lineReq.ItemId;
                         existingLine.RequestedQty = lineReq.RequestedQty;
                         existingLine.ApprovedQty = lineReq.RequestedQty; // Tự động duyệt số lượng mới
-                        existingLine.AllocatedQty = lineReq.RequestedQty; // Cập nhật AllocatedQty = Số_mới
                         existingLine.UomId = lineReq.UomId;
                         existingLine.Note = lineReq.Note;
                         existingLine.UnitCostAtIssue = unitPrice;
@@ -729,7 +714,7 @@ namespace Warehouse.DataAcces.Service
                             UomId = lineReq.UomId,
                             Note = lineReq.Note,
                             ApprovedQty = lineReq.RequestedQty, // Tự động duyệt dòng mới
-                            AllocatedQty = lineReq.RequestedQty, // Gán AllocatedQty cho dòng mới
+                            AllocatedQty = 0, // Mặc định là 0, sẽ được logic xử lý tồn kho phía dưới cập nhật nếu cần
                             IssuedQty = 0,
                             LineStatus = "Open",
                             UnitCostAtIssue = unitPrice,
@@ -740,9 +725,10 @@ namespace Warehouse.DataAcces.Service
                         // Giữ hàng cho dòng mới tại kho hiện tại (Chỉ khi status != DRAFT)
                         if (rr.Status != "DRAFT")
                         {
-                            var inv = await _context.InventoryOnHands
-                                .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == lineReq.ItemId);
-                            if (inv == null) throw new KeyNotFoundException($"Vật tư {lineReq.ItemId} không có trong kho {rr.WarehouseId}.");
+                            if (!inventoriesDict.TryGetValue(new { WarehouseId = rr.WarehouseId, ItemId = lineReq.ItemId }, out var inv))
+                            {
+                                throw new KeyNotFoundException($"Vật tư {lineReq.ItemId} không có trong kho {rr.WarehouseId}.");
+                            }
 
                             var availableQty = inv.OnHandQty - inv.ReservedQty;
 
@@ -805,23 +791,6 @@ namespace Warehouse.DataAcces.Service
                 rr.ReleaseRequestId,
                 $"Cập nhật yêu cầu xuất kho {rr.ReleaseRequestCode}"
             );
-
-            // 11. Lưu tài liệu đính kèm bổ sung
-            if (request.QuotationFiles != null && request.QuotationFiles.Any())
-            {
-                foreach (var file in request.QuotationFiles)
-                {
-                    await _documentAttachmentService.UploadAttachmentAsync("RR", rr.ReleaseRequestId, file, userId, "QUOTATION");
-                }
-            }
-
-            if (request.ContractFiles != null && request.ContractFiles.Any())
-            {
-                foreach (var file in request.ContractFiles)
-                {
-                    await _documentAttachmentService.UploadAttachmentAsync("RR", rr.ReleaseRequestId, file, userId, "CONTRACT");
-                }
-            }
 
             await _context.SaveChangesAsync();
 
@@ -890,26 +859,26 @@ namespace Warehouse.DataAcces.Service
             if (rr.LifecycleStatus == "IssueFull" || rr.LifecycleStatus == "Closed" || rr.LifecycleStatus == "Cancelled")
                 throw new InvalidOperationException($"Không thể đóng yêu cầu xuất kho ở trạng thái '{rr.LifecycleStatus}'.");
 
-            // Giải phóng hàng còn dư (ReservedQty)
+            // 1. Lấy dữ liệu tồn kho hàng loạt để tối ưu
+            var itemIds = rr.ReleaseRequestLines.Select(l => l.ItemId).Distinct().ToList();
+            var inventories = await _context.InventoryOnHands
+                .Where(ioh => ioh.WarehouseId == rr.WarehouseId && itemIds.Contains(ioh.ItemId))
+                .ToDictionaryAsync(ioh => ioh.ItemId, ioh => ioh);
+
+            // 2. Giải phóng hàng còn dư (ReservedQty)
             foreach (var line in rr.ReleaseRequestLines)
             {
                 // Lượng dư chưa xuất: AllocatedQty (lượng đã giữ) - IssuedQty (lượng thực tế đã xuất)
                 decimal remainingReserve = line.AllocatedQty - line.IssuedQty;
                 
-                if (remainingReserve > 0)
+                if (remainingReserve > 0 && inventories.TryGetValue(line.ItemId, out var inventory))
                 {
-                    var inventory = await _context.InventoryOnHands
-                        .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == line.ItemId);
-                    
-                    if (inventory != null)
-                    {
-                        if (inventory.ReservedQty >= remainingReserve)
-                            inventory.ReservedQty -= remainingReserve;
-                        else
-                            inventory.ReservedQty = 0;
-                            
-                        inventory.UpdatedAt = DateTime.UtcNow;
-                    }
+                    if (inventory.ReservedQty >= remainingReserve)
+                        inventory.ReservedQty -= remainingReserve;
+                    else
+                        inventory.ReservedQty = 0;
+                        
+                    inventory.UpdatedAt = DateTime.UtcNow;
                     
                     // Cập nhật lại AllocatedQty bằng IssuedQty để phản ánh không còn giữ hàng dư
                     line.AllocatedQty = line.IssuedQty;
@@ -982,10 +951,23 @@ namespace Warehouse.DataAcces.Service
             {
                 if (request.IsApproved)
                 {
+                    // Kiểm tra hồ sơ bắt buộc khi duyệt
+                    var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
+
+                    if (!hasQuotation) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Báo giá.");
+                    if (!hasContract) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Hợp đồng.");
+
                     rr.Status = "APPROVED";
 
                     var approvedQtyMap = request.Lines?.ToDictionary(l => l.ReleaseRequestLineId, l => l.ApprovedQty) 
                                          ?? new Dictionary<long, decimal>();
+
+                    // Lấy dữ liệu tồn kho hàng loạt
+                    var itemIds = rr.ReleaseRequestLines.Select(l => l.ItemId).Distinct().ToList();
+                    var inventories = await _context.InventoryOnHands
+                        .Where(ioh => ioh.WarehouseId == rr.WarehouseId && itemIds.Contains(ioh.ItemId))
+                        .ToDictionaryAsync(ioh => ioh.ItemId, ioh => ioh);
 
                     foreach (var rrLine in rr.ReleaseRequestLines)
                     {
@@ -1002,17 +984,11 @@ namespace Warehouse.DataAcces.Service
                         rrLine.AllocatedQty = approvedQty;
 
                         decimal delta = approvedQty - oldAllocated;
-                        if (delta != 0)
+                        if (delta != 0 && inventories.TryGetValue(rrLine.ItemId, out var inventory))
                         {
-                            var inventory = await _context.InventoryOnHands
-                                .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == rrLine.ItemId);
-
-                            if (inventory != null)
-                            {
-                                inventory.ReservedQty += delta;
-                                if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
-                                inventory.UpdatedAt = DateTime.UtcNow;
-                            }
+                            inventory.ReservedQty += delta;
+                            if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
+                            inventory.UpdatedAt = DateTime.UtcNow;
                         }
                     }
                 }
@@ -1088,12 +1064,14 @@ namespace Warehouse.DataAcces.Service
         /// </summary>
         private async Task ReleaseReservedQtyAsync(ReleaseRequest rr)
         {
+            var itemIds = rr.ReleaseRequestLines.Select(l => l.ItemId).Distinct().ToList();
+            var inventories = await _context.InventoryOnHands
+                .Where(ioh => ioh.WarehouseId == rr.WarehouseId && itemIds.Contains(ioh.ItemId))
+                .ToDictionaryAsync(ioh => ioh.ItemId, ioh => ioh);
+
             foreach (var line in rr.ReleaseRequestLines)
             {
-                var inventory = await _context.InventoryOnHands
-                    .FirstOrDefaultAsync(ioh => ioh.WarehouseId == rr.WarehouseId && ioh.ItemId == line.ItemId);
-
-                if (inventory != null)
+                if (inventories.TryGetValue(line.ItemId, out var inventory))
                 {
                     inventory.ReservedQty -= line.AllocatedQty;
                     if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
@@ -1103,10 +1081,9 @@ namespace Warehouse.DataAcces.Service
         }
 
         // ──────────────────────────── HELPERS ────────────────────────────
-
-        
+        /// <summary>
         /// Tạo mã yêu cầu xuất kho tự tăng: RR-001, RR-002, RR-003, ...
-      
+        /// </summary>
         private async Task<string> GenerateNextRRCodeAsync()
         {
             var year = DateTime.Now.Year;
@@ -1129,20 +1106,19 @@ namespace Warehouse.DataAcces.Service
             }
             else
             {
-                // Fallback cho logic cũ nếu không tìm thấy prefix năm hiện tại
-                var codes = await _context.ReleaseRequests
+                // Fallback cho logic cũ nếu không tìm thấy prefix năm hiện tại: Lấy mã có số lớn nhất bằng cách sắp xếp theo mã giảm dần
+                var lastAnyCode = await _context.ReleaseRequests
+                    .OrderByDescending(r => r.ReleaseRequestCode)
                     .Select(r => r.ReleaseRequestCode)
-                    .ToListAsync();
-                
-                var maxNumber = 0;
-                foreach (var code in codes)
+                    .FirstOrDefaultAsync();
+
+                if (lastAnyCode != null)
                 {
-                    var parts = code.Split('-');
+                    var parts = lastAnyCode.Split('-');
                     var lastPart = parts.Last();
-                    if (int.TryParse(lastPart, out var number) && number > maxNumber)
-                        maxNumber = number;
+                    if (int.TryParse(lastPart, out var number))
+                        nextNumber = number + 1;
                 }
-                nextNumber = maxNumber + 1;
             }
 
             return $"{prefix}{nextNumber:D3}";

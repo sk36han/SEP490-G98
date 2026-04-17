@@ -52,16 +52,6 @@ namespace Warehouse.Entities.ModelRequest
         public bool? IsPartialDeliveryAllowed { get; set; }
 
         /// <summary>
-        /// Tệp báo giá mới (nếu có)
-        /// </summary>
-        public List<IFormFile>? QuotationFiles { get; set; }
-
-        /// <summary>
-        /// Tệp hợp đồng mới (nếu có)
-        /// </summary>
-        public List<IFormFile>? ContractFiles { get; set; }
-
-        /// <summary>
         /// Danh sách vật tư cập nhật.
         /// - Nếu có LineId > 0 → cập nhật dòng cũ
         /// - Nếu LineId = 0 hoặc null → thêm dòng mới
