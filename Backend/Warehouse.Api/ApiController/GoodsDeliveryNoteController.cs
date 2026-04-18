@@ -88,19 +88,6 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
-        /// Duyệt/Từ chối phiếu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
-        /// </summary>
-        [HttpPut("{id}/approve")]
-        [Authorize(Roles = "KT,GD,SE")]
-        public async Task<IActionResult> Approve(long id, [FromBody] ApproveGDNRequest request)
-        {
-            var userId = GetCurrentUserId();
-            var result = await _gdnService.ApproveGDNAsync(id, userId, request);
-            var msg = request.IsApproved ? "Duyệt phiếu xuất kho thành công." : "Đã từ chối phiếu xuất kho.";
-            return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, msg));
-        }
-
-        /// <summary>
         /// Thủ kho xác nhận xuất hàng thực tế (Trừ tồn kho)
         /// </summary>
         [HttpPut("{id}/issue")]

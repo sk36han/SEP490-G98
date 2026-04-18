@@ -369,7 +369,7 @@ namespace Warehouse.DataAcces.Service
                 WarehouseId = request.WarehouseId,
                 IssueDate = request.IssueDate,
                 CreatedBy = userId,
-                Status = request.Status ?? "PENDING_ACC",
+                Status = request.Status ?? "PENDING_ISSUE",
                 Note = $"[{pickingStrategy}] {request.Note ?? ""}".Trim(),
                 ShippingFee = shippingFee,
                 IsPaid = request.IsPaid,
@@ -441,23 +441,9 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Create,
                 AuditEntity.GoodsDeliveryNote,
                 gdn.Gdnid,
-                $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}");
+                $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}. Trạng thái: PENDING_ISSUE");
 
             await _context.SaveChangesAsync();
-
-            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
-            if (gdn.Status == "PENDING_ACC")
-            {
-                await _notificationService.CreateForRolesAsync(
-                    new[] { "KT" },
-                    "Phiếu xuất kho mới chờ duyệt",
-                    $"Phiếu xuất {gdnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
-                    "GoodsDelivery",
-                    gdn.Gdnid,
-                    userId,
-                    "NewRequest"
-                );
-            }
 
             var addr = releaseRequest.Receiver?.Company?.Addresses?
                 .OrderByDescending(a => a.IsDefault)
@@ -857,6 +843,7 @@ namespace Warehouse.DataAcces.Service
         // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO ONLY) ====================
         private async Task ProcessGDNApprovalInventoryAsync(GoodsDeliveryNote gdn, long userId)
         {
+            // 0. Tạo InventoryTransaction header
             var txn = new InventoryTransaction
             {
                 TxnType = "OUTBOUND",
@@ -869,15 +856,33 @@ namespace Warehouse.DataAcces.Service
                 PostedAt = DateTime.UtcNow
             };
             _context.InventoryTransactions.Add(txn);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Lưu để có InventoryTxnId
 
+            // 1. Lấy hàng loạt tồn kho theo ItemIds trong GDN lines
+            var itemIds = gdn.GoodsDeliveryNoteLines.Select(l => l.ItemId).Distinct().ToList();
+
+            var inventories = await _context.InventoryOnHands
+                .Where(i => i.WarehouseId == gdn.WarehouseId && itemIds.Contains(i.ItemId))
+                .ToDictionaryAsync(i => i.ItemId, i => i);
+
+            var allLots = await _context.InventoryLots
+                .Where(lot => lot.WarehouseId == gdn.WarehouseId
+                           && itemIds.Contains(lot.ItemId)
+                           && lot.IsActive
+                           && lot.Quantity > 0)
+                .OrderBy(lot => lot.ReceiptDate)
+                .ToListAsync();
+
+            // 2. Tạo map RR Lines đã Include sẵn (tránh N+1 query)
+            var rrLinesDict = gdn.ReleaseRequest?.ReleaseRequestLines?
+                .ToDictionary(l => l.ReleaseRequestLineId, l => l)
+                ?? new Dictionary<long, ReleaseRequestLine>();
+
+            // 3. Xử lý từng dòng GDN
             foreach (var line in gdn.GoodsDeliveryNoteLines)
             {
-                // 1. Cập nhật InventoryOnHand
-                var inv = await _context.InventoryOnHands
-                    .FirstOrDefaultAsync(i => i.WarehouseId == gdn.WarehouseId && i.ItemId == line.ItemId);
-
-                if (inv != null)
+                // 3a. Trừ InventoryOnHand
+                if (inventories.TryGetValue(line.ItemId, out var inv))
                 {
                     inv.OnHandQty -= line.ActualQty;
                     if (inv.ReservedQty >= line.ActualQty)
@@ -887,19 +892,12 @@ namespace Warehouse.DataAcces.Service
                     inv.UpdatedAt = DateTime.UtcNow;
                 }
 
-                // 2. Trừ tồn kho từ InventoryLots theo FIFO (Ngày nhập cũ nhất trước)
-                var lots = await _context.InventoryLots
-                    .Where(lot => lot.ItemId == line.ItemId
-                               && lot.WarehouseId == gdn.WarehouseId
-                               && lot.IsActive
-                               && lot.Quantity > 0)
-                    .OrderBy(lot => lot.ReceiptDate)
-                    .ToListAsync();
-
+                // 3b. Trừ tồn kho từ InventoryLots theo FIFO
+                var lotsForItem = allLots.Where(lot => lot.ItemId == line.ItemId).ToList();
                 decimal remainingQty = line.ActualQty;
                 long? firstLotId = null;
 
-                foreach (var lot in lots)
+                foreach (var lot in lotsForItem)
                 {
                     if (remainingQty <= 0) break;
 
@@ -910,7 +908,6 @@ namespace Warehouse.DataAcces.Service
                     if (lot.Quantity == 0)
                         lot.IsActive = false;
 
-                    // Ghi nhận lot đầu tiên cho GDN line
                     if (firstLotId == null)
                         firstLotId = lot.LotId;
 
@@ -926,39 +923,33 @@ namespace Warehouse.DataAcces.Service
                     });
                 }
 
-                // Gán LotId đầu tiên vào GDN line (tham chiếu lot chính)
+                // Gán LotId đầu tiên vào GDN line
                 line.LotId = firstLotId;
 
-                // 3. Cập nhật ReleaseRequestLine.IssuedQty
-                if (line.ReleaseRequestLineId.HasValue)
+                // 3c. Cập nhật ReleaseRequestLine.IssuedQty (dùng dữ liệu đã Include, không query lại)
+                if (line.ReleaseRequestLineId.HasValue
+                    && rrLinesDict.TryGetValue(line.ReleaseRequestLineId.Value, out var rrLine))
                 {
-                    var rrLine = await _context.ReleaseRequestLines
-                        .FirstOrDefaultAsync(l => l.ReleaseRequestLineId == line.ReleaseRequestLineId.Value);
+                    rrLine.IssuedQty += line.ActualQty;
 
-                    if (rrLine != null)
+                    // Cập nhật LineStatus
+                    if (rrLine.IssuedQty >= rrLine.ApprovedQty)
                     {
-                        rrLine.IssuedQty += line.ActualQty;
+                        rrLine.LineStatus = "IssueFull";
+                    }
+                    else if (rrLine.IssuedQty > 0)
+                    {
+                        rrLine.LineStatus = "IssuePartial";
                     }
                 }
             }
 
-            // 4. Cập nhật LifecycleStatus của ReleaseRequest
+            // 4. Cập nhật LifecycleStatus của ReleaseRequest (dùng dữ liệu in-memory đã cập nhật)
             var rr = gdn.ReleaseRequest;
-            if (rr != null)
+            if (rr != null && rr.ReleaseRequestLines != null)
             {
-                var allLines = await _context.ReleaseRequestLines
-                    .Where(l => l.ReleaseRequestId == rr.ReleaseRequestId)
-                    .ToListAsync();
-
-                var allFullyIssued = allLines.All(l => l.IssuedQty >= l.ApprovedQty);
-                if (allFullyIssued)
-                {
-                    rr.LifecycleStatus = "IssueFull";
-                }
-                else
-                {
-                    rr.LifecycleStatus = "IssuePartial";
-                }
+                var allFullyIssued = rr.ReleaseRequestLines.All(l => l.IssuedQty >= l.ApprovedQty);
+                rr.LifecycleStatus = allFullyIssued ? "IssueFull" : "IssuePartial";
             }
 
             // PostedAt sẽ được gán ở ConfirmDeliveryAsync (bước POSTED), không gán ở đây
@@ -1189,6 +1180,8 @@ namespace Warehouse.DataAcces.Service
                     .ThenInclude(rr => rr.Receiver)
                         .ThenInclude(r => r.Company)
                             .ThenInclude(c => c.Addresses)
+                .Include(g => g.ReleaseRequest)
+                    .ThenInclude(rr => rr.ReleaseRequestLines)
                 .Include(g => g.Warehouse)
                 .Include(g => g.CreatedByNavigation)
                 .Include(g => g.GoodsDeliveryNoteLines)
@@ -1268,8 +1261,9 @@ namespace Warehouse.DataAcces.Service
             if (await _stocktakeService.IsWarehouseFrozenAsync(gdn.WarehouseId))
                 throw new InvalidOperationException($"Kho '{gdn.Warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể thực hiện xuất hàng.");
 
-            await ProcessGDNApprovalInventoryAsync(gdn, userId);
+            // [Điều chỉnh] Thực hiện trừ hàng thực tế ngay khi Thủ kho xác nhận xuất hàng
             gdn.Status = "ISSUED";
+            await ProcessGDNApprovalInventoryAsync(gdn, userId);
 
             _context.DocumentApprovals.Add(new DocumentApproval
             {
@@ -1345,8 +1339,11 @@ namespace Warehouse.DataAcces.Service
                     .ThenInclude(rr => rr.Receiver)
                         .ThenInclude(r => r.Company)
                             .ThenInclude(c => c.Addresses)
+                .Include(g => g.ReleaseRequest)
+                    .ThenInclude(rr => rr.ReleaseRequestLines)
                 .Include(g => g.Warehouse)
                 .Include(g => g.CreatedByNavigation)
+                .Include(g => g.GoodsDeliveryNoteLines)
                 .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
             if (gdn == null)
@@ -1354,6 +1351,9 @@ namespace Warehouse.DataAcces.Service
 
             if (gdn.Status != "ISSUED")
                 throw new InvalidOperationException($"Không thể xác nhận hoàn tất phiếu ở trạng thái {gdn.Status}. Cần phải ở trạng thái ISSUED.");
+
+            if (evidenceFile == null || evidenceFile.Length == 0)
+                throw new InvalidOperationException("Bắt buộc phải tải lên ảnh chụp Phiếu xuất kho có đầy đủ chữ ký xác nhận của Khách hàng và Thủ kho để hoàn tất.");
 
             var user = await _context.Users
                 .Include(u => u.UserRoleUser)
@@ -1369,10 +1369,10 @@ namespace Warehouse.DataAcces.Service
                 docId: gdn.Gdnid,
                 file: evidenceFile,
                 userId: userId,
-                attachmentType: "GENERAL"
+                attachmentType: "EVIDENCE"
 			);
 
-            // Update GDN
+            // Ghi nhận chứng từ hoàn tất
             gdn.Status = "POSTED";
             if (!string.IsNullOrEmpty(note))
             {
@@ -1404,7 +1404,7 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Close,
                 AuditEntity.GoodsDeliveryNote,
                 gdn.Gdnid,
-                $"Xác nhận hoàn tất xuất kho phiếu {gdn.Gdncode}. Kèm file minh chứng: {fileUrl}."
+                $"Hoàn tất xuất kho phiếu {gdn.Gdncode}. Đã tải lên ảnh Phiếu xuất có chữ ký xác nhận: {fileUrl}."
             );
 
             await _context.SaveChangesAsync();
