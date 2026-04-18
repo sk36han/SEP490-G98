@@ -347,7 +347,7 @@ const ViewUserAccountList = () => {
                 pt: 2,
                 pb: 2,
                 mx: 'auto',
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 display: 'flex',
                 flexDirection: 'column',

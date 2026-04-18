@@ -106,7 +106,6 @@ const EditItem = () => {
     setNotFound(false);
     getItemForDisplayById(id)
       .then((item) => {
-      .then((item) => {
         console.log("[EditItem] item loaded:", JSON.stringify(item));
         setNotFound(false);
         if (item.purchasePrice != null && item.purchasePrice !== "") setShowPurchasePrice(true);
@@ -476,10 +475,6 @@ const EditItem = () => {
               throw err;
             }
           }} />
-
-        
-
-        <ImageDialog
 
         <ImageDialog
           open={imageDialogOpen}

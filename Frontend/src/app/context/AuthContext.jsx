@@ -21,19 +21,26 @@ export function AuthProvider({ children }) {
         setLoading(false);
     }, []);
 
-    const login = useCallback(async (email, password) => {
-        const result = await authService.login(email, password);
-        if (result?.token) {
-            localStorage.setItem('token', result.token);
+    const login = useCallback(async (email, password, rememberMe = false) => {
+        const result = await authService.login(email, password, rememberMe);
+        if (result?.requiresOtp) {
+            return result;
+        }
+        const token = result?.accessToken ?? result?.token;
+        if (token) {
             if (result.expiresAt) localStorage.setItem('tokenExpiresAt', result.expiresAt);
-            const userData = {
-                userId: result.userId,
-                email: result.email,
-                fullName: result.fullName,
-                role: result.role,
-            };
-            localStorage.setItem('userInfo', JSON.stringify(userData));
-            setUser(userData);
+            const stored = authService.getUser();
+            if (stored) {
+                setUser(stored);
+            } else {
+                const userData = {
+                    userId: result.userId,
+                    email: result.email,
+                    fullName: result.fullName,
+                    role: result.role,
+                };
+                setUser(userData);
+            }
         }
         return result;
     }, []);

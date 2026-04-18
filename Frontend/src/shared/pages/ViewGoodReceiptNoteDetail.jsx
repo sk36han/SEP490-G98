@@ -765,7 +765,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                         </table>
                                     </div>
                                 )}
-                            </SectionCard>
+                            </div>
 
                             <SectionCard
                                 title="Ghi chú"
@@ -910,7 +910,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                         />
                                     )}
                                 </div>
-                            </SectionCard>
+                            </div>
 
                             <SectionCard
                                 title="Tóm tắt đơn hàng"
@@ -1108,55 +1108,20 @@ const ViewGoodReceiptNoteDetail = () => {
                                                         ) : null}
                                                     </div>
                                                 </div>
-                                            </div>
-                                    ))}
-                                </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'start', marginTop: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div className="info-section" style={{ margin: 0 }}>
-                        <h2 className="section-title">Nhà cung cấp</h2>
-                        <div className="form-field">
-                            <label className="form-label">Nhà cung cấp</label>
-                            <div className="input-wrapper">
-                                <Package className="input-icon" size={16} />
-                                <input type="text" value={grnData.supplierName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="info-section" style={{ margin: 0 }}>
-                        <h2 className="section-title">Ghi chú</h2>
-                        <div className="form-field">
-                            <label className="form-label">Ghi chú / Lý do nhập kho</label>
-                            <textarea value={grnData.note || ''} readOnly rows={4} className="form-input" style={{ resize: 'vertical', backgroundColor: '#f5f5f5' }} />
-                        </div>
-                    </div>
-
-                    <div className="info-section" style={{ margin: 0 }}>
-                        <h2 className="section-title">Tổng hợp đơn hàng</h2>
-                        <div className="form-grid">
-                            <div className="form-field">
-                                <label className="form-label">Tổng số lượng</label>
-                                <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                    {totalQuantity} sản phẩm
-                                </div>
-                                ) : (
-                                <div className="grn-empty-state" style={{ padding: 0 }}>
-                                    Chưa có lịch sử hiển thị.
-                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="grn-empty-state" style={{ padding: 0 }}>
+                                            Chưa có lịch sử hiển thị.
+                                        </div>
                                     )}
-                            </div>
-                        </SectionCard>
+                                </div>
+                            </SectionCard>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        </div >
     );
 };
 

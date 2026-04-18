@@ -134,7 +134,7 @@ export default function ViewItemPriceList() {
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {/* Page Header */}
             <Box sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
