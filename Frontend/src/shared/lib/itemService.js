@@ -133,6 +133,19 @@ export async function getItemsByWarehouse(warehouseId) {
 }
 
 /**
+ * Lấy chi tiết một vật tư theo ID (dùng cho trang EditItem).
+ * GET /Item/display/{id} → ItemDisplayResponse.
+ * Backend trả: { success, message, data: ItemDisplayResponse }.
+ * @param {number|string} itemId
+ * @returns {Promise<ItemDisplayResponse>}
+ */
+export async function getItemForDisplayById(itemId) {
+    const response = await apiClient.get(`/Item/display/${itemId}`);
+    const raw = response?.data?.data ?? response?.data ?? {};
+    return mapItemDisplayRow(raw);
+}
+
+/**
  * Lấy toàn bộ danh sách vật tư để hiển thị (list).
  * Backend trả: { success, message, data: ItemDisplayResponse[] }
  * @returns {Promise<{ itemId, itemCode, itemName, ... }[]>}
@@ -216,6 +229,22 @@ export async function updateItem(itemId, payload) {
     const response = await apiClient.put(`/Item/update-item/${itemId}`, payload);
     invalidate('item');
     return response?.data;
+}
+
+/**
+ * Upload ảnh vật tư.
+ * POST /Item/upload-image → multipart/form-data
+ * @param {File} file
+ * @returns {Promise<{ url: string }>}
+ */
+export async function uploadItemImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/Item/upload-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const data = response?.data?.data ?? response?.data ?? {};
+    return { url: data.url ?? data.Url ?? '' };
 }
 
 /**

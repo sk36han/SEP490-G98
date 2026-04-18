@@ -206,11 +206,11 @@ namespace Warehouse.DataAcces.Service
                 ReceiptDate = request.ReceiptDate,
                 CreatedBy = userId,
                 Status = "PENDING_ACC", // Chờ duyệt
-                SubmittedAt = DateTime.UtcNow, // Tạo xong là submit luôn
+                SubmittedAt = null, // Auto-post khi tạo từ PO nên không hiển thị bước duyệt
                 Note = request.Note,
                 ShippingFee = shippingFee,
                 IsPaid = request.IsPaid,
-                PaymentMethod = request.PaymentMethod,
+                PaymentMethod = request.IsPaid ? request.PaymentMethod : null,
                 TotalReceivedQty = totalReceivedQty,
                 TotalGoodsAmount = totalGoodsAmount
             };
@@ -275,42 +275,16 @@ namespace Warehouse.DataAcces.Service
                 $"Tạo phiếu nhập {grn.Grncode}"
             );
 
-            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
-            if (grn.Status == "PENDING_ACC")
+            // Auto-post ngay khi tạo GRN từ PO: không cần bước duyệt của Kế toán.
+            // Mục tiêu: GRN sẽ chuyển sang POSTED và gửi notification cho người tạo.
+            var approveRequest = new ApproveGRNRequest
             {
-                await _notificationService.CreateForRolesAsync(
-                    new[] { "KT" },
-                    "Phiếu nhập kho mới chờ duyệt",
-                    $"Phiếu nhập {grnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
-                    "GoodsReceipt",
-                    grn.Grnid,
-                    userId,
-                    "NewRequest"
-                );
-            }
-
-            return new GoodsReceiptNoteResponse
-            {
-                GrnId = grn.Grnid,
-                GrnCode = grn.Grncode,
-                ReceiptDate = grn.ReceiptDate,
-                Status = grn.Status,
-                IsPaid = grn.IsPaid,
-                PurchaseOrderId = grn.PurchaseOrderId,
-                PurchaseOrderCode = purchaseOrder.Pocode,
-                SupplierId = grn.SupplierId,
-                SupplierName = supplier.SupplierName,
-                WarehouseId = grn.WarehouseId,
-                WarehouseName = warehouse.WarehouseName,
-                CreatedBy = grn.CreatedBy,
-                CreatedByName = user.FullName,
-                TotalReceivedQty = grn.TotalReceivedQty,
-                TotalAmount = grn.TotalGoodsAmount,
-                ShippingFee = grn.ShippingFee,
-                NetAmount = netAmount,
-                CreatedAt = DateTime.UtcNow,
-                Note = grn.Note
+                IsPaid = request.IsPaid,
+                PaymentMethod = request.IsPaid ? request.PaymentMethod : null,
+                Note = request.Note
             };
+
+            return await ApproveGRNAsync(grn.Grnid, userId, approveRequest);
         }
 
         private async Task<string> GenerateNextGrnCodeAsync()
@@ -366,10 +340,6 @@ namespace Warehouse.DataAcces.Service
                 ? request.PaymentMethod.Trim()
                 : null;
 
-            // Tính tổng giá trị GRN để phân bổ shipping
-            var totalGrnAmount = grn.GoodsReceiptNoteLines
-                .Sum(l => (l.UnitPrice ?? 0) * l.ActualQty);
-
             // Lấy thông tin PO
             var purchaseOrder = grn.PurchaseOrder;
             if (purchaseOrder != null)
@@ -410,14 +380,8 @@ namespace Warehouse.DataAcces.Service
 
                     var purchasePrice = grnLine.UnitPrice;
 
-                    // Phân bổ shipping theo tỷ trọng giá trị
-                    var lineAmount = (purchasePrice ?? 0) * grnLine.ActualQty;
-                    var shippingRatio = totalGrnAmount > 0 ? lineAmount / totalGrnAmount : 0;
-                    var shippingForLine = grn.ShippingFee * shippingRatio;
-                    var shippingPerUnit = grnLine.ActualQty > 0 ? shippingForLine / grnLine.ActualQty : 0;
-
-                    // Cost = Purchase + Shipping phân bổ
-                    var costPrice = (purchasePrice ?? 0) + shippingPerUnit;
+                    // Giá bình quân tồn kho hiện tại chỉ lấy theo giá mua, không cộng shipping
+                    var costPrice = purchasePrice ?? 0;
 
                     if (inventory != null)
                     {
@@ -426,7 +390,7 @@ namespace Warehouse.DataAcces.Service
                         var oldCost = inventory.UnitCost;
                         var newQty = grnLine.ActualQty;
 
-                        // Tính bình quân gia quyền với Cost đã bao gồm shipping
+                        // Tính bình quân gia quyền theo giá mua
                         if (oldQty > 0 && newQty > 0 && costPrice > 0)
                         {
                             inventory.UnitCost = (oldQty * oldCost + newQty * costPrice) / (oldQty + newQty);
@@ -448,7 +412,7 @@ namespace Warehouse.DataAcces.Service
                             ItemId = grnLine.ItemId,
                             OnHandQty = grnLine.ActualQty,
                             ReservedQty = 0,
-                            UnitCost = costPrice, // Cost = Purchase + Shipping
+                            UnitCost = costPrice,
                             UpdatedAt = DateTime.UtcNow
                         };
                         _context.InventoryOnHands.Add(newInventory);
@@ -531,8 +495,8 @@ namespace Warehouse.DataAcces.Service
             // Gửi thông báo kết quả cho người tạo đơn
             await _notificationService.CreateAsync(
                 grn.CreatedBy,
-                $"Phiếu nhập kho {grn.Grncode} ĐÃ ĐƯỢC DUYỆT",
-                $"Phiếu nhập kho {grn.Grncode} của bạn đã được kế toán phê duyệt và ghi sổ.",
+                $"Phiếu nhập kho {grn.Grncode} ĐÃ NHẬP KHO",
+                $"Phiếu nhập kho {grn.Grncode} của bạn đã được ghi sổ và nhập kho.",
                 "GoodsReceipt",
                 grn.Grnid,
                 "ApprovalResult",

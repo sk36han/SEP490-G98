@@ -13,7 +13,7 @@ import {
     CircularProgress,
 } from '@mui/material';
 import { X } from 'lucide-react';
-import { getCategoryById, updateCategory } from '../lib/categoryService';
+import { getCategoryById, updateCategory } from '../../shared/lib/categoryService';
 
 /**
  * Dialog chỉnh sửa danh mục.
@@ -117,7 +117,6 @@ const EditCategoryDialog = ({ open, onClose, onSuccess, categoryId }) => {
                     </Box>
                 ) : (
                     <>
-                        {/* Mã danh mục - read-only */}
                         <Typography
                             variant="caption"
                             sx={{
@@ -149,7 +148,6 @@ const EditCategoryDialog = ({ open, onClose, onSuccess, categoryId }) => {
                             }}
                         />
 
-                        {/* Tên danh mục */}
                         <Typography
                             variant="caption"
                             sx={{
@@ -191,7 +189,6 @@ const EditCategoryDialog = ({ open, onClose, onSuccess, categoryId }) => {
                             }}
                         />
 
-                        {/* Trạng thái hoạt động */}
                         <Box sx={{ display: 'flex', alignItems: 'center', mt: 2.5 }}>
                             <Typography
                                 variant="caption"

@@ -8,14 +8,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatDateTime, formatDateOnly, formatTimeOnly } from '../lib/dateUtils';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Button,
     Switch,
     TextField,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
     MapPin,
@@ -33,7 +30,7 @@ import {
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
-import { getGRNDetail, approveGoodReceiptNote } from '../lib/goodReceiptNoteService';
+import { getGRNDetail, approveGoodReceiptNote, rejectGoodReceiptNote } from '../lib/goodReceiptNoteService';
 import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 
@@ -58,6 +55,16 @@ const safeFormatDateTime = (value) => {
     } catch {
         return value;
     }
+};
+
+const buildSupplierAddress = (data) => {
+    const parts = [
+        data.SupplierAddressStreet ?? data.supplierAddressStreet ?? '',
+        data.SupplierAddressWard ?? data.supplierAddressWard ?? '',
+        data.SupplierAddressDistrict ?? data.supplierAddressDistrict ?? '',
+        data.SupplierAddressProvince ?? data.supplierAddressProvince ?? '',
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : '';
 };
 
 const safeFormatTimeOnly = (value) => {
@@ -224,18 +231,18 @@ const ViewGoodReceiptNoteDetail = () => {
                     const rawLines = data.Lines ?? data.lines ?? [];
                     const mappedLines = Array.isArray(rawLines)
                         ? rawLines.map((line, idx) => ({
-                              id: line.GrnlineId ?? line.grnlineId ?? idx,
-                              itemId: line.ItemId ?? line.itemId,
-                              itemName: line.ItemName ?? line.itemName ?? '',
-                              itemCode: line.ItemCode ?? line.itemCode ?? '',
-                              uom: line.UomName ?? line.uomName ?? '',
-                              orderedQty: Number((line.ExpectedQty ?? line.expectedQty) || 0),
-                              receivedQty: Number((line.ActualQty ?? line.actualQty) || 0),
-                              unitPrice: Number((line.UnitPrice ?? line.unitPrice) ?? 0),
-                              hasCO: line.HasCO ?? line.hasCO ?? false,
-                              hasCQ: line.HasCQ ?? line.hasCQ ?? false,
-                              note: (line.Note ?? line.note) || '',
-                          }))
+                            id: line.GrnlineId ?? line.grnlineId ?? idx,
+                            itemId: line.ItemId ?? line.itemId,
+                            itemName: line.ItemName ?? line.itemName ?? '',
+                            itemCode: line.ItemCode ?? line.itemCode ?? '',
+                            uom: line.UomName ?? line.uomName ?? '',
+                            orderedQty: Number((line.ExpectedQty ?? line.expectedQty) || 0),
+                            receivedQty: Number((line.ActualQty ?? line.actualQty) || 0),
+                            unitPrice: Number((line.UnitPrice ?? line.unitPrice) ?? 0),
+                            hasCO: line.HasCO ?? line.hasCO ?? false,
+                            hasCQ: line.HasCQ ?? line.hasCQ ?? false,
+                            note: (line.Note ?? line.note) || '',
+                        }))
                         : [];
 
                     setGrnData({
@@ -244,6 +251,10 @@ const ViewGoodReceiptNoteDetail = () => {
                         referencePoCode: data.PurchaseOrderCode ?? data.purchaseOrderCode ?? '',
                         warehouseName: data.WarehouseName ?? data.warehouseName ?? '',
                         supplierName: data.SupplierName ?? data.supplierName ?? '',
+                        supplierPhone: data.SupplierPhone ?? data.supplierPhone ?? '',
+                        supplierEmail: data.SupplierEmail ?? data.supplierEmail ?? '',
+                        supplierTaxCode: data.SupplierTaxCode ?? data.supplierTaxCode ?? '',
+                        supplierAddress: buildSupplierAddress(data),
                         receiptDate: safeFormatDateOnly(receiptDate),
                         creatorName: data.CreatedByName ?? data.createdByName ?? '',
                         createdAt: safeFormatDateTime(createdAt),
@@ -256,24 +267,49 @@ const ViewGoodReceiptNoteDetail = () => {
                         netAmount: Number((data.NetAmount ?? data.netAmount) || 0),
                         lines: mappedLines,
                         history: [
+                            // Posted
                             data.PostedAt
                                 ? {
-                                      action: 'Đã ghi sổ phiếu nhập kho',
-                                      date: safeFormatDateOnly(data.PostedAt),
-                                      time: safeFormatTimeOnly(data.PostedAt),
-                                  }
+                                    action: 'Đã ghi sổ phiếu nhập kho',
+                                    date: safeFormatDateOnly(data.PostedAt),
+                                    time: safeFormatTimeOnly(data.PostedAt),
+                                    user: data.PostedByName ?? data.postedByName ?? '',
+                                }
                                 : null,
+                            // Approved
+                            data.ApprovedAt
+                                ? {
+                                    action: 'Duyệt phiếu nhập kho',
+                                    date: safeFormatDateOnly(data.ApprovedAt),
+                                    time: safeFormatTimeOnly(data.ApprovedAt),
+                                    user: data.ApprovedByName ?? data.approvedByName ?? '',
+                                }
+                                : null,
+                            // Rejected
+                            data.RejectedAt
+                                ? {
+                                    action: 'Từ chối phiếu nhập kho',
+                                    date: safeFormatDateOnly(data.RejectedAt),
+                                    time: safeFormatTimeOnly(data.RejectedAt),
+                                    user: data.RejectedByName ?? data.rejectedByName ?? '',
+                                    reason: data.RejectedReason ?? data.rejectedReason ?? '',
+                                }
+                                : null,
+                            // Submitted
                             data.SubmittedAt
                                 ? {
-                                      action: 'Gửi yêu cầu duyệt phiếu',
-                                      date: safeFormatDateOnly(data.SubmittedAt),
-                                      time: safeFormatTimeOnly(data.SubmittedAt),
-                                  }
+                                    action: 'Gửi yêu cầu duyệt phiếu',
+                                    date: safeFormatDateOnly(data.SubmittedAt),
+                                    time: safeFormatTimeOnly(data.SubmittedAt),
+                                    user: data.SubmittedByName ?? data.submittedByName ?? '',
+                                }
                                 : null,
+                            // Created
                             {
                                 action: `Tạo mới phiếu nhập kho ${grnCode}`,
                                 date: safeFormatDateOnly(createdAt),
                                 time: safeFormatTimeOnly(createdAt),
+                                user: data.CreatedByName ?? data.createdByName ?? '',
                             },
                         ].filter(Boolean),
                     });
@@ -324,6 +360,8 @@ const ViewGoodReceiptNoteDetail = () => {
                     paymentMethod,
                 }));
             } else {
+                // Gọi API reject
+                await rejectGoodReceiptNote(grnData.grnId, reason);
                 setGrnData((prev) => ({
                     ...prev,
                     status: 'REJECTED',
@@ -336,8 +374,8 @@ const ViewGoodReceiptNoteDetail = () => {
                         ? `Đã duyệt phiếu nhập kho. Lý do: ${reason}`
                         : 'Đã duyệt phiếu nhập kho.'
                     : reason
-                    ? `Đã hủy phiếu nhập kho. Lý do: ${reason}`
-                    : 'Đã hủy phiếu nhập kho.',
+                        ? `Đã hủy phiếu nhập kho. Lý do: ${reason}`
+                        : 'Đã hủy phiếu nhập kho.',
                 isApprove ? 'success' : 'info'
             );
 
@@ -351,17 +389,14 @@ const ViewGoodReceiptNoteDetail = () => {
     };
 
     const normalizedStatus = String(grnData?.status || '').toUpperCase();
-    const isGRNFinalized = ['APPROVED', 'POSTED'].includes(normalizedStatus);
     const canReview = !['APPROVED', 'POSTED', 'REJECTED'].includes(normalizedStatus);
     const showApproveButton = isPaymentEditor && canReview;
-    const showReturnButton = isPaymentEditor && isGRNFinalized;
-    const showGeneralReturnButton =
-        !showReturnButton && Boolean(grnData?.grnId) && normalizedStatus !== 'REJECTED';
+    const showReturnButton = isPaymentEditor && normalizedStatus === 'APPROVED';
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
 
-    const canConfirmAction = !submitting && (!includeReason || reasonText.trim().length > 0);
+    const canConfirmAction = !submitting && (confirmDialogType !== 'reject' || includeReason);
 
     const calculatedSubtotal =
         grnData?.lines?.reduce(
@@ -401,387 +436,96 @@ const ViewGoodReceiptNoteDetail = () => {
     }
 
     return (
-        <div className="create-supplier-page grn-detail-page">
-            <style>
-                {`
-                    .grn-detail-page {
-                        --slate-100: #f3f4f6;
-                        --slate-200: #e5e7eb;
-                    }
-
-                    .grn-detail-page .grn-page-title {
-                        margin-bottom: 0;
-                    }
-
-                    .grn-detail-page .grn-hero-card {
-                        padding: 24px;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 18px;
-                        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-                        margin-bottom: 24px;
-                    }
-
-                    .grn-detail-page .grn-hero-top {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        gap: 16px;
-                        flex-wrap: wrap;
-                    }
-
-                    .grn-detail-page .grn-hero-code {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        margin-top: 10px;
-                        padding: 7px 12px;
-                        border-radius: 999px;
-                        background: #eff6ff;
-                        color: #1d4ed8;
-                        font-weight: 700;
-                        font-size: 13px;
-                    }
-
-                    .grn-detail-page .grn-status-pill {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        padding: 9px 14px;
-                        border-radius: 999px;
-                        font-weight: 700;
-                        font-size: 13px;
-                        white-space: nowrap;
-                    }
-
-                    .grn-detail-page .grn-main-grid {
-                        display: grid;
-                        grid-template-columns: minmax(0, 1fr) 340px;
-                        gap: 24px;
-                        align-items: start;
-                    }
-
-                    .grn-detail-page .grn-left-column,
-                    .grn-detail-page .grn-right-column {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 24px;
-                        min-width: 0;
-                    }
-
-                    .grn-detail-page .grn-table-wrap {
-                        overflow: auto;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 14px;
-                        background: #ffffff;
-                    }
-
-                    .grn-detail-page .grn-table-wrap .product-table {
-                        min-width: 880px;
-                    }
-
-                    .grn-detail-page .grn-table-wrap .product-table thead th {
-                        position: sticky;
-                        top: 0;
-                        z-index: 1;
-                        background: #f8fafc;
-                    }
-
-                    .grn-detail-page .grn-summary-grid {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        gap: 12px;
-                    }
-
-                    .grn-detail-page .grn-note-box {
-                        min-height: 120px;
-                        padding: 16px;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 12px;
-                        background: #f9fafb;
-                        color: #374151;
-                        font-size: 14px;
-                        line-height: 1.6;
-                        white-space: pre-wrap;
-                        word-break: break-word;
-                    }
-
-                    .grn-detail-page .grn-timeline {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 12px;
-                    }
-
-                    .grn-detail-page .grn-timeline-item {
-                        display: flex;
-                        align-items: flex-start;
-                        gap: 12px;
-                    }
-
-                    .grn-detail-page .grn-timeline-dot {
-                        width: 10px;
-                        height: 10px;
-                        border-radius: 999px;
-                        margin-top: 6px;
-                        flex-shrink: 0;
-                    }
-
-                    .grn-detail-page .grn-timeline-content {
-                        flex: 1;
-                        padding-left: 16px;
-                    }
-
-                    .grn-detail-page .grn-payment-pill {
-                        display: inline-flex;
-                        align-items: center;
-                        padding: 5px 12px;
-                        border-radius: 999px;
-                        font-size: 13px;
-                        font-weight: 700;
-                    }
-
-                    .grn-detail-page .grn-empty-state {
-                        padding: 28px 12px;
-                        text-align: center;
-                        color: #6b7280;
-                        font-size: 14px;
-                    }
-
-                    @media (max-width: 1200px) {
-                        .grn-detail-page .grn-main-grid {
-                            grid-template-columns: 1fr;
-                        }
-                    }
-
-                    @media (max-width: 768px) {
-                        .grn-detail-page .grn-summary-grid {
-                            grid-template-columns: 1fr;
-                        }
-
-                        .grn-detail-page .grn-hero-card {
-                            padding: 18px;
-                        }
-                    }
-                `}
-            </style>
-
+        <div
+            className="create-supplier-page"
+            style={{
+                minHeight: 0,
+                height: 'auto',
+                paddingBottom: 0,
+                padding: 16,
+            }}
+        >
+            {/* Dialog xác nhận duyệt/hủy */}
             <Dialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
-                fullWidth
-                maxWidth="sm"
-                disableEscapeKeyDown={submitting}
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '620px',
-                        borderRadius: '16px',
-                        border: '1px solid #e5e7eb',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                        overflow: 'hidden',
-                        m: 2,
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        fontWeight: 700,
-                        color: '#111827',
-                        borderBottom: '1px solid #eef2f7',
-                    }}
-                >
-                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt phiếu' : 'Xác nhận hủy phiếu'}
-                </DialogTitle>
+                onConfirm={handleConfirmAction}
+                title={confirmDialogType === 'approve' ? 'Xác nhận duyệt phiếu' : 'Xác nhận hủy phiếu'}
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={submitting}
+                confirmDanger={confirmDialogType === 'reject'}
+                confirmDisabled={!canConfirmAction}
+                content={
+                    <>
+                        <div style={{ marginBottom: 16 }}>
+                            <span style={{ fontSize: 14, color: '#4b5563' }}>
+                                {confirmDialogType === 'approve'
+                                    ? 'Bạn có chắc chắn muốn duyệt phiếu nhập kho này không?'
+                                    : 'Bạn có chắc chắn muốn hủy phiếu nhập kho này không?'}
+                            </span>
+                        </div>
 
-                <DialogContent sx={{ px: 3, py: 2 }}>
-                    <div style={{ marginBottom: 16 }}>
-                        <span style={{ fontSize: 14, color: '#4b5563' }}>
-                            {confirmDialogType === 'approve'
-                                ? 'Bạn có chắc chắn muốn duyệt phiếu nhập kho này không?'
-                                : 'Bạn có chắc chắn muốn hủy phiếu nhập kho này không?'}
-                        </span>
-                    </div>
-
-                    {confirmDialogType === 'approve' && isPaymentEditor && (
-                        <>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    marginBottom: 12,
-                                    padding: 12,
-                                    backgroundColor: '#f9fafb',
-                                    borderRadius: 8,
-                                }}
-                            >
-                                <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                                    Đã thanh toán?
-                                </span>
-                                <Switch
-                                    checked={isPaid}
-                                    onChange={(e) => setIsPaid(e.target.checked)}
-                                    disabled={submitting}
-                                />
-                            </div>
-
-                            {isPaid && (
-                                <div style={{ marginBottom: 16 }}>
-                                    <label
-                                        style={{
-                                            display: 'block',
-                                            fontSize: 14,
-                                            fontWeight: 500,
-                                            color: '#374151',
-                                            marginBottom: 8,
-                                        }}
-                                    >
-                                        Phương thức thanh toán
-                                    </label>
-                                    <select
-                                        value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
-                                        disabled={submitting}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 12px',
-                                            borderRadius: 8,
-                                            border: '1px solid #d1d5db',
-                                            fontSize: 14,
-                                            backgroundColor: '#fff',
-                                        }}
-                                    >
-                                        <option value="cash">Tiền mặt</option>
-                                        <option value="bank_transfer">Chuyển khoản</option>
-                                        <option value="credit">Credit</option>
-                                    </select>
+                        {confirmDialogType === 'approve' && isPaymentEditor && (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
+                                    <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>Đã thanh toán?</span>
+                                    <Switch checked={isPaid} onChange={(e) => setIsPaid(e.target.checked)} disabled={submitting} />
                                 </div>
-                            )}
+                                {isPaid && (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>Phương thức thanh toán</label>
+                                        <select
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            disabled={submitting}
+                                            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, backgroundColor: '#fff' }}
+                                        >
+                                            <option value="cash">Tiền mặt</option>
+                                            <option value="bank_transfer">Chuyển khoản</option>
+                                            <option value="credit">Credit</option>
+                                        </select>
+                                    </div>
+                                )}
+                                <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8, border: '1px solid #fcd34d' }}>
+                                    <span style={{ fontSize: 13, color: '#92400e' }}>Sau khi duyệt, tồn kho sẽ được cập nhật và không thể hoàn tác.</span>
+                                </div>
+                            </>
+                        )}
 
-                            <div
-                                style={{
-                                    marginBottom: 16,
-                                    padding: 12,
-                                    backgroundColor: '#fef3c7',
-                                    borderRadius: 8,
-                                    border: '1px solid #fcd34d',
-                                }}
-                            >
-                                <span style={{ fontSize: 13, color: '#92400e' }}>
-                                    Sau khi duyệt, tồn kho sẽ được cập nhật và không thể hoàn tác.
-                                </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>Kèm lý do</span>
+                            <Switch checked={includeReason} onChange={(e) => setIncludeReason(e.target.checked)} disabled={submitting} />
+                        </div>
+
+                        {confirmDialogType === 'reject' && (
+                            <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8, border: '1px solid #fcd34d' }}>
+                                <span style={{ fontSize: 13, color: '#92400e' }}>Bắt buộc nhập lý do từ chối phiếu nhập kho.</span>
                             </div>
-                        </>
-                    )}
+                        )}
 
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: 12,
-                            padding: 12,
-                            backgroundColor: '#f9fafb',
-                            borderRadius: 8,
-                        }}
-                    >
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
-                            Kèm lý do
-                        </span>
-                        <Switch
-                            checked={includeReason}
-                            onChange={(e) => setIncludeReason(e.target.checked)}
-                            disabled={submitting}
-                        />
-                    </div>
-
-                    {includeReason && (
-                        <>
-                            <TextField
-                                label="Lý do"
-                                multiline
-                                rows={3}
-                                fullWidth
-                                value={reasonText}
-                                onChange={(e) => setReasonText(e.target.value)}
-                                disabled={submitting}
-                                inputProps={{ maxLength: MAX_REASON_LENGTH }}
-                                placeholder={
-                                    confirmDialogType === 'approve'
-                                        ? 'Nhập lý do duyệt'
-                                        : 'Nhập lý do hủy'
-                                }
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: '10px',
-                                    },
-                                }}
-                            />
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'flex-end',
-                                    fontSize: 12,
-                                    color:
-                                        reasonText.length >= MAX_REASON_LENGTH
-                                            ? '#ef4444'
-                                            : '#6b7280',
-                                    marginTop: 4,
-                                }}
-                            >
-                                {reasonText.length}/{MAX_REASON_LENGTH} ký tự
-                            </div>
-                        </>
-                    )}
-                </DialogContent>
-
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2,
-                        borderTop: '1px solid #eef2f7',
-                    }}
-                >
-                    <Button
-                        onClick={closeConfirmDialog}
-                        disabled={submitting}
-                        sx={{
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            color: '#6b7280',
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmAction}
-                        disabled={!canConfirmAction}
-                        sx={{
-                            minWidth: '110px',
-                            height: 40,
-                            px: 2,
-                            borderRadius: '12px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            backgroundColor:
-                                confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor:
-                                    confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
-                                boxShadow: 'none',
-                            },
-                            '&:disabled': {
-                                backgroundColor: '#bae6fd',
-                                color: '#ffffff',
-                            },
-                        }}
-                    >
-                        {submitting ? 'Đang xử lý...' : 'Xác nhận'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                        {includeReason && (
+                            <>
+                                <TextField
+                                    label="Lý do"
+                                    multiline
+                                    rows={3}
+                                    fullWidth
+                                    value={reasonText}
+                                    onChange={(e) => setReasonText(e.target.value)}
+                                    disabled={submitting}
+                                    inputProps={{ maxLength: MAX_REASON_LENGTH }}
+                                    placeholder={confirmDialogType === 'approve' ? 'Nhập lý do duyệt' : 'Nhập lý do hủy'}
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, color: reasonText.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: 4 }}>
+                                    {reasonText.length}/{MAX_REASON_LENGTH} ký tự
+                                </div>
+                            </>
+                        )}
+                    </>
+                }
+            />
 
             <div className="page-header">
                 <div className="page-header-left">
@@ -817,49 +561,7 @@ const ViewGoodReceiptNoteDetail = () => {
                             </button>
                         </>
                     )}
-
-                    {showReturnButton && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() =>
-                                navigate(
-                                    `/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`
-                                )
-                            }
-                            disabled={submitting}
-                            style={{
-                                backgroundColor: '#f59e0b',
-                                borderColor: '#f59e0b',
-                                color: '#fff',
-                            }}
-                        >
-                            <RotateCcw size={16} className="btn-icon" />
-                            Trả hàng
-                        </button>
-                    )}
-
-                    {showGeneralReturnButton && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() =>
-                                navigate(
-                                    `/purchase-returns/create?grnId=${grnData?.grnId}&grnCode=${grnData?.grnCode}`
-                                )
-                            }
-                            disabled={submitting}
-                            style={{
-                                backgroundColor: '#f59e0b',
-                                borderColor: '#f59e0b',
-                                color: '#fff',
-                            }}
-                        >
-                            <RotateCcw size={16} className="btn-icon" />
-                            Trả hàng
-                        </button>
-                    )}
-
+                    {/* Neu la Thủ Kho - hien thi thong bao */}
                     {isWarehouseKeeper && (
                         <div
                             style={{
@@ -877,10 +579,10 @@ const ViewGoodReceiptNoteDetail = () => {
                 </div>
             </div>
 
-            <div className="form-card">
-                <div className="form-wrapper">
-                    <div className="grn-hero-card">
-                        <div className="grn-hero-top">
+            <div className="form-card" style={{ marginBottom: 0, padding: 16 }}>
+                <div className="form-wrapper" style={{ gap: 16 }}>
+                    <div className="form-card-intro">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                             <div>
                                 <h1 className="page-title" style={{ marginBottom: 0 }}>
                                     Chi tiết phiếu nhập kho
@@ -904,18 +606,27 @@ const ViewGoodReceiptNoteDetail = () => {
                         </div>
                     </div>
 
-                    <div className="grn-main-grid">
-                        <div className="grn-left-column">
-                            <SectionCard
-                                title="Chi tiết sản phẩm nhập"
-                                subtitle="Danh sách vật tư đã nhận theo phiếu nhập kho"
-                            >
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'flex-start' }}>
+                        {/* Cột trái: Chi tiết sản phẩm nhập */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+                                <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
+
                                 {grnData.lines.length === 0 ? (
                                     <div className="grn-empty-state">
                                         Chưa có sản phẩm nào trong phiếu nhập kho.
                                     </div>
                                 ) : (
-                                    <div className="grn-table-wrap">
+                                    <div
+                                        className="table-container"
+                                        style={{
+                                            overflowY: 'visible',
+                                            overflowX: 'auto',
+                                            height: 'auto',
+                                            maxHeight: 'none',
+                                            flex: '0 0 auto',
+                                        }}
+                                    >
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
@@ -1017,7 +728,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                                         >
                                                             {formatCurrency(
                                                                 (Number(line.unitPrice) || 0) *
-                                                                    (Number(line.receivedQty) || 0)
+                                                                (Number(line.receivedQty) || 0)
                                                             )}
                                                         </td>
                                                         <td style={{ textAlign: 'center' }}>
@@ -1066,23 +777,78 @@ const ViewGoodReceiptNoteDetail = () => {
                             </SectionCard>
                         </div>
 
-                        <div className="grn-right-column">
-                            <SectionCard
-                                title="Thông tin phiếu nhập"
-                                subtitle="Thông tin chung của chứng từ và thanh toán"
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 16,
-                                    }}
-                                >
-                                    <ReadonlyField
-                                        label="Nhà cung cấp"
-                                        value={grnData.supplierName || '-'}
-                                        icon={Package}
-                                    />
+                        {/* Cột phải: Thông tin chung + Lịch sử */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <h2 className="section-title">Thông tin chung</h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className="form-field">
+                                        <label className="form-label">Nhân viên tạo</label>
+                                        <div className="input-wrapper">
+                                            <User className="input-icon" size={16} />
+                                            <input type="text" value={grnData.creatorName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        </div>
+
+                                        {grnData.supplierPhone && (
+                                            <div className="form-field">
+                                                <label className="form-label">Số điện thoại</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierPhone || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierEmail && (
+                                            <div className="form-field">
+                                                <label className="form-label">Email</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierEmail || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierTaxCode && (
+                                            <div className="form-field">
+                                                <label className="form-label">Mã số thuế</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierTaxCode || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {grnData.supplierAddress && (
+                                            <div className="form-field">
+                                                <label className="form-label">Địa chỉ</label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="text"
+                                                        value={grnData.supplierAddress || '-'}
+                                                        readOnly
+                                                        className="form-input"
+                                                        style={{ backgroundColor: '#f5f5f5' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                     <ReadonlyField
                                         label="Nhân viên tạo"
                                         value={grnData.creatorName || '-'}
@@ -1307,23 +1073,90 @@ const ViewGoodReceiptNoteDetail = () => {
                                                             >
                                                                 {item.time}
                                                             </span>
+                                                            {item.user ? (
+                                                                <>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: 12,
+                                                                            color: '#9ca3af',
+                                                                        }}
+                                                                    >
+                                                                        |
+                                                                    </span>
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: 12,
+                                                                            color: '#6b7280',
+                                                                        }}
+                                                                    >
+                                                                        {item.user}
+                                                                    </span>
+                                                                </>
+                                                            ) : null}
                                                         </div>
+                                                        {item.reason ? (
+                                                            <div
+                                                                style={{
+                                                                    fontSize: 12,
+                                                                    color: '#b91c1c',
+                                                                    fontStyle: 'italic',
+                                                                    marginTop: 4,
+                                                                }}
+                                                            >
+                                                                Lý do: {item.reason}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="grn-empty-state" style={{ padding: 0 }}>
-                                            Chưa có lịch sử hiển thị.
-                                        </div>
-                                    )}
+                                            </div>
+                                    ))}
                                 </div>
-                            </SectionCard>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'start', marginTop: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div className="info-section" style={{ margin: 0 }}>
+                        <h2 className="section-title">Nhà cung cấp</h2>
+                        <div className="form-field">
+                            <label className="form-label">Nhà cung cấp</label>
+                            <div className="input-wrapper">
+                                <Package className="input-icon" size={16} />
+                                <input type="text" value={grnData.supplierName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="info-section" style={{ margin: 0 }}>
+                        <h2 className="section-title">Ghi chú</h2>
+                        <div className="form-field">
+                            <label className="form-label">Ghi chú / Lý do nhập kho</label>
+                            <textarea value={grnData.note || ''} readOnly rows={4} className="form-input" style={{ resize: 'vertical', backgroundColor: '#f5f5f5' }} />
+                        </div>
+                    </div>
+
+                    <div className="info-section" style={{ margin: 0 }}>
+                        <h2 className="section-title">Tổng hợp đơn hàng</h2>
+                        <div className="form-grid">
+                            <div className="form-field">
+                                <label className="form-label">Tổng số lượng</label>
+                                <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: 8, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                    {totalQuantity} sản phẩm
+                                </div>
+                                ) : (
+                                <div className="grn-empty-state" style={{ padding: 0 }}>
+                                    Chưa có lịch sử hiển thị.
+                                </div>
+                                    )}
+                            </div>
+                        </SectionCard>
+                    </div>
+                </div>
+            </div>
         </div>
+        </div >
     );
 };
 

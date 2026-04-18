@@ -13,20 +13,15 @@ import {
 import { ArrowLeft, ImagePlus, Save, Plus } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
-import { getItemDetail, updateItem } from "../lib/itemService";
-import { getPackagingSpecList, createPackagingSpec } from "../lib/packagingSpecService";
-import { getItemParameterList, createItemParameter } from "../lib/itemParameterService";
+import { getItemForDisplayById, updateItem, uploadItemImage } from "../lib/itemService";
+import { ImageDialog, CreateUomDialog, UomFormDialog } from '@ui/dialogs';
 import { useMasterData } from "../../app/context/MasterDataContext";
-import CreateUomDialog from "../components/CreateUomDialog";
-import CreatePackagingSpecDialog from "../components/CreatePackagingSpecDialog";
-import CreateSpecDialog from "../components/CreateSpecDialog";
-import CreateBrandDialog from "../components/CreateBrandDialog";
-import UomFormDialog from "../components/UomFormDialog";
 
 const CREATE_UOM_OPTION = { id: "CREATE_UOM", code: "", name: "Tạo mới đơn vị tính" };
-const CREATE_PACK_OPTION = { id: "CREATE_PACK", name: "Tạo mới quy cách đóng gói" };
-const CREATE_SPEC_OPTION = { specId: "CREATE_SPEC", specCode: "", specName: "Tạo mới thông số sản phẩm" };
-const CREATE_BRAND_OPTION = { id: "CREATE_BRAND", name: "Tạo mới nhãn hiệu" };
+// Packaging spec, spec, brand dialogs removed (files deleted)
+const CREATE_PACK_OPTION = null; // placeholder — remove CREATE option
+const CREATE_SPEC_OPTION = null;
+const CREATE_BRAND_OPTION = null;
 
 function CreateOptionContent({ label }) {
   return (
@@ -77,51 +72,150 @@ const EditItem = () => {
   const [specOptions, setSpecOptions] = useState([]);
   const [showPurchasePrice, setShowPurchasePrice] = useState(false);
   const [createUomOpen, setCreateUomOpen] = useState(false);
-  const [createPackOpen, setCreatePackOpen] = useState(false);
-  const [createSpecOpen, setCreateSpecOpen] = useState(false);
-  const [createBrandOpen, setCreateBrandOpen] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Image states
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [imageServerUrl, setImageServerUrl] = useState(""); // URL from backend (for existing image)
+  const [imageFile, setImageFile] = useState(null);
+  const [imageFileName, setImageFileName] = useState("");
+  const [imageOriginalWidth, setImageOriginalWidth] = useState(0);
+  const [imageOriginalHeight, setImageOriginalHeight] = useState(0);
+  const [imageDialogTempUrl, setImageDialogTempUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
   const [form, setForm] = useState({
     itemCode: "", itemName: "", itemType: "Product", description: "",
     categoryId: "", brandId: "", baseUomId: "", packagingSpecId: "", specId: "",
     laThongSo: false, requiresCO: false, requiresCQ: false, isActive: true,
     defaultWarehouseId: "",
     purchasePrice: "", onHandQty: "", reservedQty: "",
+    imageUrl: "",
   });
 
   const loadPackagingAndSpecOptions = useCallback(async () => {
-    try {
-      const [packRes, specRes] = await Promise.all([getPackagingSpecList(), getItemParameterList({ page: 1, pageSize: PAGE_SIZE })]);
-      const packArr = Array.isArray(packRes) ? packRes : [];
-      setPackagingOptions(packArr.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
-      const specArr = Array.isArray(specRes?.items) ? specRes.items : (Array.isArray(specRes) ? specRes : []);
-      setSpecOptions(specArr.map((s) => ({ specId: s.paramId ?? s.ParamId, specCode: s.paramCode ?? s.ParamCode ?? "", specName: s.paramName ?? s.ParamName ?? "" })));
-    } catch { /* keep empty */ }
+    // Removed: getPackagingSpecList, getItemParameterList
+    setOptionsLoaded(true);
   }, []);
 
   useEffect(() => {
     setLoading(true);
     setNotFound(false);
-    Promise.all([getItemDetail(id), loadPackagingAndSpecOptions()])
-      .then(([item]) => {
+    getItemForDisplayById(id)
+      .then((item) => {
+      .then((item) => {
+        console.log("[EditItem] item loaded:", JSON.stringify(item));
         setNotFound(false);
         if (item.purchasePrice != null && item.purchasePrice !== "") setShowPurchasePrice(true);
+
+        // Load existing image
+        const existingImageUrl = item.imageUrl ?? item.ImageUrl ?? "";
+        setImageServerUrl(existingImageUrl);
+        setImagePreviewUrl(existingImageUrl);
+
         setForm({
-          itemCode: item.itemCode ?? "", itemName: item.itemName ?? "", itemType: item.itemType || "Product", description: item.description ?? "",
-          categoryId: item.categoryId ?? "", brandId: item.brandId ?? "", baseUomId: item.baseUomId ?? "",
-          packagingSpecId: item.packagingSpecId ?? "", specId: item.specId ?? "",
-          laThongSo: item.hasSpecifications ?? false, requiresCO: item.requiresCO ?? false, requiresCQ: item.requiresCQ ?? false, isActive: item.isActive ?? true,
+          itemCode: item.itemCode ?? "",
+          itemName: item.itemName ?? "",
+          itemType: item.itemType || "Product",
+          description: item.description ?? "",
+          categoryId: item.categoryId ?? "",
+          brandId: item.brandId ?? "",
+          baseUomId: item.baseUomId ?? "",
+          packagingSpecId: item.packagingSpecId ?? "",
+          specId: item.specId ?? "",
+          laThongSo: item.hasSpecifications ?? false,
+          requiresCO: item.requiresCO ?? false,
+          requiresCQ: item.requiresCQ ?? false,
+          isActive: item.isActive ?? true,
           defaultWarehouseId: item.defaultWarehouseId ?? "",
-          purchasePrice: item.purchasePrice ?? "", onHandQty: item.onHandQty ?? "", reservedQty: item.reservedQty ?? "",
+          purchasePrice: item.purchasePrice ?? "",
+          onHandQty: item.onHandQty ?? "",
+          reservedQty: item.reservedQty ?? "",
+          imageUrl: existingImageUrl,
         });
       })
-      .catch((err) => { console.error("[EditItem] load error:", err); setNotFound(true); })
+      .catch((err) => {
+        console.error("[EditItem] load error:", err);
+        setNotFound(true);
+      })
       .finally(() => setLoading(false));
-  }, [id, loadPackagingAndSpecOptions]);
+  });
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  // Image handlers
+  const handleOpenImageDialog = () => {
+    setImageDialogTempUrl(imagePreviewUrl);
+    setImageDialogOpen(true);
+  };
+
+  const handleDialogBrowseFile = (file) => {
+    const url = URL.createObjectURL(file);
+    if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== "") {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    setImageDialogTempUrl(url);
+    setImageFile(file);
+    setImageFileName(file.name);
+    const img = new window.Image();
+    img.onload = () => {
+      setImageOriginalWidth(img.naturalWidth);
+      setImageOriginalHeight(img.naturalHeight);
+    };
+    img.src = url;
+  };
+
+  const handleApplyImage = async (croppedDataUrl) => {
+    setImagePreviewUrl(croppedDataUrl);
+    setImageDialogOpen(false);
+    setImageFile(null);
+
+    // Convert cropped dataURL to File and upload
+    setImageUploading(true);
+    try {
+      const fetchRes = await fetch(croppedDataUrl);
+      const blob = await fetchRes.blob();
+      const fileName = imageFileName || 'item-image.jpg';
+      const croppedFile = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+      setImageFile(croppedFile);
+      const result = await uploadItemImage(croppedFile);
+      setImageServerUrl(result.url || '');
+    } catch (err) {
+      console.error('[EditItem] Image upload error:', err);
+      showToast('Tải ảnh lên thất bại. Vui lòng thử lại.', 'error');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (imageDialogTempUrl && imageDialogTempUrl !== "" && imageDialogTempUrl !== imagePreviewUrl) {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    if (imagePreviewUrl && imagePreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    // Reset to server URL (or empty if no existing image)
+    setImagePreviewUrl(imageServerUrl || "");
+    setImageFile(null);
+    setImageFileName("");
+    setImageOriginalWidth(0);
+    setImageOriginalHeight(0);
+    setImageDialogOpen(false);
+    setImageDialogTempUrl("");
+    setImageServerUrl("");
+    setForm((prev) => ({ ...prev, imageUrl: "" }));
+  };
+
+  const handleCloseImageDialog = () => {
+    if (imageDialogTempUrl && imageDialogTempUrl !== imagePreviewUrl && imageDialogTempUrl !== "" && !imageDialogTempUrl.startsWith("data:")) {
+      URL.revokeObjectURL(imageDialogTempUrl);
+    }
+    setImageDialogOpen(false);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -144,13 +238,19 @@ const EditItem = () => {
     setSubmitting(true);
     try {
       await updateItem(id, {
-        itemName: name, itemType: form.itemType || null, description: form.description?.trim() || null, categoryId,
-        brandId: form.brandId !== "" && form.brandId != null ? Number(form.brandId) : null, baseUomId,
+        itemName: name,
+        itemType: form.itemType || null,
+        description: form.description?.trim() || null,
+        categoryId,
+        brandId: form.brandId !== "" && form.brandId != null ? Number(form.brandId) : null,
+        baseUomId,
         packagingSpecId: form.packagingSpecId !== "" && form.packagingSpecId != null ? Number(form.packagingSpecId) : null,
-        hasSpecifications: Boolean(form.laThongSo), requiresCo: Boolean(form.requiresCO), requiresCq: Boolean(form.requiresCQ),
+        requiresCo: Boolean(form.requiresCO),
+        requiresCq: Boolean(form.requiresCQ),
         isActive: Boolean(form.isActive),
         defaultWarehouseId: form.defaultWarehouseId !== "" && form.defaultWarehouseId != null ? Number(form.defaultWarehouseId) : null,
         purchasePrice: form.purchasePrice !== "" && form.purchasePrice != null && !Number.isNaN(Number(form.purchasePrice)) ? Number(form.purchasePrice) : null,
+        imageUrl: form.imageUrl || null,
       });
       showToast("Cap nhat san pham thanh cong!", "success");
       timerRef.current = setTimeout(() => navigate("/products"), 1500);
@@ -225,22 +325,24 @@ const EditItem = () => {
                   </Box>
                   <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, width: "100%", alignItems: "start" }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Autocomplete size="small" fullWidth options={[CREATE_PACK_OPTION, ...packagingOptions]} getOptionLabel={(opt) => (opt && opt.name) || ""}
-                        value={packagingOptions.find((o) => String(o.id) === String(form.packagingSpecId)) ?? null}
-                        onOpen={async () => { try { const list = await getPackagingSpecList(); setPackagingOptions((Array.isArray(list) ? list : []).map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" }))); } catch { /* keep */ } }}
-                        onChange={(e, newValue) => { if (newValue && newValue.id === "CREATE_PACK") { setCreatePackOpen(true); return; } setForm((prev) => ({ ...prev, packagingSpecId: newValue?.id ?? "" })); }}
-                        isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)} ListboxProps={{ sx: autocompleteListboxSx }}
-                        renderOption={(props, option) => option && option.id === "CREATE_PACK" ? <Box component="li" {...props} key={option.id} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.name} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.id}>{option.name}</Box>}
-                        renderInput={(params) => <TextField {...params} label="Quy cách đóng gói" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
+                      <TextField size="small" select fullWidth label="Quy cách đóng gói"
+                        value={String(form.packagingSpecId ?? "")}
+                        onChange={(e) => setForm((prev) => ({ ...prev, packagingSpecId: e.target.value }))}
+                        sx={autocompleteFieldSx}
+                      >
+                        <MenuItem value=""><em>Chọn quy cách đóng gói</em></MenuItem>
+                        {packagingOptions.map((o) => <MenuItem key={o.id} value={String(o.id)}>{o.name}</MenuItem>)}
+                      </TextField>
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
-                      <Autocomplete size="small" fullWidth options={[CREATE_SPEC_OPTION, ...specOptions]} getOptionLabel={(opt) => (opt && opt.specName) || ""}
-                        value={specOptions.find((o) => String(o.specId) === String(form.specId)) ?? null}
-                        onOpen={async () => { try { const res = await getItemParameterList({ page: 1, pageSize: PAGE_SIZE }); setSpecOptions((Array.isArray(res?.items) ? res.items : []).map((s) => ({ specId: s.paramId ?? s.ParamId, specCode: s.paramCode ?? s.ParamCode ?? "", specName: s.paramName ?? s.ParamName ?? "" }))); } catch { /* keep */ } }}
-                        onChange={(e, newValue) => { if (newValue && newValue.specId === "CREATE_SPEC") { setCreateSpecOpen(true); return; } setForm((prev) => ({ ...prev, specId: newValue?.specId ?? "" })); }}
-                        isOptionEqualToValue={(opt, val) => String(opt?.specId) === String(val?.specId)} ListboxProps={{ sx: autocompleteListboxSx }}
-                        renderOption={(props, option) => option && option.specId === "CREATE_SPEC" ? <Box component="li" {...props} key={option.specId} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.specName} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.specId}>{option.specName}</Box>}
-                        renderInput={(params) => <TextField {...params} label="Thông số sản phẩm" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />} sx={autocompleteRootSx} />
+                      <TextField size="small" select fullWidth label="Thông số sản phẩm"
+                        value={String(form.specId ?? "")}
+                        onChange={(e) => setForm((prev) => ({ ...prev, specId: e.target.value }))}
+                        sx={autocompleteFieldSx}
+                      >
+                        <MenuItem value=""><em>Chọn thông số sản phẩm</em></MenuItem>
+                        {specOptions.map((o) => <MenuItem key={o.specId} value={String(o.specId)}>{o.specName}</MenuItem>)}
+                      </TextField>
                     </Box>
                   </Box>
                 </Box>
@@ -292,13 +394,28 @@ const EditItem = () => {
             <Box sx={{ width: { xs: "100%", md: 260 }, minWidth: { xs: "100%", md: 260 }, flexShrink: 0 }}>
               <Paper elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
                 <Typography variant="subtitle1" fontWeight="700" sx={{ mb: 2 }}>Hình ảnh sản phẩm</Typography>
-                <Box sx={{ border: "2px dashed", borderColor: "divider", borderRadius: 2, py: 4, px: 2, textAlign: "center", bgcolor: "grey.50", "&:hover": { borderColor: "primary.light", bgcolor: "action.hover" } }}>
-                  <Stack alignItems="center" spacing={1}>
-                    <Box sx={{ color: "text.secondary" }}><ImagePlus size={40} /></Box>
-                    <Typography variant="body2" color="text.secondary">Keo tha hoac them anh tu URL</Typography>
-                    <Typography component="span" variant="caption" sx={{ color: "primary.main", cursor: "pointer", fontWeight: 500 }}>Tai anh len tu thiet bi</Typography>
-                    <Typography variant="caption" color="text.secondary">(Dung luong anh toi da 2MB)</Typography>
-                  </Stack>
+                <Box
+                  onClick={handleOpenImageDialog}
+                  sx={{ border: "2px dashed", borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "grey.50", cursor: "pointer", "&:hover": { borderColor: "primary.light" } }}
+                >
+                  {imagePreviewUrl ? (
+                    <Box sx={{ position: "relative" }}>
+                      <img src={imagePreviewUrl} alt="Item" style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+                      {imageUploading && (
+                        <Box sx={{ position: "absolute", inset: 0, bgcolor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <CircularProgress size={24} sx={{ color: "white" }} />
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box sx={{ py: 4, px: 2, textAlign: "center" }}>
+                      <Stack alignItems="center" spacing={1}>
+                        <Box sx={{ color: "text.secondary" }}><ImagePlus size={40} /></Box>
+                        <Typography variant="body2" color="text.secondary">Keo tha hoac them anh</Typography>
+                        <Typography component="span" variant="caption" sx={{ color: "primary.main", fontWeight: 500 }}>Tai anh len tu thiet bi</Typography>
+                      </Stack>
+                    </Box>
+                  )}
                 </Box>
               </Paper>
 
@@ -316,10 +433,10 @@ const EditItem = () => {
                     })}
                   </TextField>
 
-                  <Autocomplete size="small" fullWidth options={[CREATE_BRAND_OPTION, ...masterBrands.map(normalizeBrand)]} getOptionLabel={(opt) => (opt && opt.name) || ""} value={brandValue}
-                    onChange={(e, newValue) => { if (newValue && newValue.id === "CREATE_BRAND") { setCreateBrandOpen(true); return; } setForm((prev) => ({ ...prev, brandId: newValue?.id ?? "" })); }}
+                  <Autocomplete size="small" fullWidth options={masterBrands.map(normalizeBrand)} getOptionLabel={(opt) => (opt && opt.name) || ""} value={brandValue}
+                    onChange={(e, newValue) => { setForm((prev) => ({ ...prev, brandId: newValue?.id ?? "" })); }}
                     isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)} ListboxProps={{ sx: autocompleteListboxSx }}
-                    renderOption={(props, option) => option && option.id === "CREATE_BRAND" ? <Box component="li" {...props} key={option.id} sx={{ display: "block", py: 1 }}><CreateOptionContent label={option.name} /><Divider sx={{ mt: 1 }} /></Box> : <Box component="li" {...props} key={option.id}>{option.name}</Box>}
+                    renderOption={(props, option) => <Box component="li" {...props} key={option?.id}>{option?.name}</Box>}
                     renderInput={(params) => <TextField {...params} label="Nhan hieu" InputLabelProps={{ shrink: true }} sx={autocompleteFieldSx} />}
                     sx={autocompleteRootSx} />
 
@@ -360,37 +477,21 @@ const EditItem = () => {
             }
           }} />
 
-        <CreatePackagingSpecDialog open={createPackOpen} onClose={() => setCreatePackOpen(false)}
-          onSubmit={async (newItem) => {
-            try {
-              const created = await createPackagingSpec({ specName: newItem.specName ?? newItem.name, description: newItem.description });
-              setPackagingOptions((prev) => [...prev, { id: created.packagingSpecId ?? created.id, name: created.specName ?? created.name }]);
-              setForm((prev) => ({ ...prev, packagingSpecId: created.packagingSpecId ?? created.id }));
-              showToast("Tao quy cach dong goi thanh cong.", "success");
-            } catch (err) {
-              showToast(err.message || "Khong tao duoc quy cach", "error");
-            }
-          }} />
+        
 
-        <CreateSpecDialog open={createSpecOpen} onClose={() => setCreateSpecOpen(false)}
-          onSubmit={async (newItem) => {
-            try {
-              const created = await createItemParameter({ paramCode: newItem.specCode || newItem.paramCode, paramName: newItem.paramName });
-              setSpecOptions((prev) => [...prev, { specId: created.paramId ?? created.id, specCode: created.paramCode ?? created.code, specName: created.paramName ?? created.name }]);
-              setForm((prev) => ({ ...prev, specId: created.paramId ?? created.id }));
-              showToast("Tao thong so san pham thanh cong.", "success");
-            } catch (err) {
-              showToast(err.message || "Khong tao duoc thong so", "error");
-            }
-          }} />
+        <ImageDialog
 
-        <CreateBrandDialog open={createBrandOpen} onClose={() => setCreateBrandOpen(false)}
-          onSuccess={({ brandId }) => {
-            refreshAll?.();
-            if (brandId != null) {
-              setForm((prev) => ({ ...prev, brandId }));
-            }
-          }} />
+        <ImageDialog
+          open={imageDialogOpen}
+          onClose={handleCloseImageDialog}
+          previewUrl={imageDialogTempUrl}
+          fileName={imageFileName}
+          originalWidth={imageOriginalWidth}
+          originalHeight={imageOriginalHeight}
+          onBrowseFile={handleDialogBrowseFile}
+          onApply={handleApplyImage}
+          onRemove={handleRemoveImage}
+        />
 
         {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
       </Container>

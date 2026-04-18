@@ -27,10 +27,10 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Chip,
     useTheme,
     useMediaQuery,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import {
     Plus,
     Filter,
@@ -140,23 +140,6 @@ const selectionBodyCellSx = {
     px: 0,
     textAlign: 'center',
     verticalAlign: 'middle',
-};
-
-const STATUS_STYLE = {
-    true: {
-        bgColor: 'rgba(16, 185, 129, 0.15)',
-        label: 'Đang hoạt động',
-        color: '#16a34a',
-    },
-    false: {
-        bgColor: 'rgba(239, 68, 68, 0.15)',
-        label: 'Ngừng hoạt động',
-        color: '#dc2626',
-    },
-};
-
-const getActiveStatusConfig = (isActive) => {
-    return STATUS_STYLE[String(isActive)] || STATUS_STYLE['true'];
 };
 
 const ViewDeliveryList = () => {
@@ -605,10 +588,9 @@ const ViewDeliveryList = () => {
                                                             return <TableCell key={col.id} align="center" sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%`, px: 1 }}>{page * pageSize + index + 1}</TableCell>;
                                                         }
                                                         if (col.id === 'isActive') {
-                                                            const cfg = getActiveStatusConfig(item.isActive);
                                                             return (
                                                                 <TableCell key={col.id} sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}>
-                                                                    <Chip label={cfg.label} size="small" sx={{ fontWeight: 500, fontSize: '12px', borderRadius: '999px', minWidth: 80, height: '26px', bgcolor: cfg.bgColor, color: cfg.color, border: 'none', '& .MuiChip-label': { px: 1.5, py: 0 } }} />
+                                                                    <StatusBadge status={item.isActive} />
                                                                 </TableCell>
                                                             );
                                                         }

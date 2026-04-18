@@ -19,7 +19,7 @@ import { useToast } from '../hooks/useToast';
 import { createReceiver } from '../lib/receiverService';
 import { getCompanies, createCompany } from '../lib/companyService';
 import { getAddresses, createAddress } from '../lib/addressService';
-import { FormDialog } from '../../ui/dialogs/FormDialog';
+import { CreateCompanyDialog, CreateAddressDialog } from '@ui/dialogs';
 
 import '../styles/CreateSupplier.css';
 
@@ -175,6 +175,17 @@ const CreateReceiver = () => {
         }
     };
 
+    const handleCreateCompanySuccess = async (created) => {
+        showToast('Tạo công ty thành công!', 'success');
+        await loadCompanies();
+        const newId = created?.companyId;
+        if (newId) {
+            setFormData(prev => ({ ...prev, companyId: String(newId) }));
+            loadAddresses(newId);
+        }
+        handleCloseCompanyDialog();
+    };
+
     /* ── Address handlers ── */
     const handleOpenAddressDialog = () => {
         if (!formData.companyId) {
@@ -235,6 +246,16 @@ const CreateReceiver = () => {
         } finally {
             setCreatingAddress(false);
         }
+    };
+
+    const handleCreateAddressSuccess = async (created) => {
+        showToast('Tạo địa chỉ thành công!', 'success');
+        await loadAddresses(formData.companyId);
+        const newId = created?.addressId ?? created?.AddressId;
+        if (newId) {
+            setFormData(prev => ({ ...prev, addressId: String(newId) }));
+        }
+        handleCloseAddressDialog();
     };
 
     /* ── Address selection ── */
@@ -741,167 +762,18 @@ const CreateReceiver = () => {
 
             {toast && toast.message && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
 
-            {/* ── Dialog: Tao Cong ty ── */}
-            <FormDialog
+            <CreateCompanyDialog
                 open={companyDialogOpen}
                 onClose={handleCloseCompanyDialog}
-                title="Tao moi cong ty"
-                actions={
-                    <>
-                        <button type="button" onClick={handleCloseCompanyDialog} className="btn btn-cancel" disabled={creatingCompany}>
-                            Huy
-                        </button>
-                        <button type="button" onClick={handleSubmitCompany} className="btn btn-primary" disabled={creatingCompany}>
-                            {creatingCompany ? (
-                                <><Loader size={15} className="btn-icon spinner" /> Dang tao...</>
-                            ) : (
-                                <><Plus size={15} className="btn-icon" /> Tao cong ty</>
-                            )}
-                        </button>
-                    </>
-                }
-            >
-                <form onSubmit={handleSubmitCompany} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="companyName">
-                            Ten cong ty <span className="required-mark">*</span>
-                        </label>
-                        <div className="input-wrapper">
-                            <Building2 className="input-icon" size={16} />
-                            <input
-                                id="companyName"
-                                type="text"
-                                name="companyName"
-                                value={companyForm.companyName}
-                                onChange={handleCompanyFormChange}
-                                placeholder="VD: Cong ty ABC"
-                                className={`form-input ${companyErrors.companyName ? 'error' : ''}`}
-                                autoComplete="off"
-                            />
-                        </div>
-                        {companyErrors.companyName && <span className="error-message">{companyErrors.companyName}</span>}
-                    </div>
-                </form>
-            </FormDialog>
+                onSuccess={handleCreateCompanySuccess}
+            />
 
-            {/* ── Dialog: Tao Dia chi ── */}
-            <FormDialog
+            <CreateAddressDialog
                 open={addressDialogOpen}
                 onClose={handleCloseAddressDialog}
-                title="Tao moi dia chi"
-                actions={
-                    <>
-                        <button type="button" onClick={handleCloseAddressDialog} className="btn btn-cancel" disabled={creatingAddress}>
-                            Huy
-                        </button>
-                        <button type="button" onClick={handleSubmitAddress} className="btn btn-primary" disabled={creatingAddress}>
-                            {creatingAddress ? (
-                                <><Loader size={15} className="btn-icon spinner" /> Dang tao...</>
-                            ) : (
-                                <><Plus size={15} className="btn-icon" /> Tao dia chi</>
-                            )}
-                        </button>
-                    </>
-                }
-            >
-                <form onSubmit={handleSubmitAddress} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}>
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-addressName">
-                            Ten dia chi (tuy chon)
-                        </label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input
-                                id="addr-addressName"
-                                type="text"
-                                name="addressName"
-                                value={addressForm.addressName}
-                                onChange={handleAddressFormChange}
-                                placeholder="VD: Nha kho A, Van phong chinh"
-                                className="form-input"
-                                autoComplete="off"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-addressDetail">
-                            Địa chỉ chi tiết <span className="required-mark">*</span>
-                        </label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input
-                                id="addr-addressDetail"
-                                type="text"
-                                name="addressDetail"
-                                value={addressForm.addressDetail}
-                                onChange={handleAddressFormChange}
-                                placeholder="VD: So 123, Duong Nguyen Trai, Phuong 5"
-                                className={`form-input ${addressErrors.addressDetail ? 'error' : ''}`}
-                                autoComplete="off"
-                            />
-                        </div>
-                        {addressErrors.addressDetail && <span className="error-message">{addressErrors.addressDetail}</span>}
-                    </div>
-
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-city">
-                            Tinh / Thanh pho
-                        </label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input
-                                id="addr-city"
-                                type="text"
-                                name="city"
-                                value={addressForm.city}
-                                onChange={handleAddressFormChange}
-                                placeholder="VD: Ho Chi Minh"
-                                className="form-input"
-                                autoComplete="off"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-district">
-                            Quan / Huyen
-                        </label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input
-                                id="addr-district"
-                                type="text"
-                                name="district"
-                                value={addressForm.district}
-                                onChange={handleAddressFormChange}
-                                placeholder="VD: Quan 1"
-                                className="form-input"
-                                autoComplete="off"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="form-field">
-                        <label className="form-label" htmlFor="addr-ward">
-                            Phuong / Xa
-                        </label>
-                        <div className="input-wrapper">
-                            <MapPin className="input-icon" size={16} />
-                            <input
-                                id="addr-ward"
-                                type="text"
-                                name="ward"
-                                value={addressForm.ward}
-                                onChange={handleAddressFormChange}
-                                placeholder="VD: Phuong Ben Nghe"
-                                className="form-input"
-                                autoComplete="off"
-                            />
-                        </div>
-                    </div>
-                </form>
-            </FormDialog>
+                onSuccess={handleCreateAddressSuccess}
+                companyId={formData.companyId ? Number(formData.companyId) : null}
+            />
         </div>
     );
 };

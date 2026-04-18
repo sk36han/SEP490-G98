@@ -153,11 +153,13 @@ const AppRoutes = () => (
         <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateReleaseRequest /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/goods-delivery-notes" element={<Navigate to="/good-delivery-notes" replace />} />
         <Route path="/goods-delivery-notes/create" element={<Navigate to="/good-delivery-notes/create" replace />} />
         <Route path="/goods-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/deliveries" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewDeliveryList /></MainLayout></ProtectedRoute>} />
         <Route path="/deliveries/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateDelivery /></MainLayout></ProtectedRoute>} />
+
         <Route path="/receivers" element={<ProtectedRoute allowedRoles={ROLES_WDSA}><MainLayout><ViewReceiver /></MainLayout></ProtectedRoute>} />
         <Route path="/receivers/:id" element={<ProtectedRoute allowedRoles={ROLES_WDSA}><MainLayout><ViewReceiverDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/receivers/create" element={<ProtectedRoute allowedRoles={ROLES_SA}><MainLayout><CreateReceiver /></MainLayout></ProtectedRoute>} />

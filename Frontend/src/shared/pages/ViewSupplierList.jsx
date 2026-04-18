@@ -21,11 +21,11 @@ import {
     FormControlLabel,
     Checkbox,
     Paper,
-    Chip,
     FormControl,
     Select,
     MenuItem,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import { Filter, CloudOff, Columns, Plus, GripVertical, Truck } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
 import { removeDiacritics } from '../utils/stringUtils';
@@ -62,11 +62,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const STATUS_STYLE = {
-    true:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Hoạt động', dot: '•' },
-    false: { bgColor: 'rgba(239,68,68,0.15)',   label: 'Ngừng HĐ',  dot: '•' },
-};
-
+// SUPPLIER_COLUMNS uses StatusBadge via <StatusBadge status={row.isActive} />
 const SUPPLIER_COLUMNS = [
     { id: 'stt',          label: 'STT',              sortable: false },
     { id: 'supplierCode', label: 'Mã NCC',            sortable: true  },
@@ -788,29 +784,11 @@ export default function ViewSupplierList() {
                                                         );
                                                     }
 
-                                                    // Status chip
                                                     if (col.id === 'isActive') {
-                                                        const style = STATUS_STYLE[String(row.isActive)] ?? { bgColor: 'rgba(107,114,128,0.15)', label: '-', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip
-                                                                        label={`${style.dot} ${style.label}`}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            fontWeight: 500,
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 90,
-                                                                            height: '26px',
-                                                                            bgcolor: style.bgColor,
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-                                                                        }}
-                                                                    />
+                                                                    <StatusBadge status={row.isActive} dot="•" variant="dot" />
                                                                 </Box>
                                                             </TableCell>
                                                         );

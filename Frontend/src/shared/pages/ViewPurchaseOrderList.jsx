@@ -22,10 +22,10 @@ import {
     FormControl,
     Select,
     MenuItem,
-    Chip,
     TableSortLabel,
     Paper,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import {
     FileText,
     Filter,
@@ -101,77 +101,6 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const APPROVAL_STATUS_STYLE = {
-    DRAFT: {
-        bgColor: 'rgba(107, 114, 128, 0.2)',
-        color: '#4b5563',
-        label: 'Bản nháp',
-    },
-    PENDING: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        color: '#92400e',
-        label: 'Chờ duyệt',
-    },
-    PENDING_ACC: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        color: '#92400e',
-        label: 'Chờ duyệt',
-    },
-    PENDING_DIR: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        color: '#92400e',
-        label: 'Chờ duyệt',
-    },
-    APPROVED: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        color: '#065f46',
-        label: 'Đã duyệt',
-    },
-    REJECTED: {
-        bgColor: 'rgba(239, 68, 68, 0.2)',
-        color: '#991b1b',
-        label: 'Từ chối',
-    },
-};
-
-const RECEIVING_STATUS_STYLE = {
-    PendingRcv: {
-        bgColor: 'rgba(59, 130, 246, 0.2)',
-        color: '#1d4ed8',
-        label: 'Đang đợi hàng về',
-    },
-    PartialRcv: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        color: '#92400e',
-        label: 'Đã về một phần hàng',
-    },
-    PartRcv: {
-        bgColor: 'rgba(251, 191, 36, 0.2)',
-        color: '#92400e',
-        label: 'Đã về một phần hàng',
-    },
-    Received: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        color: '#065f46',
-        label: 'Đã về đủ hàng',
-    },
-    FullRcv: {
-        bgColor: 'rgba(16, 185, 129, 0.2)',
-        color: '#065f46',
-        label: 'Đã về đủ hàng',
-    },
-    Closed: {
-        bgColor: 'rgba(107, 114, 128, 0.2)',
-        color: '#4b5563',
-        label: 'Đã đóng',
-    },
-    Cancelled: {
-        bgColor: 'rgba(239, 68, 68, 0.2)',
-        color: '#991b1b',
-        label: 'Đã hủy',
-    },
-};
-
 const PO_COLUMNS = [
     {
         id: 'stt',
@@ -196,17 +125,13 @@ const PO_COLUMNS = [
         id: 'approvalStatus',
         label: 'Trạng thái duyệt',
         sortable: true,
-        getValue: (row) =>
-            APPROVAL_STATUS_STYLE[String(row.approvalStatus ?? '').toUpperCase()]?.label ??
-            row.approvalStatus ??
-            '',
+        getValue: (row) => row.approvalStatus ?? '',
     },
     {
         id: 'receivingStatus',
         label: 'Trạng thái nhập hàng',
         sortable: true,
-        getValue: (row) =>
-            RECEIVING_STATUS_STYLE[row.receivingStatus]?.label ?? row.receivingStatus ?? '',
+        getValue: (row) => row.receivingStatus ?? '',
     },
     {
         id: 'supplierName',
@@ -228,7 +153,7 @@ const PO_COLUMNS = [
     },
     {
         id: 'totalReceivedQuantity',
-        label: 'Số lượng nhập',
+        label: 'Số lượng đã nhập',
         sortable: true,
         getValue: (row) => row.totalReceivedQuantity ?? 0,
     },
@@ -755,73 +680,13 @@ export default function ViewPurchaseOrderList() {
     const isSomeSelected =
         rows.some((r) => selectedIds.has(r.purchaseOrderId)) && !isAllSelected;
 
-    const renderApprovalStatus = (status) => {
-        const style = APPROVAL_STATUS_STYLE[upper(status)] || {
-            bgColor: 'rgba(107,114,128,0.15)',
-            color: '#374151',
-            label: status || '-',
-        };
+    const renderApprovalStatus = (status) => (
+        <StatusBadge status={status} dot="•" variant="dot" />
+    );
 
-        return (
-            <Chip
-                label={`• ${style.label}`}
-                size="small"
-                sx={{
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    lineHeight: '16px',
-                    borderRadius: '999px',
-                    minWidth: 96,
-                    height: '26px',
-                    bgcolor: style.bgColor,
-                    color: style.color,
-                    border: 'none',
-                    boxShadow: 'none',
-                    '& .MuiChip-label': {
-                        px: 1.5,
-                        py: 0,
-                        textAlign: 'left',
-                        display: 'block',
-                        width: '100%',
-                    },
-                }}
-            />
-        );
-    };
-
-    const renderReceivingStatus = (status) => {
-        const style = RECEIVING_STATUS_STYLE[status] || {
-            bgColor: 'rgba(107,114,128,0.15)',
-            color: '#374151',
-            label: status || '-',
-        };
-
-        return (
-            <Chip
-                label={`• ${style.label}`}
-                size="small"
-                sx={{
-                    fontWeight: 500,
-                    fontSize: '12px',
-                    lineHeight: '16px',
-                    borderRadius: '999px',
-                    minWidth: 132,
-                    height: '26px',
-                    bgcolor: style.bgColor,
-                    color: style.color,
-                    border: 'none',
-                    boxShadow: 'none',
-                    '& .MuiChip-label': {
-                        px: 1.5,
-                        py: 0,
-                        textAlign: 'left',
-                        display: 'block',
-                        width: '100%',
-                    },
-                }}
-            />
-        );
-    };
+    const renderReceivingStatus = (status) => (
+        <StatusBadge status={status} dot="•" variant="dot" />
+    );
 
     const renderCellContent = (column, row, index) => {
         switch (column.id) {

@@ -22,10 +22,10 @@ import {
     FormControl,
     Select,
     MenuItem,
-    Chip,
     TableSortLabel,
     Paper,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import {
     FileText,
     Filter,
@@ -69,21 +69,6 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
 const LS_COL_ORDER  = 'grnColumnOrder';
 const LS_SORT       = 'grnSortConfig';
 
-// ── Status styles ─────────────────────────────────────────────────────────────
-const STATUS_STYLE = {
-    DRAFT:        { bgColor: 'rgba(107,114,128,0.15)', label: 'Bản nháp',    dot: '•' },
-    PENDING_ACC: { bgColor: 'rgba(251,191,36,0.20)',  label: 'Đợi duyệt',   dot: '•' },
-    APPROVED:     { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã duyệt',    dot: '•' },
-    REJECTED:     { bgColor: 'rgba(239,68,68,0.15)',   label: 'Từ chối',     dot: '•' },
-    POSTED:       { bgColor: 'rgba(139,92,246,0.15)',  label: 'Đã ghi sổ',   dot: '•' },
-};
-
-const RECEIVING_STATUS_STYLE = {
-    NotStarted: { bgColor: 'rgba(107,114,128,0.15)', label: 'Chưa nhập',       dot: '•' },
-    Partial:    { bgColor: 'rgba(251,191,36,0.20)',  label: 'Nhập một phần',   dot: '•' },
-    Completed:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã nhập đủ',      dot: '•' },
-};
-
 // ── Column definitions ────────────────────────────────────────────────────────
 const GRN_COLUMNS = [
     { id: 'stt',              label: 'STT',              sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
@@ -91,7 +76,7 @@ const GRN_COLUMNS = [
     { id: 'receiptDate',      label: 'Ngày nhập',        sortable: true,  getValue: (row) => row.receiptDate    ?? '' },
     { id: 'warehouseName',    label: 'Kho nhập',         sortable: true,  getValue: (row) => row.warehouseName  ?? '' },
     { id: 'supplierName',     label: 'Nhà cung cấp',     sortable: true,  getValue: (row) => row.supplierName   ?? '' },
-    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => STATUS_STYLE[row.status?.toUpperCase()]?.label ?? row.status ?? '' },
+    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => row.status ?? '' },
     { id: 'actualQtyTotal',   label: 'Số lượng nhập',    sortable: true,  getValue: (row) => row.actualQtyTotal ?? 0 },
     { id: 'totalValue',       label: 'Giá trị đơn',      sortable: true,  getValue: (row) => row.totalValue     ?? 0 },
     { id: 'createdByName',    label: 'Nhân viên tạo',    sortable: true,  getValue: (row) => row.createdByName  ?? '' },
@@ -162,28 +147,9 @@ const CHECKBOX_CELL_SX = {
 };
 
 // ── Status Chip ───────────────────────────────────────────────────────────────
-const StatusChip = ({ status }) => {
-    const style = STATUS_STYLE[status?.toUpperCase()] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-', dot: '•' };
-    return (
-        <Chip
-            label={`${style.dot} ${style.label}`}
-            size="small"
-            sx={{
-                fontWeight: 500,
-                fontSize: '12px',
-                lineHeight: '16px',
-                borderRadius: '999px',
-                minWidth: 100,
-                height: '26px',
-                bgcolor: style.bgColor,
-                color: '#374151',
-                border: 'none',
-                boxShadow: 'none',
-                '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-            }}
-        />
-    );
-};
+const StatusChip = ({ status }) => (
+    <StatusBadge status={status} variant="dot" dot="•" />
+);
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function ViewGoodReceiptNotes() {

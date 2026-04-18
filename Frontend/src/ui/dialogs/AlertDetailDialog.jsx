@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    Typography,
     Box,
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     IconButton,
+    Typography,
     CircularProgress,
 } from '@mui/material';
 import { X, Edit2, Save, Package } from 'lucide-react';
@@ -121,7 +121,6 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                 },
             }}
         >
-            {/* Header */}
             <DialogTitle
                 sx={{
                     px: 3,
@@ -166,13 +165,9 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                 </IconButton>
             </DialogTitle>
 
-            {/* Body */}
             <DialogContent sx={{ px: 3, pt: 2, pb: 2.5 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-
-                    {/* Ảnh vật tư */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 2.5 }}>
-                        {/* Avatar box */}
                         <Box
                             sx={{
                                 width: 56,
@@ -188,7 +183,6 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                                 flexShrink: 0,
                             }}
                         >
-                            {/* Placeholder icon */}
                             <Box
                                 sx={{
                                     position: 'absolute',
@@ -200,8 +194,6 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                             >
                                 <Package size={22} style={{ color: '#9e9e9e' }} />
                             </Box>
-
-                            {/* Hình ảnh */}
                             {isValidUrl(alertData.itemImage) && (
                                 <img
                                     src={alertData.itemImage}
@@ -217,8 +209,6 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                                 />
                             )}
                         </Box>
-
-                        {/* Tên + mã */}
                         <Box sx={{ minWidth: 0 }}>
                             <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827', lineHeight: 1.4 }}>
                                 {alertData.itemName ?? '-'}
@@ -229,13 +219,9 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                         </Box>
                     </Box>
 
-                    {/* Kho */}
                     <UnderlineField label="Kho" value={alertData.warehouseName ?? '-'} />
-
-                    {/* Tồn hiện tại */}
                     <UnderlineField label="Tồn hiện tại" value={alertData.onHandQty != null ? Number(alertData.onHandQty).toLocaleString('vi-VN') : '-'} />
 
-                    {/* Ngưỡng + SL nhập đề xuất */}
                     <Box sx={{ display: 'flex', gap: 2 }}>
                         <Box sx={{ flex: 1 }}>
                             <UnderlineField
@@ -259,7 +245,6 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                         </Box>
                     </Box>
 
-                    {/* Nhân viên tạo + Ngày tạo */}
                     <Box sx={{ display: 'flex', gap: 2 }}>
                         <Box sx={{ flex: 1 }}>
                             <UnderlineField label="Nhân viên tạo" value={alertData.createdBy ?? '-'} />
@@ -275,7 +260,6 @@ export default function AlertDetailDialog({ open, onClose, alertData, onSave }) 
                 </Box>
             </DialogContent>
 
-            {/* Footer */}
             <DialogActions
                 sx={{
                     px: 3,

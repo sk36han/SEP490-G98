@@ -34,8 +34,7 @@ import { Plus, Filter, Columns, Package, GripVertical, Layers } from 'lucide-rea
 import { useNavigate } from 'react-router-dom';
 import SearchInput from '../components/SearchInput';
 import CategoryFilterPopup from '../components/CategoryFilterPopup';
-import CreateCategoryDialog from '../components/CreateCategoryDialog';
-import EditCategoryDialog from '../components/EditCategoryDialog';
+import { CreateCategoryDialog, EditCategoryDialog } from '@ui/dialogs';
 import { getCategoryList } from '../lib/categoryService';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];

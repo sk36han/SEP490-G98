@@ -6,11 +6,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 // 3. MUI Components
 import Tooltip from '@mui/material/Tooltip';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
+import { ConfirmDialog } from '@ui/dialogs';
 import Button from '@mui/material/Button';
+import Switch from '@mui/material/Switch';
 
 // 4. Icons
 import {
@@ -126,6 +124,8 @@ const CreateGoodReceiptNote = () => {
         creatorName: currentUser?.fullName || currentUser?.FullName || '',
         justification: '',
         shippingFee: 0,
+        isPaid: false,
+        paymentMethod: 'CASH',
     });
 
     const [lines, setLines] = useState([]);
@@ -675,6 +675,10 @@ const CreateGoodReceiptNote = () => {
         }
         try {
             setSubmitting(true);
+            if (formData.isPaid && !formData.paymentMethod) {
+                showToast('Vui lòng chọn phương thức thanh toán.', 'error');
+                return;
+            }
             // Chuẩn bị payload cho API
             const payload = {
                 PurchaseOrderId: Number(selectedPODetails?.poId ?? selectedPODetails?.purchaseOrderId ?? selectedPODetails?.PurchaseOrderId),
@@ -696,10 +700,16 @@ const CreateGoodReceiptNote = () => {
                     PurchaseOrderLineId: line.poLineId ? Number(line.poLineId) : null,
                     UnitPrice: Number(line.unitPrice) || 0,
                 })),
+                IsPaid: formData.isPaid,
+                PaymentMethod: formData.isPaid ? formData.paymentMethod : null,
             };
             const result = await createGoodReceiptNote(payload);
             showToast(`Tạo phiếu nhập kho thành công${result?.grnCode ? ` (${result.grnCode})` : ''}.`, 'success');
-            setTimeout(() => navigate('/good-receipt-notes'), 1500);
+            const grnId = result?.grnId ?? result?.GrnId;
+            setTimeout(
+                () => navigate(grnId ? `/good-receipt-notes/${grnId}` : '/good-receipt-notes'),
+                1500
+            );
         } catch (error) {
             const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
             showToast(msg, 'error');
@@ -741,119 +751,16 @@ const CreateGoodReceiptNote = () => {
     return (
         <div className="create-supplier-page">
             {/* Popup xác nhận nhập từ đơn mua hàng */}
-            <Dialog
+            <ConfirmDialog
                 open={confirmImportPoOpen}
                 onClose={() => setConfirmImportPoOpen(false)}
-                fullWidth
-                maxWidth="sm"
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '420px',
-                        borderRadius: '16px',
-                        border: '1px solid var(--slate-200, #e5e7eb)',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
-                        overflow: 'hidden',
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        px: 3,
-                        pt: 2.25,
-                        pb: 1.75,
-                        fontSize: '16px',
-                        fontWeight: 600,
-                        color: 'var(--slate-900, #111827)',
-                        borderBottom: '1px solid var(--slate-200, #eef2f7)',
-                    }}
-                >
-                    Xác nhận
-                </DialogTitle>
-                <DialogContent
-                    sx={{
-                        paddingLeft: '24px',
-                        paddingRight: '24px',
-                        paddingTop: '28px',
-                        paddingBottom: '28px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        minHeight: 72,
-                    }}
-                >
-                    <p
-                        style={{
-                            margin: 0,
-                            fontSize: '14px',
-                            color: 'var(--slate-700, #374151)',
-                            lineHeight: 1.5,
-                        }}
-                    >
-                        Bạn có chắc muốn nhập dữ liệu từ đơn mua hàng này?
-                    </p>
-                </DialogContent>
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2,
-                        gap: 1.5,
-                        justifyContent: 'flex-end',
-                        borderTop: '1px solid var(--slate-200, #eef2f7)',
-                    }}
-                >
-                    <Button
-                        onClick={() => setConfirmImportPoOpen(false)}
-                        disableRipple
-                        sx={{
-                            minWidth: '72px',
-                            height: 36,
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: '#6b7280',
-                            backgroundColor: 'transparent',
-                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)', color: '#4b5563' },
-                        }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        variant="contained"
-                        disableRipple
-                        disabled={poImportLoading}
-                        onClick={async () => {
-                            await handleConfirmImportPO();
-                        }}
-                        sx={{
-                            minWidth: '88px',
-                            height: 36,
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            backgroundColor: '#0284c7',
-                            boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)',
-                            '&:hover': {
-                                backgroundColor: '#0369a1',
-                                boxShadow: '0 3px 8px rgba(2, 132, 199, 0.3)',
-                            },
-                            '&:disabled': {
-                                backgroundColor: '#94a3b8',
-                            },
-                        }}
-                    >
-                        {poImportLoading ? (
-                            <>
-                                <Loader size={15} className="spinner" style={{ marginRight: '6px' }} />
-                                Đang xử lý...
-                            </>
-                        ) : (
-                            'Xác nhận'
-                        )}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                onConfirm={handleConfirmImportPO}
+                title="Xác nhận"
+                message="Bạn có chắc muốn nhập dữ liệu từ đơn mua hàng này?"
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={poImportLoading}
+            />
 
             <div className="page-header">
                 <div className="page-header-left">
@@ -1507,6 +1414,63 @@ const CreateGoodReceiptNote = () => {
                                             style={READONLY_FIELD_STYLE}
                                         />
                                     </div>
+                                </div>
+                                <div className="form-field">
+                                    <label className="form-label">Đã thanh toán?</label>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: 12,
+                                            padding: '10px 12px',
+                                            borderRadius: 12,
+                                            border: '1px solid #e5e7eb',
+                                            backgroundColor: '#f8fafc',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
+                                            Đã thanh toán?
+                                        </span>
+                                        <Switch
+                                            checked={formData.isPaid}
+                                            onChange={(e) =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    isPaid: e.target.checked,
+                                                }))
+                                            }
+                                            disabled={submitting}
+                                        />
+                                    </div>
+
+                                    {formData.isPaid && (
+                                        <div style={{ marginTop: 10 }}>
+                                            <label className="form-label">Phương thức thanh toán</label>
+                                            <select
+                                                className="form-input"
+                                                value={formData.paymentMethod}
+                                                onChange={(e) =>
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        paymentMethod: e.target.value,
+                                                    }))
+                                                }
+                                                disabled={submitting}
+                                                style={{
+                                                    padding: '10px 12px',
+                                                    borderRadius: 12,
+                                                    border: '1px solid #d1d5db',
+                                                    backgroundColor: '#ffffff',
+                                                }}
+                                            >
+                                                <option value="CASH">Tiền mặt</option>
+                                                <option value="BANK_TRANSFER">Chuyển khoản</option>
+                                                <option value="CREDIT_CARD">Thẻ tín dụng</option>
+                                                <option value="OTHER">Khác</option>
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

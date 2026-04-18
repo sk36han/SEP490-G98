@@ -8,13 +8,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Button,
     Chip,
 } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
 import {
     ArrowLeft,
     CheckCircle,
@@ -27,7 +24,8 @@ import {
     User,
     Loader,
     Check,
-    Pencil,
+    Paperclip,
+    FileText,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -72,6 +70,13 @@ const formatDate = (dateStr) => {
     return `${day}/${month}/${year}`;
 };
 
+const toAbsoluteFileUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
+    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 const mapOrderDetail = (data) => ({
     purchaseOrderId:
         data.purchaseOrderId ??
@@ -102,6 +107,8 @@ const mapOrderDetail = (data) => ({
     discountAmount: data.discountAmount ?? data.DiscountAmount ?? null,
     netAmount: data.netAmount ?? data.NetAmount ?? null,
     totalOrderedQty: data.totalOrderedQty ?? data.TotalOrderedQty ?? 0,
+    quotationFileUrl: toAbsoluteFileUrl(data.quotationFileUrl ?? data.QuotationFileUrl ?? ''),
+    contractAppendixFileUrl: toAbsoluteFileUrl(data.contractAppendixFileUrl ?? data.ContractAppendixFileUrl ?? ''),
     lines: (data.lines || []).map((line, index) => ({
         id: line.purchaseOrderLineId || line.id || index + 1,
         itemId: line.itemId ?? line.ItemId ?? null,
@@ -418,6 +425,8 @@ const ViewPurchaseOrderDetail = () => {
         discountAmount: null,
         netAmount: null,
         totalOrderedQty: 0,
+        quotationFileUrl: '',
+        contractAppendixFileUrl: '',
         lines: [],
     });
 
@@ -510,11 +519,11 @@ const ViewPurchaseOrderDetail = () => {
                     typeof result === 'boolean'
                         ? result
                         : Boolean(
-                              result?.hasPending ??
-                                  result?.exists ??
-                                  result?.isPending ??
-                                  false
-                          );
+                            result?.hasPending ??
+                            result?.exists ??
+                            result?.isPending ??
+                            false
+                        );
 
                 setHasPendingGRNState({
                     purchaseOrderId: currentPoId,
@@ -691,135 +700,39 @@ const ViewPurchaseOrderDetail = () => {
 
     return (
         <div className="create-supplier-page" style={styles.page}>
-            <Dialog
+            <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
-                fullWidth
-                maxWidth="sm"
-                disableEscapeKeyDown={submitting}
-                PaperProps={{
-                    sx: {
-                        width: '100%',
-                        maxWidth: '560px',
-                        borderRadius: '18px',
-                        border: '1px solid #e5e7eb',
-                        boxShadow: '0 10px 28px rgba(15, 23, 42, 0.14)',
-                    },
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        px: 3,
-                        pt: 2.5,
-                        pb: 1.5,
-                        fontWeight: 800,
-                        fontSize: '18px',
-                        color: '#111827',
-                        borderBottom: '1px solid #f3f4f6',
-                    }}
-                >
-                    {confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
-                </DialogTitle>
-
-                <DialogContent sx={{ px: 3, py: 2.5 }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.7 }}>
-                        {confirmDialogType === 'approve'
-                            ? 'Bạn có chắc chắn muốn duyệt đơn mua hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
-                            : 'Bạn có chắc chắn muốn từ chối đơn mua hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
-                    </p>
-
-                    {confirmDialogType === 'reject' && (
-                        <div style={{ marginTop: 18 }}>
-                            <label
-                                style={{
-                                    display: 'block',
-                                    fontSize: '14px',
-                                    fontWeight: 600,
-                                    color: '#374151',
-                                    marginBottom: '8px',
-                                }}
-                            >
-                                Lý do từ chối <span style={{ color: '#ef4444' }}>*</span>
-                            </label>
-                            <textarea
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                disabled={submitting}
-                                rows={4}
-                                placeholder="Nhập lý do từ chối đơn hàng"
-                                maxLength={250}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 14px',
-                                    borderRadius: '12px',
-                                    border: '1px solid #d1d5db',
-                                    fontSize: '14px',
-                                    resize: 'vertical',
-                                    outline: 'none',
-                                    fontFamily: 'inherit',
-                                    boxSizing: 'border-box',
-                                    backgroundColor: '#ffffff',
-                                }}
-                            />
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'flex-end',
-                                    fontSize: '12px',
-                                    color: rejectionReason.length >= 250 ? '#ef4444' : '#6b7280',
-                                    marginTop: '6px',
-                                }}
-                            >
-                                {rejectionReason.length}/250 ký tự
-                            </div>
+                onConfirm={handleConfirmAction}
+                title={confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
+                message={confirmDialogType === 'approve'
+                    ? 'Bạn có chắc chắn muốn duyệt đơn mua hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
+                    : 'Bạn có chắc chắn muốn từ chối đơn mua hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
+                content={confirmDialogType === 'reject' && (
+                    <div style={{ marginTop: 18 }}>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+                            Lý do từ chối <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            disabled={submitting}
+                            rows={4}
+                            placeholder="Nhập lý do từ chối đơn hàng"
+                            maxLength={250}
+                            style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '14px', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', backgroundColor: '#ffffff' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: rejectionReason.length >= 250 ? '#ef4444' : '#6b7280', marginTop: '6px' }}>
+                            {rejectionReason.length}/250 ký tự
                         </div>
-                    )}
-                </DialogContent>
-
-                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5, borderTop: '1px solid #f3f4f6' }}>
-                    <Button
-                        onClick={closeConfirmDialog}
-                        disabled={submitting}
-                        sx={{
-                            minWidth: '72px',
-                            height: 40,
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            color: '#6b7280',
-                            backgroundColor: 'transparent',
-                            boxShadow: 'none',
-                            '&:hover': { backgroundColor: 'transparent', color: '#4b5563' },
-                        }}
-                    >
-                        Hủy
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        onClick={handleConfirmAction}
-                        disabled={confirmDialogType === 'reject' && !rejectionReason.trim()}
-                        sx={{
-                            minWidth: '110px',
-                            height: 42,
-                            borderRadius: '12px',
-                            textTransform: 'none',
-                            fontSize: '14px',
-                            fontWeight: 800,
-                            backgroundColor: confirmDialogType === 'approve' ? '#0ea5e9' : '#ef4444',
-                            boxShadow: 'none',
-                            '&:hover': {
-                                backgroundColor: confirmDialogType === 'approve' ? '#0284c7' : '#dc2626',
-                                boxShadow: 'none',
-                            },
-                            '&:disabled': { backgroundColor: '#bae6fd', color: '#ffffff' },
-                        }}
-                    >
-                        {submitting ? 'Đang xử lý...' : 'Xác nhận'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                    </div>
+                )}
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={submitting}
+                confirmDanger={confirmDialogType === 'reject'}
+                confirmDisabled={confirmDialogType === 'reject' && !rejectionReason.trim()}
+            />
 
             <div className="page-header">
                 <div className="page-header-left">
@@ -982,244 +895,274 @@ const ViewPurchaseOrderDetail = () => {
             </div>
 
             <div style={styles.contentGrid}>
-    <div style={styles.leftStack}>
-        <div style={styles.sectionCard}>
-            <div style={styles.sectionHeader}>
-                <h2 style={styles.sectionTitle}>Danh sách sản phẩm</h2>
-                <Chip
-                    label={`${orderData.lines.length} dòng sản phẩm`}
-                    size="small"
-                    sx={{
-                        backgroundColor: '#eff6ff',
-                        color: '#1d4ed8',
-                        fontWeight: 700,
-                        fontSize: '12px',
-                    }}
-                />
-            </div>
-
-            {orderData.lines.length === 0 ? (
-                <div style={styles.emptyState}>
-                    <Clock size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-                    <p style={{ margin: 0 }}>Chưa có sản phẩm nào trong đơn mua hàng.</p>
-                </div>
-            ) : (
-                <div style={styles.tableWrap}>
-                    <table style={styles.table}>
-                        <thead>
-                            <tr>
-                                <th style={{ ...styles.th, width: 56, textAlign: 'center' }}>STT</th>
-                                <th style={{ ...styles.th, minWidth: 220 }}>Sản phẩm</th>
-                                <th style={{ ...styles.th, width: 80, textAlign: 'center' }}>ĐVT</th>
-                                <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đặt</th>
-                                <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đã nhận</th>
-                                <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Đơn giá</th>
-                                <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Giá sau CK</th>
-                                <th style={{ ...styles.th, width: 140, textAlign: 'right' }}>Thành tiền</th>
-                                <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CO</th>
-                                <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CQ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {orderData.lines.map((line, index) => {
-                                const lineStatusStyle = LINE_STATUS_MAP[line.lineStatus] || {
-                                    label: line.lineStatus,
-                                    color: '#6b7280',
-                                    bgColor: '#f3f4f6',
-                                };
-
-                                return (
-                                    <tr key={line.id}>
-                                        <td style={{ ...styles.td, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
-                                            {index + 1}
-                                        </td>
-
-                                        <td style={styles.td}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                <span
-                                                    style={{
-                                                        fontSize: 13,
-                                                        fontWeight: 600,
-                                                        color: '#111827',
-                                                        lineHeight: 1.4,
-                                                        display: '-webkit-box',
-                                                        WebkitLineClamp: 2,
-                                                        WebkitBoxOrient: 'vertical',
-                                                        overflow: 'hidden',
-                                                    }}
-                                                    title={line.itemName}
-                                                >
-                                                    {line.itemName || '—'}
-                                                </span>
-                                                {line.itemCode && (
-                                                    <span style={{ fontSize: 11, color: '#64748b' }}>
-                                                        {line.itemCode}
-                                                    </span>
-                                                )}
-                                                {line.note && (
-                                                    <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
-                                                        {line.note}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-
-                                        <td style={{ ...styles.td, textAlign: 'center', color: '#64748b' }}>
-                                            {line.uom || '—'}
-                                        </td>
-
-                                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                            {Number(line.orderedQty) || 0}
-                                        </td>
-
-                                        <td
-                                            style={{
-                                                ...styles.td,
-                                                textAlign: 'right',
-                                                fontVariantNumeric: 'tabular-nums',
-                                                fontWeight: 700,
-                                            }}
-                                        >
-                                            {Number(line.receivedQty) || 0}
-                                        </td>
-
-                                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                                                <span>{formatCurrency(Number(line.unitPrice) || 0)}</span>
-                                                {line.currency && line.currency !== 'VND' && (
-                                                    <span style={{ fontSize: 11, color: '#9ca3af' }}>{line.currency}</span>
-                                                )}
-                                            </div>
-                                        </td>
-
-                                        <td
-                                            style={{
-                                                ...styles.td,
-                                                textAlign: 'right',
-                                                fontVariantNumeric: 'tabular-nums',
-                                                fontWeight: 700,
-                                                color: '#10b981',
-                                            }}
-                                        >
-                                            {formatCurrency(
-                                                orderData.discount > 0
-                                                    ? (Number(line.unitPrice) || 0) * (orderData.discountType === 'amount' ? 1 : (100 - (orderData.discount ?? 0)) / 100)
-                                                    : (Number(line.unitPrice) || 0)
-                                            )}
-                                        </td>
-
-                                        <td
-                                            style={{
-                                                ...styles.td,
-                                                textAlign: 'right',
-                                                fontVariantNumeric: 'tabular-nums',
-                                                fontWeight: 800,
-                                                color: '#1d4ed8',
-                                            }}
-                                        >
-                                            {formatCurrency(Number(line.totalPrice) || 0)}
-                                        </td>
-
-                                        <td style={{ ...styles.td, textAlign: 'center' }}>
-                                            {line.requiresCo ? (
-                                                <Check size={16} color="#10b981" />
-                                            ) : (
-                                                <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
-                                            )}
-                                        </td>
-
-                                        <td style={{ ...styles.td, textAlign: 'center' }}>
-                                            {line.requiresCq ? (
-                                                <Check size={16} color="#10b981" />
-                                            ) : (
-                                                <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </div>
-
-        <div style={styles.sectionCard}>
-            <div style={styles.sectionHeader}>
-                <h2 style={styles.sectionTitle}>Tổng hợp đơn hàng</h2>
-            </div>
-
-            <div style={styles.sectionBody}>
-                <div style={styles.summaryGrid}>
-                    <div style={styles.summaryBox}>
-                        <div style={styles.summaryBoxLabel}>Tổng số lượng</div>
-                        <div style={styles.summaryBoxValue}>{totalQty}</div>
-                    </div>
-
-                    <div style={styles.summaryBox}>
-                        <div style={styles.summaryBoxLabel}>Tạm tính</div>
-                        <div style={styles.summaryBoxValue}>{formatCurrency(subtotal)}</div>
-                    </div>
-                </div>
-
-                <div style={styles.amountRows}>
-                    {orderData.discount > 0 && (
-                        <div style={styles.amountRow}>
-                            <span>
-                                Chiết khấu {orderData.discountType === 'percent' ? `(${orderData.discount}%)` : ''}
-                            </span>
-                            <strong style={{ color: '#ef4444' }}>- {formatCurrency(discountAmt)}</strong>
+                <div style={styles.leftStack}>
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Danh sách sản phẩm</h2>
+                            <Chip
+                                label={`${orderData.lines.length} dòng sản phẩm`}
+                                size="small"
+                                sx={{
+                                    backgroundColor: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    fontWeight: 700,
+                                    fontSize: '12px',
+                                }}
+                            />
                         </div>
-                    )}
 
-                    <div style={styles.amountRow}>
-                        <span>Giá sau chiết khấu</span>
-                        <strong>{formatCurrency(grandTotal)}</strong>
+                        {orderData.lines.length === 0 ? (
+                            <div style={styles.emptyState}>
+                                <Clock size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                                <p style={{ margin: 0 }}>Chưa có sản phẩm nào trong đơn mua hàng.</p>
+                            </div>
+                        ) : (
+                            <div style={styles.tableWrap}>
+                                <table style={styles.table}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ ...styles.th, width: 56, textAlign: 'center' }}>STT</th>
+                                            <th style={{ ...styles.th, minWidth: 220 }}>Sản phẩm</th>
+                                            <th style={{ ...styles.th, width: 80, textAlign: 'center' }}>ĐVT</th>
+                                            <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đặt</th>
+                                            <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>SL đã nhận</th>
+                                            <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Đơn giá</th>
+                                            <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>Giá sau CK</th>
+                                            <th style={{ ...styles.th, width: 140, textAlign: 'right' }}>Thành tiền</th>
+                                            <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CO</th>
+                                            <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>CQ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {orderData.lines.map((line, index) => {
+                                            const lineStatusStyle = LINE_STATUS_MAP[line.lineStatus] || {
+                                                label: line.lineStatus,
+                                                color: '#6b7280',
+                                                bgColor: '#f3f4f6',
+                                            };
+
+                                            return (
+                                                <tr key={line.id}>
+                                                    <td style={{ ...styles.td, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+                                                        {index + 1}
+                                                    </td>
+
+                                                    <td style={styles.td}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                            <span
+                                                                style={{
+                                                                    fontSize: 13,
+                                                                    fontWeight: 600,
+                                                                    color: '#111827',
+                                                                    lineHeight: 1.4,
+                                                                    display: '-webkit-box',
+                                                                    WebkitLineClamp: 2,
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    overflow: 'hidden',
+                                                                }}
+                                                                title={line.itemName}
+                                                            >
+                                                                {line.itemName || '—'}
+                                                            </span>
+                                                            {line.itemCode && (
+                                                                <span style={{ fontSize: 11, color: '#64748b' }}>
+                                                                    {line.itemCode}
+                                                                </span>
+                                                            )}
+                                                            {line.note && (
+                                                                <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
+                                                                    {line.note}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+
+                                                    <td style={{ ...styles.td, textAlign: 'center', color: '#64748b' }}>
+                                                        {line.uom || '—'}
+                                                    </td>
+
+                                                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                        {Number(line.orderedQty) || 0}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            ...styles.td,
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 700,
+                                                        }}
+                                                    >
+                                                        {Number(line.receivedQty) || 0}
+                                                    </td>
+
+                                                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                                            <span>{formatCurrency(Number(line.unitPrice) || 0)}</span>
+                                                            {line.currency && line.currency !== 'VND' && (
+                                                                <span style={{ fontSize: 11, color: '#9ca3af' }}>{line.currency}</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            ...styles.td,
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 700,
+                                                            color: '#10b981',
+                                                        }}
+                                                    >
+                                                        {formatCurrency(
+                                                            orderData.discount > 0
+                                                                ? (Number(line.unitPrice) || 0) * (orderData.discountType === 'amount' ? 1 : (100 - (orderData.discount ?? 0)) / 100)
+                                                                : (Number(line.unitPrice) || 0)
+                                                        )}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            ...styles.td,
+                                                            textAlign: 'right',
+                                                            fontVariantNumeric: 'tabular-nums',
+                                                            fontWeight: 800,
+                                                            color: '#1d4ed8',
+                                                        }}
+                                                    >
+                                                        {formatCurrency(Number(line.totalPrice) || 0)}
+                                                    </td>
+
+                                                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                                                        {line.requiresCo ? (
+                                                            <Check size={16} color="#10b981" />
+                                                        ) : (
+                                                            <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                                        )}
+                                                    </td>
+
+                                                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                                                        {line.requiresCq ? (
+                                                            <Check size={16} color="#10b981" />
+                                                        ) : (
+                                                            <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Tổng hợp đơn hàng</h2>
+                        </div>
+
+                        <div style={styles.sectionBody}>
+                            <div style={styles.summaryGrid}>
+                                <div style={styles.summaryBox}>
+                                    <div style={styles.summaryBoxLabel}>Tổng số lượng</div>
+                                    <div style={styles.summaryBoxValue}>{totalQty}</div>
+                                </div>
+
+                                <div style={styles.summaryBox}>
+                                    <div style={styles.summaryBoxLabel}>Tạm tính</div>
+                                    <div style={styles.summaryBoxValue}>{formatCurrency(subtotal)}</div>
+                                </div>
+                            </div>
+
+                            <div style={styles.amountRows}>
+                                {orderData.discount > 0 && (
+                                    <div style={styles.amountRow}>
+                                        <span>
+                                            Chiết khấu {orderData.discountType === 'percent' ? `(${orderData.discount}%)` : ''}
+                                        </span>
+                                        <strong style={{ color: '#ef4444' }}>- {formatCurrency(discountAmt)}</strong>
+                                    </div>
+                                )}
+
+                                <div style={styles.amountRow}>
+                                    <span>Giá sau chiết khấu</span>
+                                    <strong>{formatCurrency(grandTotal)}</strong>
+                                </div>
+                            </div>
+
+                            <div style={styles.totalHighlight}>
+                                <span style={styles.totalHighlightLabel}>Tổng giá trị</span>
+                                <span style={styles.totalHighlightValue}>{formatCurrency(grandTotal)}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div style={styles.totalHighlight}>
-                    <span style={styles.totalHighlightLabel}>Tổng giá trị</span>
-                    <span style={styles.totalHighlightValue}>{formatCurrency(grandTotal)}</span>
+                <div style={styles.sectionCard}>
+                    <div style={styles.sectionHeader}>
+                        <h2 style={styles.sectionTitle}>Thông tin đơn hàng</h2>
+                    </div>
+
+                    <div style={styles.sectionBody}>
+                        <div style={styles.infoGrid}>
+                            {renderReadonlyField('Nhà cung cấp', orderData.supplierName, Building2)}
+                            {renderReadonlyField('Kho nhận', orderData.warehouseName, MapPin)}
+                            {renderReadonlyField('Người tạo', orderData.creatorName, User)}
+
+                            {orderData.responsiblePersonName &&
+                                renderReadonlyField('Người phụ trách', orderData.responsiblePersonName, User)}
+
+                            {orderData.requestedDate &&
+                                renderReadonlyField('Ngày yêu cầu', orderData.requestedDate, Calendar)}
+
+                            {orderData.createdAt &&
+                                renderReadonlyField('Ngày tạo', orderData.createdAt, Calendar)}
+
+                            {orderData.submittedAt &&
+                                renderReadonlyField('Ngày gửi duyệt', orderData.submittedAt, Calendar)}
+
+                            {orderData.expectedDeliveryDate &&
+                                renderReadonlyField('Ngày nhận dự kiến', orderData.expectedDeliveryDate, Calendar)}
+
+                            {orderData.justification &&
+                                renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
+
+                            {orderData.justification &&
+                                renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
+
+                            {(orderData.quotationFileUrl || orderData.contractAppendixFileUrl) && (
+                                <div style={styles.fieldWrap}>
+                                    <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
+                                    <div style={{ ...styles.fieldBox, ...styles.fieldBoxMultiline, flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+                                        {orderData.quotationFileUrl && (
+                                            <a
+                                                href={orderData.quotationFileUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
+                                            >
+                                                <Paperclip size={16} />
+                                                File báo giá
+                                            </a>
+                                        )}
+                                        {orderData.contractAppendixFileUrl && (
+                                            <a
+                                                href={orderData.contractAppendixFileUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
+                                            >
+                                                <FileText size={16} />
+                                                Hợp đồng nguyên tắc
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div style={styles.sectionCard}>
-        <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Thông tin đơn hàng</h2>
-        </div>
-
-        <div style={styles.sectionBody}>
-            <div style={styles.infoGrid}>
-                {renderReadonlyField('Nhà cung cấp', orderData.supplierName, Building2)}
-                {renderReadonlyField('Kho nhận', orderData.warehouseName, MapPin)}
-                {renderReadonlyField('Người tạo', orderData.creatorName, User)}
-
-                {orderData.responsiblePersonName &&
-                    renderReadonlyField('Người phụ trách', orderData.responsiblePersonName, User)}
-
-                {orderData.requestedDate &&
-                    renderReadonlyField('Ngày yêu cầu', orderData.requestedDate, Calendar)}
-
-                {orderData.createdAt &&
-                    renderReadonlyField('Ngày tạo', orderData.createdAt, Calendar)}
-
-                {orderData.submittedAt &&
-                    renderReadonlyField('Ngày gửi duyệt', orderData.submittedAt, Calendar)}
-
-                {orderData.expectedDeliveryDate &&
-                    renderReadonlyField('Ngày nhận dự kiến', orderData.expectedDeliveryDate, Calendar)}
-
-                {orderData.justification &&
-                    renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
-            </div>
-        </div>
-    </div>
-</div>
-        </div>
-    );
+                    </div>
+                </div>
+                );
 };
 
-export default ViewPurchaseOrderDetail;
+                export default ViewPurchaseOrderDetail;
