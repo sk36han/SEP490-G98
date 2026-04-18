@@ -33,6 +33,7 @@ import { Plus, Filter, Columns, GripVertical, Package, ClipboardList } from 'luc
 import SearchInput from '../components/SearchInput';
 import { StatusBadge } from '@ui/badges';
 import StocktakeFilterPopup from '../components/StocktakeFilterPopup';
+import { formatDateTimeLinesUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // LocalStorage keys
@@ -349,16 +350,14 @@ const ViewStocktakeList = () => {
         setPage(0);
     };
 
-    // Format date with time on new line
-    const formatDate = (dateStr) => {
+    const formatDateCell = (dateStr) => {
         if (!dateStr) return '-';
-        const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-        const datePart = d.toLocaleDateString('vi-VN');
-        const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const parts = formatDateTimeLinesUtc(dateStr);
+        if (!parts) return '-';
         return (
             <Box sx={{ lineHeight: 1.3 }}>
-                <Box>{datePart}</Box>
-                <Box>{timePart}</Box>
+                <Box>{parts.datePart}</Box>
+                <Box>{parts.timePart}</Box>
             </Box>
         );
     };
@@ -935,7 +934,7 @@ const ViewStocktakeList = () => {
                                                                         key={col.id}
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
-                                                                        {formatDate(item[col.id])}
+                                                                        {formatDateCell(item[col.id])}
                                                                     </TableCell>
                                                                 );
                                                             }

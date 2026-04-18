@@ -115,7 +115,7 @@ public class StocktakeExecutionServiceTests
     {
         using var context = GetContext();
         await SeedBaseDataAsync(context);
-        var session = new StocktakeSession { StocktakeId = 20, Status = "PENDING_APPROVAL", WarehouseId = 1, StocktakeCode = "ST20", Mode = "P", CreatedBy = 111 };
+        var session = new StocktakeSession { StocktakeId = 20, Status = "PENDING_RESULTADJ", WarehouseId = 1, StocktakeCode = "ST20", Mode = "P", CreatedBy = 111 };
         context.StocktakeSessions.Add(session);
         var line = new StocktakeLine { StocktakeId = 20, ItemId = 1, SystemQtySnapshot = 100, CountedQty = 90, VarianceQty = -10 };
         context.StocktakeLines.Add(line);
@@ -143,7 +143,7 @@ public class StocktakeExecutionServiceTests
     {
         using var context = GetContext();
         await SeedBaseDataAsync(context);
-        var session = new StocktakeSession { StocktakeId = 30, Status = "PENDING_APPROVAL", WarehouseId = 1, StocktakeCode = "ST30", Mode = "P", CreatedBy = 111 };
+        var session = new StocktakeSession { StocktakeId = 30, Status = "PENDING_RESULTADJ", WarehouseId = 1, StocktakeCode = "ST30", Mode = "P", CreatedBy = 111 };
         context.StocktakeSessions.Add(session);
         await context.SaveChangesAsync();
 

@@ -481,7 +481,7 @@ export default function CreateReleaseRequest() {
     }
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page create-release-request-page">
             <div className="page-header">
                 <div className="page-header-left">
                     <button type="button" onClick={() => navigate(-1)} className="back-button">
@@ -509,7 +509,7 @@ export default function CreateReleaseRequest() {
                         <p className="form-card-required-note">Các trường <span className="required-mark">*</span> là bắt buộc</p>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, alignItems: 'start' }}>
+                    <div className="create-release-request-layout">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">

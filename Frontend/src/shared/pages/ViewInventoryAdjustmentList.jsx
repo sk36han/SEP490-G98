@@ -29,77 +29,9 @@ import { Filter, Columns, GripVertical, Package, SlidersHorizontal } from 'lucid
 import { StatusBadge } from '@ui/badges';
 import SearchInput from '../components/SearchInput';
 import InventoryAdjustmentFilterPopup from '../components/InventoryAdjustmentFilterPopup';
-import { formatDateTimeLines } from '../lib/dateUtils';
+import { formatDateTimeLinesUtc } from '../lib/dateUtils';
+import { fetchInventoryAdjustmentsListAll } from '../lib/inventoryAdjustmentService';
 import '../styles/ListView.css';
-
-// Mock data
-const MOCK_DATA = [
-    {
-        adjustmentId: 1,
-        adjustmentCode: 'ADJ-0001',
-        stocktakeCode: 'STK-0001',
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        submittedByName: 'Nguyễn Văn A',
-        status: 'POSTED',
-        reason: 'Điều chỉnh theo kiểm kê demo',
-        submittedAt: '2026-02-08T14:02:47.5454645',
-        approvedAt: '2026-02-08T14:02:47.5454645',
-        postedAt: '2026-02-08T14:02:47.5454645',
-    },
-    {
-        adjustmentId: 2,
-        adjustmentCode: 'ADJ-0002',
-        stocktakeCode: null,
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        submittedByName: 'Trần Thị B',
-        status: 'APPROVED',
-        reason: 'Hàng hóa hư hỏng do bảo quản',
-        submittedAt: '2026-03-01T10:30:00.0000000',
-        approvedAt: '2026-03-01T11:00:00.0000000',
-        postedAt: null,
-    },
-    {
-        adjustmentId: 3,
-        adjustmentCode: 'ADJ-0003',
-        stocktakeCode: 'STK-0002',
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        submittedByName: 'Lê Văn C',
-        status: 'PENDING_DIR',
-        reason: 'Chênh lệch tồn kho sau kiểm kê định kỳ',
-        submittedAt: '2026-03-05T09:15:00.0000000',
-        approvedAt: null,
-        postedAt: null,
-    },
-    {
-        adjustmentId: 4,
-        adjustmentCode: 'ADJ-0004',
-        stocktakeCode: null,
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        submittedByName: 'Phạm Thị D',
-        status: 'DRAFT',
-        reason: 'Chuẩn bị điều chỉnh tồn kho',
-        submittedAt: '2026-03-10T08:00:00.0000000',
-        approvedAt: null,
-        postedAt: null,
-    },
-    {
-        adjustmentId: 5,
-        adjustmentCode: 'ADJ-0005',
-        stocktakeCode: 'STK-0003',
-        warehouseCode: 'WH-HCM',
-        warehouseName: 'Kho HCM',
-        submittedByName: 'Nguyễn Văn E',
-        status: 'REJECTED',
-        reason: 'Sai sót trong phiếu kiểm kê',
-        submittedAt: '2026-03-08T14:20:00.0000000',
-        approvedAt: '2026-03-08T15:00:00.0000000',
-        postedAt: null,
-    },
-];
 
 // LocalStorage keys
 const LS_COL_ORDER = 'inventoryAdjustmentColumnOrder';
@@ -202,9 +134,8 @@ const ViewInventoryAdjustmentList = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    // Data state
-    const [list, setList] = useState([]);
-    const [totalRows, setTotalRows] = useState(0);
+    // Data state (API → allRows; list = lọc cục bộ theo popup filter)
+    const [allRows, setAllRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -260,61 +191,57 @@ const ViewInventoryAdjustmentList = () => {
         [columnOrder, visibleColumnIds],
     );
 
-    // Fetch data
+    // Gọi API (tìm kiếm theo search trên server); filter popup xử lý ở useMemo bên dưới
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
         try {
-            let filteredData = [...MOCK_DATA];
-
-            // Apply filter from popup
-            if (filterValues.status) {
-                filteredData = filteredData.filter((item) => item.status === filterValues.status);
-            }
-            if (filterValues.fromDate) {
-                const from = new Date(filterValues.fromDate + 'T00:00:00Z').getTime();
-                filteredData = filteredData.filter((item) => {
-                    if (!item.submittedAt) return false;
-                    const d = new Date(item.submittedAt + (item.submittedAt.endsWith('Z') ? '' : 'Z'));
-                    return d.getTime() >= from;
-                });
-            }
-            if (filterValues.toDate) {
-                const to = new Date(filterValues.toDate + 'T23:59:59.999Z').getTime();
-                filteredData = filteredData.filter((item) => {
-                    if (!item.submittedAt) return false;
-                    const d = new Date(item.submittedAt + (item.submittedAt.endsWith('Z') ? '' : 'Z'));
-                    return d.getTime() <= to;
-                });
-            }
-
-            // Apply search
-            if (searchTerm) {
-                const term = searchTerm.toLowerCase();
-                filteredData = filteredData.filter(
-                    (item) =>
-                        item.adjustmentCode?.toLowerCase().includes(term) ||
-                        item.warehouseName?.toLowerCase().includes(term) ||
-                        item.submittedByName?.toLowerCase().includes(term) ||
-                        item.reason?.toLowerCase().includes(term),
-                );
-            }
-            setList(filteredData);
-            setTotalRows(filteredData.length);
+            const { items } = await fetchInventoryAdjustmentsListAll(searchTerm);
+            setAllRows((items || []).filter(Boolean));
         } catch (err) {
-            setError(err.message || 'Không thể kết nối đến server');
-            setList([]);
-            setTotalRows(0);
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.title ||
+                err?.message ||
+                'Không thể tải danh sách điều chỉnh tồn kho';
+            setError(typeof msg === 'string' ? msg : 'Không thể tải danh sách điều chỉnh tồn kho');
+            setAllRows([]);
         } finally {
             setLoading(false);
         }
-    }, [searchTerm, filterValues]);
+    }, [searchTerm]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const list = useMemo(() => {
+        let filtered = [...allRows];
+        if (filterValues.status) {
+            filtered = filtered.filter((item) => item.status === filterValues.status);
+        }
+        if (filterValues.fromDate) {
+            const from = new Date(filterValues.fromDate + 'T00:00:00Z').getTime();
+            filtered = filtered.filter((item) => {
+                if (!item.submittedAt) return false;
+                const s = String(item.submittedAt);
+                const d = new Date(s.endsWith('Z') ? s : `${s}Z`);
+                return d.getTime() >= from;
+            });
+        }
+        if (filterValues.toDate) {
+            const to = new Date(filterValues.toDate + 'T23:59:59.999Z').getTime();
+            filtered = filtered.filter((item) => {
+                if (!item.submittedAt) return false;
+                const s = String(item.submittedAt);
+                const d = new Date(s.endsWith('Z') ? s : `${s}Z`);
+                return d.getTime() <= to;
+            });
+        }
+        return filtered;
+    }, [allRows, filterValues]);
+
+    const totalRows = list.length;
 
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
@@ -426,7 +353,7 @@ const ViewInventoryAdjustmentList = () => {
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
-        const parts = formatDateTimeLines(dateStr);
+        const parts = formatDateTimeLinesUtc(dateStr);
         if (!parts) return '-';
         return (
             <Box sx={{ lineHeight: 1.3 }}>
@@ -480,8 +407,14 @@ const ViewInventoryAdjustmentList = () => {
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
                     <SummaryCard icon={SlidersHorizontal} label="Tổng điều chỉnh" value={(totalCount || list.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={SlidersHorizontal} label="Đã duyệt" value={list.filter(r => r.status === 'APPROVED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={SlidersHorizontal} label="Chờ duyệt" value={list.filter(r => r.status === 'PENDING').length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={SlidersHorizontal} label="Đã duyệt" value={list.filter((r) => r.status === 'APPROVED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard
+                        icon={SlidersHorizontal}
+                        label="Chờ duyệt"
+                        value={list.filter((r) => r.status && String(r.status).startsWith('PENDING')).length.toLocaleString()}
+                        color="#d97706"
+                        bgColor="rgba(217,119,6,0.1)"
+                    />
                 </Box>
             </Box>
 

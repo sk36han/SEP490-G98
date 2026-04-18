@@ -159,6 +159,7 @@ namespace Warehouse.Api.ApiController
 
             try
             {
+                request.NormalizeDecisionAlias();
                 var result = await _stocktakeExecutionService.ApproveAndFinalizeResultsAsync(id, request, currentUserId);
                 return Ok(result);
             }

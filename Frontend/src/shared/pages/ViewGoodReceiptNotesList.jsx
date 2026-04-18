@@ -39,7 +39,7 @@ import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import GoodReceiptNoteFilterPopup from '../components/GoodReceiptNoteFilterPopup';
 import { getGoodReceiptNotes } from '../lib/goodReceiptNoteService';
-import { formatDate, formatDateTime } from '../lib/dateUtils';
+import { formatDateOnlyUtc, formatDateTimeUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -621,8 +621,8 @@ export default function ViewGoodReceiptNotes() {
                                                                 }}
                                                             >
                                                                 {col.id === 'createdAt'
-                                                                    ? formatDateTime(row.createdAt)
-                                                                    : formatDate(row.receiptDate)}
+                                                                    ? formatDateTimeUtc(row.createdAt)
+                                                                    : formatDateOnlyUtc(row.receiptDate)}
                                                             </TableCell>
                                                         );
                                                     }

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
-import { formatDateTime, parseDate } from '../lib/dateUtils';
+import { formatDateTimeUtc, parseDate } from '../lib/dateUtils';
 import { getGoodsDeliveryNotes } from '../lib/goodsDeliveryNoteService';
 import {
     Box,
@@ -110,7 +110,7 @@ const DEFAULT_VISIBLE_COLUMN_IDS = DEFAULT_COLUMN_ORDER.slice();
 const SORTABLE_COLUMN_IDS = GDN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 const COLUMN_IDS_WITH_RIGHT_ALIGN = new Set(['totalDeliveredQty', 'totalDeliveredAmount']);
 
-const formatDate = (dateStr) => formatDateTime(dateStr);
+const formatDate = (dateStr) => formatDateTimeUtc(dateStr);
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);

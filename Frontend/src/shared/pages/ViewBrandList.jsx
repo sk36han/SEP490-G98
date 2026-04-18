@@ -6,7 +6,6 @@ import { parseDate } from '../lib/dateUtils';
 import { getBrandList, createBrand, updateBrand } from '../lib/brandService';
 import { usePolling } from '../hooks/usePolling';
 import PollingManager from '../lib/pollingManager';
-import { formatDateOnly } from '../lib/dateUtils';
 import {
     Box,
     Button,

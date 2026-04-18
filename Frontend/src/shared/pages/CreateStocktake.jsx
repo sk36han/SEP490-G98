@@ -8,7 +8,6 @@ import {
     ArrowLeft,
     Package,
     ImageIcon,
-    User,
     Warehouse,
     Calendar,
     CheckCircle,
@@ -680,21 +679,6 @@ const CreateStocktake = () => {
                                 </div>
                             </div>
 
-                            {/* Người tạo (readonly) */}
-                            <div className="form-field">
-                                <label className="form-label">Người tạo</label>
-                                <div className="input-wrapper">
-                                    <User className="input-icon" size={16} />
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={authService.getUser()?.fullName || authService.getUser()?.username || 'Kế toán'}
-                                        readOnly
-                                        style={{ backgroundColor: '#f5f5f5' }}
-                                    />
-                                </div>
-                            </div>
-
                             {/* Ghi chú */}
                             <div className="form-field" style={{ gridColumn: '1 / -1' }}>
                                 <label className="form-label">Ghi chú</label>
@@ -1258,15 +1242,6 @@ const CreateStocktake = () => {
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {/* Nhân viên tạo */}
-                                <div className="form-field">
-                                    <label className="form-label">Người tạo</label>
-                                    <div className="input-wrapper">
-                                        <User className="input-icon" size={16} />
-                                        <input type="text" value={stocktakeData.createdByName || ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
-                                    </div>
-                                </div>
-
                                 {/* Kho */}
                                 <div className="form-field">
                                     <label className="form-label">Kho</label>

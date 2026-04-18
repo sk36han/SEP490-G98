@@ -17,7 +17,10 @@ namespace Warehouse.DataAcces.Service
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
 
-        private static readonly string[] AllowedStatuses = { "DRAFT", "IN_PROGRESS", "PENDING_APPROVAL", "COMPLETED", "CANCELLED" };
+        private static readonly string[] AllowedStatuses =
+        {
+            "DRAFT", "PENDING_APPROVAL", "APPROVED", "IN_PROGRESS", "PENDING_RESULTADJ", "COMPLETED", "CANCELLED"
+        };
         private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
         public StocktakeService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService)
@@ -533,30 +536,57 @@ namespace Warehouse.DataAcces.Service
             if (hasUncounted)
                 throw new InvalidOperationException("Vui lòng hoàn tất nhập số đếm cho tất cả các mặt hàng trước khi gửi xác nhận.");
 
-            // Chuyển trạng thái
-            session.Status = "PENDING_APPROVAL";
+            var hasVariance = session.StocktakeLines.Any(l => (l.VarianceQty ?? 0m) != 0m);
 
-            await _context.SaveChangesAsync();
+            if (!hasVariance)
+            {
+                // Không chênh lệch → hoàn tất ngay, không cần giám đốc duyệt kết quả
+                session.Status = "COMPLETED";
+                session.EndedAt = DateTime.UtcNow;
 
-            // Ghi Audit Log
-            await _auditLogService.LogAsync(
-                currentUserId,
-                AuditAction.SubmitStocktake,
-                AuditEntity.StocktakeSession,
-                stocktakeId,
-                $"Gửi xác nhận hoàn tất đếm phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Đang chờ phê duyệt."
-            );
+                await _context.SaveChangesAsync();
 
-            // Gửi thông báo cho Quản lý
-            await _notificationService.CreateForRolesAsync(
-                new[] { "MANAGER", "ADMIN" },
-                "Kết quả kiểm kê mới chờ duyệt",
-                $"Kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã hoàn tất và đang chờ bạn phê duyệt.",
-                "Stocktake",
-                session.StocktakeId,
-                currentUserId,
-                "NewRequest"
-            );
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    AuditAction.CompleteStocktake,
+                    AuditEntity.StocktakeSession,
+                    stocktakeId,
+                    $"Gửi kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}: khớp tồn, hoàn tất tự động."
+                );
+
+                await _notificationService.CreateAsync(
+                    session.CreatedBy,
+                    $"Kiểm kê {session.StocktakeCode} HOÀN TẤT",
+                    $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã khớp tồn và được đóng tự động sau khi gửi kết quả.",
+                    "Stocktake",
+                    session.StocktakeId,
+                    "StatusChange",
+                    0);
+            }
+            else
+            {
+                session.Status = "PENDING_RESULTADJ";
+
+                await _context.SaveChangesAsync();
+
+                await _auditLogService.LogAsync(
+                    currentUserId,
+                    AuditAction.SubmitStocktake,
+                    AuditEntity.StocktakeSession,
+                    stocktakeId,
+                    $"Gửi xác nhận hoàn tất đếm phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName}. Có chênh lệch — chờ giám đốc phê duyệt."
+                );
+
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "DIRECTOR", "MANAGER", "ADMIN" },
+                    "Kết quả kiểm kê mới chờ duyệt",
+                    $"Kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} có chênh lệch và đang chờ phê duyệt.",
+                    "Stocktake",
+                    session.StocktakeId,
+                    currentUserId,
+                    "NewRequest"
+                );
+            }
 
             return await GetStocktakeDetailAsync(stocktakeId) 
                    ?? throw new Exception("Lỗi sau khi lưu dữ liệu.");

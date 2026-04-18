@@ -68,7 +68,8 @@ export function StatusBadge({ status, label, dot, variant = 'filled', colors, sx
     // Stocktake Status
     STOCK_DRAFT:           { bgcolor: 'rgba(107,114,128,0.2)',  color: '#4b5563', label: 'Nháp' },
     STOCK_IN_PROGRESS:     { bgcolor: 'rgba(59,130,246,0.18)', color: '#1d4ed8', label: 'Đang thực hiện' },
-    STOCK_PENDING_APPROVAL:{ bgcolor: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Chờ duyệt' },
+    STOCK_PENDING_APPROVAL:{ bgcolor: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Chờ duyệt kế hoạch' },
+    STOCK_PENDING_RESULTADJ:{ bgcolor: 'rgba(245,158,11,0.22)', color: '#b45309', label: 'Chờ duyệt kết quả' },
     STOCK_COMPLETED:       { bgcolor: 'rgba(16,185,129,0.18)', color: '#047857', label: 'Hoàn thành' },
     STOCK_APPROVED:        { bgcolor: 'rgba(16,185,129,0.18)', color: '#047857', label: 'Được duyệt' },
 

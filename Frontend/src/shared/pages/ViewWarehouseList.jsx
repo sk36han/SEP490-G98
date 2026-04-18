@@ -28,6 +28,7 @@ import { Plus, Columns, GripVertical, Warehouse as WarehouseIcon, Building2 } fr
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import { getWarehouses } from '../lib/warehouseService';
+import { formatDateTimeLinesUtc } from '../lib/dateUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/ListView.css';
@@ -129,12 +130,12 @@ const getColumnWeight = (colId) => {
 
 const formatDateTime = (dateStr) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (isNaN(d.getTime())) return dateStr;
+    const parts = formatDateTimeLinesUtc(dateStr);
+    if (!parts) return dateStr;
     return (
         <Box sx={{ lineHeight: 1.3 }}>
-            <Box>{d.toLocaleDateString('vi-VN')}</Box>
-            <Box>{d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</Box>
+            <Box>{parts.datePart}</Box>
+            <Box>{parts.timePart}</Box>
         </Box>
     );
 };
