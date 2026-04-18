@@ -1128,9 +1128,6 @@ const ViewPurchaseOrderDetail = () => {
                             {orderData.justification &&
                                 renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
 
-                            {orderData.justification &&
-                                renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
-
                             {(orderData.quotationFileUrl || orderData.contractAppendixFileUrl) && (
                                 <div style={styles.fieldWrap}>
                                     <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
@@ -1159,10 +1156,13 @@ const ViewPurchaseOrderDetail = () => {
                                         )}
                                     </div>
                                 </div>
-                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-                );
+            </div>
+        </div>
+    );
 };
 
-                export default ViewPurchaseOrderDetail;
+export default ViewPurchaseOrderDetail;

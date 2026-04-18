@@ -1297,7 +1297,7 @@ const CreateGoodReceiptNote = () => {
                                 </div>
                                 <div className="form-field">
                                     <label htmlFor="receiptDate" className="form-label">
-                                        Ngày nhập dự kiến
+                                        Ngày nhập
                                     </label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
