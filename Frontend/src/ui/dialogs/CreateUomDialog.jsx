@@ -106,3 +106,5 @@ export default function CreateUomDialog({ open, onClose, onSubmit }) {
         </Dialog>
     );
 }
+
+export { CreateUomDialog };

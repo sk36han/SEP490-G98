@@ -1,9 +1,23 @@
 import axios from 'axios';
 
-// Backend API base URL: dùng biến môi trường để tránh 404 khi backend chạy port/URL khác
-const apiBaseURL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL
-    ? import.meta.env.VITE_API_BASE_URL
-    : 'http://localhost:5141/api';
+/**
+ * Base URL cho API:
+ * - Nếu có VITE_API_BASE_URL → dùng (production / tùy chỉnh).
+ * - Dev (không set env): dùng `/api` + proxy trong vite.config → cùng origin với Vite, tránh lỗi cross-origin.
+ * - Fallback build: trực tiếp localhost.
+ */
+const getApiBaseURL = () => {
+    const env = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_BASE_URL : '';
+    if (env && String(env).trim() !== '') {
+        return String(env).trim().replace(/\/$/, '');
+    }
+    if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+        return '/api';
+    }
+    return 'http://localhost:5141/api';
+};
+
+const apiBaseURL = getApiBaseURL();
 
 const apiClient = axios.create({
     baseURL: apiBaseURL,
@@ -13,12 +27,25 @@ const apiClient = axios.create({
     timeout: 60000, // 60 seconds timeout
 });
 
+/** Các endpoint đăng nhập / OTP không được gửi kèm Bearer (token cũ có thể làm backend trả lỗi). */
+const isPublicAuthRequest = (config) => {
+    const path = String(config.url || '').split('?')[0].toLowerCase();
+    return (
+        path.includes('/auth/login') ||
+        path.includes('/auth/verify-otp') ||
+        path.includes('/auth/forgot-password') ||
+        path.includes('/auth/reset-password')
+    );
+};
+
 // Request interceptor - Add auth token to requests
 apiClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
-        if (token) {
+        if (token && !isPublicAuthRequest(config)) {
             config.headers.Authorization = `Bearer ${token}`;
+        } else if (isPublicAuthRequest(config)) {
+            delete config.headers.Authorization;
         }
         return config;
     },

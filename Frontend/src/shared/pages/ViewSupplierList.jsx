@@ -338,7 +338,7 @@ export default function ViewSupplierList() {
     // ── Render ────────────────────────────────────────────────────
     return (
         <Box sx={{
-            height: '100%', minHeight: 0, minWidth: 0,
+            flex: 1, minHeight: 0, minWidth: 0,
             overflow: 'hidden', display: 'flex', flexDirection: 'column',
             bgcolor: '#fafafa',
         }}>

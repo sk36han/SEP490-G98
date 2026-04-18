@@ -22,9 +22,9 @@
     width: 100%;
 }
 
-/* Đảm bảo vùng bảng luôn có chiều cao tối thiểu, tránh bảng bị "mất" khi layout flex co về 0 */
+/* Flex co về 0 được; không ép min-height lớn để tránh đẩy scroll cả khối layout */
 .list-view .list-grid-card {
-    min-height: 400px;
+    min-height: 0;
 }
 
 .list-view .list-grid-wrapper,

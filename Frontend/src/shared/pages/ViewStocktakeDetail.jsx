@@ -8,16 +8,18 @@ import {
     Warehouse,
     Calendar,
     CheckCircle,
-    Clock,
     XCircle,
     Edit,
     Save,
     X,
     Search,
     Printer,
+    Package,
+    ImageIcon,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
+import { StatusBadge } from '@ui/badges';
 
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -32,6 +34,7 @@ import {
     startStocktakeExecution,
     completeStocktake,
 } from '../lib/stocktakeService';
+import { getStocktakeStatusBadgeKey, normalizeStocktakeStatus } from '../lib/stocktakeStatusBadge';
 import { getItemsByWarehouse } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
 
@@ -40,20 +43,6 @@ const formatUTC = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
     return d.toLocaleString('vi-VN', { timeZone: 'UTC' });
-};
-
-const STATUS_MAP = {
-    'DRAFT': { label: 'Bản nháp', color: '#6b7280', bgColor: 'rgba(107, 114, 128, 0.2)' },
-    'IN_PROGRESS': { label: 'Đang thực hiện', color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.2)' },
-    'PENDING_APPROVAL': { label: 'Chờ duyệt', color: '#fbbf24', bgColor: 'rgba(251, 191, 36, 0.2)' },
-    'APPROVED': { label: 'Đã duyệt', color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.2)' },
-    'COMPLETED': { label: 'Hoàn thành', color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.2)' },
-    'CANCELLED': { label: 'Đã hủy', color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.2)' },
-};
-
-const MODE_MAP = {
-    'PERIODIC': { label: 'Định kỳ', color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.2)' },
-    'ADHOC': { label: 'Đột xuất', color: '#a855f7', bgColor: 'rgba(168, 85, 247, 0.2)' },
 };
 
 const ViewStocktakeDetail = () => {
@@ -296,15 +285,6 @@ const ViewStocktakeDetail = () => {
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [isCounting]);
-
-    const normalizeStocktakeStatus = (status) => {
-        if (!status) return '';
-        return String(status)
-            .trim()
-            .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-            .replace(/[\s-]+/g, '_')
-            .toUpperCase();
-    };
 
     const isInProgressStatus = (status) => {
         const normalized = normalizeStocktakeStatus(status);
@@ -587,43 +567,16 @@ const ViewStocktakeDetail = () => {
                         <span style={{ color: '#9ca3af', fontSize: '14px' }}>Đang chờ giám đốc duyệt kết quả</span>
                     )}
                 </div>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    {stocktakeData.mode && MODE_MAP[stocktakeData.mode] && (
-                        <div
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: 20,
-                                backgroundColor: MODE_MAP[stocktakeData.mode].bgColor,
-                                color: MODE_MAP[stocktakeData.mode].color,
-                                fontWeight: 600,
-                                fontSize: '13px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                            }}
-                        >
-                            {MODE_MAP[stocktakeData.mode].label}
-                        </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {stocktakeData.mode && (
+                        <StatusBadge status={stocktakeData.mode} dot="•" variant="dot" />
                     )}
-                    {stocktakeData.status && STATUS_MAP[stocktakeData.status] && (
-                        <div
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: 20,
-                                backgroundColor: STATUS_MAP[stocktakeData.status].bgColor,
-                                color: STATUS_MAP[stocktakeData.status].color,
-                                fontWeight: 600,
-                                fontSize: '13px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                            }}
-                        >
-                            {stocktakeData.status === 'COMPLETED' && <CheckCircle size={16} />}
-                            {stocktakeData.status === 'CANCELLED' && <XCircle size={16} />}
-                            {(stocktakeData.status === 'DRAFT' || stocktakeData.status === 'PENDING_APPROVAL' || stocktakeData.status === 'IN_PROGRESS') && <Clock size={16} />}
-                            {STATUS_MAP[stocktakeData.status].label}
-                        </div>
+                    {stocktakeData.status && (
+                        <StatusBadge
+                            status={getStocktakeStatusBadgeKey(stocktakeData.status)}
+                            dot="•"
+                            variant="dot"
+                        />
                     )}
                 </div>
             </div>

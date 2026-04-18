@@ -302,7 +302,7 @@ const ViewDeactivatedUsersList = () => {
                 maxWidth: '100%',
                 ml: 0,
                 mr: 0,
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'visible',

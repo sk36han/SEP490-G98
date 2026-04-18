@@ -4,6 +4,7 @@ import { usePolling } from '../hooks/usePolling';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getStocktakeList } from '../lib/stocktakeService';
+import { getStocktakeStatusBadgeKey } from '../lib/stocktakeStatusBadge';
 import {
     Box,
     Card,
@@ -372,7 +373,7 @@ const ViewStocktakeList = () => {
     return (
         <Box
             sx={{
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'hidden',
@@ -923,7 +924,7 @@ const ViewStocktakeList = () => {
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                            <StatusBadge status={item.status} dot="•" variant="dot" />
+                                                                            <StatusBadge status={getStocktakeStatusBadgeKey(item.status)} dot="•" variant="dot" />
                                                                         </Box>
                                                                     </TableCell>
                                                                 );
