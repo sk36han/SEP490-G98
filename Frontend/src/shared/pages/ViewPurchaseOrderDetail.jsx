@@ -1157,7 +1157,6 @@ const ViewPurchaseOrderDetail = () => {
                                     </div>
                                 </div>
                             )}
-
                         </div>
                     </div>
                 </div>

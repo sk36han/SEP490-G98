@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace Warehouse.Entities.ModelRequest
 {
@@ -38,6 +39,17 @@ namespace Warehouse.Entities.ModelRequest
         /// </summary>
         [MaxLength(250, ErrorMessage = "Ghi chú không được vượt quá 250 ký tự.")]
         public string? Purpose { get; set; }
+
+        /// <summary>
+        /// Trạng thái yêu cầu (để gửi duyệt: PENDING_ACC, DRAFT)
+        /// </summary>
+        [MaxLength(30)]
+        public string? Status { get; set; }
+
+        /// <summary>
+        /// Cho phép xuất từng phần
+        /// </summary>
+        public bool? IsPartialDeliveryAllowed { get; set; }
 
         /// <summary>
         /// Danh sách vật tư cập nhật.
@@ -83,6 +95,13 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(500, ErrorMessage = "Ghi chú dòng không được vượt quá 500 ký tự.")]
         public string? Note { get; set; }
 
+        /// <summary>
+        /// Đơn giá từ Hợp đồng / Báo giá (Tùy chọn, Sale nhập)
+        /// </summary>
+        [Range(0, 999999999999, ErrorMessage = "Đơn giá không hợp lệ.")]
+        public decimal? UnitPrice { get; set; }
+
+        /// <summary>
         /// Tùy chọn đóng gói
         /// </summary>
         public long? PackagingSpecId { get; set; }
