@@ -19,27 +19,27 @@ import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import { getReleaseRequestDetail, submitReleaseRequest, approveReleaseRequest } from '../lib/releaseRequestService';
+import { formatDateOnly as formatDate, formatDateTime } from '../lib/dateUtils';
 import '../styles/CreateSupplier.css';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN');
-}
-
-function formatDateTime(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-}
-
 function formatAddress(address, ward, district, city) {
     const parts = [address, ward, district, city].filter(Boolean);
     return parts.length ? parts.join(', ') : '';
+}
+
+const toAbsoluteFileUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
+    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+/** Backend DocumentApprovals dùng APPROVE/REJECT; UI cũ so khớp APPROVED */
+function isApprovalPositive(decision) {
+    const d = (decision || '').toUpperCase();
+    return d === 'APPROVE' || d === 'APPROVED';
 }
 
 // LifecycleChip — uses IssueFull/IssuePartial/IssuePending from StatusBadge
@@ -203,7 +203,7 @@ export default function ViewReleaseRequestDetail() {
     if (!data) return null;
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page view-release-request-detail-page">
             {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
@@ -256,7 +256,7 @@ export default function ViewReleaseRequestDetail() {
                                 </p>
                             </Box>
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                <StatusChip status={data.status} />
+                                <StatusBadge status={data.status} />
                                 {data.lifecycleStatus && <LifecycleChip lifecycleStatus={data.lifecycleStatus} />}
                             </Box>
                         </Box>
@@ -327,6 +327,9 @@ export default function ViewReleaseRequestDetail() {
                                     <InfoRow icon={Calendar} label="Ngày xuất dự kiến" value={formatDate(data.expectedDate)} />
                                     <InfoRow icon={Calendar} label="Ngày yêu cầu" value={formatDate(data.requestedDate)} />
                                     <InfoRow icon={Calendar} label="Ngày tạo" value={formatDateTime(data.createdAt)} />
+                                    <InfoRow icon={Calendar} label="Gửi duyệt" value={formatDateTime(data.submittedAt)} />
+                                    <InfoRow icon={Calendar} label="Duyệt (kế toán)" value={formatDateTime(data.approvedAt)} />
+                                    <InfoRow icon={FileText} label="Xuất từng phần" value={data.isPartialDeliveryAllowed ? 'Cho phép' : 'Không'} />
                                     <InfoRow icon={FileText} label="Lý do xuất" value={data.purpose} fullWidth />
                                 </Box>
                             </div>
@@ -357,7 +360,7 @@ export default function ViewReleaseRequestDetail() {
                                                     <TableRow sx={{ bgcolor: '#fafafa' }}>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', width: 50, textAlign: 'center' }}>STT</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb' }}>Vật tư</TableCell>
-                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 80 }}>Tồn kho</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 80 }}>Tồn khả dụng</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL yêu cầu</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL duyệt</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL phân bổ</TableCell>
@@ -387,6 +390,7 @@ export default function ViewReleaseRequestDetail() {
                                                                         </Typography>
                                                                         <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
                                                                             Mã: {line.itemCode} | ĐVT: {line.uomName}
+                                                                            {line.packagingSpecName ? ` | Đóng gói: ${line.packagingSpecName}` : ''}
                                                                         </Typography>
                                                                     </Box>
                                                                 </Box>
@@ -415,6 +419,39 @@ export default function ViewReleaseRequestDetail() {
                                             </Table>
                                         </TableContainer>
                                     )}
+
+                                    <Box
+                                        sx={{
+                                            mt: 2.5,
+                                            pt: lines.length > 0 ? 2.5 : 0,
+                                            borderTop: lines.length > 0 ? '1px solid #e5e7eb' : 'none',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 1.25,
+                                        }}
+                                    >
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                            <Typography sx={{ color: '#6b7280' }}>Tổng số lượng đã xuất:</Typography>
+                                            <Typography sx={{ fontWeight: 600, color: '#7c3aed' }}>{summary.totalIssuedQty.toLocaleString()}</Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                            <Typography sx={{ color: '#6b7280' }}>Tổng số lượng sẽ xuất:</Typography>
+                                            <Typography sx={{ fontWeight: 600, color: '#2563eb' }}>{summary.totalWillIssueQty.toLocaleString()}</Typography>
+                                        </Box>
+                                        {summary.totalLineAmount > 0 ? (
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                                <Typography sx={{ color: '#6b7280' }}>Tổng tiền Đơn Xuất:</Typography>
+                                                <Typography sx={{ fontWeight: 700, color: '#dc2626', fontSize: '15px' }}>
+                                                    {Number(summary.totalLineAmount).toLocaleString('vi-VN')} đ
+                                                </Typography>
+                                            </Box>
+                                        ) : (
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                                <Typography sx={{ color: '#6b7280' }}>Tổng tiền Đơn Xuất:</Typography>
+                                                <Typography sx={{ fontWeight: 600, color: '#9ca3af' }}>-</Typography>
+                                            </Box>
+                                        )}
+                                    </Box>
                                 </div>
                             )}
 
@@ -445,6 +482,7 @@ export default function ViewReleaseRequestDetail() {
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', width: 50, textAlign: 'center' }}>STT</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb' }}>Vật tư</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'center', width: 60 }}>ĐVT</TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 100 }}>Giá vốn (đ)</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 90 }}>SL sẽ xuất</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 110 }}>Đơn giá (đ)</TableCell>
                                                         <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#6b7280', py: 1.5, px: 2, borderBottom: '2px solid #e5e7eb', textAlign: 'right', width: 120 }}>Thành tiền (đ)</TableCell>
@@ -463,10 +501,14 @@ export default function ViewReleaseRequestDetail() {
                                                                 </Typography>
                                                                 <Typography sx={{ fontSize: 11, color: '#6b7280' }}>
                                                                     Mã: {line.itemCode}
+                                                                    {line.packagingSpecName ? ` | Đóng gói: ${line.packagingSpecName}` : ''}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'center', borderBottom: '1px solid #f3f4f6', color: '#6b7280' }}>
                                                                 {line.uomName || '-'}
+                                                            </TableCell>
+                                                            <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#374151' }}>
+                                                                {Number(line.costPrice) > 0 ? Number(line.costPrice).toLocaleString('vi-VN') : '-'}
                                                             </TableCell>
                                                             <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderBottom: '1px solid #f3f4f6', color: '#2563eb', fontWeight: 600 }}>
                                                                 {(Number(line.approvedQty) || 0).toLocaleString()}
@@ -481,7 +523,7 @@ export default function ViewReleaseRequestDetail() {
                                                     ))}
                                                     {/* TỔNG CỘNG */}
                                                     <TableRow sx={{ bgcolor: '#fef3c7', '& td': { borderBottom: 0 } }}>
-                                                        <TableCell colSpan={3} sx={{ px: 2, py: 1.5, fontSize: 13, fontWeight: 700, color: '#92400e', textAlign: 'right' }}>
+                                                        <TableCell colSpan={4} sx={{ px: 2, py: 1.5, fontSize: 13, fontWeight: 700, color: '#92400e', textAlign: 'right' }}>
                                                             TỔNG CỘNG
                                                         </TableCell>
                                                         <TableCell sx={{ px: 2, py: 1.5, fontSize: 13, textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>
@@ -544,6 +586,9 @@ export default function ViewReleaseRequestDetail() {
                                     {data.receiverPosition && (
                                         <InfoRow icon={Briefcase} label="Chức vụ" value={data.receiverPosition} />
                                     )}
+                                    {data.receiver?.notes && (
+                                        <InfoRow icon={FileText} label="Ghi chú người nhận" value={data.receiver.notes} fullWidth />
+                                    )}
                                 </Box>
                             </div>
 
@@ -560,60 +605,36 @@ export default function ViewReleaseRequestDetail() {
                                 </Box>
                             </div>
 
-                            {/* Tổng kết */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng kết</h2>
-                                </div>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                        <Typography sx={{ color: '#6b7280' }}>Tổng vật tư:</Typography>
-                                        <Typography sx={{ fontWeight: 600, color: '#111827' }}>{summary.totalItems}</Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                        <Typography sx={{ color: '#6b7280' }}>Tổng SL yêu cầu:</Typography>
-                                        <Typography sx={{ fontWeight: 600, color: '#111827' }}>{summary.totalRequestedQty.toLocaleString()}</Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                        <Typography sx={{ color: '#6b7280' }}>Tổng SL duyệt:</Typography>
-                                        <Typography sx={{ fontWeight: 600, color: '#059669' }}>{summary.totalApprovedQty.toLocaleString()}</Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                        <Typography sx={{ color: '#6b7280' }}>Tổng SL phân bổ:</Typography>
-                                        <Typography sx={{ fontWeight: 600, color: '#2563eb' }}>{summary.totalAllocatedQty.toLocaleString()}</Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                        <Typography sx={{ color: '#6b7280' }}>Tổng SL đã xuất:</Typography>
-                                        <Typography sx={{ fontWeight: 600, color: '#7c3aed' }}>{summary.totalIssuedQty.toLocaleString()}</Typography>
-                                    </Box>
-                                </Box>
-                            </div>
-
-                            {/* Tổng tiền */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng tiền</h2>
-                                </div>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                        <Typography sx={{ color: '#6b7280' }}>SL sẽ xuất:</Typography>
-                                        <Typography sx={{ fontWeight: 600, color: '#2563eb' }}>{summary.totalWillIssueQty.toLocaleString()}</Typography>
-                                    </Box>
-                                    {summary.totalLineAmount > 0 ? (
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                            <Typography sx={{ color: '#6b7280' }}>Tổng tiền RR:</Typography>
-                                            <Typography sx={{ fontWeight: 700, color: '#dc2626', fontSize: '15px' }}>
-                                                {Number(summary.totalLineAmount).toLocaleString('vi-VN')} đ
+                            {/* Tệp đính kèm */}
+                            {Array.isArray(data.attachments) && data.attachments.length > 0 && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <FileText size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                            Tệp đính kèm
+                                        </h2>
+                                    </div>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        {data.attachments.map((att, i) => (
+                                            <Typography key={att.attachmentId ?? i} sx={{ fontSize: 13 }}>
+                                                <a
+                                                    href={toAbsoluteFileUrl(att.fileUrl)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ color: '#2563eb', fontWeight: 500 }}
+                                                >
+                                                    {att.fileName || 'Tệp đính kèm'}
+                                                </a>
+                                                {att.attachmentType && (
+                                                    <Typography component="span" sx={{ fontSize: 11, color: '#9ca3af', ml: 1 }}>
+                                                        ({att.attachmentType})
+                                                    </Typography>
+                                                )}
                                             </Typography>
-                                        </Box>
-                                    ) : (
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                                            <Typography sx={{ color: '#6b7280' }}>Tổng tiền RR:</Typography>
-                                            <Typography sx={{ fontWeight: 600, color: '#9ca3af' }}>-</Typography>
-                                        </Box>
-                                    )}
-                                </Box>
-                            </div>
+                                        ))}
+                                    </Box>
+                                </div>
+                            )}
 
                             {/* Lịch sử duyệt */}
                             {approvals.length > 0 && (
@@ -627,14 +648,14 @@ export default function ViewReleaseRequestDetail() {
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                         {approvals.map((ap, i) => (
                                             <Box key={ap.approvalId ?? i} sx={{ display: 'flex', gap: 1.5, fontSize: 13 }}>
-                                                <Box sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: ap.decision === 'APPROVED' ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, mt: 0.3 }}>
-                                                    {ap.decision === 'APPROVED'
+                                                <Box sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: isApprovalPositive(ap.decision) ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, mt: 0.3 }}>
+                                                    {isApprovalPositive(ap.decision)
                                                         ? <CheckCircle size={12} color="#fff" />
                                                         : <XCircle size={12} color="#fff" />}
                                                 </Box>
                                                 <Box sx={{ flex: 1 }}>
                                                     <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
-                                                        {ap.decision === 'APPROVED' ? 'Duyệt' : 'Từ chối'}
+                                                        {isApprovalPositive(ap.decision) ? 'Duyệt' : 'Từ chối'}
                                                         {ap.reason && <Typography component="span" sx={{ fontWeight: 400, color: '#6b7280' }}> — {ap.reason}</Typography>}
                                                     </Typography>
                                                     <Typography sx={{ fontSize: 11, color: '#9ca3af' }}>

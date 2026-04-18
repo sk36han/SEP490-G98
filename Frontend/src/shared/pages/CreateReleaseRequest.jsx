@@ -4,6 +4,7 @@ import {
     ArrowLeft, Plus, X, MapPin, User, Send, Loader,
     Package, Search, Trash2,
     Building2, Phone, Mail, Briefcase, Save,
+    FileSpreadsheet, FileText, FileStack,
 } from 'lucide-react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
@@ -22,9 +23,31 @@ import { getReceiversByCompany } from '../lib/receiverService';
 import { getAddressesByCompany } from '../lib/addressService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsByWarehouse } from '../lib/itemService';
-import { createReleaseRequest } from '../lib/releaseRequestService';
+import { createReleaseRequest, uploadReleaseRequestAttachments } from '../lib/releaseRequestService';
 import '../styles/CreateSupplier.css';
 const MAX_NOTE = 250;
+const MAX_LINE_NOTE = 500;
+
+/** Tiền VNĐ: làm tròn số nguyên, không phần thập phân */
+function formatVndInteger(amount) {
+    if (amount === '' || amount == null || Number.isNaN(Number(amount))) return null;
+    const n = Math.round(Number(amount));
+    return `${n.toLocaleString('vi-VN')} VNĐ`;
+}
+
+function formatUnitPriceVnd(line) {
+    const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
+    if (unit == null || Number.isNaN(unit)) return null;
+    return formatVndInteger(unit);
+}
+
+/** Thành tiền dòng = SL × đơn giá (null nếu không tính được) */
+function formatLineTotalVnd(line) {
+    const qty = Number(line.quantity) || 0;
+    const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
+    if (unit == null || Number.isNaN(unit)) return null;
+    return formatVndInteger(qty * unit);
+}
 
 function normalizeId(value) {
     if (value === null || value === undefined || value === '') return '';
@@ -67,6 +90,7 @@ export default function CreateReleaseRequest() {
         expectedDate: new Date().toISOString().slice(0, 10),
         purpose: '',
         note: '',
+        isPartialDeliveryAllowed: true,
     });
 
     const [addressMode, setAddressMode] = useState('list');
@@ -78,6 +102,9 @@ export default function CreateReleaseRequest() {
     });
 
     const [lineItems, setLineItems] = useState([]);
+    const [quotationFile, setQuotationFile] = useState(null);
+    const [contractFile, setContractFile] = useState(null);
+    const [appendixFile, setAppendixFile] = useState(null);
     const [showItemSearch, setShowItemSearch] = useState(false);
     const [itemKeyword, setItemKeyword] = useState('');
     const [selectedItemIds, setSelectedItemIds] = useState([]);
@@ -275,6 +302,8 @@ export default function CreateReleaseRequest() {
             return;
         }
 
+        const defaultUnit = item.unitPrice ?? item.UnitPrice;
+        const specId = item.packagingSpecId ?? item.PackagingSpecId;
         setLineItems((prev) => [
             ...prev,
             {
@@ -286,6 +315,9 @@ export default function CreateReleaseRequest() {
                 uomId: normalizeId(item.uomId ?? item.UomId),
                 availableQty: Number(item.availableQty ?? item.AvailableQty ?? item.onHandQty ?? item.OnHandQty ?? 0),
                 quantity: 1,
+                unitPrice: defaultUnit != null && defaultUnit !== '' ? Number(defaultUnit) : '',
+                packagingSpecId: specId != null && specId !== '' ? normalizeId(specId) : '',
+                packagingSpecName: item.packagingSpecName ?? item.PackagingSpecName ?? '',
                 note: '',
             },
         ]);
@@ -308,17 +340,24 @@ export default function CreateReleaseRequest() {
         const newLines = items
             .filter((item) => selectedItemIds.includes(normalizeId(item.itemId ?? item.ItemId)))
             .filter((item) => !existingIds.has(normalizeId(item.itemId ?? item.ItemId)))
-            .map((item) => ({
-                id: `${Date.now()}-${Math.random()}`,
-                itemId: normalizeId(item.itemId ?? item.ItemId),
-                itemName: item.itemName ?? item.ItemName ?? '',
-                itemCode: item.itemCode ?? item.ItemCode ?? '',
-                uomName: item.uomName ?? item.baseUomName ?? item.UomName ?? '',
-                uomId: normalizeId(item.uomId ?? item.UomId),
-                availableQty: Number(item.availableQty ?? item.AvailableQty ?? item.onHandQty ?? item.OnHandQty ?? 0),
-                quantity: 1,
-                note: '',
-            }));
+            .map((item) => {
+                const defaultUnit = item.unitPrice ?? item.UnitPrice;
+                const specId = item.packagingSpecId ?? item.PackagingSpecId;
+                return {
+                    id: `${Date.now()}-${Math.random()}`,
+                    itemId: normalizeId(item.itemId ?? item.ItemId),
+                    itemName: item.itemName ?? item.ItemName ?? '',
+                    itemCode: item.itemCode ?? item.ItemCode ?? '',
+                    uomName: item.uomName ?? item.baseUomName ?? item.UomName ?? '',
+                    uomId: normalizeId(item.uomId ?? item.UomId),
+                    availableQty: Number(item.availableQty ?? item.AvailableQty ?? item.onHandQty ?? item.OnHandQty ?? 0),
+                    quantity: 1,
+                    unitPrice: defaultUnit != null && defaultUnit !== '' ? Number(defaultUnit) : '',
+                    packagingSpecId: specId != null && specId !== '' ? normalizeId(specId) : '',
+                    packagingSpecName: item.packagingSpecName ?? item.PackagingSpecName ?? '',
+                    note: '',
+                };
+            });
 
         if (newLines.length) {
             setLineItems((prev) => [...prev, ...newLines]);
@@ -351,10 +390,23 @@ export default function CreateReleaseRequest() {
         [addresses, selectedAddressId]
     );
 
-    const summary = useMemo(() => ({
-        itemCount: lineItems.length,
-        totalQty: lineItems.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0),
-    }), [lineItems]);
+    /** Tóm tắt Đơn Xuất (cột phải): tổng loại vật tư + tổng tiền ước tính */
+    const issueOrderSummary = useMemo(() => {
+        let total = 0;
+        let hasAny = false;
+        for (const line of lineItems) {
+            const qty = Number(line.quantity) || 0;
+            const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
+            if (unit != null && !Number.isNaN(unit)) {
+                total += qty * unit;
+                hasAny = true;
+            }
+        }
+        return {
+            materialCount: lineItems.length,
+            totalVndLabel: hasAny ? formatVndInteger(total) : null,
+        };
+    }, [lineItems]);
 
     const canSaveDraft = useMemo(() => (
         Boolean(selectedCompanyId)
@@ -370,6 +422,13 @@ export default function CreateReleaseRequest() {
         && Boolean(form.purpose.trim())
         && lineItems.length > 0
     ), [selectedCompanyId, selectedReceiverId, form.warehouseId, form.purpose, lineItems]);
+
+    /** Gửi duyệt: backend bắt buộc đủ báo giá + hợp đồng (upload sau khi tạo) */
+    const canSubmitForApproval = useMemo(() => (
+        canCreateRequest
+        && Boolean(quotationFile)
+        && Boolean(contractFile)
+    ), [canCreateRequest, quotationFile, contractFile]);
 
     const buildPayload = () => {
         let address = '';
@@ -398,6 +457,7 @@ export default function CreateReleaseRequest() {
             expectedDate: form.expectedDate || null,
             purpose: form.purpose.trim() || null,
             note: form.note.trim() || null,
+            isPartialDeliveryAllowed: Boolean(form.isPartialDeliveryAllowed),
             addressId,
             address,
             city,
@@ -408,6 +468,8 @@ export default function CreateReleaseRequest() {
                 requestedQty: Number(line.quantity),
                 uomId: line.uomId ? Number(line.uomId) : null,
                 note: line.note?.trim() || null,
+                unitPrice: line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice),
+                packagingSpecId: line.packagingSpecId ? Number(line.packagingSpecId) : null,
             })),
         };
     };
@@ -416,8 +478,27 @@ export default function CreateReleaseRequest() {
         e?.preventDefault();
         setSavingDraft(true);
         try {
-            await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
-            showToast('Lưu nháp thành công!', 'success');
+            const res = await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
+            const rrId = res?.releaseRequestId ?? res?.ReleaseRequestId;
+            let uploadWarning = '';
+            if (rrId && (quotationFile || contractFile || appendixFile)) {
+                try {
+                    await uploadReleaseRequestAttachments(rrId, {
+                        quotationFile,
+                        contractFile,
+                        appendixFile,
+                    });
+                } catch (uploadErr) {
+                    const data = uploadErr?.response?.data;
+                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
+                }
+            }
+            showToast(
+                uploadWarning
+                    ? `Lưu nháp thành công, nhưng upload file lỗi: ${uploadWarning}`
+                    : 'Lưu nháp thành công!',
+                uploadWarning ? 'warning' : 'success'
+            );
             setTimeout(() => navigate('/release-request'), 1500);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Lưu nháp thất bại.';
@@ -458,11 +539,34 @@ export default function CreateReleaseRequest() {
             showToast('Vui lòng nhập địa chỉ giao hàng.', 'error');
             return;
         }
+        if (!quotationFile || !contractFile) {
+            showToast('Vui lòng tải lên đủ Báo giá và Hợp đồng trước khi gửi duyệt.', 'error');
+            return;
+        }
 
         setSubmitting(true);
         try {
-            await createReleaseRequest({ ...buildPayload(), status: 'PENDING_ACC' });
-            showToast('Tạo yêu cầu xuất hàng thành công!', 'success');
+            const res = await createReleaseRequest({ ...buildPayload(), status: 'PENDING_ACC' });
+            const rrId = res?.releaseRequestId ?? res?.ReleaseRequestId;
+            let uploadWarning = '';
+            if (rrId && (quotationFile || contractFile || appendixFile)) {
+                try {
+                    await uploadReleaseRequestAttachments(rrId, {
+                        quotationFile,
+                        contractFile,
+                        appendixFile,
+                    });
+                } catch (uploadErr) {
+                    const data = uploadErr?.response?.data;
+                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
+                }
+            }
+            showToast(
+                uploadWarning
+                    ? `Tạo yêu cầu xuất hàng thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
+                    : `Tạo yêu cầu xuất hàng thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}!`,
+                uploadWarning ? 'warning' : 'success'
+            );
             setTimeout(() => navigate('/release-request'), 1500);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Tạo yêu cầu xuất hàng thất bại.';
@@ -496,8 +600,8 @@ export default function CreateReleaseRequest() {
                     <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
                         {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
                     </button>
-                    <button type="button" className="btn btn-primary" disabled={!canCreateRequest || submitting || savingDraft} onClick={handleCreateRequest}>
-                        {submitting ? <><Loader size={15} className="spinner" />Đang gửi...</> : <><Send size={15} />Tạo Yêu Cầu Xuất Hàng</>}
+                    <button type="button" className="btn btn-primary" disabled={!canSubmitForApproval || submitting || savingDraft} onClick={handleCreateRequest} title={!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined}>
+                        {submitting ? <><Loader size={15} className="spinner" />Đang gửi...</> : <><Send size={15} />Tạo & Gửi duyệt</>}
                     </button>
                 </div>
             </div>
@@ -509,6 +613,7 @@ export default function CreateReleaseRequest() {
                         <p className="form-card-required-note">Các trường <span className="required-mark">*</span> là bắt buộc</p>
                     </div>
 
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                     <div className="create-release-request-layout">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                             <div className="info-section" style={{ margin: 0 }}>
@@ -646,42 +751,6 @@ export default function CreateReleaseRequest() {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">
                                         <span style={{ marginRight: 8, color: '#2196F3', fontWeight: 700 }}>2</span>
-                                        Thông tin xuất hàng
-                                    </h2>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label className="form-label">Kho xuất <span className="required-mark">*</span></label>
-                                        <div className="input-wrapper">
-                                            <Package className="input-icon" size={16} />
-                                            <select value={form.warehouseId} onChange={handleWarehouseChange} className="form-input" style={{ paddingLeft: 40 }}>
-                                                <option value="">Chọn kho xuất</option>
-                                                {warehouses.map((warehouse) => (
-                                                    <option key={normalizeId(warehouse.warehouseId ?? warehouse.WarehouseId)} value={normalizeId(warehouse.warehouseId ?? warehouse.WarehouseId)}>
-                                                        {warehouse.warehouseName ?? warehouse.WarehouseName ?? ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label className="form-label">Ngày dự kiến</label>
-                                        <input type="date" value={form.expectedDate} onChange={(e) => setForm((prev) => ({ ...prev, expectedDate: e.target.value }))} className="form-input" />
-                                    </div>
-
-                                    <div className="form-field" style={{ margin: 0, gridColumn: '1 / -1' }}>
-                                        <label className="form-label">Lý do xuất hàng <span className="required-mark">*</span></label>
-                                        <input type="text" value={form.purpose} onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))} className="form-input" placeholder="Nhập lý do xuất hàng" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">
-                                        <span style={{ marginRight: 8, color: '#2196F3', fontWeight: 700 }}>3</span>
                                         Danh sách vật tư
                                     </h2>
                                     <div style={{ display: 'flex', gap: 8 }}>
@@ -689,6 +758,21 @@ export default function CreateReleaseRequest() {
                                             <Search size={14} />
                                             Thêm vật tư
                                         </button>
+                                    </div>
+                                </div>
+
+                                <div className="form-field" style={{ margin: '0 0 16px' }}>
+                                    <label className="form-label">Kho xuất <span className="required-mark">*</span></label>
+                                    <div className="input-wrapper">
+                                        <Package className="input-icon" size={16} />
+                                        <select value={form.warehouseId} onChange={handleWarehouseChange} className="form-input" style={{ paddingLeft: 40 }}>
+                                            <option value="">Chọn kho xuất</option>
+                                            {warehouses.map((warehouse) => (
+                                                <option key={normalizeId(warehouse.warehouseId ?? warehouse.WarehouseId)} value={normalizeId(warehouse.warehouseId ?? warehouse.WarehouseId)}>
+                                                    {warehouse.warehouseName ?? warehouse.WarehouseName ?? ''}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
 
@@ -738,7 +822,7 @@ export default function CreateReleaseRequest() {
                                         Chưa có vật tư nào.
                                     </div>
                                 ) : (
-                                    <div className="table-container" style={{ overflowX: 'auto' }}>
+                                    <div className="table-container" style={{ overflowX: 'auto', marginBottom: 0 }}>
                                         <table className="product-table">
                                             <thead>
                                                 <tr>
@@ -746,7 +830,9 @@ export default function CreateReleaseRequest() {
                                                     <th>Vật tư</th>
                                                     <th style={{ width: 120, textAlign: 'right' }}>Tồn kho</th>
                                                     <th style={{ width: 140, textAlign: 'center' }}>Số lượng</th>
-                                                    <th>Ghi chú</th>
+                                                    <th style={{ width: 140, textAlign: 'right' }}>Đơn giá (VNĐ)</th>
+                                                    <th style={{ width: 150, textAlign: 'right' }}>Thành tiền (VNĐ)</th>
+                                                    <th style={{ minWidth: 120, maxWidth: 180, textAlign: 'left' }}>Ghi chú</th>
                                                     <th style={{ width: 60 }}></th>
                                                 </tr>
                                             </thead>
@@ -754,9 +840,15 @@ export default function CreateReleaseRequest() {
                                                 {lineItems.map((line, index) => (
                                                     <tr key={line.id}>
                                                         <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                        <td>
-                                                            <div style={{ fontWeight: 600 }}>{line.itemName}</div>
-                                                            <div style={{ fontSize: 12, color: '#64748b' }}>Mã: {line.itemCode || '-'} • DVT: {line.uomName || '-'}</div>
+                                                        <td style={{ maxWidth: 280, verticalAlign: 'top' }}>
+                                                            <div className="rr-line-item-title" style={{ fontWeight: 600 }} title={line.itemName}>
+                                                                {line.itemName}
+                                                            </div>
+                                                            <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.45 }}>
+                                                                Mã: {line.itemCode || '—'}
+                                                                {line.packagingSpecName ? ` • Quy cách: ${line.packagingSpecName}` : ''}
+                                                                {' • '}DVT: {line.uomName || '—'}
+                                                            </div>
                                                         </td>
                                                         <td style={{ textAlign: 'right' }}>{Number(line.availableQty || 0).toLocaleString()}</td>
                                                         <td>
@@ -773,8 +865,25 @@ export default function CreateReleaseRequest() {
                                                                 style={{ minWidth: 100 }}
                                                             />
                                                         </td>
-                                                        <td>
-                                                            <input type="text" value={line.note} onChange={(e) => updateLine(index, 'note', e.target.value)} className="form-input" placeholder="Ghi chú dòng vật tư" />
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#374151', fontSize: 13 }}>
+                                                            {formatUnitPriceVnd(line) ?? <span style={{ color: '#94a3b8' }}>—</span>}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#111827', fontSize: 13 }}>
+                                                            {formatLineTotalVnd(line) ?? <span style={{ color: '#94a3b8', fontWeight: 400 }}>—</span>}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
+                                                            <input
+                                                                type="text"
+                                                                value={line.note ?? ''}
+                                                                onChange={(e) => {
+                                                                    const v = e.target.value;
+                                                                    if (v.length <= MAX_LINE_NOTE) updateLine(index, 'note', v);
+                                                                }}
+                                                                className="form-input"
+                                                                placeholder="Ghi chú"
+                                                                style={{ minWidth: 100, maxWidth: 180, width: '100%' }}
+                                                                title={line.note || undefined}
+                                                            />
                                                         </td>
                                                         <td>
                                                             <button type="button" className="btn btn-cancel btn-sm" onClick={() => removeLine(index)}>
@@ -787,51 +896,57 @@ export default function CreateReleaseRequest() {
                                         </table>
                                     </div>
                                 )}
+
+                                <div
+                                    style={{
+                                        marginTop: 16,
+                                        paddingTop: 16,
+                                        borderTop: '1px solid #e5e7eb',
+                                    }}
+                                >
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 12 }}>Tóm tắt Đơn Xuất</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, fontSize: 14 }}>
+                                            <span style={{ color: '#64748b', flexShrink: 0 }}>Tổng số vật tư xuất ra:</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                {issueOrderSummary.materialCount.toLocaleString('vi-VN')}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, fontSize: 14 }}>
+                                            <span style={{ color: '#64748b', flexShrink: 0 }}>Tổng giá tiền Đơn Xuất:</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right', fontVariantNumeric: 'tabular-nums', wordBreak: 'break-word' }}>
+                                                {issueOrderSummary.totalVndLabel ?? <span style={{ color: '#94a3b8', fontWeight: 500 }}>—</span>}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Thông tin chung</h2>
+                                    <h2 className="section-title">Thông tin xuất hàng</h2>
                                 </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                                        <span style={{ color: '#64748b' }}>Công ty:</span>
-                                        <span style={{ fontWeight: 500, color: '#374151', textAlign: 'right', maxWidth: 180 }}>
-                                            {selectedCompany?.companyName ?? selectedCompany?.CompanyName ?? '-'}
-                                        </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label className="form-label">Ngày xuất dự kiến</label>
+                                        <input type="date" value={form.expectedDate} onChange={(e) => setForm((prev) => ({ ...prev, expectedDate: e.target.value }))} className="form-input" />
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                                        <span style={{ color: '#64748b' }}>Người nhận:</span>
-                                        <span style={{ fontWeight: 500, color: '#374151', textAlign: 'right', maxWidth: 180 }}>
-                                            {receiverDetail?.receiverName ?? receiverDetail?.ReceiverName ?? '-'}
-                                        </span>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label className="form-label">Lý do xuất hàng <span className="required-mark">*</span></label>
+                                        <input type="text" value={form.purpose} onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))} className="form-input" placeholder="Nhập lý do xuất hàng" />
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                                        <span style={{ color: '#64748b' }}>Địa chỉ:</span>
-                                        <span style={{ fontWeight: 500, color: '#374151', textAlign: 'right', maxWidth: 180 }}>
-                                            {addressMode === 'custom'
-                                                ? formatAddress(customAddress.address, customAddress.ward, customAddress.district, customAddress.city) || '-'
-                                                : (selectedAddress
-                                                    ? formatAddress(selectedAddress.addressDetail ?? selectedAddress.AddressDetail, selectedAddress.ward ?? selectedAddress.Ward, selectedAddress.district ?? selectedAddress.District, selectedAddress.city ?? selectedAddress.City) || '-'
-                                                    : '-')}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                                        <span style={{ color: '#64748b' }}>Kho xuất:</span>
-                                        <span style={{ fontWeight: 500, color: '#374151', textAlign: 'right', maxWidth: 180 }}>
-                                            {form.warehouseName || '-'}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                                        <span style={{ color: '#64748b' }}>Số vật tư:</span>
-                                        <span style={{ fontWeight: 600 }}>{summary.itemCount}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                                        <span style={{ color: '#64748b' }}>Tổng số lượng:</span>
-                                        <span style={{ fontWeight: 600 }}>{summary.totalQty.toLocaleString()}</span>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(form.isPartialDeliveryAllowed)}
+                                                onChange={(e) => setForm((prev) => ({ ...prev, isPartialDeliveryAllowed: e.target.checked }))}
+                                                style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: '#2196F3' }}
+                                            />
+                                            Cho phép xuất kho từng phần (không bắt buộc đủ tồn một lần khi gửi duyệt)
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -859,7 +974,76 @@ export default function CreateReleaseRequest() {
                                     </div>
                                 </div>
                             </div>
+
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Tệp đính kèm</h2>
+                                </div>
+                                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+                                    Khi <strong>Tạo &amp; Gửi duyệt</strong>, bắt buộc có <strong>Báo giá</strong> và <strong>Hợp đồng</strong>. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label htmlFor="rr-quotation-file" className="form-label">
+                                            File báo giá <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileSpreadsheet className="input-icon" size={16} />
+                                            <input
+                                                id="rr-quotation-file"
+                                                type="file"
+                                                className="form-input"
+                                                onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
+                                            />
+                                        </div>
+                                        {quotationFile && (
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                Đã chọn: {quotationFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label htmlFor="rr-contract-file" className="form-label">
+                                            Hợp đồng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileText className="input-icon" size={16} />
+                                            <input
+                                                id="rr-contract-file"
+                                                type="file"
+                                                className="form-input"
+                                                onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                                            />
+                                        </div>
+                                        {contractFile && (
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                Đã chọn: {contractFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label htmlFor="rr-appendix-file" className="form-label">
+                                            Phụ lục hợp đồng <span style={{ fontWeight: 400, color: '#94a3b8' }}>(tùy chọn)</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileStack className="input-icon" size={16} />
+                                            <input
+                                                id="rr-appendix-file"
+                                                type="file"
+                                                className="form-input"
+                                                onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
+                                            />
+                                        </div>
+                                        {appendixFile && (
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                Đã chọn: {appendixFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                    </div>
                     </div>
                 </form>
             </div>
