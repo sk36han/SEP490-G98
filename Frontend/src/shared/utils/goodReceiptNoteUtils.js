@@ -50,7 +50,7 @@ export const validateGRNForm = (formData, lines) => {
     if (!formData.receiptDate) {
         errors.receiptDate = 'Vui lòng chọn ngày nhập';
     } else if (isYmdBeforeToday(formData.receiptDate)) {
-        errors.receiptDate = 'Ngày nhập dự kiến không được trong quá khứ';
+        errors.receiptDate = 'Ngày nhập không được trong quá khứ';
     }
 
     // Validate lines
