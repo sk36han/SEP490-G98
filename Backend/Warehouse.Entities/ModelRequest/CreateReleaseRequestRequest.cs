@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace Warehouse.Entities.ModelRequest
 {
@@ -33,6 +34,9 @@ namespace Warehouse.Entities.ModelRequest
         [MaxLength(30)]
         public string? Status { get; set; }
 
+        /// Cho phép xuất từng phần
+        public bool IsPartialDeliveryAllowed { get; set; }
+
         /// Danh sách vật tư xuất kho (ít nhất 1)
         [Required(ErrorMessage = "Phải có ít nhất 1 vật tư.")]
         [MinLength(1, ErrorMessage = "Phải có ít nhất 1 vật tư.")]
@@ -59,6 +63,8 @@ namespace Warehouse.Entities.ModelRequest
         /// Ghi chú dòng
         [MaxLength(500, ErrorMessage = "Ghi chú dòng không được vượt quá 500 ký tự.")]
         public string? Note { get; set; }
+
+        public decimal? UnitPrice { get; set; }
 
         /// Quy cách đóng gói (không bắt buộc)
         public long? PackagingSpecId { get; set; }
