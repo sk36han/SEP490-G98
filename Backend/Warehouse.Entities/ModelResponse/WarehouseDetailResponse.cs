@@ -17,6 +17,7 @@ namespace Warehouse.Entities.ModelResponse
         public List<WarehousePaperDto> ImportPapers { get; set; } = new List<WarehousePaperDto>();
         public List<WarehousePaperDto> ExportPapers { get; set; } = new List<WarehousePaperDto>();
         public List<WarehousePaperDto> ReturnPapers { get; set; } = new List<WarehousePaperDto>();
+        public List<WarehousePaperDto> AdjustmentPapers { get; set; } = new List<WarehousePaperDto>();
     }
 
     public class WarehouseItemDto
@@ -35,8 +36,9 @@ namespace Warehouse.Entities.ModelResponse
     public class WarehousePaperDto
     {
         public long PaperId { get; set; }
-        public string PaperType { get; set; } = null!; // "GRN", "GDN", "PRN"
+        public string PaperType { get; set; } = null!; // "GRN", "GDN", "PRN", "ADJ"
         public string PaperCode { get; set; } = null!;
+        public string? RelatedDocumentCode { get; set; }
         public DateTime? Date { get; set; }
         public string Status { get; set; } = null!;
         public string? Note { get; set; }

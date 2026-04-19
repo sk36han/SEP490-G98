@@ -430,7 +430,8 @@ namespace Warehouse.DataAcces.Service
                     DriverName = request.TransportInfo.DriverName,
                     DriverPhone = request.TransportInfo.DriverPhone,
                     LicensePlate = request.TransportInfo.LicensePlate,
-                    Note = request.TransportInfo.Note
+                    Note = request.TransportInfo.Note,
+                    IsActive = true
                 };
                 _context.TransportInfos.Add(transport);
             }
@@ -769,7 +770,8 @@ namespace Warehouse.DataAcces.Service
                     DriverName = gdn.TransportInfo.DriverName,
                     DriverPhone = gdn.TransportInfo.DriverPhone,
                     LicensePlate = gdn.TransportInfo.LicensePlate,
-                    Note = gdn.TransportInfo.Note
+                    Note = gdn.TransportInfo.Note,
+                    IsActive = gdn.TransportInfo.IsActive
                 };
             }
 
