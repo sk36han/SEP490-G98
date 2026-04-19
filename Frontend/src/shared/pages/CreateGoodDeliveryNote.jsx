@@ -390,7 +390,25 @@ export default function CreateGoodDeliveryNote() {
                                 </div>
                             ) : (
                                 <div className="gdn-reference-box">
-                                    <button className="gdn-ref-change-btn" onClick={() => setFormData(p => ({...p, releaseRequestId: ''}))}>Thay đổi</button>
+                                    <button
+                                        type="button"
+                                        className="gdn-ref-change-btn"
+                                        onClick={() => {
+                                            setDeliveryTemplateId('');
+                                            setTransportSource('none');
+                                            setFormData((p) => ({
+                                                ...p,
+                                                releaseRequestId: '',
+                                                carrierName: '',
+                                                driverName: '',
+                                                driverPhone: '',
+                                                licensePlate: '',
+                                                transportNote: '',
+                                            }));
+                                        }}
+                                    >
+                                        Thay đổi
+                                    </button>
                                     <div className="gdn-ref-item">
                                         <span className="gdn-ref-label">Mã tham chiếu</span>
                                         <span className="gdn-ref-value" style={{color: '#0284c7'}}>{formData.releaseRequestCode}</span>
@@ -528,7 +546,7 @@ export default function CreateGoodDeliveryNote() {
                     </div>
 
                     {/* Sidebar Card 3: Transport */}
-                    <div className="gdn-modern-card gdn-card--compact gdn-sidebar-card">
+                    <div className="gdn-modern-card gdn-card--compact gdn-sidebar-card gdn-transport-card">
                         <div className="gdn-card-header gdn-card-header--compact">
                             <h2 className="gdn-card-title"><Truck size={15} color="#6366f1"/> Vận chuyển</h2>
                         </div>
@@ -543,7 +561,7 @@ export default function CreateGoodDeliveryNote() {
                                         value={deliveryTemplateId}
                                         onChange={(e) => applyDeliveryTemplate(e.target.value)}
                                     >
-                                        <option value="">— Không chọn (nhập tay) —</option>
+                                        <option value="">— Không chọn —</option>
                                         {deliveryList.map((d) => {
                                             const label = [
                                                 d.driverName || d.carrierName || (d.gdnId != null ? `GDN #${d.gdnId}` : '—'),
@@ -563,8 +581,17 @@ export default function CreateGoodDeliveryNote() {
                                 </div>
                             )}
 
+                            {transportSource === 'template' && (
+                                <p className="gdn-sidebar-muted gdn-transport-hint">
+                                    Đang dùng thông tin từ lịch sử. Để nhập mới, dùng nút bên dưới.
+                                </p>
+                            )}
+
                             <div className="gdn-delivery-driver-preview">
                                 <div className="gdn-delivery-driver-preview__title">Thông tin người giao hàng</div>
+                                <div className="gdn-sidebar-receiver-row" style={{ fontSize: '12px', color: '#64748b' }}>
+                                    Đơn vị VC: <strong style={{ color: '#334155' }}>{formData.carrierName || '—'}</strong>
+                                </div>
                                 <div className="gdn-sidebar-receiver-row">
                                     <User size={12} /> <span style={{ fontWeight: 600 }}>{formData.driverName || '—'}</span>
                                 </div>
@@ -574,38 +601,103 @@ export default function CreateGoodDeliveryNote() {
                                 <div className="gdn-sidebar-receiver-row" style={{ fontSize: '12px', color: '#475569' }}>
                                     Biển số xe: <strong>{formData.licensePlate || '—'}</strong>
                                 </div>
+                                {formData.transportNote ? (
+                                    <div className="gdn-sidebar-receiver-row" style={{ fontSize: '12px', color: '#475569', marginTop: 6 }}>
+                                        Ghi chú VC: {formData.transportNote}
+                                    </div>
+                                ) : null}
                             </div>
 
-                            <div className="gdn-input-group gdn-input-group--tight">
-                                <label className="gdn-label">Hãng VC</label>
-                                <input className="form-input gdn-input--compact" name="carrierName" value={formData.carrierName} onChange={(e) => setFormData({ ...formData, carrierName: e.target.value })} />
-                            </div>
-                            <div className="gdn-input-group gdn-input-group--tight">
-                                <label className="gdn-label">Tài xế</label>
-                                <input className="form-input gdn-input--compact" name="driverName" value={formData.driverName} onChange={(e) => setFormData({ ...formData, driverName: e.target.value })} />
-                            </div>
-                            <div className="gdn-input-group gdn-input-group--tight">
-                                <label className="gdn-label">SĐT</label>
-                                <input className="form-input gdn-input--compact" placeholder="09xx" name="driverPhone" value={formData.driverPhone} onChange={(e) => setFormData({ ...formData, driverPhone: e.target.value })} />
-                            </div>
-                            <div className="gdn-input-group gdn-input-group--tight">
-                                <label className="gdn-label">Biển số</label>
-                                <input className="form-input gdn-input--compact" placeholder="29A-123.45" name="licensePlate" value={formData.licensePlate} onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })} />
-                            </div>
-                            <div className="gdn-input-group gdn-input-group--tight">
-                                <label className="gdn-label">Ghi chú VC</label>
-                                <textarea
-                                    className="form-input gdn-input--compact"
-                                    rows={2}
-                                    placeholder="Tùy chọn"
-                                    value={formData.transportNote}
-                                    onChange={(e) => setFormData({ ...formData, transportNote: e.target.value })}
-                                />
-                            </div>
+                            {transportSource !== 'template' && (
+                                <p className="gdn-sidebar-muted" style={{ marginTop: 8 }}>
+                                    Nhập thông tin bên giao hàng qua hộp thoại (giống trang Tạo giao hàng — dữ liệu gửi kèm khi lưu phiếu xuất).
+                                </p>
+                            )}
+
+                            <button
+                                type="button"
+                                className="btn btn-secondary gdn-transport-add-btn"
+                                onClick={openTransportDialog}
+                            >
+                                Thêm mới thông tin bên giao hàng
+                            </button>
                         </div>
                     </div>
                 </aside>
             </div>
+
+            <Dialog
+                open={transportDialogOpen}
+                onClose={() => setTransportDialogOpen(false)}
+                fullWidth
+                maxWidth="sm"
+                PaperProps={{ sx: { borderRadius: '14px' } }}
+            >
+                <DialogTitle sx={{ fontSize: '18px', fontWeight: 600, pb: 1 }}>
+                    Thông tin bên giao hàng
+                </DialogTitle>
+                <DialogContent sx={{ pt: 1 }}>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px' }}>
+                        Cùng định dạng với trang Tạo giao hàng. Khi bạn bấm Lưu phiếu xuất, thông tin này được gửi kèm trong yêu cầu tạo phiếu (không cần nhập mã phiếu — hệ thống gắn sau khi tạo).
+                    </p>
+                    <div style={{ display: 'grid', gap: '14px' }}>
+                        <div className="gdn-input-group gdn-input-group--tight">
+                            <label className="gdn-label">Đơn vị vận chuyển</label>
+                            <input
+                                className="form-input gdn-input--compact"
+                                value={transportDialogDraft.carrierName}
+                                onChange={(e) => setTransportDialogDraft((d) => ({ ...d, carrierName: e.target.value }))}
+                                placeholder="Ví dụ: Giao Hàng Nhanh"
+                            />
+                        </div>
+                        <div className="gdn-input-group gdn-input-group--tight">
+                            <label className="gdn-label">Tên tài xế</label>
+                            <input
+                                className="form-input gdn-input--compact"
+                                value={transportDialogDraft.driverName}
+                                onChange={(e) => setTransportDialogDraft((d) => ({ ...d, driverName: e.target.value }))}
+                            />
+                        </div>
+                        <div className="gdn-input-group gdn-input-group--tight">
+                            <label className="gdn-label">SĐT tài xế</label>
+                            <input
+                                className="form-input gdn-input--compact"
+                                type="tel"
+                                maxLength={20}
+                                value={transportDialogDraft.driverPhone}
+                                onChange={(e) => setTransportDialogDraft((d) => ({ ...d, driverPhone: e.target.value }))}
+                                placeholder="Chỉ số (theo quy tắc backend)"
+                            />
+                        </div>
+                        <div className="gdn-input-group gdn-input-group--tight">
+                            <label className="gdn-label">Biển số xe</label>
+                            <input
+                                className="form-input gdn-input--compact"
+                                value={transportDialogDraft.licensePlate}
+                                onChange={(e) => setTransportDialogDraft((d) => ({ ...d, licensePlate: e.target.value }))}
+                            />
+                        </div>
+                        <div className="gdn-input-group gdn-input-group--tight">
+                            <label className="gdn-label">Ghi chú vận chuyển</label>
+                            <textarea
+                                className="form-input gdn-input--compact"
+                                rows={3}
+                                value={transportDialogDraft.note}
+                                onChange={(e) => setTransportDialogDraft((d) => ({ ...d, note: e.target.value }))}
+                                maxLength={500}
+                            />
+                        </div>
+                    </div>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1 }}>
+                    <button type="button" className="btn btn-cancel" onClick={() => setTransportDialogOpen(false)}>
+                        Hủy
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={saveTransportDialog}>
+                        Lưu thông tin
+                    </button>
+                </DialogActions>
+            </Dialog>
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>

@@ -17,7 +17,7 @@ import { StatusBadge } from '@ui/badges';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isWarehouseKeeper } from '../permissions/roleUtils';
 import { getReleaseRequestDetail, submitReleaseRequest, approveReleaseRequest } from '../lib/releaseRequestService';
 import { formatDateOnly as formatDate, formatDateTime } from '../lib/dateUtils';
 import { canShowCreateGdnFromReleaseRequest } from '../utils/releaseRequestGdnUtils';
@@ -217,6 +217,8 @@ export default function ViewReleaseRequestDetail() {
     // Kế toán có thể duyệt / từ chối yêu cầu đang chờ duyệt
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    /** TK (Thủ kho): không hiển thị tệp đính kèm, người nhận (và thông tin nhạy cảm liên quan). */
+    const hideSensitiveForWarehouseKeeper = isWarehouseKeeper(permissionRole);
     const canApprove = data?.status === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS';
     // RR: status APPROVED + lifecycle Đang đợi xuất / Đã xuất một phần (IssuePending | IssuePartial)
     const canCreateGDN = canShowCreateGdnFromReleaseRequest({
@@ -660,26 +662,28 @@ export default function ViewReleaseRequestDetail() {
                                 </Box>
                             </div>
 
-                            {/* Người nhận */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">
-                                        <User size={16} style={{ marginRight: 8, color: '#2196F3' }} />
-                                        Người nhận
-                                    </h2>
+                            {/* Người nhận — ẩn với role TK */}
+                            {!hideSensitiveForWarehouseKeeper && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <User size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                            Người nhận
+                                        </h2>
+                                    </div>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                        <InfoRow label="Tên người nhận" value={data.receiverName} />
+                                        <InfoRow icon={Phone} label="Số điện thoại" value={data.receiverPhone} />
+                                        <InfoRow icon={Mail} label="Email" value={data.receiverEmail} />
+                                        {data.receiverPosition && (
+                                            <InfoRow icon={Briefcase} label="Chức vụ" value={data.receiverPosition} />
+                                        )}
+                                        {data.receiver?.notes && (
+                                            <InfoRow icon={FileText} label="Ghi chú người nhận" value={data.receiver.notes} fullWidth />
+                                        )}
+                                    </Box>
                                 </div>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                    <InfoRow label="Tên người nhận" value={data.receiverName} />
-                                    <InfoRow icon={Phone} label="Số điện thoại" value={data.receiverPhone} />
-                                    <InfoRow icon={Mail} label="Email" value={data.receiverEmail} />
-                                    {data.receiverPosition && (
-                                        <InfoRow icon={Briefcase} label="Chức vụ" value={data.receiverPosition} />
-                                    )}
-                                    {data.receiver?.notes && (
-                                        <InfoRow icon={FileText} label="Ghi chú người nhận" value={data.receiver.notes} fullWidth />
-                                    )}
-                                </Box>
-                            </div>
+                            )}
 
                             {/* Địa chỉ giao hàng */}
                             <div className="info-section" style={{ margin: 0 }}>
@@ -694,8 +698,8 @@ export default function ViewReleaseRequestDetail() {
                                 </Box>
                             </div>
 
-                            {/* Tệp đính kèm — Báo giá / Hợp đồng (layout cố định, tên file ellipsis) */}
-                            {Array.isArray(data.attachments) && data.attachments.length > 0 && (
+                            {/* Tệp đính kèm — ẩn với role TK */}
+                            {!hideSensitiveForWarehouseKeeper && Array.isArray(data.attachments) && data.attachments.length > 0 && (
                                 <ReleaseRequestAttachmentsCard attachments={data.attachments} />
                             )}
 

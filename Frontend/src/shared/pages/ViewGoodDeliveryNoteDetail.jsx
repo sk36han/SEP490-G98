@@ -303,7 +303,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                 }
                 .gdn-detail-page .gdn-main-grid {
                     display: grid;
-                    grid-template-columns: minmax(0, 1fr) 340px;
+                    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
                     gap: 24px;
                     align-items: start;
                 }
@@ -333,6 +333,18 @@ export default function ViewGoodDeliveryNoteDetail() {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
                     gap: 12px;
+                }
+                .gdn-detail-page .gdn-lines-summary-divider {
+                    margin: 20px 0 16px;
+                    height: 1px;
+                    background: linear-gradient(90deg, transparent, #e5e7eb 15%, #e5e7eb 85%, transparent);
+                    border: none;
+                }
+                .gdn-detail-page .gdn-lines-summary-title {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: #111827;
+                    margin: 0 0 12px;
                 }
                 .gdn-detail-page .gdn-note-box {
                     min-height: 80px;
@@ -429,7 +441,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                     <div className="gdn-main-grid">
                         {/* LEFT Column */}
                         <div className="gdn-left-column">
-                            <SectionCard title="Chi tiết vật tư xuất" subtitle="Danh sách vật tư xuất theo phiếu">
+                            <SectionCard title="Chi tiết vật tư xuất" subtitle="Danh sách vật tư và tóm tắt giá trị phiếu">
                                 {gdn.lines.length === 0 ? (
                                     <div className="gdn-empty-state">Chưa có vật tư nào trong phiếu xuất kho.</div>
                                 ) : (
@@ -465,10 +477,27 @@ export default function ViewGoodDeliveryNoteDetail() {
                                         </table>
                                     </div>
                                 )}
-                            </SectionCard>
 
-                            <SectionCard title="Ghi chú" subtitle="Nội dung ghi chú của phiếu xuất kho">
-                                <div className="gdn-note-box">{gdn.note?.trim() || 'Không có ghi chú.'}</div>
+                                {gdn.lines.length > 0 && (
+                                    <>
+                                        <hr className="gdn-lines-summary-divider" />
+                                        <h3 className="gdn-lines-summary-title">Tóm tắt phiếu</h3>
+                                        <div className="gdn-summary-grid">
+                                            <SummaryMetric label="Tổng số lượng" value={`${formatQuantity(totalQty)} sản phẩm`} />
+                                            <SummaryMetric label="Tiền hàng" value={formatCurrency(subtotal)} />
+                                        </div>
+                                        <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, fontSize: 14, color: '#374151' }}>
+                                                <span>Phí vận chuyển</span>
+                                                <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(gdn.shippingFee)}</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: 16, padding: '18px 16px', backgroundColor: '#e3f2fd', borderRadius: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: '4px solid #2196F3' }}>
+                                            <span style={{ fontSize: 16, fontWeight: 700, color: '#2196F3' }}>Tổng cộng</span>
+                                            <span style={{ fontSize: 22, fontWeight: 800, color: '#2196F3', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(grandTotal)}</span>
+                                        </div>
+                                    </>
+                                )}
                             </SectionCard>
                         </div>
 
@@ -508,21 +537,8 @@ export default function ViewGoodDeliveryNoteDetail() {
                                 </div>
                             </SectionCard>
 
-                            <SectionCard title="Tóm tắt phiếu" subtitle="Giá trị nhanh của phiếu xuất kho">
-                                <div className="gdn-summary-grid">
-                                    <SummaryMetric label="Tổng số lượng" value={`${formatQuantity(totalQty)} sản phẩm`} />
-                                    <SummaryMetric label="Tiền hàng" value={formatCurrency(subtotal)} />
-                                </div>
-                                <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, fontSize: 14, color: '#374151' }}>
-                                        <span>Phí vận chuyển</span>
-                                        <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(gdn.shippingFee)}</span>
-                                    </div>
-                                </div>
-                                <div style={{ marginTop: 16, padding: '18px 16px', backgroundColor: '#e3f2fd', borderRadius: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: '4px solid #2196F3' }}>
-                                    <span style={{ fontSize: 16, fontWeight: 700, color: '#2196F3' }}>Tổng cộng</span>
-                                    <span style={{ fontSize: 22, fontWeight: 800, color: '#2196F3', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(grandTotal)}</span>
-                                </div>
+                            <SectionCard title="Ghi chú" subtitle="Nội dung ghi chú của phiếu xuất kho">
+                                <div className="gdn-note-box">{gdn.note?.trim() || 'Không có ghi chú.'}</div>
                             </SectionCard>
 
                             <SectionCard title="Lịch sử phê duyệt" subtitle="Các mốc phê duyệt của phiếu">

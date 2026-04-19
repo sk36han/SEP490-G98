@@ -578,6 +578,20 @@
     cursor: pointer;
 }
 
+.gdn-transport-card .gdn-transport-add-btn {
+    width: 100%;
+    margin-top: 12px;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.gdn-transport-hint {
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 /* Responsive */
 @media (max-width: 1100px) {
     .gdn-layout-container {
