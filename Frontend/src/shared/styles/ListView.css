@@ -40,6 +40,12 @@
     overflow-y: auto;
 }
 
+/* ViewWarehouseList: một luồng cuộn dọc (MainLayout), không cuộn trong TableContainer khi ít dòng */
+.list-view.warehouse-list-page .MuiTableContainer-root {
+    overflow-y: visible !important;
+    max-height: none !important;
+}
+
 .list-view .list-filter-card .list-search-input .MuiInputBase-input,
 .list-view .list-filter-card .list-search-input .MuiInputBase-input::placeholder {
     font-size: 0.8125rem;

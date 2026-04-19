@@ -228,7 +228,7 @@ const ViewStocktakeList = () => {
                 item.status !== 'DRAFT' || item.createdById === currentUserId
             );
             setList(visibleItems);
-            setTotalRows(visibleItems.length);
+            setTotalRows(result.totalItems ?? visibleItems.length);
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không thể tải danh sách kiểm kê';
             setError(msg);
@@ -254,6 +254,7 @@ const ViewStocktakeList = () => {
     const paginatedList = list;
     const start = totalCount > 0 ? page * pageSize + 1 : 0;
     const end = Math.min((page + 1) * pageSize, totalCount);
+    const summaryBreakdownReliable = totalCount > 0 && list.length >= totalCount;
 
     const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
@@ -405,9 +406,9 @@ const ViewStocktakeList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={ClipboardList} label="Tổng phiếu kiểm kê" value={(totalCount || list.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={ClipboardList} label="Chờ duyệt" value={list.filter(r => r.status === 'PENDING_APPROVAL').length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
-                    <SummaryCard icon={ClipboardList} label="Đang thực hiện" value={list.filter(r => r.status === 'IN_PROGRESS').length.toLocaleString()} color="#7c3aed" bgColor="rgba(124,58,237,0.1)" />
+                    <SummaryCard icon={ClipboardList} label="Tổng phiếu kiểm kê" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={ClipboardList} label="Chờ duyệt" value={summaryBreakdownReliable ? list.filter((r) => r.status === 'PENDING_APPROVAL').length.toLocaleString() : '—'} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
+                    <SummaryCard icon={ClipboardList} label="Đang thực hiện" value={summaryBreakdownReliable ? list.filter((r) => r.status === 'IN_PROGRESS').length.toLocaleString() : '—'} color="#7c3aed" bgColor="rgba(124,58,237,0.1)" />
                 </Box>
             </Box>
 

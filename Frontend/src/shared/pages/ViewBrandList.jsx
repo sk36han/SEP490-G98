@@ -266,6 +266,8 @@ const ViewBrandList = () => {
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalItems);
 
+    const summaryBreakdownReliable = totalItems > 0 && rows.length >= totalItems;
+
     return (
         <Box
             sx={{
@@ -303,9 +305,9 @@ const ViewBrandList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Tag} label="Tổng thương hiệu" value={(totalItems || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Tag} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Tag} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Tag} label="Tổng thương hiệu" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Tag} label="Đang hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Tag} label="Ngưng hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 

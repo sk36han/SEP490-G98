@@ -40,27 +40,30 @@ const LS_COL_ORDER = 'warehouseColumnOrder';
 // isActive uses StatusBadge via <StatusBadge status={item.isActive} />
 
 // ── Summary Card ──────────────────────────────────────────────────────────────
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
-    <Box sx={{
-        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
-        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
-        display: 'flex', alignItems: 'center', gap: 2,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-    }}>
+const SummaryCard = ({ icon, label, value, color, bgColor }) => {
+    const IconComp = icon;
+    return (
         <Box sx={{
-            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+            border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+            display: 'flex', alignItems: 'center', gap: 2,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}>
-            <Icon size={22} color={color} />
+            <Box sx={{
+                width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+                <IconComp size={22} color={color} />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                    {value}
+                </Typography>
+            </Box>
         </Box>
-        <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
-            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
-                {value}
-            </Typography>
-        </Box>
-    </Box>
-);
+    );
+};
 
 // ── Column definitions ────────────────────────────────────────────────────────
 const WAREHOUSE_COLUMNS = [
@@ -186,6 +189,7 @@ const ViewWarehouseList = () => {
         try {
             const res = await getWarehouses({ pageNumber: page + 1, pageSize });
             let items = res.items ?? [];
+            const totalFromApi = res.totalItems ?? res.TotalItems ?? items.length;
 
             if (searchTerm) {
                 const term = removeDiacritics(searchTerm.toLowerCase());
@@ -197,7 +201,7 @@ const ViewWarehouseList = () => {
             }
 
             setList(items);
-            setTotalRows(items.length);
+            setTotalRows(searchTerm ? items.length : totalFromApi);
         } catch (err) {
             console.error('Error fetching warehouses:', err);
             setList([]);
@@ -235,7 +239,8 @@ const ViewWarehouseList = () => {
     const start = totalCount === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalCount);
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
-    const paginatedList = list.slice(page * pageSize, (page + 1) * pageSize);
+    const paginatedList = list;
+    const summaryBreakdownReliable = totalCount > 0 && list.length >= totalCount;
 
     const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
@@ -364,15 +369,15 @@ const ViewWarehouseList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Building2} label="Tổng kho" value={totalRows.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Building2} label="Đang hoạt động" value={list.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Building2} label="Tạm dừng" value={list.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Building2} label="Tổng kho" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Building2} label="Đang hoạt động" value={summaryBreakdownReliable ? list.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Building2} label="Tạm dừng" value={summaryBreakdownReliable ? list.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
             {/* Main Content */}
             <Box
-                className="list-view"
+                className="list-view warehouse-list-page"
                 sx={{
                     flex: 1,
                     minHeight: 0,
@@ -586,13 +591,13 @@ const ViewWarehouseList = () => {
                         </Box>
                     </Popover>
 
-                    {/* Data Table */}
+                    {/* Data Table — không ép chiều cao + overflow dọc: tránh cuộn kép với MainLayout */}
                     <Box
                         sx={{
-                            flex: 1,
+                            flex: '1 1 auto',
                             minHeight: 0,
                             minWidth: 0,
-                            overflow: 'hidden',
+                            overflow: 'visible',
                             display: 'flex',
                             flexDirection: 'column',
                         }}
@@ -628,12 +633,13 @@ const ViewWarehouseList = () => {
                             ) : (
                                 <TableContainer
                                     sx={{
-                                        flex: 1,
-                                        minHeight: 0,
+                                        flex: '0 0 auto',
+                                        alignSelf: 'stretch',
                                         minWidth: 0,
                                         width: '100%',
                                         maxWidth: '100%',
-                                        overflow: 'auto',
+                                        overflowX: 'auto',
+                                        overflowY: 'visible',
                                         boxSizing: 'border-box',
                                     }}
                                 >

@@ -1,6 +1,6 @@
 /**
  * ViewWarehouseDetail - Chi tiết kho
- * Hiển thị thông tin kho, vật tư, các lô (mock InventoryLots) và lịch sử biến động
+ * Hiển thị thông tin kho, vật tư và lịch sử biến động
  *
  * API:
  *   GET  /api/Warehouse/{id}/detail          → WarehouseDetailResponse (kèm items)
@@ -29,14 +29,11 @@ import {
     X,
     Phone,
     Mail,
-    Building2,
     Edit,
     Save,
-    Loader,
     RefreshCw,
     History,
     FileText,
-    Layers,
 } from 'lucide-react';
 import { getWarehouseDetail, getWarehouseHistory, updateWarehouse, toggleWarehouseStatus } from '../lib/warehouseService';
 import { useToastContext } from '../../app/context/ToastContext';
@@ -46,6 +43,12 @@ const STATUS_CONFIG = {
     true: { bgColor: 'rgba(16,185,129,0.2)', label: 'Hoạt động', color: '#059669' },
     false: { bgColor: 'rgba(239,68,68,0.2)', label: 'Tắt', color: '#dc2626' },
 };
+
+/** Ngưỡng tồn tối thiểu cho lọc “Còn hàng” / “Sắp hết” (UI) */
+const LOW_STOCK_THRESHOLD = 20;
+
+/** Số bản ghi / trang tab “Lịch sử biến động” — cố định, tránh bảng quá cao gây cuộn kép (trang + khung bảng) */
+const WAREHOUSE_HISTORY_PAGE_SIZE = 5;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => (v == null ? '0' : Number(v).toLocaleString('vi-VN'));
@@ -81,55 +84,6 @@ const ACTION_COLORS = {
     ADJUST: { bg: 'rgba(245,158,11,0.15)', color: '#d97706', label: 'Điều chỉnh' },
     RETURN_IN: { bg: 'rgba(59,130,246,0.15)', color: '#2563eb', label: 'Trả về' },
     RETURN_OUT: { bg: 'rgba(139,92,246,0.15)', color: '#7c3aed', label: 'Xuất trả' },
-};
-
-/** Mock InventoryLots — khớp seed `DTB 14.4.sql` (MKIWMS5), chờ API thật */
-const MOCK_INVENTORY_LOTS = [
-    { lotId: 1, itemId: 1, warehouseId: 1, grnLineId: 1, receiptDate: '2026-01-27T08:00:00', quantity: 6.3, unitCost: 23.25, expiryDate: '2026-08-05T08:00:00', isActive: true },
-    { lotId: 2, itemId: 2, warehouseId: 2, grnLineId: 2, receiptDate: '2026-01-28T08:00:00', quantity: 8.8, unitCost: 26.5, expiryDate: '2026-08-16T08:00:00', isActive: true },
-    { lotId: 3, itemId: 3, warehouseId: 3, grnLineId: 3, receiptDate: '2026-01-29T08:00:00', quantity: 11.5, unitCost: 29.75, expiryDate: '2026-08-27T08:00:00', isActive: true },
-    { lotId: 4, itemId: 4, warehouseId: 4, grnLineId: 4, receiptDate: '2026-01-30T08:00:00', quantity: 7.2, unitCost: 33, expiryDate: '2026-09-07T08:00:00', isActive: true },
-    { lotId: 5, itemId: 5, warehouseId: 5, grnLineId: null, receiptDate: '2026-01-31T08:00:00', quantity: 10, unitCost: 36.25, expiryDate: '2027-01-31T08:00:00', isActive: true },
-    { lotId: 6, itemId: 6, warehouseId: 6, grnLineId: 6, receiptDate: '2026-02-01T08:00:00', quantity: 13, unitCost: 39.5, expiryDate: '2026-09-29T08:00:00', isActive: true },
-    { lotId: 7, itemId: 7, warehouseId: 7, grnLineId: 7, receiptDate: '2026-02-02T08:00:00', quantity: 8.1, unitCost: 42.75, expiryDate: '2026-10-10T08:00:00', isActive: true },
-    { lotId: 8, itemId: 8, warehouseId: 8, grnLineId: 8, receiptDate: '2026-02-03T08:00:00', quantity: 11.2, unitCost: 46, expiryDate: '2026-10-21T08:00:00', isActive: true },
-    { lotId: 9, itemId: 9, warehouseId: 9, grnLineId: 9, receiptDate: '2026-02-04T08:00:00', quantity: 14.5, unitCost: 49.25, expiryDate: '2026-11-01T08:00:00', isActive: true },
-    { lotId: 10, itemId: 10, warehouseId: 10, grnLineId: null, receiptDate: '2026-02-05T08:00:00', quantity: 9, unitCost: 52.5, expiryDate: '2027-02-05T08:00:00', isActive: true },
-    { lotId: 11, itemId: 11, warehouseId: 1, grnLineId: 11, receiptDate: '2026-02-06T08:00:00', quantity: 12.4, unitCost: 55.75, expiryDate: '2026-11-23T08:00:00', isActive: true },
-    { lotId: 12, itemId: 12, warehouseId: 2, grnLineId: 12, receiptDate: '2026-02-07T08:00:00', quantity: 16, unitCost: 59, expiryDate: '2026-12-04T08:00:00', isActive: true },
-    { lotId: 13, itemId: 13, warehouseId: 3, grnLineId: 13, receiptDate: '2026-02-08T08:00:00', quantity: 9.9, unitCost: 62.25, expiryDate: '2026-12-15T08:00:00', isActive: true },
-    { lotId: 14, itemId: 14, warehouseId: 4, grnLineId: 14, receiptDate: '2026-02-09T08:00:00', quantity: 13.6, unitCost: 65.5, expiryDate: '2026-12-26T08:00:00', isActive: true },
-    { lotId: 15, itemId: 15, warehouseId: 5, grnLineId: null, receiptDate: '2026-02-10T08:00:00', quantity: 17.5, unitCost: 68.75, expiryDate: '2027-02-10T08:00:00', isActive: true },
-    { lotId: 16, itemId: 16, warehouseId: 6, grnLineId: 16, receiptDate: '2026-02-11T08:00:00', quantity: 10.8, unitCost: 72, expiryDate: '2027-01-17T08:00:00', isActive: true },
-    { lotId: 17, itemId: 17, warehouseId: 7, grnLineId: 17, receiptDate: '2026-02-12T08:00:00', quantity: 14.8, unitCost: 75.25, expiryDate: '2027-01-28T08:00:00', isActive: true },
-    { lotId: 18, itemId: 18, warehouseId: 8, grnLineId: 18, receiptDate: '2026-02-13T08:00:00', quantity: 19, unitCost: 78.5, expiryDate: '2027-02-08T08:00:00', isActive: false },
-    { lotId: 19, itemId: 19, warehouseId: 9, grnLineId: 19, receiptDate: '2026-02-14T08:00:00', quantity: 11.7, unitCost: 81.75, expiryDate: '2027-02-19T08:00:00', isActive: true },
-    { lotId: 20, itemId: 20, warehouseId: 10, grnLineId: null, receiptDate: '2026-02-15T08:00:00', quantity: 16, unitCost: 85, expiryDate: '2027-02-15T08:00:00', isActive: true },
-];
-
-/** Tên vật tư — khớp bảng Items trong seed DTB 14.4.sql */
-const MOCK_ITEM_NAME_BY_ID = Object.fromEntries(
-    Array.from({ length: 20 }, (_, i) => {
-        const id = i + 1;
-        return [id, `Vật tư mẫu ${String(id).padStart(3, '0')}`];
-    }),
-);
-
-/**
- * Mã phiếu nhập kho từ GRNLineId: mỗi GRNLineId i trong seed gắn GRNId i → GRNCode GRN000i
- * (khi không có dòng GRN → null)
- */
-const getGrnCodeFromLineId = (grnLineId) => {
-    if (grnLineId == null || grnLineId === '') return null;
-    const n = Number(grnLineId);
-    if (!Number.isFinite(n) || n < 1 || n > 20) return null;
-    return `GRN${String(n).padStart(4, '0')}`;
-};
-
-const fmtMoney = (v) => {
-    const n = Number(v);
-    if (Number.isNaN(n)) return '—';
-    return `${n.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₫`;
 };
 
 // ── Map backend response → component state ────────────────────────────────────
@@ -169,7 +123,11 @@ const mapHistory = (item, idx) => ({
     description: item.description ?? item.Description ?? '',
     quantity: item.quantity ?? item.Quantity ?? null,
     referenceNo: item.referenceNo ?? item.ReferenceNo ?? '',
+    voucherCode: item.voucherCode ?? item.VoucherCode ?? '',
     performedByName: item.performedByName ?? item.PerformedByName ?? '',
+    itemName: item.itemName ?? item.ItemName ?? '',
+    transactionDate: item.transactionDate ?? item.TransactionDate ?? '',
+    approverName: item.approverName ?? item.ApproverName ?? '',
     createdAt: item.createdAt ?? item.CreatedAt ?? '',
 });
 
@@ -206,7 +164,6 @@ const ViewWarehouseDetail = () => {
     const [historyList, setHistoryList] = useState([]);
     const [historyTotal, setHistoryTotal] = useState(0);
     const [historyPage, setHistoryPage] = useState(0);
-    const [historyPageSize, setHistoryPageSize] = useState(10);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState(null);
 
@@ -237,37 +194,51 @@ const ViewWarehouseDetail = () => {
             const result = await getWarehouseHistory({
                 warehouseId: Number(id),
                 pageNumber: pageNum + 1,
-                pageSize: historyPageSize,
+                pageSize: WAREHOUSE_HISTORY_PAGE_SIZE,
             });
-            setHistoryList(result.items ?? []);
+            const raw = result.items ?? [];
+            setHistoryList(Array.isArray(raw) ? raw.map(mapHistory) : []);
             setHistoryTotal(result.totalItems ?? 0);
             setHistoryPage(pageNum);
         } catch (err) {
             console.error('Lỗi khi tải lịch sử kho:', err);
-            setHistoryError(err?.message || 'Không thể tải lịch sử kho');
+            const msg =
+                typeof err === 'string'
+                    ? err
+                    : err?.message || err?.Message || 'Không thể tải lịch sử kho';
+            setHistoryError(msg);
         } finally {
             setHistoryLoading(false);
         }
-    }, [id, historyPageSize]);
+    }, [id]);
 
     useEffect(() => {
         fetchWarehouseDetail();
     }, [fetchWarehouseDetail]);
 
-    // Load history when tab switches to history
+    // Đổi kho (route id) → xóa cache lịch sử, tránh hiển thị lịch sử kho khác
     useEffect(() => {
-        if (activeTab === 'history' && historyList.length === 0) {
-            fetchHistory(0);
-        }
-    }, [activeTab]);
+        setHistoryList([]);
+        setHistoryTotal(0);
+        setHistoryPage(0);
+        setHistoryError(null);
+    }, [id]);
+
+    // Tab Lịch sử hoặc đổi kho khi đang ở tab Lịch sử → tải lại trang 1
+    useEffect(() => {
+        if (activeTab !== 'history') return;
+        fetchHistory(0);
+    }, [id, activeTab, fetchHistory]);
 
     // ── Filtered items ───────────────────────────────────────────────────────
     const filteredLines = useMemo(() => {
         if (!warehouse?.items) return [];
         return warehouse.items.filter((item) => {
             if (stockFilter === 'out-of-stock') return Number(item.onHandQty) === 0;
-            if (stockFilter === 'low-stock') return Number(item.onHandQty) > 0 && Number(item.onHandQty) < 20;
-            if (stockFilter === 'available') return Number(item.onHandQty) >= 20;
+            if (stockFilter === 'low-stock') {
+                return Number(item.onHandQty) > 0 && Number(item.onHandQty) < LOW_STOCK_THRESHOLD;
+            }
+            if (stockFilter === 'available') return Number(item.onHandQty) >= LOW_STOCK_THRESHOLD;
             return true;
         }).filter((item) => {
             if (!lineSearchKeyword.trim()) return true;
@@ -279,13 +250,6 @@ const ViewWarehouseDetail = () => {
             );
         });
     }, [warehouse, stockFilter, lineSearchKeyword]);
-
-    /** Các lô thuộc đúng kho đang xem (theo warehouseId) */
-    const lotsForWarehouse = useMemo(() => {
-        if (!warehouse?.warehouseId) return [];
-        const wid = Number(warehouse.warehouseId);
-        return MOCK_INVENTORY_LOTS.filter((l) => l.warehouseId === wid);
-    }, [warehouse?.warehouseId]);
 
     // ── Edit handlers ────────────────────────────────────────────────────────
     const handleEditClick = () => {
@@ -311,10 +275,12 @@ const ViewWarehouseDetail = () => {
                 address: editForm.address.trim(),
                 isActive: warehouse.isActive,
             });
+            const name = editForm.warehouseName.trim();
+            const addr = editForm.address.trim();
             setWarehouse((prev) => ({
                 ...prev,
-                warehouseName: editForm.warehouseName,
-                address: editForm.address,
+                warehouseName: name,
+                address: addr,
             }));
             setIsEditing(false);
             setIsFormDirty(false);
@@ -390,7 +356,7 @@ const ViewWarehouseDetail = () => {
     const statusConfig = STATUS_CONFIG[warehouse.isActive] ?? STATUS_CONFIG[true];
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page view-warehouse-detail-page">
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div className="page-header">
                 <div className="page-header-left">
@@ -433,11 +399,13 @@ const ViewWarehouseDetail = () => {
                                 </p>
                             </div>
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => handleStatusClick(warehouse.isActive)}
                                     style={{
                                         padding: '8px 16px',
                                         borderRadius: 20,
+                                        border: 'none',
                                         backgroundColor: statusConfig.bgColor,
                                         color: statusConfig.color,
                                         fontWeight: 600,
@@ -447,10 +415,11 @@ const ViewWarehouseDetail = () => {
                                         gap: 6,
                                         cursor: 'pointer',
                                         userSelect: 'none',
+                                        fontFamily: 'inherit',
                                     }}
                                 >
                                     {statusConfig.label}
-                                </div>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -482,28 +451,6 @@ const ViewWarehouseDetail = () => {
                                 >
                                     <Package size={16} />
                                     Vật tư ({warehouse.items?.length ?? 0})
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setActiveTab('lots')}
-                                    style={{
-                                        padding: '10px 20px',
-                                        background: 'none',
-                                        border: 'none',
-                                        borderBottom: activeTab === 'lots' ? '2px solid #2196F3' : '2px solid transparent',
-                                        color: activeTab === 'lots' ? '#2196F3' : '#6b7280',
-                                        fontWeight: activeTab === 'lots' ? 600 : 500,
-                                        fontSize: '14px',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        marginBottom: -2,
-                                        transition: 'all 0.2s',
-                                    }}
-                                >
-                                    <Layers size={16} />
-                                    Các lô đang có ({lotsForWarehouse.length})
                                 </button>
                                 <button
                                     type="button"
@@ -631,7 +578,7 @@ const ViewWarehouseDetail = () => {
                                                                         textAlign: 'right',
                                                                         paddingRight: '8px',
                                                                         fontWeight: 600,
-                                                                        color: Number(line.onHandQty) === 0 ? '#dc2626' : Number(line.onHandQty) < 20 ? '#f59e0b' : '#374151',
+                                                                        color: Number(line.onHandQty) === 0 ? '#dc2626' : Number(line.onHandQty) < LOW_STOCK_THRESHOLD ? '#f59e0b' : '#374151',
                                                                     }}>
                                                                         {fmt(line.onHandQty)}
                                                                     </div>
@@ -666,69 +613,6 @@ const ViewWarehouseDetail = () => {
                                 </div>
                             )}
 
-                            {/* ── Lots tab (mock InventoryLots — chỉ lô đúng warehouseId) ── */}
-                            {activeTab === 'lots' && (
-                                <div>
-                                    <div className="info-section" style={{ margin: 0 }}>
-                                        <div className="section-header-with-toggle">
-                                            <h2 className="section-title">Các lô đang có</h2>
-                                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                                                {lotsForWarehouse.length} lô tại kho này (dữ liệu mẫu)
-                                            </span>
-                                        </div>
-                                        <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px 0' }}>
-                                            Chỉ hiển thị các lô có cùng mã kho với chi tiết hiện tại.
-                                        </p>
-
-                                        {lotsForWarehouse.length === 0 ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px', color: '#9ca3af' }}>
-                                                <Layers size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
-                                                <p style={{ fontSize: '14px', margin: 0 }}>Không có lô hàng mẫu cho kho này</p>
-                                            </div>
-                                        ) : (
-                                            <div style={{ overflowX: 'auto' }}>
-                                                <table className="product-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th style={{ width: 56, textAlign: 'center' }}>STT</th>
-                                                            <th style={{ minWidth: 140 }}>Mã Phiếu Nhập Kho</th>
-                                                            <th style={{ minWidth: 180 }}>Tên vật tư</th>
-                                                            <th style={{ minWidth: 130 }}>Ngày Nhập Kho</th>
-                                                            <th style={{ width: 110, textAlign: 'right' }}>Số lượng</th>
-                                                            <th style={{ width: 120, textAlign: 'right' }}>Giá Lô</th>
-                                                            <th style={{ minWidth: 130 }}>ExpiryDate</th>
-                                                            <th style={{ width: 88, textAlign: 'center' }}>IsActive</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {lotsForWarehouse.map((lot, idx) => {
-                                                            const grnCode = getGrnCodeFromLineId(lot.grnLineId);
-                                                            const itemName = MOCK_ITEM_NAME_BY_ID[lot.itemId] ?? '—';
-                                                            return (
-                                                                <tr key={lot.lotId}>
-                                                                    <td style={{ textAlign: 'center', fontSize: 13 }}>{idx + 1}</td>
-                                                                    <td style={{ fontSize: 13, color: grnCode ? '#374151' : '#9ca3af', fontWeight: grnCode ? 600 : 400 }}>
-                                                                        {grnCode ?? '—'}
-                                                                    </td>
-                                                                    <td style={{ fontSize: 13, color: '#374151' }}>{itemName}</td>
-                                                                    <td style={{ fontSize: 12, color: '#374151' }}>{fmtDate(lot.receiptDate)}</td>
-                                                                    <td style={{ textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{lot.quantity}</td>
-                                                                    <td style={{ textAlign: 'right', fontSize: 13 }}>{fmtMoney(lot.unitCost)}</td>
-                                                                    <td style={{ fontSize: 12, color: '#374151' }}>{fmtDateTime(lot.expiryDate)}</td>
-                                                                    <td style={{ textAlign: 'center', fontSize: 13, color: lot.isActive ? '#059669' : '#6b7280', fontWeight: 600 }}>
-                                                                        {lot.isActive ? '1' : '0'}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
                             {/* ── History tab ──────────────────────────────────── */}
                             {activeTab === 'history' && (
                                 <div>
@@ -754,7 +638,7 @@ const ViewWarehouseDetail = () => {
                                                 <p style={{ fontSize: '14px', margin: 0 }}>Chưa có lịch sử biến động kho</p>
                                             </div>
                                         ) : (
-                                            <div style={{ overflowX: 'auto' }}>
+                                            <div className="table-container warehouse-history-table-wrap">
                                                 <table className="product-table">
                                                     <thead>
                                                         <tr>
@@ -771,7 +655,7 @@ const ViewWarehouseDetail = () => {
                                                             const qtyColor = Number(item.quantity) >= 0 ? '#059669' : '#dc2626';
                                                             return (
                                                                 <tr key={item.id ?? index}>
-                                                                    <td style={{ textAlign: 'center', fontSize: 13 }}>{historyPage * historyPageSize + index + 1}</td>
+                                                                    <td style={{ textAlign: 'center', fontSize: 13 }}>{historyPage * WAREHOUSE_HISTORY_PAGE_SIZE + index + 1}</td>
                                                                     <td>
                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                                             <FileText size={14} color="#9ca3af" />
@@ -795,7 +679,7 @@ const ViewWarehouseDetail = () => {
                                                 {/* Pagination */}
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
                                                     <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                                        {historyPage * historyPageSize + 1}–{Math.min((historyPage + 1) * historyPageSize, historyTotal)} / {historyTotal}
+                                                        {historyPage * WAREHOUSE_HISTORY_PAGE_SIZE + 1}–{Math.min((historyPage + 1) * WAREHOUSE_HISTORY_PAGE_SIZE, historyTotal)} / {historyTotal}
                                                     </span>
                                                     <button
                                                         type="button"
@@ -808,8 +692,8 @@ const ViewWarehouseDetail = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => fetchHistory(historyPage + 1)}
-                                                        disabled={(historyPage + 1) * historyPageSize >= historyTotal}
-                                                        style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: (historyPage + 1) * historyPageSize >= historyTotal ? 'not-allowed' : 'pointer', fontSize: 12, opacity: (historyPage + 1) * historyPageSize >= historyTotal ? 0.4 : 1 }}
+                                                        disabled={(historyPage + 1) * WAREHOUSE_HISTORY_PAGE_SIZE >= historyTotal}
+                                                        style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: (historyPage + 1) * WAREHOUSE_HISTORY_PAGE_SIZE >= historyTotal ? 'not-allowed' : 'pointer', fontSize: 12, opacity: (historyPage + 1) * WAREHOUSE_HISTORY_PAGE_SIZE >= historyTotal ? 0.4 : 1 }}
                                                     >
                                                         Sau →
                                                     </button>

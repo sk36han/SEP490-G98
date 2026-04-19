@@ -29,11 +29,12 @@ import {
     Tooltip,
 } from '@mui/material';
 import { StatusBadge } from '@ui/badges';
-import { Plus, Filter, Columns, GripVertical, PackageOpen, Send } from 'lucide-react';
+import { Plus, Filter, Columns, GripVertical, PackageOpen, Send, RefreshCw } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
 import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
+import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -173,7 +174,11 @@ export default function ViewReleaseRequestList() {
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
-    usePolling('releaseRequests', () => fetchDataRef.current?.());
+    const { refetch } = usePolling('releaseRequests', () => fetchDataRef.current?.());
+
+    const handleRefresh = useCallback(() => {
+        refetch();
+    }, [refetch]);
 
     useEffect(() => {
         if (Boolean(columnSelectorAnchor)) setTempColumnOrder(columnOrder);
@@ -330,9 +335,9 @@ export default function ViewReleaseRequestList() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Send} label="Tổng yêu cầu xuất" value={(totalCount || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Send} label="Chờ duyệt" value={rows.filter(r => r.status === 'PENDING_ACC').length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
-                    <SummaryCard icon={Send} label="Đã duyệt" value={rows.filter(r => r.status === 'APPROVED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Send} label="Tổng yêu cầu xuất" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Send} label="Chờ duyệt" value={filteredAndSortedRows.filter((r) => r.status === 'PENDING_ACC').length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
+                    <SummaryCard icon={Send} label="Đã duyệt" value={filteredAndSortedRows.filter((r) => r.status === 'APPROVED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
                 </Box>
             </Box>
 
@@ -384,6 +389,17 @@ export default function ViewReleaseRequestList() {
                             <Tooltip title="Chọn cột hiển thị">
                                 <IconButton onClick={(e) => setColumnSelectorAnchor(e.currentTarget)} aria-label="Chọn cột" sx={iconBtnSx}>
                                     <Columns size={20} />
+                                </IconButton>
+                            </Tooltip>
+
+                            <Tooltip title="Làm mới danh sách">
+                                <IconButton
+                                    onClick={handleRefresh}
+                                    aria-label="Làm mới"
+                                    disabled={loading}
+                                    sx={iconBtnSx}
+                                >
+                                    <RefreshCw size={20} className={loading ? 'spin' : ''} />
                                 </IconButton>
                             </Tooltip>
 

@@ -1,9 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+} from '@mui/material';
+import {
     ArrowLeft,
-    Plus,
-    X,
     Save,
     Loader,
     Trash2,
@@ -12,30 +16,20 @@ import {
     MapPin,
     Truck,
     Phone,
-    FileText,
     ClipboardList,
-    CreditCard,
-    ChevronRight,
     User,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateGoodDeliveryNote.css'; // Đảm bảo đúng đường dẫn
 import { createGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
+import { getDeliveries, normalizeTransportInfoFields } from '../lib/deliveryService';
 import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
-import { getItemsForDisplay } from '../lib/itemService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TODAY = new Date().toLocaleDateString('en-CA');
-const MAX_NOTE_LENGTH = 1000;
-
-const PAYMENT_METHOD_OPTIONS = [
-    { value: 'CASH', label: 'Tiền mặt' },
-    { value: 'BANK_TRANSFER', label: 'Chuyển khoản' },
-    { value: 'CARD', label: 'Thẻ thanh toán' },
-    { value: 'E_WALLET', label: 'Ví điện tử' },
-    { value: 'OTHER', label: 'Khác' },
-];
+/** Luôn gửi FIFO — không hiển thị chọn trên form. */
+const PICKING_STRATEGY_FIFO = 'FIFO';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -47,9 +41,6 @@ const toNumber = (value, fallback = 0) => {
 
 const normalizeText = (value) =>
     String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-const formatCurrency = (value) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(toNumber(value));
 
 const formatQuantity = (value) =>
     toNumber(value).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
@@ -80,12 +71,7 @@ export default function CreateGoodDeliveryNote() {
         requestedByName: '',
         requestedDate: '',
         issueDate: TODAY,
-        createdByName: 'Nguyễn Văn A',
         note: '',
-        shippingFee: '',
-        isPaid: false,
-        paymentMethod: 'CASH',
-        pickingStrategy: 'FIFO',
         carrierName: '',
         driverName: '',
         driverPhone: '',
@@ -94,19 +80,26 @@ export default function CreateGoodDeliveryNote() {
     });
 
     const [lines, setLines] = useState([]);
-    const [showProductSearch, setShowProductSearch] = useState(false);
-    const [searchKeyword, setSearchKeyword] = useState('');
-    const [selectedSearchLineIds, setSelectedSearchLineIds] = useState([]);
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
-    const [items, setItems] = useState([]);
 
     const releaseRequestDropdownRef = useRef(null);
     const [releaseRequestDropdownOpen, setReleaseRequestDropdownOpen] = useState(false);
     const [releaseRequestQuery, setReleaseRequestQuery] = useState('');
-    const [selectedReleaseRequestDetail, setSelectedReleaseRequestDetail] = useState(null);
     const [rrList, setRrList] = useState([]);
-    const [rrListLoading, setRrListLoading] = useState(false);
+    const [deliveryList, setDeliveryList] = useState([]);
+    const [deliveryListLoading, setDeliveryListLoading] = useState(false);
+    const [deliveryTemplateId, setDeliveryTemplateId] = useState('');
+    /** none | template | custom — khi template: chỉ xem preview, không hiện form nhập trực tiếp */
+    const [transportSource, setTransportSource] = useState('none');
+    const [transportDialogOpen, setTransportDialogOpen] = useState(false);
+    const [transportDialogDraft, setTransportDialogDraft] = useState({
+        carrierName: '',
+        driverName: '',
+        driverPhone: '',
+        licensePlate: '',
+        note: '',
+    });
 
     // ─── Effects ─────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -120,21 +113,31 @@ export default function CreateGoodDeliveryNote() {
 
     useEffect(() => {
         const loadInitialData = async () => {
-            setRrListLoading(true);
             try {
-                const [rrRes, itemRes] = await Promise.all([
-                    getReleaseRequests({ page: 1, pageSize: 100 }),
-                    getItemsForDisplay()
-                ]);
+                const rrRes = await getReleaseRequests({ page: 1, pageSize: 100 });
                 setRrList(rrRes.items || []);
-                setItems(Array.isArray(itemRes) ? itemRes : []);
             } catch (err) {
                 console.error('Initial load failed', err);
-            } finally {
-                setRrListLoading(false);
             }
         };
         loadInitialData();
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setDeliveryListLoading(true);
+            try {
+                const res = await getDeliveries({ page: 1, pageSize: 100 });
+                if (!cancelled) setDeliveryList(res.items || []);
+            } catch (err) {
+                console.warn('Load delivery list for transport templates failed', err);
+                if (!cancelled) setDeliveryList([]);
+            } finally {
+                if (!cancelled) setDeliveryListLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
@@ -148,9 +151,6 @@ export default function CreateGoodDeliveryNote() {
     }, []);
 
     // ─── Derived Data ────────────────────────────────────────────────────────
-    const subtotal = useMemo(() => lines.reduce((sum, l) => sum + toNumber(l.lineTotal), 0), [lines]);
-    const grandTotal = subtotal + toNumber(formData.shippingFee);
-
     const filteredReleaseRequests = useMemo(() => {
         const keyword = normalizeText(releaseRequestQuery.trim());
         if (!keyword) return rrList;
@@ -159,20 +159,6 @@ export default function CreateGoodDeliveryNote() {
             normalizeText(r.receiverName).includes(keyword)
         );
     }, [releaseRequestQuery, rrList]);
-
-    const remainingSelectableLines = useMemo(() => {
-        if (!selectedReleaseRequestDetail) return [];
-        const selectedLineIds = new Set(lines.map(l => l.releaseRequestLineId));
-        return (selectedReleaseRequestDetail.lines || [])
-            .filter(l => getRemainingQty(l) > 0 && !selectedLineIds.has(l.releaseRequestLineId));
-    }, [selectedReleaseRequestDetail, lines]);
-
-    const filteredProducts = useMemo(() => {
-        const keyword = normalizeText(searchKeyword.trim());
-        return remainingSelectableLines.filter(l => 
-            normalizeText(l.itemName).includes(keyword) || normalizeText(l.itemCode).includes(keyword)
-        );
-    }, [remainingSelectableLines, searchKeyword]);
 
     // ─── Handlers ────────────────────────────────────────────────────────────
     const handleSelectReleaseRequest = async (rr) => {
@@ -196,18 +182,21 @@ export default function CreateGoodDeliveryNote() {
                 itemName: l.itemName,
                 uomName: l.uomName,
                 uomId: l.uomId,
+                requestedQty: toNumber(l.requestedQty ?? l.approvedQty ?? 0),
                 remainingQty: getRemainingQty(l),
                 actualQty: getRemainingQty(l),
-                unitPrice: 0, // Giá có thể lấy từ bảng items nếu cần
+                unitPrice: 0,
                 lineTotal: 0,
+                requiresCertificateCopy: Boolean(l.requiresCertificateCopy ?? l.RequiresCertificateCopy),
                 note: ''
             }));
 
-        setSelectedReleaseRequestDetail(detail);
         setLines(initialLines);
         setReleaseRequestQuery(detail.releaseRequestCode);
         setReleaseRequestDropdownOpen(false);
         
+        setDeliveryTemplateId('');
+        setTransportSource('none');
         setFormData(prev => ({
             ...prev,
             releaseRequestId: String(detail.releaseRequestId),
@@ -219,7 +208,65 @@ export default function CreateGoodDeliveryNote() {
             receiverAddress: detail.address || '',
             requestedByName: detail.requestedByName,
             requestedDate: detail.requestedDate,
+            carrierName: '',
+            driverName: '',
+            driverPhone: '',
+            licensePlate: '',
+            transportNote: '',
         }));
+    };
+
+    const applyDeliveryTemplate = (transportIdStr) => {
+        setDeliveryTemplateId(transportIdStr);
+        if (!transportIdStr) {
+            setTransportSource('none');
+            setFormData((prev) => ({
+                ...prev,
+                carrierName: '',
+                driverName: '',
+                driverPhone: '',
+                licensePlate: '',
+                transportNote: '',
+            }));
+            return;
+        }
+        const row = deliveryList.find((d) => String(d.transportId) === transportIdStr);
+        if (!row) return;
+        setTransportSource('template');
+        setFormData((prev) => ({
+            ...prev,
+            carrierName: row.carrierName || '',
+            driverName: row.driverName || '',
+            driverPhone: row.driverPhone || '',
+            licensePlate: row.licensePlate || '',
+            transportNote: row.note != null && String(row.note).trim() !== '' ? String(row.note).trim() : '',
+        }));
+    };
+
+    const openTransportDialog = () => {
+        setTransportDialogDraft({
+            carrierName: formData.carrierName || '',
+            driverName: formData.driverName || '',
+            driverPhone: formData.driverPhone || '',
+            licensePlate: formData.licensePlate || '',
+            note: formData.transportNote || '',
+        });
+        setTransportDialogOpen(true);
+    };
+
+    const saveTransportDialog = () => {
+        const n = normalizeTransportInfoFields(transportDialogDraft);
+        setFormData((prev) => ({
+            ...prev,
+            carrierName: n.carrierName ?? '',
+            driverName: n.driverName ?? '',
+            driverPhone: n.driverPhone ?? '',
+            licensePlate: n.licensePlate ?? '',
+            transportNote: n.note ?? '',
+        }));
+        setTransportSource('custom');
+        setDeliveryTemplateId('');
+        setTransportDialogOpen(false);
     };
 
     const updateLine = (index, field, value) => {
@@ -249,27 +296,37 @@ export default function CreateGoodDeliveryNote() {
                 ReleaseRequestId: Number(formData.releaseRequestId),
                 WarehouseId: Number(formData.warehouseId),
                 IssueDate: formData.issueDate,
-                Status: 'PENDING_ACC',
-                PickingStrategy: formData.pickingStrategy,
-                ShippingFee: toNumber(formData.shippingFee),
-                IsPaid: formData.isPaid,
-                PaymentMethod: formData.isPaid ? formData.paymentMethod : null,
-                Note: formData.note,
+                Status: 'PENDING_ISSUE',
+                PickingStrategy: PICKING_STRATEGY_FIFO,
+                ShippingFee: 0,
+                IsPaid: false,
+                PaymentMethod: null,
+                Note: formData.note?.trim() || null,
                 Lines: lines.map(l => ({
                     ItemId: l.itemId,
-                    ActualQty: l.actualQty,
-                    ReleaseRequestLineId: l.releaseRequestLineId,
-                    UnitPrice: l.unitPrice,
-                    Note: l.note
+                    RequestedQty: toNumber(l.requestedQty),
+                    ActualQty: toNumber(l.actualQty),
+                    UomId: l.uomId,
+                    ReleaseRequestLineId: l.releaseRequestLineId ?? null,
+                    UnitPrice: toNumber(l.unitPrice),
+                    RequiresCertificateCopy: Boolean(l.requiresCertificateCopy),
+                    Note: l.note?.trim() || null,
                 })),
-                TransportInfo: {
-                    CarrierName: formData.carrierName,
-                    DriverName: formData.driverName,
-                    LicensePlate: formData.licensePlate
-                }
+                TransportInfo: (() => {
+                    const ti = normalizeTransportInfoFields(formData);
+                    const hasAny = ti.carrierName || ti.driverName || ti.driverPhone || ti.licensePlate || ti.note;
+                    if (!hasAny) return null;
+                    return {
+                        CarrierName: ti.carrierName,
+                        DriverName: ti.driverName,
+                        DriverPhone: ti.driverPhone,
+                        LicensePlate: ti.licensePlate,
+                        Note: ti.note,
+                    };
+                })(),
             };
             await createGoodsDeliveryNote(payload);
-            showToast('Tạo phiếu thành công!', 'success');
+            showToast('Tạo phiếu thành công. Phiếu chuyển sang bước chuẩn bị hàng.', 'success');
             setTimeout(() => navigate('/good-delivery-notes'), 1200);
         } catch (e) {
             showToast(e.message || 'Lỗi server', 'error');
@@ -279,14 +336,14 @@ export default function CreateGoodDeliveryNote() {
     };
 
     return (
-        <div className="create-supplier-page">
-            <div className="page-header">
+        <div className="create-supplier-page create-good-delivery-note-page">
+            <div className="page-header gdn-page-toolbar">
                 <div className="page-header-left">
                     <button type="button" onClick={() => navigate(-1)} className="back-button">
-                        <ArrowLeft size={20} />
+                        <ArrowLeft size={18} />
                         <span>Quay lại</span>
                     </button>
-                    <h1 className="page-title" style={{margin: 0, fontSize: '20px'}}>Tạo phiếu xuất hàng</h1>
+                    <h1 className="page-title gdn-page-title">Tạo phiếu xuất hàng</h1>
                 </div>
                 <div className="page-header-actions">
                     <button type="button" className="btn btn-cancel" onClick={() => navigate(-1)}>Hủy</button>
@@ -302,11 +359,11 @@ export default function CreateGoodDeliveryNote() {
                 <div className="gdn-main-content">
                     
                     {/* Card 1: Reference */}
-                    <div className="gdn-modern-card">
-                        <div className="gdn-card-header">
-                            <h2 className="gdn-card-title"><ClipboardList size={18} color="#0284c7"/> Thông tin nguồn xuất</h2>
+                    <div className="gdn-modern-card gdn-card--compact">
+                        <div className="gdn-card-header gdn-card-header--compact">
+                            <h2 className="gdn-card-title"><ClipboardList size={16} color="#0284c7"/> Thông tin nguồn xuất</h2>
                         </div>
-                        <div className="gdn-card-body">
+                        <div className="gdn-card-body gdn-card-body--compact">
                             {!formData.releaseRequestId ? (
                                 <div className="gdn-rr-selector" ref={releaseRequestDropdownRef}>
                                     <div className="input-wrapper">
@@ -355,26 +412,26 @@ export default function CreateGoodDeliveryNote() {
                         </div>
                     </div>
 
-                    {/* Card 2: Items Table */}
-                    <div className="gdn-modern-card">
-                        <div className="gdn-card-header">
-                            <h2 className="gdn-card-title"><Package size={18} color="#059669"/> Danh sách vật tư thực xuất</h2>
+                    {/* Card 2: Items Table — vùng bảng cuộn nội bộ */}
+                    <div className="gdn-modern-card gdn-items-card">
+                        <div className="gdn-card-header gdn-card-header--compact">
+                            <h2 className="gdn-card-title"><Package size={16} color="#059669"/> Danh sách vật tư thực xuất</h2>
                             <div className="gdn-card-actions">
-                                <button className="btn btn-secondary btn-sm" onClick={() => setLines(lines.map(l => ({...l, actualQty: l.remainingQty})))}>
+                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setLines(lines.map(l => ({...l, actualQty: l.remainingQty})))}>
                                     Khớp SL còn lại
                                 </button>
                             </div>
                         </div>
-                        <div className="gdn-card-body" style={{padding: '0 24px'}}>
+                        <div className="gdn-card-body gdn-items-card-body">
                             {!lines.length ? (
-                                <div className="gdn-empty-state">
-                                    <Package size={48} strokeWidth={1} />
+                                <div className="gdn-empty-state gdn-empty-state--compact">
+                                    <Package size={36} strokeWidth={1} />
                                     <p className="gdn-empty-state-title">Chưa có vật tư</p>
                                     <p className="gdn-empty-state-desc">Vui lòng chọn yêu cầu xuất trước</p>
                                 </div>
                             ) : (
-                                <div className="gdn-table-wrapper">
-                                    <table className="gdn-table">
+                                <div className="gdn-table-scroll">
+                                    <table className="gdn-table gdn-table--compact">
                                         <thead>
                                             <tr>
                                                 <th>Vật tư</th>
@@ -427,120 +484,127 @@ export default function CreateGoodDeliveryNote() {
                             )}
                         </div>
                     </div>
-
-                    {/* Card 3: Transport */}
-                    <div className="gdn-modern-card">
-                        <div className="gdn-card-header">
-                            <h2 className="gdn-card-title"><Truck size={18} color="#6366f1"/> Thông tin vận chuyển</h2>
-                        </div>
-                        <div className="gdn-card-body">
-                            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px'}}>
-                                <div className="gdn-input-group">
-                                    <label className="gdn-label">Hãng vận chuyển</label>
-                                    <input className="form-input" name="carrierName" value={formData.carrierName} onChange={(e) => setFormData({...formData, carrierName: e.target.value})} />
-                                </div>
-                                <div className="gdn-input-group">
-                                    <label className="gdn-label">Tài xế & SĐT</label>
-                                    <input className="form-input" placeholder="Tên tài xế - 09xx" name="driverName" value={formData.driverName} onChange={(e) => setFormData({...formData, driverName: e.target.value})} />
-                                </div>
-                                <div className="gdn-input-group">
-                                    <label className="gdn-label">Biển số xe</label>
-                                    <input className="form-input" placeholder="29A-123.45" name="licensePlate" value={formData.licensePlate} onChange={(e) => setFormData({...formData, licensePlate: e.target.value})} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
-                {/* ─── CỘT PHẢI (Sidebar) ─── */}
-                <div className="gdn-sidebar">
+                {/* ─── CỘT PHẢI (Sidebar) — sticky, cùng chiều rộng 350px ─── */}
+                <aside className="gdn-sidebar">
                     
                     {/* Sidebar Card 1: Receiver */}
-                    <div className="gdn-modern-card">
-                        <div className="gdn-card-header">
-                            <h2 className="gdn-card-title"><User size={16}/> Người nhận</h2>
+                    <div className="gdn-modern-card gdn-card--compact gdn-sidebar-card">
+                        <div className="gdn-card-header gdn-card-header--compact">
+                            <h2 className="gdn-card-title"><User size={14}/> Người nhận</h2>
                         </div>
-                        <div className="gdn-card-body">
+                        <div className="gdn-card-body gdn-card-body--compact">
                             {formData.receiverName ? (
-                                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-                                    <div style={{fontWeight: 700, fontSize: '15px'}}>{formData.receiverName}</div>
-                                    <div style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#475569'}}>
-                                        <Phone size={14}/> {formData.receiverPhone || 'N/A'}
+                                <div className="gdn-sidebar-receiver">
+                                    <div className="gdn-sidebar-receiver-name">{formData.receiverName}</div>
+                                    <div className="gdn-sidebar-receiver-row">
+                                        <Phone size={12}/> {formData.receiverPhone || 'N/A'}
                                     </div>
-                                    <div style={{display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: '#64748b'}}>
-                                        <MapPin size={14} style={{marginTop: '2px'}}/> {formData.receiverAddress || 'N/A'}
+                                    <div className="gdn-sidebar-receiver-addr">
+                                        <MapPin size={12} style={{ marginTop: '1px', flexShrink: 0 }} /> {formData.receiverAddress || 'N/A'}
                                     </div>
                                 </div>
                             ) : (
-                                <div className="text-muted" style={{fontSize: '13px'}}>Chưa có thông tin người nhận</div>
+                                <div className="gdn-sidebar-placeholder">Chưa có thông tin người nhận</div>
                             )}
                         </div>
                     </div>
 
-                    {/* Sidebar Card 2: Strategy */}
-                    <div className="gdn-modern-card">
-                        <div className="gdn-card-header">
-                            <h2 className="gdn-card-title">Chiến lược xuất</h2>
+                    {/* Sidebar Card 2: Note */}
+                    <div className="gdn-modern-card gdn-card--compact gdn-sidebar-card">
+                        <div className="gdn-card-header gdn-card-header--compact">
+                            <h2 className="gdn-card-title">Ghi chú phiếu</h2>
                         </div>
-                        <div className="gdn-card-body">
-                            <div className="gdn-strategy-toggle">
-                                <div 
-                                    className={`gdn-strategy-option ${formData.pickingStrategy === 'FIFO' ? 'active' : ''}`}
-                                    onClick={() => setFormData({...formData, pickingStrategy: 'FIFO'})}
-                                >
-                                    FIFO
-                                </div>
-                                <div 
-                                    className={`gdn-strategy-option ${formData.pickingStrategy === 'LIFO' ? 'active' : ''}`}
-                                    onClick={() => setFormData({...formData, pickingStrategy: 'LIFO'})}
-                                >
-                                    LIFO
-                                </div>
-                            </div>
-                            <p style={{fontSize: '11px', color: '#94a3b8', marginTop: '10px', fontStyle: 'italic'}}>
-                                * FIFO: Nhập trước xuất trước.
-                            </p>
+                        <div className="gdn-card-body gdn-card-body--compact">
+                            <textarea
+                                className="form-input gdn-input--compact"
+                                rows={2}
+                                placeholder="Tùy chọn"
+                                value={formData.note}
+                                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                            />
                         </div>
                     </div>
 
-                    {/* Sidebar Card 3: Payment Summary */}
-                    <div className="gdn-modern-card" style={{border: '2px solid #dcfce7'}}>
-                        <div className="gdn-card-header" style={{backgroundColor: '#f0fdf4'}}>
-                            <h2 className="gdn-card-title"><CreditCard size={16}/> Tổng kết</h2>
+                    {/* Sidebar Card 3: Transport */}
+                    <div className="gdn-modern-card gdn-card--compact gdn-sidebar-card">
+                        <div className="gdn-card-header gdn-card-header--compact">
+                            <h2 className="gdn-card-title"><Truck size={15} color="#6366f1"/> Vận chuyển</h2>
                         </div>
-                        <div className="gdn-card-body">
-                            <div className="gdn-payment-summary">
-                                <div className="gdn-payment-row">
-                                    <span className="gdn-label">Tiền hàng:</span>
-                                    <span style={{fontWeight: 600}}>{formatCurrency(subtotal)}</span>
+                        <div className="gdn-card-body gdn-card-body--compact gdn-sidebar-transport-body">
+                            {deliveryListLoading ? (
+                                <p className="gdn-sidebar-muted">Đang tải danh sách giao hàng…</p>
+                            ) : (
+                                <div className="gdn-input-group gdn-input-group--tight">
+                                    <label className="gdn-label">Chọn nhanh từ danh sách giao hàng</label>
+                                    <select
+                                        className="form-input gdn-input--compact"
+                                        value={deliveryTemplateId}
+                                        onChange={(e) => applyDeliveryTemplate(e.target.value)}
+                                    >
+                                        <option value="">— Không chọn (nhập tay) —</option>
+                                        {deliveryList.map((d) => {
+                                            const label = [
+                                                d.driverName || d.carrierName || (d.gdnId != null ? `GDN #${d.gdnId}` : '—'),
+                                                d.driverPhone || '',
+                                                d.licensePlate || '',
+                                            ].filter(Boolean).join(' · ');
+                                            return (
+                                                <option key={d.transportId} value={String(d.transportId)}>
+                                                    {label}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    {!deliveryList.length && (
+                                        <p className="gdn-sidebar-muted" style={{ marginTop: 6 }}>Chưa có bản ghi giao hàng để chọn nhanh.</p>
+                                    )}
                                 </div>
-                                <div className="gdn-input-group">
-                                    <label className="gdn-label">Phí vận chuyển:</label>
-                                    <div className="input-wrapper">
-                                        <input 
-                                            type="number" 
-                                            className="form-input" 
-                                            style={{textAlign: 'right'}}
-                                            value={formData.shippingFee}
-                                            onChange={(e) => setFormData({...formData, shippingFee: e.target.value})}
-                                        />
-                                    </div>
+                            )}
+
+                            <div className="gdn-delivery-driver-preview">
+                                <div className="gdn-delivery-driver-preview__title">Thông tin người giao hàng</div>
+                                <div className="gdn-sidebar-receiver-row">
+                                    <User size={12} /> <span style={{ fontWeight: 600 }}>{formData.driverName || '—'}</span>
                                 </div>
-                                <div className="gdn-total-row">
-                                    <span className="gdn-total-label">TỔNG CỘNG:</span>
-                                    <span className="gdn-total-amount">{formatCurrency(grandTotal)}</span>
+                                <div className="gdn-sidebar-receiver-row">
+                                    <Phone size={12} /> {formData.driverPhone || '—'}
                                 </div>
-                                
-                                <div style={{marginTop: '10px'}}>
-                                    <label style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}>
-                                        <input type="checkbox" checked={formData.isPaid} onChange={(e) => setFormData({...formData, isPaid: e.target.checked})} />
-                                        <span className="gdn-label">Đã thanh toán</span>
-                                    </label>
+                                <div className="gdn-sidebar-receiver-row" style={{ fontSize: '12px', color: '#475569' }}>
+                                    Biển số xe: <strong>{formData.licensePlate || '—'}</strong>
                                 </div>
+                            </div>
+
+                            <div className="gdn-input-group gdn-input-group--tight">
+                                <label className="gdn-label">Hãng VC</label>
+                                <input className="form-input gdn-input--compact" name="carrierName" value={formData.carrierName} onChange={(e) => setFormData({ ...formData, carrierName: e.target.value })} />
+                            </div>
+                            <div className="gdn-input-group gdn-input-group--tight">
+                                <label className="gdn-label">Tài xế</label>
+                                <input className="form-input gdn-input--compact" name="driverName" value={formData.driverName} onChange={(e) => setFormData({ ...formData, driverName: e.target.value })} />
+                            </div>
+                            <div className="gdn-input-group gdn-input-group--tight">
+                                <label className="gdn-label">SĐT</label>
+                                <input className="form-input gdn-input--compact" placeholder="09xx" name="driverPhone" value={formData.driverPhone} onChange={(e) => setFormData({ ...formData, driverPhone: e.target.value })} />
+                            </div>
+                            <div className="gdn-input-group gdn-input-group--tight">
+                                <label className="gdn-label">Biển số</label>
+                                <input className="form-input gdn-input--compact" placeholder="29A-123.45" name="licensePlate" value={formData.licensePlate} onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })} />
+                            </div>
+                            <div className="gdn-input-group gdn-input-group--tight">
+                                <label className="gdn-label">Ghi chú VC</label>
+                                <textarea
+                                    className="form-input gdn-input--compact"
+                                    rows={2}
+                                    placeholder="Tùy chọn"
+                                    value={formData.transportNote}
+                                    onChange={(e) => setFormData({ ...formData, transportNote: e.target.value })}
+                                />
                             </div>
                         </div>
                     </div>
-                </div>
+                </aside>
             </div>
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}

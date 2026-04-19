@@ -10,7 +10,6 @@ import {
     RotateCcw,
     BarChart3,
     DollarSign,
-    MapPin,
 } from 'lucide-react';
 
 const icon = (Icon) => <Icon size={22} />;
@@ -286,15 +285,16 @@ const menuCatalog = {
         ],
     }),
 
-    deliveries: createItem({
-        id: 'deliveries-mgmt',
-        path: '/deliveries',
-        icon: icon(MapPin),
-        label: 'Giao hàng',
-        children: [
-            createChild('/deliveries', 'Danh sách giao hàng'),
-        ],
-    }),
+    /** Tạm ẩn — bật lại: thêm menuCatalog.deliveries vào roleMenus (WAREHOUSE_KEEPER, SALE_ENGINEER, …). */
+    // deliveries: createItem({
+    //     id: 'deliveries-mgmt',
+    //     path: '/deliveries',
+    //     icon: icon(MapPin),
+    //     label: 'Giao hàng',
+    //     children: [
+    //         createChild('/deliveries', 'Danh sách giao hàng'),
+    //     ],
+    // }),
 
     itemPrices: createItem({
         path: '/item-prices',
@@ -338,7 +338,6 @@ const roleMenus = {
         menuCatalog.goodReceiptNotesManage,
         menuCatalog.releaseRequestsManage,
         menuCatalog.goodsDeliveryNotesManage,
-        menuCatalog.deliveries,
     ],
     SALE_SUPPORT: [
         ...COMMON_ITEMS,
@@ -354,7 +353,6 @@ const roleMenus = {
         menuCatalog.receiversSimple,
         menuCatalog.releaseRequestsManage,
         menuCatalog.goodsDeliveryNotesManage,
-        menuCatalog.deliveries,
     ],
     ACCOUNTANTS: [
         ...COMMON_ITEMS,

@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';import { useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     getGoodsDeliveryNoteDetail,
     approveGoodsDeliveryNote,
@@ -22,6 +23,7 @@ import {
 import { TextField } from '@mui/material';
 import { ConfirmDialog } from '@ui/dialogs';
 import { useToastContext } from '../../app/context/ToastContext';
+import '../styles/CreateSupplier.css';
 import '../styles/ViewGoodDeliveryNoteDetail.css';
 
 const MAX_REASON_LENGTH = 250;
@@ -38,7 +40,7 @@ const STATUS_META = {
     DRAFT:         { label: 'Nháp',             bg: 'rgba(107,114,128,0.15)',   color: '#4b5563' },
     PENDING_ACC:   { label: 'Chờ kế toán duyệt', bg: 'rgba(251,191,36,0.18)',   color: '#b45309' },
     PENDING_DIR:   { label: 'Chờ giám đốc duyệt', bg: 'rgba(251,191,36,0.18)',   color: '#b45309' },
-    PENDING_ISSUE: { label: 'Chờ xuất hàng',     bg: 'rgba(14,165,233,0.18)',    color: '#0369a1' },
+    PENDING_ISSUE: { label: 'Chuẩn bị hàng',      bg: 'rgba(14,165,233,0.18)',    color: '#0369a1' },
     ISSUED:        { label: 'Đã xuất hàng',      bg: 'rgba(139,92,246,0.18)',    color: '#6d28d9' },
     POSTED:        { label: 'Đã ghi sổ',          bg: 'rgba(59,130,246,0.18)',    color: '#1d4ed8' },
     APPROVED:      { label: 'Đã duyệt',           bg: 'rgba(16,185,129,0.18)',    color: '#047857' },
@@ -141,7 +143,9 @@ export default function ViewGoodDeliveryNoteDetail() {
                 const rawLines = data.lines ?? [];
                 const mappedLines = Array.isArray(rawLines)
                     ? rawLines.map((line, idx) => ({
-                        id: line.gdnLineId ?? idx,
+                        /** ID dòng GDN — bắt buộc cho API issue; không dùng idx làm id (tránh gdnLineId = 0) */
+                        gdnLineId: line.gdnLineId ?? line.GdnLineId ?? line.lineId ?? line.LineId ?? null,
+                        id: line.gdnLineId ?? line.GdnLineId ?? line.lineId ?? line.LineId ?? `row-${idx}`,
                         itemId: line.itemId,
                         itemName: line.itemName ?? '',
                         itemCode: line.itemCode ?? '',
@@ -218,7 +222,11 @@ export default function ViewGoodDeliveryNoteDetail() {
                 await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: false, reason: reasonText.trim() });
                 showToast('Đã từ chối phiếu xuất kho', 'success');
             } else if (dialogConfig.type === 'issue') {
-                await issueGoodsDeliveryNote(gdn.gdnId, { isAllItemsFulfilled: true, lines: gdn.lines });
+                // Đủ hàng: chỉ IsAllItemsFulfilled — backend tự gán ActualQty = RequestedQty từng dòng (IssueGDNAsync)
+                await issueGoodsDeliveryNote(gdn.gdnId, {
+                    isAllItemsFulfilled: true,
+                    note: reasonText.trim() || null,
+                });
                 showToast('Xuất kho thành công', 'success');
             }
             closeDialog();

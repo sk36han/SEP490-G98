@@ -1,3 +1,41 @@
+/*
+ * Trang GDN: khóa chiều cao trong vùng main (không cuộn cả trang).
+ * Cuộn chỉ trong: (1) bảng vật tư cột trái (2) cột phải nếu nội dung dài.
+ * --gdn-shell-offset: khoảng trừ cho AppHeader + padding MainLayout (tinh chỉnh nếu lệch).
+ */
+.create-supplier-page.create-good-delivery-note-page {
+    --gdn-shell-offset: 120px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    /* Ghi đè min-height:100vh của .create-supplier-page để không tạo thêm thanh cuộn ngoài */
+    min-height: 0 !important;
+    height: calc(100dvh - var(--gdn-shell-offset));
+    max-height: calc(100dvh - var(--gdn-shell-offset));
+    overflow: hidden;
+    /* Gọn hơn padding mặc định 24px của .create-supplier-page */
+    padding: 8px 16px 10px !important;
+}
+
+.create-good-delivery-note-page .gdn-page-toolbar {
+    flex-shrink: 0;
+    margin-bottom: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.create-good-delivery-note-page .gdn-page-toolbar .page-header-left {
+    gap: 10px;
+    align-items: center;
+}
+
+.create-good-delivery-note-page .gdn-page-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+}
+
 /* ─── Variables & Root ────────────────────────────────────────────────────── */
 :root {
     --slate-50: #f8fafc;
@@ -32,18 +70,100 @@
     margin-top: 24px;
 }
 
+.create-good-delivery-note-page .gdn-layout-container {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    /* Cột trái ~3/4, phải ~1/4 như mockup */
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+    margin-top: 0;
+}
+
 .gdn-main-content {
     display: flex;
     flex-direction: column;
     gap: 24px;
 }
 
+.create-good-delivery-note-page .gdn-main-content {
+    gap: 10px;
+    min-height: 0;
+    min-width: 0;
+}
+
+/* Sidebar mặc định (CreateDelivery, …) */
 .gdn-sidebar {
     display: flex;
     flex-direction: column;
     gap: 24px;
+    width: 100%;
+    min-width: 0;
+    align-self: start;
     position: sticky;
     top: 20px;
+}
+
+/* Trang tạo GDN: cột phải cùng chiều cao hàng grid; nội dung dài → cuộn trong sidebar */
+.create-good-delivery-note-page .gdn-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    position: static;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.gdn-sidebar-transport-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Card vật tư: chiếm phần còn lại; bảng ôm sát nội dung — không tạo khối xám trống khi ít dòng */
+.create-good-delivery-note-page .gdn-items-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    justify-content: flex-start;
+}
+
+.create-good-delivery-note-page .gdn-items-card-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    padding: 0 10px 6px;
+    overflow: hidden;
+}
+
+.create-good-delivery-note-page .gdn-table-scroll {
+    /* Không flex-grow: tránh khoảng trống lớn dưới vài dòng; khi nhiều dòng vẫn cuộn trong max-height */
+    flex: 0 1 auto;
+    width: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: auto;
+    border-radius: 8px;
+    border: 1px solid var(--slate-200);
+    background: #fff;
+}
+
+.create-good-delivery-note-page .gdn-table-scroll .gdn-table {
+    background: #fff;
 }
 
 /* ─── Modern Card Component ───────────────────────────────────────────────── */
@@ -69,6 +189,10 @@
     background-color: #ffffff;
 }
 
+.create-good-delivery-note-page .gdn-card-header--compact {
+    padding: 8px 12px;
+}
+
 .gdn-card-title {
     font-size: 16px;
     font-weight: 600;
@@ -79,8 +203,107 @@
     gap: 10px;
 }
 
+.create-good-delivery-note-page .gdn-card--compact .gdn-card-title {
+    font-size: 13px;
+    gap: 6px;
+}
+
 .gdn-card-body {
     padding: 24px;
+}
+
+.create-good-delivery-note-page .gdn-card-body--compact {
+    padding: 10px 12px;
+}
+
+.create-good-delivery-note-page .gdn-card--compact {
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.create-good-delivery-note-page .gdn-card--compact:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.create-good-delivery-note-page .gdn-ref-change-btn {
+    top: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.create-good-delivery-note-page .gdn-input--compact {
+    padding: 5px 8px !important;
+    font-size: 12px !important;
+    line-height: 1.35;
+}
+
+.create-good-delivery-note-page .gdn-input-group--tight {
+    gap: 2px;
+}
+
+.create-good-delivery-note-page .gdn-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--slate-600);
+}
+
+.create-good-delivery-note-page .gdn-sidebar-receiver {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.create-good-delivery-note-page .gdn-sidebar-receiver-name {
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--slate-800);
+}
+
+.create-good-delivery-note-page .gdn-sidebar-receiver-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #475569;
+}
+
+.create-good-delivery-note-page .gdn-sidebar-receiver-addr {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+.create-good-delivery-note-page .gdn-sidebar-placeholder {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.create-good-delivery-note-page .gdn-empty-state {
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--slate-500);
+    padding: 16px;
+}
+
+.create-good-delivery-note-page .gdn-empty-state--compact .gdn-empty-state-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.create-good-delivery-note-page .gdn-empty-state--compact .gdn-empty-state-desc {
+    font-size: 12px;
+    margin: 0;
 }
 
 /* ─── Reference Info Box (Xanh nhạt như GRN) ─────────────────────────────── */
@@ -93,6 +316,11 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
     position: relative;
+}
+
+.create-good-delivery-note-page .gdn-reference-box {
+    padding: 10px 12px;
+    gap: 8px 12px;
 }
 
 .gdn-ref-item {
@@ -109,10 +337,18 @@
     letter-spacing: 0.025em;
 }
 
+.create-good-delivery-note-page .gdn-ref-label {
+    font-size: 10px;
+}
+
 .gdn-ref-value {
     font-size: 14px;
     font-weight: 600;
     color: var(--slate-800);
+}
+
+.create-good-delivery-note-page .gdn-ref-value {
+    font-size: 12px;
 }
 
 .gdn-ref-change-btn {
@@ -161,6 +397,22 @@
     border-bottom: none;
 }
 
+.create-good-delivery-note-page .gdn-table--compact {
+    font-size: 12px;
+}
+
+.create-good-delivery-note-page .gdn-table--compact th {
+    padding: 6px 8px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    box-shadow: 0 1px 0 var(--slate-200);
+}
+
+.create-good-delivery-note-page .gdn-table--compact td {
+    padding: 6px 8px;
+}
+
 /* ─── Input & Form Fields ─────────────────────────────────────────────────── */
 .gdn-input-group {
     display: flex;
@@ -184,6 +436,12 @@
     width: 120px;
 }
 
+.create-good-delivery-note-page .gdn-items-card .gdn-qty-input-container {
+    width: 104px;
+    padding-right: 4px;
+    border-radius: 6px;
+}
+
 .gdn-qty-input-field {
     width: 100%;
     border: none !important;
@@ -191,6 +449,11 @@
     text-align: right;
     font-weight: 600;
     outline: none;
+}
+
+.create-good-delivery-note-page .gdn-items-card .gdn-qty-input-field {
+    padding: 4px 6px;
+    font-size: 12px;
 }
 
 .gdn-qty-unit {
@@ -287,12 +550,54 @@
     background-color: var(--slate-50);
 }
 
+/* Delivery list template + driver preview (Create GDN sidebar) */
+.gdn-sidebar-muted {
+    font-size: 12px;
+    color: var(--slate-400);
+    margin: 0 0 8px;
+}
+
+.gdn-delivery-driver-preview {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid var(--slate-200);
+}
+
+.gdn-delivery-driver-preview__title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--slate-500);
+    margin-bottom: 8px;
+}
+
+.gdn-sidebar-transport-body select.form-input {
+    cursor: pointer;
+}
+
 /* Responsive */
 @media (max-width: 1100px) {
     .gdn-layout-container {
         grid-template-columns: 1fr;
     }
+
     .gdn-sidebar {
         position: static;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .create-good-delivery-note-page {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .create-good-delivery-note-page .gdn-items-card {
+        flex: none;
+        min-height: 280px;
     }
 }
