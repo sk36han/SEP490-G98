@@ -106,7 +106,6 @@ const EditItem = () => {
     setNotFound(false);
     getItemForDisplayById(id)
       .then((item) => {
-      .then((item) => {
         console.log("[EditItem] item loaded:", JSON.stringify(item));
         setNotFound(false);
         if (item.purchasePrice != null && item.purchasePrice !== "") setShowPurchasePrice(true);
@@ -142,7 +141,7 @@ const EditItem = () => {
         setNotFound(true);
       })
       .finally(() => setLoading(false));
-  });
+  }, [id]);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -478,8 +477,6 @@ const EditItem = () => {
           }} />
 
         
-
-        <ImageDialog
 
         <ImageDialog
           open={imageDialogOpen}

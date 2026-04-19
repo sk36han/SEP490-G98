@@ -1,16 +1,9 @@
 /**
- * DeliveryFilterPopup – Bộ lọc giao hàng
- * Pattern giống StocktakeFilterPopup.
+ * Bộ lọc giao hàng – cùng layout với các filter View*List.
  */
-import React from 'react';
-import {
-    Box,
-    Typography,
-    Button,
-    IconButton,
-    Popover,
-} from '@mui/material';
-import { X } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Typography, TextField, Autocomplete } from '@mui/material';
+import { ListFilterPopupShell, LIST_FILTER_INPUT_SX, LIST_FILTER_LABEL_SX } from './listFilterPopup';
 
 const CARRIER_OPTIONS = [
     { value: '', label: 'Tất cả' },
@@ -35,133 +28,96 @@ const IS_ACTIVE_OPTIONS = [
 ];
 
 const DeliveryFilterPopup = ({ open, onClose, initialValues = {}, onApply }) => {
-    const [values, setValues] = React.useState({
-        carrierName: '',
-        status: '',
-        isActive: '',
-        ...initialValues,
-    });
+    const [carrierOption, setCarrierOption] = useState(CARRIER_OPTIONS[0]);
+    const [statusOption, setStatusOption] = useState(STATUS_OPTIONS[0]);
+    const [isActiveOption, setIsActiveOption] = useState(IS_ACTIVE_OPTIONS[0]);
 
-    React.useEffect(() => {
-        setValues({ carrierName: '', status: '', isActive: '', ...initialValues });
-    }, [initialValues]);
+    useEffect(() => {
+        if (!open) return;
+        const c = initialValues.carrierName ?? '';
+        const s = initialValues.status ?? '';
+        const a = initialValues.isActive;
+        setCarrierOption(CARRIER_OPTIONS.find((o) => o.value === c) ?? CARRIER_OPTIONS[0]);
+        setStatusOption(STATUS_OPTIONS.find((o) => o.value === s) ?? STATUS_OPTIONS[0]);
+        if (a === true || a === 'true') {
+            setIsActiveOption(IS_ACTIVE_OPTIONS[1]);
+        } else if (a === false || a === 'false') {
+            setIsActiveOption(IS_ACTIVE_OPTIONS[2]);
+        } else {
+            setIsActiveOption(IS_ACTIVE_OPTIONS[0]);
+        }
+    }, [open, initialValues]);
 
-    const handleChange = (key, value) => {
-        setValues(prev => ({ ...prev, [key]: value }));
-    };
-
-    const handleApply = () => {
-        onApply(values);
+    const handleApply = useCallback(() => {
+        onApply({
+            carrierName: carrierOption.value || undefined,
+            status: statusOption.value || undefined,
+            isActive: isActiveOption.value === '' ? undefined : isActiveOption.value,
+        });
         onClose();
-    };
+    }, [carrierOption, statusOption, isActiveOption, onApply, onClose]);
 
-    const handleReset = () => {
-        setValues({ carrierName: '', status: '', isActive: '' });
-    };
+    const handleClear = useCallback(() => {
+        setCarrierOption(CARRIER_OPTIONS[0]);
+        setStatusOption(STATUS_OPTIONS[0]);
+        setIsActiveOption(IS_ACTIVE_OPTIONS[0]);
+        onApply({ carrierName: '', status: '', isActive: '' });
+        onClose();
+    }, [onApply, onClose]);
 
     return (
-        <Popover
-            open={open}
-            onClose={onClose}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-            slotProps={{
-                paper: {
-                    elevation: 0,
-                    sx: {
-                        mt: 1,
-                        width: 320,
-                        borderRadius: '14px',
-                        border: '1px solid rgba(0,0,0,0.08)',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
-                        overflow: 'hidden',
-                    },
-                },
-            }}
-        >
-            {/* Header */}
-            <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ fontSize: '15px', color: '#111827' }}>
-                    Bộ lọc giao hàng
+        <ListFilterPopupShell open={open} onClose={onClose} onClear={handleClear} onApply={handleApply} title="Bộ lọc giao hàng" width={360}>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Đơn vị vận chuyển
                 </Typography>
-                <IconButton size="small" onClick={onClose} sx={{ color: '#9ca3af', '&:hover': { color: '#6b7280' } }}>
-                    <X size={16} />
-                </IconButton>
+                <Autocomplete
+                    size="small"
+                    options={CARRIER_OPTIONS}
+                    getOptionLabel={(o) => o.label}
+                    value={carrierOption}
+                    onChange={(_, v) => setCarrierOption(v || CARRIER_OPTIONS[0])}
+                    isOptionEqualToValue={(a, b) => a.value === b.value}
+                    renderInput={(params) => (
+                        <TextField {...params} placeholder="Chọn đơn vị vận chuyển" sx={LIST_FILTER_INPUT_SX} />
+                    )}
+                />
             </Box>
 
-            {/* Body */}
-            <Box sx={{ px: 2.5, py: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {/* Đơn vị vận chuyển */}
-                <Box>
-                    <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', mb: 0.75 }}>Đơn vị vận chuyển</Typography>
-                    <select
-                        value={values.carrierName}
-                        onChange={(e) => handleChange('carrierName', e.target.value)}
-                        style={{
-                            width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px',
-                            border: '1px solid #e5e7eb', backgroundColor: '#fff', color: '#374151',
-                            outline: 'none', cursor: 'pointer', appearance: 'none',
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 12px center',
-                            paddingRight: '32px',
-                        }}
-                    >
-                        {CARRIER_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                </Box>
-
-                {/* Trạng thái vận chuyển */}
-                <Box>
-                    <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', mb: 0.75 }}>Trạng thái vận chuyển</Typography>
-                    <select
-                        value={values.status}
-                        onChange={(e) => handleChange('status', e.target.value)}
-                        style={{
-                            width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px',
-                            border: '1px solid #e5e7eb', backgroundColor: '#fff', color: '#374151',
-                            outline: 'none', cursor: 'pointer', appearance: 'none',
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 12px center',
-                            paddingRight: '32px',
-                        }}
-                    >
-                        {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                </Box>
-
-                {/* Trạng thái hoạt động */}
-                <Box>
-                    <Typography sx={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', mb: 0.75 }}>Trạng thái hoạt động</Typography>
-                    <select
-                        value={values.isActive}
-                        onChange={(e) => handleChange('isActive', e.target.value)}
-                        style={{
-                            width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '8px',
-                            border: '1px solid #e5e7eb', backgroundColor: '#fff', color: '#374151',
-                            outline: 'none', cursor: 'pointer', appearance: 'none',
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 12px center',
-                            paddingRight: '32px',
-                        }}
-                    >
-                        {IS_ACTIVE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Trạng thái vận chuyển
+                </Typography>
+                <Autocomplete
+                    size="small"
+                    options={STATUS_OPTIONS}
+                    getOptionLabel={(o) => o.label}
+                    value={statusOption}
+                    onChange={(_, v) => setStatusOption(v || STATUS_OPTIONS[0])}
+                    isOptionEqualToValue={(a, b) => a.value === b.value}
+                    renderInput={(params) => (
+                        <TextField {...params} placeholder="Chọn trạng thái" sx={LIST_FILTER_INPUT_SX} />
+                    )}
+                />
             </Box>
 
-            {/* Footer */}
-            <Box sx={{ px: 2.5, py: 2, borderTop: '1px solid #f3f4f6', display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                <Button size="small" onClick={handleReset} sx={{ fontSize: '13px', textTransform: 'none', borderRadius: '8px', color: '#6b7280', '&:hover': { bgcolor: '#f9fafb' } }}>
-                    Đặt lại
-                </Button>
-                <Button size="small" variant="contained" onClick={handleApply} sx={{ fontSize: '13px', textTransform: 'none', borderRadius: '8px', bgcolor: '#3b82f6', '&:hover': { bgcolor: '#2563eb' } }}>
-                    Áp dụng
-                </Button>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Trạng thái hoạt động
+                </Typography>
+                <Autocomplete
+                    size="small"
+                    options={IS_ACTIVE_OPTIONS}
+                    getOptionLabel={(o) => o.label}
+                    value={isActiveOption}
+                    onChange={(_, v) => setIsActiveOption(v || IS_ACTIVE_OPTIONS[0])}
+                    isOptionEqualToValue={(a, b) => a.value === b.value}
+                    renderInput={(params) => (
+                        <TextField {...params} placeholder="Chọn trạng thái hoạt động" sx={LIST_FILTER_INPUT_SX} />
+                    )}
+                />
             </Box>
-        </Popover>
+        </ListFilterPopupShell>
     );
 };
 

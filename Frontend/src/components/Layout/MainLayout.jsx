@@ -36,29 +36,39 @@ class LayoutErrorBoundary extends React.Component {
 const MainLayout = ({ children }) => {
     return (
         <LayoutErrorBoundary>
-            <Box sx={{ display: 'flex' }}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    height: '100dvh',
+                    maxHeight: '100vh',
+                    overflow: 'hidden',
+                    minHeight: 0,
+                }}
+            >
                 <Sidebar />
                 <Box
                     component="main"
                     sx={{
-                        flexGrow: 1,
-                        minHeight: '100vh',
+                        flex: 1,
                         minWidth: 0,
-                        overflowY: 'auto',
+                        minHeight: 0,
+                        overflow: 'hidden',
                         display: 'flex',
                         flexDirection: 'column',
                         pt: 1.5,
                         px: 3,
                         pb: 3,
+                        boxSizing: 'border-box',
                     }}
                 >
                     <AppHeader />
                     <Box
                         sx={{
                             flex: 1,
-                            minHeight: 'auto',
+                            minHeight: 0,
                             minWidth: 0,
-                            overflow: 'visible',
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',
                         }}

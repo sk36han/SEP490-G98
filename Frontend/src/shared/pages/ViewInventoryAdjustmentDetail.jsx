@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -20,37 +20,8 @@ import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { formatDateTime } from '../lib/dateUtils';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { fetchInventoryAdjustmentDetail } from '../lib/inventoryAdjustmentService';
 import '../styles/CreateSupplier.css';
-
-// Mock adjustment data
-const MOCK_ADJUSTMENT = {
-    adjustmentId: 1,
-    adjustmentCode: 'ADJ-0001',
-    stocktakeCode: 'STK-0001',
-    warehouseCode: 'WH-HCM',
-    warehouseName: 'Kho HCM',
-    submittedByName: 'Nguyễn Văn A',
-    status: 'POSTED',
-    reason: 'Điều chỉnh theo kiểm kê demo',
-    submittedAt: '2026-02-08T14:02:47',
-    approvedAt: '2026-02-08T14:02:47',
-    postedAt: '2026-02-08T14:02:47',
-    note: 'Điều chỉnh sau kiểm kê định kỳ tháng 2/2026',
-};
-
-// Mock lines data
-const MOCK_LINES = [
-    { id: 1, itemName: 'Vật tư A', itemCode: 'ITEM-001', uom: 'Cái', systemQty: 150, adjustmentQty: -5, varianceQty: -5 },
-    { id: 2, itemName: 'Vật tư B', itemCode: 'ITEM-002', uom: 'Cái', systemQty: 85, adjustmentQty: 5, varianceQty: 5 },
-    { id: 3, itemName: 'Vật tư C', itemCode: 'ITEM-003', uom: 'Kg', systemQty: 200, adjustmentQty: 0, varianceQty: 0 },
-    { id: 4, itemName: 'Vật tư D', itemCode: 'ITEM-004', uom: 'Thùng', systemQty: 50, adjustmentQty: -2, varianceQty: -2 },
-    { id: 5, itemName: 'Vật tư E', itemCode: 'ITEM-005', uom: 'Cái', systemQty: 120, adjustmentQty: 0, varianceQty: 0 },
-    { id: 6, itemName: 'Vật tư F', itemCode: 'ITEM-006', uom: 'Cái', systemQty: 75, adjustmentQty: 0, varianceQty: 0 },
-    { id: 7, itemName: 'Vật tư G', itemCode: 'ITEM-007', uom: 'Hộp', systemQty: 300, adjustmentQty: -5, varianceQty: -5 },
-    { id: 8, itemName: 'Vật tư H', itemCode: 'ITEM-008', uom: 'Kg', systemQty: 180, adjustmentQty: 5, varianceQty: 5 },
-    { id: 9, itemName: 'Vật tư I', itemCode: 'ITEM-009', uom: 'Cái', systemQty: 95, adjustmentQty: 0, varianceQty: 0 },
-    { id: 10, itemName: 'Vật tư J', itemCode: 'ITEM-010', uom: 'Thùng', systemQty: 45, adjustmentQty: 0, varianceQty: 0 },
-];
 
 const STATUS_CONFIG = {
     DRAFT: {
@@ -89,21 +60,57 @@ const ViewInventoryAdjustmentDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { toast, showToast, clearToast } = useToast();
-    const [note] = useState(MOCK_ADJUSTMENT.note || '');
+    const [adjustment, setAdjustment] = useState(null);
+    const [lines, setLines] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [varianceFilter, setVarianceFilter] = useState('all');
     const [searchKeyword, setSearchKeyword] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            if (!id) {
+                setError('Thiếu mã phiếu');
+                setLoading(false);
+                return;
+            }
+            setLoading(true);
+            setError(null);
+            try {
+                const { adjustment: adj, lines: rawLines } = await fetchInventoryAdjustmentDetail(id);
+                if (cancelled) return;
+                setAdjustment(adj);
+                setLines(Array.isArray(rawLines) ? rawLines : []);
+            } catch (e) {
+                if (!cancelled) {
+                    const msg =
+                        e?.response?.data?.message ||
+                        e?.response?.data?.Message ||
+                        e?.message ||
+                        'Không tải được chi tiết phiếu điều chỉnh';
+                    setError(typeof msg === 'string' ? msg : 'Không tải được chi tiết phiếu điều chỉnh');
+                    setAdjustment(null);
+                    setLines([]);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [id]);
 
     // Permission: Only Director can approve/reject
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const canApprove = permissionRole === 'DIRECTOR';
-    // Show approve/reject buttons only when status is PENDING_DIR
-    const showApprovalActions = canApprove && adjustment.status === 'PENDING_DIR';
+    const showApprovalActions = canApprove && adjustment?.status === 'PENDING_DIR';
 
-    const adjustment = MOCK_ADJUSTMENT;
-    const statusConfig = STATUS_CONFIG[adjustment.status] || STATUS_CONFIG.DRAFT;
+    const statusConfig = adjustment ? (STATUS_CONFIG[adjustment.status] || STATUS_CONFIG.DRAFT) : STATUS_CONFIG.DRAFT;
     const StatusIcon = statusConfig.Icon;
 
-    const filteredLines = MOCK_LINES.filter(l => {
+    const filteredLines = useMemo(() => lines.filter(l => {
         if (varianceFilter === 'negative') return l.varianceQty < 0;
         if (varianceFilter === 'positive') return l.varianceQty > 0;
         if (varianceFilter === 'sufficient') return l.varianceQty === 0;
@@ -123,14 +130,51 @@ const ViewInventoryAdjustmentDetail = () => {
         const orderB = getSortOrder(b);
         if (orderA !== orderB) return orderA - orderB;
         return a.varianceQty - b.varianceQty;
-    });
+    }), [lines, varianceFilter, searchKeyword]);
 
     const formatDate = (dateStr) => formatDateTime(dateStr);
 
-    const totalLines = MOCK_LINES.length;
-    const negativeLines = MOCK_LINES.filter(l => l.varianceQty < 0).length;
-    const positiveLines = MOCK_LINES.filter(l => l.varianceQty > 0).length;
-    const sufficientLines = MOCK_LINES.filter(l => l.varianceQty === 0).length;
+    const totalLines = lines.length;
+    const negativeLines = lines.filter(l => l.varianceQty < 0).length;
+    const positiveLines = lines.filter(l => l.varianceQty > 0).length;
+    const sufficientLines = lines.filter(l => l.varianceQty === 0).length;
+
+    if (loading) {
+        return (
+            <div className="create-supplier-page">
+                <div className="page-header">
+                    <div className="page-header-left">
+                        <button type="button" onClick={() => navigate('/inventory/adjustments')} className="back-button">
+                            <ArrowLeft size={20} />
+                            <span>Quay lại</span>
+                        </button>
+                    </div>
+                </div>
+                <div style={{ padding: '48px 16px', textAlign: 'center', color: '#6b7280' }}>Đang tải chi tiết phiếu…</div>
+            </div>
+        );
+    }
+
+    if (error || !adjustment) {
+        return (
+            <div className="create-supplier-page">
+                <div className="page-header">
+                    <div className="page-header-left">
+                        <button type="button" onClick={() => navigate('/inventory/adjustments')} className="back-button">
+                            <ArrowLeft size={20} />
+                            <span>Quay lại</span>
+                        </button>
+                    </div>
+                </div>
+                <div style={{ padding: 24, textAlign: 'center', color: '#dc2626' }}>{error || 'Không tìm thấy phiếu'}</div>
+            </div>
+        );
+    }
+
+    const note = adjustment.reason || adjustment.note || '';
+    const warehouseLabel = adjustment.warehouseCode
+        ? `${adjustment.warehouseName} - ${adjustment.warehouseCode}`
+        : (adjustment.warehouseName || '—');
 
     return (
         <div className="create-supplier-page">
@@ -340,7 +384,7 @@ const ViewInventoryAdjustmentDetail = () => {
                                     <label className="form-label">Kho</label>
                                     <div className="input-wrapper">
                                         <Warehouse className="input-icon" size={16} />
-                                        <input type="text" value={`${adjustment.warehouseName} - ${adjustment.warehouseCode}`} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
+                                        <input type="text" value={warehouseLabel} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
                                     </div>
                                 </div>
 

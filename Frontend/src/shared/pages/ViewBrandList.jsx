@@ -6,7 +6,6 @@ import { parseDate } from '../lib/dateUtils';
 import { getBrandList, createBrand, updateBrand } from '../lib/brandService';
 import { usePolling } from '../hooks/usePolling';
 import PollingManager from '../lib/pollingManager';
-import { formatDateOnly } from '../lib/dateUtils';
 import {
     Box,
     Button,
@@ -270,7 +269,7 @@ const ViewBrandList = () => {
     return (
         <Box
             sx={{
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'hidden',

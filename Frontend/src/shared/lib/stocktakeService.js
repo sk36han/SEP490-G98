@@ -18,7 +18,7 @@ import authService from './authService';
  *   POST /StocktakeExecution/{id}/BulkMatchSystemQty
  *   POST /StocktakeExecution/{id}/SubmitStocktakeResults
  *   GET  /StocktakeExecution/{id}/GetAdjustmentPreview
- *   POST /StocktakeExecution/{id}/ApproveAndFinalizeResults
+ *   POST /StocktakeExecution/{id}/ApproveAndFinalizeResults   ← giai đoạn 2 (sau khi có chênh lệch, PENDING_RESULTADJ)
  *   POST /StocktakeExecution/{id}/CancelStocktake
  *   GET  /StocktakeExecution/{id}/GetApprovalHistory
  *   GET  /StocktakeExecution/ListAllCompletedStocktakes
@@ -206,7 +206,6 @@ export async function getStocktakeDetail(id) {
         const response = await apiClient.get(`/Stocktake/get-by-id/${id}`);
         return mapStocktakeRow(extractBody(response));
     } catch (error) {
-        console.error('[stocktakeService] getStocktakeDetail failed:', error);
         throw error.response?.data || error;
     }
 }
@@ -454,18 +453,25 @@ export async function bulkMatchSystemQty(stocktakeId) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Gửi xác nhận kết quả kiểm kê (IN_PROGRESS → PENDING_APPROVAL).
+ * Gửi kết quả kiểm kê sau khi đếm xong (execution IN_PROGRESS).
  * POST /StocktakeExecution/{id}/SubmitStocktakeResults
+ * Mặc định gửi `{ status: 'COMPLETED' }` — backend chốt phiếu COMPLETED.
+ * Truyền `{ status: 'PENDING_APPROVAL' }` nếu cần luồng chờ duyệt kết quả (hiếm).
  *
  * @param {number|string} stocktakeId
+ * @param {{ status?: string }} [options]
  * @returns {Promise<Object>}
  */
-export async function submitStocktakeResults(stocktakeId) {
+export async function submitStocktakeResults(stocktakeId, options = {}) {
     try {
-        const response = await apiClient.post(`/StocktakeExecution/${stocktakeId}/SubmitStocktakeResults`);
+        const status = options.status ?? 'COMPLETED';
+        const response = await apiClient.post(
+            `/StocktakeExecution/${stocktakeId}/SubmitStocktakeResults`,
+            { status },
+            { params: { status } },
+        );
         return mapStocktakeRow(extractBody(response));
     } catch (error) {
-        console.error('[stocktakeService] submitStocktakeResults failed:', error);
         throw error.response?.data || error;
     }
 }
@@ -498,7 +504,7 @@ export async function getAdjustmentPreview(stocktakeId) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Phê duyệt kết quả kiểm kê (Manager step 1).
+ * Giai đoạn 2 — Phê duyệt / chốt kết quả kiểm kê (sau khi gửi kết quả, có chênh lệch → PENDING_RESULTADJ).
  * POST /StocktakeExecution/{id}/ApproveAndFinalizeResults
  *
  * Backend nhận: StocktakeApprovalRequest
@@ -508,7 +514,7 @@ export async function getAdjustmentPreview(stocktakeId) {
  * @param {{ decision: string, reason?: string }} data
  * @returns {Promise<Object>}
  */
-export async function approveStocktakeStep1(stocktakeId, data) {
+export async function approveAndFinalizeStocktakeResults(stocktakeId, data) {
     try {
         const response = await apiClient.post(`/StocktakeExecution/${stocktakeId}/ApproveAndFinalizeResults`, {
             decision: data.decision?.toUpperCase(),
@@ -516,30 +522,19 @@ export async function approveStocktakeStep1(stocktakeId, data) {
         });
         return mapStocktakeRow(extractBody(response));
     } catch (error) {
-        console.error('[stocktakeService] approveStocktakeStep1 failed:', error);
+        console.error('[stocktakeService] approveAndFinalizeStocktakeResults failed:', error);
         throw error.response?.data || error;
     }
 }
 
-/**
- * Phê duyệt kết quả kiểm kê (Accountant step 2).
- * POST /StocktakeExecution/{id}/ApproveAndFinalizeResults  (stage 2)
- *
- * @param {number|string} stocktakeId
- * @param {{ decision: string, reason?: string }} data
- * @returns {Promise<Object>}
- */
+/** @deprecated Dùng {@link approveAndFinalizeStocktakeResults} */
+export async function approveStocktakeStep1(stocktakeId, data) {
+    return approveAndFinalizeStocktakeResults(stocktakeId, data);
+}
+
+/** @deprecated Dùng {@link approveAndFinalizeStocktakeResults} */
 export async function approveStocktakeStep2(stocktakeId, data) {
-    try {
-        const response = await apiClient.post(`/StocktakeExecution/${stocktakeId}/ApproveAndFinalizeResults`, {
-            decision: data.decision?.toUpperCase(),
-            reason: data.reason ?? null,
-        });
-        return mapStocktakeRow(extractBody(response));
-    } catch (error) {
-        console.error('[stocktakeService] approveStocktakeStep2 failed:', error);
-        throw error.response?.data || error;
-    }
+    return approveAndFinalizeStocktakeResults(stocktakeId, data);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

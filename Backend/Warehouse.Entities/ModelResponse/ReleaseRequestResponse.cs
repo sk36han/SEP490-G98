@@ -127,6 +127,8 @@ namespace Warehouse.Entities.ModelResponse
         public decimal AllocatedQty { get; set; }
         public decimal IssuedQty { get; set; }
         public string LineStatus { get; set; } = null!;
+
+        /// Tồn khả dụng tại kho RR: OnHandQty − ReservedQty (≥ 0)
         public decimal StockQty { get; set; }
 
         /// Giá vốn bình quân gia quyền từ InventoryOnHand (chỉ hiển thị, không cho sửa)

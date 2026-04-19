@@ -38,6 +38,7 @@ import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 import { exportItemsExcel, getItemsForDisplay, updateItemStatus } from '../lib/itemService';
+import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 /*
@@ -70,8 +71,7 @@ const ITEM_LIST_COLUMNS = [
     {
         id: 'createdAt', label: 'Ngày tạo', sortable: true, getValue: (row) => {
             if (!row.createdAt) return '-';
-            const d = new Date(row.createdAt + (row.createdAt.endsWith('Z') ? '' : 'Z'));
-            return d.toLocaleDateString('vi-VN');
+            return formatDateOnlyUtc(row.createdAt);
         }
     },
 ];
@@ -653,21 +653,12 @@ const ViewItemList = () => {
         }
     };
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '-';
-        const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-        if (Number.isNaN(d.getTime())) return String(dateStr);
-        return (
-            d.toLocaleDateString('vi-VN') +
-            '\n' +
-            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        );
-    };
+    const formatDate = (dateStr) => formatDateTimeNewlineUtc(dateStr);
 
     return (
         <Box
             sx={{
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'hidden',

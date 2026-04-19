@@ -92,6 +92,57 @@ export function formatDateTimeLines(dateStr) {
 }
 
 /**
+ * Format datetime in UTC (vi-VN), same convention as ViewStocktakeDetail (no local offset).
+ * @param {string|null|undefined} dateStr
+ * @param {string} [emptyDisplay='–'] Value when dateStr is missing (detail forms often use '').
+ */
+export function formatDateTimeUtc(dateStr, emptyDisplay = '–') {
+    if (!dateStr) return emptyDisplay;
+    const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+    if (Number.isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleString('vi-VN', { timeZone: 'UTC' });
+}
+
+/**
+ * Date + time on two lines, UTC (vi-VN).
+ */
+export function formatDateTimeLinesUtc(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+    if (Number.isNaN(d.getTime())) return null;
+    const datePart = d.toLocaleDateString('vi-VN', { timeZone: 'UTC' });
+    const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+    return { datePart, timePart };
+}
+
+/**
+ * Newline-separated date + time (for cells with white-space: pre-line), UTC.
+ */
+export function formatDateTimeNewlineUtc(dateStr) {
+    if (!dateStr) return '-';
+    const lines = formatDateTimeLinesUtc(dateStr);
+    if (!lines) return '-';
+    return `${lines.datePart}\n${lines.timePart}`;
+}
+
+/**
+ * Calendar date only in UTC (vi-VN). Use for date-only strings or the UTC calendar day of an instant.
+ */
+export function formatDateOnlyUtc(dateStr) {
+    if (!dateStr) return '–';
+    if (!/T\d{2}/.test(dateStr)) {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        if (year && month && day) {
+            const d = new Date(Date.UTC(year, month - 1, day));
+            return d.toLocaleDateString('vi-VN', { timeZone: 'UTC' });
+        }
+    }
+    const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+    if (Number.isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN', { timeZone: 'UTC' });
+}
+
+/**
  * Parse ISO datetime string as UTC (kept for backwards compat).
  */
 export function parseUtc(dateStr) {

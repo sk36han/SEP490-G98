@@ -42,6 +42,7 @@ import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils'
 import SearchInput from '../components/SearchInput';
 import PurchaseOrderFilterPopup from '../components/PurchaseOrderFilterPopup';
 import { getPurchaseOrders } from '../lib/purchaseOrderService';
+import { formatDateTimeUtc, utcTimestamp } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 const LS_COL_ORDER = 'poColumnOrder';
@@ -153,7 +154,7 @@ const PO_COLUMNS = [
     },
     {
         id: 'totalReceivedQuantity',
-        label: 'Số lượng nhập',
+        label: 'Số lượng đã nhập',
         sortable: true,
         getValue: (row) => row.totalReceivedQuantity ?? 0,
     },
@@ -196,17 +197,6 @@ const formatCurrency = (value) =>
         style: 'currency',
         currency: 'VND',
     }).format(Number(value) || 0);
-
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (String(dateStr).endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return (
-        d.toLocaleDateString('vi-VN') +
-        ' ' +
-        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    );
-};
 
 const normalizeText = (value) =>
     value ? removeDiacritics(String(value).toLowerCase()) : '';
@@ -607,8 +597,8 @@ export default function ViewPurchaseOrderList() {
         result.sort((a, b) => {
             // Mặc định: mới nhất → cũ nhất (không ghim bản nháp lên đầu)
             if (!orderBy) {
-                const timeA = new Date(a.createdAt).getTime() || 0;
-                const timeB = new Date(b.createdAt).getTime() || 0;
+                const timeA = utcTimestamp(a.createdAt);
+                const timeB = utcTimestamp(b.createdAt);
                 return timeB - timeA;
             }
 
@@ -620,8 +610,8 @@ export default function ViewPurchaseOrderList() {
             let cmp = 0;
 
             if (isDate) {
-                const tA = new Date(aVal).getTime() || 0;
-                const tB = new Date(bVal).getTime() || 0;
+                const tA = utcTimestamp(aVal);
+                const tB = utcTimestamp(bVal);
                 cmp = tA - tB;
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
@@ -735,7 +725,7 @@ export default function ViewPurchaseOrderList() {
                 return Number(row.totalReceivedQuantity || 0).toLocaleString('vi-VN');
 
             case 'createdAt':
-                return formatDate(row.createdAt);
+                return formatDateTimeUtc(row.createdAt);
 
             default: {
                 const value =
@@ -765,7 +755,7 @@ export default function ViewPurchaseOrderList() {
     return (
         <Box
             sx={{
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'hidden',

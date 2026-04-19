@@ -137,8 +137,8 @@ namespace Warehouse.DataAcces.Service
             if (session == null)
                 throw new KeyNotFoundException($"Không tìm thấy phiếu kiểm kê ID = {stocktakeId}");
 
-            if (session.Status != "PENDING_APPROVAL")
-                throw new InvalidOperationException("Chỉ có thể chốt số liệu khi kết quả đang chờ duyệt (PENDING_APPROVAL).");
+            if (session.Status != "PENDING_RESULTADJ" && session.Status != "PENDING_APPROVAL")
+                throw new InvalidOperationException("Chỉ có thể chốt số liệu khi kết quả đang chờ duyệt (PENDING_RESULTADJ).");
 
             if ((request.Decision == "REJECT" || request.Decision == "RECOUNT") && string.IsNullOrWhiteSpace(request.Reason))
                 throw new ArgumentException($"Bắt buộc phải nhập lý do khi chọn quyết định '{request.Decision}'.");

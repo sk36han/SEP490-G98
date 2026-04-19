@@ -206,11 +206,11 @@ namespace Warehouse.DataAcces.Service
                 ReceiptDate = request.ReceiptDate,
                 CreatedBy = userId,
                 Status = "PENDING_ACC", // Chờ duyệt
-                SubmittedAt = DateTime.UtcNow, // Tạo xong là submit luôn
+                SubmittedAt = null, // Auto-post khi tạo từ PO nên không hiển thị bước duyệt
                 Note = request.Note,
                 ShippingFee = shippingFee,
                 IsPaid = request.IsPaid,
-                PaymentMethod = request.PaymentMethod,
+                PaymentMethod = request.IsPaid ? request.PaymentMethod : null,
                 TotalReceivedQty = totalReceivedQty,
                 TotalGoodsAmount = totalGoodsAmount
             };
@@ -275,42 +275,16 @@ namespace Warehouse.DataAcces.Service
                 $"Tạo phiếu nhập {grn.Grncode}"
             );
 
-            // Gửi thông báo cho Kế toán nếu đơn ở trạng thái chờ duyệt
-            if (grn.Status == "PENDING_ACC")
+            // Auto-post ngay khi tạo GRN từ PO: không cần bước duyệt của Kế toán.
+            // Mục tiêu: GRN sẽ chuyển sang POSTED và gửi notification cho người tạo.
+            var approveRequest = new ApproveGRNRequest
             {
-                await _notificationService.CreateForRolesAsync(
-                    new[] { "KT" },
-                    "Phiếu nhập kho mới chờ duyệt",
-                    $"Phiếu nhập {grnCode} vừa được tạo bởi {user.FullName} và đang chờ Kế toán phê duyệt.",
-                    "GoodsReceipt",
-                    grn.Grnid,
-                    userId,
-                    "NewRequest"
-                );
-            }
-
-            return new GoodsReceiptNoteResponse
-            {
-                GrnId = grn.Grnid,
-                GrnCode = grn.Grncode,
-                ReceiptDate = grn.ReceiptDate,
-                Status = grn.Status,
-                IsPaid = grn.IsPaid,
-                PurchaseOrderId = grn.PurchaseOrderId,
-                PurchaseOrderCode = purchaseOrder.Pocode,
-                SupplierId = grn.SupplierId,
-                SupplierName = supplier.SupplierName,
-                WarehouseId = grn.WarehouseId,
-                WarehouseName = warehouse.WarehouseName,
-                CreatedBy = grn.CreatedBy,
-                CreatedByName = user.FullName,
-                TotalReceivedQty = grn.TotalReceivedQty,
-                TotalAmount = grn.TotalGoodsAmount,
-                ShippingFee = grn.ShippingFee,
-                NetAmount = netAmount,
-                CreatedAt = DateTime.UtcNow,
-                Note = grn.Note
+                IsPaid = request.IsPaid,
+                PaymentMethod = request.IsPaid ? request.PaymentMethod : null,
+                Note = request.Note
             };
+
+            return await ApproveGRNAsync(grn.Grnid, userId, approveRequest);
         }
 
         private async Task<string> GenerateNextGrnCodeAsync()
@@ -450,7 +424,7 @@ namespace Warehouse.DataAcces.Service
                         ItemId = grnLine.ItemId,
                         WarehouseId = grn.WarehouseId,
                         GrnlineId = grnLine.GrnlineId,
-                        ReceiptDate = grn.ReceiptDate.ToDateTime(TimeOnly.MinValue),
+                        ReceiptDate = DateTime.UtcNow,
                         Quantity = grnLine.ActualQty,
                         UnitCost = costPrice,
                         IsActive = true
@@ -521,8 +495,8 @@ namespace Warehouse.DataAcces.Service
             // Gửi thông báo kết quả cho người tạo đơn
             await _notificationService.CreateAsync(
                 grn.CreatedBy,
-                $"Phiếu nhập kho {grn.Grncode} ĐÃ ĐƯỢC DUYỆT",
-                $"Phiếu nhập kho {grn.Grncode} của bạn đã được kế toán phê duyệt và ghi sổ.",
+                $"Phiếu nhập kho {grn.Grncode} ĐÃ NHẬP KHO",
+                $"Phiếu nhập kho {grn.Grncode} của bạn đã được ghi sổ và nhập kho.",
                 "GoodsReceipt",
                 grn.Grnid,
                 "ApprovalResult",

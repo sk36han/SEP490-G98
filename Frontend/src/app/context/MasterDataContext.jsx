@@ -145,16 +145,36 @@ export function MasterDataProvider({ children }) {
     }
   }, []);
 
-  // Initial load
+  // Prefetch master lists chỉ khi đã có JWT và không còn chờ OTP / cổng OTP phía client.
   useEffect(() => {
-    if (!authService.getToken()) return;
-    fetchCategories();
-    fetchSuppliers();
-    fetchWarehouses();
-    fetchBrands();
-    fetchUoms();
-    fetchUsers();
-    fetchReceivers();
+    const canPrefetch = () => {
+      if (!authService.getToken()) return false;
+      if (localStorage.getItem('pendingUserId')) return false;
+      try {
+        if (sessionStorage.getItem('otpGatePending')) return false;
+      } catch {
+        /* ignore */
+      }
+      return true;
+    };
+
+    const runPrefetch = () => {
+      if (!canPrefetch()) return;
+      fetchCategories();
+      fetchSuppliers();
+      fetchWarehouses();
+      fetchBrands();
+      fetchUoms();
+      fetchUsers();
+      fetchReceivers();
+    };
+
+    runPrefetch();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mk-auth-ready', runPrefetch);
+      return () => window.removeEventListener('mk-auth-ready', runPrefetch);
+    }
+    return undefined;
   }, []);
 
   const refreshAll = useCallback(() => {

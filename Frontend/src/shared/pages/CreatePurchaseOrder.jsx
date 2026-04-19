@@ -523,7 +523,7 @@ const CreatePurchaseOrder = () => {
         e.preventDefault();
 
         if (!quotationFile || !contractAppendixFile) {
-            showToast('Vui lòng tải lên đủ 2 tệp: File báo giá và Phụ lục hợp đồng trước khi gửi duyệt.', 'error');
+            showToast('Vui lòng tải lên đủ 2 tệp: File báo giá và Hợp đồng nguyên tắc trước khi gửi duyệt.', 'error');
             return;
         }
 
@@ -589,11 +589,11 @@ const CreatePurchaseOrder = () => {
         : !quotationFile
         ? 'Vui lòng tải lên File báo giá'
         : !contractAppendixFile
-        ? 'Vui lòng tải lên Phụ lục hợp đồng'
+        ? 'Vui lòng tải lên Hợp đồng nguyên tắc'
         : '';
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page create-purchase-order-page">
             {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
@@ -667,44 +667,60 @@ const CreatePurchaseOrder = () => {
                         </p>
                     </div>
 
-                    {/* Layout 2 cột: Chi tiết sản phẩm (trái) + Nhân viên (phải) */}
+                    {/* Layout 2 cột: Trái (vật tư + tổng hợp) | Phải (thông tin chung + NCC + ghi chú + tệp) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        {/* 1. Chi tiết sản phẩm (Trái) */}
-                        <ProductTable
-                            lines={lines}
-                            selectedLineIds={selectedLineIds}
-                            showProductSearch={showProductSearch}
-                            setShowProductSearch={setShowProductSearch}
-                            searchKeyword={searchKeyword}
-                            setSearchKeyword={setSearchKeyword}
-                            filteredProducts={filteredProducts}
-                            selectedProductIds={selectedProductIds}
-                            imageErrors={imageErrors}
-                            errors={errors}
-                            productsLoading={productsLoading}
-                            productsError={productsError}
-                            formatCurrency={formatCurrency}
-                            isValidImageUrl={isValidImageUrl}
-                            handleImageError={handleImageError}
-                            handleSelectProduct={handleSelectProduct}
-                            toggleProductSelection={toggleProductSelection}
-                            addSelectedProducts={addSelectedProducts}
-                            handleSearchChange={handleSearchChange}
-                            closeProductSearch={closeProductSearch}
-                            addLine={addLine}
-                            removeLine={removeLine}
-                            updateLine={updateLine}
-                            removeSelectedLines={removeSelectedLines}
-                            toggleLineSelection={toggleLineSelection}
-                            toggleSelectAll={toggleSelectAll}
-                            getItemsForDisplay={getItemsForDisplay}
-                            setProducts={setProducts}
-                            setProductsError={setProductsError}
-                            setFilteredProducts={setFilteredProducts}
-                            products={products}
-                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
+                            {/* 1. Chi tiết sản phẩm */}
+                            <ProductTable
+                                lines={lines}
+                                selectedLineIds={selectedLineIds}
+                                showProductSearch={showProductSearch}
+                                setShowProductSearch={setShowProductSearch}
+                                searchKeyword={searchKeyword}
+                                setSearchKeyword={setSearchKeyword}
+                                filteredProducts={filteredProducts}
+                                selectedProductIds={selectedProductIds}
+                                imageErrors={imageErrors}
+                                errors={errors}
+                                productsLoading={productsLoading}
+                                productsError={productsError}
+                                formatCurrency={formatCurrency}
+                                isValidImageUrl={isValidImageUrl}
+                                handleImageError={handleImageError}
+                                handleSelectProduct={handleSelectProduct}
+                                toggleProductSelection={toggleProductSelection}
+                                addSelectedProducts={addSelectedProducts}
+                                handleSearchChange={handleSearchChange}
+                                closeProductSearch={closeProductSearch}
+                                addLine={addLine}
+                                removeLine={removeLine}
+                                updateLine={updateLine}
+                                removeSelectedLines={removeSelectedLines}
+                                toggleLineSelection={toggleLineSelection}
+                                toggleSelectAll={toggleSelectAll}
+                                getItemsForDisplay={getItemsForDisplay}
+                                setProducts={setProducts}
+                                setProductsError={setProductsError}
+                                setFilteredProducts={setFilteredProducts}
+                                products={products}
+                            />
 
-                        {/* 2. Nhân viên (Phải) */}
+                            {/* 2. Tổng hợp */}
+                            <DiscountSection
+                                formData={formData}
+                                errors={errors}
+                                discountType={formData.discountType}
+                                setDiscountType={setDiscountType}
+                                subtotal={subtotal}
+                                discountAmount={discountAmount}
+                                grandTotal={grandTotal}
+                                totalQuantity={totalQuantity}
+                                formatCurrency={formatCurrency}
+                                handleChange={handleChange}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
+                        {/* 3. Thông tin chung */}
                         <div className="info-section" style={{ margin: 0 }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Thông tin chung</h2>
@@ -847,12 +863,8 @@ const CreatePurchaseOrder = () => {
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Layout 2 cột: Nhà cung cấp + Ghi chú + Tổng hợp (trái, cùng chiều ngang với Chi tiết sản phẩm) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* 3. Nhà cung cấp - search select mock + chi tiết NCC */}
+                            {/* 4. Nhà cung cấp - search select mock + chi tiết NCC */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
@@ -1105,7 +1117,7 @@ const CreatePurchaseOrder = () => {
                                 )}
                             </div>
 
-                            {/* 4. Ghi chú */}
+                            {/* 5. Ghi chú */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú</h2>
@@ -1137,7 +1149,7 @@ const CreatePurchaseOrder = () => {
                                 </div>
                             </div>
 
-                            {/* 5. File/Image đính kèm */}
+                            {/* 6. File/Image đính kèm */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Tệp đính kèm</h2>
@@ -1165,7 +1177,7 @@ const CreatePurchaseOrder = () => {
 
                                     <div className="form-field">
                                         <label htmlFor="po-contract-appendix-file" className="form-label">
-                                            Phụ lục hợp đồng
+                                            Hợp đồng nguyên tắc
                                         </label>
                                         <div className="input-wrapper">
                                             <FileText className="input-icon" size={16} />
@@ -1185,21 +1197,7 @@ const CreatePurchaseOrder = () => {
                                 </div>
                             </div>
 
-                            {/* 6. Tổng hợp — UI giống ViewPurchaseOrderDetail */}
-                            <DiscountSection
-                                formData={formData}
-                                errors={errors}
-                                discountType={formData.discountType}
-                                setDiscountType={setDiscountType}
-                                subtotal={subtotal}
-                                discountAmount={discountAmount}
-                                grandTotal={grandTotal}
-                                totalQuantity={totalQuantity}
-                                formatCurrency={formatCurrency}
-                                handleChange={handleChange}
-                            />
                         </div>
-                        <div />
                     </div>
                 </form>
             </div>

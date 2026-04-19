@@ -9,19 +9,34 @@ const authService = {
                 password,
                 rememberMe,
             });
-         
 
-            const { requiresOtp, userId, accessToken, expiresAt, user, message } = response.data;
+            const data = response.data ?? {};
+            // Backend (ASP.NET) có thể trả PascalCase hoặc camelCase tùy cấu hình JSON
+            const requiresOtp =
+                data.requiresOtp === true ||
+                data.RequiresOtp === true;
+            const rawUserId = data.userId ?? data.UserId;
+            const accessToken = data.accessToken ?? data.AccessToken;
+            const expiresAt = data.expiresAt ?? data.ExpiresAt;
+            const message = data.message ?? data.Message;
+            const user = data.user ?? data.User;
 
             if (requiresOtp) {
-                localStorage.setItem('pendingUserId', userId);
+                if (rawUserId == null) {
+                    throw new Error('Phien dang nhap OTP khong hop le. Vui long thu lai.');
+                }
+                localStorage.setItem('pendingUserId', String(rawUserId));
                 localStorage.setItem('pendingEmail', identifier);
                 // Do NOT store token here — wait for OTP verification to complete
                 return {
                     requiresOtp: true,
-                    userId: userId,
-                    message: message || 'Vui long kiem tra email de nhap ma OTP'
+                    userId: rawUserId,
+                    message: message || 'Vui long kiem tra email de nhap ma OTP',
                 };
+            }
+
+            if (!accessToken) {
+                throw new Error(message || 'Dang nhap that bai: khong nhan duoc token.');
             }
 
             localStorage.setItem('token', accessToken);
@@ -53,15 +68,29 @@ const authService = {
                 localStorage.setItem('userInfo', JSON.stringify(userForStorage));
             }
 
-            return response.data;
+            authService.notifySessionReady();
+            return {
+                requiresOtp: false,
+                accessToken,
+                expiresAt,
+                message,
+                user,
+            };
         } catch (error) {
+            if (!error.response) {
+                if (error.code === 'ECONNABORTED') {
+                    throw new Error('Hết thời gian chờ máy chủ. Vui lòng thử lại.');
+                }
+                throw new Error(
+                    'Không kết nối được API. Hãy chạy backend (ví dụ http://localhost:5141) và thử lại. ' +
+                        '(Kiểm tra tab Network: request /api/Auth/login có bị (failed) không.)'
+                );
+            }
             if (error.response?.status === 401) {
                 throw new Error('Email/Username hoặc mật khẩu không đúng.');
             } else if (error.response?.status === 500) {
                 const detail = error.response?.data?.error || error.response?.data?.message;
                 throw new Error(detail || 'Loi dang nhap.');
-            } else if (error.code === 'ECONNABORTED') {
-                throw new Error('Timeout. Vui long kiem tra ket noi.');
             } else {
                 throw new Error(error.response?.data?.message || 'Loi dang nhap.');
             }
@@ -77,12 +106,19 @@ const authService = {
 
         try {
             const response = await apiClient.post('/Auth/verify-otp', {
-                userId: parseInt(userId),
+                userId: parseInt(userId, 10),
                 otp,
                 rememberMe: false
             });
 
-            const { accessToken, expiresAt, user } = response.data;
+            const verifyData = response.data ?? {};
+            const accessToken = verifyData.accessToken ?? verifyData.AccessToken;
+            const expiresAt = verifyData.expiresAt ?? verifyData.ExpiresAt;
+            const user = verifyData.user ?? verifyData.User;
+
+            if (!accessToken) {
+                throw new Error('Xac thuc thanh cong nhung khong nhan duoc token. Vui long dang nhap lai.');
+            }
 
             localStorage.setItem('token', accessToken);
             localStorage.setItem('tokenExpiresAt', expiresAt);
@@ -118,14 +154,19 @@ const authService = {
             localStorage.removeItem('pendingUserId');
             localStorage.removeItem('pendingEmail');
 
+            authService.notifySessionReady();
             return response.data;
         } catch (error) {
+            if (!error.response) {
+                if (error.code === 'ECONNABORTED') {
+                    throw new Error('Hết thời gian chờ máy chủ.');
+                }
+                throw new Error('Không kết nối được API. Hãy chạy backend và thử lại.');
+            }
             if (error.response?.status === 400) {
                 throw new Error(error.response?.data?.message || 'Ma OTP khong hop le.');
             } else if (error.response?.status === 401) {
                 throw new Error('Mã OTP không đúng.');
-            } else if (error.code === 'ECONNABORTED') {
-                throw new Error('Timeout.');
             } else {
                 throw new Error(error.response?.data?.message || 'Xac thuc OTP that bai.');
             }
@@ -138,6 +179,18 @@ const authService = {
         localStorage.removeItem('userInfo');
         localStorage.removeItem('pendingUserId');
         localStorage.removeItem('pendingEmail');
+        try {
+            sessionStorage.removeItem('otpGatePending');
+        } catch {
+            /* ignore */
+        }
+    },
+
+    /** Báo cho MasterData / các listener: đã có JWT hợp lệ sau login hoặc verify OTP. */
+    notifySessionReady() {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('mk-auth-ready'));
+        }
     },
 
     getToken() {

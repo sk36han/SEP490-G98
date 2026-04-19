@@ -129,6 +129,9 @@ export async function getItemsByWarehouse(warehouseId) {
         onHandQty: row.onHandQty ?? row.OnHandQty ?? 0,
         reservedQty: row.reservedQty ?? row.ReservedQty ?? 0,
         availableQty: row.availableQty ?? row.AvailableQty ?? 0,
+        unitPrice: row.unitPrice ?? row.UnitPrice ?? null,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? '',
     }));
 }
 

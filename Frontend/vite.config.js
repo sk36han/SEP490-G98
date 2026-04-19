@@ -5,6 +5,15 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Dev: browser gọi /api → Vite proxy tới backend (tránh CORS, dễ debug)
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5141',
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       '@ui': path.resolve(__dirname, 'src/ui'),
