@@ -22,6 +22,8 @@ export function getStocktakeStatusBadgeKey(rawStatus) {
             return 'STOCK_IN_PROGRESS';
         case 'PENDING_APPROVAL':
             return 'STOCK_PENDING_APPROVAL';
+        case 'PENDING_RESULTADJ':
+            return 'STOCK_PENDING_RESULTADJ';
         case 'DRAFT':
             return 'STOCK_DRAFT';
         case 'APPROVED':

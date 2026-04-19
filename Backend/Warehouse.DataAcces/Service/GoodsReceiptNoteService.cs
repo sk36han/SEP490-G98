@@ -424,7 +424,7 @@ namespace Warehouse.DataAcces.Service
                         ItemId = grnLine.ItemId,
                         WarehouseId = grn.WarehouseId,
                         GrnlineId = grnLine.GrnlineId,
-                        ReceiptDate = grn.ReceiptDate.ToDateTime(TimeOnly.MinValue),
+                        ReceiptDate = DateTime.UtcNow,
                         Quantity = grnLine.ActualQty,
                         UnitCost = costPrice,
                         IsActive = true

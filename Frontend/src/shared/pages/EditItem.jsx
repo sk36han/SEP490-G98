@@ -141,7 +141,7 @@ const EditItem = () => {
         setNotFound(true);
       })
       .finally(() => setLoading(false));
-  });
+  }, [id]);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -475,6 +475,8 @@ const EditItem = () => {
               throw err;
             }
           }} />
+
+        
 
         <ImageDialog
           open={imageDialogOpen}

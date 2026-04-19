@@ -446,7 +446,7 @@ const ViewGoodReceiptNoteDetail = () => {
             }}
         >
             {/* Dialog xác nhận duyệt/hủy */}
-            <Dialog
+            <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
                 onConfirm={handleConfirmAction}

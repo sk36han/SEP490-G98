@@ -2,7 +2,7 @@
  * Danh sách Danh mục sản phẩm – kết nối API CategoryController.
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { formatDateOnly } from '../lib/dateUtils';
+import { formatDateOnlyUtc } from '../lib/dateUtils';
 import { usePolling } from '../hooks/usePolling';
 import PollingManager from '../lib/pollingManager';
 import {
@@ -807,7 +807,7 @@ const ViewCategoryList = () => {
                                                                     </Box>
                                                                 )}
                                                                 {colId === 'itemCount' && '0'}
-                                                                {colId === 'createdAt' && (c.createdAt ? formatDateOnly(c.createdAt) : '—')}
+                                                                {colId === 'createdAt' && (c.createdAt ? formatDateOnlyUtc(c.createdAt) : '—')}
                                                                 {colId === 'isActive' && (
                                                                     <Chip
                                                                         label={c.isActive ? '• Hoạt động' : '• Tạm dừng'}

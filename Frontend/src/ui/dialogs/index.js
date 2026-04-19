@@ -7,7 +7,7 @@ export { CreateCompanyDialog } from './CreateCompanyDialog';
 export { CreateAddressDialog } from './CreateAddressDialog';
 export { CreateReceiverDialog } from './CreateReceiverDialog';
 export { CreateCategoryDialog } from './CreateCategoryDialog';
-export { CreateUomDialog } from './CreateUomDialog';
+export { default as CreateUomDialog } from './CreateUomDialog';
 export { default as EditCategoryDialog } from './EditCategoryDialog';
 export { default as UomFormDialog } from './UomFormDialog';
 export { default as CreateAlertDialog } from './CreateAlert';

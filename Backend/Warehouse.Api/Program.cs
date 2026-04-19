@@ -124,6 +124,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IReleaseRequestService, ReleaseRequestService>();
             builder.Services.AddScoped<IGoodsDeliveryNoteService, GoodsDeliveryNoteService>();
             builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
+            builder.Services.AddScoped<IInventoryAdjustmentService, InventoryAdjustmentService>();
             builder.Services.AddScoped<IDocumentAttachmentService, DocumentAttachmentService>();
             builder.Services.AddScoped<IPrintTemplateService, PrintTemplateService>();
 

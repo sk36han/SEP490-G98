@@ -26,6 +26,7 @@ import {
     Check,
     Paperclip,
     FileText,
+        Pencil,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -49,12 +50,6 @@ const LIFECYCLE_STATUS_MAP = {
     PendingRcv: { label: 'Chờ nhận hàng', color: '#f59e0b', bgColor: '#fef3c7' },
     PartiallyRcv: { label: 'Nhận một phần', color: '#3b82f6', bgColor: '#dbeafe' },
     Received: { label: 'Đã nhận đủ', color: '#10b981', bgColor: '#d1fae5' },
-    Closed: { label: 'Đã đóng', color: '#6b7280', bgColor: '#f3f4f6' },
-    Cancelled: { label: 'Đã hủy', color: '#ef4444', bgColor: '#fee2e2' },
-};
-
-const LINE_STATUS_MAP = {
-    Open: { label: 'Mở', color: '#10b981', bgColor: '#d1fae5' },
     Closed: { label: 'Đã đóng', color: '#6b7280', bgColor: '#f3f4f6' },
     Cancelled: { label: 'Đã hủy', color: '#ef4444', bgColor: '#fee2e2' },
 };
@@ -214,6 +209,12 @@ const styles = {
         gap: 24,
         alignItems: 'start',
     },
+    leftStack: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+        minWidth: 0,
+    },
     sectionCard: {
         backgroundColor: '#ffffff',
         border: '1px solid #e5e7eb',
@@ -246,8 +247,7 @@ const styles = {
     },
     tableWrap: {
         overflowX: 'auto',
-        maxHeight: 560,
-        overflowY: 'auto',
+        overflowY: 'visible',
     },
     table: {
         width: '100%',
@@ -699,7 +699,7 @@ const ViewPurchaseOrderDetail = () => {
         : null;
 
     return (
-        <div className="create-supplier-page" style={styles.page}>
+        <div className="create-supplier-page view-po-detail-page" style={styles.page}>
             <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
@@ -934,14 +934,7 @@ const ViewPurchaseOrderDetail = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {orderData.lines.map((line, index) => {
-                                            const lineStatusStyle = LINE_STATUS_MAP[line.lineStatus] || {
-                                                label: line.lineStatus,
-                                                color: '#6b7280',
-                                                bgColor: '#f3f4f6',
-                                            };
-
-                                            return (
+                                        {orderData.lines.map((line, index) => (
                                                 <tr key={line.id}>
                                                     <td style={{ ...styles.td, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
                                                         {index + 1}
@@ -1049,8 +1042,7 @@ const ViewPurchaseOrderDetail = () => {
                                                         )}
                                                     </td>
                                                 </tr>
-                                            );
-                                        })}
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
@@ -1099,45 +1091,95 @@ const ViewPurchaseOrderDetail = () => {
                     </div>
                 </div>
 
-                <div style={styles.sectionCard}>
-                    <div style={styles.sectionHeader}>
-                        <h2 style={styles.sectionTitle}>Thông tin đơn hàng</h2>
+                <div style={styles.sideStack}>
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Thông tin đơn hàng</h2>
+                        </div>
+
+                        <div style={styles.sectionBody}>
+                            <div style={styles.infoGrid}>
+                                {renderReadonlyField('Kho nhận', orderData.warehouseName, MapPin)}
+                                {renderReadonlyField('Người tạo', orderData.creatorName, User)}
+
+                                {orderData.responsiblePersonName &&
+                                    renderReadonlyField('Người phụ trách', orderData.responsiblePersonName, User)}
+
+                                {orderData.requestedDate &&
+                                    renderReadonlyField('Ngày yêu cầu', orderData.requestedDate, Calendar)}
+
+                                {orderData.createdAt &&
+                                    renderReadonlyField('Ngày tạo', orderData.createdAt, Calendar)}
+
+                                {orderData.submittedAt &&
+                                    renderReadonlyField('Ngày gửi duyệt', orderData.submittedAt, Calendar)}
+
+                                {orderData.expectedDeliveryDate &&
+                                    renderReadonlyField('Ngày nhận dự kiến', orderData.expectedDeliveryDate, Calendar)}
+                            </div>
+                        </div>
                     </div>
 
-                    <div style={styles.sectionBody}>
-                        <div style={styles.infoGrid}>
-                            {renderReadonlyField('Nhà cung cấp', orderData.supplierName, Building2)}
-                            {renderReadonlyField('Kho nhận', orderData.warehouseName, MapPin)}
-                            {renderReadonlyField('Người tạo', orderData.creatorName, User)}
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Nhà cung cấp</h2>
+                        </div>
+                        <div style={styles.sectionBody}>
+                            <div style={styles.infoGrid}>
+                                {renderReadonlyField('Tên nhà cung cấp', orderData.supplierName, Building2)}
+                            </div>
+                        </div>
+                    </div>
 
-                            {orderData.responsiblePersonName &&
-                                renderReadonlyField('Người phụ trách', orderData.responsiblePersonName, User)}
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Ghi chú</h2>
+                        </div>
+                        <div style={styles.sectionBody}>
+                            {orderData.justification ? (
+                                renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })
+                            ) : (
+                                <div style={styles.fieldWrap}>
+                                    <label style={styles.fieldLabel}>Nội dung</label>
+                                    <div style={{ ...styles.fieldBox, ...styles.fieldBoxMultiline, color: '#94a3b8' }}>
+                                        <Clock size={16} style={{ color: '#94a3b8', flexShrink: 0, marginTop: 2 }} />
+                                        <span>Không có ghi chú.</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                            {orderData.requestedDate &&
-                                renderReadonlyField('Ngày yêu cầu', orderData.requestedDate, Calendar)}
-
-                            {orderData.createdAt &&
-                                renderReadonlyField('Ngày tạo', orderData.createdAt, Calendar)}
-
-                            {orderData.submittedAt &&
-                                renderReadonlyField('Ngày gửi duyệt', orderData.submittedAt, Calendar)}
-
-                            {orderData.expectedDeliveryDate &&
-                                renderReadonlyField('Ngày nhận dự kiến', orderData.expectedDeliveryDate, Calendar)}
-
-                            {orderData.justification &&
-                                renderReadonlyField('Lý do / Ghi chú', orderData.justification, Clock, { multiline: true })}
-
-                            {(orderData.quotationFileUrl || orderData.contractAppendixFileUrl) && (
+                    <div style={styles.sectionCard}>
+                        <div style={styles.sectionHeader}>
+                            <h2 style={styles.sectionTitle}>Tệp đính kèm</h2>
+                        </div>
+                        <div style={styles.sectionBody}>
+                            {orderData.quotationFileUrl || orderData.contractAppendixFileUrl ? (
                                 <div style={styles.fieldWrap}>
                                     <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
-                                    <div style={{ ...styles.fieldBox, ...styles.fieldBoxMultiline, flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+                                    <div
+                                        style={{
+                                            ...styles.fieldBox,
+                                            ...styles.fieldBoxMultiline,
+                                            flexDirection: 'column',
+                                            alignItems: 'flex-start',
+                                            gap: 10,
+                                        }}
+                                    >
                                         {orderData.quotationFileUrl && (
                                             <a
                                                 href={orderData.quotationFileUrl}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
+                                                style={{
+                                                    color: '#1d4ed8',
+                                                    textDecoration: 'none',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 8,
+                                                    fontWeight: 600,
+                                                }}
                                             >
                                                 <Paperclip size={16} />
                                                 File báo giá
@@ -1148,7 +1190,14 @@ const ViewPurchaseOrderDetail = () => {
                                                 href={orderData.contractAppendixFileUrl}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                style={{ color: '#1d4ed8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}
+                                                style={{
+                                                    color: '#1d4ed8',
+                                                    textDecoration: 'none',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 8,
+                                                    fontWeight: 600,
+                                                }}
                                             >
                                                 <FileText size={16} />
                                                 Hợp đồng nguyên tắc
@@ -1156,8 +1205,15 @@ const ViewPurchaseOrderDetail = () => {
                                         )}
                                     </div>
                                 </div>
+                            ) : (
+                                <div style={styles.fieldWrap}>
+                                    <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
+                                    <div style={{ ...styles.fieldBox, color: '#94a3b8' }}>
+                                        <Paperclip size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                                        <span>Chưa có tệp đính kèm.</span>
+                                    </div>
+                                </div>
                             )}
-
                         </div>
                     </div>
                 </div>

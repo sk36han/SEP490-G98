@@ -28,6 +28,7 @@ import {
 import SearchInput from '../components/SearchInput';
 import ReceiverFilterPopup from '../components/ReceiverFilterPopup';
 import { getReceivers, toggleReceiverStatus } from '../lib/receiverService';
+import { formatDateOnlyUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 const COLUMNS = [
@@ -44,12 +45,7 @@ const COLUMNS = [
 
 const ROWS_PER_PAGE_OPTIONS = [20, 50, 100];
 
-const fmtDate = (str) => {
-    if (!str) return '—';
-    const d = new Date(str.endsWith('Z') ? str : str + 'Z');
-    if (Number.isNaN(d.getTime())) return str;
-    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+const fmtDate = (str) => (str ? formatDateOnlyUtc(str) : '—');
 
 const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     <Box sx={{

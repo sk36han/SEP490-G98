@@ -521,8 +521,10 @@ namespace Warehouse.DataAcces.Service
                 var adjustment = await _context.InventoryAdjustmentRequests
                     .Include(x => x.SubmittedByNavigation)
                     .Include(x => x.Warehouse)
+                    .Include(x => x.Stocktake)
                     .Include(x => x.InventoryAdjustmentLines)
                         .ThenInclude(l => l.Item)
+                            .ThenInclude(i => i.BaseUom)
                     .FirstOrDefaultAsync(x => x.AdjustmentId == requestId);
 
                 if (adjustment == null) return null;
@@ -531,15 +533,21 @@ namespace Warehouse.DataAcces.Service
                 {
                     adjustment.AdjustmentId,
                     adjustment.AdjustmentCode,
+                    StocktakeCode = adjustment.Stocktake?.StocktakeCode,
                     SubmittedBy = adjustment.SubmittedByNavigation?.FullName,
                     WarehouseName = adjustment.Warehouse?.WarehouseName,
+                    WarehouseCode = adjustment.Warehouse?.WarehouseCode,
                     adjustment.Status,
                     adjustment.Reason,
+                    adjustment.SubmittedAt,
+                    adjustment.ApprovedAt,
+                    adjustment.PostedAt,
                     Lines = adjustment.InventoryAdjustmentLines.Select(l => new
                     {
                         l.AdjustmentLineId,
                         ItemCode = l.Item?.ItemCode,
                         ItemName = l.Item?.ItemName,
+                        UomName = l.Item?.BaseUom?.UomName,
                         l.SystemQty,
                         l.CountedQty,
                         l.QtyChange,

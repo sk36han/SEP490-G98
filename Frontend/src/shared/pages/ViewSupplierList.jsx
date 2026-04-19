@@ -31,6 +31,7 @@ import { getSuppliers } from '../lib/supplierService';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
+import { formatDateOnlyUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
@@ -798,9 +799,7 @@ export default function ViewSupplierList() {
                                                     // Format createdDate if present
                                                     if (col.id === 'createdDate') {
                                                         const dateValue = row.createdDate;
-                                                        const displayValue = dateValue
-                                                            ? new Date(dateValue + 'Z').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                                                            : '';
+                                                        const displayValue = dateValue ? formatDateOnlyUtc(dateValue) : '';
                                                         return (
                                                             <TableCell
                                                                 key={col.id}

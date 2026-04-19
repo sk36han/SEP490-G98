@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -19,45 +19,10 @@ import {
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
+import { getWarehouseList } from '../lib/warehouseService';
+import { getStocktakeList } from '../lib/stocktakeService';
+import { getItemsForDisplay } from '../lib/itemService';
 import '../styles/CreateSupplier.css';
-
-// Mock data for warehouses
-const MOCK_WAREHOUSES = [
-    { id: 1, code: 'WH-HCM', name: 'Kho HCM' },
-    { id: 2, code: 'WH-HN', name: 'Kho Hà Nội' },
-    { id: 3, code: 'WH-DN', name: 'Kho Đà Nẵng' },
-];
-
-// Mock data for stocktakes
-const MOCK_STOCKTAKES = [
-    { id: 1, code: 'STK-0001', name: 'Kiểm kê tháng 2 kho HCM', warehouseName: 'Kho HCM' },
-    { id: 2, code: 'STK-0002', name: 'Kiểm kê đột xuất kho Hà Nội', warehouseName: 'Kho Hà Nội' },
-    { id: 3, code: 'STK-0003', name: 'Kiểm kê định kỳ kho Đà Nẵng', warehouseName: 'Kho Đà Nẵng' },
-];
-
-// Mock data for items
-const MOCK_ITEMS = [
-    { id: 1, code: 'ITEM-001', name: 'Vật tư A', uom: 'Cái', image: null, systemQty: 150 },
-    { id: 2, code: 'ITEM-002', name: 'Vật tư B', uom: 'Cái', image: null, systemQty: 85 },
-    { id: 3, code: 'ITEM-003', name: 'Vật tư C', uom: 'Kg', image: null, systemQty: 200 },
-    { id: 4, code: 'ITEM-004', name: 'Vật tư D', uom: 'Thùng', image: null, systemQty: 50 },
-    { id: 5, code: 'ITEM-005', name: 'Vật tư E', uom: 'Cái', image: null, systemQty: 120 },
-    { id: 6, code: 'ITEM-006', name: 'Vật tư F', uom: 'Bộ', image: null, systemQty: 75 },
-    { id: 7, code: 'ITEM-007', name: 'Vật tư G', uom: ' mét', image: null, systemQty: 300 },
-    { id: 8, code: 'ITEM-008', name: 'Vật tư H', uom: 'Cái', image: null, systemQty: 45 },
-    { id: 9, code: 'ITEM-009', name: 'Vật tư I', uom: 'Hộp', image: null, systemQty: 180 },
-    { id: 10, code: 'ITEM-010', name: 'Vật tư J', uom: 'Cái', image: null, systemQty: 95 },
-    { id: 11, code: 'ITEM-011', name: 'Vật tư K', uom: 'Kg', image: null, systemQty: 250 },
-    { id: 12, code: 'ITEM-012', name: 'Vật tư L', uom: 'Thùng', image: null, systemQty: 60 },
-    { id: 13, code: 'ITEM-013', name: 'Vật tư M', uom: 'Cái', image: null, systemQty: 130 },
-    { id: 14, code: 'ITEM-014', name: 'Vật tư N', uom: 'Bộ', image: null, systemQty: 88 },
-    { id: 15, code: 'ITEM-015', name: 'Vật tư O', uom: ' mét', image: null, systemQty: 420 },
-    { id: 16, code: 'ITEM-016', name: 'Vật tư P', uom: 'Cái', image: null, systemQty: 67 },
-    { id: 17, code: 'ITEM-017', name: 'Vật tư Q', uom: 'Hộp', image: null, systemQty: 210 },
-    { id: 18, code: 'ITEM-018', name: 'Vật tư R', uom: 'Cái', image: null, systemQty: 155 },
-    { id: 19, code: 'ITEM-019', name: 'Vật tư S', uom: 'Kg', image: null, systemQty: 310 },
-    { id: 20, code: 'ITEM-020', name: 'Vật tư T', uom: 'Thùng', image: null, systemQty: 42 },
-];
 
 const MAX_REASON_LENGTH = 250;
 
@@ -65,7 +30,16 @@ const CreateInventoryAdjustment = () => {
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
+    const [masterLoading, setMasterLoading] = useState(true);
+    const [masterError, setMasterError] = useState(null);
     const currentUser = authService.getUser();
+
+    /** @type {Array<{ id: number, code: string, name: string }>} */
+    const [warehouses, setWarehouses] = useState([]);
+    /** @type {Array<{ id: number, code: string, name: string, warehouseName: string }>} */
+    const [stocktakes, setStocktakes] = useState([]);
+    /** @type {Array<{ id: number, code: string, name: string, uom: string, image: null, systemQty: number }>} */
+    const [products, setProducts] = useState([]);
 
     // Form data
     const [formData, setFormData] = useState({
@@ -86,8 +60,7 @@ const CreateInventoryAdjustment = () => {
     // Product search - checkbox select
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
-    const [products] = useState(MOCK_ITEMS);
-    const [filteredProducts, setFilteredProducts] = useState(MOCK_ITEMS);
+    const [filteredProducts, setFilteredProducts] = useState([]);
     const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     // Dropdown states
@@ -97,6 +70,58 @@ const CreateInventoryAdjustment = () => {
     const [stocktakeDropdownOpen, setStocktakeDropdownOpen] = useState(false);
 
     const [errors, setErrors] = useState({});
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setMasterLoading(true);
+            setMasterError(null);
+            try {
+                const [whRes, stRes, itemRows] = await Promise.all([
+                    getWarehouseList({ pageNumber: 1, pageSize: 500 }),
+                    getStocktakeList({ page: 1, pageSize: 500 }),
+                    getItemsForDisplay(),
+                ]);
+                if (cancelled) return;
+                const wh = (whRes.items || []).map((w) => ({
+                    id: w.warehouseId,
+                    code: w.warehouseCode,
+                    name: w.warehouseName,
+                }));
+                const st = (stRes.items || []).map((r) => ({
+                    id: r.stocktakeId,
+                    code: r.stocktakeCode,
+                    name: `${r.stocktakeCode || ''} — ${r.warehouseName || ''}`.trim(),
+                    warehouseName: r.warehouseName || '',
+                }));
+                const items = (itemRows || []).map((p) => ({
+                    id: p.itemId,
+                    code: p.itemCode,
+                    name: p.itemName,
+                    uom: p.baseUomName || '—',
+                    image: null,
+                    systemQty: Number(p.onHandQty ?? 0),
+                }));
+                setWarehouses(wh);
+                setStocktakes(st);
+                setProducts(items);
+                setFilteredProducts(items);
+            } catch (e) {
+                if (!cancelled) {
+                    setMasterError(e?.message || 'Không tải được danh mục kho / kiểm kê / vật tư');
+                    setWarehouses([]);
+                    setStocktakes([]);
+                    setProducts([]);
+                    setFilteredProducts([]);
+                }
+            } finally {
+                if (!cancelled) setMasterLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // Mouse hover handlers for dropdown items
     const handleMouseEnter = (e) => {
@@ -110,19 +135,22 @@ const CreateInventoryAdjustment = () => {
     // Filtered data
     const filteredWarehouses = useMemo(() => {
         const q = warehouseQuery.trim().toLowerCase();
-        if (!q) return MOCK_WAREHOUSES;
-        return MOCK_WAREHOUSES.filter(w =>
-            w.name.toLowerCase().includes(q) || w.code.toLowerCase().includes(q)
+        if (!q) return warehouses;
+        return warehouses.filter(
+            (w) => w.name.toLowerCase().includes(q) || w.code.toLowerCase().includes(q),
         );
-    }, [warehouseQuery]);
+    }, [warehouseQuery, warehouses]);
 
     const filteredStocktakes = useMemo(() => {
         const q = stocktakeQuery.trim().toLowerCase();
-        if (!q) return MOCK_STOCKTAKES;
-        return MOCK_STOCKTAKES.filter(s =>
-            s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)
+        if (!q) return stocktakes;
+        return stocktakes.filter(
+            (s) =>
+                s.name.toLowerCase().includes(q) ||
+                s.code.toLowerCase().includes(q) ||
+                (s.warehouseName && s.warehouseName.toLowerCase().includes(q)),
         );
-    }, [stocktakeQuery]);
+    }, [stocktakeQuery, stocktakes]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -407,6 +435,12 @@ const CreateInventoryAdjustment = () => {
                         <p className="form-card-required-note">
                             Các trường đánh dấu <span className="required-mark">*</span> là bắt buộc
                         </p>
+                        {masterLoading && (
+                            <p style={{ marginTop: 8, fontSize: 14, color: '#6b7280' }}>Đang tải danh sách kho, phiếu kiểm kê và vật tư…</p>
+                        )}
+                        {masterError && (
+                            <p style={{ marginTop: 8, fontSize: 14, color: '#b91c1c' }}>{masterError}</p>
+                        )}
                     </div>
 
                     {/* Layout 2 cột: Line items (trái) + Thông tin chung (phải) */}
@@ -424,7 +458,7 @@ const CreateInventoryAdjustment = () => {
                                                 Xóa ({selectedLineIds.length})
                                             </button>
                                         )}
-                                        <button type="button" onClick={openProductSearch} className="btn btn-sm" style={{ fontSize: '14px', fontWeight: 600 }}>
+                                        <button type="button" onClick={openProductSearch} disabled={masterLoading || !!masterError} className="btn btn-sm" style={{ fontSize: '14px', fontWeight: 600 }}>
                                             <Plus size={16} />
                                             Thêm vật tư
                                         </button>

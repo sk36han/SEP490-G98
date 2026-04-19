@@ -33,6 +33,7 @@ import { Plus, Filter, Columns, GripVertical, PackageOpen, Send } from 'lucide-r
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
+import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -117,20 +118,6 @@ const RR_COLUMNS = [
 const DEFAULT_VISIBLE_COLUMN_IDS = RR_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = RR_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 const DATE_COLUMN_IDS = ['requestedDate', 'expectedDate', 'createdAt'];
-
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN');
-};
-
-const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN') + '\n' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
 
 export default function ViewReleaseRequestList() {
     const theme = useTheme();
@@ -597,13 +584,13 @@ export default function ViewReleaseRequestList() {
                                                             if (col.id === 'createdAt') {
                                                                 return (
                                                                     <TableCell key={col.id} align="left" sx={{ color: '#6b7280', whiteSpace: 'pre-line' }}>
-                                                                        {formatDateTime(val)}
+                                                                        {formatDateTimeNewlineUtc(val)}
                                                                     </TableCell>
                                                                 );
                                                             }
                                                             return (
                                                                 <TableCell key={col.id} align="left" sx={{ color: '#6b7280' }}>
-                                                                    {val ? formatDate(val) : '-'}
+                                                                    {val ? formatDateOnlyUtc(val) : '-'}
                                                                 </TableCell>
                                                             );
                                                         }

@@ -235,8 +235,15 @@ namespace Warehouse.DataAcces.Service
                 );
             }
 
-            // 13. Trả về response chi tiết
-            return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms, unitCostsDb);
+            // 13. Trả về response chi tiết — tồn khả dụng = OnHand − Reserved (đã cập nhật sau bước giữ hàng)
+            var availableQtyByItemId = inventories.ToDictionary(
+                kvp => kvp.Key,
+                kvp =>
+                {
+                    var a = kvp.Value.OnHandQty - kvp.Value.ReservedQty;
+                    return a < 0 ? 0 : a;
+                });
+            return MapToDetailResponse(releaseRequest, warehouse, receiver, requestedByUser, items, uoms, unitCostsDb, availableQtyByItemId);
         }
 
         // ──────────────────────────── LIST ────────────────────────────
@@ -332,6 +339,14 @@ namespace Warehouse.DataAcces.Service
                 .Where(inv => inv.WarehouseId == rr.WarehouseId && itemIdsInLines.Contains(inv.ItemId))
                 .ToDictionaryAsync(inv => inv.ItemId, inv => inv.UnitCost);
 
+            // Tồn khả dụng tại kho xuất: Σ(OnHand − Reserved) theo ItemId (không âm)
+            var stockQtyRows = await _context.InventoryOnHands
+                .Where(inv => inv.WarehouseId == rr.WarehouseId && itemIdsInLines.Contains(inv.ItemId))
+                .GroupBy(inv => inv.ItemId)
+                .Select(g => new { ItemId = g.Key, Qty = g.Sum(x => x.OnHandQty - x.ReservedQty) })
+                .ToListAsync();
+            var stockQtys = stockQtyRows.ToDictionary(x => x.ItemId, x => x.Qty < 0 ? 0 : x.Qty);
+
             // Lấy danh sách tệp đính kèm (Báo giá, Hợp đồng)
             var attachments = await _context.DocumentAttachments
                 .Where(a => a.DocType == "GIR" && a.DocId == id)
@@ -392,7 +407,7 @@ namespace Warehouse.DataAcces.Service
                     ApprovedQty = l.ApprovedQty,
                     AllocatedQty = l.AllocatedQty,
                     LineStatus = l.LineStatus,
-                    StockQty = 0,
+                    StockQty = stockQtys.TryGetValue(l.ItemId, out var sq) ? sq : 0,
                     CostPrice = costPrices.TryGetValue(l.ItemId, out var cp) ? cp : 0,
                     UnitPrice = l.UnitCostAtIssue ?? 0,
                     PackagingSpecId = l.PackagingSpecId,
@@ -1135,6 +1150,7 @@ namespace Warehouse.DataAcces.Service
             Dictionary<long, Item> items,
             Dictionary<long, UnitOfMeasure> uoms,
             Dictionary<long, decimal> costPrices,
+            Dictionary<long, decimal> availableQtyByItemId,
             List<ReleaseRequestAttachmentResponse>? attachments = null)
         {
             return new ReleaseRequestDetailResponse
@@ -1184,7 +1200,7 @@ namespace Warehouse.DataAcces.Service
                     AllocatedQty = l.AllocatedQty,
                     IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus,
-                    StockQty = 0,
+                    StockQty = availableQtyByItemId.TryGetValue(l.ItemId, out var sq) ? sq : 0,
                     CostPrice = costPrices.TryGetValue(l.ItemId, out var cp) ? cp : 0,
                     UnitPrice = l.UnitCostAtIssue ?? 0,
                     PackagingSpecId = l.PackagingSpecId,
