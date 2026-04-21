@@ -336,6 +336,8 @@ export default function ViewSupplierList() {
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
     const showEmpty  = !loading && !error && rows.length === 0;
 
+    const summaryBreakdownReliable = totalRows > 0 && rows.length >= totalRows;
+
     // ── Render ────────────────────────────────────────────────────
     return (
         <Box sx={{
@@ -361,9 +363,9 @@ export default function ViewSupplierList() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Truck} label="Tổng nhà cung cấp" value={(totalRows || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Truck} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Truck} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Truck} label="Tổng nhà cung cấp" value={totalRows.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Truck} label="Đang hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Truck} label="Ngưng hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 

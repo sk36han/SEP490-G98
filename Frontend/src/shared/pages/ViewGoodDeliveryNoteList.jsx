@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
-import { formatDateTimeUtc, parseDate } from '../lib/dateUtils';
+import { formatDateOnly, parseDate } from '../lib/dateUtils';
 import { getGoodsDeliveryNotes } from '../lib/goodsDeliveryNoteService';
 import {
     Box,
@@ -34,6 +34,7 @@ import { FileText, Filter, Columns, Plus, GripVertical, RotateCcw, Package } fro
 import { removeDiacritics } from '../utils/stringUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { ROLES_ALLOWED_CREATE_GDN_FROM_RR } from '../utils/releaseRequestGdnUtils';
 import SearchInput from '../components/SearchInput';
 import GoodDeliveryNoteFilterPopup from '../components/GoodDeliveryNoteFilterPopup';
 import '../styles/ListView.css';
@@ -100,17 +101,13 @@ const GDN_COLUMNS = [
     { id: 'warehouseName', label: 'Kho xuất', sortable: true, draggable: true },
     { id: 'totalDeliveredQty', label: 'Tổng số lượng xuất', sortable: true, draggable: true },
     { id: 'totalDeliveredAmount', label: 'Tổng tiền xuất', sortable: true, draggable: true },
-    { id: 'paymentDisplay', label: 'Thanh toán', sortable: true, draggable: true },
     { id: 'createdByName', label: 'Người tạo', sortable: true, draggable: true },
-    { id: 'createdAt', label: 'Ngày tạo', sortable: true, draggable: true },
 ];
 
 const DEFAULT_COLUMN_ORDER = GDN_COLUMNS.map((c) => c.id);
 const DEFAULT_VISIBLE_COLUMN_IDS = DEFAULT_COLUMN_ORDER.slice();
 const SORTABLE_COLUMN_IDS = GDN_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 const COLUMN_IDS_WITH_RIGHT_ALIGN = new Set(['totalDeliveredQty', 'totalDeliveredAmount']);
-
-const formatDate = (dateStr) => formatDateTimeUtc(dateStr);
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value) || 0);
@@ -124,22 +121,13 @@ const safeParse = (jsonStr, fallback) => {
     }
 };
 
-const getPaymentDisplay = (row) => {
-    if (row.isPaid && row.paymentMethod) {
-        return `Đã thanh toán - ${row.paymentMethod}`;
-    }
-    if (row.isPaid) {
-        return 'Đã thanh toán';
-    }
-    return 'Chưa thanh toán';
-};
-
 export default function ViewGoodDeliveryNoteList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    const canCreate = true;
+    /** Giống route /good-delivery-notes/create (Director / Thủ kho); không bật cho mọi role */
+    const canCreate = permissionRole && ROLES_ALLOWED_CREATE_GDN_FROM_RR.includes(permissionRole);
 
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -401,16 +389,13 @@ export default function ViewGoodDeliveryNoteList() {
             if (!orderBy) return 0;
             const aVal = a[orderBy];
             const bVal = b[orderBy];
-            const isDate = ['issueDate', 'createdAt'].includes(orderBy);
+            const isDate = orderBy === 'issueDate';
             const isNumber = ['totalDeliveredQty', 'totalDeliveredAmount'].includes(orderBy);
-            const isPaymentDisplay = orderBy === 'paymentDisplay';
             let cmp = 0;
             if (isDate) {
                 cmp = (parseDate(aVal)?.getTime() ?? 0) - (parseDate(bVal)?.getTime() ?? 0);
             } else if (isNumber) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
-            } else if (isPaymentDisplay) {
-                cmp = getPaymentDisplay(a).toLowerCase().localeCompare(getPaymentDisplay(b).toLowerCase());
             } else {
                 cmp = String(aVal ?? '').toLowerCase().localeCompare(String(bVal ?? '').toLowerCase());
             }
@@ -471,9 +456,9 @@ export default function ViewGoodDeliveryNoteList() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Package} label="Tổng phiếu xuất" value={(totalCount || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Package} label="Đã xác nhận" value={rows.filter(r => r.status === 'CONFIRMED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Package} label="Chưa xác nhận" value={rows.filter(r => r.status === 'PENDING').length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Package} label="Tổng phiếu xuất" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Package} label="Đã xác nhận" value={filteredAndSortedRows.filter((r) => r.status === 'CONFIRMED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Package} label="Chưa xác nhận" value={filteredAndSortedRows.filter((r) => r.status === 'PENDING').length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
@@ -771,9 +756,7 @@ export default function ViewGoodDeliveryNoteList() {
                                                         ...(col.id === 'status' && { minWidth: 160 }),
                                                         ...(col.id === 'totalDeliveredQty' && { minWidth: 160 }),
                                                         ...(col.id === 'totalDeliveredAmount' && { minWidth: 160 }),
-                                                        ...(col.id === 'paymentDisplay' && { minWidth: 180 }),
                                                         ...(col.id === 'createdByName' && { minWidth: 130 }),
-                                                        ...(col.id === 'createdAt' && { minWidth: 145 }),
                                                     }}
                                                     align={COLUMN_IDS_WITH_RIGHT_ALIGN.has(col.id) ? 'right' : 'left'}
                                                     onDragOver={handleDragOver}
@@ -898,15 +881,7 @@ export default function ViewGoodDeliveryNoteList() {
                                                     if (col.id === 'issueDate') {
                                                         return (
                                                             <TableCell key={col.id} align="left" sx={{ color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>
-                                                                {formatDate(row.issueDate)}
-                                                            </TableCell>
-                                                        );
-                                                    }
-
-                                                    if (col.id === 'createdAt') {
-                                                        return (
-                                                            <TableCell key={col.id} align="left" sx={{ color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>
-                                                                {formatDate(row.createdAt)}
+                                                                {formatDateOnly(row.issueDate)}
                                                             </TableCell>
                                                         );
                                                     }
@@ -926,18 +901,6 @@ export default function ViewGoodDeliveryNoteList() {
                                                             </TableCell>
                                                         );
                                                     }
-
-                                                    if (col.id === 'paymentDisplay') {
-                                                        const paymentKey = row.isPaid ? 'paid' : 'unpaid';
-                                                        return (
-                                                            <TableCell key={col.id} align="left">
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <StatusBadge status={paymentKey} variant="dot" dot="•" sx={{ minWidth: 140 }} />
-                                                                </Box>
-                                                            </TableCell>
-                                                        );
-                                                    }
-
 
                                                     if (col.id === 'createdBy') {
                                                         return (

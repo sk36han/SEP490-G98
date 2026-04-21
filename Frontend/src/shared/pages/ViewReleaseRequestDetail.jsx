@@ -17,9 +17,10 @@ import { StatusBadge } from '@ui/badges';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isWarehouseKeeper } from '../permissions/roleUtils';
 import { getReleaseRequestDetail, submitReleaseRequest, approveReleaseRequest } from '../lib/releaseRequestService';
 import { formatDateOnly as formatDate, formatDateTime } from '../lib/dateUtils';
+import { canShowCreateGdnFromReleaseRequest } from '../utils/releaseRequestGdnUtils';
 import '../styles/CreateSupplier.css';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -35,6 +36,96 @@ const toAbsoluteFileUrl = (url) => {
     const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
     return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
 };
+
+function findAttachmentByType(attachments, typeUpper) {
+    if (!Array.isArray(attachments)) return null;
+    return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
+}
+
+function ReleaseRequestAttachmentsCard({ attachments }) {
+    const quotationAtt = findAttachmentByType(attachments, 'QUOTATION');
+    const contractAtt = findAttachmentByType(attachments, 'CONTRACT');
+    return (
+        <div className="info-section" style={{ margin: 0, minWidth: 0, overflow: 'hidden' }}>
+            <div className="section-header-with-toggle">
+                <h2 className="section-title">
+                    <FileText size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                    Tệp đính kèm
+                </h2>
+            </div>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    minWidth: 0,
+                    width: '100%',
+                    maxWidth: '100%',
+                }}
+            >
+                <AttachmentFileRow
+                    label="Báo giá:"
+                    fileName={quotationAtt?.fileName}
+                    fileUrl={quotationAtt?.fileUrl}
+                />
+                <AttachmentFileRow
+                    label="Hợp đồng nguyên tắc:"
+                    fileName={contractAtt?.fileName}
+                    fileUrl={contractAtt?.fileUrl}
+                />
+            </Box>
+        </div>
+    );
+}
+
+/** Một dòng: nhãn + tên file (ellipsis), không đẩy tràn card */
+function AttachmentFileRow({ label, fileName, fileUrl }) {
+    const name = fileName?.trim() || 'Tệp đính kèm';
+    const href = fileUrl ? toAbsoluteFileUrl(fileUrl) : '';
+    const lineSx = {
+        display: 'block',
+        fontSize: 13,
+        fontWeight: 500,
+        minWidth: 0,
+        maxWidth: '100%',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+    };
+    return (
+        <Box sx={{ minWidth: 0, width: '100%' }}>
+            <Typography
+                component="div"
+                sx={{ fontSize: 12, fontWeight: 600, color: '#64748b', mb: 0.5, letterSpacing: 0.2 }}
+            >
+                {label}
+            </Typography>
+            {href ? (
+                <Typography
+                    component="a"
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={name}
+                    sx={{
+                        ...lineSx,
+                        color: '#2563eb',
+                        textDecoration: 'none',
+                        '&:hover': { textDecoration: 'underline' },
+                    }}
+                >
+                    {name}
+                </Typography>
+            ) : name && name !== 'Tệp đính kèm' ? (
+                <Typography title={name} sx={{ ...lineSx, color: '#374151' }}>
+                    {name}
+                </Typography>
+            ) : (
+                <Typography sx={{ fontSize: 13, color: '#9ca3af' }}>—</Typography>
+            )}
+        </Box>
+    );
+}
 
 /** Backend DocumentApprovals dùng APPROVE/REJECT; UI cũ so khớp APPROVED */
 function isApprovalPositive(decision) {
@@ -126,15 +217,15 @@ export default function ViewReleaseRequestDetail() {
     // Kế toán có thể duyệt / từ chối yêu cầu đang chờ duyệt
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    /** TK (Thủ kho): không hiển thị tệp đính kèm, người nhận (và thông tin nhạy cảm liên quan). */
+    const hideSensitiveForWarehouseKeeper = isWarehouseKeeper(permissionRole);
     const canApprove = data?.status === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS';
-    // Chỉ hiện nút tạo phiếu xuất kho khi:
-    // - Release Request đã được duyệt (APPROVED)
-    // - VÀ lifecycle status là "Đang đợi xuất hàng" (IssuePending) HOẶC "Xuất một phần" (IssuePartial)
-    // - VÀ role là THỦ KHO
-    const canCreateGDN =
-        data?.status === 'APPROVED' &&
-        permissionRole === 'WAREHOUSE_KEEPER' &&
-        ['IssuePending', 'IssuePartial'].includes(data?.lifecycleStatus);
+    // RR: status APPROVED + lifecycle Đang đợi xuất / Đã xuất một phần (IssuePending | IssuePartial)
+    const canCreateGDN = canShowCreateGdnFromReleaseRequest({
+        status: data?.status,
+        lifecycleStatus: data?.lifecycleStatus,
+        permissionRole,
+    });
 
     const handleCreateGDN = () => {
         navigate(`/good-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);
@@ -571,26 +662,28 @@ export default function ViewReleaseRequestDetail() {
                                 </Box>
                             </div>
 
-                            {/* Người nhận */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">
-                                        <User size={16} style={{ marginRight: 8, color: '#2196F3' }} />
-                                        Người nhận
-                                    </h2>
+                            {/* Người nhận — ẩn với role TK */}
+                            {!hideSensitiveForWarehouseKeeper && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <User size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                            Người nhận
+                                        </h2>
+                                    </div>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                        <InfoRow label="Tên người nhận" value={data.receiverName} />
+                                        <InfoRow icon={Phone} label="Số điện thoại" value={data.receiverPhone} />
+                                        <InfoRow icon={Mail} label="Email" value={data.receiverEmail} />
+                                        {data.receiverPosition && (
+                                            <InfoRow icon={Briefcase} label="Chức vụ" value={data.receiverPosition} />
+                                        )}
+                                        {data.receiver?.notes && (
+                                            <InfoRow icon={FileText} label="Ghi chú người nhận" value={data.receiver.notes} fullWidth />
+                                        )}
+                                    </Box>
                                 </div>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                                    <InfoRow label="Tên người nhận" value={data.receiverName} />
-                                    <InfoRow icon={Phone} label="Số điện thoại" value={data.receiverPhone} />
-                                    <InfoRow icon={Mail} label="Email" value={data.receiverEmail} />
-                                    {data.receiverPosition && (
-                                        <InfoRow icon={Briefcase} label="Chức vụ" value={data.receiverPosition} />
-                                    )}
-                                    {data.receiver?.notes && (
-                                        <InfoRow icon={FileText} label="Ghi chú người nhận" value={data.receiver.notes} fullWidth />
-                                    )}
-                                </Box>
-                            </div>
+                            )}
 
                             {/* Địa chỉ giao hàng */}
                             <div className="info-section" style={{ margin: 0 }}>
@@ -605,35 +698,9 @@ export default function ViewReleaseRequestDetail() {
                                 </Box>
                             </div>
 
-                            {/* Tệp đính kèm */}
-                            {Array.isArray(data.attachments) && data.attachments.length > 0 && (
-                                <div className="info-section" style={{ margin: 0 }}>
-                                    <div className="section-header-with-toggle">
-                                        <h2 className="section-title">
-                                            <FileText size={16} style={{ marginRight: 8, color: '#2196F3' }} />
-                                            Tệp đính kèm
-                                        </h2>
-                                    </div>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                        {data.attachments.map((att, i) => (
-                                            <Typography key={att.attachmentId ?? i} sx={{ fontSize: 13 }}>
-                                                <a
-                                                    href={toAbsoluteFileUrl(att.fileUrl)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{ color: '#2563eb', fontWeight: 500 }}
-                                                >
-                                                    {att.fileName || 'Tệp đính kèm'}
-                                                </a>
-                                                {att.attachmentType && (
-                                                    <Typography component="span" sx={{ fontSize: 11, color: '#9ca3af', ml: 1 }}>
-                                                        ({att.attachmentType})
-                                                    </Typography>
-                                                )}
-                                            </Typography>
-                                        ))}
-                                    </Box>
-                                </div>
+                            {/* Tệp đính kèm — ẩn với role TK */}
+                            {!hideSensitiveForWarehouseKeeper && Array.isArray(data.attachments) && data.attachments.length > 0 && (
+                                <ReleaseRequestAttachmentsCard attachments={data.attachments} />
                             )}
 
                             {/* Lịch sử duyệt */}

@@ -6,5 +6,6 @@ namespace Warehouse.Entities.ModelRequest
     {
         public string? Keyword { get; set; }
         public long? Gdnid { get; set; }
+        public bool? IsActive { get; set; }
     }
 }

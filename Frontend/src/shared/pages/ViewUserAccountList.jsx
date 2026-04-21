@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
 import {
@@ -168,7 +168,7 @@ const ViewUserAccountList = () => {
         }
     }, [location.pathname, location.state?.openCreate, navigate]);
 
-    useEffect(() => {
+    const filteredUsers = useMemo(() => {
         let result = allUsers;
         if (searchTerm.trim()) {
             const normalize = (str) => (str ? removeDiacritics(str.toLowerCase()) : '');
@@ -205,10 +205,14 @@ const ViewUserAccountList = () => {
                 return true;
             });
         }
-        setTotalCount(result.length);
+        return result;
+    }, [allUsers, searchTerm, filterValues]);
+
+    useEffect(() => {
+        setTotalCount(filteredUsers.length);
         const start = (pageNumber - 1) * pageSize;
-        setUsers(result.slice(start, start + pageSize));
-    }, [allUsers, searchTerm, filterValues, pageNumber, pageSize]);
+        setUsers(filteredUsers.slice(start, start + pageSize));
+    }, [filteredUsers, pageNumber, pageSize]);
 
     useEffect(() => {
         setPageNumber(1);
@@ -391,9 +395,9 @@ const ViewUserAccountList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Users} label="Tổng tài khoản" value={(totalCount || allUsers.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Users} label="Đang hoạt động" value={allUsers.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Users} label="Ngưng hoạt động" value={allUsers.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Users} label="Tổng tài khoản" value={filteredUsers.length.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Users} label="Đang hoạt động" value={filteredUsers.filter((r) => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Users} label="Ngưng hoạt động" value={filteredUsers.filter((r) => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 

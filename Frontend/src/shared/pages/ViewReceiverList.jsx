@@ -112,12 +112,14 @@ export default function ViewReceiverList() {
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
     usePolling('receivers', () => fetchDataRef.current?.());
 
+    /** Chỉ khi đã tải đủ bản ghi (một trang chứa hết) thì đếm theo trạng thái mới khớp tổng */
+    const summaryBreakdownReliable = totalItems > 0 && rows.length >= totalItems;
+
     const summary = useMemo(() => {
-        const total = rows.length;
-        const active = rows.filter(r => r.isActive).length;
-        const inactive = total - active;
-        return { total, active, inactive };
-    }, [rows]);
+        const active = summaryBreakdownReliable ? rows.filter((r) => r.isActive).length : null;
+        const inactive = summaryBreakdownReliable && active != null ? rows.length - active : null;
+        return { active, inactive };
+    }, [rows, totalItems, summaryBreakdownReliable]);
 
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const start = totalItems > 0 ? page * pageSize + 1 : 0;
@@ -154,8 +156,8 @@ export default function ViewReceiverList() {
                 {/* Summary */}
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <SummaryCard icon={Users} label="Tổng người nhận" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={User} label="Đang hoạt động" value={summary.active.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={User} label="Ngưng hoạt động" value={summary.inactive.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={User} label="Đang hoạt động" value={summary.active != null ? summary.active.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={User} label="Ngưng hoạt động" value={summary.inactive != null ? summary.inactive.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
 
                 {/* Filter bar */}

@@ -96,6 +96,8 @@ function mapGDNRow(row) {
 function mapGDNLine(line) {
     if (!line) return null;
     return {
+        /** Khớp GDNLineDetailResponse / issue API */
+        gdnLineId: line.gdnLineId ?? line.GdnLineId ?? line.lineId ?? line.LineId ?? line.id ?? line.Id ?? null,
         lineId: line.lineId ?? line.LineId ?? line.id ?? line.Id ?? null,
         itemId: line.itemId ?? line.ItemId ?? null,
         itemCode: line.itemCode ?? line.ItemCode ?? '',
@@ -187,8 +189,9 @@ export async function createTransportInfo(payload) {
 
 /**
  * Duyệt hoặc từ chối phiếu xuất kho.
- * Stage 1 (PENDING_ACC) → Kế toán duyệt → chuyển PENDING_DIR
- * Stage 2 (PENDING_DIR) → Giám đốc duyệt → chuyển PENDING_ISSUE
+ * Luồng tùy chọn: Stage 1 (PENDING_ACC) → Kế toán duyệt → PENDING_DIR
+ * Stage 2 (PENDING_DIR) → Giám đốc duyệt → PENDING_ISSUE
+ * Tạo mới từ UI: thường gửi thẳng PENDING_ISSUE (chuẩn bị hàng), bỏ qua hai bước duyệt trên.
  * @param {number} gdnId
  * @param {{ isApproved: boolean, reason?: string }} data
  */
@@ -208,9 +211,24 @@ export async function approveGoodsDeliveryNote(gdnId, data) {
 
 export async function issueGoodsDeliveryNote(gdnId, data) {
     try {
+        /** Backend WarehouseIssueLineRequest: GdnLineId + ActualQty (camelCase JSON) */
+        let linesPayload = null;
+        if (Array.isArray(data.lines) && data.lines.length > 0) {
+            linesPayload = data.lines
+                .map((l) => {
+                    const gid = l.gdnLineId ?? l.GdnLineId ?? l.lineId ?? l.LineId ?? l.id ?? l.Id;
+                    const n = gid != null && gid !== '' ? Number(gid) : NaN;
+                    return {
+                        gdnLineId: Number.isFinite(n) && n > 0 ? n : null,
+                        actualQty: Number(l.actualQty ?? l.ActualQty ?? 0),
+                    };
+                })
+                .filter((x) => x.gdnLineId != null);
+            if (linesPayload.length === 0) linesPayload = null;
+        }
         const response = await apiClient.put(`/GoodsDeliveryNote/${gdnId}/issue`, {
             isAllItemsFulfilled: data.isAllItemsFulfilled ?? true,
-            lines: data.lines ?? null,
+            lines: linesPayload,
             note: data.note ?? null,
         });
         return extractBody(response);

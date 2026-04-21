@@ -419,6 +419,9 @@ const ViewUomList = () => {
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = totalItems === 0 ? 0 : Math.min((page + 1) * pageSize, totalItems);
 
+    /** Chỉ khi một trang chứa hết kết quả thì đếm hoạt động/ngưng theo dòng hiện có mới khớp tổng */
+    const summaryBreakdownReliable = totalItems > 0 && rows.length >= totalItems;
+
     const HEADER_CELL_SX = {
         fontWeight: 600,
         bgcolor: '#fafafa',
@@ -487,9 +490,9 @@ const ViewUomList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Scale} label="Tổng đơn vị tính" value={(totalItems || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Scale} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Scale} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Scale} label="Tổng đơn vị tính" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Scale} label="Đang hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Scale} label="Ngưng hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 

@@ -265,7 +265,7 @@ export async function createReleaseRequest(data) {
         };
         console.log('[createReleaseRequest] payload:', JSON.stringify(payload, null, 2));
         const response = await apiClient.post('/ReleaseRequest/create', payload);
-        invalidate('release-request');
+        invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] createReleaseRequest failed:', error);
@@ -299,7 +299,7 @@ export async function uploadReleaseRequestAttachments(releaseRequestId, { quotat
     const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/attachments`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
-    invalidate('release-request');
+    invalidate('releaseRequest');
     return response?.data;
 }
 
@@ -332,7 +332,7 @@ export async function updateReleaseRequest(id, data) {
             }));
         }
         const response = await apiClient.put(`/ReleaseRequest/update/${id}`, payload);
-        invalidate('release-request');
+        invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] updateReleaseRequest failed:', error);
@@ -367,6 +367,7 @@ export async function approveReleaseRequest(id, data) {
             lines: data.lines ?? null,
         };
         const response = await apiClient.put(`/ReleaseRequest/approve/${id}`, payload);
+        invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] approveReleaseRequest failed:', error);
@@ -393,6 +394,7 @@ export async function approveReleaseRequest(id, data) {
 export async function submitReleaseRequest(id) {
     try {
         const response = await apiClient.put(`/ReleaseRequest/submit/${id}`);
+        invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] submitReleaseRequest failed:', error);
