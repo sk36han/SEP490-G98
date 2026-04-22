@@ -613,5 +613,12 @@ namespace Warehouse.DataAcces.Service
                 Lines = lines
             };
         }
+
+        // NOTE: Stub tạm để unblock build; chức năng Import Excel + AI match chưa triển khai.
+        // TODO: sẽ được đội Import/AI implement đầy đủ (xem IGoodsReceiptNoteService.ImportAndMatchItemsAsync).
+        public Task<ExcelImportResult> ImportAndMatchItemsAsync(System.IO.Stream excelStream)
+        {
+            throw new NotImplementedException("Chức năng nhập và khớp item từ Excel chưa được triển khai.");
+        }
     }
 }
