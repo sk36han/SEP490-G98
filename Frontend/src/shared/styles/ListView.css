@@ -22,9 +22,9 @@
     width: 100%;
 }
 
-/* Đảm bảo vùng bảng luôn có chiều cao tối thiểu, tránh bảng bị "mất" khi layout flex co về 0 */
+/* Flex co về 0 được; không ép min-height lớn để tránh đẩy scroll cả khối layout */
 .list-view .list-grid-card {
-    min-height: 400px;
+    min-height: 0;
 }
 
 .list-view .list-grid-wrapper,
@@ -38,6 +38,12 @@
     min-width: 0;
     overflow-x: auto;
     overflow-y: auto;
+}
+
+/* ViewWarehouseList: một luồng cuộn dọc (MainLayout), không cuộn trong TableContainer khi ít dòng */
+.list-view.warehouse-list-page .MuiTableContainer-root {
+    overflow-y: visible !important;
+    max-height: none !important;
 }
 
 .list-view .list-filter-card .list-search-input .MuiInputBase-input,

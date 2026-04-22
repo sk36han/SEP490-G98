@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Good Receipt Note API – kết nối GoodsReceiptNoteController.
@@ -50,8 +51,6 @@ export async function getGoodReceiptNotes({ page = 1, pageSize = 20, purchaseOrd
  *  DiscountType?: string, // "Amount" hoặc "Percentage"
  *  DiscountValue?: number,
  *  ShippingFee?: number,
- *  IsPaid?: boolean,
- *  PaymentMethod?: string,
  *  Note?: string,
  *  lines: {
  *      ItemId: number,
@@ -69,14 +68,15 @@ export async function getGoodReceiptNotes({ page = 1, pageSize = 20, purchaseOrd
  */
 export async function createGoodReceiptNote(payload) {
     const response = await apiClient.post('/GoodsReceiptNote/create', payload);
+    invalidate('good-receipt-note');
     return response?.data;
 }
 
 /**
- * Duyệt phiếu nhập kho.
+ * Duyệt phiếu nhập kho (Kế toán hoặc Giám đốc).
  * @param {number} id - ID của phiếu nhập
  * @param {{
- *  approvedNote?: string,
+ *  note?: string,
  *  IsPaid?: boolean,
  *  PaymentMethod?: string
  * }} payload
@@ -120,16 +120,30 @@ export async function getGRNDetail(grnId) {
 }
 
 /**
- * Duyệt GRN.
+ * Duyệt GRN (Kế toán hoặc Giám đốc).
  * @param {number} grnId - ID của GRN
  * @param {{
  *  note?: string,
- *  isPaid?: boolean,
- *  paymentMethod?: string
+ *  IsPaid?: boolean,
+ *  PaymentMethod?: string
  * }} payload
  * @returns {Promise<any>}
  */
 export async function approveGRN(grnId, payload) {
     const response = await apiClient.post(`/GoodsReceiptNote/approve/${grnId}`, payload);
+    return response?.data;
+}
+
+/**
+ * Từ chối GRN qua API phê duyệt tập trung.
+ * POST /Approvals/{requestType}/{id}/reject
+ * @param {number} grnId - ID của GRN
+ * @param {string} reason - Lý do từ chối (bắt buộc)
+ * @returns {Promise<any>}
+ */
+export async function rejectGoodReceiptNote(grnId, reason) {
+    const response = await apiClient.post(`/Approvals/goodsreceipt/${grnId}/reject`, {
+        Reason: reason,
+    });
     return response?.data;
 }

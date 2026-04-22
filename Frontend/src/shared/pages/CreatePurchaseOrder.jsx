@@ -23,7 +23,9 @@ import {
     Eye,
     Package,
     Search,
-    ImageIcon
+    FileSpreadsheet,
+    FileText,
+    Paperclip
 } from 'lucide-react';
 
 // 5. Internal - Components
@@ -36,7 +38,7 @@ import authService from '../lib/authService';
 import { getSuppliers } from '../lib/supplierService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsForDisplay } from '../lib/itemService';
-import { createPurchaseOrder } from '../lib/purchaseOrderService';
+import { createPurchaseOrder, uploadPurchaseOrderAttachments } from '../lib/purchaseOrderService';
 
 // 7. Internal - Hooks
 import { useToast } from '../hooks/useToast';
@@ -67,8 +69,10 @@ const CreatePurchaseOrder = () => {
         name: it.itemName ?? '',
         sku: it.itemCode ?? '',
         unitPrice: Number(it.purchasePrice ?? 0),
-        uom: it.uomName || '',
+        uom: it.baseUomName || it.uomName || '',
         image: it.imageUrl || null,
+        hasCO: !!(it.requiresCo || it.requiresCO),
+        hasCQ: !!(it.requiresCq || it.requiresCQ),
     });
     
     const [formData, setFormData] = useState({
@@ -109,6 +113,8 @@ const CreatePurchaseOrder = () => {
     const [productsError, setProductsError] = useState(null);
 
     const [errors, setErrors] = useState({});
+    const [quotationFile, setQuotationFile] = useState(null);
+    const [contractAppendixFile, setContractAppendixFile] = useState(null);
 
     const [supplierQuery, setSupplierQuery] = useState('');
     const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
@@ -151,8 +157,10 @@ const CreatePurchaseOrder = () => {
                             name: it.itemName ?? '',
                             sku: it.itemCode ?? '',
                             unitPrice: Number(it.purchasePrice ?? 0),
-                            uom: it.uomName || '',
+                            uom: it.baseUomName || it.uomName || '',
                             image: it.imageUrl || null,
+                            hasCO: !!(it.requiresCO || it.requiresCo),
+                            hasCQ: !!(it.requiresCQ || it.requiresCq),
                         }));
                     setProducts(mappedProducts);
                     setProductsError(null);
@@ -261,8 +269,8 @@ const CreatePurchaseOrder = () => {
             orderedQty: 1,
             unitPrice: product.unitPrice,
             totalPrice: product.unitPrice,
-            hasCO: false,
-            hasCQ: false,
+            hasCO: !!(product.hasCO),
+            hasCQ: !!(product.hasCQ),
             note: ''
         };
         
@@ -306,8 +314,8 @@ const CreatePurchaseOrder = () => {
                     orderedQty: 1,
                     unitPrice: product.unitPrice,
                     totalPrice: product.unitPrice,
-                    hasCO: false,
-                    hasCQ: false,
+                    hasCO: !!(product.hasCO || product.requiresCO || product.requiresCo),
+                    hasCQ: !!(product.hasCQ || product.requiresCQ || product.requiresCq),
                     note: ''
                 });
             } else {
@@ -351,8 +359,10 @@ const CreatePurchaseOrder = () => {
                             name: it.itemName ?? '',
                             sku: it.itemCode ?? '',
                             unitPrice: Number(it.purchasePrice ?? 0),
-                            uom: it.uomName || '',
+                            uom: it.baseUomName || it.uomName || '',
                             image: it.imageUrl || null,
+                            hasCO: !!(it.requiresCo || it.requiresCO),
+                            hasCQ: !!(it.requiresCq || it.requiresCQ),
                         }));
                     setProducts(mapped);
                     setFilteredProducts(mapped);
@@ -393,8 +403,10 @@ const CreatePurchaseOrder = () => {
                             name: it.itemName ?? '',
                             sku: it.itemCode ?? '',
                             unitPrice: Number(it.purchasePrice ?? 0),
-                            uom: it.uomName || '',
+                            uom: it.baseUomName || it.uomName || '',
                             image: it.imageUrl || null,
+                            hasCO: !!(it.requiresCo || it.requiresCO),
+                            hasCQ: !!(it.requiresCq || it.requiresCQ),
                         }));
                     setProducts(mapped);
                     setFilteredProducts(mapped);
@@ -479,7 +491,25 @@ const CreatePurchaseOrder = () => {
             setSubmitting(true);
             const payload = preparePOPayload(formData, lines, discountAmount, 'DRAFT');
             const res = await createPurchaseOrder(payload);
-            showToast(`Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`, 'success');
+            let uploadWarning = '';
+            if (res?.purchaseOrderId && (quotationFile || contractAppendixFile)) {
+                try {
+                    await uploadPurchaseOrderAttachments(res.purchaseOrderId, {
+                        quotationFile,
+                        contractAppendixFile,
+                    });
+                } catch (uploadError) {
+                    const data = uploadError?.response?.data;
+                    const message = data?.message || uploadError?.message || 'Không thể tải tệp đính kèm.';
+                    uploadWarning = message;
+                }
+            }
+            showToast(
+                uploadWarning
+                    ? `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
+                    : `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`,
+                uploadWarning ? 'warning' : 'success'
+            );
             setTimeout(() => navigate('/purchase-orders'), 1500);
         } catch (error) {
             const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
@@ -492,6 +522,11 @@ const CreatePurchaseOrder = () => {
     const handleSubmitForApproval = async (e) => {
         e.preventDefault();
 
+        if (!quotationFile || !contractAppendixFile) {
+            showToast('Vui lòng tải lên đủ 2 tệp: File báo giá và Hợp đồng nguyên tắc trước khi gửi duyệt.', 'error');
+            return;
+        }
+
         if (!validateForm()) {
             showToast('Vui lòng kiểm tra lại thông tin!', 'error');
             return;
@@ -501,7 +536,25 @@ const CreatePurchaseOrder = () => {
             setSubmitting(true);
             const payload = preparePOPayload(formData, lines, discountAmount, 'PENDING_ACC');
             const res = await createPurchaseOrder(payload);
-            showToast(`Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`, 'success');
+            let uploadWarning = '';
+            if (res?.purchaseOrderId && (quotationFile || contractAppendixFile)) {
+                try {
+                    await uploadPurchaseOrderAttachments(res.purchaseOrderId, {
+                        quotationFile,
+                        contractAppendixFile,
+                    });
+                } catch (uploadError) {
+                    const data = uploadError?.response?.data;
+                    const message = data?.message || uploadError?.message || 'Không thể tải tệp đính kèm.';
+                    uploadWarning = message;
+                }
+            }
+            showToast(
+                uploadWarning
+                    ? `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
+                    : `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`,
+                uploadWarning ? 'warning' : 'success'
+            );
             setTimeout(() => navigate('/purchase-orders'), 1500);
         } catch (error) {
             const msg = error?.response?.data?.message ?? error?.message ?? 'Có lỗi xảy ra';
@@ -521,9 +574,11 @@ const CreatePurchaseOrder = () => {
             Boolean(formData.supplierId) &&
             Boolean(formData.warehouseId) &&
             lines.length > 0 &&
+            Boolean(quotationFile) &&
+            Boolean(contractAppendixFile) &&
             !submitting
         );
-    }, [formData.supplierId, formData.warehouseId, lines, submitting]);
+    }, [formData.supplierId, formData.warehouseId, lines, quotationFile, contractAppendixFile, submitting]);
 
     const submitTooltip = !formData.supplierId
         ? 'Vui lòng chọn nhà cung cấp'
@@ -531,10 +586,14 @@ const CreatePurchaseOrder = () => {
         ? 'Vui lòng chọn kho nhận'
         : lines.length === 0
         ? 'Vui lòng thêm ít nhất 1 sản phẩm'
+        : !quotationFile
+        ? 'Vui lòng tải lên File báo giá'
+        : !contractAppendixFile
+        ? 'Vui lòng tải lên Hợp đồng nguyên tắc'
         : '';
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page create-purchase-order-page">
             {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
@@ -608,44 +667,60 @@ const CreatePurchaseOrder = () => {
                         </p>
                     </div>
 
-                    {/* Layout 2 cột: Chi tiết sản phẩm (trái) + Nhân viên (phải) */}
+                    {/* Layout 2 cột: Trái (vật tư + tổng hợp) | Phải (thông tin chung + NCC + ghi chú + tệp) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        {/* 1. Chi tiết sản phẩm (Trái) */}
-                        <ProductTable
-                            lines={lines}
-                            selectedLineIds={selectedLineIds}
-                            showProductSearch={showProductSearch}
-                            setShowProductSearch={setShowProductSearch}
-                            searchKeyword={searchKeyword}
-                            setSearchKeyword={setSearchKeyword}
-                            filteredProducts={filteredProducts}
-                            selectedProductIds={selectedProductIds}
-                            imageErrors={imageErrors}
-                            errors={errors}
-                            productsLoading={productsLoading}
-                            productsError={productsError}
-                            formatCurrency={formatCurrency}
-                            isValidImageUrl={isValidImageUrl}
-                            handleImageError={handleImageError}
-                            handleSelectProduct={handleSelectProduct}
-                            toggleProductSelection={toggleProductSelection}
-                            addSelectedProducts={addSelectedProducts}
-                            handleSearchChange={handleSearchChange}
-                            closeProductSearch={closeProductSearch}
-                            addLine={addLine}
-                            removeLine={removeLine}
-                            updateLine={updateLine}
-                            removeSelectedLines={removeSelectedLines}
-                            toggleLineSelection={toggleLineSelection}
-                            toggleSelectAll={toggleSelectAll}
-                            getItemsForDisplay={getItemsForDisplay}
-                            setProducts={setProducts}
-                            setProductsError={setProductsError}
-                            setFilteredProducts={setFilteredProducts}
-                            products={products}
-                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
+                            {/* 1. Chi tiết sản phẩm */}
+                            <ProductTable
+                                lines={lines}
+                                selectedLineIds={selectedLineIds}
+                                showProductSearch={showProductSearch}
+                                setShowProductSearch={setShowProductSearch}
+                                searchKeyword={searchKeyword}
+                                setSearchKeyword={setSearchKeyword}
+                                filteredProducts={filteredProducts}
+                                selectedProductIds={selectedProductIds}
+                                imageErrors={imageErrors}
+                                errors={errors}
+                                productsLoading={productsLoading}
+                                productsError={productsError}
+                                formatCurrency={formatCurrency}
+                                isValidImageUrl={isValidImageUrl}
+                                handleImageError={handleImageError}
+                                handleSelectProduct={handleSelectProduct}
+                                toggleProductSelection={toggleProductSelection}
+                                addSelectedProducts={addSelectedProducts}
+                                handleSearchChange={handleSearchChange}
+                                closeProductSearch={closeProductSearch}
+                                addLine={addLine}
+                                removeLine={removeLine}
+                                updateLine={updateLine}
+                                removeSelectedLines={removeSelectedLines}
+                                toggleLineSelection={toggleLineSelection}
+                                toggleSelectAll={toggleSelectAll}
+                                getItemsForDisplay={getItemsForDisplay}
+                                setProducts={setProducts}
+                                setProductsError={setProductsError}
+                                setFilteredProducts={setFilteredProducts}
+                                products={products}
+                            />
 
-                        {/* 2. Nhân viên (Phải) */}
+                            {/* 2. Tổng hợp */}
+                            <DiscountSection
+                                formData={formData}
+                                errors={errors}
+                                discountType={formData.discountType}
+                                setDiscountType={setDiscountType}
+                                subtotal={subtotal}
+                                discountAmount={discountAmount}
+                                grandTotal={grandTotal}
+                                totalQuantity={totalQuantity}
+                                formatCurrency={formatCurrency}
+                                handleChange={handleChange}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
+                        {/* 3. Thông tin chung */}
                         <div className="info-section" style={{ margin: 0 }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Thông tin chung</h2>
@@ -788,12 +863,8 @@ const CreatePurchaseOrder = () => {
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Layout 2 cột: Nhà cung cấp + Ghi chú + Tổng hợp (trái, cùng chiều ngang với Chi tiết sản phẩm) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* 3. Nhà cung cấp - search select mock + chi tiết NCC */}
+                            {/* 4. Nhà cung cấp - search select mock + chi tiết NCC */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
@@ -860,11 +931,10 @@ const CreatePurchaseOrder = () => {
                                                                     supplierPhone: sup.phone,
                                                                     supplierEmail: sup.email,
                                                                     supplierTaxCode: sup.taxCode,
-                            // Map theo dữ liệu thật từ API: Address + City + Ward
-                            supplierAddressStreet: sup.addressText || '',
-                            supplierAddressWard: sup.ward || '',
-                            supplierAddressDistrict: '',
-                            supplierAddressProvince: sup.city || '',
+                                                                    supplierAddressStreet: sup.addressText || '',
+                                                                    supplierAddressWard: sup.ward || '',
+                                                                    supplierAddressDistrict: '',
+                                                                    supplierAddressProvince: sup.city || '',
                                                                 }));
                                                                 setSupplierQuery(sup.name);
                                                                 setSupplierDropdownOpen(false);
@@ -1047,7 +1117,7 @@ const CreatePurchaseOrder = () => {
                                 )}
                             </div>
 
-                            {/* 4. Ghi chú */}
+                            {/* 5. Ghi chú */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú</h2>
@@ -1079,21 +1149,55 @@ const CreatePurchaseOrder = () => {
                                 </div>
                             </div>
 
-                            {/* 5. Tổng hợp — UI giống ViewPurchaseOrderDetail */}
-                            <DiscountSection
-                                formData={formData}
-                                errors={errors}
-                                discountType={formData.discountType}
-                                setDiscountType={setDiscountType}
-                                subtotal={subtotal}
-                                discountAmount={discountAmount}
-                                grandTotal={grandTotal}
-                                totalQuantity={totalQuantity}
-                                formatCurrency={formatCurrency}
-                                handleChange={handleChange}
-                            />
+                            {/* 6. File/Image đính kèm */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Tệp đính kèm</h2>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div className="form-field">
+                                        <label htmlFor="po-quotation-file" className="form-label">
+                                            File báo giá
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileSpreadsheet className="input-icon" size={16} />
+                                            <input
+                                                id="po-quotation-file"
+                                                type="file"
+                                                className="form-input"
+                                                onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
+                                            />
+                                        </div>
+                                        {quotationFile && (
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                Đã chọn: {quotationFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="form-field">
+                                        <label htmlFor="po-contract-appendix-file" className="form-label">
+                                            Hợp đồng nguyên tắc
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileText className="input-icon" size={16} />
+                                            <input
+                                                id="po-contract-appendix-file"
+                                                type="file"
+                                                className="form-input"
+                                                onChange={(e) => setContractAppendixFile(e.target.files?.[0] || null)}
+                                            />
+                                        </div>
+                                        {contractAppendixFile && (
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                Đã chọn: {contractAppendixFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
-                        <div />
                     </div>
                 </form>
             </div>

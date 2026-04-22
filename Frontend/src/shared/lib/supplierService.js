@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Supplier API – maps to backend SupplierController / SupplierResponse.
@@ -60,10 +61,10 @@ export async function getSuppliers(params = {}) {
         : Array.isArray(payload?.Items)
             ? payload.Items
             : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.Items)
-            ? data.Items
-            : [];
+                ? data.items
+                : Array.isArray(data?.Items)
+                    ? data.Items
+                    : [];
     const items = rawItems
         .filter((row) => row != null && typeof row === 'object')
         .map((row) => ({
@@ -133,12 +134,16 @@ export async function createSupplier(data) {
             phone: data.phone || null,
             email: data.email || null,
             address: data.address || null,
+            city: data.city || null,
+            district: data.district || null,
+            ward: data.ward || null,
         };
-        
+
         // Don't send supplierCode, let backend generate it
         console.log('Supplier API payload:', payload);
-        
+
         const response = await apiClient.post('/Supplier/create', payload);
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         console.error('Supplier API error response:', error.response?.data);
@@ -175,8 +180,12 @@ export async function updateSupplier(id, data) {
             phone: data.phone || null,
             email: data.email || null,
             address: data.address || null,
+            city: data.city || null,
+            district: data.district || null,
+            ward: data.ward || null,
             isActive: data.isActive,
         });
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         if (error.response?.status === 400) {
@@ -202,6 +211,7 @@ export async function toggleSupplierStatus(id, isActive) {
         const response = await apiClient.patch(`/Supplier/change-status/${id}`, null, {
             params: { isActive: !!isActive },
         });
+        invalidate('supplier');
         return response.data;
     } catch (error) {
         if (error.response?.status === 401) {
@@ -216,11 +226,11 @@ export async function toggleSupplierStatus(id, isActive) {
 
 /**
  * Lấy thông tin chi tiết nhà cung cấp theo ID
- * GET /api/Supplier/{id}
+ * GET /api/Supplier/get-supplier-by-id/{id}
  */
 export async function getSupplierById(id) {
     try {
-        const response = await apiClient.get(`/Supplier/${id}`);
+        const response = await apiClient.get(`/Supplier/get-supplier-by-id/${id}`);
         const data = response?.data;
         if (!data) {
             throw new Error('Không tìm thấy nhà cung cấp');
@@ -236,5 +246,27 @@ export async function getSupplierById(id) {
         } else {
             throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tải thông tin nhà cung cấp.');
         }
+    }
+}
+
+/**
+ * Lấy lịch sử giao dịch của nhà cung cấp
+ * GET /api/Supplier/view-transaction-history/{id}
+ */
+export async function getSupplierTransactions(id, params = {}) {
+    try {
+        const { page = 1, pageSize = 20, transactionType, status, fromDate, toDate } = params;
+        const query = new URLSearchParams();
+        query.set('page', String(page));
+        query.set('pageSize', String(pageSize));
+        if (transactionType) query.set('transactionType', transactionType);
+        if (status) query.set('status', status);
+        if (fromDate) query.set('fromDate', fromDate);
+        if (toDate) query.set('toDate', toDate);
+
+        const response = await apiClient.get(`/Supplier/view-transaction-history/${id}?${query.toString()}`);
+        return response?.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Đã xảy ra lỗi khi tải lịch sử giao dịch.');
     }
 }

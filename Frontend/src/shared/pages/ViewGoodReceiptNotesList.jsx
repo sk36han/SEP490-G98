@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Button,
@@ -21,10 +22,10 @@ import {
     FormControl,
     Select,
     MenuItem,
-    Chip,
     TableSortLabel,
     Paper,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import {
     FileText,
     Filter,
@@ -38,7 +39,7 @@ import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import GoodReceiptNoteFilterPopup from '../components/GoodReceiptNoteFilterPopup';
 import { getGoodReceiptNotes } from '../lib/goodReceiptNoteService';
-import { formatDate, formatDateTime } from '../lib/dateUtils';
+import { formatDateOnlyUtc, formatDateTimeUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -68,21 +69,6 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
 const LS_COL_ORDER  = 'grnColumnOrder';
 const LS_SORT       = 'grnSortConfig';
 
-// ── Status styles ─────────────────────────────────────────────────────────────
-const STATUS_STYLE = {
-    DRAFT:        { bgColor: 'rgba(107,114,128,0.15)', label: 'Bản nháp',    dot: '•' },
-    PENDING_ACC: { bgColor: 'rgba(251,191,36,0.20)',  label: 'Đợi duyệt',   dot: '•' },
-    APPROVED:     { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã duyệt',    dot: '•' },
-    REJECTED:     { bgColor: 'rgba(239,68,68,0.15)',   label: 'Từ chối',     dot: '•' },
-    POSTED:       { bgColor: 'rgba(139,92,246,0.15)',  label: 'Đã ghi sổ',   dot: '•' },
-};
-
-const RECEIVING_STATUS_STYLE = {
-    NotStarted: { bgColor: 'rgba(107,114,128,0.15)', label: 'Chưa nhập',       dot: '•' },
-    Partial:    { bgColor: 'rgba(251,191,36,0.20)',  label: 'Nhập một phần',   dot: '•' },
-    Completed:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Đã nhập đủ',      dot: '•' },
-};
-
 // ── Column definitions ────────────────────────────────────────────────────────
 const GRN_COLUMNS = [
     { id: 'stt',              label: 'STT',              sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
@@ -90,7 +76,7 @@ const GRN_COLUMNS = [
     { id: 'receiptDate',      label: 'Ngày nhập',        sortable: true,  getValue: (row) => row.receiptDate    ?? '' },
     { id: 'warehouseName',    label: 'Kho nhập',         sortable: true,  getValue: (row) => row.warehouseName  ?? '' },
     { id: 'supplierName',     label: 'Nhà cung cấp',     sortable: true,  getValue: (row) => row.supplierName   ?? '' },
-    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => STATUS_STYLE[row.status?.toUpperCase()]?.label ?? row.status ?? '' },
+    { id: 'status',           label: 'Trạng thái',       sortable: true,  getValue: (row) => row.status ?? '' },
     { id: 'actualQtyTotal',   label: 'Số lượng nhập',    sortable: true,  getValue: (row) => row.actualQtyTotal ?? 0 },
     { id: 'totalValue',       label: 'Giá trị đơn',      sortable: true,  getValue: (row) => row.totalValue     ?? 0 },
     { id: 'createdByName',    label: 'Nhân viên tạo',    sortable: true,  getValue: (row) => row.createdByName  ?? '' },
@@ -161,28 +147,9 @@ const CHECKBOX_CELL_SX = {
 };
 
 // ── Status Chip ───────────────────────────────────────────────────────────────
-const StatusChip = ({ status }) => {
-    const style = STATUS_STYLE[status?.toUpperCase()] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-', dot: '•' };
-    return (
-        <Chip
-            label={`${style.dot} ${style.label}`}
-            size="small"
-            sx={{
-                fontWeight: 500,
-                fontSize: '12px',
-                lineHeight: '16px',
-                borderRadius: '999px',
-                minWidth: 100,
-                height: '26px',
-                bgcolor: style.bgColor,
-                color: '#374151',
-                border: 'none',
-                boxShadow: 'none',
-                '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-            }}
-        />
-    );
-};
+const StatusChip = ({ status }) => (
+    <StatusBadge status={status} variant="dot" dot="•" />
+);
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function ViewGoodReceiptNotes() {
@@ -221,30 +188,34 @@ export default function ViewGoodReceiptNotes() {
     }, []);
 
     // Fetch data from API
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const response = await getGoodReceiptNotes({ page: page + 1, pageSize });
-                // Map dữ liệu từ API sang format UI
-                const mappedList = (response.items ?? []).map((item) => ({
-                    ...item,
-                    actualQtyTotal: item.totalReceivedQty ?? item.TotalReceivedQty ?? item.actualQtyTotal ?? 0,
-                    totalValue: item.totalAmount ?? item.TotalAmount ?? item.netAmount ?? item.NetAmount ?? item.totalValue ?? 0,
-                    createdAt: item.createdAt ?? item.CreatedAt ?? '',
-                }));
-                setList(mappedList);
-            } catch (err) {
-                console.error('Error fetching GRN list:', err);
-                setError('Không thể tải danh sách phiếu nhập kho');
-                setList([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await getGoodReceiptNotes({ page: page + 1, pageSize });
+            // Map dữ liệu từ API sang format UI
+            const mappedList = (response.items ?? []).map((item) => ({
+                ...item,
+                actualQtyTotal: item.totalReceivedQty ?? item.TotalReceivedQty ?? item.actualQtyTotal ?? 0,
+                totalValue: item.totalAmount ?? item.TotalAmount ?? item.netAmount ?? item.NetAmount ?? item.totalValue ?? 0,
+                createdAt: item.createdAt ?? item.CreatedAt ?? '',
+            }));
+            setList(mappedList);
+        } catch (err) {
+            console.error('Error fetching GRN list:', err);
+            setError('Không thể tải danh sách phiếu nhập kho');
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
     }, [page, pageSize]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('goodReceiptNotes', () => fetchDataRef.current?.());
 
     // Sync temp order when popup opens
     useEffect(() => {
@@ -399,7 +370,7 @@ export default function ViewGoodReceiptNotes() {
     };
 
     return (
-        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: '#fafafa' }}>
+        <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: '#fafafa' }}>
 
             {/* ── Page header ─────────────────────────────────────────────── */}
             <Box sx={{ flexShrink: 0, px: { xs: 2, sm: 2 }, py: 2.5, bgcolor: '#fafafa' }}>
@@ -411,9 +382,9 @@ export default function ViewGoodReceiptNotes() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={ClipboardCheck} label="Tổng phiếu nhập" value={(totalCount || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={ClipboardCheck} label="Đã xác nhận" value={rows.filter(r => r.status === 'CONFIRMED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={ClipboardCheck} label="Chưa xác nhận" value={rows.filter(r => r.status === 'PENDING').length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={ClipboardCheck} label="Tổng phiếu nhập" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={ClipboardCheck} label="Đã xác nhận" value={filteredAndSortedRows.filter((r) => r.status === 'CONFIRMED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={ClipboardCheck} label="Chưa xác nhận" value={filteredAndSortedRows.filter((r) => r.status === 'PENDING').length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
@@ -650,8 +621,8 @@ export default function ViewGoodReceiptNotes() {
                                                                 }}
                                                             >
                                                                 {col.id === 'createdAt'
-                                                                    ? formatDateTime(row.createdAt)
-                                                                    : formatDate(row.receiptDate)}
+                                                                    ? formatDateTimeUtc(row.createdAt)
+                                                                    : formatDateOnlyUtc(row.receiptDate)}
                                                             </TableCell>
                                                         );
                                                     }

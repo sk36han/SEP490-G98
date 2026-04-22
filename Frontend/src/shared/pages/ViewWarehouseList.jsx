@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -21,12 +22,13 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Chip,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import { Plus, Columns, GripVertical, Warehouse as WarehouseIcon, Building2 } from 'lucide-react';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import { getWarehouses } from '../lib/warehouseService';
+import { formatDateTimeLinesUtc } from '../lib/dateUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/ListView.css';
@@ -35,34 +37,33 @@ import '../styles/ListView.css';
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 const LS_COL_ORDER = 'warehouseColumnOrder';
 
-// ── Status styles ─────────────────────────────────────────────────────────────
-const STATUS_STYLE = {
-    true: { bgColor: 'rgba(16,185,129,0.18)', label: 'Hoạt động', dot: '•' },
-    false: { bgColor: 'rgba(107,114,128,0.15)', label: 'Tắt', dot: '•' },
-};
+// isActive uses StatusBadge via <StatusBadge status={item.isActive} />
 
 // ── Summary Card ──────────────────────────────────────────────────────────────
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
-    <Box sx={{
-        flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
-        border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
-        display: 'flex', alignItems: 'center', gap: 2,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-    }}>
+const SummaryCard = ({ icon, label, value, color, bgColor }) => {
+    const IconComp = icon;
+    return (
         <Box sx={{
-            width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
+            border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
+            display: 'flex', alignItems: 'center', gap: 2,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}>
-            <Icon size={22} color={color} />
+            <Box sx={{
+                width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+                <IconComp size={22} color={color} />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
+                <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
+                    {value}
+                </Typography>
+            </Box>
         </Box>
-        <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
-            <Typography sx={{ fontSize: '20px', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.25 }}>
-                {value}
-            </Typography>
-        </Box>
-    </Box>
-);
+    );
+};
 
 // ── Column definitions ────────────────────────────────────────────────────────
 const WAREHOUSE_COLUMNS = [
@@ -132,12 +133,12 @@ const getColumnWeight = (colId) => {
 
 const formatDateTime = (dateStr) => {
     if (!dateStr) return '—';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (isNaN(d.getTime())) return dateStr;
+    const parts = formatDateTimeLinesUtc(dateStr);
+    if (!parts) return dateStr;
     return (
         <Box sx={{ lineHeight: 1.3 }}>
-            <Box>{d.toLocaleDateString('vi-VN')}</Box>
-            <Box>{d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</Box>
+            <Box>{parts.datePart}</Box>
+            <Box>{parts.timePart}</Box>
         </Box>
     );
 };
@@ -183,34 +184,39 @@ const ViewWarehouseList = () => {
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
     // Load data
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const res = await getWarehouses({ pageNumber: page + 1, pageSize });
-                let items = res.items ?? [];
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await getWarehouses({ pageNumber: page + 1, pageSize });
+            let items = res.items ?? [];
+            const totalFromApi = res.totalItems ?? res.TotalItems ?? items.length;
 
-                if (searchTerm) {
-                    const term = removeDiacritics(searchTerm.toLowerCase());
-                    items = items.filter(item =>
-                        removeDiacritics((item.warehouseCode ?? '').toLowerCase()).includes(term) ||
-                        removeDiacritics((item.warehouseName ?? '').toLowerCase()).includes(term) ||
-                        removeDiacritics((item.address ?? '').toLowerCase()).includes(term)
-                    );
-                }
-
-                setList(items);
-                setTotalRows(items.length);
-            } catch (err) {
-                console.error('Error fetching warehouses:', err);
-                setList([]);
-                setTotalRows(0);
-            } finally {
-                setLoading(false);
+            if (searchTerm) {
+                const term = removeDiacritics(searchTerm.toLowerCase());
+                items = items.filter(item =>
+                    removeDiacritics((item.warehouseCode ?? '').toLowerCase()).includes(term) ||
+                    removeDiacritics((item.warehouseName ?? '').toLowerCase()).includes(term) ||
+                    removeDiacritics((item.address ?? '').toLowerCase()).includes(term)
+                );
             }
-        };
-        fetchData();
+
+            setList(items);
+            setTotalRows(searchTerm ? items.length : totalFromApi);
+        } catch (err) {
+            console.error('Error fetching warehouses:', err);
+            setList([]);
+            setTotalRows(0);
+        } finally {
+            setLoading(false);
+        }
     }, [page, pageSize, searchTerm]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('warehouses', () => fetchDataRef.current?.());
 
     // Sync tempColumnOrder when popup opens
     useEffect(() => {
@@ -233,7 +239,8 @@ const ViewWarehouseList = () => {
     const start = totalCount === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalCount);
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
-    const paginatedList = list.slice(page * pageSize, (page + 1) * pageSize);
+    const paginatedList = list;
+    const summaryBreakdownReliable = totalCount > 0 && list.length >= totalCount;
 
     const handlePageChange = (newPage) => setPage(newPage);
     const handlePageSizeChange = (e) => {
@@ -329,7 +336,7 @@ const ViewWarehouseList = () => {
     return (
         <Box
             sx={{
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'hidden',
@@ -362,15 +369,15 @@ const ViewWarehouseList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Building2} label="Tổng kho" value={totalRows.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Building2} label="Đang hoạt động" value={list.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Building2} label="Tạm dừng" value={list.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Building2} label="Tổng kho" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Building2} label="Đang hoạt động" value={summaryBreakdownReliable ? list.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Building2} label="Tạm dừng" value={summaryBreakdownReliable ? list.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
             {/* Main Content */}
             <Box
-                className="list-view"
+                className="list-view warehouse-list-page"
                 sx={{
                     flex: 1,
                     minHeight: 0,
@@ -584,13 +591,13 @@ const ViewWarehouseList = () => {
                         </Box>
                     </Popover>
 
-                    {/* Data Table */}
+                    {/* Data Table — không ép chiều cao + overflow dọc: tránh cuộn kép với MainLayout */}
                     <Box
                         sx={{
-                            flex: 1,
+                            flex: '1 1 auto',
                             minHeight: 0,
                             minWidth: 0,
-                            overflow: 'hidden',
+                            overflow: 'visible',
                             display: 'flex',
                             flexDirection: 'column',
                         }}
@@ -626,12 +633,13 @@ const ViewWarehouseList = () => {
                             ) : (
                                 <TableContainer
                                     sx={{
-                                        flex: 1,
-                                        minHeight: 0,
+                                        flex: '0 0 auto',
+                                        alignSelf: 'stretch',
                                         minWidth: 0,
                                         width: '100%',
                                         maxWidth: '100%',
-                                        overflow: 'auto',
+                                        overflowX: 'auto',
+                                        overflowY: 'visible',
                                         boxSizing: 'border-box',
                                     }}
                                 >
@@ -774,33 +782,13 @@ const ViewWarehouseList = () => {
                                                                 );
                                                             }
                                                             if (col.id === 'isActive') {
-                                                                const style = STATUS_STYLE[item.isActive] ?? { bgColor: 'rgba(107,114,128,0.15)', label: '—', dot: '•' };
                                                                 return (
                                                                     <TableCell
                                                                         key={col.id}
                                                                         sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                            <Chip
-                                                                                label={`${style.dot} ${style.label}`}
-                                                                                size="small"
-                                                                                sx={{
-                                                                                    fontWeight: 500,
-                                                                                    fontSize: '12px',
-                                                                                    lineHeight: '16px',
-                                                                                    borderRadius: '999px',
-                                                                                    minWidth: 100,
-                                                                                    height: '26px',
-                                                                                    bgcolor: style.bgColor,
-                                                                                    color: '#374151',
-                                                                                    border: 'none',
-                                                                                    boxShadow: 'none',
-                                                                                    '& .MuiChip-label': {
-                                                                                        px: 1.5,
-                                                                                        py: 0,
-                                                                                    },
-                                                                                }}
-                                                                            />
+                                                                            <StatusBadge status={item.isActive} dot="•" variant="dot" />
                                                                         </Box>
                                                                     </TableCell>
                                                                 );

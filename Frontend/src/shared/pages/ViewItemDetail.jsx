@@ -4,7 +4,7 @@
  * Full quyền Item (xem/sửa): WAREHOUSE_KEEPER, SALE_SUPPORT, SALE_ENGINEER, ACCOUNTANTS.
  * UI refactor theo design language của ViewPurchaseReturnDetail.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Box,
@@ -36,12 +36,12 @@ import {
     Layers,
     Tag,
     Scale,
-    MapPin,
     Warehouse,
     CheckCircle,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getItemDetail, updateItem } from '../lib/itemService';
+import { MOCK_INVENTORY_LOTS, getGrnCodeFromLineId, formatLotMoney, formatLotQuantityInt } from '../utils/inventoryLotsMock';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 import { useMasterData } from '../../app/context/MasterDataContext';
 import { createUom } from '../lib/uomService';
@@ -82,9 +82,20 @@ const formatDateTimeFull = (v) => {
     return `${d.toLocaleDateString('vi-VN')} - ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 };
 
+/** Ngày (lô hàng — mock) */
+const fmtLotDateOnly = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + (String(dateStr).endsWith('Z') ? '' : 'Z'));
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+/** Phân trang lịch sử tồn kho — khớp query API /Item/detail/{id} */
+const ITEM_HISTORY_PAGE_SIZE = 10;
+
 // ─── Edit form constants ──────────────────────────────────────────────────
 const NUMBER_FIELDS = new Set([
-    'categoryId', 'brandId', 'baseUomId', 'packagingSpecId', 'specId', 'defaultWarehouseId',
+    'categoryId', 'brandId', 'baseUomId', 'packagingSpecId', 'specId',
 ]);
 
 const CREATE_UOM_OPTION = { id: 'CREATE_UOM', code: '', name: 'Tạo mới đơn vị tính' };
@@ -386,8 +397,7 @@ export default function ViewItemDetail() {
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
     const timerRef = useRef(null);
-    const { uoms, categories, brands, warehouses } = useMasterData() || {};
-    const masterWarehouses = warehouses || [];
+    const { uoms, categories, brands } = useMasterData() || {};
     const masterCategories = categories || [];
     const masterBrands = brands || [];
 
@@ -402,6 +412,10 @@ export default function ViewItemDetail() {
     const [item, setItem] = useState(null);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(null);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyRefreshing, setHistoryRefreshing] = useState(false);
+    const itemRef = useRef(null);
+    itemRef.current = item;
 
     // Edit state
     const [isEditing, setIsEditing] = useState(false);
@@ -413,19 +427,62 @@ export default function ViewItemDetail() {
     const [createUomOpen, setCreateUomOpen] = useState(false);
     const [createPackOpen, setCreatePackOpen] = useState(false);
 
-    // ─── Load item ────────────────────────────────────────────────────────
-    useEffect(() => {
-        setLoading(true);
-        setFetchError(null);
-        setItem(null);
-        getItemDetail(Number(id))
-            .then((data) => setItem(data))
-            .catch((err) => {
-                console.error('[ViewItemDetail] fetch error:', err);
-                setFetchError(err?.response?.data?.message || err.message || 'Không thể tải chi tiết vật tư');
-            })
-            .finally(() => setLoading(false));
+    /** Tab trong khối "Tồn kho & lô hàng": theo kho | các lô (mock) */
+    const [stockSectionTab, setStockSectionTab] = useState('warehouse');
+
+    const warehouseNameById = useMemo(() => {
+        const m = new Map();
+        const rows = item?.inventoryByWarehouse ?? [];
+        for (const w of rows) {
+            const wid = w.warehouseId ?? w.WarehouseId;
+            if (wid != null && w.warehouseName) m.set(Number(wid), w.warehouseName);
+        }
+        return m;
+    }, [item]);
+
+    const lotsForItem = useMemo(() => {
+        if (!item?.itemId) return [];
+        const iid = Number(item.itemId);
+        return MOCK_INVENTORY_LOTS.filter((l) => Number(l.itemId) === iid);
+    }, [item?.itemId]);
+
+    useLayoutEffect(() => {
+        setHistoryPage(1);
     }, [id]);
+
+    // ─── Load item + lịch sử tồn kho (phân trang server) ───────────────────
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const previous = itemRef.current;
+            const paginationOnly = previous != null && Number(previous.itemId) === Number(id);
+            const pageToFetch = paginationOnly ? historyPage : 1;
+            try {
+                setFetchError(null);
+                if (!paginationOnly) {
+                    setLoading(true);
+                    setItem(null);
+                } else {
+                    setHistoryRefreshing(true);
+                }
+                const data = await getItemDetail(Number(id), pageToFetch, ITEM_HISTORY_PAGE_SIZE);
+                if (!cancelled) setItem(data);
+            } catch (err) {
+                console.error('[ViewItemDetail] fetch error:', err);
+                if (!cancelled) {
+                    setFetchError(err?.response?.data?.message || err.message || 'Không thể tải chi tiết vật tư');
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                    setHistoryRefreshing(false);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [id, historyPage]);
 
     useEffect(() => {
         return () => { if (timerRef.current) clearTimeout(timerRef.current); };
@@ -434,6 +491,10 @@ export default function ViewItemDetail() {
     useEffect(() => {
         if (uoms) setLocalUomOptions(uoms.map((u) => ({ id: u.uomId ?? u.id, code: u.uomCode ?? u.code, name: u.uomName ?? u.name })));
     }, [uoms]);
+
+    useEffect(() => {
+        setStockSectionTab('warehouse');
+    }, [id]);
 
     // ─── Edit handlers ───────────────────────────────────────────────────
     const handleEdit = () => {
@@ -448,7 +509,6 @@ export default function ViewItemDetail() {
             packagingSpecId: item.packagingSpecId ?? '',
             requiresCO: item.requiresCO ?? false,
             requiresCQ: item.requiresCQ ?? false,
-            defaultWarehouseId: item.defaultWarehouseId ?? '',
         });
         setIsEditing(true);
         setIsDirty(false);
@@ -487,12 +547,12 @@ export default function ViewItemDetail() {
                 packagingSpecId: formData.packagingSpecId || null,
                 requiresCo: formData.requiresCO,
                 requiresCq: formData.requiresCQ,
-                defaultWarehouseId: formData.defaultWarehouseId || null,
+                defaultWarehouseId: item.defaultWarehouseId ?? null,
             });
             showToast('Cập nhật vật tư thành công!', 'success');
             setIsEditing(false);
             setIsDirty(false);
-            const updated = await getItemDetail(Number(id));
+            const updated = await getItemDetail(Number(id), historyPage, ITEM_HISTORY_PAGE_SIZE);
             setItem(updated);
         } catch (err) {
             showToast(err?.response?.data?.message || err.message || 'Không thể cập nhật vật tư', 'error');
@@ -551,10 +611,16 @@ export default function ViewItemDetail() {
     }
 
     const stockHistory = item.inventoryHistory ?? [];
+    const historyTotal = item.historyTotalCount ?? 0;
+    const historyRangeStart = historyTotal === 0 ? 0 : (historyPage - 1) * ITEM_HISTORY_PAGE_SIZE + 1;
+    const historyRangeEnd = Math.min(historyPage * ITEM_HISTORY_PAGE_SIZE, historyTotal);
+    const canPrevHistory = historyPage > 1;
+    const canNextHistory = historyRangeEnd < historyTotal;
+
     const itemWarehouses =
         (item.inventoryByWarehouse ?? []).length > 0
             ? item.inventoryByWarehouse
-            : [{ warehouseName: item.defaultWarehouseName || 'Kho chính', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 }];
+            : [{ warehouseName: '—', onHandQty: item.onHandQty ?? 0, reservedQty: item.reservedQty ?? 0 }];
 
     const statusConfig = item.isActive
         ? { label: 'Đang giao dịch', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> }
@@ -570,7 +636,7 @@ export default function ViewItemDetail() {
     const SIDE_COL = '360px';
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page view-item-detail-page">
             {/* ─── PAGE HEADER ─── */}
             <div className="page-header">
                 <div className="page-header-left">
@@ -719,34 +785,6 @@ export default function ViewItemDetail() {
                                             </TextField>
                                         ) : (
                                             <ReadOnlyBox>{item.brandName || item.brandId || '—'}</ReadOnlyBox>
-                                        )}
-                                    </div>
-
-                                    {/* Kho mặc định */}
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Kho mặc định</div>
-                                        {isEditing ? (
-                                            <TextField select fullWidth size="small" name="defaultWarehouseId"
-                                                value={String(formData.defaultWarehouseId ?? '')} onChange={handleChange}
-                                                sx={editSelectSx} InputLabelProps={{ shrink: true }}
-                                                SelectProps={{
-                                                    displayEmpty: true,
-                                                    renderValue: (v) => v === '' ? (
-                                                        <span style={{ color: '#9ca3af', fontSize: '14px' }}>Chọn kho</span>
-                                                    ) : (
-                                                        <span style={{ fontSize: '14px' }}>
-                                                            {masterWarehouses.find((o) => String(o.warehouseId) === String(v))?.warehouseName ?? 'Chọn kho'}
-                                                        </span>
-                                                    ),
-                                                    MenuProps: { PaperProps: { sx: { borderRadius: 2 } } },
-                                                }}>
-                                                <MenuItem value="" sx={{ fontSize: '14px' }}>Chọn kho</MenuItem>
-                                                {masterWarehouses.map((o) => (
-                                                    <MenuItem key={o.warehouseId} value={String(o.warehouseId)} sx={{ fontSize: '14px' }}>{o.warehouseName}</MenuItem>
-                                                ))}
-                                            </TextField>
-                                        ) : (
-                                            <ReadOnlyBox>{item.defaultWarehouseName || item.defaultWarehouseId || '—'}</ReadOnlyBox>
                                         )}
                                     </div>
 
@@ -906,38 +944,6 @@ export default function ViewItemDetail() {
                                 )}
                             </div>
 
-                            {/* Tài khoản kho + doanh thu (chỉ accountant, read-only) */}
-                            {!isEditing && showFullPrices && (
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                                    gap: FIELD_GAP,
-                                    marginTop: FIELD_GAP,
-                                }}>
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Tài khoản kho</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 500, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', minHeight: ROW_HEIGHT,
-                                            display: 'flex', alignItems: 'center', flex: 1,
-                                        }}>
-                                            {item.inventoryAccount || '—'}
-                                        </div>
-                                    </div>
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Tài khoản doanh thu</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 500, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', minHeight: ROW_HEIGHT,
-                                            display: 'flex', alignItems: 'center', flex: 1,
-                                        }}>
-                                            {item.revenueAccount || '—'}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* ── RIGHT: Side column — Tổng quan vật tư ── */}
@@ -955,17 +961,11 @@ export default function ViewItemDetail() {
                                                 <StatBox label="Đặt trước" value={formatQty(totalPreOrder > 0 ? totalPreOrder : totalReserved)} color="#d97706" bg="#fffbeb" borderColor="#fde68a" icon={Layers} />
                                             )}
                                             <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                            {item.defaultWarehouseName && (
-                                                <StatBox label="Kho mặc định" value={item.defaultWarehouseName} color="#334155" icon={MapPin} />
-                                            )}
                                         </>
                                     ) : (
                                         <>
                                             <StatBox label="Dạng vật tư" value={item.itemType || '—'} color="#334155" icon={Tag} />
                                             <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                            {item.defaultWarehouseName && (
-                                                <StatBox label="Kho mặc định" value={item.defaultWarehouseName} color="#334155" icon={MapPin} />
-                                            )}
                                             {item.categoryName && (
                                                 <StatBox label="Danh mục" value={item.categoryName} color="#334155" icon={Layers} />
                                             )}
@@ -985,57 +985,163 @@ export default function ViewItemDetail() {
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">
                                     <Package size={16} style={{ marginRight: 6 }} />
-                                    Số lượng sản phẩm trong kho
+                                    Tồn kho & lô hàng
                                 </h2>
                             </div>
-                            <div className="table-container" style={{ overflowY: 'auto', maxHeight: 320 }}>
-                                <table className="product-table">
-                                    <thead>
-                                        <tr>
-                                            <th style={{ width: 50 }}></th>
-                                            <th>Mã SKU</th>
-                                            <th>Tên phiên bản</th>
-                                            <th style={{ textAlign: 'right' }}>Tồn kho</th>
-                                            <th style={{ textAlign: 'right' }}>Có thể bán</th>
-                                            <th style={{ textAlign: 'right' }}>Đặt trước</th>
-                                            <th>Kho</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {itemWarehouses.map((wh, idx) => {
-                                            const onHand = wh.onHandQty ?? 0;
-                                            const reserved = wh.reservedQty ?? 0;
-                                            const available = wh.availableQty ?? Math.max(0, onHand - reserved);
-                                            const preOrder = wh.preOrderQty ?? 0;
-                                            const isDefault = wh.isDefaultWarehouse ?? false;
-                                            return (
-                                                <tr key={idx}>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Package size={18} color="#9ca3af" />
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ fontWeight: 500 }}>{wh.sku || item.itemCode}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <span style={{ fontWeight: 500, color: '#2196F3' }}>{wh.variantName || item.itemName}</span>
-                                                            {isDefault && (
-                                                                <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: 9999, backgroundColor: '#e0f2fe', color: '#2196F3' }}>Mặc định</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{onHand.toLocaleString('vi-VN')}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#10b981', fontVariantNumeric: 'tabular-nums' }}>{available.toLocaleString('vi-VN')}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: preOrder > 0 || reserved > 0 ? '#d97706' : '#9ca3af', fontVariantNumeric: 'tabular-nums' }}>
-                                                        {preOrder > 0 ? preOrder.toLocaleString('vi-VN') : reserved > 0 ? reserved.toLocaleString('vi-VN') : '—'}
-                                                    </td>
-                                                    <td>{wh.warehouseName}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                            <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb', marginBottom: 16 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setStockSectionTab('warehouse')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: stockSectionTab === 'warehouse' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: stockSectionTab === 'warehouse' ? '#2196F3' : '#6b7280',
+                                        fontWeight: stockSectionTab === 'warehouse' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <Package size={16} />
+                                    Số lượng theo kho
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setStockSectionTab('lots')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: stockSectionTab === 'lots' ? '2px solid #2196F3' : '2px solid transparent',
+                                        color: stockSectionTab === 'lots' ? '#2196F3' : '#6b7280',
+                                        fontWeight: stockSectionTab === 'lots' ? 600 : 500,
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        marginBottom: -2,
+                                        transition: 'all 0.2s',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <Layers size={16} />
+                                    Các lô đang có ({lotsForItem.length})
+                                </button>
                             </div>
+
+                            {stockSectionTab === 'warehouse' && (
+                                <div className="table-container" style={{ overflowY: 'auto', maxHeight: 320 }}>
+                                    <table className="product-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 50 }}></th>
+                                                <th>Mã Vật tư</th>
+                                                <th>Tên Vật Tư</th>
+                                                <th style={{ textAlign: 'right' }}>Tồn kho</th>
+                                                <th style={{ textAlign: 'right' }}>Có thể bán</th>
+                                                <th style={{ textAlign: 'right' }}>Đặt trước</th>
+                                                <th>Kho</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {itemWarehouses.map((wh, idx) => {
+                                                const onHand = wh.onHandQty ?? 0;
+                                                const reserved = wh.reservedQty ?? 0;
+                                                const available = wh.availableQty ?? Math.max(0, onHand - reserved);
+                                                const preOrder = wh.preOrderQty ?? 0;
+                                                const isDefault = wh.isDefaultWarehouse ?? false;
+                                                return (
+                                                    <tr key={idx}>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Package size={18} color="#9ca3af" />
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ fontWeight: 500 }}>{wh.sku || item.itemCode}</td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                <span style={{ fontWeight: 500, color: '#2196F3' }}>{wh.variantName || item.itemName}</span>
+                                                                {isDefault && (
+                                                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: 9999, backgroundColor: '#e0f2fe', color: '#2196F3' }}>Mặc định</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{onHand.toLocaleString('vi-VN')}</td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 700, color: '#10b981', fontVariantNumeric: 'tabular-nums' }}>{available.toLocaleString('vi-VN')}</td>
+                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: preOrder > 0 || reserved > 0 ? '#d97706' : '#9ca3af', fontVariantNumeric: 'tabular-nums' }}>
+                                                            {preOrder > 0 ? preOrder.toLocaleString('vi-VN') : reserved > 0 ? reserved.toLocaleString('vi-VN') : '—'}
+                                                        </td>
+                                                        <td>{wh.warehouseName}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {stockSectionTab === 'lots' && (
+                                <div>
+                                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px 0' }}>
+                                        Các lô của vật tư này (dữ liệu mẫu — chờ API InventoryLots).
+                                    </p>
+                                    {lotsForItem.length === 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', color: '#9ca3af' }}>
+                                            <Layers size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
+                                            <p style={{ fontSize: '14px', margin: 0 }}>Không có lô mẫu cho mã vật tư này</p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <table className="product-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: 56, textAlign: 'center' }}>STT</th>
+                                                        <th style={{ minWidth: 140 }}>Mã phiếu nhập kho</th>
+                                                        <th style={{ minWidth: 160 }}>Kho</th>
+                                                        <th style={{ minWidth: 130 }}>Ngày nhập kho</th>
+                                                        <th style={{ width: 110, textAlign: 'right' }}>Số lượng</th>
+                                                        {showFullPrices && <th style={{ width: 120, textAlign: 'right' }}>Giá lô</th>}
+                                                        <th style={{ minWidth: 130 }}>Hạn dùng</th>
+                                                        <th style={{ width: 88, textAlign: 'center' }}>Hoạt động</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {lotsForItem.map((lot, idx) => {
+                                                        const grnCode = getGrnCodeFromLineId(lot.grnLineId);
+                                                        const whLabel = warehouseNameById.get(Number(lot.warehouseId)) ?? `Kho #${lot.warehouseId}`;
+                                                        return (
+                                                            <tr key={lot.lotId}>
+                                                                <td style={{ textAlign: 'center', fontSize: 13 }}>{idx + 1}</td>
+                                                                <td style={{ fontSize: 13, color: grnCode ? '#374151' : '#9ca3af', fontWeight: grnCode ? 600 : 400 }}>
+                                                                    {grnCode ?? '—'}
+                                                                </td>
+                                                                <td style={{ fontSize: 13, color: '#374151' }}>{whLabel}</td>
+                                                                <td style={{ fontSize: 12, color: '#374151' }}>{fmtLotDateOnly(lot.receiptDate)}</td>
+                                                                <td style={{ textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{formatLotQuantityInt(lot.quantity)}</td>
+                                                                {showFullPrices && (
+                                                                    <td style={{ textAlign: 'right', fontSize: 13 }}>{formatLotMoney(lot.unitCost)}</td>
+                                                                )}
+                                                                <td style={{ fontSize: 12, color: '#374151' }}>{formatDateTimeFull(lot.expiryDate)}</td>
+                                                                <td style={{ textAlign: 'center', fontSize: 13, color: lot.isActive ? '#059669' : '#6b7280', fontWeight: 600 }}>
+                                                                    {lot.isActive ? 'Có' : 'Không'}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1044,55 +1150,125 @@ export default function ViewItemDetail() {
                         <div className="info-section" style={{ marginTop: '24px' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Lịch sử tồn kho</h2>
+                                {historyTotal > 0 && (
+                                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                        {historyTotal.toLocaleString('vi-VN')} bản ghi
+                                    </span>
+                                )}
                             </div>
-                            {stockHistory.length === 0 ? (
+                            {historyTotal === 0 && !stockHistory.length ? (
                                 <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>Chưa có lịch sử tồn kho.</div>
                             ) : (
-                                <div className="table-container" style={{ overflowY: 'auto', maxHeight: 360 }}>
-                                    <table className="product-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Mã phiếu</th>
-                                                <th>Loại phiếu</th>
-                                                <th style={{ textAlign: 'center' }}>+/-</th>
-                                                <th style={{ textAlign: 'right' }}>Số lượng</th>
-                                                <th>Người thực hiện</th>
-                                                <th>Thời gian</th>
-                                                <th>Ghi chú</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {stockHistory.map((h, idx) => {
-                                                const sign = h.movementSign ?? '+';
-                                                const isIn = sign === '+' || sign === 'IN';
-                                                const isOut = sign === '-' || sign === 'OUT';
-                                                const signColor = isIn ? '#10b981' : isOut ? '#ef4444' : '#374151';
-                                                const signBg = isIn ? '#f0fdf4' : isOut ? '#fef2f2' : 'transparent';
-                                                const sourceLabel = { GRN: 'Nhập kho', GDN: 'Xuất kho', ADJ: 'Điều chỉnh', STK: 'Kiểm kê' }[h.sourceType] ?? h.sourceType ?? '—';
-                                                const sourceColor = { GRN: '#2563eb', GDN: '#d97706', ADJ: '#7c3aed', STK: '#0891b2' }[h.sourceType] ?? '#6b7280';
-                                                return (
-                                                    <tr key={idx}>
-                                                        <td style={{ fontWeight: 500, color: '#2196F3' }}>{h.docNo ?? '—'}</td>
-                                                        <td>
-                                                            <span style={{
-                                                                fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
-                                                                backgroundColor: `${sourceColor}15`, color: sourceColor, border: `1px solid ${sourceColor}40`,
-                                                            }}>
-                                                                {sourceLabel}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ textAlign: 'center', fontWeight: 700, color: signColor, backgroundColor: signBg }}>{sign}</td>
-                                                        <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Number(h.qty ?? 0).toLocaleString('vi-VN')}</td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>{h.actorName ?? '—'}</td>
-                                                        <td style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>{formatDateTimeFull(h.transactionAt)}</td>
-                                                        <td style={{ fontSize: '12px', color: '#6b7280', maxWidth: 160 }}>
-                                                            {h.note ? <span style={{ wordBreak: 'break-word' }}>{h.note}</span> : '—'}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                <div style={{ position: 'relative' }}>
+                                    {historyRefreshing && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                background: 'rgba(255,255,255,0.65)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                zIndex: 2,
+                                                borderRadius: 8,
+                                            }}
+                                        >
+                                            <CircularProgress size={28} />
+                                        </div>
+                                    )}
+                                    <div className="table-container item-history-table-wrap" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+                                        <table className="product-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Mã phiếu</th>
+                                                    <th>Loại phiếu</th>
+                                                    <th style={{ textAlign: 'center' }}>+/-</th>
+                                                    <th style={{ textAlign: 'right' }}>Số lượng</th>
+                                                    <th>Người thực hiện</th>
+                                                    <th>Thời gian</th>
+                                                    <th>Ghi chú</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {stockHistory.map((h, idx) => {
+                                                    const sign = h.movementSign ?? '+';
+                                                    const isIn = sign === '+' || sign === 'IN';
+                                                    const isOut = sign === '-' || sign === 'OUT';
+                                                    const signColor = isIn ? '#10b981' : isOut ? '#ef4444' : '#374151';
+                                                    const signBg = isIn ? '#f0fdf4' : isOut ? '#fef2f2' : 'transparent';
+                                                    const sourceLabel = { GRN: 'Nhập kho', GDN: 'Xuất kho', ADJ: 'Điều chỉnh', STK: 'Kiểm kê' }[h.sourceType] ?? h.sourceType ?? '—';
+                                                    const sourceColor = { GRN: '#2563eb', GDN: '#d97706', ADJ: '#7c3aed', STK: '#0891b2' }[h.sourceType] ?? '#6b7280';
+                                                    const rowKey = `${h.docNo ?? ''}-${h.transactionAt ?? ''}-${idx}`;
+                                                    return (
+                                                        <tr key={rowKey}>
+                                                            <td style={{ fontWeight: 500, color: '#2196F3' }}>{h.docNo ?? '—'}</td>
+                                                            <td>
+                                                                <span style={{
+                                                                    fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
+                                                                    backgroundColor: `${sourceColor}15`, color: sourceColor, border: `1px solid ${sourceColor}40`,
+                                                                }}>
+                                                                    {sourceLabel}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', fontWeight: 700, color: signColor, backgroundColor: signBg }}>{sign}</td>
+                                                            <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Number(h.qty ?? 0).toLocaleString('vi-VN')}</td>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>{h.actorName ?? '—'}</td>
+                                                            <td style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>{formatDateTimeFull(h.transactionAt)}</td>
+                                                            <td style={{ fontSize: '12px', color: '#6b7280', maxWidth: 160 }}>
+                                                                {h.note ? <span style={{ wordBreak: 'break-word' }}>{h.note}</span> : '—'}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {historyTotal > 0 && (
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'flex-end',
+                                                gap: 12,
+                                                marginTop: 12,
+                                                flexWrap: 'wrap',
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                {historyRangeStart}–{historyRangeEnd} / {historyTotal.toLocaleString('vi-VN')}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                                                disabled={!canPrevHistory || historyRefreshing}
+                                                style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: 6,
+                                                    fontSize: 12,
+                                                    opacity: !canPrevHistory ? 0.4 : 1,
+                                                    cursor: !canPrevHistory ? 'not-allowed' : 'pointer',
+                                                }}
+                                            >
+                                                Trước
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => setHistoryPage((p) => p + 1)}
+                                                disabled={!canNextHistory || historyRefreshing}
+                                                style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: 6,
+                                                    fontSize: 12,
+                                                    opacity: !canNextHistory ? 0.4 : 1,
+                                                    cursor: !canNextHistory ? 'not-allowed' : 'pointer',
+                                                }}
+                                            >
+                                                Sau
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

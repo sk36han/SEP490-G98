@@ -48,7 +48,7 @@ const OtpDialog = ({ open, onClose, onSuccess }) => {
             await authService.verifyOtp(otp);
             onSuccess();
         } catch (err) {
-            setError(err.message || 'Ma OTP khong dung');
+            setError(err.message || 'Mã OTP không đúng');
             setOtp('');
         } finally {
             setLoading(false);

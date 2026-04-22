@@ -36,26 +36,33 @@ namespace Warehouse.DataAcces.Service
 		public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
 		{
 			// 0️⃣ Validate required fields (in addition to DataAnnotations)
-			if (string.IsNullOrWhiteSpace(request.SupplierCode))
-			{
-				throw new InvalidOperationException("Mã nhà cung cấp là bắt buộc.");
-			}
 			if (string.IsNullOrWhiteSpace(request.SupplierName))
 			{
 				throw new InvalidOperationException("Tên nhà cung cấp là bắt buộc.");
 			}
 
-			// 1️⃣ Check duplicate SupplierCode
-			var suppliers = await _supplierRepository.GetAllAsync();
-			if (suppliers.Any(s => s.SupplierCode == request.SupplierCode))
+			// 1️⃣ Auto-generate SupplierCode: SUP- + next sequential number
+			var allSuppliers = await _supplierRepository.GetAllAsync();
+			var existingCodes = allSuppliers
+				.Where(s => !string.IsNullOrWhiteSpace(s.SupplierCode) && s.SupplierCode.StartsWith("SUP-"))
+				.Select(s => s.SupplierCode)
+				.ToList();
+
+			int nextNumber = 1;
+			if (existingCodes.Any())
 			{
-				throw new InvalidOperationException("Mã nhà cung cấp đã tồn tại.");
+				var maxCodeNumber = existingCodes
+					.Select(c => int.TryParse(c.Replace("SUP-", ""), out var n) ? n : 0)
+					.DefaultIfEmpty(0)
+					.Max();
+				nextNumber = maxCodeNumber + 1;
 			}
+			var newSupplierCode = $"SUP-{nextNumber}";
 
 			// 1.1️⃣ Check duplicate Email (if provided)
 			if (!string.IsNullOrWhiteSpace(request.Email))
 			{
-				if (suppliers.Any(s => s.Email != null && s.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase)))
+				if (allSuppliers.Any(s => s.Email != null && s.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase)))
 				{
 					throw new InvalidOperationException("Địa chỉ email đã được sử dụng bởi nhà cung cấp khác.");
 				}
@@ -64,7 +71,7 @@ namespace Warehouse.DataAcces.Service
 			// 2️⃣ Create entity
 			var supplier = new Supplier
 			{
-				SupplierCode = request.SupplierCode,
+				SupplierCode = newSupplierCode,
 				SupplierName = request.SupplierName,
 				TaxCode = request.TaxCode,
 				Phone = request.Phone,
@@ -112,7 +119,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 
@@ -192,7 +200,8 @@ namespace Warehouse.DataAcces.Service
 					City = s.City,
 					Ward = s.Ward,
 					District = s.District,
-					IsActive = s.IsActive
+					IsActive = s.IsActive,
+					CreatedAt = s.CreatedAt
 				})
 				.ToList();
 
@@ -304,7 +313,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 
@@ -370,7 +380,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 		public async Task<SupplierResponse> GetSupplierByIdAsync(long id)
@@ -393,7 +404,8 @@ namespace Warehouse.DataAcces.Service
 				City = supplier.City,
 				Ward = supplier.Ward,
 				District = supplier.District,
-				IsActive = supplier.IsActive
+				IsActive = supplier.IsActive,
+				CreatedAt = supplier.CreatedAt
 			};
 		}
 

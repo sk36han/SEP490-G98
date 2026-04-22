@@ -58,6 +58,8 @@ public class StocktakeExecutionInterceptor : SaveChangesInterceptor
 public class StocktakeExecutionServiceTests
 {
     private readonly Mock<IStocktakeService> _stocktakeServiceMock = new();
+    private readonly Mock<INotificationService> _notificationServiceMock = new();
+    private readonly Mock<IAuditLogService> _auditLogServiceMock = new();
     
     private Mkiwms5Context GetContext()
     {
@@ -71,7 +73,7 @@ public class StocktakeExecutionServiceTests
 
     private StocktakeExecutionService CreateService(Mkiwms5Context context)
     {
-        return new StocktakeExecutionService(context, _stocktakeServiceMock.Object);
+        return new StocktakeExecutionService(context, _stocktakeServiceMock.Object, _notificationServiceMock.Object, _auditLogServiceMock.Object);
     }
 
     private async Task SeedBaseDataAsync(Mkiwms5Context context)
@@ -113,7 +115,7 @@ public class StocktakeExecutionServiceTests
     {
         using var context = GetContext();
         await SeedBaseDataAsync(context);
-        var session = new StocktakeSession { StocktakeId = 20, Status = "PENDING_APPROVAL", WarehouseId = 1, StocktakeCode = "ST20", Mode = "P", CreatedBy = 111 };
+        var session = new StocktakeSession { StocktakeId = 20, Status = "PENDING_RESULTADJ", WarehouseId = 1, StocktakeCode = "ST20", Mode = "P", CreatedBy = 111 };
         context.StocktakeSessions.Add(session);
         var line = new StocktakeLine { StocktakeId = 20, ItemId = 1, SystemQtySnapshot = 100, CountedQty = 90, VarianceQty = -10 };
         context.StocktakeLines.Add(line);
@@ -141,7 +143,7 @@ public class StocktakeExecutionServiceTests
     {
         using var context = GetContext();
         await SeedBaseDataAsync(context);
-        var session = new StocktakeSession { StocktakeId = 30, Status = "PENDING_APPROVAL", WarehouseId = 1, StocktakeCode = "ST30", Mode = "P", CreatedBy = 111 };
+        var session = new StocktakeSession { StocktakeId = 30, Status = "PENDING_RESULTADJ", WarehouseId = 1, StocktakeCode = "ST30", Mode = "P", CreatedBy = 111 };
         context.StocktakeSessions.Add(session);
         await context.SaveChangesAsync();
 

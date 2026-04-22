@@ -41,6 +41,16 @@ const ChangePasswordDialog = ({ open, onClose, onSuccess }) => {
             return;
         }
 
+        if (/\s/.test(oldPassword)) {
+            onSuccess?.('Mật khẩu hiện tại không được chứa khoảng trắng!', 'error');
+            return;
+        }
+
+        if (/\s/.test(newPassword)) {
+            onSuccess?.('Mật khẩu mới không được chứa khoảng trắng!', 'error');
+            return;
+        }
+
         if (newPassword.length < 6) {
             onSuccess?.('Mật khẩu phải có ít nhất 6 ký tự!', 'error');
             return;
@@ -231,7 +241,7 @@ const ChangePasswordDialog = ({ open, onClose, onSuccess }) => {
                                 display: 'block'
                             }}
                         >
-                            Tối thiểu 6 ký tự
+                            Tối thiểu 6 ký tự, không khoảng trắng
                         </Typography>
                     </Box>
 

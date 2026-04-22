@@ -34,6 +34,9 @@ namespace Warehouse.Entities.ModelResponse
         public DateTime? SubmittedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
+        public string? QuotationFileUrl { get; set; }
+        public string? ContractAppendixFileUrl { get; set; }
+
         public List<PurchaseOrderLineResponse> Lines { get; set; } = new();
     }
 
@@ -44,6 +47,8 @@ namespace Warehouse.Entities.ModelResponse
         public string? ItemCode { get; set; }
         public string? ItemName { get; set; }
         public long UomId { get; set; }
+        /// <summary>Tên đơn vị tính (hiển thị trên GRN, v.v.).</summary>
+        public string? UomName { get; set; }
         public decimal OrderedQty { get; set; }
         public decimal ReceivedQty { get; set; }
         public decimal UnitPrice { get; set; }

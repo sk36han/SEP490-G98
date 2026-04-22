@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -20,16 +21,17 @@ import {
     FormControlLabel,
     Checkbox,
     Paper,
-    Chip,
     FormControl,
     Select,
     MenuItem,
 } from '@mui/material';
+import { StatusBadge } from '@ui/badges';
 import { Filter, CloudOff, Columns, Plus, GripVertical, Truck } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
 import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
+import { formatDateOnlyUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
@@ -61,11 +63,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const STATUS_STYLE = {
-    true:  { bgColor: 'rgba(16,185,129,0.18)',  label: 'Hoạt động', dot: '•' },
-    false: { bgColor: 'rgba(239,68,68,0.15)',   label: 'Ngừng HĐ',  dot: '•' },
-};
-
+// SUPPLIER_COLUMNS uses StatusBadge via <StatusBadge status={row.isActive} />
 const SUPPLIER_COLUMNS = [
     { id: 'stt',          label: 'STT',              sortable: false },
     { id: 'supplierCode', label: 'Mã NCC',            sortable: true  },
@@ -307,6 +305,11 @@ export default function ViewSupplierList() {
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [searchTerm, filterValues]);
 
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('suppliers', () => fetchDataRef.current?.());
+
     // Client-side sort on current page data
     const sortedRows = useMemo(() => {
         if (!orderBy) return rows;
@@ -333,10 +336,12 @@ export default function ViewSupplierList() {
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalRows / pageSize)) : 0;
     const showEmpty  = !loading && !error && rows.length === 0;
 
+    const summaryBreakdownReliable = totalRows > 0 && rows.length >= totalRows;
+
     // ── Render ────────────────────────────────────────────────────
     return (
         <Box sx={{
-            height: '100%', minHeight: 0, minWidth: 0,
+            flex: 1, minHeight: 0, minWidth: 0,
             overflow: 'hidden', display: 'flex', flexDirection: 'column',
             bgcolor: '#fafafa',
         }}>
@@ -358,9 +363,9 @@ export default function ViewSupplierList() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Truck} label="Tổng nhà cung cấp" value={(totalRows || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Truck} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Truck} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Truck} label="Tổng nhà cung cấp" value={totalRows.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Truck} label="Đang hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Truck} label="Ngưng hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
@@ -782,29 +787,11 @@ export default function ViewSupplierList() {
                                                         );
                                                     }
 
-                                                    // Status chip
                                                     if (col.id === 'isActive') {
-                                                        const style = STATUS_STYLE[String(row.isActive)] ?? { bgColor: 'rgba(107,114,128,0.15)', label: '-', dot: '•' };
                                                         return (
                                                             <TableCell key={col.id} align="left">
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                    <Chip
-                                                                        label={`${style.dot} ${style.label}`}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            fontWeight: 500,
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '16px',
-                                                                            borderRadius: '999px',
-                                                                            minWidth: 90,
-                                                                            height: '26px',
-                                                                            bgcolor: style.bgColor,
-                                                                            color: '#374151',
-                                                                            border: 'none',
-                                                                            boxShadow: 'none',
-                                                                            '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-                                                                        }}
-                                                                    />
+                                                                    <StatusBadge status={row.isActive} dot="•" variant="dot" />
                                                                 </Box>
                                                             </TableCell>
                                                         );
@@ -814,9 +801,7 @@ export default function ViewSupplierList() {
                                                     // Format createdDate if present
                                                     if (col.id === 'createdDate') {
                                                         const dateValue = row.createdDate;
-                                                        const displayValue = dateValue
-                                                            ? new Date(dateValue + 'Z').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                                                            : '';
+                                                        const displayValue = dateValue ? formatDateOnlyUtc(dateValue) : '';
                                                         return (
                                                             <TableCell
                                                                 key={col.id}

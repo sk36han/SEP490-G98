@@ -7,5 +7,10 @@ namespace Warehouse.Entities.ModelRequest
         [Required(ErrorMessage = "Phone is required")]
         [Phone(ErrorMessage = "Invalid phone number")]
         public string Phone { get; set; } = string.Empty;
+
+        [MaxLength(10, ErrorMessage = "Gender không hợp lệ.")]
+        public string? Gender { get; set; }
+
+        public DateOnly? Dob { get; set; }
     }
 }

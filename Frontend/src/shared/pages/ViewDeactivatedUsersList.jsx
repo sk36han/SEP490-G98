@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { parseDate } from '../lib/dateUtils';
+import { usePolling } from '../hooks/usePolling';
 import {
     Table,
     TableBody,
@@ -89,7 +90,7 @@ const getColumnCellSx = (colId, widthPct) => {
     return colId === 'actions' ? { ...base, overflow: 'visible' } : base;
 };
 
-const DeactivatedUsersList = () => {
+const ViewDeactivatedUsersList = () => {
     const { toast, showToast, clearToast } = useToast();
     const currentUserId = authService.getCurrentUserId();
     const [allUsers, setAllUsers] = useState([]);
@@ -135,7 +136,7 @@ const DeactivatedUsersList = () => {
     const totalWeight = visibleColumns.reduce((acc, col) => acc + getColumnWeight(col.id), 0);
     const getColWidthPct = (colId) => (totalWeight > 0 ? (getColumnWeight(colId) / totalWeight) * 100 : 0);
 
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         setLoading(true);
         try {
             const response = await adminService.getUserList({
@@ -150,11 +151,14 @@ const DeactivatedUsersList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showToast]);
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    useEffect(() => { loadUsers(); }, [loadUsers]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const loadUsersRef = useRef(loadUsers);
+    useEffect(() => { loadUsersRef.current = loadUsers; }, [loadUsers]);
+    usePolling('users', () => loadUsersRef.current?.());
 
     // Chỉ lấy người dùng đã vô hiệu hóa, sau đó áp dụng search + filter
     useEffect(() => {
@@ -298,7 +302,7 @@ const DeactivatedUsersList = () => {
                 maxWidth: '100%',
                 ml: 0,
                 mr: 0,
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'visible',
@@ -700,5 +704,5 @@ const DeactivatedUsersList = () => {
     );
 };
 
-export default DeactivatedUsersList;
+export default ViewDeactivatedUsersList;
 

@@ -1,0 +1,25 @@
+/* ItemList.css */
+/* ... các style cũ của bạn giữ nguyên ... */
+
+.table-cell-numeric {
+    font-variant-numeric: tabular-nums;
+    text-align: center !important;
+}
+
+.table-cell-price {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600 !important;
+    text-align: right !important;
+}
+
+.item-status-chip {
+    font-weight: 500 !important;
+    font-size: 12px !important;
+    border-radius: 999px !important;
+    min-width: 110px;
+}
+
+.column-selector-popover .MuiFormGroup-root {
+    padding: 8px;
+    gap: 4px;
+}

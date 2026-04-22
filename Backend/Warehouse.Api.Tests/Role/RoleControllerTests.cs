@@ -1,4 +1,4 @@
-﻿extern alias api;
+extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -210,7 +210,7 @@ namespace WarehouseTests.Role
 			var request = new CreateRoleRequest { RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
 			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
 
-			_roleServiceMock.Setup(x => x.CreateRoleAsync(request)).ReturnsAsync(expected);
+			_roleServiceMock.Setup(x => x.CreateRoleAsync(request, It.IsAny<long>())).ReturnsAsync(expected);
 
 			// Act
 			var result = await controller.CreateRole(request);
@@ -233,7 +233,7 @@ namespace WarehouseTests.Role
 			var controller = CreateControllerWithUser();
 			var request = new CreateRoleRequest { RoleCode = "SALE", RoleName = "Admin" };
 
-			_roleServiceMock.Setup(x => x.CreateRoleAsync(request))
+			_roleServiceMock.Setup(x => x.CreateRoleAsync(request, It.IsAny<long>()))
 							.ThrowsAsync(new InvalidOperationException("MÃ£ role Ä‘Ã£ tá»“n táº¡i."));
 
 			// Act
@@ -344,7 +344,7 @@ namespace WarehouseTests.Role
 		{
 			// Arrange â€” Lá»—i há»‡ thá»‘ng báº¥t ngá»
 			var controller = CreateControllerWithUser();
-			_roleServiceMock.Setup(x => x.CreateRoleAsync(It.IsAny<CreateRoleRequest>()))
+			_roleServiceMock.Setup(x => x.CreateRoleAsync(It.IsAny<CreateRoleRequest>(), It.IsAny<long>()))
 							.ThrowsAsync(new Exception());
 
 			// Act
@@ -370,7 +370,7 @@ namespace WarehouseTests.Role
 			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
 			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
 
-			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request)).ReturnsAsync(expected);
+			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request, It.IsAny<long>())).ReturnsAsync(expected);
 
 			// Act
 			var result = await controller.UpdateRole(1, request);
@@ -392,7 +392,7 @@ namespace WarehouseTests.Role
 			var controller = CreateControllerWithUser();
 			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
 
-			_roleServiceMock.Setup(x => x.UpdateRoleAsync(999, request))
+			_roleServiceMock.Setup(x => x.UpdateRoleAsync(999, request, It.IsAny<long>()))
 							.ThrowsAsync(new KeyNotFoundException("Role khÃ´ng tá»“n táº¡i."));
 
 			// Act
@@ -412,7 +412,7 @@ namespace WarehouseTests.Role
 			var controller = CreateControllerWithUser();
 			var request = new UpdateRoleRequest { RoleCode = "SALE", RoleName = "Admin" };
 
-			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request))
+			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request, It.IsAny<long>()))
 							.ThrowsAsync(new InvalidOperationException("MÃ£ role Ä‘Ã£ Ä‘Æ°á»£c sá»­ dá»¥ng bá»Ÿi role khÃ¡c."));
 
 			// Act
@@ -439,7 +439,7 @@ namespace WarehouseTests.Role
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
 
-			_roleServiceMock.Verify(x => x.UpdateRoleAsync(It.IsAny<long>(), It.IsAny<UpdateRoleRequest>()), Times.Never);
+			_roleServiceMock.Verify(x => x.UpdateRoleAsync(It.IsAny<long>(), It.IsAny<UpdateRoleRequest>(), It.IsAny<long>()), Times.Never);
 		}
 		#endregion
 
@@ -469,7 +469,7 @@ namespace WarehouseTests.Role
 			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "TÃªn má»›i" };
 			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "TÃªn má»›i" };
 
-			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request)).ReturnsAsync(expected);
+			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request, It.IsAny<long>())).ReturnsAsync(expected);
 
 			// Act
 			var result = await controller.UpdateRole(1, request);
@@ -519,7 +519,7 @@ namespace WarehouseTests.Role
 		{
 			// Arrange â€” General Exception
 			var controller = CreateControllerWithUser();
-			_roleServiceMock.Setup(x => x.UpdateRoleAsync(It.IsAny<long>(), It.IsAny<UpdateRoleRequest>()))
+			_roleServiceMock.Setup(x => x.UpdateRoleAsync(It.IsAny<long>(), It.IsAny<UpdateRoleRequest>(), It.IsAny<long>()))
 							.ThrowsAsync(new Exception());
 
 			// Act

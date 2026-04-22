@@ -51,6 +51,11 @@ namespace Warehouse.DataAcces.Service
                     (!string.IsNullOrEmpty(x.DriverName) && x.DriverName.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
             }
 
+            if (request.IsActive.HasValue)
+            {
+                query = query.Where(x => x.IsActive == request.IsActive.Value);
+            }
+
             var totalItems = query.Count();
             var items = query
                 .OrderByDescending(x => x.TransportId)

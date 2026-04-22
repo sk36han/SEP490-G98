@@ -104,6 +104,23 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
+        /// Lấy danh sách Người nhận theo Công ty (Dùng cho dropdown)
+        /// </summary>
+        [HttpGet("ReceiversByCompany/{companyId}")]
+        public async Task<IActionResult> GetReceiversByCompany(long companyId)
+        {
+            try
+            {
+                var result = await _receiverService.GetReceiversByCompanyAsync(companyId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Lấy thông tin chi tiết người nhận (Get Receiver By ID)
         /// </summary>
         /// <param name="id">ID của người nhận</param>

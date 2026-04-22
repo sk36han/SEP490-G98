@@ -1,8 +1,9 @@
 /*
  * Danh sách Yêu cầu xuất hàng.
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Button,
@@ -15,7 +16,6 @@ import {
     TableHead,
     TableRow,
     TableSortLabel,
-    Chip,
     useTheme,
     useMediaQuery,
     Popover,
@@ -28,10 +28,13 @@ import {
     Paper,
     Tooltip,
 } from '@mui/material';
-import { Plus, Filter, Columns, GripVertical, PackageOpen, Send } from 'lucide-react';
+import { StatusBadge } from '@ui/badges';
+import { Plus, Filter, Columns, GripVertical, PackageOpen, Send, RefreshCw } from 'lucide-react';
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
+import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
+import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -56,6 +59,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
         </Box>
     </Box>
 );
+
 const LS_COL_ORDER = 'rrColumnOrder';
 const LS_SORT = 'rrSortConfig';
 
@@ -87,63 +91,34 @@ const CHECKBOX_CELL_SX = {
     maxWidth: 56,
 };
 
-const STATUS_STYLE = {
-    PENDING:   { bgColor: 'rgba(251,191,36,0.20)', label: 'Chờ duyệt' },
-    APPROVED:  { bgColor: 'rgba(16,185,129,0.18)', label: 'Đã duyệt' },
-    REJECTED:  { bgColor: 'rgba(239,68,68,0.15)',  label: 'Từ chối' },
-    COMPLETED: { bgColor: 'rgba(59,130,246,0.15)', label: 'Hoàn thành' },
-};
+const StatusChip = ({ status }) => (
+    <StatusBadge status={status} />
+);
+
+const LifecycleChip = ({ lifecycleStatus }) => (
+    <StatusBadge status={lifecycleStatus} />
+);
 
 const RR_COLUMNS = [
-    { id: 'stt',                  label: 'STT',                   sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
-    { id: 'releaseRequestCode',   label: 'Mã yêu cầu xuất hàng',  sortable: true,  getValue: (row) => row.releaseRequestCode ?? '' },
-    { id: 'createdByName',        label: 'Nhân viên tạo',           sortable: true,  getValue: (row) => row.createdByName ?? '' },
-    { id: 'receiverName',         label: 'Người nhận',              sortable: true,  getValue: (row) => row.receiverName ?? '' },
-    { id: 'expectedDate',   label: 'Ngày xuất dự kiến',      sortable: true,  getValue: (row) => row.expectedDate ?? '' },
-    { id: 'status',               label: 'Trạng thái',              sortable: true,  getValue: (row) => row.status ?? '' },
-    { id: 'createdAt',            label: 'Ngày tạo',                sortable: true,  getValue: (row) => row.createdAt ?? '' },
+    { id: 'stt',                  label: 'STT',                     sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
+    { id: 'releaseRequestCode',   label: 'Mã yêu cầu xuất hàng',    sortable: true,  getValue: (row) => row.releaseRequestCode ?? '' },
+    { id: 'requestedByName',      label: 'Nhân viên yêu cầu',        sortable: true,  getValue: (row) => row.requestedByName ?? '' },
+    { id: 'receiverName',         label: 'Người nhận',               sortable: true,  getValue: (row) => row.receiverName ?? '' },
+    { id: 'companyName',          label: 'Công ty',                  sortable: false, getValue: (row) => row.companyName ?? '' },
+    { id: 'warehouseName',        label: 'Kho xuất',                 sortable: true,  getValue: (row) => row.warehouseName ?? '' },
+    { id: 'purpose',              label: 'Lý do xuất',               sortable: false, getValue: (row) => row.purpose ?? '' },
+    { id: 'requestedDate',        label: 'Ngày yêu cầu',             sortable: true,  getValue: (row) => row.requestedDate ?? '' },
+    { id: 'expectedDate',         label: 'Ngày xuất dự kiến',        sortable: true,  getValue: (row) => row.expectedDate ?? '' },
+    { id: 'totalItems',           label: 'Tổng vật tư',             sortable: false, getValue: (row) => row.totalItems ?? 0 },
+    { id: 'totalRequestedQty',   label: 'Tổng số lượng',           sortable: false, getValue: (row) => row.totalRequestedQty ?? 0 },
+    { id: 'lifecycleStatus',     label: 'Tình trạng xuất',          sortable: false, getValue: (row) => row.lifecycleStatus ?? '' },
+    { id: 'status',              label: 'Trạng thái',               sortable: true,  getValue: (row) => row.status ?? '' },
+    { id: 'createdAt',            label: 'Ngày tạo',                 sortable: true,  getValue: (row) => row.createdAt ?? '' },
 ];
 
 const DEFAULT_VISIBLE_COLUMN_IDS = RR_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = RR_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
-const DATE_COLUMN_IDS = ['expectedDate', 'createdAt'];
-
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN');
-};
-
-const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-    if (Number.isNaN(d.getTime())) return String(dateStr);
-    return d.toLocaleDateString('vi-VN') + '\n' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
-
-const StatusChip = ({ status }) => {
-    const style = STATUS_STYLE[status?.toUpperCase()] ?? { bgColor: 'rgba(107,114,128,0.15)', label: status ?? '-' };
-    return (
-        <Chip
-            label={`• ${style.label}`}
-            size="small"
-            sx={{
-                fontWeight: 500,
-                fontSize: '12px',
-                lineHeight: '16px',
-                borderRadius: '999px',
-                minWidth: 100,
-                height: '26px',
-                bgcolor: style.bgColor,
-                color: '#374151',
-                border: 'none',
-                boxShadow: 'none',
-                '& .MuiChip-label': { px: 1.5, py: 0, textAlign: 'left', display: 'block', width: '100%' },
-            }}
-        />
-    );
-};
+const DATE_COLUMN_IDS = ['requestedDate', 'expectedDate', 'createdAt'];
 
 export default function ViewReleaseRequestList() {
     const theme = useTheme();
@@ -195,6 +170,15 @@ export default function ViewReleaseRequestList() {
     }, [page, pageSize]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    const { refetch } = usePolling('releaseRequests', () => fetchDataRef.current?.());
+
+    const handleRefresh = useCallback(() => {
+        refetch();
+    }, [refetch]);
 
     useEffect(() => {
         if (Boolean(columnSelectorAnchor)) setTempColumnOrder(columnOrder);
@@ -274,12 +258,15 @@ export default function ViewReleaseRequestList() {
         if (term) {
             result = result.filter((r) =>
                 (r.releaseRequestCode ?? '').toLowerCase().includes(term) ||
-                (r.createdByName ?? '').toLowerCase().includes(term) ||
-                (r.receiverName ?? '').toLowerCase().includes(term)
+                (r.requestedByName ?? '').toLowerCase().includes(term) ||
+                (r.receiverName ?? '').toLowerCase().includes(term) ||
+                (r.warehouseName ?? '').toLowerCase().includes(term) ||
+                (r.purpose ?? '').toLowerCase().includes(term) ||
+                (r.companyName ?? '').toLowerCase().includes(term)
             );
         }
         if (filterValues.status) result = result.filter((r) => r.status === filterValues.status);
-        if (filterValues.createdBy) result = result.filter((r) => (r.createdByName ?? '').toLowerCase().includes(filterValues.createdBy.toLowerCase()));
+        if (filterValues.requestedBy) result = result.filter((r) => (r.requestedByName ?? '').toLowerCase().includes(filterValues.requestedBy.toLowerCase()));
         if (filterValues.receiverName) result = result.filter((r) => (r.receiverName ?? '').toLowerCase().includes(filterValues.receiverName.toLowerCase()));
         if (filterValues.fromExportDate) result = result.filter((r) => r.expectedDate && r.expectedDate >= filterValues.fromExportDate);
         if (filterValues.toExportDate) result = result.filter((r) => r.expectedDate && r.expectedDate <= filterValues.toExportDate);
@@ -337,7 +324,7 @@ export default function ViewReleaseRequestList() {
     };
 
     return (
-        <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: '#fafafa' }}>
+        <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: '#fafafa' }}>
             {/* Page header */}
             <Box sx={{ flexShrink: 0, px: { xs: 2, sm: 2 }, py: 2.5, bgcolor: '#fafafa' }}>
                 <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
@@ -348,9 +335,9 @@ export default function ViewReleaseRequestList() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Send} label="Tổng yêu cầu xuất" value={(totalCount || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Send} label="Chờ duyệt" value={rows.filter(r => r.status === 'PENDING_APPROVAL').length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
-                    <SummaryCard icon={Send} label="Đã duyệt" value={rows.filter(r => r.status === 'APPROVED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Send} label="Tổng yêu cầu xuất" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Send} label="Chờ duyệt" value={filteredAndSortedRows.filter((r) => r.status === 'PENDING_ACC').length.toLocaleString()} color="#2563eb" bgColor="rgba(37,99,235,0.1)" />
+                    <SummaryCard icon={Send} label="Đã duyệt" value={filteredAndSortedRows.filter((r) => r.status === 'APPROVED').length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
                 </Box>
             </Box>
 
@@ -377,7 +364,7 @@ export default function ViewReleaseRequestList() {
                     <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #f3f4f6' }}>
                         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 1.5, alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap' }}>
                             <SearchInput
-                                placeholder="Tìm theo mã, nhân viên tạo, người nhận..."
+                                placeholder="Tìm theo mã, nhân viên, người nhận, kho, lý do..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 sx={{
@@ -405,15 +392,35 @@ export default function ViewReleaseRequestList() {
                                 </IconButton>
                             </Tooltip>
 
+                            <Tooltip title="Làm mới danh sách">
+                                <IconButton
+                                    onClick={handleRefresh}
+                                    aria-label="Làm mới"
+                                    disabled={loading}
+                                    sx={iconBtnSx}
+                                >
+                                    <RefreshCw size={20} className={loading ? 'spin' : ''} />
+                                </IconButton>
+                            </Tooltip>
+
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
                                 <Button
                                     variant="contained"
                                     startIcon={<Plus size={18} />}
+                                    onClick={() => navigate('/release-request/create')}
                                     sx={{
-                                        fontSize: '13px', fontWeight: 500, textTransform: 'none',
-                                        borderRadius: '10px', height: 38, px: 2.5,
-                                        bgcolor: '#3b82f6', boxShadow: '0 1px 2px rgba(59,130,246,0.3)',
-                                        '&:hover': { bgcolor: '#2563eb', boxShadow: '0 4px 12px rgba(59,130,246,0.4)' },
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        textTransform: 'none',
+                                        borderRadius: '10px',
+                                        height: 38,
+                                        px: 2.5,
+                                        bgcolor: '#3b82f6',
+                                        boxShadow: '0 1px 2px rgba(59,130,246,0.3)',
+                                        '&:hover': {
+                                            bgcolor: '#2563eb',
+                                            boxShadow: '0 4px 12px rgba(59,130,246,0.4)',
+                                        },
                                     }}
                                 >
                                     Tạo yêu cầu xuất hàng
@@ -531,8 +538,8 @@ export default function ViewReleaseRequestList() {
                                                                 <TableCell key={col.id} align="left">
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                         <Box component="a"
-                                                                            href={`/good-delivery-notes/${row.releaseRequestId}`}
-                                                                            onClick={(e) => { e.preventDefault(); navigate(`/good-delivery-notes/${row.releaseRequestId}`); }}
+                                                                            href={`/release-request/${row.releaseRequestId}`}
+                                                                            onClick={(e) => { e.preventDefault(); navigate(`/release-request/${row.releaseRequestId}`); }}
                                                                             sx={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
                                                                             title={row.releaseRequestCode}>
                                                                             {row.releaseRequestCode}
@@ -552,17 +559,61 @@ export default function ViewReleaseRequestList() {
                                                             );
                                                         }
 
-                                                        if (DATE_COLUMN_IDS.includes(col.id)) {
+                                                        if (col.id === 'lifecycleStatus') {
                                                             return (
-                                                                <TableCell key={col.id} align="left" sx={{ color: '#6b7280', whiteSpace: col.id === 'createdAt' ? 'pre-line' : 'nowrap' }}>
-                                                                    {col.id === 'createdAt' ? formatDateTime(row.createdAt) : formatDate(row.expectedDate)}
+                                                                <TableCell key={col.id} align="left">
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                        <LifecycleChip lifecycleStatus={row.lifecycleStatus} />
+                                                                    </Box>
+                                                                </TableCell>
+                                                            );
+                                                        }
+
+                                                        if (col.id === 'totalItems' || col.id === 'totalRequestedQty') {
+                                                            return (
+                                                                <TableCell key={col.id} align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                                                                    {(row[col.id] ?? 0).toLocaleString()}
+                                                                </TableCell>
+                                                            );
+                                                        }
+
+                                                        if (col.id === 'purpose') {
+                                                            const val = col.getValue(row);
+                                                            return (
+                                                                <TableCell key={col.id} align="left" sx={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={val}>
+                                                                    {val || <Box component="span" sx={{ color: '#d1d5db' }}>-</Box>}
+                                                                </TableCell>
+                                                            );
+                                                        }
+
+                                                        if (col.id === 'companyName') {
+                                                            const val = col.getValue(row);
+                                                            return (
+                                                                <TableCell key={col.id} align="left" sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={val}>
+                                                                    {val || <Box component="span" sx={{ color: '#d1d5db' }}>-</Box>}
+                                                                </TableCell>
+                                                            );
+                                                        }
+
+                                                        if (DATE_COLUMN_IDS.includes(col.id)) {
+                                                            const val = row[col.id];
+                                                            if (col.id === 'createdAt') {
+                                                                return (
+                                                                    <TableCell key={col.id} align="left" sx={{ color: '#6b7280', whiteSpace: 'pre-line' }}>
+                                                                        {formatDateTimeNewlineUtc(val)}
+                                                                    </TableCell>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <TableCell key={col.id} align="left" sx={{ color: '#6b7280' }}>
+                                                                    {val ? formatDateOnlyUtc(val) : '-'}
                                                                 </TableCell>
                                                             );
                                                         }
 
                                                         return (
                                                             <TableCell key={col.id} align="left" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={col.getValue(row)}>
-                                                                {col.getValue(row) || <Box component="span" sx={{ color: '#d1d5db' }}>—</Box>}
+                                                                {col.getValue(row) || <Box component="span" sx={{ color: '#d1d5db' }}>-</Box>}
                                                             </TableCell>
                                                         );
                                                     })}
@@ -585,7 +636,7 @@ export default function ViewReleaseRequestList() {
                             </Select>
                         </FormControl>
                         <Typography variant="body2" color="text.secondary" component="span" sx={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
-                            {start}–{end} / {totalCount} (Tổng {totalPages} trang)
+                            {start}-{end} / {totalCount} (Tổng {totalPages} trang)
                         </Typography>
                         <Button size="small" variant="outlined" disabled={page <= 0} onClick={() => handlePageChange(page - 1)}
                             sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)', '&:hover': { borderColor: 'rgba(0,0,0,0.2)' } }}>

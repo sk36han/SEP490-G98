@@ -1,32 +1,29 @@
 /**
- * GRNDiscountSection - Component hiển thị phần chiết khấu và tổng tiền cho GRN
- * Bao gồm: Tổng số lượng, Tạm tính, Chiết khấu, Chi phí thêm, Tổng tiền
- * Tách từ CreateGoodReceiptNote.jsx
+ * GRNDiscountSection - Tổng hợp GRN: chiết khấu theo PO (readonly), phí vận chuyển, tổng tiền
  */
 
 import React from 'react';
 import './GRNDiscountSection.css';
 
+const READONLY_BOX = {
+    backgroundColor: '#e5e7eb',
+    color: '#374151',
+    borderRadius: '8px',
+    padding: '10px 12px',
+    fontSize: '14px',
+    lineHeight: 1.45,
+};
+
 const GRNDiscountSection = ({
-    formData,
-    discountType,
-    setDiscountType,
     subtotal,
     discountAmount,
     grandTotal,
     totalQuantityOrdered,
-    totalAdditionalCosts,
     formatCurrency,
-    handleChange,
-    addAdditionalCost,
-    removeAdditionalCost,
-    updateAdditionalCost,
-    isPaid,
-    setIsPaid,
-    paymentMethod,
-    setPaymentMethod,
     shippingFee,
     setShippingFee,
+    poHeaderDiscount = 0,
+    poHeaderTotal = 0,
 }) => {
     return (
         <div className="grn-summary-section">
@@ -35,7 +32,6 @@ const GRNDiscountSection = ({
             </div>
 
             <div className="grn-summary-grid">
-                {/* Tổng số lượng đặt & Tạm tính */}
                 <div className="grn-summary-row">
                     <div className="grn-summary-item">
                         <label className="form-label">Tổng số lượng đặt</label>
@@ -52,65 +48,35 @@ const GRNDiscountSection = ({
                     </div>
                 </div>
 
-                {/* Chiết khấu & Chi phí thêm */}
                 <div className="grn-form-two-columns">
-                    {/* Chiết khấu */}
                     <div className="form-field">
                         <label className="form-label">Chiết khấu</label>
-                        <div className="grn-discount-section">
-                            <div className="grn-discount-buttons">
-                                <button
-                                    type="button"
-                                    className={`btn btn-sm ${discountType === 'amount' ? 'btn-primary' : 'btn-card-text'}`}
-                                    onClick={() => setDiscountType('amount')}
-                                >
-                                    Số tiền
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`btn btn-sm ${discountType === 'percent' ? 'btn-primary' : 'btn-card-text'}`}
-                                    onClick={() => setDiscountType('percent')}
-                                >
-                                    %
-                                </button>
+                        <div style={READONLY_BOX}>
+                            <div style={{ fontWeight: 600 }}>
+                                − {formatCurrency(discountAmount)}
                             </div>
-                            {discountType === 'percent' ? (
-                                <input
-                                    type="number"
-                                    name="discount"
-                                    value={formData.discount}
-                                    onChange={handleChange}
-                                    min="0"
-                                    max="100"
-                                    className="form-input grn-discount-input"
-                                    placeholder="0-100"
-                                />
-                            ) : (
-                                <input
-                                    type="number"
-                                    name="discountAmountFixed"
-                                    value={formData.discountAmountFixed || ''}
-                                    onChange={handleChange}
-                                    min="0"
-                                    className="form-input grn-discount-input"
-                                    placeholder="Nhập số tiền (VND)"
-                                />
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+                                Lấy theo đơn mua hàng (PO). Không nhập chiết khấu tại phiếu nhập kho.
+                            </div>
+                            {poHeaderTotal > 0 && (
+                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                                    Trên đơn mua: chiết khấu {formatCurrency(poHeaderDiscount)} · tổng tiền hàng{' '}
+                                    {formatCurrency(poHeaderTotal)}
+                                </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Chi phí thêm & Phí vận chuyển */}
                     <div className="form-field">
-                        <label className="form-label">Chi phí</label>
+                        <label className="form-label">Phí vận chuyển</label>
                         <div className="grn-costs-section">
-                            {/* Phí vận chuyển */}
-                            <div className="grn-cost-row" style={{ marginBottom: '8px' }}>
+                            <div className="grn-cost-row" style={{ marginBottom: 0 }}>
                                 <input
                                     type="text"
                                     value="Phí vận chuyển"
                                     className="form-input grn-cost-name"
                                     readOnly
-                                    style={{ backgroundColor: '#f5f5f5' }}
+                                    style={{ backgroundColor: '#e5e7eb', color: '#374151', cursor: 'default' }}
                                 />
                                 <input
                                     type="number"
@@ -121,97 +87,16 @@ const GRNDiscountSection = ({
                                     min="0"
                                 />
                             </div>
-
-                            {/* Chi phí thêm */}
-                            {(formData.additionalCosts || []).map((cost) => (
-                                <div key={cost.id} className="grn-cost-row">
-                                    <input
-                                        type="text"
-                                        value={cost.name}
-                                        onChange={(e) => updateAdditionalCost(cost.id, 'name', e.target.value)}
-                                        placeholder="Tên"
-                                        className="form-input grn-cost-name"
-                                    />
-                                    <input
-                                        type="number"
-                                        value={cost.amount || ''}
-                                        onChange={(e) => updateAdditionalCost(cost.id, 'amount', e.target.value)}
-                                        placeholder="Số tiền"
-                                        className="form-input grn-cost-amount"
-                                        min="0"
-                                    />
-                                    <button
-                                        type="button"
-                                        className="btn btn-sm btn-cancel grn-cost-remove"
-                                        onClick={() => removeAdditionalCost(cost.id)}
-                                    >
-                                        Xóa
-                                    </button>
-                                </div>
-                            ))}
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-card-text grn-cost-add"
-                                onClick={addAdditionalCost}
-                            >
-                                + Thêm chi phí
-                            </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Thông tin thanh toán */}
-                <div className="grn-payment-section" style={{ marginTop: '16px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
-                    <div className="grn-form-two-columns">
-                        <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <input
-                                type="checkbox"
-                                id="isPaid"
-                                checked={isPaid || false}
-                                onChange={(e) => setIsPaid(e.target.checked)}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                            <label htmlFor="isPaid" style={{ cursor: 'pointer', fontWeight: 500 }}>
-                                Đã thanh toán
-                            </label>
-                        </div>
-                        <div className="form-field">
-                            <label className="form-label">Phương thức thanh toán</label>
-                            <select
-                                value={paymentMethod || ''}
-                                onChange={(e) => setPaymentMethod(e.target.value)}
-                                className="form-input"
-                                style={{ height: '36px' }}
-                            >
-                                <option value="">Chọn phương thức</option>
-                                <option value="cash">Tiền mặt</option>
-                                <option value="bank_transfer">Chuyển khoản</option>
-                                <option value="credit">Thẻ tín dụng</option>
-                                <option value="other">Khác</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tổng tiền */}
                 <div className="grn-total-section">
                     <div className="grn-total-details">
                         <div className="grn-discount-row">
-                            <span className="grn-total-label">Chiết khấu:</span>
-                            <span className="grn-discount-value">- {formatCurrency(discountAmount)}</span>
+                            <span className="grn-total-label">Chiết khấu (theo PO):</span>
+                            <span className="grn-discount-value">− {formatCurrency(discountAmount)}</span>
                         </div>
-                        {(formData.additionalCosts || []).filter((c) => (Number(c.amount) || 0) > 0).map((c) => (
-                            <div key={c.id} className="grn-cost-item">
-                                <span>{c.name?.trim() ? c.name.trim() : 'Chi phí'}:</span>
-                                <span className="grn-cost-value">+ {formatCurrency(Number(c.amount) || 0)}</span>
-                            </div>
-                        ))}
-                        {(formData.additionalCosts || []).filter((c) => (Number(c.amount) || 0) > 0).length > 0 && (
-                            <div className="grn-total-cost-row">
-                                <span className="grn-total-label">Tổng chi phí thêm:</span>
-                                <span className="grn-cost-value">+ {formatCurrency(totalAdditionalCosts)}</span>
-                            </div>
-                        )}
                         {(shippingFee || 0) > 0 && (
                             <div className="grn-cost-item">
                                 <span>Phí vận chuyển:</span>

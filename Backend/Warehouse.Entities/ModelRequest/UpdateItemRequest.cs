@@ -48,5 +48,8 @@ namespace Warehouse.Entities.ModelRequest
 
         // Ngày hiệu lực giá
         public DateOnly? PriceEffectiveFrom { get; set; }
+
+        [MaxLength(500, ErrorMessage = "Specification không được vượt quá 500 ký tự.")]
+        public string? Specification { get; set; }
     }
 }

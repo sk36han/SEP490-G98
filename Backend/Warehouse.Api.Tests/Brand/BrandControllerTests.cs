@@ -1,4 +1,4 @@
-﻿extern alias api;
+extern alias api;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -380,7 +380,7 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
-			.Setup(x => x.ToggleBrandStatusAsync(1, true))
+			.Setup(x => x.ToggleBrandStatusAsync(1, true, It.IsAny<long>()))
 			.ReturnsAsync(new BrandResponse { BrandId = 1, IsActive = true });
 
 		var result = await controller.ToggleBrandStatus(1, true);
@@ -393,7 +393,7 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
-			.Setup(x => x.ToggleBrandStatusAsync(1, false))
+			.Setup(x => x.ToggleBrandStatusAsync(It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<long>()))
 			.ReturnsAsync(new BrandResponse { BrandId = 1, IsActive = false });
 
 		var result = await controller.ToggleBrandStatus(1, false);
@@ -406,7 +406,7 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
-			.Setup(x => x.ToggleBrandStatusAsync(99, true))
+			.Setup(x => x.ToggleBrandStatusAsync(99, true, It.IsAny<long>()))
 			.ThrowsAsync(new KeyNotFoundException("KhÃ´ng tÃ¬m tháº¥y thÆ°Æ¡ng hiá»‡u vá»›i ID = 99."));
 
 		var result = await controller.ToggleBrandStatus(99, true);
@@ -419,7 +419,7 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
-			.Setup(x => x.ToggleBrandStatusAsync(1, true))
+			.Setup(x => x.ToggleBrandStatusAsync(1, true, It.IsAny<long>()))
 			.ThrowsAsync(new InvalidOperationException("ThÆ°Æ¡ng hiá»‡u 'Nike' hiá»‡n táº¡i Ä‘ang hoáº¡t Ä‘á»™ng. KhÃ´ng cáº§n thay Ä‘á»•i."));
 
 		var result = await controller.ToggleBrandStatus(1, true);
@@ -433,7 +433,7 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
-			.Setup(x => x.ToggleBrandStatusAsync(0, true))
+			.Setup(x => x.ToggleBrandStatusAsync(0, true, It.IsAny<long>()))
 			.ThrowsAsync(new ArgumentException("ID thÆ°Æ¡ng hiá»‡u khÃ´ng há»£p lá»‡."));
 
 		var result = await controller.ToggleBrandStatus(0, true);
@@ -446,12 +446,12 @@ public class BrandControllerTests
 	{
 		var controller = new BrandController(_brandServiceMock.Object);
 		_brandServiceMock
-			.Setup(x => x.ToggleBrandStatusAsync(77, false))
+			.Setup(x => x.ToggleBrandStatusAsync(77, false, It.IsAny<long>()))
 			.ReturnsAsync(new BrandResponse { BrandId = 77, IsActive = false })
 			.Verifiable();
 
 		await controller.ToggleBrandStatus(77, false);
-		_brandServiceMock.Verify(x => x.ToggleBrandStatusAsync(77, false), Times.Once);
+		_brandServiceMock.Verify(x => x.ToggleBrandStatusAsync(77, false, It.IsAny<long>()), Times.Once);
 	}
 
 	// =========================================================

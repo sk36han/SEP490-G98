@@ -20,6 +20,17 @@ namespace Warehouse.Entities.Constants
 		public const string AssignRole = "ASSIGN_ROLE";
 		public const string PasswordResetRequest = "PASSWORD_RESET_REQUEST";
 		public const string PasswordReset = "PASSWORD_RESET";
+		public const string Submit = "SUBMIT";
+		public const string StartStocktake = "START_STOCKTAKE";
+		public const string StartStocktakeExecution = "START_STOCKTAKE_EXECUTION";
+		public const string BulkMatchStocktake = "BULK_MATCH_STOCKTAKE";
+		public const string SubmitStocktake = "SUBMIT_STOCKTAKE";
+		public const string PostAdjustment = "POST_ADJUSTMENT";
+		public const string CompleteStocktake = "COMPLETE_STOCKTAKE";
+		public const string CancelStocktakeExecution = "CANCEL_STOCKTAKE_EXECUTION";
+		public const string CancelStocktakePlan = "CANCEL_STOCKTAKE_PLAN";
+		public const string SubmitStocktakePlan = "SUBMIT_STOCKTAKE_PLAN";
+		public const string ApproveAndFinalizeStocktake = "APPROVE_AND_FINALIZE_STOCKTAKE";
 	}
 
 	public static class AuditEntity
@@ -46,5 +57,7 @@ namespace Warehouse.Entities.Constants
 		public const string PurchaseReturnNote = "PurchaseReturnNote";
 		public const string Stocktake = "Stocktake";
 		public const string StocktakePlan = "StocktakePlan";
+		public const string DocumentAttachment = "DocumentAttachment";
+		public const string StocktakeSession = "StocktakeSession";
 	}
 }

@@ -14,11 +14,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IAuditLogService _auditLogService;
+        private readonly INotificationService _notificationService;
 
-        public PurchaseOrderService(Mkiwms5Context context, IAuditLogService auditLogService)
+        public PurchaseOrderService(Mkiwms5Context context, IAuditLogService auditLogService, INotificationService notificationService)
         {
             _context = context;
             _auditLogService = auditLogService;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
@@ -84,6 +86,9 @@ namespace Warehouse.DataAcces.Service
                 .Include(po => po.ResponsibleUser)
                 .Include(po => po.PurchaseOrderLines)
                     .ThenInclude(line => line.Item)
+                        .ThenInclude(item => item.BaseUom)
+                .Include(po => po.PurchaseOrderLines)
+                    .ThenInclude(line => line.Uom)
                 .FirstOrDefaultAsync(po => po.PurchaseOrderId == id);
 
             if (po == null)
@@ -92,6 +97,22 @@ namespace Warehouse.DataAcces.Service
             }
 
             var totalOrderedQty = po.PurchaseOrderLines.Sum(line => line.OrderedQty);
+            var attachments = await _context.DocumentAttachments
+                .Where(x => x.DocType == "PR" && x.DocId == id)
+                .OrderByDescending(x => x.UploadedAt)
+                .ToListAsync();
+
+            var quotationFileUrl = attachments
+                .FirstOrDefault(x =>
+                    x.AttachmentType == "QUOTATION" ||
+                    x.AttachmentType == "GENERAL")
+                ?.FileUrlOrPath;
+
+            var contractAppendixFileUrl = attachments
+                .FirstOrDefault(x =>
+                    x.AttachmentType == "CONTRACT_APPENDIX" ||
+                    x.AttachmentType == "OTHER")
+                ?.FileUrlOrPath;
 
             return new PurchaseOrderDetailResponse
             {
@@ -118,6 +139,8 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = po.CreatedAt,
                 SubmittedAt = po.SubmittedAt,
                 UpdatedAt = po.UpdatedAt,
+                QuotationFileUrl = quotationFileUrl,
+                ContractAppendixFileUrl = contractAppendixFileUrl,
                 Lines = po.PurchaseOrderLines.Select(line => new PurchaseOrderLineResponse
                 {
                     PurchaseOrderLineId = line.PurchaseOrderLineId,
@@ -125,6 +148,7 @@ namespace Warehouse.DataAcces.Service
                     ItemCode = line.Item?.ItemCode,
                     ItemName = line.Item?.ItemName,
                     UomId = line.UomId,
+                    UomName = line.Uom != null ? line.Uom.UomName : line.Item?.BaseUom?.UomName,
                     OrderedQty = line.OrderedQty,
                     ReceivedQty = line.ReceivedQty,
                     UnitPrice = line.UnitPrice ?? 0,
@@ -193,6 +217,7 @@ namespace Warehouse.DataAcces.Service
 
             var itemIds = request.Lines.Select(x => x.ItemId).Distinct().ToList();
             var items = await _context.Items
+                .Include(i => i.BaseUom)
                 .Where(i => itemIds.Contains(i.ItemId))
                 .ToDictionaryAsync(i => i.ItemId, i => i);
 
@@ -218,10 +243,10 @@ namespace Warehouse.DataAcces.Service
             var po = new PurchaseOrder
             {
                 Pocode = poCode,
-                RequestedBy = requestedByUserId,
-                SupplierId = request.SupplierId,
+                    RequestedBy = requestedByUserId,
+                    SupplierId = request.SupplierId,
                 RequestedDate = DateOnly.FromDateTime(now),
-                Justification = request.Justification,
+                    Justification = request.Justification,
                 // Sử dụng Status từ request, nếu null thì để database tự set default
                    Status = request.Status ?? "PENDING",
                 CurrentStageNo = 1,
@@ -286,6 +311,20 @@ namespace Warehouse.DataAcces.Service
                 po.PurchaseOrderId,
                 $"Tạo đơn mua hàng {po.Pocode}");
 
+            // Gửi thông báo cho Quản lý/Admin nếu đơn ở trạng thái chờ duyệt
+            if (po.Status == "PENDING")
+            {
+                await _notificationService.CreateForRolesAsync(
+                    new[] { "ADMIN", "MANAGER" },
+                    "Đơn mua hàng mới cần duyệt",
+                    $"Đơn mua hàng {po.Pocode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt.",
+                    "PurchaseOrder",
+                    po.PurchaseOrderId,
+                    requestedByUserId,
+                    "NewRequest"
+                );
+            }
+
             return new PurchaseOrderDetailResponse
             {
                 PurchaseOrderId = po.PurchaseOrderId,
@@ -317,6 +356,7 @@ namespace Warehouse.DataAcces.Service
                     ItemCode = items[x.ItemId].ItemCode,
                     ItemName = items[x.ItemId].ItemName,
                     UomId = x.UomId,
+                    UomName = items[x.ItemId].BaseUom?.UomName,
                     OrderedQty = x.OrderedQty,
                     ReceivedQty = x.ReceivedQty,
                     UnitPrice = x.UnitPrice ?? 0,

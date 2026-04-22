@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Table,
     TableBody,
@@ -73,7 +74,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     </Box>
 );
 
-const UserAccountList = () => {
+const ViewUserAccountList = () => {
     const { toast, showToast, clearToast } = useToast();
     const location = useLocation();
     const navigate = useNavigate();
@@ -133,7 +134,7 @@ const UserAccountList = () => {
     const visibleColumns = USER_ACCOUNT_COLUMNS.filter((col) => visibleColumnIds.has(col.id));
     const columnSelectorOpen = Boolean(columnSelectorAnchor);
 
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         setLoading(true);
         try {
             const response = await adminService.getUserList({
@@ -150,11 +151,14 @@ const UserAccountList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showToast]);
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    useEffect(() => { loadUsers(); }, [loadUsers]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const loadUsersRef = useRef(loadUsers);
+    useEffect(() => { loadUsersRef.current = loadUsers; }, [loadUsers]);
+    usePolling('users', () => loadUsersRef.current?.());
 
     // Mở dialog Tạo mới khi điều hướng từ Sidebar với state.openCreate
     useEffect(() => {
@@ -164,7 +168,7 @@ const UserAccountList = () => {
         }
     }, [location.pathname, location.state?.openCreate, navigate]);
 
-    useEffect(() => {
+    const filteredUsers = useMemo(() => {
         let result = allUsers;
         if (searchTerm.trim()) {
             const normalize = (str) => (str ? removeDiacritics(str.toLowerCase()) : '');
@@ -201,10 +205,14 @@ const UserAccountList = () => {
                 return true;
             });
         }
-        setTotalCount(result.length);
+        return result;
+    }, [allUsers, searchTerm, filterValues]);
+
+    useEffect(() => {
+        setTotalCount(filteredUsers.length);
         const start = (pageNumber - 1) * pageSize;
-        setUsers(result.slice(start, start + pageSize));
-    }, [allUsers, searchTerm, filterValues, pageNumber, pageSize]);
+        setUsers(filteredUsers.slice(start, start + pageSize));
+    }, [filteredUsers, pageNumber, pageSize]);
 
     useEffect(() => {
         setPageNumber(1);
@@ -343,7 +351,7 @@ const UserAccountList = () => {
                 pt: 2,
                 pb: 2,
                 mx: 'auto',
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 display: 'flex',
                 flexDirection: 'column',
@@ -387,9 +395,9 @@ const UserAccountList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Users} label="Tổng tài khoản" value={(totalCount || allUsers.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Users} label="Đang hoạt động" value={allUsers.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Users} label="Ngưng hoạt động" value={allUsers.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Users} label="Tổng tài khoản" value={filteredUsers.length.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Users} label="Đang hoạt động" value={filteredUsers.filter((r) => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Users} label="Ngưng hoạt động" value={filteredUsers.filter((r) => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 
@@ -787,5 +795,5 @@ const UserAccountList = () => {
     );
 };
 
-export default UserAccountList;
+export default ViewUserAccountList;
 

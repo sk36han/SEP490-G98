@@ -60,7 +60,24 @@ namespace Warehouse.Api.ApiController
             catch (Exception ex) { return StatusCode(500, new { Message = "Lỗi hệ thống.", Detail = ex.Message }); }
         }
 
-        [HttpGet("{id}")]
+        /// <summary>
+        /// Lấy danh sách Địa chỉ theo Công ty (Dùng cho dropdown)
+        /// </summary>
+        [HttpGet("addressBycompany/{companyId}")]
+        public async Task<IActionResult> GetAddressesByCompany(long companyId)
+        {
+            try
+            {
+                var result = await _addressService.GetAddressesByCompanyAsync(companyId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
+        [HttpGet("getAddressbyid{id}")]
         public async Task<IActionResult> GetAddressById(long id)
         {
             try
@@ -73,7 +90,7 @@ namespace Warehouse.Api.ApiController
             catch (Exception ex) { return StatusCode(500, new { Message = "Lỗi hệ thống.", Detail = ex.Message }); }
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("UpdateAddress{id}")]
         public async Task<IActionResult> UpdateAddress(long id, [FromBody] UpdateAddressRequest request)
         {
             try

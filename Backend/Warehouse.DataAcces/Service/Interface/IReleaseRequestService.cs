@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -6,6 +7,7 @@ namespace Warehouse.DataAcces.Service.Interface
 {
     public interface IReleaseRequestService
     {
+        /// Tạo yêu cầu xuất kho
         /// Tạo yêu cầu xuất kho
         Task<ReleaseRequestDetailResponse> CreateReleaseRequestAsync(long requestedByUserId, CreateReleaseRequestRequest request);
 
@@ -26,5 +28,6 @@ namespace Warehouse.DataAcces.Service.Interface
 
         /// Duyệt/Từ chối yêu cầu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
         Task<ReleaseRequestDetailResponse> ApproveReleaseRequestAsync(long id, long userId, ApproveReleaseRequest request);
+
     }
 }

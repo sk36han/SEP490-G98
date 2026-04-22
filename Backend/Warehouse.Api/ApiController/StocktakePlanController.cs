@@ -87,6 +87,7 @@ namespace Warehouse.Api.ApiController
 
             try
             {
+                request.NormalizeDecisionAlias();
                 var result = await _stocktakePlanService.ApproveStocktakePlanAsync(id, request, currentUserId);
                 return Ok(result);
             }

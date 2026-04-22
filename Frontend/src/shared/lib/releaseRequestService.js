@@ -1,8 +1,10 @@
 import apiClient from './axios';
 import authService from './authService';
+import { invalidate } from './pollingManager';
 
 /** Backend endpoints (ReleaseRequestController):
  *   POST /api/ReleaseRequest/create
+ *   POST /api/ReleaseRequest/{id}/attachments
  *   GET  /api/ReleaseRequest/list
  *   GET  /api/ReleaseRequest/detail/{id}
  *   PUT  /api/ReleaseRequest/update/{id}
@@ -47,6 +49,7 @@ function mapReleaseRequestRow(row) {
         expectedDate: row.expectedDate ?? row.ExpectedDate ?? null,
         purpose: row.purpose ?? row.Purpose ?? null,
         note: row.note ?? row.Note ?? null,
+        isPartialDeliveryAllowed: row.isPartialDeliveryAllowed ?? row.IsPartialDeliveryAllowed ?? false,
         warehouseId: row.warehouseId ?? row.WarehouseId,
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
         receiverId: row.receiverId ?? row.ReceiverId,
@@ -57,7 +60,7 @@ function mapReleaseRequestRow(row) {
         companyId: row.companyId ?? row.CompanyId ?? null,
         companyName: row.companyName ?? row.CompanyName ?? '',
         addressId: row.addressId ?? row.AddressId ?? null,
-        address: row.address ?? row.Address ?? '',
+        address: row.address ?? row.Address ?? row.receiverAddress ?? row.ReceiverAddress ?? '',
         city: row.city ?? row.City ?? '',
         district: row.district ?? row.District ?? '',
         ward: row.ward ?? row.Ward ?? '',
@@ -65,8 +68,10 @@ function mapReleaseRequestRow(row) {
         requestedByName: row.requestedByName ?? row.RequestedByName ?? '',
         totalItems: row.totalItems ?? row.TotalItems ?? 0,
         totalRequestedQty: row.totalRequestedQty ?? row.TotalRequestedQty ?? 0,
+        totalAmount: row.totalAmount ?? row.TotalAmount ?? 0,
         createdAt: row.createdAt ?? row.CreatedAt ?? null,
         submittedAt: row.submittedAt ?? row.SubmittedAt ?? null,
+        approvedAt: row.approvedAt ?? row.ApprovedAt ?? null,
     };
 }
 
@@ -85,6 +90,53 @@ function mapReleaseRequestLineRow(row) {
         issuedQty: row.issuedQty ?? row.IssuedQty ?? 0,
         lineStatus: row.lineStatus ?? row.LineStatus ?? '',
         note: row.note ?? row.Note ?? null,
+        stockQty: row.stockQty ?? row.StockQty ?? 0,
+        costPrice: row.costPrice ?? row.CostPrice ?? 0,
+        unitPrice: row.unitPrice ?? row.UnitPrice ?? 0,
+        lineTotal: row.lineTotal ?? row.LineTotal ?? 0,
+        packagingSpecId: row.packagingSpecId ?? row.PackagingSpecId ?? null,
+        packagingSpecName: row.packagingSpecName ?? row.PackagingSpecName ?? '',
+    };
+}
+
+function mapAttachmentRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
+        attachmentId: row.attachmentId ?? row.AttachmentId,
+        fileName: row.fileName ?? row.FileName ?? '',
+        fileUrl: row.fileUrl ?? row.FileUrl ?? '',
+        attachmentType: row.attachmentType ?? row.AttachmentType ?? '',
+        uploadedAt: row.uploadedAt ?? row.UploadedAt ?? null,
+    };
+}
+
+function mapApprovalRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
+        approvalId: row.approvalId ?? row.ApprovalId,
+        stageNo: row.stageNo ?? row.StageNo ?? 0,
+        decision: row.decision ?? row.Decision ?? '',
+        reason: row.reason ?? row.Reason ?? null,
+        actionBy: row.actionBy ?? row.ActionBy,
+        actionByName: row.actionByName ?? row.ActionByName ?? '',
+        actionAt: row.actionAt ?? row.ActionAt ?? null,
+    };
+}
+
+function mapReceiverRow(row) {
+    if (row == null || typeof row !== 'object') return null;
+    return {
+        receiverId: row.receiverId ?? row.ReceiverId,
+        receiverName: row.receiverName ?? row.ReceiverName ?? '',
+        phone: row.phone ?? row.Phone ?? '',
+        email: row.email ?? row.Email ?? '',
+        companyId: row.companyId ?? row.CompanyId ?? null,
+        companyName: row.companyName ?? row.CompanyName ?? '',
+        notes: row.notes ?? row.Notes ?? null,
+        address: row.address ?? row.Address ?? '',
+        city: row.city ?? row.City ?? '',
+        district: row.district ?? row.District ?? '',
+        ward: row.ward ?? row.Ward ?? '',
     };
 }
 
@@ -119,6 +171,7 @@ export async function getReleaseRequests(params = {}) {
 
 /**
  * Lấy chi tiết yêu cầu xuất kho.
+ * Backend trả: ReleaseRequestDetailResponse (kèm Lines, Receiver, Approvals)
  * @param {number|string} id
  */
 export async function getReleaseRequestDetail(id) {
@@ -126,10 +179,28 @@ export async function getReleaseRequestDetail(id) {
         const response = await apiClient.get(`/ReleaseRequest/detail/${id}`);
         const body = extractBody(response);
         if (!body || typeof body !== 'object') return null;
+
         return {
             ...mapReleaseRequestRow(body),
-            receiver: body.receiver ?? null,
-            lines: (body.lines ?? body.Lines ?? []).map(mapReleaseRequestLineRow),
+            // Receiver embed (flatten lên top-level để UI đọc trực tiếp)
+            receiver: body.receiver ? mapReceiverRow(body.receiver) : null,
+            receiverName: body.receiver?.receiverName ?? body.receiver?.ReceiverName ?? '',
+            receiverPhone: body.receiver?.phone ?? body.receiver?.Phone ?? '',
+            receiverEmail: body.receiver?.email ?? body.receiver?.Email ?? '',
+            receiverPosition: body.receiver?.position ?? body.receiver?.Position ?? '',
+            companyId: body.receiver?.companyId ?? body.receiver?.CompanyId ?? body.companyId ?? body.CompanyId ?? null,
+            companyName: body.receiver?.companyName ?? body.receiver?.CompanyName ?? body.companyName ?? body.CompanyName ?? '',
+            addressId: body.receiver?.addressId ?? body.receiver?.AddressId ?? null,
+            address: body.receiver?.address ?? body.receiver?.Address ?? '',
+            city: body.receiver?.city ?? body.receiver?.City ?? '',
+            district: body.receiver?.district ?? body.receiver?.District ?? '',
+            ward: body.receiver?.ward ?? body.receiver?.Ward ?? '',
+            // Lines
+            lines: (body.Lines ?? body.lines ?? []).map(mapReleaseRequestLineRow),
+            // Attachments
+            attachments: (body.Attachments ?? body.attachments ?? []).map(mapAttachmentRow),
+            // Approvals
+            approvals: (body.Approvals ?? body.approvals ?? []).map(mapApprovalRow),
         };
     } catch (error) {
         console.error('[releaseRequestService] getReleaseRequestDetail failed:', error);
@@ -166,12 +237,15 @@ export async function getReleaseRequestDetail(id) {
  */
 export async function createReleaseRequest(data) {
     try {
-        const response = await apiClient.post('/ReleaseRequest/create', {
-            warehouseId: Number(data.warehouseId),
-            receiverId: Number(data.receiverId),
+        const payload = {
+            warehouseId: Number(data.warehouseId) || null,
+            receiverId: Number(data.receiverId) || null,
+            companyId: Number(data.companyId) || null,
             expectedDate: data.expectedDate || null,
             purpose: data.purpose?.trim() || null,
             note: data.note?.trim() || null,
+            status: data.status || null,
+            isPartialDeliveryAllowed: Boolean(data.isPartialDeliveryAllowed),
             // Address
             addressId: data.addressId != null ? Number(data.addressId) : null,
             address: data.address?.trim() || null,
@@ -181,15 +255,52 @@ export async function createReleaseRequest(data) {
             lines: (data.lines ?? []).map(l => ({
                 itemId: Number(l.itemId),
                 requestedQty: Number(l.requestedQty),
-                uomId: Number(l.uomId),
+                uomId: l.uomId != null ? Number(l.uomId) : null,
                 note: l.note?.trim() || null,
+                unitPrice: l.unitPrice != null && l.unitPrice !== '' ? Number(l.unitPrice) : null,
+                packagingSpecId: l.packagingSpecId != null && l.packagingSpecId !== ''
+                    ? Number(l.packagingSpecId)
+                    : null,
             })),
-        });
+        };
+        console.log('[createReleaseRequest] payload:', JSON.stringify(payload, null, 2));
+        const response = await apiClient.post('/ReleaseRequest/create', payload);
+        invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] createReleaseRequest failed:', error);
-        throw error.response?.data || error;
+        const errData = error.response?.data;
+        // Parse backend validation errors
+        if (errData?.errors) {
+            const msgs = Object.values(errData.errors).flat();
+            const err = new Error(msgs.join('; '));
+            err._raw = errData;
+            throw err;
+        }
+        throw errData || error;
     }
+}
+
+/**
+ * Upload báo giá, hợp đồng và phụ lục (tùy chọn) cho yêu cầu xuất kho.
+ * @param {number|string} releaseRequestId
+ * @param {{ quotationFile?: File|null, contractFile?: File|null, appendixFile?: File|null }} files
+ */
+export async function uploadReleaseRequestAttachments(releaseRequestId, { quotationFile, contractFile, appendixFile } = {}) {
+    const formData = new FormData();
+    if (quotationFile) formData.append('quotationFile', quotationFile);
+    if (contractFile) formData.append('contractFile', contractFile);
+    if (appendixFile) formData.append('appendixFile', appendixFile);
+
+    if (!quotationFile && !contractFile && !appendixFile) {
+        return null;
+    }
+
+    const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    invalidate('releaseRequest');
+    return response?.data;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -221,6 +332,7 @@ export async function updateReleaseRequest(id, data) {
             }));
         }
         const response = await apiClient.put(`/ReleaseRequest/update/${id}`, payload);
+        invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] updateReleaseRequest failed:', error);
@@ -237,9 +349,52 @@ export async function updateReleaseRequest(id, data) {
  * Gửi yêu cầu xuất kho (chốt AllocatedQty = RequestedQty).
  * @param {number|string} id
  */
+// ═══════════════════════════════════════════════════════════════════════════════
+// 5. APPROVE / REJECT
+// PUT /api/ReleaseRequest/approve/{id}
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Duyệt hoặc từ chối yêu cầu xuất kho.
+ * @param {number|string} id
+ * @param {{ isApproved: boolean, reason?: string, lines?: Array }} data
+ */
+export async function approveReleaseRequest(id, data) {
+    try {
+        const payload = {
+            isApproved: data.isApproved,
+            reason: data.reason?.trim() || null,
+            lines: data.lines ?? null,
+        };
+        const response = await apiClient.put(`/ReleaseRequest/approve/${id}`, payload);
+        invalidate('releaseRequest');
+        return extractBody(response);
+    } catch (error) {
+        console.error('[releaseRequestService] approveReleaseRequest failed:', error);
+        const errData = error.response?.data;
+        if (errData?.errors) {
+            const msgs = Object.values(errData.errors).flat();
+            const err = new Error(msgs.join('; '));
+            err._raw = errData;
+            throw err;
+        }
+        throw errData || error;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 6. SUBMIT
+// PUT /api/ReleaseRequest/submit/{id}
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Gửi yêu cầu xuất kho (chốt AllocatedQty = RequestedQty).
+ * @param {number|string} id
+ */
 export async function submitReleaseRequest(id) {
     try {
         const response = await apiClient.put(`/ReleaseRequest/submit/${id}`);
+        invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] submitReleaseRequest failed:', error);

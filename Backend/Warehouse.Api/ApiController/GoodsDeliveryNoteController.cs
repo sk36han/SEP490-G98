@@ -55,6 +55,7 @@ namespace Warehouse.Api.ApiController
         /// Tạo phiếu xuất kho mới (kèm thông tin vận chuyển nếu có)
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "SP,SE,KT,TK")]
         public async Task<IActionResult> Create([FromBody] CreateGDNRequest request)
         {
             var userId = GetCurrentUserId();
@@ -66,6 +67,7 @@ namespace Warehouse.Api.ApiController
         /// Cập nhật phiếu xuất kho (chỉ khi đang ở trạng thái chờ duyệt)
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = "SP,SE,KT,TK")]
         public async Task<IActionResult> Update(long id, [FromBody] CreateGDNRequest request)
         {
             var userId = GetCurrentUserId();
@@ -77,6 +79,7 @@ namespace Warehouse.Api.ApiController
         /// Hủy phiếu xuất kho
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "SP,GD,KT,TK,SE")]
         public async Task<IActionResult> Cancel(long id, [FromQuery] string reason)
         {
             var userId = GetCurrentUserId();
@@ -85,21 +88,10 @@ namespace Warehouse.Api.ApiController
         }
 
         /// <summary>
-        /// Duyệt/Từ chối phiếu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
-        /// </summary>
-        [HttpPut("{id}/approve")]
-        public async Task<IActionResult> Approve(long id, [FromBody] ApproveGDNRequest request)
-        {
-            var userId = GetCurrentUserId();
-            var result = await _gdnService.ApproveGDNAsync(id, userId, request);
-            var msg = request.IsApproved ? "Duyệt phiếu xuất kho thành công." : "Đã từ chối phiếu xuất kho.";
-            return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, msg));
-        }
-
-        /// <summary>
         /// Thủ kho xác nhận xuất hàng thực tế (Trừ tồn kho)
         /// </summary>
         [HttpPut("{id}/issue")]
+        [Authorize(Roles = "TK,SE")]
         public async Task<IActionResult> Issue(long id, [FromBody] WarehouseIssueRequest request)
         {
             var userId = GetCurrentUserId();
@@ -111,6 +103,7 @@ namespace Warehouse.Api.ApiController
         /// Kế toán hoặc Thủ kho tải lên bằng chứng và xác nhận hoàn tất giao hàng
         /// </summary>
         [HttpPost("{id}/confirm-delivery")]
+        [Authorize(Roles = "KT,TK,SE")]
         public async Task<IActionResult> ConfirmDelivery(long id, IFormFile evidenceFile, [FromForm] string? note)
         {
             var userId = GetCurrentUserId();

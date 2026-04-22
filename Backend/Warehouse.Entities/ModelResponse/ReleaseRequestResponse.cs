@@ -14,6 +14,7 @@ namespace Warehouse.Entities.ModelResponse
         public DateOnly? RequestedDate { get; set; }
         public DateOnly? ExpectedDate { get; set; }
         public string? Purpose { get; set; }
+        public bool IsPartialDeliveryAllowed { get; set; }
 
         // Kho xuất
         public long WarehouseId { get; set; }
@@ -48,6 +49,7 @@ namespace Warehouse.Entities.ModelResponse
         public DateOnly? RequestedDate { get; set; }
         public DateOnly? ExpectedDate { get; set; }
         public string? Purpose { get; set; }
+        public bool IsPartialDeliveryAllowed { get; set; }
 
         // Kho xuất
         public long WarehouseId { get; set; }
@@ -64,11 +66,32 @@ namespace Warehouse.Entities.ModelResponse
         public int TotalItems { get; set; }
         public decimal TotalRequestedQty { get; set; }
 
+        public decimal TotalAmount { get; set; }
+
         public DateTime CreatedAt { get; set; }
         public DateTime? SubmittedAt { get; set; }
+        public DateTime? ApprovedAt { get; set; }
 
         // Danh sách vật tư
         public List<ReleaseRequestLineResponse> Lines { get; set; } = new();
+
+        // Danh sách tệp đính kèm (Báo giá, Hợp đồng)
+        public List<ReleaseRequestAttachmentResponse> Attachments { get; set; } = new();
+
+        // Lịch sử duyệt
+        public List<RRApprovalResponse> Approvals { get; set; } = new();
+    }
+
+    /// Lịch sử duyệt yêu cầu xuất kho
+    public class RRApprovalResponse
+    {
+        public long ApprovalId { get; set; }
+        public int StageNo { get; set; }
+        public string Decision { get; set; } = null!;
+        public string? Reason { get; set; }
+        public long ActionBy { get; set; }
+        public string? ActionByName { get; set; }
+        public DateTime ActionAt { get; set; }
     }
 
     /// Thông tin người nhận embed trong response
@@ -104,6 +127,27 @@ namespace Warehouse.Entities.ModelResponse
         public decimal AllocatedQty { get; set; }
         public decimal IssuedQty { get; set; }
         public string LineStatus { get; set; } = null!;
+
+        /// Tồn khả dụng tại kho RR: OnHandQty − ReservedQty (≥ 0)
         public decimal StockQty { get; set; }
+
+        /// Giá vốn bình quân gia quyền từ InventoryOnHand (chỉ hiển thị, không cho sửa)
+        public decimal CostPrice { get; set; }
+
+        /// Giá bán do Sale nhập (từ hợp đồng / báo giá)
+        public decimal? UnitPrice { get; set; }
+        public decimal LineTotal => RequestedQty * (UnitPrice ?? 0);
+        public long? PackagingSpecId { get; set; }
+        public string? PackagingSpecName { get; set; }
+    }
+
+    /// Response cho tệp đính kèm trong Release Request
+    public class ReleaseRequestAttachmentResponse
+    {
+        public long AttachmentId { get; set; }
+        public string FileName { get; set; } = null!;
+        public string FileUrl { get; set; } = null!;
+        public string AttachmentType { get; set; } = null!; // QUOTATION, CONTRACT, ...
+        public DateTime UploadedAt { get; set; }
     }
 }

@@ -31,9 +31,10 @@ import {
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
-import { getPurchaseReturnDetail, approvePurchaseReturn, refundPurchaseReturn } from '../lib/purchaseReturnNoteService';
+import { getPurchaseReturnDetail, approvePurchaseReturn, refundPurchaseReturn, updatePurchaseReturn } from '../lib/purchaseReturnNoteService';
 import { getGRNDetail } from '../lib/goodReceiptNoteService';
 import GRNListPopup from '../components/GRNListPopup';
+import { ConfirmDialog } from '@ui/dialogs';
 import '../styles/CreateSupplier.css';
 
 const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
@@ -85,6 +86,7 @@ const MOCK_DETAIL = {
     grnReceiptDate: '2025-01-10',
 
     supplierId: 101,
+    supplierCode: 'NCC-ABC',
     supplierName: 'Công ty TNHH Vật tư ABC',
     supplierPhone: '024.12345678',
     supplierEmail: 'abc@vattu.com',
@@ -131,20 +133,31 @@ const toNumber = (val) => {
     return Number.isNaN(n) ? 0 : n;
 };
 
+const displaySupplierField = (v) => {
+    if (v === null || v === undefined) return '—';
+    const s = String(v).trim();
+    return s.length ? s : '—';
+};
+
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 const mapApiToLegacyState = (api) => {
-    const lines = (api?.lines || []).map((line) => ({
-        grnLineId: line.relatedGrnlineId,
-        productId: line.itemId,
-        sku: line.itemCode || '-',
-        productName: line.itemName || '-',
-        uom: line.uomName || '-',
-        receivedQty: toNumber(line.receivedQty || line.expectedQty || line.returnQty || 0),
-        returnQty: toNumber(line.returnQty),
-        unitPrice: toNumber(line.unitPrice),
-        totalPrice: toNumber(line.lineTotal ?? toNumber(line.returnQty) * toNumber(line.unitPrice)),
-    }));
+    const lines = (api?.lines || []).map((line) => {
+        const actual = toNumber(line.receivedQty || line.expectedQty || line.returnQty || 0);
+        return {
+            grnLineId: line.relatedGrnlineId,
+            productId: line.itemId,
+            sku: line.itemCode || '-',
+            productName: line.itemName || '-',
+            uom: line.uomName || '-',
+            receivedQty: actual,
+            qtyCommittedForReturn: toNumber(line.qtyCommittedForReturn ?? 0),
+            maxReturnQty: toNumber(line.maxReturnQty ?? actual),
+            returnQty: toNumber(line.returnQty),
+            unitPrice: toNumber(line.unitPrice),
+            totalPrice: toNumber(line.lineTotal ?? toNumber(line.returnQty) * toNumber(line.unitPrice)),
+        };
+    });
 
     const status = api?.status || 'DRAFT';
     const refundStatus = (api?.refundStatus || 'NotRefunded').toLowerCase();
@@ -156,15 +169,16 @@ const mapApiToLegacyState = (api) => {
         relatedGRNCode: api?.relatedGrnCode || '',
         grnReceiptDate: '',
 
-        supplierId: api?.supplierId,
-        supplierName: api?.supplierName || '',
-        supplierPhone: api?.supplierPhone || '',
-        supplierEmail: api?.supplierEmail || '',
-        supplierTaxCode: api?.supplierTaxCode || '',
-        supplierAddressProvince: api?.supplierAddressProvince || '',
-        supplierAddressDistrict: api?.supplierAddressDistrict || '',
-        supplierAddressWard: api?.supplierAddressWard || '',
-        supplierAddressStreet: api?.supplierAddressStreet || '',
+        supplierId: api?.supplierId ?? api?.SupplierId,
+        supplierCode: api?.supplierCode ?? api?.SupplierCode ?? '',
+        supplierName: api?.supplierName ?? api?.SupplierName ?? '',
+        supplierPhone: api?.supplierPhone ?? api?.SupplierPhone ?? '',
+        supplierEmail: api?.supplierEmail ?? api?.SupplierEmail ?? '',
+        supplierTaxCode: api?.supplierTaxCode ?? api?.SupplierTaxCode ?? '',
+        supplierAddressProvince: api?.supplierAddressProvince ?? api?.SupplierAddressProvince ?? '',
+        supplierAddressDistrict: api?.supplierAddressDistrict ?? api?.SupplierAddressDistrict ?? '',
+        supplierAddressWard: api?.supplierAddressWard ?? api?.SupplierAddressWard ?? '',
+        supplierAddressStreet: api?.supplierAddressStreet ?? api?.SupplierAddressStreet ?? '',
 
         warehouseId: api?.warehouseId,
         warehouseName: api?.warehouseName || '',
@@ -200,15 +214,26 @@ const mapGrnToProductSource = (grn) => {
     const lines = grn?.lines || grn?.Lines || [];
     return {
         code,
-        lines: lines.map((item) => ({
-            grnLineId: item.grnlineId ?? item.GrnlineId,
-            productId: item.itemId ?? item.ItemId,
-            sku: item.itemCode ?? item.ItemCode ?? '-',
-            productName: item.itemName ?? item.ItemName ?? '-',
-            uom: item.uomName ?? item.UomName ?? '-',
-            receivedQty: toNumber(item.actualQty ?? item.ActualQty ?? item.expectedQty ?? item.ExpectedQty ?? 0),
-            unitPrice: toNumber(item.unitPrice ?? item.UnitPrice ?? 0),
-        })),
+        lines: lines.map((item) => {
+            const actual = toNumber(item.actualQty ?? item.ActualQty ?? item.expectedQty ?? item.ExpectedQty ?? 0);
+            const committed = toNumber(item.qtyCommittedForReturn ?? item.QtyCommittedForReturn ?? 0);
+            const availRaw = item.qtyAvailableForReturn ?? item.QtyAvailableForReturn;
+            const available =
+                availRaw !== null && availRaw !== undefined && availRaw !== ''
+                    ? toNumber(availRaw)
+                    : Math.max(0, actual - committed);
+            return {
+                grnLineId: item.grnlineId ?? item.GrnlineId,
+                productId: item.itemId ?? item.ItemId,
+                sku: item.itemCode ?? item.ItemCode ?? '-',
+                productName: item.itemName ?? item.ItemName ?? '-',
+                uom: item.uomName ?? item.UomName ?? '-',
+                receivedQty: actual,
+                qtyCommittedForReturn: committed,
+                maxReturnQty: Math.max(0, available),
+                unitPrice: toNumber(item.unitPrice ?? item.UnitPrice ?? 0),
+            };
+        }),
         receiptDate: grn?.receiptDate || grn?.ReceiptDate || '',
     };
 };
@@ -239,16 +264,18 @@ const validateRefundRecordedDate = (value, refundReceiveStatus, grnReceiptDate) 
     return null;
 };
 
+const lineReturnCap = (line) => toNumber(line.maxReturnQty ?? line.receivedQty);
+
 /**
  * Validate lines for save.
- * Bám đúng rule của Create.
+ * Bám đúng rule của Create (giới hạn theo SL còn có thể trả trên GRN).
  */
 const validateLines = (lines) => {
     if (!lines.length) return 'Vui lòng thêm ít nhất 1 vật tư trả';
     const invalidLine = lines.find(
-        (line) => toNumber(line.returnQty) <= 0 || toNumber(line.returnQty) > toNumber(line.receivedQty)
+        (line) => toNumber(line.returnQty) <= 0 || toNumber(line.returnQty) > lineReturnCap(line)
     );
-    if (invalidLine) return 'Số lượng trả phải lớn hơn 0 và không vượt quá số lượng đã nhập';
+    if (invalidLine) return 'Số lượng trả phải lớn hơn 0 và không vượt quá số lượng còn có thể trả trên phiếu nhập';
     return null;
 };
 
@@ -337,76 +364,26 @@ const getInitialDraftFromData = (data) => ({
         lineId: generateLineId(),
         returnQty: toNumber(line.returnQty),
         receivedQty: toNumber(line.receivedQty),
+        qtyCommittedForReturn: toNumber(line.qtyCommittedForReturn ?? 0),
+        maxReturnQty: toNumber(line.maxReturnQty ?? line.receivedQty),
         unitPrice: toNumber(line.unitPrice),
         totalPrice: toNumber(line.returnQty) * toNumber(line.unitPrice),
     })),
 });
 
-const buildUpdatePayload = (data, draft, estimatedRefundAmount) => ({
-    relatedGRNId: data.relatedGRNId,
-    returnDate: draft.returnDate,
-    reason: draft.reason.trim(),
-    feeAmount: toNumber(draft.feeAmount),
-    deductionReason: draft.deductionReason?.trim() || null,
-    refundReceiveStatus: draft.refundReceiveStatus,
-    refundMethod: draft.refundReceiveStatus === 'received' ? draft.refundMethod : null,
-    refundRecordedDate: draft.refundReceiveStatus === 'received' ? draft.refundRecordedDate : null,
-    estimatedRefundAmount,
-    lines: draft.lines.map((line) => ({
-        grnLineId: line.grnLineId,
-        itemId: line.productId,
-        returnQty: toNumber(line.returnQty),
-        unitPrice: toNumber(line.unitPrice),
+/** Payload PUT /PurchaseReturnNote/update — cung kieu CreatePurchaseReturn (PascalCase). */
+const buildPrnUpdateApiPayload = (draft) => ({
+    ReturnDate: draft.returnDate,
+    Reason: draft.reason.trim() || null,
+    Note: draft.deductionReason?.trim() || null,
+    FeeAmount: toNumber(draft.feeAmount),
+    Lines: draft.lines.map((line) => ({
+        RelatedGrnlineId: Number(line.grnLineId),
+        ReturnQty: toNumber(line.returnQty),
+        Reason: draft.reason.trim() || null,
+        Note: draft.deductionReason?.trim() || null,
     })),
 });
-
-// --- Simple Confirm Dialog Component ---
-const ConfirmDialog = ({ title, message, onConfirm, onCancel, confirmLabel = 'Xác nhận', confirmDanger = false }) => {
-    return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-            <div style={{
-                backgroundColor: '#fff', borderRadius: '12px', padding: '24px',
-                maxWidth: '420px', width: '90%', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
-            }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: '#1f2937' }}>
-                    {title}
-                </h3>
-                <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px', lineHeight: 1.6 }}>
-                    {message}
-                </p>
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        style={{
-                            padding: '8px 16px', borderRadius: '8px',
-                            border: '1px solid #e5e7eb', backgroundColor: '#fff',
-                            color: '#374151', fontWeight: 600, cursor: 'pointer',
-                        }}
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onConfirm}
-                        style={{
-                            padding: '8px 16px', borderRadius: '8px',
-                            border: 'none',
-                            backgroundColor: confirmDanger ? '#ef4444' : '#2196F3',
-                            color: '#fff', fontWeight: 600, cursor: 'pointer',
-                        }}
-                    >
-                        {confirmLabel}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 // --- Status Badge component ---
 const StatusBadge = ({ config }) => (
@@ -447,7 +424,7 @@ export default function ViewPurchaseReturnDetail() {
     const [showProductSearch, setShowProductSearch] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedSearchProductIds, setSelectedSearchProductIds] = useState([]);
-    const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm, confirmLabel }
+    const [confirmDialogType, setConfirmDialogType] = useState(null);
     const [showGRNListPopup, setShowGRNListPopup] = useState(false);
 
     const fetchDetail = useCallback(async () => {
@@ -460,34 +437,67 @@ export default function ViewPurchaseReturnDetail() {
             setLoading(true);
             setLoadError('');
 
+            // Gọi API lấy chi tiết PR
             const detail = await getPurchaseReturnDetail(Number(id));
+
+            // Khởi tạo GRN call SONG SONG ngay khi có relatedGrnId
+            // (chạy nền trong khi vẫn đang xử lý mapping)
+            let grnCallDone = false;
+            let mappedGrn = null;
+            const grnCallPromise = (async () => {
+                if (!detail?.relatedGrnId) return null;
+                try {
+                    const grnData = await getGRNDetail(detail.relatedGrnId);
+                    return mapGrnToProductSource(grnData);
+                } catch {
+                    return null;
+                } finally {
+                    grnCallDone = true;
+                }
+            })();
+
+            // Map PR data (chạy SONG SONG với grnCall)
             const mapped = mapApiToLegacyState(detail);
 
-            if (detail?.relatedGrnId) {
-                try {
-                    const grn = await getGRNDetail(detail.relatedGrnId);
-                    const mappedGrn = mapGrnToProductSource(grn);
+            // Chờ GRN call xong
+            mappedGrn = await grnCallPromise;
 
-                    // Đồng bộ "SL đã nhập" từ GRN thật theo RelatedGrnlineId
-                    const grnLineQtyMap = new Map(mappedGrn.lines.map((x) => [Number(x.grnLineId), toNumber(x.receivedQty)]));
-                    mapped.lines = mapped.lines.map((line) => {
-                        const qtyFromGrn = grnLineQtyMap.get(Number(line.grnLineId));
-                        return {
-                            ...line,
-                            receivedQty: qtyFromGrn ?? line.receivedQty,
-                        };
-                    });
-
-                    setGrnSource((prev) => ({
-                        ...prev,
-                        [mapped.relatedGRNCode || mappedGrn.code]: mappedGrn.lines,
-                    }));
-                    mapped.grnReceiptDate = mappedGrn.receiptDate ? new Date(mappedGrn.receiptDate).toLocaleDateString('en-CA') : '';
-                } catch {
-                    // keep legacy source fallback
-                }
+            // Gộp GRN data vào mapped nếu có
+            if (mappedGrn) {
+                const grnLineMeta = new Map(
+                    mappedGrn.lines.map((x) => [
+                        Number(x.grnLineId),
+                        {
+                            received: toNumber(x.receivedQty),
+                            committed: toNumber(x.qtyCommittedForReturn),
+                            max: toNumber(x.maxReturnQty),
+                        },
+                    ])
+                );
+                mapped.lines = mapped.lines.map((line) => {
+                    const g = grnLineMeta.get(Number(line.grnLineId));
+                    if (!g) return line;
+                    const ownReturn = toNumber(line.returnQty);
+                    // GRN API: committed/available gom ca PRN hien tai; cap sua phai = con cho phep + SL dang ghi tren PRN nay (giong backend UpdatePRN).
+                    const maxReturnQty = Math.max(0, g.max + ownReturn);
+                    const othersCommitted = Math.max(0, g.committed - ownReturn);
+                    return {
+                        ...line,
+                        receivedQty: g.received,
+                        qtyCommittedForReturn: othersCommitted,
+                        maxReturnQty,
+                    };
+                });
+                mapped.grnReceiptDate = mappedGrn.receiptDate
+                    ? new Date(mappedGrn.receiptDate).toLocaleDateString('en-CA')
+                    : '';
+                setGrnSource((prev) => ({
+                    ...prev,
+                    [mapped.relatedGRNCode || mappedGrn.code]: mappedGrn.lines,
+                }));
             }
 
+            // Set state 1 lần duy nhất với dữ liệu đã gộp đầy đủ
             setDetailData(mapped);
             setDraft(getInitialDraftFromData(mapped));
         } catch (err) {
@@ -540,7 +550,11 @@ export default function ViewPurchaseReturnDetail() {
     const availableProducts = useMemo(() => {
         const source = grnSource[detailData.relatedGRNCode] || [];
         const selectedIds = new Set(draft.lines.map((line) => line.productId));
-        return source.filter((item) => !selectedIds.has(item.productId));
+        return source.filter(
+            (item) =>
+                !selectedIds.has(item.productId) &&
+                toNumber(item.maxReturnQty ?? item.receivedQty) > 0
+        );
     }, [grnSource, detailData.relatedGRNCode, draft.lines]);
 
     const filteredProducts = useMemo(() => {
@@ -641,7 +655,7 @@ export default function ViewPurchaseReturnDetail() {
             ...prev,
             lines: prev.lines.map((line) => {
                 if (line.lineId !== lineId) return line;
-                const qty = Math.min(Math.max(toNumber(value), 0), toNumber(line.receivedQty));
+                const qty = Math.min(Math.max(toNumber(value), 0), lineReturnCap(line));
                 return {
                     ...line,
                     returnQty: qty,
@@ -671,6 +685,8 @@ export default function ViewPurchaseReturnDetail() {
             return;
         }
         const unitPrice = toNumber(product.unitPrice);
+        const maxReturnQty = toNumber(product.maxReturnQty ?? product.receivedQty);
+        const rq = maxReturnQty > 0 ? Math.min(1, maxReturnQty) : 0;
         const newLine = {
             lineId: generateLineId(),
             grnLineId: product.grnLineId,
@@ -679,9 +695,11 @@ export default function ViewPurchaseReturnDetail() {
             productName: product.productName,
             uom: product.uom,
             receivedQty: toNumber(product.receivedQty),
-            returnQty: 1,
+            qtyCommittedForReturn: toNumber(product.qtyCommittedForReturn ?? 0),
+            maxReturnQty,
+            returnQty: rq,
             unitPrice,
-            totalPrice: unitPrice,
+            totalPrice: rq * unitPrice,
         };
         setDraft((prev) => ({ ...prev, lines: [...prev.lines, newLine] }));
         clearFieldError('lines');
@@ -717,16 +735,19 @@ export default function ViewPurchaseReturnDetail() {
         }
     };
 
-    // Toggle "Trả toàn bộ" — set all returnQty = receivedQty, clear all if already all
+    // Toggle "Trả toàn bộ" — set all returnQty = cap (con co the tra), clear all if already all
     const toggleReturnAll = (checked) => {
         if (checked) {
             setDraft((prev) => ({
                 ...prev,
-                lines: prev.lines.map((line) => ({
-                    ...line,
-                    returnQty: line.receivedQty,
-                    totalPrice: line.receivedQty * line.unitPrice,
-                })),
+                lines: prev.lines.map((line) => {
+                    const cap = lineReturnCap(line);
+                    return {
+                        ...line,
+                        returnQty: cap,
+                        totalPrice: cap * toNumber(line.unitPrice),
+                    };
+                }),
             }));
         } else {
             setDraft((prev) => ({
@@ -781,13 +802,19 @@ export default function ViewPurchaseReturnDetail() {
         }
         try {
             setSubmitting(true);
-            // Backend chưa có endpoint update riêng -> giữ behavior cũ + reload detail thật
+            await updatePurchaseReturn(detailData.purchaseReturnId, buildPrnUpdateApiPayload(draft));
             await fetchDetail();
             setIsEditing(false);
             setShowProductSearch(false);
             showToast('Cập nhật phiếu trả hàng thành công!', 'success');
         } catch (err) {
-            showToast(err?.response?.data?.message || err?.message || 'Có lỗi xảy ra', 'error');
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.detail ||
+                (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+                err?.message ||
+                'Có lỗi xảy ra';
+            showToast(msg, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -795,25 +822,20 @@ export default function ViewPurchaseReturnDetail() {
 
     // --- "Tạo phiếu trả hàng" (chuyển từ Nháp sang SUBMITTED) ---
     const handleCreateReturn = () => {
-        setConfirmDialog({
-            title: 'Tạo phiếu trả hàng',
-            message: 'Xác nhận tạo phiếu trả hàng? Trạng thái sẽ chuyển từ Nháp sang Chờ hoàn hàng.',
-            confirmLabel: 'Tạo phiếu trả hàng',
-            confirmDanger: false,
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setSubmitting(true);
-                try {
-                    await approvePurchaseReturn(detailData.purchaseReturnId);
-                    await fetchDetail();
-                    showToast('Đã tạo phiếu trả hàng thành công!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể tạo phiếu trả hàng', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
-            },
-        });
+        setConfirmDialogType('create');
+    };
+
+    const handleConfirmCreateReturn = async () => {
+        setSubmitting(true);
+        try {
+            await approvePurchaseReturn(detailData.purchaseReturnId);
+            await fetchDetail();
+            showToast('Đã tạo phiếu trả hàng thành công!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Không thể tạo phiếu trả hàng', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // --- Xử lý chọn GRN từ popup ---
@@ -824,25 +846,20 @@ export default function ViewPurchaseReturnDetail() {
 
     // --- "Bắt đầu trả hàng" (SUBMITTED -> APPROVED) ---
     const handleStartReturn = () => {
-        setConfirmDialog({
-            title: 'Bắt đầu trả hàng',
-            message: 'Xác nhận bắt đầu quy trình trả hàng? Sau bước này, phần thông tin trả hàng (vật tư trả, ngày trả, ghi chú) sẽ bị khóa và không thể chỉnh sửa.',
-            confirmLabel: 'Bắt đầu trả hàng',
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setSubmitting(true);
-                try {
-                    // Dùng endpoint approve hiện có để chuyển khỏi Draft
-                    await approvePurchaseReturn(detailData.purchaseReturnId);
-                    await fetchDetail();
-                    showToast('Đã bắt đầu trả hàng!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể bắt đầu trả hàng', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
-            },
-        });
+        setConfirmDialogType('start');
+    };
+
+    const handleConfirmStartReturn = async () => {
+        setSubmitting(true);
+        try {
+            await approvePurchaseReturn(detailData.purchaseReturnId);
+            await fetchDetail();
+            showToast('Đã bắt đầu trả hàng!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Không thể bắt đầu trả hàng', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
         // --- "Xác nhận thanh toán" ---
@@ -876,29 +893,31 @@ export default function ViewPurchaseReturnDetail() {
             showToast('Vui lòng kiểm tra lại ngày ghi nhận hoàn tiền.', 'error');
             return;
         }
+    };
 
-        setConfirmDialog({
-            title: 'Xác nhận hoàn tiền',
-            message: 'Xác nhận đã hoàn tiền cho phiếu trả này? Sau khi xác nhận, thông tin hoàn tiền sẽ không thể chỉnh sửa nữa.',
-            confirmLabel: 'Xác nhận đã hoàn tiền',
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setSubmitting(true);
-                try {
-                    await refundPurchaseReturn(detailData.purchaseReturnId, {
-                        RefundMethod: draft.refundMethod,
-                        RefundReference: detailData.refundReference || '',
-                    });
-                    await fetchDetail();
-                    setIsEditingPayment(false);
-                    showToast('Đã xác nhận hoàn tiền!', 'success');
-                } catch (err) {
-                    showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận hoàn tiền', 'error');
-                } finally {
-                    setSubmitting(false);
-                }
-            },
-        });
+    // --- "Xác nhận hoàn tiền" ---
+    const handleConfirmRefund = () => {
+        setConfirmDialogType('refund');
+    };
+
+    const handleConfirmRefundExecute = async () => {
+        setSubmitting(true);
+        try {
+            await refundPurchaseReturn(detailData.purchaseReturnId, {
+                RefundMethod: draft.refundMethod,
+                RefundReference: detailData.refundReference || '',
+                RefundedAmount: estimatedRefundAmount,
+                RefundStatus: 'Refunded',
+                Note: detailData.deductionReason || '',
+            });
+            await fetchDetail();
+            setIsEditingPayment(false);
+            showToast('Đã xác nhận hoàn tiền!', 'success');
+        } catch (err) {
+            showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận hoàn tiền', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // Hủy edit payment
@@ -944,14 +963,34 @@ export default function ViewPurchaseReturnDetail() {
 
     return (
         <div className="create-supplier-page">
-            {confirmDialog && (
+            {confirmDialogType === 'create' && (
                 <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmLabel={confirmDialog.confirmLabel}
-                    confirmDanger={false}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={() => setConfirmDialog(null)}
+                    open={Boolean(confirmDialogType)}
+                    onClose={() => setConfirmDialogType(null)}
+                    onConfirm={handleConfirmCreateReturn}
+                    title="Tạo phiếu trả hàng"
+                    message="Xác nhận tạo phiếu trả hàng? Trạng thái sẽ chuyển từ Nháp sang Chờ hoàn hàng."
+                    confirmText="Tạo phiếu trả hàng"
+                />
+            )}
+            {confirmDialogType === 'start' && (
+                <ConfirmDialog
+                    open={Boolean(confirmDialogType)}
+                    onClose={() => setConfirmDialogType(null)}
+                    onConfirm={handleConfirmStartReturn}
+                    title="Bắt đầu trả hàng"
+                    message="Xác nhận bắt đầu quy trình trả hàng? Sau bước này, phần thông tin trả hàng (vật tư trả, ngày trả, ghi chú) sẽ bị khóa và không thể chỉnh sửa."
+                    confirmText="Bắt đầu trả hàng"
+                />
+            )}
+            {confirmDialogType === 'refund' && (
+                <ConfirmDialog
+                    open={Boolean(confirmDialogType)}
+                    onClose={() => setConfirmDialogType(null)}
+                    onConfirm={handleConfirmRefundExecute}
+                    title="Xác nhận hoàn tiền"
+                    message="Xác nhận đã hoàn tiền cho phiếu trả này? Sau khi xác nhận, thông tin hoàn tiền sẽ không thể chỉnh sửa nữa."
+                    confirmText="Xác nhận đã hoàn tiền"
                 />
             )}
 
@@ -1040,7 +1079,7 @@ export default function ViewPurchaseReturnDetail() {
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={activeLines.length > 0 && activeLines.every((line) => line.returnQty === line.receivedQty)}
+                                                checked={activeLines.length > 0 && activeLines.every((line) => toNumber(line.returnQty) === lineReturnCap(line))}
                                                 onChange={(e) => toggleReturnAll(e.target.checked)}
                                                 style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                                             />
@@ -1172,6 +1211,8 @@ export default function ViewPurchaseReturnDetail() {
                                                                     <span>ĐVT: {product.uom}</span>
                                                                     <span>•</span>
                                                                     <span>Đã nhập: {product.receivedQty}</span>
+                                                                    <span>•</span>
+                                                                    <span>Còn trả: {toNumber(product.maxReturnQty ?? product.receivedQty)}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1209,7 +1250,7 @@ export default function ViewPurchaseReturnDetail() {
                                             <tr>
                                                 <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
                                                 <th style={{ textAlign: 'left' }}>Vật tư</th>
-                                                <th style={{ width: '90px', textAlign: 'right' }}>SL đã nhập</th>
+                                                <th style={{ width: '110px', textAlign: 'right' }}>SL nhập / còn trả</th>
                                                 <th style={{ width: '120px', textAlign: 'center' }}>SL trả</th>
                                                 <th style={{ width: '120px', textAlign: 'right' }}>Đơn giá</th>
                                                 <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
@@ -1234,7 +1275,13 @@ export default function ViewPurchaseReturnDetail() {
                                                         </div>
                                                     </td>
                                                     <td style={{ textAlign: 'right', paddingRight: '12px' }}>
-                                                        <span style={{ fontWeight: 500, color: '#374151' }}>{line.receivedQty ?? '—'}</span>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                                            <span style={{ fontWeight: 500, color: '#374151' }}>{line.receivedQty ?? '—'}</span>
+                                                            {toNumber(line.qtyCommittedForReturn) > 0 && (
+                                                                <span style={{ fontSize: '11px', color: '#d97706' }}>Đang giữ trả: {line.qtyCommittedForReturn}</span>
+                                                            )}
+                                                            <span style={{ fontSize: '11px', color: '#059669' }}>Tối đa: {lineReturnCap(line)}</span>
+                                                        </div>
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         {isEditing && !isReturnLocked ? (
@@ -1242,20 +1289,20 @@ export default function ViewPurchaseReturnDetail() {
                                                                 <input
                                                                     type="number"
                                                                     min="1"
-                                                                    max={line.receivedQty}
+                                                                    max={lineReturnCap(line)}
                                                                     value={line.returnQty}
                                                                     onChange={(e) => updateLineReturnQty(line.lineId, e.target.value)}
                                                                     className="form-input"
                                                                     style={{ textAlign: 'right', width: '60px', padding: '4px 6px', fontSize: '13px' }}
                                                                 />
-                                                                <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>/ {line.receivedQty}</span>
+                                                                <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>/ {lineReturnCap(line)}</span>
                                                             </div>
                                                         ) : (
                                                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                                                 <div style={{ textAlign: 'right', width: '60px', padding: '4px 6px', fontSize: '13px', fontWeight: 500, color: '#374151' }}>
                                                                     {line.returnQty ?? '—'}
                                                                 </div>
-                                                                <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>/ {line.receivedQty}</span>
+                                                                <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>/ {lineReturnCap(line)}</span>
                                                             </div>
                                                         )}
                                                     </td>
@@ -1525,13 +1572,36 @@ export default function ViewPurchaseReturnDetail() {
                                     <h2 className="section-title">Nhà cung cấp</h2>
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, color: '#334155' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Building2 size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{detailData.supplierName || '—'}</span></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Phone size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>SĐT: </span><span>{detailData.supplierPhone || '—'}</span></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Mail size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>Email: </span><span>{detailData.supplierEmail || '—'}</span></div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ReceiptText size={14} color="#6b7280" /><span style={{ fontWeight: 600 }}>Mã số thuế: </span><span>{detailData.supplierTaxCode || '—'}</span></div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 4 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Building2 size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Tên NCC: </span>
+                                            <span>{displaySupplierField(detailData.supplierName)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <ReceiptText size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Mã NCC: </span>
+                                            <span>{displaySupplierField(detailData.supplierCode)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Phone size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>SĐT: </span>
+                                            <span>{displaySupplierField(detailData.supplierPhone)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Mail size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Email: </span>
+                                            <span>{displaySupplierField(detailData.supplierEmail)}</span>
+                                        </div>
+                                        <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <ReceiptText size={14} color="#6b7280" />
+                                            <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
+                                            <span>{displaySupplierField(detailData.supplierTaxCode)}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
                                         {[
                                             { label: 'Tỉnh/Thành phố', value: detailData.supplierAddressProvince },
                                             { label: 'Quận/Huyện', value: detailData.supplierAddressDistrict },
@@ -1539,12 +1609,24 @@ export default function ViewPurchaseReturnDetail() {
                                             { label: 'Địa chỉ cụ thể', value: detailData.supplierAddressStreet },
                                         ].map(({ label, value }) => (
                                             <div key={label}>
-                                                <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
                                                 <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
-                                                    {value || '—'}
+                                                    {displaySupplierField(value)}
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
+                                    <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
+                                        <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
+                                        {[
+                                            detailData.supplierAddressStreet,
+                                            detailData.supplierAddressWard,
+                                            detailData.supplierAddressDistrict,
+                                            detailData.supplierAddressProvince,
+                                        ]
+                                            .map((p) => (p != null && String(p).trim() !== '' ? String(p).trim() : null))
+                                            .filter(Boolean)
+                                            .join(', ') || '—'}
                                     </div>
                                 </div>
                             </div>

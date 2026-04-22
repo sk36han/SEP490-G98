@@ -572,6 +572,78 @@ select.form-input:disabled {
 .btn-sm {
     padding: 5px 10px;
     font-size: 12px;
+    height: 30px;
+}
+
+/* Image action button */
+.btn-image-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.btn-image-action.btn-image-primary {
+    background-color: #0284c7;
+    color: #ffffff;
+    border: 1px solid rgba(2, 132, 199, 0.3);
+    box-shadow: 0 1px 2px rgba(2, 132, 199, 0.2);
+}
+
+.btn-image-action.btn-image-primary:hover:not(:disabled) {
+    background-color: #0369a1;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.btn-image-action.btn-image-primary:active:not(:disabled) {
+    background-color: #075985;
+}
+
+.btn-image-action.btn-image-primary:focus {
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+.btn-image-action.btn-image-ghost {
+    background-color: transparent;
+    color: #0284c7;
+    border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
+.btn-image-action.btn-image-ghost:hover:not(:disabled) {
+    background-color: rgba(2, 132, 199, 0.06);
+    border-color: #0284c7;
+}
+
+.btn-image-action.btn-image-ghost:focus {
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.btn-image-action.btn-image-danger {
+    background-color: transparent;
+    color: #dc2626;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.btn-image-action.btn-image-danger:hover:not(:disabled) {
+    background-color: rgba(220, 38, 38, 0.06);
+    border-color: #dc2626;
+}
+
+.btn-image-action.btn-image-danger:focus {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.btn-image-action:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 /* Nút dùng màu chữ card (slate-700) thay vì xanh */
@@ -743,6 +815,120 @@ select.form-input:disabled {
     margin: 0;
     width: 16px;
     height: 16px;
+}
+
+/* ViewStocktakeDetail — tránh scroll / khoảng trắng dư do min-height 100vh + padding-bottom 100px + form-card margin 80px */
+.view-stocktake-detail-page {
+    min-height: unset;
+    padding-bottom: 24px;
+    overflow-y: visible;
+}
+
+.view-stocktake-detail-page .form-card {
+    margin-bottom: 24px;
+}
+
+/* CreateReleaseRequest — MainLayout (main) đã cuộn; tránh .create-supplier-page tạo thêm lớp cuộn + min-height 100vh */
+.create-supplier-page.create-release-request-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.create-release-request-page .form-card {
+    margin-bottom: 24px;
+}
+
+.create-release-request-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    gap: 24px;
+    align-items: start;
+}
+
+/* Tên vật tư: giới hạn theo ô số lượng (100px) + 2px, cắt ... */
+.create-release-request-page .rr-line-item-title {
+    max-width: calc(100px + 2px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .create-release-request-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Chi tiết RR: tránh cuộn kép (MainLayout main đã cuộn) */
+.create-supplier-page.view-release-request-detail-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.view-release-request-detail-page .form-card {
+    margin-bottom: 24px;
+}
+
+/* Chi tiết PO: tránh cuộn kép (layout + .create-supplier-page cùng scroll) */
+.create-supplier-page.view-po-detail-page {
+    overflow-y: visible;
+    min-height: auto;
+}
+
+/* ViewWarehouseDetail: một luồng cuộn (MainLayout); bỏ padding/margin “form dài” của .create-supplier-page để tránh scroll vài chục px dư */
+.create-supplier-page.view-warehouse-detail-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.view-warehouse-detail-page .form-card {
+    margin-bottom: 24px;
+}
+
+/* ViewItemDetail — một luồng cuộn (MainLayout), tránh cuộn kép với .create-supplier-page */
+.create-supplier-page.view-item-detail-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.view-item-detail-page .form-card {
+    margin-bottom: 24px;
+}
+
+.create-supplier-page .table-container.item-history-table-wrap {
+    max-height: none;
+    overflow-y: visible;
+}
+
+.create-supplier-page .table-container.warehouse-history-table-wrap {
+    max-height: none;
+    overflow-y: visible;
+}
+
+.create-supplier-page.create-purchase-order-page {
+    min-height: unset;
+    padding-bottom: 24px;
+    overflow-y: visible;
+}
+
+.create-supplier-page.create-purchase-order-page .form-card {
+    margin-bottom: 24px;
 }
 
 /* Responsive */

@@ -1,7 +1,8 @@
 /*
  * Danh sách Đơn vị tính – kết nối API UnitOfMeasure.
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Button,
@@ -33,7 +34,7 @@ import '../styles/ListView.css';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
-import UomFormDialog from '../components/UomFormDialog';
+import UomFormDialog from '@ui/dialogs/UomFormDialog';
 import UomFilterPopup from '../components/UomFilterPopup';
 import { getUomList, createUom, updateUom, toggleUomStatus } from '../lib/uomService';
 
@@ -205,6 +206,11 @@ const ViewUomList = () => {
         fetchList();
     }, [fetchList]);
 
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchListRef = useRef(fetchList);
+    useEffect(() => { fetchListRef.current = fetchList; }, [fetchList]);
+    usePolling('uom', () => fetchListRef.current?.());
+
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
         setPage(0);
@@ -267,6 +273,7 @@ const ViewUomList = () => {
 
             setUomDialogOpen(false);
             fetchList();
+            PollingManager.triggerRefreshByFetchKey('Uom');
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không lưu được đơn vị tính.');
         }
@@ -412,6 +419,9 @@ const ViewUomList = () => {
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = totalItems === 0 ? 0 : Math.min((page + 1) * pageSize, totalItems);
 
+    /** Chỉ khi một trang chứa hết kết quả thì đếm hoạt động/ngưng theo dòng hiện có mới khớp tổng */
+    const summaryBreakdownReliable = totalItems > 0 && rows.length >= totalItems;
+
     const HEADER_CELL_SX = {
         fontWeight: 600,
         bgcolor: '#fafafa',
@@ -447,7 +457,7 @@ const ViewUomList = () => {
     return (
         <Box
             sx={{
-                height: '100%',
+                flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 overflow: 'hidden',
@@ -480,9 +490,9 @@ const ViewUomList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Scale} label="Tổng đơn vị tính" value={(totalItems || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Scale} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Scale} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Scale} label="Tổng đơn vị tính" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Scale} label="Đang hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Scale} label="Ngưng hoạt động" value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 

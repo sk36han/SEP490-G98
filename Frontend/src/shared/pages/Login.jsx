@@ -30,7 +30,7 @@ const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { toast, showToast, clearToast } = useToast();
-    const { login, refreshUser } = useAuth();
+    const { login } = useAuth();
 
     useEffect(() => {
         if (location.state?.roleError) {
@@ -69,8 +69,8 @@ const Login = () => {
         try {
             const result = await login(formData.email, formData.password, formData.rememberMe);
 
-            // Check if OTP is required
-            if (result.requiresOtp) {
+            // Check if OTP is required (authService luôn trả requiresOtp dạng camelCase)
+            if (result?.requiresOtp) {
                 setOtpDialogOpen(true);
                 setLoading(false);
                 return;
@@ -89,6 +89,11 @@ const Login = () => {
 
             // Check if role requires OTP verification (fallback check)
             if (OTP_REQUIRED_ROLES.includes(permissionRole)) {
+                try {
+                    sessionStorage.setItem('otpGatePending', '1');
+                } catch {
+                    /* ignore */
+                }
                 setPendingUser(userInfo);
                 setOtpDialogOpen(true);
                 setLoading(false);
@@ -124,6 +129,11 @@ const Login = () => {
     };
 
     const handleOtpSuccess = () => {
+        try {
+            sessionStorage.removeItem('otpGatePending');
+        } catch {
+            /* ignore */
+        }
         setOtpDialogOpen(false);
         const userInfo = authService.getUser();
         const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));

@@ -14,6 +14,9 @@ namespace Warehouse.Entities.ModelResponse
         public string? Notes { get; set; }
         public string? Position { get; set; }
         public long? CompanyId { get; set; }
+        /// <summary>Tên công ty (join từ Company khi có CompanyId).</summary>
+        public string? CompanyName { get; set; }
+        public string? CompanyCode { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
     }

@@ -14,6 +14,10 @@ export const isDirector = (permissionRole) => permissionRole === 'DIRECTOR';
 export const isWarehouseKeeper = (permissionRole) => permissionRole === 'WAREHOUSE_KEEPER';
 export const isAccountant = (permissionRole) => permissionRole === 'ACCOUNTANTS';
 
+/** Sale Support (SP) chỉ xem kho, không sửa / bật tắt kho. */
+export const canEditWarehouse = (permissionRole) =>
+    !!permissionRole && permissionRole !== 'SALE_SUPPORT';
+
 export const isPermissionRoleValid = (role) => {
     return !!role && VALID_PERMISSION_ROLES.includes(role);
 };
@@ -30,13 +34,20 @@ export const getPermissionRole = (originalRole) => {
         if (numeric === 2) return 'SALE_ENGINEER';
         if (numeric === 3) return 'ACCOUNTANTS';
     }
-    const upper = str.toUpperCase();
-    if (upper === 'ADMIN') return 'ADMIN';
+    const upper = str.toUpperCase().replace(/[-\s]/g, '_');
+    // Viết tắt tiếng Việt
     if (upper === 'GD') return 'DIRECTOR';
     if (upper === 'TK') return 'WAREHOUSE_KEEPER';
     if (upper === 'SP') return 'SALE_SUPPORT';
     if (upper === 'SE') return 'SALE_ENGINEER';
     if (upper === 'KT') return 'ACCOUNTANTS';
+    // Tên tiếng Anh đầy đủ (trực tiếp từ JWT / backend)
+    if (upper === 'ADMIN') return 'ADMIN';
+    if (upper === 'DIRECTOR') return 'DIRECTOR';
+    if (upper === 'WAREHOUSE_KEEPER' || upper === 'WAREHOUSEKEEPER') return 'WAREHOUSE_KEEPER';
+    if (upper === 'SALE_SUPPORT' || upper === 'SALESUPPORT') return 'SALE_SUPPORT';
+    if (upper === 'SALE_ENGINEER' || upper === 'SALESENGINEER') return 'SALE_ENGINEER';
+    if (upper === 'ACCOUNTANTS' || upper === 'ACCOUNTANT') return 'ACCOUNTANTS';
     return null;
 };
 
@@ -63,8 +74,8 @@ export const getRoleFromToken = (token) => {
             atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
         );
         const payload = JSON.parse(jsonPayload);
-        return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || 
-               payload.role || payload.Role || payload.roles?.[0] || null;
+        return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+            payload.role || payload.Role || payload.roles?.[0] || null;
     } catch (error) {
         return null;
     }

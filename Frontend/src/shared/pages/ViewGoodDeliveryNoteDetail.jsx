@@ -1,314 +1,385 @@
-import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+    getGoodsDeliveryNoteDetail,
+    approveGoodsDeliveryNote,
+    issueGoodsDeliveryNote,
+} from '../lib/goodsDeliveryNoteService';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import {
     ArrowLeft,
-    X,
     FileText,
-    Printer,
     Package,
     MapPin,
     Truck,
     Phone,
+    CheckCircle,
+    XCircle,
+    History,
+    DollarSign,
+    Printer,
 } from 'lucide-react';
-import { useToast } from '../hooks/useToast';
-import Toast from '../../components/Toast/Toast';
+import { TextField } from '@mui/material';
+import { ConfirmDialog } from '@ui/dialogs';
+import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
-import '../styles/CreateGoodDeliveryNote.css';
+import '../styles/ViewGoodDeliveryNoteDetail.css';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const MAX_NOTE_LENGTH = 1000;
-const MAX_TRANSPORT_NOTE_LENGTH = 500;
+const MAX_REASON_LENGTH = 250;
 
-const GDN_STATUS_META = {
-    DRAFT: { label: 'Nháp', bg: 'rgba(107, 114, 128, 0.15)', color: '#4b5563' },
-    PENDING: { label: 'Chờ duyệt', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
-    PENDING_ACC: { label: 'Chờ kế toán duyệt', bg: 'rgba(251, 191, 36, 0.18)', color: '#b45309' },
-    APPROVED: { label: 'Đã duyệt', bg: 'rgba(16, 185, 129, 0.18)', color: '#047857' },
-    POSTED: { label: 'Đã ghi sổ', bg: 'rgba(59, 130, 246, 0.18)', color: '#1d4ed8' },
-    REJECTED: { label: 'Từ chối', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
-    CANCELLED: { label: 'Đã hủy', bg: 'rgba(239, 68, 68, 0.18)', color: '#b91c1c' },
+// ── Utils ──────────────────────────────────────────────────────────────────
+const toNumber = (v, f = 0) => { const p = Number(v); return Number.isFinite(p) ? p : f; };
+const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(toNumber(v));
+const formatQuantity = (v) => toNumber(v).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+const formatDateTime = (v) => v ? new Date(v).toLocaleString('vi-VN') : '—';
+const formatDateOnly = (v) => v ? new Date(v).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const STATUS_META = {
+    DRAFT:         { label: 'Nháp',             bg: 'rgba(107,114,128,0.15)',   color: '#4b5563' },
+    PENDING_ACC:   { label: 'Chờ kế toán duyệt', bg: 'rgba(251,191,36,0.18)',   color: '#b45309' },
+    PENDING_DIR:   { label: 'Chờ giám đốc duyệt', bg: 'rgba(251,191,36,0.18)',   color: '#b45309' },
+    PENDING_ISSUE: { label: 'Chuẩn bị hàng',      bg: 'rgba(14,165,233,0.18)',    color: '#0369a1' },
+    ISSUED:        { label: 'Đã xuất hàng',      bg: 'rgba(139,92,246,0.18)',    color: '#6d28d9' },
+    POSTED:        { label: 'Đã ghi sổ',          bg: 'rgba(59,130,246,0.18)',    color: '#1d4ed8' },
+    APPROVED:      { label: 'Đã duyệt',           bg: 'rgba(16,185,129,0.18)',    color: '#047857' },
+    REJECTED:      { label: 'Từ chối',            bg: 'rgba(239,68,68,0.18)',     color: '#b91c1c' },
+    CANCELLED:     { label: 'Đã hủy',             bg: 'rgba(239,68,68,0.18)',     color: '#b91c1c' },
 };
 
-const PAYMENT_METHOD_LABEL = {
-    CASH: 'Tiền mặt',
-    BANK_TRANSFER: 'Chuyển khoản',
-    CARD: 'Thẻ thanh toán',
-    E_WALLET: 'Ví điện tử',
-    OTHER: 'Khác',
-};
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_GDN = {
-    gdnId: 1001,
-    gdnCode: 'PXH-2026-0001',
-    status: 'POSTED',
-    releaseRequestId: 1,
-    releaseRequestCode: 'YCX-2026-001',
-    warehouseId: 11,
-    warehouseName: 'Kho Hà Nội',
-    receiverId: 201,
-    receiverName: 'Nguyễn Văn Minh',
-    receiverPhone: '0901234567',
-    receiverEmail: 'minhnv@gmail.com',
-    receiverCompanyName: 'Công ty TNHH Thương mại ABC',
-    receiverAddress: 'Số 45 Đường Nguyễn Trãi, Quận 1, TP. Hồ Chí Minh',
-    requestedByName: 'Trần Thị Lan',
-    requestedDate: '2026-02-01',
-    expectedDate: '2026-02-15',
-    issueDate: '2026-02-12',
-    createdByName: 'Nguyễn Văn A',
-    note: 'Giao hàng trong giờ hành chính. Liên hệ trước 30 phút trước khi giao.',
-    shippingFee: 150000,
-    isPaid: true,
-    paymentMethod: 'BANK_TRANSFER',
-    carrierName: 'Giao Hàng Nhanh (GHN)',
-    driverName: 'Trần Văn Bình',
-    driverPhone: '0938123456',
-    licensePlate: '59A-123.45',
-    transportNote: 'Hàng dễ vỡ, cần bọc xốp cẩn thận.',
-    lines: [
-        {
-            itemId: 1,
-            itemCode: 'PEN-001',
-            itemName: 'Bút bi Thiên Long TL-057',
-            uomName: 'Cây',
-            requestedQty: 50,
-            allocatedQty: 50,
-            issuedQty: 0,
-            remainingQty: 50,
-            actualQty: 50,
-            availableQty: 200,
-            unitPrice: 3500,
-            lineTotal: 175000,
-            requiresCertificateCopy: false,
-            note: '',
-        },
-        {
-            itemId: 2,
-            itemCode: 'NOTE-001',
-            itemName: 'Vở note 5 chấm A5',
-            uomName: 'Quyển',
-            requestedQty: 40,
-            allocatedQty: 40,
-            issuedQty: 0,
-            remainingQty: 40,
-            actualQty: 40,
-            availableQty: 80,
-            unitPrice: 22000,
-            lineTotal: 880000,
-            requiresCertificateCopy: true,
-            note: 'Ưu tiên giao cùng đợt với giấy A4',
-        },
-        {
-            itemId: 3,
-            itemCode: 'PAPER-001',
-            itemName: 'Giấy A4 Double A 80gsm',
-            uomName: 'Ram',
-            requestedQty: 30,
-            allocatedQty: 30,
-            issuedQty: 0,
-            remainingQty: 30,
-            actualQty: 25,
-            availableQty: 60,
-            unitPrice: 62000,
-            lineTotal: 1550000,
-            requiresCertificateCopy: true,
-            note: 'Chỉ giao 25 ram, 5 ram còn lại chờ thêm hàng',
-        },
-    ],
-};
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-const toNumber = (value, fallback = 0) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const formatCurrency = (value) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(toNumber(value));
-
-const formatQuantity = (value) =>
-    toNumber(value).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
-
-const getStatusMeta = (status) =>
-    GDN_STATUS_META[String(status || '').toUpperCase()]
-    ?? { label: status || '-', bg: 'rgba(107, 114, 128, 0.15)', color: '#4b5563' };
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-const ReadOnlyField = ({ label, value, spanFull = false }) => (
-    <div className="form-field">
-        <label className="form-label">{label}</label>
-        <div className="input-wrapper">
-            <div
-                style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                    backgroundColor: '#f9fafb',
-                    fontSize: '14px',
-                    color: '#374151',
-                    minHeight: '36px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    whiteSpace: value && value.length > 40 ? 'normal' : 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: value && value.length > 40 ? 'ellipsis' : 'clip',
-                }}
-            >
-            </div>
-        </div>
-    </div>
-);
-
-const ReadOnlyFieldValue = ({ label, value, highlight = false, children }) => (
-    <div className="form-field">
-        <label className="form-label">{label}</label>
-        <div className="input-wrapper">
-            {children || (
-                <div
-                    style={{
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: highlight ? '1px solid #0284c7' : '1px solid #e5e7eb',
-                        backgroundColor: highlight ? '#f0f9ff' : '#f9fafb',
-                        fontSize: '14px',
-                        color: highlight ? '#0284c7' : '#374151',
-                        fontWeight: highlight ? 600 : 400,
-                        minHeight: '36px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        wordBreak: 'break-word',
-                    }}
-                >
-                    {value || '—'}
-                </div>
-            )}
-        </div>
-    </div>
-);
-
-const ReadOnlyTextarea = ({ label, value, maxLength }) => {
-    const hasValue = value && value.trim().length > 0;
-    return (
-        <div className="form-field">
-            <label className="form-label">{label}</label>
-            <div
-                style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                    backgroundColor: '#f9fafb',
-                    fontSize: '14px',
-                    color: '#374151',
-                    minHeight: hasValue ? 'auto' : '80px',
-                    whiteSpace: hasValue ? 'pre-wrap' : 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: hasValue ? 'clip' : 'ellipsis',
-                    display: 'flex',
-                    alignItems: hasValue ? 'flex-start' : 'center',
-                    lineHeight: '1.5',
-                    fontStyle: hasValue ? 'normal' : 'italic',
-                    cursor: hasValue ? 'text' : 'default',
-                }}
-            >
-                {hasValue ? value : 'Không có ghi chú'}
-            </div>
-            {hasValue && maxLength && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: '#6b7280', marginTop: '4px', fontWeight: 500 }}>
-                    {value.length}/{maxLength} ký tự
-                </div>
-            )}
-        </div>
-    );
-};
-
-const DetailCard = ({ title, children }) => (
+// ── Sub-components ─────────────────────────────────────────────────────────
+const SectionCard = ({ title, subtitle, children, rightSlot }) => (
     <div className="info-section" style={{ margin: 0 }}>
-        <div className="section-header-with-toggle">
-            <h2 className="section-title">{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div>
+                <h2 className="section-title" style={{ marginBottom: subtitle ? 4 : 0 }}>{title}</h2>
+                {subtitle && <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>{subtitle}</p>}
+            </div>
+            {rightSlot}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {children}
+        {children}
+    </div>
+);
+
+const ReadonlyField = ({ label, value, icon: Icon }) => (
+    <div className="form-field">
+        <label className="form-label">{label}</label>
+        <div className="input-wrapper">
+            {Icon && <Icon className="input-icon" size={16} />}
+            <input type="text" value={value ?? ''} readOnly className="form-input" style={{ backgroundColor: '#f5f5f5' }} />
         </div>
     </div>
 );
 
-const SummaryRow = ({ label, value, isPositive = false, isTotal = false }) => (
-    <div
-        style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: isTotal ? '16px' : '14px',
-            marginBottom: isTotal ? '0' : '8px',
-        }}
-    >
-        <span
-            style={{
-                color: isTotal ? '#1f2937' : '#475569',
-                fontWeight: isTotal ? 700 : 600,
-            }}
-        >
-            {label}
-        </span>
-        <span
-            style={{
-                color: isPositive ? '#10b981' : isTotal ? '#0284c7' : '#64748b',
-                fontWeight: isTotal ? 700 : 600,
-                fontSize: isTotal ? '18px' : '14px',
-            }}
-        >
-            {value}
-        </span>
+const SummaryMetric = ({ label, value }) => (
+    <div style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+        <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>{label}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     </div>
 );
 
-const SummaryCard = ({ title, value }) => (
-    <div
-        style={{
-            padding: '12px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '10px',
-        }}
-    >
-        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>
-            {title}
+const ApprovalStep = ({ step, isLast }) => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{
+            width: 10, height: 10, borderRadius: '50%', marginTop: 6, flexShrink: 0,
+            backgroundColor: step.decision === 'APPROVED' ? '#059669' : step.decision === 'REJECTED' ? '#dc2626' : '#9ca3af',
+        }} />
+        <div style={{
+            flex: 1,
+            paddingLeft: 16,
+            paddingBottom: isLast ? 0 : 16,
+            borderLeft: isLast ? 'none' : '2px solid #e5e7eb',
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                    Bước {step.stageNo}: {step.actionByName}
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>{formatDateTime(step.actionAt)}</div>
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', marginTop: 4 }}>
+                Kết quả:{' '}
+                <span style={{
+                    fontWeight: 600,
+                    color: step.decision === 'APPROVED' ? '#059669' : step.decision === 'REJECTED' ? '#dc2626' : '#d97706',
+                }}>
+                    {step.decision === 'APPROVED' ? '✓ Duyệt' : step.decision === 'REJECTED' ? '✗ Từ chối' : '⏳ Chờ'}
+                </span>
+            </div>
+            {step.reason && (
+                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>"{step.reason}"</div>
+            )}
         </div>
-        <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{value}</div>
     </div>
 );
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function ViewGoodDeliveryNoteDetail() {
+    const { id } = useParams();
     const navigate = useNavigate();
-    const { toast, showToast, clearToast } = useToast();
-    const gdn = MOCK_GDN;
+    const { showToast } = useToastContext();
 
-    const statusMeta = getStatusMeta(gdn.status);
+    const [gdn, setGdn] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState(false);
+    const [dialogConfig, setDialogConfig] = useState({ open: false, type: null });
+    const [reasonText, setReasonText] = useState('');
 
-    const totalDeliveredQty = useMemo(
-        () => gdn.lines.reduce((sum, line) => sum + toNumber(line.actualQty), 0),
-        [gdn.lines]
-    );
-    const subtotal = useMemo(
-        () => gdn.lines.reduce((sum, line) => sum + toNumber(line.lineTotal), 0),
-        [gdn.lines]
-    );
-    const shippingFee = toNumber(gdn.shippingFee);
-    const grandTotal = subtotal + shippingFee;
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    const currentStatus = String(gdn?.status || '').toUpperCase();
+    const statusMeta = STATUS_META[currentStatus] || STATUS_META.DRAFT;
 
-    const handlePrint = () => {
-        showToast('Chức năng in đang được phát triển.', 'info');
+    const canAct = (currentStatus === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS') ||
+        (currentStatus === 'PENDING_DIR' && permissionRole === 'DIRECTOR');
+    const canIssue = currentStatus === 'PENDING_ISSUE' && permissionRole === 'WAREHOUSE_KEEPER';
+    const canConfirm = currentStatus === 'ISSUED' && (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR');
+
+    const fetchData = useCallback(async () => {
+        try {
+            setLoading(true);
+            const data = await getGoodsDeliveryNoteDetail(id);
+            if (data) {
+                const rawLines = data.lines ?? [];
+                const mappedLines = Array.isArray(rawLines)
+                    ? rawLines.map((line, idx) => ({
+                        /** ID dòng GDN — bắt buộc cho API issue; không dùng idx làm id (tránh gdnLineId = 0) */
+                        gdnLineId: line.gdnLineId ?? line.GdnLineId ?? line.lineId ?? line.LineId ?? null,
+                        id: line.gdnLineId ?? line.GdnLineId ?? line.lineId ?? line.LineId ?? `row-${idx}`,
+                        itemId: line.itemId,
+                        itemName: line.itemName ?? '',
+                        itemCode: line.itemCode ?? '',
+                        uomName: line.uomName ?? '',
+                        requestedQty: toNumber(line.requestedQty),
+                        actualQty: toNumber(line.actualQty),
+                        unitPrice: toNumber(line.unitPrice),
+                        lineTotal: toNumber(line.lineTotal),
+                    }))
+                    : [];
+
+                setGdn({
+                    gdnId: data.gdnId ?? id,
+                    gdnCode: data.gdnCode ?? '',
+                    warehouseName: data.warehouseName ?? '',
+                    requesterName: data.requesterName ?? '',
+                    releaseRequestCode: data.releaseRequestCode ?? '',
+                    requestDate: formatDateOnly(data.requestDate ?? ''),
+                    submittedAt: formatDateTime(data.submittedAt ?? ''),
+                    status: data.status ?? '',
+                    note: data.note || '',
+                    receiverName: data.receiver?.receiverName ?? '',
+                    receiverPhone: data.receiver?.phone ?? '',
+                    receiverAddress: data.receiver?.address ?? '',
+                    carrierName: data.transportInfo?.carrierName ?? '',
+                    driverName: data.transportInfo?.driverName ?? '',
+                    driverPhone: data.transportInfo?.driverPhone ?? '',
+                    licensePlate: data.transportInfo?.licensePlate ?? '',
+                    shippingFee: toNumber(data.shippingFee),
+                    lines: mappedLines,
+                    approvals: (data.approvals ?? []).map((ap) => ({
+                        stageNo: ap.stageNo ?? 1,
+                        actionByName: ap.actionByName ?? '',
+                        actionAt: formatDateTime(ap.actionAt ?? ''),
+                        decision: ap.decision ?? 'PENDING',
+                        reason: ap.reason ?? '',
+                    })),
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi tải GDN:', err);
+            showToast(err?.response?.data?.message || err?.message || 'Không thể tải dữ liệu phiếu xuất kho', 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, [id, showToast]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const subtotal = useMemo(() => (gdn?.lines || []).reduce((sum, l) => sum + l.lineTotal, 0), [gdn]);
+    const grandTotal = subtotal + toNumber(gdn?.shippingFee);
+    const totalQty = useMemo(() => (gdn?.lines || []).reduce((sum, l) => sum + l.actualQty, 0), [gdn]);
+
+    const openDialog = (type) => {
+        setReasonText('');
+        setDialogConfig({ open: true, type });
+    };
+    const closeDialog = () => {
+        setDialogConfig({ open: false, type: null });
+        setReasonText('');
     };
 
-    const hasTransport = [gdn.carrierName, gdn.driverName, gdn.driverPhone, gdn.licensePlate].some(
-        (v) => v && v.trim()
-    );
+    const handleAction = async () => {
+        if ((dialogConfig.type === 'reject' || dialogConfig.type === 'confirm') && !reasonText.trim()) {
+            showToast('Vui lòng nhập lý do', 'warning');
+            return;
+        }
+        setProcessing(true);
+        try {
+            if (dialogConfig.type === 'approve') {
+                await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: true, reason: reasonText.trim() });
+                showToast('Đã duyệt phiếu xuất kho', 'success');
+            } else if (dialogConfig.type === 'reject') {
+                await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: false, reason: reasonText.trim() });
+                showToast('Đã từ chối phiếu xuất kho', 'success');
+            } else if (dialogConfig.type === 'issue') {
+                // Đủ hàng: chỉ IsAllItemsFulfilled — backend tự gán ActualQty = RequestedQty từng dòng (IssueGDNAsync)
+                await issueGoodsDeliveryNote(gdn.gdnId, {
+                    isAllItemsFulfilled: true,
+                    note: reasonText.trim() || null,
+                });
+                showToast('Xuất kho thành công', 'success');
+            }
+            closeDialog();
+            fetchData();
+        } catch (err) {
+            console.error('Lỗi thao tác:', err);
+            showToast(err?.response?.data?.message || err?.message || 'Thao tác thất bại', 'error');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="create-supplier-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+                <div style={{ color: '#6b7280' }}>Đang tải dữ liệu...</div>
+            </div>
+        );
+    }
+
+    if (!gdn) {
+        return (
+            <div className="create-supplier-page" style={{ padding: 24 }}>
+                <div style={{ textAlign: 'center', color: '#6b7280' }}>Không tìm thấy phiếu xuất kho</div>
+            </div>
+        );
+    }
+
+    const dialogTitles = {
+        approve: 'Xác nhận duyệt phiếu',
+        reject: 'Xác nhận từ chối phiếu',
+        issue: 'Xác nhận xuất kho',
+        confirm: 'Xác nhận hoàn thành phiếu',
+    };
 
     return (
-        <div className="create-supplier-page">
-            {/* Page Header */}
+        <div className="create-supplier-page gdn-detail-page">
+            <style>{`
+                .gdn-detail-page .gdn-hero-card {
+                    padding: 24px;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 18px;
+                    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+                    margin-bottom: 24px;
+                }
+                .gdn-detail-page .gdn-hero-top {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    gap: 16px;
+                    flex-wrap: wrap;
+                }
+                .gdn-detail-page .gdn-hero-code {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-top: 10px;
+                    padding: 7px 12px;
+                    border-radius: 999px;
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    font-weight: 700;
+                    font-size: 13px;
+                }
+                .gdn-detail-page .gdn-status-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 9px 14px;
+                    border-radius: 999px;
+                    font-weight: 700;
+                    font-size: 13px;
+                    white-space: nowrap;
+                }
+                .gdn-detail-page .gdn-main-grid {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                    gap: 24px;
+                    align-items: start;
+                }
+                .gdn-detail-page .gdn-left-column,
+                .gdn-detail-page .gdn-right-column {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 24px;
+                    min-width: 0;
+                }
+                .gdn-detail-page .gdn-table-wrap {
+                    overflow: auto;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 14px;
+                    background: #ffffff;
+                }
+                .gdn-detail-page .gdn-table-wrap .product-table {
+                    min-width: 800px;
+                }
+                .gdn-detail-page .gdn-table-wrap .product-table thead th {
+                    position: sticky;
+                    top: 0;
+                    z-index: 1;
+                    background: #f8fafc;
+                }
+                .gdn-detail-page .gdn-summary-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px;
+                }
+                .gdn-detail-page .gdn-lines-summary-divider {
+                    margin: 20px 0 16px;
+                    height: 1px;
+                    background: linear-gradient(90deg, transparent, #e5e7eb 15%, #e5e7eb 85%, transparent);
+                    border: none;
+                }
+                .gdn-detail-page .gdn-lines-summary-title {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: #111827;
+                    margin: 0 0 12px;
+                }
+                .gdn-detail-page .gdn-note-box {
+                    min-height: 80px;
+                    padding: 16px;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+                    background: #f9fafb;
+                    color: #374151;
+                    font-size: 14px;
+                    line-height: 1.6;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                }
+                .gdn-detail-page .gdn-empty-state {
+                    padding: 28px 12px;
+                    text-align: center;
+                    color: #6b7280;
+                    font-size: 14px;
+                }
+                @media (max-width: 1200px) {
+                    .gdn-detail-page .gdn-main-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                @media (max-width: 768px) {
+                    .gdn-detail-page .gdn-summary-grid {
+                        grid-template-columns: 1fr;
+                    }
+                    .gdn-detail-page .gdn-hero-card {
+                        padding: 18px;
+                    }
+                }
+            `}</style>
+
+            {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
                     <button type="button" onClick={() => navigate(-1)} className="back-button">
@@ -316,723 +387,220 @@ export default function ViewGoodDeliveryNoteDetail() {
                         <span>Quay lại</span>
                     </button>
                 </div>
-                <div className="page-header-actions">
-                    <button
-                        type="button"
-                        onClick={() => navigate(-1)}
-                        className="btn btn-cancel"
-                    >
-                        <X size={15} />
-                        Đóng
-                    </button>
-
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={handlePrint}
-                    >
-                        <Printer size={15} />
+                <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => showToast('Tính năng đang phát triển', 'info')}>
+                        <Printer size={16} />
                         In phiếu
                     </button>
-
-                    <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => navigate('/goods-delivery-notes/edit/' + gdn.gdnId)}
-                    >
-                        <FileText size={15} />
-                        Chỉnh sửa
-                    </button>
+                    {canAct && (
+                        <>
+                            <button type="button" className="btn btn-cancel" disabled={processing} onClick={() => openDialog('reject')}>
+                                <XCircle size={15} />
+                                Từ chối
+                            </button>
+                            <button type="button" className="btn btn-primary" disabled={processing} onClick={() => openDialog('approve')}>
+                                <CheckCircle size={16} />
+                                Duyệt phiếu
+                            </button>
+                        </>
+                    )}
+                    {canIssue && (
+                        <button type="button" className="btn btn-primary" disabled={processing} onClick={() => openDialog('issue')}>
+                            <CheckCircle size={16} />
+                            Xác nhận xuất kho
+                        </button>
+                    )}
+                    {canConfirm && (
+                        <button type="button" className="btn btn-success" disabled={processing} onClick={() => openDialog('confirm')}>
+                            <CheckCircle size={16} />
+                            Hoàn thành phiếu
+                        </button>
+                    )}
                 </div>
             </div>
 
             <div className="form-card">
                 <div className="form-wrapper">
-                    {/* Form Intro */}
-                    <div className="form-card-intro">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                            <h1 className="page-title">Chi tiết phiếu xuất hàng</h1>
-                            <span
-                                style={{
-                                    fontSize: '13px',
-                                    fontWeight: 600,
-                                    padding: '3px 12px',
-                                    borderRadius: '9999px',
-                                    backgroundColor: statusMeta.bg,
-                                    color: statusMeta.color,
-                                    border: `1px solid ${statusMeta.color}30`,
-                                }}
-                            >
+                    {/* Hero */}
+                    <div className="gdn-hero-card">
+                        <div className="gdn-hero-top">
+                            <div>
+                                <h1 className="page-title" style={{ marginBottom: 0 }}>Chi tiết phiếu xuất kho</h1>
+                                <div className="gdn-hero-code">
+                                    <FileText size={14} />
+                                    Mã phiếu: {gdn.gdnCode || '-'}
+                                </div>
+                            </div>
+                            <div className="gdn-status-pill" style={{ backgroundColor: statusMeta.bg, color: statusMeta.color }}>
                                 {statusMeta.label}
-                            </span>
+                            </div>
                         </div>
-                        <p className="form-card-required-note">
-                            Mã phiếu: <strong style={{ color: '#0284c7', fontSize: '15px' }}>{gdn.gdnCode}</strong>
-                            &nbsp;&bull;&nbsp; Ngày xuất: <strong>{gdn.issueDate}</strong>
-                            &nbsp;&bull;&nbsp; Kho: <strong>{gdn.warehouseName}</strong>
-                        </p>
                     </div>
 
                     {/* Main Grid */}
-                    <div className="gdn-create-main-grid" style={{ height: '760px' }}>
-                        {/* LEFT: Product lines */}
-                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', height: '760px' }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Chi tiết vật tư xuất</h2>
-                            </div>
-
-                            {!gdn.lines || gdn.lines.length === 0 ? (
-                                <div
-                                    style={{
-                                        flex: 1,
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                        gap: '16px',
-                                        padding: '60px 20px',
-                                        color: '#9ca3af',
-                                        textAlign: 'center',
-                                    }}
-                                >
-                                    <Package size={64} strokeWidth={1.5} />
-                                    <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>
-                                        Chưa có vật tư trong phiếu xuất
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="table-container" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                                    <table className="product-table">
-                                        <thead>
-                                            <tr>
-                                                <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
-                                                <th style={{ minWidth: '260px' }}>Vật tư</th>
-                                                <th style={{ width: '80px', textAlign: 'right' }}>SL YC</th>
-                                                <th style={{ width: '80px', textAlign: 'right' }}>Đã cấp</th>
-                                                <th style={{ width: '80px', textAlign: 'right' }}>Đã xuất</th>
-                                                <th style={{ width: '80px', textAlign: 'right' }}>Còn xuất</th>
-                                                <th style={{ width: '100px', textAlign: 'right' }}>SL thực xuất</th>
-                                                <th style={{ width: '120px', textAlign: 'right' }}>Đơn giá</th>
-                                                <th style={{ width: '130px', textAlign: 'right' }}>Thành tiền</th>
-                                                <th style={{ width: '80px', textAlign: 'center' }}>Bản sao CC</th>
-                                                <th style={{ width: '160px' }}>Ghi chú dòng</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {gdn.lines.map((line, index) => (
-                                                <tr key={line.itemId || index}>
-                                                    <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                            <div
-                                                                style={{
-                                                                    width: '40px',
-                                                                    height: '40px',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid #e5e7eb',
-                                                                    backgroundColor: '#f3f4f6',
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            >
-                                                                <Package size={20} color="#9ca3af" />
-                                                            </div>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                                                                <span style={{ fontSize: 14, fontWeight: 500, color: '#0284c7' }}>
-                                                                    {line.itemName}
-                                                                </span>
-                                                                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                                                                    Mã: {line.itemCode || '-'} • DVT: {line.uomName || '-'}
-                                                                </span>
-                                                                <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                                                    Tồn: {formatQuantity(line.availableQty)}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatQuantity(line.requestedQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatQuantity(line.allocatedQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatQuantity(line.issuedQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f766e' }}>
-                                                        {formatQuantity(line.remainingQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#0284c7' }}>
-                                                        {formatQuantity(line.actualQty)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                                                        {formatCurrency(line.unitPrice)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#0284c7' }}>
-                                                        {formatCurrency(line.lineTotal)}
-                                                    </td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        {line.requiresCertificateCopy ? (
-                                                            <span
-                                                                style={{
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    width: '20px',
-                                                                    height: '20px',
-                                                                    borderRadius: '4px',
-                                                                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                                                                    color: '#dc2626',
-                                                                    fontSize: '12px',
-                                                                    fontWeight: 700,
-                                                                }}
-                                                                title="Yêu cầu bản sao chứng chỉ"
-                                                            >
-                                                                ✓
-                                                            </span>
-                                                        ) : (
-                                                            <span style={{ color: '#d1d5db', fontSize: '12px' }}>—</span>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        {line.note ? (
-                                                            <span
-                                                                style={{
-                                                                    fontSize: '13px',
-                                                                    color: '#6b7280',
-                                                                    display: 'block',
-                                                                    overflow: 'hidden',
-                                                                    textOverflow: 'ellipsis',
-                                                                    whiteSpace: 'nowrap',
-                                                                    maxWidth: '150px',
-                                                                }}
-                                                                title={line.note}
-                                                            >
-                                                                {line.note}
-                                                            </span>
-                                                        ) : (
-                                                            <span style={{ color: '#d1d5db', fontSize: '13px' }}>—</span>
-                                                        )}
-                                                    </td>
+                    <div className="gdn-main-grid">
+                        {/* LEFT Column */}
+                        <div className="gdn-left-column">
+                            <SectionCard title="Chi tiết vật tư xuất" subtitle="Danh sách vật tư và tóm tắt giá trị phiếu">
+                                {gdn.lines.length === 0 ? (
+                                    <div className="gdn-empty-state">Chưa có vật tư nào trong phiếu xuất kho.</div>
+                                ) : (
+                                    <div className="gdn-table-wrap">
+                                        <table className="product-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ width: 56, textAlign: 'center' }}>STT</th>
+                                                    <th>Vật tư</th>
+                                                    <th style={{ width: 120, textAlign: 'right' }}>SL Yêu cầu</th>
+                                                    <th style={{ width: 120, textAlign: 'right' }}>Thực xuất</th>
+                                                    <th style={{ width: 130, textAlign: 'right' }}>Đơn giá</th>
+                                                    <th style={{ width: 150, textAlign: 'right' }}>Thành tiền</th>
                                                 </tr>
+                                            </thead>
+                                            <tbody>
+                                                {gdn.lines.map((line, idx) => (
+                                                    <tr key={line.id}>
+                                                        <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{line.itemName || '-'}</span>
+                                                                <span style={{ fontSize: 12, color: '#6b7280' }}>Mã: {line.itemCode || '-'} | ĐVT: {line.uomName || '-'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatQuantity(line.requestedQty)}</td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: '#111827' }}>{formatQuantity(line.actualQty)}</td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(line.unitPrice)}</td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(line.lineTotal)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                                {gdn.lines.length > 0 && (
+                                    <>
+                                        <hr className="gdn-lines-summary-divider" />
+                                        <h3 className="gdn-lines-summary-title">Tóm tắt phiếu</h3>
+                                        <div className="gdn-summary-grid">
+                                            <SummaryMetric label="Tổng số lượng" value={`${formatQuantity(totalQty)} sản phẩm`} />
+                                            <SummaryMetric label="Tiền hàng" value={formatCurrency(subtotal)} />
+                                        </div>
+                                        <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, fontSize: 14, color: '#374151' }}>
+                                                <span>Phí vận chuyển</span>
+                                                <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(gdn.shippingFee)}</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: 16, padding: '18px 16px', backgroundColor: '#e3f2fd', borderRadius: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: '4px solid #2196F3' }}>
+                                            <span style={{ fontSize: 16, fontWeight: 700, color: '#2196F3' }}>Tổng cộng</span>
+                                            <span style={{ fontSize: 22, fontWeight: 800, color: '#2196F3', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(grandTotal)}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </SectionCard>
+                        </div>
+
+                        {/* RIGHT Column */}
+                        <div className="gdn-right-column">
+                            <SectionCard title="Thông tin phiếu xuất" subtitle="Thông tin chung của phiếu xuất kho">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <ReadonlyField label="Kho xuất" value={gdn.warehouseName || '-'} icon={MapPin} />
+                                    <ReadonlyField label="Người yêu cầu" value={gdn.requesterName || '-'} icon={MapPin} />
+                                    <ReadonlyField label="Ngày yêu cầu" value={gdn.requestDate || '-'} icon={MapPin} />
+                                    <ReadonlyField label="Ngày tạo" value={gdn.submittedAt || '-'} icon={MapPin} />
+                                    <ReadonlyField label="Yêu cầu xuất kho" value={gdn.releaseRequestCode || '-'} icon={FileText} />
+
+                                    {/* Người nhận */}
+                                    <div className="form-field">
+                                        <label className="form-label">Người nhận hàng</label>
+                                        <div style={{ padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{gdn.receiverName || '-'}</div>
+                                            <div style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Phone size={12} /> {gdn.receiverPhone || '-'}
+                                            </div>
+                                            <div style={{ fontSize: 13, color: '#6b7280' }}>{gdn.receiverAddress || '-'}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Đơn vị vận chuyển */}
+                                    {gdn.carrierName && (
+                                        <div className="form-field">
+                                            <label className="form-label">Đơn vị vận chuyển</label>
+                                            <div style={{ padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{gdn.carrierName}</div>
+                                                <div style={{ fontSize: 13, color: '#6b7280' }}>Tài xế: {gdn.driverName || '-'} — {gdn.driverPhone || '-'}</div>
+                                                <div style={{ fontSize: 13, color: '#6b7280' }}>Biển số: {gdn.licensePlate || '-'}</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </SectionCard>
+
+                            <SectionCard title="Ghi chú" subtitle="Nội dung ghi chú của phiếu xuất kho">
+                                <div className="gdn-note-box">{gdn.note?.trim() || 'Không có ghi chú.'}</div>
+                            </SectionCard>
+
+                            <SectionCard title="Lịch sử phê duyệt" subtitle="Các mốc phê duyệt của phiếu">
+                                <div style={{ padding: 16, backgroundColor: '#f9fafb', borderRadius: 12, border: '1px solid #e5e7eb' }}>
+                                    {gdn.approvals?.length ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                            {gdn.approvals.map((ap, i) => (
+                                                <ApprovalStep key={i} step={ap} isLast={i === gdn.approvals.length - 1} />
                                             ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* RIGHT: Info panels */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '760px', overflowY: 'auto' }}>
-                            {/* General Info */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Thông tin chung</h2>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {/* Mã phiếu xuất - nổi bật */}
-                                    <div className="form-field">
-                                        <label className="form-label">Mã phiếu xuất</label>
-                                        <div
-                                            style={{
-                                                padding: '10px 12px',
-                                                borderRadius: '8px',
-                                                border: '2px solid #0284c7',
-                                                backgroundColor: '#f0f9ff',
-                                                fontSize: '15px',
-                                                fontWeight: 700,
-                                                color: '#0284c7',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                            }}
-                                        >
-                                            <FileText size={16} />
-                                            {gdn.gdnCode}
                                         </div>
-                                    </div>
-
-                                    {/* Yêu cầu xuất tham chiếu */}
-                                    <div className="form-field">
-                                        <label className="form-label">Yêu cầu xuất tham chiếu</label>
-                                        <div
-                                            style={{
-                                                padding: '8px 12px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e5e7eb',
-                                                backgroundColor: '#f0fdf4',
-                                                fontSize: '14px',
-                                                color: '#15803d',
-                                                fontWeight: 600,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                            }}
-                                        >
-                                            {gdn.releaseRequestCode}
-                                            <span
-                                                style={{
-                                                    fontSize: '10px',
-                                                    fontWeight: 600,
-                                                    padding: '1px 6px',
-                                                    borderRadius: '9999px',
-                                                    backgroundColor: statusMeta.bg,
-                                                    color: statusMeta.color,
-                                                    marginLeft: '4px',
-                                                }}
-                                            >
-                                                {statusMeta.label}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Người tạo</label>
-                                        <div className="input-wrapper">
-                                            <div
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e5e7eb',
-                                                    backgroundColor: '#f9fafb',
-                                                    fontSize: '14px',
-                                                    color: '#374151',
-                                                    minHeight: '36px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                {gdn.createdByName}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Ngày xuất hàng</label>
-                                        <div className="input-wrapper">
-                                            <div
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e5e7eb',
-                                                    backgroundColor: '#f9fafb',
-                                                    fontSize: '14px',
-                                                    color: '#374151',
-                                                    minHeight: '36px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                {gdn.issueDate}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Kho xuất</label>
-                                        <div className="input-wrapper">
-                                            <div
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e5e7eb',
-                                                    backgroundColor: '#f9fafb',
-                                                    fontSize: '14px',
-                                                    color: '#374151',
-                                                    minHeight: '36px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                {gdn.warehouseName}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Người yêu cầu</label>
-                                        <div className="input-wrapper">
-                                            <div
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e5e7eb',
-                                                    backgroundColor: '#f9fafb',
-                                                    fontSize: '14px',
-                                                    color: '#374151',
-                                                    minHeight: '36px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                {gdn.requestedByName}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Ngày yêu cầu</label>
-                                        <div className="input-wrapper">
-                                            <div
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e5e7eb',
-                                                    backgroundColor: '#f9fafb',
-                                                    fontSize: '14px',
-                                                    color: '#374151',
-                                                    minHeight: '36px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                {gdn.requestedDate || '—'}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label className="form-label">Ngày dự kiến</label>
-                                        <div className="input-wrapper">
-                                            <div
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e5e7eb',
-                                                    backgroundColor: '#f9fafb',
-                                                    fontSize: '14px',
-                                                    color: '#374151',
-                                                    minHeight: '36px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                {gdn.expectedDate || '—'}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    ) : (
+                                        <div className="gdn-empty-state" style={{ padding: 0 }}>Chưa có lịch sử phê duyệt.</div>
+                                    )}
                                 </div>
-                            </div>
-
-                            {/* Receiver Info */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Người nhận hàng</h2>
-                                </div>
-
-                                {gdn.receiverName ? (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '10px',
-                                            fontSize: '14px',
-                                            color: '#334155',
-                                        }}
-                                    >
-                                        <div>
-                                            <span style={{ fontWeight: 600 }}>Tên: </span>
-                                            <span>{gdn.receiverName}</span>
-                                        </div>
-                                        {gdn.receiverPhone && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Phone size={14} color="#6b7280" />
-                                                <span>{gdn.receiverPhone}</span>
-                                            </div>
-                                        )}
-                                        {gdn.receiverCompanyName && (
-                                            <div>
-                                                <span style={{ fontWeight: 600 }}>Công ty: </span>
-                                                <span>{gdn.receiverCompanyName}</span>
-                                            </div>
-                                        )}
-                                        {gdn.receiverEmail && (
-                                            <div>
-                                                <span style={{ fontWeight: 600 }}>Email: </span>
-                                                <span>{gdn.receiverEmail}</span>
-                                            </div>
-                                        )}
-                                        {gdn.receiverAddress && (
-                                            <div style={{ display: 'flex', alignItems: 'start', gap: '6px' }}>
-                                                <MapPin size={14} color="#6b7280" style={{ flexShrink: 0, marginTop: '2px' }} />
-                                                <span>{gdn.receiverAddress}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic' }}>
-                                        Không có thông tin người nhận
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Transport Info */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">
-                                        <Truck size={16} style={{ marginRight: '6px' }} />
-                                        Vận chuyển
-                                    </h2>
-                                </div>
-
-                                {hasTransport ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        {gdn.carrierName && (
-                                            <div style={{ fontSize: '14px', color: '#374151' }}>
-                                                <span style={{ fontWeight: 600 }}>Hãng vận chuyển: </span>
-                                                <span>{gdn.carrierName}</span>
-                                            </div>
-                                        )}
-                                        {gdn.driverName && (
-                                            <div style={{ fontSize: '14px', color: '#374151' }}>
-                                                <span style={{ fontWeight: 600 }}>Tài xế: </span>
-                                                <span>{gdn.driverName}</span>
-                                            </div>
-                                        )}
-                                        {gdn.driverPhone && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#374151' }}>
-                                                <Phone size={14} color="#6b7280" />
-                                                <span>{gdn.driverPhone}</span>
-                                            </div>
-                                        )}
-                                        {gdn.licensePlate && (
-                                            <div style={{ fontSize: '14px', color: '#374151' }}>
-                                                <span style={{ fontWeight: 600 }}>Biển số: </span>
-                                                <span>{gdn.licensePlate}</span>
-                                            </div>
-                                        )}
-                                        {gdn.transportNote && (
-                                            <div
-                                                style={{
-                                                    padding: '8px 10px',
-                                                    backgroundColor: '#f9fafb',
-                                                    borderRadius: '6px',
-                                                    border: '1px solid #e5e7eb',
-                                                    fontSize: '13px',
-                                                    color: '#6b7280',
-                                                    fontStyle: 'italic',
-                                                    lineHeight: '1.5',
-                                                }}
-                                            >
-                                                <span style={{ fontWeight: 600, fontStyle: 'normal' }}>Ghi chú: </span>
-                                                {gdn.transportNote}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic' }}>
-                                        Chưa có thông tin vận chuyển
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Bottom Row */}
-                    <div className="gdn-create-bottom-grid">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
-                            {/* Note */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Ghi chú phiếu xuất</h2>
-                                </div>
-                                <div
-                                    style={{
-                                        padding: '10px 12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid #e5e7eb',
-                                        backgroundColor: '#f9fafb',
-                                        fontSize: '14px',
-                                        color: '#374151',
-                                        minHeight: '80px',
-                                        whiteSpace: gdn.note ? 'pre-wrap' : 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: gdn.note ? 'clip' : 'ellipsis',
-                                        display: 'flex',
-                                        alignItems: gdn.note ? 'flex-start' : 'center',
-                                        lineHeight: '1.6',
-                                        fontStyle: gdn.note ? 'normal' : 'italic',
-                                    }}
-                                >
-                                    {gdn.note || 'Không có ghi chú'}
-                                </div>
-                                {gdn.note && (
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: '#6b7280', marginTop: '4px', fontWeight: 500 }}>
-                                        {gdn.note.length}/{MAX_NOTE_LENGTH} ký tự
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Summary */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng hợp phiếu xuất</h2>
-                                </div>
-                                <div className="gdn-summary-cards">
-                                    <SummaryCard title="Tổng số lượng xuất" value={`${totalDeliveredQty} sản phẩm`} />
-                                    <SummaryCard title="Số dòng vật tư" value={`${gdn.lines.length} dòng`} />
-                                </div>
-
-                                <div style={{ marginTop: '16px' }}>
-                                    <div
-                                        style={{
-                                            padding: '14px',
-                                            backgroundColor: '#f8fafc',
-                                            border: '1px solid #e2e8f0',
-                                            borderRadius: '10px',
-                                        }}
-                                    >
-                                        <SummaryRow label="Tổng tiền hàng" value={formatCurrency(subtotal)} isPositive />
-                                        <SummaryRow label="Phí vận chuyển" value={`+ ${formatCurrency(shippingFee)}`} />
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            padding: '16px',
-                                            backgroundColor: '#e0f2fe',
-                                            borderRadius: '12px',
-                                            borderLeft: '4px solid #0284c7',
-                                            marginTop: '12px',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7' }}>
-                                            Tổng tiền
-                                        </span>
-                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#0284c7' }}>
-                                            {formatCurrency(grandTotal)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Payment */}
-                        <div className="info-section" style={{ margin: 0 }}>
-                            <div className="section-header-with-toggle">
-                                <h2 className="section-title">Thanh toán</h2>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {/* Trạng thái thanh toán */}
-                                <div className="form-field">
-                                    <label className="form-label">Trạng thái</label>
-                                    <div className="input-wrapper">
-                                        <div
-                                            style={{
-                                                padding: '8px 12px',
-                                                borderRadius: '8px',
-                                                border: `1px solid ${gdn.isPaid ? '#10b981' : '#f59e0b'}`,
-                                                backgroundColor: gdn.isPaid ? '#f0fdf4' : '#fffbeb',
-                                                fontSize: '14px',
-                                                fontWeight: 600,
-                                                color: gdn.isPaid ? '#15803d' : '#b45309',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    width: '8px',
-                                                    height: '8px',
-                                                    borderRadius: '50%',
-                                                    backgroundColor: gdn.isPaid ? '#10b981' : '#f59e0b',
-                                                    flexShrink: 0,
-                                                }}
-                                            />
-                                            {gdn.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {gdn.isPaid && gdn.paymentMethod && (
-                                    <div className="form-field">
-                                        <label className="form-label">Phương thức thanh toán</label>
-                                        <div className="input-wrapper">
-                                            <div
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e5e7eb',
-                                                    backgroundColor: '#f9fafb',
-                                                    fontSize: '14px',
-                                                    color: '#374151',
-                                                    minHeight: '36px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                {PAYMENT_METHOD_LABEL[gdn.paymentMethod] || gdn.paymentMethod}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="form-field">
-                                    <label className="form-label">Phí vận chuyển</label>
-                                    <div className="input-wrapper">
-                                        <div
-                                            style={{
-                                                padding: '8px 12px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e5e7eb',
-                                                backgroundColor: '#f9fafb',
-                                                fontSize: '14px',
-                                                color: '#374151',
-                                                fontWeight: 500,
-                                                minHeight: '36px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            {formatCurrency(shippingFee)}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div
-                                    style={{
-                                        padding: '14px',
-                                        backgroundColor: '#f0fdf4',
-                                        border: '1px solid #bbf7d0',
-                                        borderRadius: '10px',
-                                    }}
-                                >
-                                    <SummaryRow label="Tiền hàng" value={formatCurrency(subtotal)} isPositive />
-                                    <SummaryRow label="Phí vận chuyển" value={`+ ${formatCurrency(shippingFee)}`} />
-                                </div>
-
-                                <div
-                                    style={{
-                                        padding: '16px',
-                                        backgroundColor: '#dcfce7',
-                                        borderRadius: '12px',
-                                        borderLeft: '4px solid #16a34a',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                    }}
-                                >
-                                    <span style={{ fontSize: '15px', fontWeight: 700, color: '#15803d' }}>
-                                        Thành tiền
-                                    </span>
-                                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#15803d' }}>
-                                        {formatCurrency(grandTotal)}
-                                    </span>
-                                </div>
-                            </div>
+                            </SectionCard>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+            <ConfirmDialog
+                open={dialogConfig.open}
+                onClose={closeDialog}
+                onConfirm={handleAction}
+                title={dialogTitles[dialogConfig.type] || 'Xác nhận'}
+                content={
+                    dialogConfig.type !== 'issue' ? (
+                        <>
+                            <p style={{ marginBottom: 16, fontSize: 14, color: '#374151' }}>
+                                {dialogConfig.type === 'approve'
+                                    ? 'Bạn có chắc chắn muốn duyệt phiếu xuất kho này không?'
+                                    : dialogConfig.type === 'reject'
+                                    ? 'Bạn có chắc chắn muốn từ chối phiếu xuất kho này không?'
+                                    : 'Bạn có chắc chắn muốn hoàn thành phiếu xuất kho này không?'}
+                            </p>
+                            <TextField
+                                label="Lý do"
+                                multiline rows={3}
+                                fullWidth
+                                value={reasonText}
+                                onChange={(e) => setReasonText(e.target.value)}
+                                disabled={processing}
+                                inputProps={{ maxLength: MAX_REASON_LENGTH }}
+                                placeholder={dialogConfig.type === 'approve' ? 'Nhập ghi chú (không bắt buộc)' : 'Nhập lý do từ chối'}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, color: reasonText.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: 4 }}>
+                                {reasonText.length}/{MAX_REASON_LENGTH} ký tự
+                            </div>
+                        </>
+                    ) : (
+                        <p style={{ fontSize: 14, color: '#374151' }}>
+                            Bạn có chắc chắn muốn xác nhận xuất kho cho phiếu này?
+                        </p>
+                    )
+                }
+                confirmText="Xác nhận"
+                cancelText="Hủy"
+                loading={processing}
+                confirmDanger={dialogConfig.type === 'reject'}
+                confirmDisabled={processing || (dialogConfig.type !== 'issue' && !reasonText.trim())}
+            />
         </div>
     );
 }

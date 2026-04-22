@@ -6,9 +6,9 @@ namespace Warehouse.Entities.ModelResponse
     public class WarehouseDetailResponse
     {
         public long WarehouseId { get; set; }
-        public string WarehouseCode { get; set; }
-        public string WarehouseName { get; set; }
-        public string Address { get; set; }
+        public string? WarehouseCode { get; set; }
+        public string? WarehouseName { get; set; }
+        public string? Address { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public int ItemCount { get; set; }
@@ -22,8 +22,8 @@ namespace Warehouse.Entities.ModelResponse
     public class WarehouseItemDto
     {
         public long ItemId { get; set; }
-        public string ItemCode { get; set; }
-        public string ItemName { get; set; }
+        public string? ItemCode { get; set; }
+        public string? ItemName { get; set; }
         public string? CategoryName { get; set; }
         public string? BrandName { get; set; }
         public string? UnitName { get; set; }

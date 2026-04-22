@@ -2,8 +2,9 @@
  * ViewReceiverList – Danh sách người nhận
  * Người dùng: WAREHOUSE_KEEPER, SALE_ENGINEER, DIRECTOR, ACCOUNTANTS
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
 import {
     Box,
     Typography,
@@ -27,28 +28,24 @@ import {
 import SearchInput from '../components/SearchInput';
 import ReceiverFilterPopup from '../components/ReceiverFilterPopup';
 import { getReceivers, toggleReceiverStatus } from '../lib/receiverService';
+import { formatDateOnlyUtc } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 const COLUMNS = [
-    { id: 'stt',            label: 'STT',            width: 60  },
-    { id: 'receiverCode',   label: 'Mã người nhận', width: 140 },
-    { id: 'receiverName',   label: 'Tên người nhận', width: 220 },
-    { id: 'phone',          label: 'Điện thoại',     width: 130 },
-    { id: 'email',          label: 'Email',           width: 200 },
-    { id: 'address',        label: 'Địa chỉ',       width: 260 },
-    { id: 'isActive',       label: 'Trạng thái',     width: 120 },
-    { id: 'createdAt',      label: 'Ngày tạo',       width: 140 },
-    { id: 'actions',        label: 'Thao tác',       width: 100 },
+    { id: 'stt', label: 'STT', width: 60 },
+    { id: 'receiverCode', label: 'Mã người nhận', width: 140 },
+    { id: 'receiverName', label: 'Tên người nhận', width: 220 },
+    { id: 'phone', label: 'Điện thoại', width: 130 },
+    { id: 'email', label: 'Email', width: 200 },
+    { id: 'address', label: 'Địa chỉ', width: 260 },
+    { id: 'isActive', label: 'Trạng thái', width: 120 },
+    { id: 'createdAt', label: 'Ngày tạo', width: 140 },
+    { id: 'actions', label: 'Thao tác', width: 100 },
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [20, 50, 100];
 
-const fmtDate = (str) => {
-    if (!str) return '—';
-    const d = new Date(str.endsWith('Z') ? str : str + 'Z');
-    if (Number.isNaN(d.getTime())) return str;
-    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+const fmtDate = (str) => (str ? formatDateOnlyUtc(str) : '—');
 
 const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
     <Box sx={{
@@ -84,7 +81,7 @@ export default function ViewReceiverList() {
     const [rows, setRows] = useState([]);
     const [totalItems, setTotalItems] = useState(0);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -106,16 +103,23 @@ export default function ViewReceiverList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, pageSize, searchTerm, filterValues]);
 
-    useEffect(() => { fetchData(); }, [page, pageSize, searchTerm, filterValues]);
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Polling ────────────────────────────────────────────────────
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+    usePolling('receivers', () => fetchDataRef.current?.());
+
+    /** Chỉ khi đã tải đủ bản ghi (một trang chứa hết) thì đếm theo trạng thái mới khớp tổng */
+    const summaryBreakdownReliable = totalItems > 0 && rows.length >= totalItems;
 
     const summary = useMemo(() => {
-        const total = rows.length;
-        const active = rows.filter(r => r.isActive).length;
-        const inactive = total - active;
-        return { total, active, inactive };
-    }, [rows]);
+        const active = summaryBreakdownReliable ? rows.filter((r) => r.isActive).length : null;
+        const inactive = summaryBreakdownReliable && active != null ? rows.length - active : null;
+        return { active, inactive };
+    }, [rows, totalItems, summaryBreakdownReliable]);
 
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const start = totalItems > 0 ? page * pageSize + 1 : 0;
@@ -132,7 +136,7 @@ export default function ViewReceiverList() {
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {/* Header */}
             <Box sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -152,8 +156,8 @@ export default function ViewReceiverList() {
                 {/* Summary */}
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <SummaryCard icon={Users} label="Tổng người nhận" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={User} label="Đang hoạt động" value={summary.active.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={User} label="Ngưng hoạt động" value={summary.inactive.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={User} label="Đang hoạt động" value={summary.active != null ? summary.active.toLocaleString() : '—'} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={User} label="Ngưng hoạt động" value={summary.inactive != null ? summary.inactive.toLocaleString() : '—'} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
 
                 {/* Filter bar */}
@@ -297,7 +301,7 @@ export default function ViewReceiverList() {
                                                 </Tooltip>
                                                 <Tooltip title="Chỉnh sửa">
                                                     <button
-                                                        onClick={() => navigate(`/receivers/edit/${row.receiverId}`)}
+                                                        onClick={() => navigate(`/receivers/${row.receiverId}`)}
                                                         style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
                                                         onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.color = '#3b82f6'; }}
                                                         onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280'; }}

@@ -148,6 +148,20 @@ namespace Warehouse.DataAcces.Service
         }
 
         // =====================================================================
+        // GET BY COMPANY (LOOKUP)
+        // =====================================================================
+        public async Task<List<AddressResponse>> GetAddressesByCompanyAsync(long companyId)
+        {
+            var all = await _addressRepository.GetAllAsync();
+            var addresses = all
+                .Where(a => a.CompanyId == companyId && a.IsActive)
+                .Select(a => ToResponse(a))
+                .ToList();
+
+            return addresses;
+        }
+
+        // =====================================================================
         // GET BY ID
         // =====================================================================
         public async Task<AddressResponse> GetAddressByIdAsync(long id)

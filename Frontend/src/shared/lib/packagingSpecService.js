@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import { invalidate } from './pollingManager';
 
 /**
  * Quy cách đóng gói (PackagingSpec) – kết nối api/packagingspecs.
@@ -18,15 +19,19 @@ function mapPackagingSpecRow(row) {
 const BASE = '/packagingspecs';
 
 /**
- * Lấy toàn bộ danh sách quy cách đóng gói.
+ * Lấy danh sách quy cách đóng gói.
  * Backend trả: { code, message, data: PackagingSpecResponse[] }
  */
 export async function getPackagingSpecList() {
     const response = await apiClient.get(BASE);
-    const data = response?.data?.data ?? response?.data;
-    const list = Array.isArray(data) ? data : (data?.items ?? data?.Items ?? []);
-    const arr = Array.isArray(list) ? list : [];
-    return arr.map((row) => mapPackagingSpecRow(row)).filter(Boolean);
+    const raw = response?.data;
+    const items = Array.isArray(raw?.data) ? raw.data
+        : Array.isArray(raw) ? raw
+        : [];
+    return {
+        items: items.map(row => mapPackagingSpecRow(row)).filter(Boolean),
+        totalItems: items.length,
+    };
 }
 
 /**
@@ -43,9 +48,10 @@ export async function getPackagingSpecById(id) {
  */
 export async function createPackagingSpec(payload) {
     const response = await apiClient.post(BASE, {
-        specName: payload.specName ?? payload.SpecName,
-        description: payload.description ?? payload.Description ?? null,
+        SpecName: payload.specName ?? payload.SpecName,
+        Description: payload.description ?? payload.Description ?? null,
     });
+    invalidate('packaging-spec');
     return response?.data?.data ?? response?.data;
 }
 
@@ -54,10 +60,11 @@ export async function createPackagingSpec(payload) {
  */
 export async function updatePackagingSpec(id, payload) {
     const response = await apiClient.put(`${BASE}/${id}`, {
-        specName: payload.specName ?? payload.SpecName,
-        description: payload.description ?? payload.Description ?? null,
-        isActive: payload.isActive,
+        SpecName: payload.specName ?? payload.SpecName,
+        Description: payload.description ?? payload.Description ?? null,
+        IsActive: payload.isActive,
     });
+    invalidate('packaging-spec');
     return response?.data?.data ?? response?.data;
 }
 
@@ -66,5 +73,6 @@ export async function updatePackagingSpec(id, payload) {
  */
 export async function deletePackagingSpec(id) {
     const response = await apiClient.delete(`${BASE}/${id}`);
+    invalidate('packaging-spec');
     return response?.data;
 }
