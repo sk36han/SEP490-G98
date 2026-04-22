@@ -395,7 +395,7 @@ export default function ViewPurchaseOrderList() {
             setError(
                 err?.response?.data?.message ||
                 err?.message ||
-                'Không tải được danh sách đơn mua.'
+                'Không tải được danh sách yêu cầu nhập hàng.'
             );
             setList([]);
         } finally {
@@ -778,7 +778,7 @@ export default function ViewPurchaseOrderList() {
                     fontWeight="600"
                     sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}
                 >
-                    Danh sách đơn mua
+                    Danh sách yêu cầu nhập hàng
                 </Typography>
 
                 <Typography
@@ -1003,7 +1003,7 @@ export default function ViewPurchaseOrderList() {
                                             },
                                         }}
                                     >
-                                        Tạo đơn mua hàng
+                                        Tạo yêu cầu nhập hàng
                                     </Button>
                                 </Box>
                             )}

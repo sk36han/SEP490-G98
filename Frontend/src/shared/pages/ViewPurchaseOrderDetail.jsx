@@ -1,5 +1,5 @@
 /**
- * ViewPurchaseOrderDetail - Chi tiết đơn mua hàng (read-only)
+ * ViewPurchaseOrderDetail - Chi tiết yêu cầu nhập hàng (read-only)
  * Kế toán: duyệt / từ chối đơn, xác nhận thanh toán
  * Thủ Kho: tạo phiếu nhập kho
  * Sale Support: tạo đơn
@@ -8,10 +8,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Button,
     Chip,
 } from '@mui/material';
 import { ConfirmDialog } from '@ui/dialogs';
+import { StatusBadge } from '@ui/badges';
 import {
     ArrowLeft,
     CheckCircle,
@@ -34,17 +34,10 @@ import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } fro
 import { useToastContext } from '../../app/context/ToastContext';
 import { hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
 import '../styles/CreateSupplier.css';
+import '../styles/ViewPurchaseOrderDetail.css';
 
 const formatCurrency = (value) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
-
-const STATUS_MAP = {
-    DRAFT: { label: 'Bản nháp', color: '#6b7280', bgColor: '#f3f4f6' },
-    PENDING: { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
-    PENDING_ACC: { label: 'Chờ duyệt', color: '#f59e0b', bgColor: '#fef3c7' },
-    APPROVED: { label: 'Đã duyệt', color: '#10b981', bgColor: '#d1fae5' },
-    REJECTED: { label: 'Từ chối', color: '#ef4444', bgColor: '#fee2e2' },
-};
 
 const LIFECYCLE_STATUS_MAP = {
     PendingRcv: { label: 'Chờ nhận hàng', color: '#f59e0b', bgColor: '#fef3c7' },
@@ -130,46 +123,6 @@ const mapOrderDetail = (data) => ({
 });
 
 const styles = {
-    page: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 24,
-    },
-    heroCard: {
-        background: 'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)',
-        border: '1px solid #e5e7eb',
-        borderRadius: 20,
-        padding: 10,
-        boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
-    },
-    heroTop: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: 16,
-        flexWrap: 'wrap',
-    },
-    heroTitleWrap: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-    },
-    heroTitle: {
-        margin: 0,
-        fontSize: 28,
-        fontWeight: 800,
-        color: '#111827',
-        lineHeight: 1.2,
-    },
-    heroSubtitle: {
-        margin: 0,
-        fontSize: 14,
-        color: '#6b7280',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        flexWrap: 'wrap',
-    },
     heroMetrics: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -465,8 +418,8 @@ const ViewPurchaseOrderDetail = () => {
                 setOrderData(mapped);
                 return mapped;
             } catch (error) {
-                console.error('Lỗi khi tải chi tiết đơn mua:', error);
-                showToast('Không thể tải thông tin đơn mua', 'error');
+                console.error('Lỗi khi tải chi tiết yêu cầu nhập hàng:', error);
+                showToast('Không thể tải thông tin yêu cầu nhập hàng', 'error');
                 return null;
             } finally {
                 if (showLoading) {
@@ -604,10 +557,10 @@ const ViewPurchaseOrderDetail = () => {
         try {
             if (confirmDialogType === 'approve') {
                 await approvePurchaseOrder(orderData.purchaseOrderId);
-                showToast('Đã duyệt đơn mua hàng.');
+                showToast('Đã duyệt yêu cầu nhập hàng.');
             } else {
                 await rejectPurchaseOrder(orderData.purchaseOrderId, rejectionReason);
-                showToast('Đã từ chối đơn mua hàng.');
+                showToast('Đã từ chối yêu cầu nhập hàng.');
             }
 
             closeConfirmDialog();
@@ -676,7 +629,7 @@ const ViewPurchaseOrderDetail = () => {
                 <XCircle size={64} style={{ color: '#ef4444', opacity: 0.6 }} />
                 <h2 style={{ color: '#374151', margin: 0 }}>Không có quyền truy cập</h2>
                 <p style={{ color: '#6b7280', margin: 0 }}>
-                    Bạn không có quyền xem đơn mua hàng này.
+                    Bạn không có quyền xem yêu cầu nhập hàng này.
                 </p>
                 <button
                     type="button"
@@ -689,27 +642,16 @@ const ViewPurchaseOrderDetail = () => {
         );
     }
 
-    const statusStyle =
-        STATUS_MAP[orderData.approvalStatus] || {
-            label: orderData.approvalStatus,
-            color: '#6b7280',
-            bgColor: '#f3f4f6',
-        };
-
-    const lifecycleStyle = orderData.lifecycleStatus
-        ? LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]
-        : null;
-
     return (
-        <div className="create-supplier-page view-po-detail-page" style={styles.page}>
+        <div className="create-supplier-page view-po-detail-page">
             <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}
                 onConfirm={handleConfirmAction}
                 title={confirmDialogType === 'approve' ? 'Xác nhận duyệt đơn' : 'Xác nhận từ chối đơn'}
                 message={confirmDialogType === 'approve'
-                    ? 'Bạn có chắc chắn muốn duyệt đơn mua hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
-                    : 'Bạn có chắc chắn muốn từ chối đơn mua hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
+                    ? 'Bạn có chắc chắn muốn duyệt yêu cầu nhập hàng này? Sau khi duyệt, đơn hàng sẽ được chuyển sang trạng thái đã duyệt.'
+                    : 'Bạn có chắc chắn muốn từ chối yêu cầu nhập hàng này? Sau khi từ chối, đơn hàng sẽ không thể tiếp tục xử lý.'}
                 content={confirmDialogType === 'reject' && (
                     <div style={{ marginTop: 18 }}>
                         <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
@@ -821,84 +763,64 @@ const ViewPurchaseOrderDetail = () => {
                 </div>
             </div>
 
-            <div style={styles.heroCard}>
-                <div style={styles.heroTop}>
-                    <div style={styles.heroTitleWrap}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                            <h1 style={styles.heroTitle}>Chi tiết đơn mua hàng</h1>
-
-                            <Chip
-                                label={statusStyle.label}
-                                size="small"
-                                sx={{
-                                    backgroundColor: statusStyle.bgColor,
-                                    color: statusStyle.color,
-                                    fontWeight: 700,
-                                    fontSize: '12px',
-                                }}
-                            />
-
-                            {lifecycleStyle && (
-                                <Chip
-                                    label={lifecycleStyle.label}
-                                    size="small"
-                                    sx={{
-                                        backgroundColor: lifecycleStyle.bgColor,
-                                        color: lifecycleStyle.color,
-                                        fontWeight: 700,
-                                        fontSize: '12px',
-                                    }}
-                                />
-                            )}
+            <div className="form-card">
+                <div className="form-wrapper">
+                    <div className="form-card-intro view-po-detail-intro">
+                        <div className="view-po-detail-intro-row">
+                            <div>
+                                <h1 className="page-title">Chi tiết yêu cầu nhập hàng</h1>
+                                <p className="form-card-required-note" style={{ marginTop: 4 }}>
+                                    Mã đơn:{' '}
+                                    <strong>{orderData.orderCode || '—'}</strong>
+                                    {orderData.currentStageNo != null && orderData.currentStageNo > 1 && (
+                                        <span className="view-po-detail-stage-note">
+                                            {' '}
+                                            · Bước {orderData.currentStageNo}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                            <div className="view-po-detail-status-row">
+                                <StatusBadge status={orderData.approvalStatus} />
+                                {orderData.lifecycleStatus != null && orderData.lifecycleStatus !== '' && (
+                                    <StatusBadge
+                                        status={orderData.lifecycleStatus}
+                                        label={LIFECYCLE_STATUS_MAP[orderData.lifecycleStatus]?.label}
+                                    />
+                                )}
+                            </div>
                         </div>
-
-                        <p style={styles.heroSubtitle}>
-                            <span>
-                                Mã đơn:{' '}
-                                <span style={{ fontWeight: 800, color: '#0284c7' }}>
-                                    {orderData.orderCode || '—'}
-                                </span>
-                            </span>
-
-                            {orderData.currentStageNo && orderData.currentStageNo > 1 && (
-                                <span style={{ color: '#94a3b8' }}>
-                                    Bước {orderData.currentStageNo}
-                                </span>
-                            )}
-                        </p>
                     </div>
-                </div>
 
-                <div style={styles.heroMetrics}>
-                    {!hideSensitiveForWarehouseKeeper && (
+                    <div className="view-po-detail-metrics" style={styles.heroMetrics}>
+                        {!hideSensitiveForWarehouseKeeper && (
+                            <div style={styles.metricCard}>
+                                <div style={styles.metricLabel}>Nhà cung cấp</div>
+                                <div style={styles.metricValue}>{orderData.supplierName || '—'}</div>
+                            </div>
+                        )}
+
                         <div style={styles.metricCard}>
-                            <div style={styles.metricLabel}>Nhà cung cấp</div>
-                            <div style={styles.metricValue}>{orderData.supplierName || '—'}</div>
+                            <div style={styles.metricLabel}>Kho nhận</div>
+                            <div style={styles.metricValue}>{orderData.warehouseName || '—'}</div>
                         </div>
-                    )}
 
-                    <div style={styles.metricCard}>
-                        <div style={styles.metricLabel}>Kho nhận</div>
-                        <div style={styles.metricValue}>{orderData.warehouseName || '—'}</div>
-                    </div>
-
-                    <div style={styles.metricCard}>
-                        <div style={styles.metricLabel}>Tổng số lượng</div>
-                        <div style={styles.metricValue}>{totalQty}</div>
-                        <div style={styles.metricSubValue}>Sản phẩm đặt mua</div>
-                    </div>
-
-                    <div style={styles.metricCard}>
-                        <div style={styles.metricLabel}>Tổng giá trị</div>
-                        <div style={{ ...styles.metricValue, color: '#1d4ed8' }}>
-                            {formatCurrency(grandTotal)}
+                        <div style={styles.metricCard}>
+                            <div style={styles.metricLabel}>Tổng số lượng</div>
+                            <div style={styles.metricValue}>{totalQty}</div>
+                            <div style={styles.metricSubValue}>Sản phẩm đặt mua</div>
                         </div>
-                        <div style={styles.metricSubValue}>Sau chiết khấu</div>
-                    </div>
-                </div>
-            </div>
 
-            <div style={styles.contentGrid}>
+                        <div style={styles.metricCard}>
+                            <div style={styles.metricLabel}>Tổng giá trị</div>
+                            <div style={{ ...styles.metricValue, color: '#1d4ed8' }}>
+                                {formatCurrency(grandTotal)}
+                            </div>
+                            <div style={styles.metricSubValue}>Sau chiết khấu</div>
+                        </div>
+                    </div>
+
+                    <div style={styles.contentGrid}>
                 <div style={styles.leftStack}>
                     <div style={styles.sectionCard}>
                         <div style={styles.sectionHeader}>
@@ -918,7 +840,7 @@ const ViewPurchaseOrderDetail = () => {
                         {orderData.lines.length === 0 ? (
                             <div style={styles.emptyState}>
                                 <Clock size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-                                <p style={{ margin: 0 }}>Chưa có sản phẩm nào trong đơn mua hàng.</p>
+                                <p style={{ margin: 0 }}>Chưa có sản phẩm nào trong yêu cầu nhập hàng.</p>
                             </div>
                         ) : (
                             <div style={styles.tableWrap}>
@@ -1224,6 +1146,8 @@ const ViewPurchaseOrderDetail = () => {
                             </div>
                         </div>
                     )}
+                </div>
+                    </div>
                 </div>
             </div>
         </div>

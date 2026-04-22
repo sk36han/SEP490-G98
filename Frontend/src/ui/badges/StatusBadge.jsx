@@ -39,6 +39,8 @@ export function StatusBadge({ status, label, dot, variant = 'filled', colors, sx
 
     // Purchase Order - Receiving Status
     PendingRcv:        { bgcolor: 'rgba(59,130,246,0.18)', color: '#1d4ed8', label: 'Đang đợi hàng về' },
+    /** Alias backend / API spelling */
+    PartiallyRcv:      { bgcolor: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Nhận một phần' },
     PartialRcv:        { bgcolor: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Đã về một phần hàng' },
     PartRcv:           { bgcolor: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Đã về một phần hàng' },
     Received:          { bgcolor: 'rgba(16,185,129,0.18)', color: '#065f46', label: 'Đã về đủ hàng' },

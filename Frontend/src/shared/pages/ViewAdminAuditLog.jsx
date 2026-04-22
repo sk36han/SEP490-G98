@@ -30,7 +30,7 @@ const ENTITY_TYPE_OPTIONS = [
     { value: 'Supplier', label: 'Supplier' },
     { value: 'Item', label: 'Item' },
     { value: 'Warehouse', label: 'Warehouse' },
-    { value: 'PurchaseOrder', label: 'Đơn mua hàng (PO)' },
+    { value: 'PurchaseOrder', label: 'Yêu cầu nhập hàng (PO)' },
     { value: 'Receiver', label: 'Receiver' },
     { value: 'Role', label: 'Role' },
 ];

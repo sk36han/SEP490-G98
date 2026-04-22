@@ -3,12 +3,12 @@ import { invalidate } from './pollingManager';
 
 /**
  * Purchase Order API – kết nối PurchaseOrderController.
- * GET  /PurchaseOrder/list – danh sách đơn mua (phân trang)
- * POST /PurchaseOrder/create – tạo đơn mua
+ * GET  /PurchaseOrder/list – danh sách yêu cầu nhập hàng (phân trang)
+ * POST /PurchaseOrder/create – tạo yêu cầu nhập hàng
  */
 
 /**
- * Lấy danh sách đơn mua hàng (có phân trang).
+ * Lấy danh sách yêu cầu nhập hàng (có phân trang).
  * Backend trả: PagedResponse<PurchaseOrderResponse>
  * @param {Object} params
  * @param {number} params.page - Số trang (bắt đầu từ 1)
@@ -68,7 +68,7 @@ export async function getPurchaseOrders({
 }
 
 /**
- * Tạo đơn mua.
+ * Tạo yêu cầu nhập hàng.
  * @param {{
  *  supplierId: number,
  *  warehouseId: number,
@@ -109,7 +109,7 @@ export async function uploadPurchaseOrderAttachments(poId, { quotationFile, cont
 }
 
 /**
- * Lấy danh sách tất cả đơn mua (dùng cho dropdown chọn PO).
+ * Lấy danh sách tất cả yêu cầu nhập hàng (dùng cho dropdown chọn PO).
  * Gọi API với pageSize lớn để lấy đủ danh sách.
  * @param {string=} status - Lọc theo trạng thái (mặc định lấy Approved)
  * @returns {Promise<any[]>} Danh sách PO
@@ -125,7 +125,7 @@ export async function getAllPurchaseOrdersForSelection(status = 'Approved') {
 }
 
 /**
- * Lấy chi tiết một đơn mua theo ID.
+ * Lấy chi tiết một yêu cầu nhập hàng theo ID.
  * @param {number|string} poId
  * @returns {Promise<any>} Chi tiết PO
  */
@@ -135,8 +135,8 @@ export async function getPurchaseOrderDetail(poId) {
 }
 
 /**
- * Duyệt đơn mua hàng
- * @param {number|string} poId - ID của đơn mua
+ * Duyệt yêu cầu nhập hàng
+ * @param {number|string} poId - ID của yêu cầu nhập hàng
  * @param {string=} reason - Lý do duyệt (tùy chọn)
  * @returns {Promise<any>}
  */
@@ -147,8 +147,8 @@ export async function approvePurchaseOrder(poId, reason = null) {
 }
 
 /**
- * Từ chối đơn mua hàng
- * @param {number|string} poId - ID của đơn mua
+ * Từ chối yêu cầu nhập hàng
+ * @param {number|string} poId - ID của yêu cầu nhập hàng
  * @param {string} reason - Lý do từ chối (bắt buộc)
  * @returns {Promise<any>}
  */

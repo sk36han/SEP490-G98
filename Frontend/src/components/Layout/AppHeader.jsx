@@ -43,7 +43,7 @@ const MOCK_NOTIFICATIONS_BY_ROLE = {
         { id: '3', title: 'Phiếu xuất đã duyệt',  message: '#GDN-2025-008 đã duyệt, có thể thực hiện xuất kho.', time: 'Hôm qua',       icon: FileText,       isNew: false, type: 'success' },
     ],
     SALE_SUPPORT: [
-        { id: '1', title: 'Đơn mua (PO) mới',      message: '#PO-2025-024 đã được tạo và chờ xử lý.',   time: '20 phút trước', icon: ShoppingCart, isNew: true,  type: 'info'    },
+        { id: '1', title: 'Yêu cầu nhập hàng (PO) mới',      message: '#PO-2025-024 đã được tạo và chờ xử lý.',   time: '20 phút trước', icon: ShoppingCart, isNew: true,  type: 'info'    },
         { id: '2', title: 'Nhà cung cấp cập nhật', message: 'Thông tin ABC Corp đã được cập nhật.',      time: '3 giờ trước',   icon: Truck,        isNew: false, type: 'default' },
     ],
     SALE_ENGINEER: [

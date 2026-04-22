@@ -1,0 +1,25 @@
+/* ViewPurchaseOrderDetail — bổ sung cho layout intro + metrics trong .form-card */
+
+.view-po-detail-intro .view-po-detail-intro-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.view-po-detail-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.view-po-detail-stage-note {
+    color: var(--slate-500, #64748b);
+    font-weight: 500;
+}
+
+.view-po-detail-metrics {
+    margin-top: 4px;
+}

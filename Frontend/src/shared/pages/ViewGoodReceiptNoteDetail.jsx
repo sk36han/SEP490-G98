@@ -870,7 +870,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                         icon={Calendar}
                                     />
                                     <ReadonlyField
-                                        label="Đơn mua tham chiếu"
+                                        label="Yêu cầu nhập hàng tham chiếu"
                                         value={grnData.referencePoCode || '-'}
                                         icon={FileText}
                                     />

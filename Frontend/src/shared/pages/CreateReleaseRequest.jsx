@@ -34,12 +34,6 @@ function formatVndInteger(amount) {
     return `${n.toLocaleString('vi-VN')} VNĐ`;
 }
 
-function formatUnitPriceVnd(line) {
-    const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
-    if (unit == null || Number.isNaN(unit)) return null;
-    return formatVndInteger(unit);
-}
-
 /** Thành tiền dòng = SL × đơn giá (null nếu không tính được) */
 function formatLineTotalVnd(line) {
     const qty = Number(line.quantity) || 0;
@@ -829,8 +823,28 @@ export default function CreateReleaseRequest() {
                                                                 style={{ minWidth: 100 }}
                                                             />
                                                         </td>
-                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#374151', fontSize: 13 }}>
-                                                            {formatUnitPriceVnd(line) ?? <span style={{ color: '#94a3b8' }}>—</span>}
+                                                        <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
+                                                            <input
+                                                                type="number"
+                                                                min={0}
+                                                                step={1}
+                                                                inputMode="numeric"
+                                                                value={line.unitPrice === '' || line.unitPrice == null ? '' : line.unitPrice}
+                                                                onChange={(e) => {
+                                                                    const raw = e.target.value;
+                                                                    if (raw === '') {
+                                                                        updateLine(index, 'unitPrice', '');
+                                                                        return;
+                                                                    }
+                                                                    const n = Number(raw);
+                                                                    if (!Number.isFinite(n)) return;
+                                                                    updateLine(index, 'unitPrice', Math.max(0, Math.round(n)));
+                                                                }}
+                                                                className="form-input"
+                                                                placeholder="VNĐ"
+                                                                style={{ minWidth: 120, maxWidth: 160, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                                                                title="Đơn giá (VNĐ, số nguyên)"
+                                                            />
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#111827', fontSize: 13 }}>
                                                             {formatLineTotalVnd(line) ?? <span style={{ color: '#94a3b8', fontWeight: 400 }}>—</span>}

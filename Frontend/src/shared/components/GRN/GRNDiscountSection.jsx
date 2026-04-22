@@ -56,11 +56,11 @@ const GRNDiscountSection = ({
                                 − {formatCurrency(discountAmount)}
                             </div>
                             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
-                                Lấy theo đơn mua hàng (PO). Không nhập chiết khấu tại phiếu nhập kho.
+                                Lấy theo yêu cầu nhập hàng (PO). Không nhập chiết khấu tại phiếu nhập kho.
                             </div>
                             {poHeaderTotal > 0 && (
                                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                                    Trên đơn mua: chiết khấu {formatCurrency(poHeaderDiscount)} · tổng tiền hàng{' '}
+                                    Trên yêu cầu nhập hàng: chiết khấu {formatCurrency(poHeaderDiscount)} · tổng tiền hàng{' '}
                                     {formatCurrency(poHeaderTotal)}
                                 </div>
                             )}
