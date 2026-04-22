@@ -7,6 +7,7 @@ using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -225,13 +226,13 @@ namespace Warehouse.DataAcces.Service
             if (releaseRequest.Status == "PENDING_ACC")
             {
                 await _notificationService.CreateForRolesAsync(
-                    new[] { "KT" },
+                    new[] { UserRoleConstants.Accountant },
                     "Yêu cầu xuất kho mới chờ duyệt",
                     $"Yêu cầu xuất kho {rrCode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt hồ sơ.",
                     "Release",
                     releaseRequest.ReleaseRequestId,
                     requestedByUserId,
-                    "NewRequest"
+                    NotificationTypes.NewRequest
                 );
             }
 
@@ -845,13 +846,13 @@ namespace Warehouse.DataAcces.Service
 
             // Gửi thông báo cho Kế toán biết đơn đã bị hủy
             await _notificationService.CreateForRolesAsync(
-                new[] { "KT" },
+                new[] { UserRoleConstants.Accountant },
                 "Yêu cầu xuất kho bị hủy",
                 $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã bị hủy.",
                 "Release",
                 rr.ReleaseRequestId,
                 userId,
-                "StatusChange"
+                NotificationTypes.StatusChange
             );
 
             return true;
@@ -924,8 +925,8 @@ namespace Warehouse.DataAcces.Service
                     $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã được đóng. Hàng giữ dư đã được giải phóng.",
                     "Release",
                     rr.ReleaseRequestId,
-                    "StatusChange",
-                    0
+                    NotificationTypes.StatusChange,
+                    (byte)NotificationSeverity.Info
                 );
             }
 
@@ -1052,21 +1053,21 @@ namespace Warehouse.DataAcces.Service
                 $"Yêu cầu xuất kho {rr.ReleaseRequestCode} của bạn đã {statusText.ToLower()}{reasonText}.",
                 "Release",
                 rr.ReleaseRequestId,
-                "ApprovalResult",
-                (byte)(rr.Status == "APPROVED" ? 1 : 2)
+                NotificationTypes.ApprovalResult,
+                (byte)(rr.Status == "APPROVED" ? NotificationSeverity.Warning : NotificationSeverity.Error)
             );
 
             // Gửi thêm thông báo cho bộ phận Thủ kho (TK) nếu đơn được phê duyệt
             if (rr.Status == "APPROVED")
             {
                 await _notificationService.CreateForRolesAsync(
-                    new[] { "TK" },
+                    new[] { UserRoleConstants.Storekeeper },
                     "Yêu cầu xuất kho mới chờ xuất hàng",
                     $"Yêu cầu xuất kho {rr.ReleaseRequestCode} đã được Kế toán phê duyệt hồ sơ. Vui lòng chuẩn bị hàng và tạo phiếu xuất kho (GDN).",
                     "Release",
                     rr.ReleaseRequestId,
                     userId,
-                    "NewRequest"
+                    NotificationTypes.NewRequest
                 );
             }
 

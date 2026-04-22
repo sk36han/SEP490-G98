@@ -560,8 +560,8 @@ namespace Warehouse.DataAcces.Service
                     $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã khớp tồn và được đóng tự động sau khi gửi kết quả.",
                     "Stocktake",
                     session.StocktakeId,
-                    "StatusChange",
-                    0);
+                    NotificationTypes.StatusChange,
+                    (byte)NotificationSeverity.Info);
             }
             else
             {
@@ -578,13 +578,13 @@ namespace Warehouse.DataAcces.Service
                 );
 
                 await _notificationService.CreateForRolesAsync(
-                    new[] { "DIRECTOR", "MANAGER", "ADMIN" },
+                    new[] { UserRoleConstants.Director, UserRoleConstants.Admin },
                     "Kết quả kiểm kê mới chờ duyệt",
                     $"Kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} có chênh lệch và đang chờ phê duyệt.",
                     "Stocktake",
                     session.StocktakeId,
                     currentUserId,
-                    "NewRequest"
+                    NotificationTypes.NewRequest
                 );
             }
 
@@ -674,8 +674,8 @@ namespace Warehouse.DataAcces.Service
                     (string.IsNullOrEmpty(request.Reason) ? "" : $" Lý do: {request.Reason}"),
                 "Stocktake",
                 session.StocktakeId,
-                "ApprovalResult",
-                (byte)(request.Decision == "APPROVE" ? 0 : 2)
+                NotificationTypes.ApprovalResult,
+                (byte)(request.Decision == "APPROVE" ? NotificationSeverity.Info : NotificationSeverity.Error)
             );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
@@ -738,8 +738,8 @@ namespace Warehouse.DataAcces.Service
                     (string.IsNullOrEmpty(request.Reason) ? "" : $" Lý do: {request.Reason}"),
                 "Stocktake",
                 session.StocktakeId,
-                "ApprovalResult",
-                (byte)(request.Decision == "APPROVE" ? 0 : 2)
+                NotificationTypes.ApprovalResult,
+                (byte)(request.Decision == "APPROVE" ? NotificationSeverity.Info : NotificationSeverity.Error)
             );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
@@ -888,8 +888,8 @@ namespace Warehouse.DataAcces.Service
                 $"Phiếu kiểm kê {session.StocktakeCode} đã được ghi sổ điều chỉnh tồn kho thành công.",
                 "Stocktake",
                 session.StocktakeId,
-                "StatusChange",
-                0
+                NotificationTypes.StatusChange,
+                (byte)NotificationSeverity.Info
             );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi xử lý.");
@@ -950,8 +950,8 @@ namespace Warehouse.DataAcces.Service
                 $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã hoàn tất. Kho đã được mở khóa.",
                 "Stocktake",
                 session.StocktakeId,
-                "StatusChange",
-                0
+                NotificationTypes.StatusChange,
+                (byte)NotificationSeverity.Info
             );
 
             return await GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi.");
@@ -994,8 +994,8 @@ namespace Warehouse.DataAcces.Service
                     $"Phiếu kiểm kê {session.StocktakeCode} đã bị hủy. Lý do: {reason}",
                     "Stocktake",
                     session.StocktakeId,
-                    "StatusChange",
-                    2
+                    NotificationTypes.StatusChange,
+                    (byte)NotificationSeverity.Error
                 );
             }
 

@@ -7,6 +7,7 @@ using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
+using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -315,13 +316,13 @@ namespace Warehouse.DataAcces.Service
             if (po.Status == "PENDING")
             {
                 await _notificationService.CreateForRolesAsync(
-                    new[] { "ADMIN", "MANAGER" },
+                    new[] { UserRoleConstants.Admin, UserRoleConstants.Director },
                     "Đơn mua hàng mới cần duyệt",
                     $"Đơn mua hàng {po.Pocode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt.",
                     "PurchaseOrder",
                     po.PurchaseOrderId,
                     requestedByUserId,
-                    "NewRequest"
+                    NotificationTypes.NewRequest
                 );
             }
 

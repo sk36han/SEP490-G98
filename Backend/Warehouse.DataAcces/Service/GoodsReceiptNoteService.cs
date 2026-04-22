@@ -499,8 +499,8 @@ namespace Warehouse.DataAcces.Service
                 $"Phiếu nhập kho {grn.Grncode} của bạn đã được ghi sổ và nhập kho.",
                 "GoodsReceipt",
                 grn.Grnid,
-                "ApprovalResult",
-                0 // Info level
+                NotificationTypes.ApprovalResult,
+                (byte)NotificationSeverity.Info
             );
 
             // Trả về kết quả
