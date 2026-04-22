@@ -541,8 +541,9 @@ export default function Viewsalesreportlist() {
     // ── Render ─────────────────────────────────────────────────────────────
     return (
         <Box sx={{
-            flex: 1, minHeight: 0, minWidth: 0,
-            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            flex: 1, minWidth: 0,
+            overflowY: 'auto', overflowX: 'hidden',
+            display: 'flex', flexDirection: 'column',
             bgcolor: '#fafafa',
         }}>
             {/* ── Page Header ── */}
@@ -727,7 +728,7 @@ export default function Viewsalesreportlist() {
             </Box>
 
             {/* ── Main Content ── */}
-            <Box sx={{ flex: 1, px: { xs: 2, sm: 2 }, pb: 2, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ flexShrink: 0, px: { xs: 2, sm: 2 }, pb: 2, display: 'flex', flexDirection: 'column' }}>
                 <Paper className="list-view" elevation={0} sx={{
                     flex: 1, minHeight: 0, overflow: 'hidden',
                     display: 'flex', flexDirection: 'column',
@@ -863,9 +864,9 @@ export default function Viewsalesreportlist() {
                     </Popover>
 
                     {/* ── Table ── */}
-                    <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <TableContainer sx={{ flex: 1, minHeight: 0 }}>
-                            <Table size="small" stickyHeader>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <TableContainer sx={{ overflowX: 'auto' }}>
+                            <Table size="small">
                                 <TableHead>
                                     <TableRow>
                                         {visibleColumns.map((col) => (
