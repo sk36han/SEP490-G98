@@ -252,8 +252,8 @@ namespace Warehouse.DataAcces.Service
                         $"Kết quả kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã {statusText.ToLower()}. Lý do: {request.Reason}",
                         "Stocktake",
                         session.StocktakeId,
-                        "ApprovalResult",
-                        (byte)(session.Status == "COMPLETED" ? 1 : 2)
+                        NotificationTypes.ApprovalResult,
+                        (byte)(session.Status == "COMPLETED" ? NotificationSeverity.Warning : NotificationSeverity.Error)
                     );
                 }
                 catch
@@ -305,8 +305,8 @@ namespace Warehouse.DataAcces.Service
                     $"Phiếu kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã bị hủy trong quá trình thực thi. Lý do: {reason}",
                     "Stocktake",
                     session.StocktakeId,
-                    "StatusChange",
-                    2
+                    NotificationTypes.StatusChange,
+                    (byte)NotificationSeverity.Error
                 );
             }
 

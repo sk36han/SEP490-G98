@@ -357,8 +357,8 @@ namespace Warehouse.DataAcces.Service
                             $"Đơn {code} của bạn đã {statusText.ToLower()}{reasonText}.",
                             requestType,
                             requestId,
-                            "ApprovalResult",
-                            (byte)(decision == "APPROVED" ? 1 : 2)
+                            NotificationTypes.ApprovalResult,
+                            (byte)(decision == "APPROVED" ? NotificationSeverity.Warning : NotificationSeverity.Error)
                         );
                     }
                 }

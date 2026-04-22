@@ -598,20 +598,20 @@ namespace Warehouse.DataAcces.Service
                 {
                     // Thông báo cho Giám đốc
                     await _notificationService.CreateForRolesAsync(
-                        new[] { "GD" },
+                        new[] { UserRoleConstants.Director },
                         "Phiếu xuất kho chờ Giám đốc duyệt",
                         $"Phiếu xuất {gdn.Gdncode} đã được Kế toán duyệt và đang chờ bạn phê duyệt cuối cùng.",
                         "GoodsDelivery",
                         gdn.Gdnid,
                         userId,
-                        "NewRequest"
+                        NotificationTypes.NewRequest
                     );
                 }
                 else if (gdn.Status == "PENDING_ISSUE")
                 {
                     // Thông báo cho Thủ kho
                     await _notificationService.CreateForRolesAsync(
-                        new[] { "TK" },
+                        new[] { UserRoleConstants.Storekeeper },
                         "Phiếu xuất kho sẵn sàng xuất hàng",
                         $"Phiếu xuất {gdn.Gdncode} đã được Giám đốc phê duyệt. Vui lòng thực hiện xuất hàng thực tế.",
                         "GoodsDelivery",
@@ -627,8 +627,8 @@ namespace Warehouse.DataAcces.Service
                         $"Phiếu xuất kho {gdn.Gdncode} đã được Giám đốc phê duyệt. Thủ kho sẽ thực hiện xuất hàng.",
                         "GoodsDelivery",
                         gdn.Gdnid,
-                        "ApprovalResult",
-                        0
+                        NotificationTypes.ApprovalResult,
+                        (byte)NotificationSeverity.Info
                     );
                 }
             }
@@ -641,8 +641,8 @@ namespace Warehouse.DataAcces.Service
                     $"Phiếu xuất kho {gdn.Gdncode} của bạn đã bị từ chối bởi {user.FullName}. Lý do: {request.Reason}",
                     "GoodsDelivery",
                     gdn.Gdnid,
-                    "ApprovalResult",
-                    2 // Warning
+                    NotificationTypes.ApprovalResult,
+                    (byte)NotificationSeverity.Error
                 );
             }
 
@@ -1295,8 +1295,8 @@ namespace Warehouse.DataAcces.Service
                 $"Thủ kho đã xác nhận xuất hàng cho phiếu {gdn.Gdncode}. Vui lòng kiểm tra và hoàn tất hồ sơ.",
                 "GoodsDelivery",
                 gdn.Gdnid,
-                "ShippingStatus",
-                1
+                NotificationTypes.StatusChange,
+                (byte)NotificationSeverity.Warning
             );
 
             var rr = gdn.ReleaseRequest;
@@ -1418,8 +1418,8 @@ namespace Warehouse.DataAcces.Service
                 $"Phiếu xuất kho {gdn.Gdncode} đã được xác nhận hoàn tất và ghi sổ thành công.",
                 "GoodsDelivery",
                 gdn.Gdnid,
-                "ApprovalResult",
-                1
+                NotificationTypes.ApprovalResult,
+                (byte)NotificationSeverity.Warning
             );
 
             var rr = gdn.ReleaseRequest;
