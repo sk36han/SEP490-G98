@@ -58,8 +58,7 @@ namespace Warehouse.DataAcces.Service
 			await _clientNotificationService.SendNotificationAsync(userId, response);
 
 			// Push unread count
-			var unreadCount = await _context.Notifications
-				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted);
+			var unreadCount = await GetUnreadCountAsync(userId);
 			await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 		}
 
@@ -227,8 +226,7 @@ namespace Warehouse.DataAcces.Service
 				await _clientNotificationService.SendNotificationAsync(noti.UserId, response);
 
 				// Push unread count
-				var unreadCount = await _context.Notifications
-					.CountAsync(x => x.UserId == noti.UserId && !x.IsRead && !x.IsDeleted);
+				var unreadCount = await GetUnreadCountAsync(noti.UserId);
 				await _clientNotificationService.SendUnreadCountAsync(noti.UserId, unreadCount);
 			}
 		}
