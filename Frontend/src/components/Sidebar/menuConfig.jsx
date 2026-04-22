@@ -367,7 +367,6 @@ const roleMenus = {
         menuCatalog.goodsDeliveryNotesManage,
         menuCatalog.itemPrices,
         menuCatalog.policy,
-        menuCatalog.reports,
     ],
 };
 
@@ -377,6 +376,7 @@ roleMenus.DIRECTOR = dedupeMenuItems([
     ...roleMenus.SALE_SUPPORT,
     ...roleMenus.SALE_ENGINEER,
     ...roleMenus.ACCOUNTANTS,
+    menuCatalog.reports,
     ...COMMON_ITEMS,
 ]);
 
