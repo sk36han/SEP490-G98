@@ -506,8 +506,8 @@ const CreatePurchaseOrder = () => {
             }
             showToast(
                 uploadWarning
-                    ? `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
-                    : `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`,
+                    ? `Tạo yêu cầu nhập hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
+                    : `Tạo yêu cầu nhập hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`,
                 uploadWarning ? 'warning' : 'success'
             );
             setTimeout(() => navigate('/purchase-orders'), 1500);
@@ -551,8 +551,8 @@ const CreatePurchaseOrder = () => {
             }
             showToast(
                 uploadWarning
-                    ? `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
-                    : `Tạo đơn mua hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`,
+                    ? `Tạo yêu cầu nhập hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
+                    : `Tạo yêu cầu nhập hàng thành công${res?.poCode ? ` (${res.poCode})` : ''}.`,
                 uploadWarning ? 'warning' : 'success'
             );
             setTimeout(() => navigate('/purchase-orders'), 1500);
@@ -661,7 +661,7 @@ const CreatePurchaseOrder = () => {
                 <form id="create-po-form" className="form-wrapper">
                     {/* Intro */}
                     <div className="form-card-intro">
-                        <h1 className="page-title">Tạo đơn mua hàng</h1>
+                        <h1 className="page-title">Tạo yêu cầu nhập hàng</h1>
                         <p className="form-card-required-note">
                             Các trường đánh dấu <span className="required-mark">*</span> là bắt buộc
                         </p>

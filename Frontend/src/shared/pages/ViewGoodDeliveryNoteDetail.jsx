@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { TextField } from '@mui/material';
 import { ConfirmDialog } from '@ui/dialogs';
+import { StatusBadge } from '@ui/badges';
 import { useToastContext } from '../../app/context/ToastContext';
 import '../styles/CreateSupplier.css';
 import '../styles/ViewGoodDeliveryNoteDetail.css';
@@ -34,19 +35,6 @@ const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency'
 const formatQuantity = (v) => toNumber(v).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
 const formatDateTime = (v) => v ? new Date(v).toLocaleString('vi-VN') : '—';
 const formatDateOnly = (v) => v ? new Date(v).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-
-// ── Constants ──────────────────────────────────────────────────────────────
-const STATUS_META = {
-    DRAFT:         { label: 'Nháp',             bg: 'rgba(107,114,128,0.15)',   color: '#4b5563' },
-    PENDING_ACC:   { label: 'Chờ kế toán duyệt', bg: 'rgba(251,191,36,0.18)',   color: '#b45309' },
-    PENDING_DIR:   { label: 'Chờ giám đốc duyệt', bg: 'rgba(251,191,36,0.18)',   color: '#b45309' },
-    PENDING_ISSUE: { label: 'Chuẩn bị hàng',      bg: 'rgba(14,165,233,0.18)',    color: '#0369a1' },
-    ISSUED:        { label: 'Đã xuất hàng',      bg: 'rgba(139,92,246,0.18)',    color: '#6d28d9' },
-    POSTED:        { label: 'Đã ghi sổ',          bg: 'rgba(59,130,246,0.18)',    color: '#1d4ed8' },
-    APPROVED:      { label: 'Đã duyệt',           bg: 'rgba(16,185,129,0.18)',    color: '#047857' },
-    REJECTED:      { label: 'Từ chối',            bg: 'rgba(239,68,68,0.18)',     color: '#b91c1c' },
-    CANCELLED:     { label: 'Đã hủy',             bg: 'rgba(239,68,68,0.18)',     color: '#b91c1c' },
-};
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 const SectionCard = ({ title, subtitle, children, rightSlot }) => (
@@ -128,7 +116,6 @@ export default function ViewGoodDeliveryNoteDetail() {
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const currentStatus = String(gdn?.status || '').toUpperCase();
-    const statusMeta = STATUS_META[currentStatus] || STATUS_META.DRAFT;
 
     const canAct = (currentStatus === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS') ||
         (currentStatus === 'PENDING_DIR' && permissionRole === 'DIRECTOR');
@@ -264,121 +251,6 @@ export default function ViewGoodDeliveryNoteDetail() {
 
     return (
         <div className="create-supplier-page gdn-detail-page">
-            <style>{`
-                .gdn-detail-page .gdn-hero-card {
-                    padding: 24px;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 18px;
-                    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-                    margin-bottom: 24px;
-                }
-                .gdn-detail-page .gdn-hero-top {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    gap: 16px;
-                    flex-wrap: wrap;
-                }
-                .gdn-detail-page .gdn-hero-code {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin-top: 10px;
-                    padding: 7px 12px;
-                    border-radius: 999px;
-                    background: #eff6ff;
-                    color: #1d4ed8;
-                    font-weight: 700;
-                    font-size: 13px;
-                }
-                .gdn-detail-page .gdn-status-pill {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 9px 14px;
-                    border-radius: 999px;
-                    font-weight: 700;
-                    font-size: 13px;
-                    white-space: nowrap;
-                }
-                .gdn-detail-page .gdn-main-grid {
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-                    gap: 24px;
-                    align-items: start;
-                }
-                .gdn-detail-page .gdn-left-column,
-                .gdn-detail-page .gdn-right-column {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 24px;
-                    min-width: 0;
-                }
-                .gdn-detail-page .gdn-table-wrap {
-                    overflow: auto;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 14px;
-                    background: #ffffff;
-                }
-                .gdn-detail-page .gdn-table-wrap .product-table {
-                    min-width: 800px;
-                }
-                .gdn-detail-page .gdn-table-wrap .product-table thead th {
-                    position: sticky;
-                    top: 0;
-                    z-index: 1;
-                    background: #f8fafc;
-                }
-                .gdn-detail-page .gdn-summary-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 12px;
-                }
-                .gdn-detail-page .gdn-lines-summary-divider {
-                    margin: 20px 0 16px;
-                    height: 1px;
-                    background: linear-gradient(90deg, transparent, #e5e7eb 15%, #e5e7eb 85%, transparent);
-                    border: none;
-                }
-                .gdn-detail-page .gdn-lines-summary-title {
-                    font-size: 15px;
-                    font-weight: 700;
-                    color: #111827;
-                    margin: 0 0 12px;
-                }
-                .gdn-detail-page .gdn-note-box {
-                    min-height: 80px;
-                    padding: 16px;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 12px;
-                    background: #f9fafb;
-                    color: #374151;
-                    font-size: 14px;
-                    line-height: 1.6;
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                }
-                .gdn-detail-page .gdn-empty-state {
-                    padding: 28px 12px;
-                    text-align: center;
-                    color: #6b7280;
-                    font-size: 14px;
-                }
-                @media (max-width: 1200px) {
-                    .gdn-detail-page .gdn-main-grid {
-                        grid-template-columns: 1fr;
-                    }
-                }
-                @media (max-width: 768px) {
-                    .gdn-detail-page .gdn-summary-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    .gdn-detail-page .gdn-hero-card {
-                        padding: 18px;
-                    }
-                }
-            `}</style>
-
             {/* Header */}
             <div className="page-header">
                 <div className="page-header-left">
@@ -421,19 +293,16 @@ export default function ViewGoodDeliveryNoteDetail() {
 
             <div className="form-card">
                 <div className="form-wrapper">
-                    {/* Hero */}
-                    <div className="gdn-hero-card">
-                        <div className="gdn-hero-top">
+                    <div className="form-card-intro gdn-detail-intro">
+                        <div className="gdn-detail-intro-row">
                             <div>
-                                <h1 className="page-title" style={{ marginBottom: 0 }}>Chi tiết phiếu xuất kho</h1>
-                                <div className="gdn-hero-code">
-                                    <FileText size={14} />
-                                    Mã phiếu: {gdn.gdnCode || '-'}
-                                </div>
+                                <h1 className="page-title">Chi tiết phiếu xuất kho</h1>
+                                <p className="form-card-required-note" style={{ marginTop: 4 }}>
+                                    <FileText size={14} style={{ verticalAlign: 'text-bottom', marginRight: 6, color: '#2563eb' }} />
+                                    Mã phiếu: <strong>{gdn.gdnCode || '—'}</strong>
+                                </p>
                             </div>
-                            <div className="gdn-status-pill" style={{ backgroundColor: statusMeta.bg, color: statusMeta.color }}>
-                                {statusMeta.label}
-                            </div>
+                            <StatusBadge status={currentStatus} />
                         </div>
                     </div>
 

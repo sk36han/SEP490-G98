@@ -210,7 +210,7 @@ const CreateGoodReceiptNote = () => {
                 setPoList(mappedPOs);
             } catch (err) {
                 console.error('Lỗi load PO list:', err);
-                setPoListError(err?.message || 'Không tải được danh sách đơn mua');
+                setPoListError(err?.message || 'Không tải được danh sách yêu cầu nhập hàng');
             } finally {
                 setPoListLoading(false);
             }
@@ -231,7 +231,7 @@ const CreateGoodReceiptNote = () => {
         const po = getPOByCode(poCode);
         if (!po) {
             if (!poCodeOverride) {
-                showToast('Không tìm thấy đơn mua hàng!', 'error');
+                showToast('Không tìm thấy yêu cầu nhập hàng!', 'error');
                 setConfirmImportPoOpen(false);
             }
             return;
@@ -314,7 +314,7 @@ const CreateGoodReceiptNote = () => {
             showToast(`Đã nhập ${poLines.length} sản phẩm từ ${poDetail.poCode}`, 'success');
         } catch (err) {
             console.error('Lỗi khi import từ PO:', err);
-            showToast(err?.message || 'Lỗi khi nhập từ đơn mua', 'error');
+            showToast(err?.message || 'Lỗi khi nhập từ yêu cầu nhập hàng', 'error');
         } finally {
             setPoImportLoading(false);
         }
@@ -412,7 +412,7 @@ const CreateGoodReceiptNote = () => {
                 setSelectedLineIds(poLines.map(l => l.id));
             } catch (err) {
                 console.error('Lỗi import PO từ query:', err);
-                showToast('Không thể tải thông tin đơn mua hàng', 'error');
+                showToast('Không thể tải thông tin yêu cầu nhập hàng', 'error');
             } finally {
                 setPoImportLoading(false);
             }
@@ -750,13 +750,13 @@ const CreateGoodReceiptNote = () => {
 
     return (
         <div className="create-supplier-page">
-            {/* Popup xác nhận nhập từ đơn mua hàng */}
+            {/* Popup xác nhận nhập từ yêu cầu nhập hàng */}
             <ConfirmDialog
                 open={confirmImportPoOpen}
                 onClose={() => setConfirmImportPoOpen(false)}
                 onConfirm={handleConfirmImportPO}
                 title="Xác nhận"
-                message="Bạn có chắc muốn nhập dữ liệu từ đơn mua hàng này?"
+                message="Bạn có chắc muốn nhập dữ liệu từ yêu cầu nhập hàng này?"
                 confirmText="Xác nhận"
                 cancelText="Hủy"
                 loading={poImportLoading}
@@ -1039,7 +1039,7 @@ const CreateGoodReceiptNote = () => {
                                     >
                                         <Package size={64} strokeWidth={1.5} />
                                         <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có sản phẩm nào</p>
-                                        <p style={{ fontSize: '14px', margin: 0 }}>Chọn đơn mua hàng để tải danh sách sản phẩm</p>
+                                        <p style={{ fontSize: '14px', margin: 0 }}>Chọn yêu cầu nhập hàng để tải danh sách sản phẩm</p>
                                     </div>
                                 ) : (
                                     <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
@@ -1150,7 +1150,7 @@ const CreateGoodReceiptNote = () => {
                                                                 readOnly
                                                                 value={line.orderedQty != null ? line.orderedQty : ''}
                                                                 className="form-input"
-                                                                title="Số lượng đặt theo đơn mua hàng (chỉ xem)"
+                                                                title="Số lượng đặt theo yêu cầu nhập hàng (chỉ xem)"
                                                                 style={{
                                                                     textAlign: 'right',
                                                                     ...READONLY_FIELD_STYLE,
@@ -1317,7 +1317,7 @@ const CreateGoodReceiptNote = () => {
                                 </div>
                                 <div className="form-field" ref={poDropdownRef}>
                                     <label htmlFor="purchaseOrderCode" className="form-label">
-                                        Đơn mua hàng
+                                        Yêu cầu nhập hàng
                                     </label>
                                     {/* Chỉ hiển thị thông tin PO đã chọn, không cho phép chọn/sửa */}
                                     <div></div>

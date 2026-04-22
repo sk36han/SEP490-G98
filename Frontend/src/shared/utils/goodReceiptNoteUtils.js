@@ -131,7 +131,7 @@ export const mapPOListForDropdown = (poList) => {
 };
 
 /**
- * Tổng giá trị hàng trên PO (Σ orderedQty × unitPrice) — dùng làm mẫu số chiết khấu cho khớp đơn mua.
+ * Tổng giá trị hàng trên PO (Σ orderedQty × unitPrice) — dùng làm mẫu số chiết khấu cho khớp yêu cầu nhập hàng.
  * Header TotalAmount đôi khi lệch với tổng dòng; ưu tiên tổng từ lines.
  */
 export const getPoGrossTotalForDiscount = (poDetail) => {
@@ -167,7 +167,7 @@ export const computeProportionalPoDiscountOnGrn = (grnSubtotal, poGrossTotal, po
  * Calculate GRN totals
  * @param {Array} lines
  * @param {Object} formData
- * @param {Object | null} poDetail - Chi tiết PO (để lấy chiết khấu readonly theo đơn mua)
+ * @param {Object | null} poDetail - Chi tiết PO (để lấy chiết khấu readonly theo yêu cầu nhập hàng)
  * @returns {Object} - { subtotal, discountAmount, grandTotal, totalQuantityOrdered, totalAdditionalCosts }
  */
 export const calculateGRNTotals = (lines, formData, poDetail = null) => {

@@ -498,12 +498,12 @@ export default function ViewSupplierDetail() {
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        {/* Đơn mua đã tạo */}
+                                        {/* Yêu cầu nhập hàng đã tạo */}
                                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1.5 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                 <Truck size={18} color="#16a34a" />
                                                 <Typography sx={{ fontSize: '13px', color: '#374151' }}>
-                                                    Đơn mua đã tạo
+                                                    Yêu cầu nhập hàng đã tạo
                                                 </Typography>
                                             </Box>
                                             <Box sx={{ textAlign: 'right' }}>
