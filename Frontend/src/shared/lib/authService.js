@@ -1,5 +1,6 @@
 import apiClient from './axios';
 import { getRoleFromToken } from '../permissions/roleUtils';
+import { handleSessionExpired } from './sessionLifecycle';
 
 const authService = {
     async login(identifier, password, rememberMe = false) {
@@ -56,8 +57,8 @@ const authService = {
                 };
 
                 localStorage.setItem('userInfo', JSON.stringify(userWithRole));
-            } catch (profileError) {
-                console.warn('Failed to fetch user profile:', profileError?.response?.status);
+            } catch {
+                console.warn('Failed to fetch user profile');
                 const roleFromToken = getRoleFromToken(accessToken);
                 const userForStorage = {
                     ...(user || {}),
@@ -140,7 +141,7 @@ const authService = {
                 };
 
                 localStorage.setItem('userInfo', JSON.stringify(userWithRole));
-            } catch (profileError) {
+            } catch {
                 // Fallback: use user from response and role from token
                 const userWithRole = {
                     ...(user || {}),
@@ -244,7 +245,10 @@ const authService = {
         
         const expiresAt = localStorage.getItem('tokenExpiresAt');
         if (expiresAt && new Date(expiresAt) < new Date()) {
-            this.logout();
+            handleSessionExpired({
+                redirectToLogin: false,
+                skipIfOtpPending: true,
+            });
             return false;
         }
         
