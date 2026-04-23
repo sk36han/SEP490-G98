@@ -154,6 +154,9 @@ export default function ViewGoodDeliveryNoteDetail() {
                         actualQty: toNumber(line.actualQty),
                         unitPrice: toNumber(line.unitPrice),
                         lineTotal: toNumber(line.lineTotal),
+                        lotId: line.lotId ?? null,
+                        locationId: line.locationId ?? null,
+                        locationCode: line.locationCode ?? '',
                     }))
                     : [];
 
@@ -451,6 +454,7 @@ export default function ViewGoodDeliveryNoteDetail() {
                                                 <tr>
                                                     <th style={{ width: 56, textAlign: 'center' }}>STT</th>
                                                     <th>Vật tư</th>
+                                                    <th style={{ width: 170 }}>Vị trí / Lô</th>
                                                     <th style={{ width: 120, textAlign: 'right' }}>SL Yêu cầu</th>
                                                     <th style={{ width: 120, textAlign: 'right' }}>Thực xuất</th>
                                                     <th style={{ width: 130, textAlign: 'right' }}>Đơn giá</th>
@@ -465,6 +469,16 @@ export default function ViewGoodDeliveryNoteDetail() {
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                                                 <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{line.itemName || '-'}</span>
                                                                 <span style={{ fontSize: 12, color: '#6b7280' }}>Mã: {line.itemCode || '-'} | ĐVT: {line.uomName || '-'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                <span style={{ fontSize: 13, fontWeight: 600, color: line.locationCode ? '#0f766e' : '#6b7280' }}>
+                                                                    {line.locationCode || (line.locationId ? `#${line.locationId}` : '—')}
+                                                                </span>
+                                                                <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                                                    Lô: {line.lotId ?? '—'}
+                                                                </span>
                                                             </div>
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatQuantity(line.requestedQty)}</td>

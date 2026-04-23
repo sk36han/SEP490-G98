@@ -28,6 +28,7 @@ import { getWarehouses } from '../lib/warehouseService';
 import {
     changeStorageLocationStatus,
     createStorageLocation,
+    getStorageLocationLedger,
     getStorageLocationList,
     updateStorageLocation,
 } from '../lib/storageLocationService';
@@ -82,11 +83,21 @@ const ViewStorageLocationList = () => {
     const [keyword, setKeyword] = useState('');
     const [warehouseFilter, setWarehouseFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [stockFilter, setStockFilter] = useState('all');
+    const [itemCodeFilter, setItemCodeFilter] = useState('');
+    const [minQtyFilter, setMinQtyFilter] = useState('');
+    const [maxQtyFilter, setMaxQtyFilter] = useState('');
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingRow, setEditingRow] = useState(null);
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [submitting, setSubmitting] = useState(false);
+    const [ledgerDialog, setLedgerDialog] = useState({ open: false, row: null });
+    const [ledgerLoading, setLedgerLoading] = useState(false);
+    const [ledgerRows, setLedgerRows] = useState([]);
+    const [ledgerPage, setLedgerPage] = useState(1);
+    const [ledgerPageSize] = useState(10);
+    const [ledgerTotalItems, setLedgerTotalItems] = useState(0);
 
     const fetchWarehouses = useCallback(async () => {
         try {
@@ -106,6 +117,10 @@ const ViewStorageLocationList = () => {
                 warehouseId: warehouseFilter || undefined,
                 keyword: keyword.trim() || undefined,
                 isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
+                hasStock: stockFilter === 'all' ? undefined : stockFilter === 'has-stock',
+                itemCode: itemCodeFilter.trim() || undefined,
+                minQty: minQtyFilter === '' ? undefined : Number(minQtyFilter),
+                maxQty: maxQtyFilter === '' ? undefined : Number(maxQtyFilter),
             });
             setRows(res.items ?? []);
             setTotalItems(res.totalItems ?? 0);
@@ -117,7 +132,27 @@ const ViewStorageLocationList = () => {
         } finally {
             setLoading(false);
         }
-    }, [keyword, page, pageSize, showToast, statusFilter, warehouseFilter]);
+    }, [keyword, page, pageSize, showToast, statusFilter, warehouseFilter, stockFilter, itemCodeFilter, minQtyFilter, maxQtyFilter]);
+
+    const fetchLocationLedger = useCallback(async (locationId, pageNumber = 1) => {
+        setLedgerLoading(true);
+        try {
+            const res = await getStorageLocationLedger(locationId, {
+                page: pageNumber,
+                pageSize: ledgerPageSize,
+            });
+            setLedgerRows(res.items ?? []);
+            setLedgerTotalItems(res.totalItems ?? 0);
+            setLedgerPage(pageNumber);
+        } catch (error) {
+            console.error('Load location ledger failed:', error);
+            showToast(error?.message || 'Không tải được lịch sử biến động vị trí', 'error');
+            setLedgerRows([]);
+            setLedgerTotalItems(0);
+        } finally {
+            setLedgerLoading(false);
+        }
+    }, [ledgerPageSize, showToast]);
 
     useEffect(() => {
         fetchWarehouses();
@@ -154,6 +189,18 @@ const ViewStorageLocationList = () => {
         setDialogOpen(false);
         setEditingRow(null);
         setFormData(EMPTY_FORM);
+    };
+
+    const openLedgerDialog = async (row) => {
+        setLedgerDialog({ open: true, row });
+        await fetchLocationLedger(row.locationId, 1);
+    };
+
+    const closeLedgerDialog = () => {
+        setLedgerDialog({ open: false, row: null });
+        setLedgerRows([]);
+        setLedgerPage(1);
+        setLedgerTotalItems(0);
     };
 
     const validateForm = () => {
@@ -288,6 +335,57 @@ const ViewStorageLocationList = () => {
                         </Select>
                     </FormControl>
 
+                    <FormControl size="small" sx={{ minWidth: 170 }}>
+                        <InputLabel>Tồn kho</InputLabel>
+                        <Select
+                            label="Tồn kho"
+                            value={stockFilter}
+                            onChange={(e) => {
+                                setStockFilter(e.target.value);
+                                setPage(1);
+                            }}
+                        >
+                            <MenuItem value="all">Tất cả</MenuItem>
+                            <MenuItem value="has-stock">Có hàng</MenuItem>
+                            <MenuItem value="empty">Trống</MenuItem>
+                        </Select>
+                    </FormControl>
+
+                    <TextField
+                        size="small"
+                        label="Mã vật tư"
+                        value={itemCodeFilter}
+                        onChange={(e) => {
+                            setItemCodeFilter(e.target.value);
+                            setPage(1);
+                        }}
+                        sx={{ minWidth: 150 }}
+                    />
+
+                    <TextField
+                        size="small"
+                        label="SL từ"
+                        type="number"
+                        value={minQtyFilter}
+                        onChange={(e) => {
+                            setMinQtyFilter(e.target.value);
+                            setPage(1);
+                        }}
+                        sx={{ width: 110 }}
+                    />
+
+                    <TextField
+                        size="small"
+                        label="SL đến"
+                        type="number"
+                        value={maxQtyFilter}
+                        onChange={(e) => {
+                            setMaxQtyFilter(e.target.value);
+                            setPage(1);
+                        }}
+                        sx={{ width: 110 }}
+                    />
+
                     <Button
                         variant="outlined"
                         startIcon={<RefreshCw size={16} />}
@@ -324,19 +422,20 @@ const ViewStorageLocationList = () => {
                                 <TableCell sx={{ fontWeight: 600, minWidth: 220 }}>Tồn tại vị trí</TableCell>
                                 <TableCell sx={{ fontWeight: 600, minWidth: 280 }}>Vật tư đang chứa</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Trạng thái</TableCell>
+                                <TableCell sx={{ fontWeight: 600, textAlign: 'right' }}>Lịch sử</TableCell>
                                 {canManage && <TableCell sx={{ fontWeight: 600, textAlign: 'right' }}>Thao tác</TableCell>}
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={canManage ? 8 : 7} sx={{ textAlign: 'center', py: 4 }}>
+                                    <TableCell colSpan={canManage ? 9 : 8} sx={{ textAlign: 'center', py: 4 }}>
                                         Đang tải dữ liệu...
                                     </TableCell>
                                 </TableRow>
                             ) : rows.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={canManage ? 8 : 7} sx={{ textAlign: 'center', py: 5, color: '#9ca3af' }}>
+                                    <TableCell colSpan={canManage ? 9 : 8} sx={{ textAlign: 'center', py: 5, color: '#9ca3af' }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                                             <MapPin size={16} />
                                             Chưa có vị trí kho
@@ -370,6 +469,16 @@ const ViewStorageLocationList = () => {
                                         </TableCell>
                                         <TableCell>
                                             <StatusBadge status={row.isActive} dot="•" variant="dot" />
+                                        </TableCell>
+                                        <TableCell sx={{ textAlign: 'right' }}>
+                                            <Button
+                                                size="small"
+                                                variant="text"
+                                                onClick={() => openLedgerDialog(row)}
+                                                sx={{ textTransform: 'none' }}
+                                            >
+                                                Lịch sử
+                                            </Button>
                                         </TableCell>
                                         {canManage && (
                                             <TableCell sx={{ textAlign: 'right' }}>
@@ -504,6 +613,65 @@ const ViewStorageLocationList = () => {
                     >
                         {submitting ? 'Đang lưu...' : editingRow ? 'Cập nhật' : 'Tạo mới'}
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={ledgerDialog.open} onClose={closeLedgerDialog} fullWidth maxWidth="lg">
+                <DialogTitle>
+                    Lịch sử vị trí: {ledgerDialog.row?.locationCode}
+                    {ledgerDialog.row?.locationName ? ` - ${ledgerDialog.row.locationName}` : ''}
+                </DialogTitle>
+                <DialogContent sx={{ pt: 1 }}>
+                    <TableContainer sx={{ maxHeight: 460 }}>
+                        <Table stickyHeader size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>Thời gian</TableCell>
+                                    <TableCell>Chứng từ</TableCell>
+                                    <TableCell>Vật tư</TableCell>
+                                    <TableCell sx={{ textAlign: 'right' }}>Biến động</TableCell>
+                                    <TableCell sx={{ textAlign: 'right' }}>Trước</TableCell>
+                                    <TableCell sx={{ textAlign: 'right' }}>Sau</TableCell>
+                                    <TableCell>Người thao tác</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {ledgerLoading ? (
+                                    <TableRow><TableCell colSpan={7} sx={{ textAlign: 'center', py: 3 }}>Đang tải...</TableCell></TableRow>
+                                ) : ledgerRows.length === 0 ? (
+                                    <TableRow><TableCell colSpan={7} sx={{ textAlign: 'center', py: 3, color: '#9ca3af' }}>Chưa có biến động</TableCell></TableRow>
+                                ) : (
+                                    ledgerRows.map((row) => (
+                                        <TableRow key={row.inventoryTxnLineId}>
+                                            <TableCell>{new Date(row.txnDate).toLocaleString('vi-VN')}</TableCell>
+                                            <TableCell>{row.voucherCode || '-'}</TableCell>
+                                            <TableCell>{row.itemCode ? `${row.itemCode} - ${row.itemName || ''}` : (row.itemName || '-')}</TableCell>
+                                            <TableCell sx={{ textAlign: 'right', fontWeight: 600, color: Number(row.qtyChange) >= 0 ? '#059669' : '#dc2626' }}>
+                                                {Number(row.qtyChange) >= 0 ? '+' : ''}{formatQty(row.qtyChange)}
+                                            </TableCell>
+                                            <TableCell sx={{ textAlign: 'right' }}>{formatQty(row.balanceBefore)}</TableCell>
+                                            <TableCell sx={{ textAlign: 'right', fontWeight: 600 }}>{formatQty(row.balanceAfter)}</TableCell>
+                                            <TableCell>{row.performedByName || 'Hệ thống'}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                    <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                            Trang {ledgerPage} / {Math.max(1, Math.ceil((ledgerTotalItems || 0) / ledgerPageSize))}
+                        </Typography>
+                        <Button size="small" variant="outlined" disabled={ledgerPage <= 1 || ledgerLoading} onClick={() => fetchLocationLedger(ledgerDialog.row?.locationId, ledgerPage - 1)}>
+                            Trước
+                        </Button>
+                        <Button size="small" variant="outlined" disabled={ledgerPage >= Math.max(1, Math.ceil((ledgerTotalItems || 0) / ledgerPageSize)) || ledgerLoading} onClick={() => fetchLocationLedger(ledgerDialog.row?.locationId, ledgerPage + 1)}>
+                            Sau
+                        </Button>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={closeLedgerDialog} sx={{ textTransform: 'none' }}>Đóng</Button>
                 </DialogActions>
             </Dialog>
         </Box>
