@@ -70,10 +70,16 @@ namespace Warehouse.DataAcces.Service
                     .SumAsync(l => (decimal?)l.ReturnQty) ?? 0;
 
                 var availableQty = grnLine.ActualQty - totalReturned;
+                var availableInLots = await GetAvailableLotQtyForGrnLineAsync(
+                    grnLine.GrnlineId,
+                    grn.WarehouseId,
+                    grnLine.ItemId);
+                var effectiveAvailableQty = Math.Min(availableQty, availableInLots);
 
-                if (line.ReturnQty > availableQty)
+                if (line.ReturnQty > effectiveAvailableQty)
                 {
-                    throw new InvalidOperationException($"So luong tra ({line.ReturnQty}) vuot qua so luong kha dung ({availableQty}) cho vat tu {grnLine.Item?.ItemName}.");
+                    throw new InvalidOperationException(
+                        $"So luong tra ({line.ReturnQty}) vuot qua so luong kha dung ({effectiveAvailableQty}) cho vat tu {grnLine.Item?.ItemName}.");
                 }
 
                 if (line.ReturnQty <= 0)
@@ -401,11 +407,16 @@ namespace Warehouse.DataAcces.Service
                     .SumAsync(l => (decimal?)l.ReturnQty) ?? 0;
 
                 var availableQty = grnLine.ActualQty - totalOtherReturns;
+                var availableInLots = await GetAvailableLotQtyForGrnLineAsync(
+                    grnLine.GrnlineId,
+                    grn.WarehouseId,
+                    grnLine.ItemId);
+                var effectiveAvailableQty = Math.Min(availableQty, availableInLots);
 
-                if (line.ReturnQty > availableQty)
+                if (line.ReturnQty > effectiveAvailableQty)
                 {
                     throw new InvalidOperationException(
-                        $"So luong tra ({line.ReturnQty}) vuot qua so luong kha dung ({availableQty}) cho vat tu {grnLine.Item?.ItemName}.");
+                        $"So luong tra ({line.ReturnQty}) vuot qua so luong kha dung ({effectiveAvailableQty}) cho vat tu {grnLine.Item?.ItemName}.");
                 }
 
                 if (line.ReturnQty <= 0)
@@ -790,6 +801,26 @@ namespace Warehouse.DataAcces.Service
                 && l.PurchaseReturn != null
                 && l.PurchaseReturn.Status != null
                 && l.PurchaseReturn.Status.ToUpper() != "CANCELLED");
+
+        /// <summary>
+        /// So luong ton lot kha dung hien tai cua 1 dong nhap trong kho.
+        /// Dung de chan tao/cap nhat PRN vuot qua ton thuc te sau khi da xuat.
+        /// </summary>
+        private async Task<decimal> GetAvailableLotQtyForGrnLineAsync(long grnLineId, long warehouseId, long itemId)
+        {
+            if (warehouseId <= 0)
+            {
+                return 0;
+            }
+
+            return await _context.InventoryLots
+                .Where(lot =>
+                    lot.GrnlineId == grnLineId
+                    && lot.WarehouseId == warehouseId
+                    && lot.ItemId == itemId
+                    && lot.Quantity > 0)
+                .SumAsync(l => (decimal?)l.Quantity) ?? 0m;
+        }
 
         private async Task<string> GenerateNextPrnCodeAsync()
         {

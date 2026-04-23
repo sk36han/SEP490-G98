@@ -34,6 +34,7 @@ import ViewUomList from '../shared/pages/ViewUomList';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewWarehouseDetail from '../shared/pages/ViewWarehouseDetail';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
+import ViewStorageLocationList from '../shared/pages/ViewStorageLocationList';
 
 // ── Inventory ──────────────────────────────────────────────────────────────────
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
@@ -134,6 +135,7 @@ const AppRoutes = () => (
         <Route path="/inventory" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseList /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/create" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><CreateWarehouse /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/storage-locations" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewStorageLocationList /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentList /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments/create" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><CreateInventoryAdjustment /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentDetail /></MainLayout></ProtectedRoute>} />

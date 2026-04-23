@@ -42,4 +42,6 @@ public partial class Warehouse
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 
     public virtual ICollection<StocktakeSession> StocktakeSessions { get; set; } = new List<StocktakeSession>();
+
+    public virtual ICollection<StorageLocation> StorageLocations { get; set; } = new List<StorageLocation>();
 }
