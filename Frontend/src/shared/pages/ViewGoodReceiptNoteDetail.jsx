@@ -956,6 +956,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                         icon={FileText}
                                     />
 
+                                    {/* Ẩn tạm: trạng thái & phương thức thanh toán trên GRN detail
                                     <div className="form-field">
                                         <label className="form-label">Trạng thái thanh toán</label>
                                         <div
@@ -990,6 +991,7 @@ const ViewGoodReceiptNoteDetail = () => {
                                             icon={CreditCard}
                                         />
                                     )}
+                                    */}
                                 </div>
                             </div>
 
