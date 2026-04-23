@@ -34,13 +34,11 @@ import {
     Plus,
     X,
     Layers,
-    Tag,
-    Scale,
-    Warehouse,
     CheckCircle,
 } from 'lucide-react';
 import authService from '../lib/authService';
 import { getItemDetail, updateItem } from '../lib/itemService';
+import { getItemParameterList } from '../lib/itemParameterService';
 import { MOCK_INVENTORY_LOTS, getGrnCodeFromLineId, formatLotMoney, formatLotQuantityInt } from '../utils/inventoryLotsMock';
 import { getPermissionRole, getRawRoleFromUser, isAccountantView } from '../permissions/roleUtils';
 import { useMasterData } from '../../app/context/MasterDataContext';
@@ -195,20 +193,6 @@ const StatusBadge = ({ config }) => (
     </div>
 );
 
-// StatBox — stat card nhỏ cho side column
-const StatBox = ({ label, value, color = '#0f172a', bg = '#f8fafc', borderColor = '#e2e8f0', icon: Icon }) => (
-    <div style={{
-        padding: '12px 14px', backgroundColor: bg,
-        border: `1px solid ${borderColor}`, borderRadius: '10px',
-    }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            {Icon && <Icon size={14} color="#64748b" />}
-            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>{label}</div>
-        </div>
-        <div style={{ fontSize: '16px', fontWeight: 700, color }}>{value}</div>
-    </div>
-);
-
 // PillBadge — cho CO/CQ view mode
 const PillBadge = ({ value }) => {
     const isYes = Boolean(value);
@@ -258,13 +242,17 @@ const BoolToggle = ({ name, value, onChange }) => {
 // ReadOnlyBox
 const ReadOnlyBox = ({ children, highlight = false }) => (
     <div style={{
-        padding: '0 12px', borderRadius: EDIT_RADIUS,
-        border: highlight ? '1px solid #bfdbfe' : '1px solid #e5e7eb',
-        backgroundColor: highlight ? '#eff6ff' : EDIT_BG,
-        fontSize: '14px', fontWeight: highlight ? 600 : 500,
-        color: highlight ? '#1d4ed8' : '#334155',
-        minHeight: ROW_HEIGHT, display: 'flex', alignItems: 'center',
-        flex: 1, wordBreak: 'break-word',
+        padding: '2px 0 6px 0',
+        borderBottom: highlight ? '2px solid #93c5fd' : '1px solid #cbd5e1',
+        fontSize: '14px',
+        fontWeight: highlight ? 600 : 500,
+        color: highlight ? '#1d4ed8' : '#1e293b',
+        minHeight: ROW_HEIGHT,
+        display: 'flex',
+        alignItems: 'center',
+        flex: 1,
+        wordBreak: 'break-word',
+        backgroundColor: 'transparent',
     }}>
         {children || '—'}
     </div>
@@ -273,10 +261,14 @@ const ReadOnlyBox = ({ children, highlight = false }) => (
 // DescriptionBlock
 const DescriptionBlock = ({ children }) => (
     <div style={{
-        padding: '10px 12px', borderRadius: EDIT_RADIUS,
-        border: '1px solid #e5e7eb', backgroundColor: EDIT_BG,
-        fontSize: '14px', color: '#334155',
-        lineHeight: 1.6, wordBreak: 'break-word',
+        padding: '4px 0 8px 0',
+        borderBottom: '1px solid #cbd5e1',
+        fontSize: '14px',
+        color: '#1e293b',
+        lineHeight: 1.7,
+        wordBreak: 'break-word',
+        whiteSpace: 'pre-wrap',
+        minHeight: 42,
     }}>
         {children || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Chưa có mô tả</span>}
     </div>
@@ -424,6 +416,7 @@ export default function ViewItemDetail() {
     const [formData, setFormData] = useState({});
     const [localUomOptions, setLocalUomOptions] = useState([]);
     const [localPackOptions, setLocalPackOptions] = useState([]);
+    const [localSpecOptions, setLocalSpecOptions] = useState([]);
     const [createUomOpen, setCreateUomOpen] = useState(false);
     const [createPackOpen, setCreatePackOpen] = useState(false);
 
@@ -493,6 +486,24 @@ export default function ViewItemDetail() {
     }, [uoms]);
 
     useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await getItemParameterList({ page: 1, pageSize: 200 });
+                const rows = Array.isArray(res?.data?.items) ? res.data.items
+                    : Array.isArray(res?.items) ? res.items
+                    : Array.isArray(res?.data) ? res.data
+                    : Array.isArray(res) ? res : [];
+                if (!cancelled) setLocalSpecOptions(rows.map((s) => ({
+                    id: s.specificationId ?? s.paramId ?? s.ParamId ?? s.specId ?? s.id,
+                    name: s.specName ?? s.paramName ?? s.name,
+                })));
+            } catch { /* giữ rỗng nếu lỗi */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
         setStockSectionTab('warehouse');
     }, [id]);
 
@@ -507,6 +518,7 @@ export default function ViewItemDetail() {
             brandId: item.brandId ?? '',
             baseUomId: item.baseUomId ?? '',
             packagingSpecId: item.packagingSpecId ?? '',
+            specId: item.specId ?? '',
             requiresCO: item.requiresCO ?? false,
             requiresCQ: item.requiresCQ ?? false,
         });
@@ -545,6 +557,7 @@ export default function ViewItemDetail() {
                 brandId: formData.brandId || null,
                 baseUomId: formData.baseUomId,
                 packagingSpecId: formData.packagingSpecId || null,
+                specId: formData.specId !== '' && formData.specId != null ? Number(formData.specId) : null,
                 requiresCo: formData.requiresCO,
                 requiresCq: formData.requiresCQ,
                 defaultWarehouseId: item.defaultWarehouseId ?? null,
@@ -570,6 +583,7 @@ export default function ViewItemDetail() {
 
     const allUomOptions = [...localUomOptions];
     const allPackOptions = [...localPackOptions];
+    const allSpecOptions = [...localSpecOptions];
 
     // ─── Render helpers ───────────────────────────────────────────────────
     if (loading) {
@@ -626,15 +640,6 @@ export default function ViewItemDetail() {
         ? { label: 'Đang giao dịch', color: '#047857', bg: 'rgba(16,185,129,0.18)', icon: <CheckCircle size={16} /> }
         : { label: 'Tạm dừng', color: '#b91c1c', bg: 'rgba(239,68,68,0.15)', icon: <X size={16} /> };
 
-    // Computed stats
-    const totalOnHand = itemWarehouses.reduce((s, w) => s + (w.onHandQty ?? 0), 0);
-    const totalReserved = itemWarehouses.reduce((s, w) => s + (w.reservedQty ?? 0), 0);
-    const totalAvailable = itemWarehouses.reduce((s, w) => s + (w.availableQty ?? Math.max(0, (w.onHandQty ?? 0) - (w.reservedQty ?? 0))), 0);
-    const totalPreOrder = itemWarehouses.reduce((s, w) => s + (w.preOrderQty ?? 0), 0);
-
-    // Side column width
-    const SIDE_COL = '360px';
-
     return (
         <div className="create-supplier-page view-item-detail-page">
             {/* ─── PAGE HEADER ─── */}
@@ -671,67 +676,41 @@ export default function ViewItemDetail() {
                 <div className="form-wrapper">
                     {/* ─── PAGE INTRO ─── */}
                     <div className="form-card-intro">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                            <div>
-                                <h1 className="page-title">{isEditing ? 'Chỉnh sửa vật tư' : 'Chi tiết vật tư'}</h1>
-                                {!isEditing && (
-                                    <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
-                                        Mã vật tư:{' '}
-                                        <span style={{ fontWeight: 600, color: '#2196F3' }}>{item.itemCode}</span>
-                                        {item.brandName || item.categoryName ? (
-                                            <>&nbsp;&bull;&nbsp;{item.brandName || item.categoryName}</>
-                                        ) : null}
-                                    </p>
-                                )}
-                            </div>
-                            <StatusBadge config={statusConfig} />
+                        <div>
+                            <h1 className="page-title">{isEditing ? 'Chỉnh sửa vật tư' : 'Chi tiết vật tư'}</h1>
+                            {!isEditing && (
+                                <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 0 0' }}>
+                                    Mã vật tư:{' '}
+                                    <span style={{ fontWeight: 600, color: '#2196F3' }}>{item.itemCode}</span>
+                                    {item.brandName || item.categoryName ? (
+                                        <>&nbsp;&bull;&nbsp;{item.brandName || item.categoryName}</>
+                                    ) : null}
+                                </p>
+                            )}
                         </div>
                     </div>
 
-                    {/* ─── TOP ROW: Thông tin chung + Side column ─── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: `1fr ${SIDE_COL}`, gap: '24px', alignItems: 'start' }}>
-
-                        {/* ── LEFT: Thông tin chung ── */}
-                        <div className="info-section" style={{ margin: 0 }}>
+                    {/* ─── MAIN GRID: 6-4 như trang Create ─── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '60% 40%', gap: '24px', alignItems: 'stretch' }}>
+                        {/* LEFT CARD: Thông tin chung */}
+                        <div className="info-section" style={{ margin: 0, height: '100%', boxSizing: 'border-box' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Thông tin chung</h2>
                             </div>
 
-                            {/* Hero row: thumbnail + 3-col grid */}
-                            <div style={{ display: 'flex', gap: '20px', marginBottom: FIELD_GAP, flexWrap: 'wrap' }}>
-                                {/* Thumbnail */}
-                                <div style={{
-                                    width: 88, minWidth: 88, height: 88, borderRadius: 10,
-                                    border: '1px solid #e5e7eb', backgroundColor: '#f1f5f9',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                }}>
-                                    <Package size={40} color="#cbd5e1" />
+                            <div style={{ display: 'flex', gap: FIELD_GAP, alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                                    <div style={{
+                                        width: 160, minWidth: 160, height: 160, borderRadius: 12,
+                                        border: '1px solid #e5e7eb', backgroundColor: '#f1f5f9',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        overflow: 'hidden', flexShrink: 0,
+                                    }}>
+                                        <Package size={72} color="#cbd5e1" />
+                                    </div>
                                 </div>
 
-                                {/* 3-col grid */}
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                                    gap: FIELD_GAP,
-                                    flex: 1,
-                                    minWidth: 0,
-                                    alignContent: 'flex-start',
-                                }}>
-                                    {/* Mã vật tư */}
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Mã vật tư</div>
-                                        <div style={{
-                                            padding: '0 12px', borderRadius: EDIT_RADIUS, border: '1px solid #e5e7eb',
-                                            backgroundColor: EDIT_BG, fontSize: '14px', fontWeight: 600, color: '#334155',
-                                            fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
-                                            minHeight: ROW_HEIGHT, display: 'flex', alignItems: 'center',
-                                            flex: 1,
-                                        }}>
-                                            {item.itemCode || '—'}
-                                        </div>
-                                    </div>
-
-                                    {/* Tên vật tư */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Tên vật tư</div>
                                         {isEditing ? (
@@ -743,9 +722,8 @@ export default function ViewItemDetail() {
                                         )}
                                     </div>
 
-                                    {/* Dạng vật tư */}
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Dạng vật tư</div>
+                                        <div style={LABEL_STYLE}>Loại vật tư</div>
                                         {isEditing ? (
                                             <TextField select fullWidth size="small" name="itemType"
                                                 value={formData.itemType || 'Product'} onChange={handleChange}
@@ -760,7 +738,6 @@ export default function ViewItemDetail() {
                                         )}
                                     </div>
 
-                                    {/* Thương hiệu */}
                                     <div style={FIELD_WRAPPER}>
                                         <div style={LABEL_STYLE}>Thương hiệu</div>
                                         {isEditing ? (
@@ -788,36 +765,35 @@ export default function ViewItemDetail() {
                                         )}
                                     </div>
 
-                                    {/* Yêu cầu CO */}
                                     <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Yêu cầu CO</div>
+                                        <div style={LABEL_STYLE}>Mô tả</div>
                                         {isEditing ? (
-                                            <BoolToggle name="requiresCO" value={formData.requiresCO} onChange={handleChange} />
+                                            <TextField fullWidth size="small" name="description"
+                                                value={formData.description || ''} onChange={handleChange}
+                                                multiline rows={3} InputLabelProps={{ shrink: true }} sx={editTextareaSx} />
+                                        ) : item.description ? (
+                                            <DescriptionBlock>{item.description}</DescriptionBlock>
                                         ) : (
-                                            <PillBadge value={item.requiresCO} />
-                                        )}
-                                    </div>
-
-                                    {/* Yêu cầu CQ */}
-                                    <div style={FIELD_WRAPPER}>
-                                        <div style={LABEL_STYLE}>Yêu cầu CQ</div>
-                                        {isEditing ? (
-                                            <BoolToggle name="requiresCQ" value={formData.requiresCQ} onChange={handleChange} />
-                                        ) : (
-                                            <PillBadge value={item.requiresCQ} />
+                                            <DescriptionBlock />
                                         )}
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Meta grid: Danh mục | Đơn vị tính | Quy cách đóng gói */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                                gap: FIELD_GAP,
-                                marginBottom: FIELD_GAP,
-                            }}>
-                                {/* Danh mục */}
+                        {/* RIGHT CARD: Thông tin hệ thống */}
+                        <div className="info-section" style={{ margin: 0, height: '100%', boxSizing: 'border-box' }}>
+                            <div className="section-header-with-toggle">
+                                <h2 className="section-title">Thông tin hệ thống</h2>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={FIELD_WRAPPER}>
+                                    <div style={LABEL_STYLE}>Trạng thái</div>
+                                    <div style={{ minHeight: ROW_HEIGHT, display: 'flex', alignItems: 'center' }}>
+                                        <StatusBadge config={statusConfig} />
+                                    </div>
+                                </div>
+
                                 <div style={FIELD_WRAPPER}>
                                     <div style={LABEL_STYLE}>Danh mục</div>
                                     {isEditing ? (
@@ -849,7 +825,6 @@ export default function ViewItemDetail() {
                                     )}
                                 </div>
 
-                                {/* Đơn vị tính */}
                                 <div style={FIELD_WRAPPER}>
                                     <div style={LABEL_STYLE}>Đơn vị tính</div>
                                     {isEditing ? (
@@ -889,7 +864,6 @@ export default function ViewItemDetail() {
                                     )}
                                 </div>
 
-                                {/* Quy cách đóng gói */}
                                 <div style={FIELD_WRAPPER}>
                                     <div style={LABEL_STYLE}>Quy cách đóng gói</div>
                                     {isEditing ? (
@@ -928,52 +902,56 @@ export default function ViewItemDetail() {
                                         <ReadOnlyBox>{item.packagingSpecName || item.packagingSpecId || '—'}</ReadOnlyBox>
                                     )}
                                 </div>
-                            </div>
 
-                            {/* Mô tả — cuối card, full width */}
-                            <div style={FIELD_WRAPPER}>
-                                <div style={LABEL_STYLE}>Mô tả</div>
-                                {isEditing ? (
-                                    <TextField fullWidth size="small" name="description"
-                                        value={formData.description || ''} onChange={handleChange}
-                                        multiline rows={3} InputLabelProps={{ shrink: true }} sx={editTextareaSx} />
-                                ) : item.description ? (
-                                    <DescriptionBlock>{item.description}</DescriptionBlock>
-                                ) : (
-                                    <DescriptionBlock />
-                                )}
-                            </div>
-
-                        </div>
-
-                        {/* ── RIGHT: Side column — Tổng quan vật tư ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '16px' }}>
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng quan vật tư</h2>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {showStockBlock ? (
-                                        <>
-                                            <StatBox label="Tồn kho" value={formatQty(totalOnHand)} color="#0f172a" icon={Warehouse} />
-                                            <StatBox label="Có thể bán" value={formatQty(totalAvailable)} color="#10b981" bg="#f0fdf4" borderColor="#bbf7d0" icon={Package} />
-                                            {(totalReserved > 0 || totalPreOrder > 0) && (
-                                                <StatBox label="Đặt trước" value={formatQty(totalPreOrder > 0 ? totalPreOrder : totalReserved)} color="#d97706" bg="#fffbeb" borderColor="#fde68a" icon={Layers} />
+                                <div style={FIELD_WRAPPER}>
+                                    <div style={LABEL_STYLE}>Thông số sản phẩm</div>
+                                    {isEditing ? (
+                                        <Autocomplete size="small" fullWidth
+                                            options={allSpecOptions}
+                                            getOptionLabel={(opt) => (opt && opt.name) || ''}
+                                            value={allSpecOptions.find((o) => String(o.id) === String(formData.specId)) ?? null}
+                                            onChange={(e, newValue) => {
+                                                handleChange({ target: { name: 'specId', value: newValue?.id ?? '' } });
+                                            }}
+                                            isOptionEqualToValue={(opt, val) => String(opt?.id) === String(val?.id)}
+                                            renderOption={(props, option) => (
+                                                <li {...props} key={option.id} style={{ fontSize: '14px' }}>{option.name}</li>
                                             )}
-                                            <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                        </>
+                                            ListboxProps={{ sx: { minWidth: 320, '& li': { fontSize: '14px' } } }}
+                                            renderInput={(params) => (
+                                                <TextField {...params}
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            ...baseEditInput,
+                                                            minHeight: ROW_HEIGHT,
+                                                            '& .MuiInputBase-input': { fontSize: '14px', padding: '0 32px 0 12px', minHeight: ROW_HEIGHT },
+                                                        },
+                                                        '& .MuiInputLabel-root': { fontSize: '13px', color: '#64748b', fontWeight: 600, transform: 'none', position: 'relative', marginBottom: '2px' },
+                                                    }} />
+                                            )}
+                                        />
                                     ) : (
-                                        <>
-                                            <StatBox label="Dạng vật tư" value={item.itemType || '—'} color="#334155" icon={Tag} />
-                                            <StatBox label="Đơn vị tính" value={item.baseUomName || '—'} color="#334155" icon={Scale} />
-                                            {item.categoryName && (
-                                                <StatBox label="Danh mục" value={item.categoryName} color="#334155" icon={Layers} />
-                                            )}
-                                            {item.brandName && (
-                                                <StatBox label="Thương hiệu" value={item.brandName} color="#334155" icon={Tag} />
-                                            )}
-                                        </>
+                                        <ReadOnlyBox>{item.specName || item.specId || '—'}</ReadOnlyBox>
                                     )}
+                                </div>
+
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '10px 20px' }}>
+                                    <div style={{ ...FIELD_WRAPPER, flex: '0 0 auto', minWidth: 0 }}>
+                                        <div style={LABEL_STYLE}>Yêu cầu CO</div>
+                                        {isEditing ? (
+                                            <BoolToggle name="requiresCO" value={formData.requiresCO} onChange={handleChange} />
+                                        ) : (
+                                            <PillBadge value={item.requiresCO} />
+                                        )}
+                                    </div>
+                                    <div style={{ ...FIELD_WRAPPER, flex: '0 0 auto', minWidth: 0 }}>
+                                        <div style={LABEL_STYLE}>Yêu cầu CQ</div>
+                                        {isEditing ? (
+                                            <BoolToggle name="requiresCQ" value={formData.requiresCQ} onChange={handleChange} />
+                                        ) : (
+                                            <PillBadge value={item.requiresCQ} />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
