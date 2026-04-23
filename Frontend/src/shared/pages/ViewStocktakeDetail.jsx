@@ -73,8 +73,10 @@ const ViewStocktakeDetail = () => {
     const isAdmin = permissionRole === 'ADMIN';
     /** Nháp / gửi duyệt kế hoạch — chủ yếu kế toán (và admin) */
     const canEditDraftPlan = isAccountant || isAdmin;
-    /** Bắt đầu kiểm kê, nhập số đếm, gửi kết quả — kế toán + thủ kho thực hiện đếm (+ admin) */
-    const canRunExecution = isAccountant || isWarehouseKeeper || isAdmin;
+    /** Bắt đầu kiểm kê: chỉ thủ kho + admin */
+    const canStartExecution = isWarehouseKeeper;
+    /** Nhập số đếm, gửi kết quả — kế toán + thủ kho (+ admin) */
+    const canRunExecution = isAccountant || isWarehouseKeeper ;
     // Derive stocktakeData from detail + lines
     const stocktakeData = useMemo(() => {
         if (!detailData) return null;
@@ -157,6 +159,10 @@ const ViewStocktakeDetail = () => {
     const startCounting = async () => {
         const execId = stocktakeData.id ?? stocktakeData.stocktakeId;
         if (!execId) return;
+        if (!canStartExecution) {
+            showToast('Bạn không có quyền bắt đầu kiểm kê.', 'warning');
+            return;
+        }
         try {
             setSubmitting(true);
             const result = await startStocktakeExecution(execId);
@@ -673,7 +679,7 @@ const ViewStocktakeDetail = () => {
                             >
                                 <div className="section-header-with-toggle" style={{ flexShrink: 0 }}>
                                     <h2 className="section-title">Danh sách vật tư kiểm kê</h2>
-                                    {!isCounting && normalizeStocktakeStatus(stocktakeData?.status) === 'APPROVED' && canRunExecution && !submitting && (
+                                    {!isCounting && normalizeStocktakeStatus(stocktakeData?.status) === 'APPROVED' && canStartExecution && !submitting && (
                                         <button
                                             type="button"
                                             className="btn btn-secondary"
