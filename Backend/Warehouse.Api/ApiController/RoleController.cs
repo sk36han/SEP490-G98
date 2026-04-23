@@ -41,6 +41,11 @@ namespace Warehouse.Api.ApiController
 		[HttpPost("create-role")]
 		public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
 		{
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+			}
+
 			try
 			{
 				var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
@@ -68,6 +73,11 @@ namespace Warehouse.Api.ApiController
 		[HttpPut("update-role/{id}")]
 		public async Task<IActionResult> UpdateRole(long id, [FromBody] UpdateRoleRequest request)
 		{
+			if (!ModelState.IsValid)
+			{
+				return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+			}
+
 			try
 			{
 				var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);

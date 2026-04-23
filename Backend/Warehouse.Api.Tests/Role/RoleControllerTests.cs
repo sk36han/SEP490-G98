@@ -20,8 +20,8 @@ namespace WarehouseTests.Role
 		private readonly Mock<IRoleService> _roleServiceMock = new();
 
 		/// <summary>
-		/// Helper: Táº¡o RoleController vá»›i ClaimsPrincipal cÃ³ NameIdentifier claim
-		/// DÃ¹ng Ä‘á»ƒ giáº£ láº­p user Ä‘Ã£ Ä‘Äƒng nháº­p vá»›i userId cá»¥ thá»ƒ
+		/// Helper: Tạo RoleController với ClaimsPrincipal có NameIdentifier claim
+		/// Dùng để giả lập user đã đăng nhập với userId cụ thể
 		/// </summary>
 		private RoleController CreateControllerWithUser(long userId = 1)
 		{
@@ -44,7 +44,7 @@ namespace WarehouseTests.Role
 		}
 
 		/// <summary>
-		/// Helper: Táº¡o RoleController KHÃ”NG cÃ³ claim (user chÆ°a xÃ¡c thá»±c)
+		/// Helper: Tạo RoleController KHÔNG có claim (user chưa xác thực)
 		/// </summary>
 		private RoleController CreateControllerWithoutUser()
 		{
@@ -74,8 +74,8 @@ namespace WarehouseTests.Role
 			var controller = CreateControllerWithUser();
 			var roles = new List<RoleResponse>
 	{
-		new RoleResponse { RoleId = 1, RoleCode = "ADMIN", RoleName = "Quáº£n trá»‹ viÃªn" },
-		new RoleResponse { RoleId = 2, RoleCode = "STAFF", RoleName = "NhÃ¢n viÃªn" }
+		new RoleResponse { RoleId = 1, RoleCode = "ADMIN", RoleName = "Quản trị viên" },
+		new RoleResponse { RoleId = 2, RoleCode = "STAFF", RoleName = "Nhân viên" }
 	};
 
 			_roleServiceMock
@@ -90,7 +90,7 @@ namespace WarehouseTests.Role
 			var apiResponse = ok.Value.Should().BeOfType<ApiResponse<List<RoleResponse>>>().Subject;
 
 			apiResponse.Success.Should().BeTrue();
-			apiResponse.Message.Should().Be("Láº¥y danh sÃ¡ch role thÃ nh cÃ´ng.");
+			apiResponse.Message.Should().Be("Lấy danh sách role thành công.");
 			apiResponse.Data.Should().HaveCount(2);
 		}
 		#endregion
@@ -125,19 +125,19 @@ namespace WarehouseTests.Role
 		{
 			// Arrange â€” Precondition: Database error occurs
 			var controller = CreateControllerWithUser();
-			_roleServiceMock.Setup(x => x.GetAllRolesAsync()).ThrowsAsync(new MockDbException("Lá»—i káº¿t ná»‘i SQL"));
+			_roleServiceMock.Setup(x => x.GetAllRolesAsync()).ThrowsAsync(new MockDbException("Lỗi kết nối SQL"));
 
 			// Act
 			var result = await controller.GetAllRoles();
 
-			// Assert â€” Tráº£ vá» 500 vÃ  log message há»‡ thá»‘ng
+			// Assert — Trả về 500 và log message hệ thống
 			var statusCode = result.Should().BeOfType<ObjectResult>().Subject;
 			statusCode.StatusCode.Should().Be(500);
-			((ApiResponse<object>)statusCode.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
+			((ApiResponse<object>)statusCode.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
 
-		#region UTCID 04: GetAllRoles â€” Abnormal â€” NullReferenceException (DbContext is null)
+		#region UTCID 04: GetAllRoles — Abnormal — NullReferenceException (DbContext is null)
 		[Fact]
 		public async Task GetAllRoles_UTCID04_Returns500_WhenNullReference()
 		{
@@ -157,7 +157,7 @@ namespace WarehouseTests.Role
 		}
 		#endregion
 
-		#region UTCID 05: GetAllRoles â€” Abnormal â€” InvalidOperationException
+		#region UTCID 05: GetAllRoles — Abnormal — InvalidOperationException
 		[Fact]
 		public async Task GetAllRoles_UTCID05_Returns500_WhenInvalidOperation()
 		{
@@ -177,7 +177,7 @@ namespace WarehouseTests.Role
 		}
 		#endregion
 
-		#region UTCID 06: GetAllRoles â€” Abnormal â€” Exception (General error)
+		#region UTCID 06: GetAllRoles — Abnormal — Exception (General error)
 		[Fact]
 		public async Task GetAllRoles_UTCID06_Returns500_WhenGeneralException()
 		{
@@ -198,17 +198,17 @@ namespace WarehouseTests.Role
 		#endregion
 
 		// =========================================================
-		// 2ï¸âƒ£ CreateRole â€” 8 test cases 
+		// 2️⃣ CreateRole — 8 test cases 
 		// =========================================================
 
-		#region UTCID 01: CreateRole â€” Normal â€” ThÃ nh cÃ´ng
+		#region UTCID 01: CreateRole — Normal — Thành công
 		[Fact]
 		public async Task CreateRole_UTCID01_ReturnsOk_WhenSuccessful()
 		{
-			// Arrange â€” RoleCode: "NVVS", RoleName: "NhÃ¢n viÃªn vá»‡ sinh"
+			// Arrange — RoleCode: "NVVS", RoleName: "Nhân viên vệ sinh"
 			var controller = CreateControllerWithUser();
-			var request = new CreateRoleRequest { RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
-			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
+			var request = new CreateRoleRequest { RoleCode = "NVVS", RoleName = "Nhân viên vệ sinh" };
+			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "Nhân viên vệ sinh" };
 
 			_roleServiceMock.Setup(x => x.CreateRoleAsync(request, It.IsAny<long>())).ReturnsAsync(expected);
 
@@ -220,21 +220,21 @@ namespace WarehouseTests.Role
 			var response = ok.Value.Should().BeOfType<ApiResponse<RoleResponse>>().Subject;
 
 			response.Success.Should().BeTrue();
-			response.Message.Should().Be("Táº¡o role thÃ nh cÃ´ng.");
+			response.Message.Should().Be("Tạo role thành công.");
 			response.Data!.RoleCode.Should().Be("NVVS");
 		}
 		#endregion
 
-		#region UTCID 02: CreateRole â€” Abnormal â€” MÃ£ role Ä‘Ã£ tá»“n táº¡i
+		#region UTCID 02: CreateRole — Abnormal — Mã role đã tồn tại
 		[Fact]
 		public async Task CreateRole_UTCID02_ReturnsBadRequest_WhenRoleCodeExists()
 		{
-			// Arrange â€” RoleCode trÃ¹ng mÃ£ SALE
+			// Arrange — RoleCode trùng mã SALE
 			var controller = CreateControllerWithUser();
 			var request = new CreateRoleRequest { RoleCode = "SALE", RoleName = "Admin" };
 
 			_roleServiceMock.Setup(x => x.CreateRoleAsync(request, It.IsAny<long>()))
-							.ThrowsAsync(new InvalidOperationException("MÃ£ role Ä‘Ã£ tá»“n táº¡i."));
+							.ThrowsAsync(new InvalidOperationException("Mã role đã tồn tại."));
 
 			// Act
 			var result = await controller.CreateRole(request);
@@ -243,15 +243,15 @@ namespace WarehouseTests.Role
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
 			var response = bad.Value.Should().BeOfType<ApiResponse<object>>().Subject;
 
-			response.Message.Should().Be("MÃ£ role Ä‘Ã£ tá»“n táº¡i.");
+			response.Message.Should().Be("Mã role đã tồn tại.");
 		}
 		#endregion
 
-		#region UTCID 03: CreateRole â€” Abnormal â€” RoleCode trá»‘ng
+		#region UTCID 03: CreateRole — Abnormal — RoleCode trống
 		[Fact]
 		public async Task CreateRole_UTCID03_ReturnsBadRequest_WhenRoleCodeEmpty()
 		{
-			// Arrange â€” RoleCode: Null/Empty
+			// Arrange — RoleCode: Null/Empty
 			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("RoleCode", "Required");
 			var request = new CreateRoleRequest { RoleCode = "", RoleName = "Admin" };
@@ -261,15 +261,15 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 04: CreateRole â€” Boundary â€” RoleCode quÃ¡ dÃ i (>50 kÃ½ tá»±)
+		#region UTCID 04: CreateRole — Boundary — RoleCode quá dài (>50 ký tự)
 		[Fact]
 		public async Task CreateRole_UTCID04_ReturnsBadRequest_WhenRoleCodeTooLong()
 		{
-			// Arrange â€” RoleCode dÃ i hÆ¡n 50 kÃ½ tá»±
+			// Arrange — RoleCode dài hơn 50 ký tự
 			var controller = CreateControllerWithUser();
 			string longCode = new string('A', 51);
 			controller.ModelState.AddModelError("RoleCode", "Too long");
@@ -280,15 +280,15 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 05: CreateRole â€” Boundary â€” RoleCode chá»©a kÃ½ tá»± Ä‘áº·c biá»‡t
+		#region UTCID 05: CreateRole — Boundary — RoleCode chứa ký tự đặc biệt
 		[Fact]
 		public async Task CreateRole_UTCID05_ReturnsBadRequest_WhenSpecialChars()
 		{
-			// Arrange â€” RoleCode: "SALE@#$"
+			// Arrange — RoleCode: "SALE@#$"
 			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("RoleCode", "Invalid format");
 			var request = new CreateRoleRequest { RoleCode = "SALE@#$", RoleName = "Admin" };
@@ -298,15 +298,15 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 06: CreateRole â€” Abnormal â€” RoleName trá»‘ng
+		#region UTCID 06: CreateRole — Abnormal — RoleName trống
 		[Fact]
 		public async Task CreateRole_UTCID06_ReturnsBadRequest_WhenRoleNameEmpty()
 		{
-			// Arrange â€” RoleName: Null/Empty
+			// Arrange — RoleName: Null/Empty
 			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("RoleName", "Required");
 			var request = new CreateRoleRequest { RoleCode = "NVVS", RoleName = "" };
@@ -316,15 +316,15 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 07: CreateRole â€” Boundary â€” RoleName chá»‰ toÃ n khoáº£ng tráº¯ng
+		#region UTCID 07: CreateRole — Boundary — RoleName chỉ toàn khoảng trắng
 		[Fact]
 		public async Task CreateRole_UTCID07_ReturnsBadRequest_WhenRoleNameWhitespace()
 		{
-			// Arrange â€” RoleName: "   "
+			// Arrange — RoleName: "   "
 			var controller = CreateControllerWithUser();
 			controller.ModelState.AddModelError("RoleName", "Cannot be whitespace");
 			var request = new CreateRoleRequest { RoleCode = "NVVS", RoleName = "   " };
@@ -334,15 +334,15 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 08: CreateRole â€” Abnormal â€” Lá»—i há»‡ thá»‘ng 500
+		#region UTCID 08: CreateRole — Abnormal — Lỗi hệ thống 500
 		[Fact]
 		public async Task CreateRole_UTCID08_Returns500_WhenSystemError()
 		{
-			// Arrange â€” Lá»—i há»‡ thá»‘ng báº¥t ngá»
+			// Arrange — Lỗi hệ thống bất ngờ
 			var controller = CreateControllerWithUser();
 			_roleServiceMock.Setup(x => x.CreateRoleAsync(It.IsAny<CreateRoleRequest>(), It.IsAny<long>()))
 							.ThrowsAsync(new Exception());
@@ -353,22 +353,22 @@ namespace WarehouseTests.Role
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
 
 		// =========================================================
-		// 3ï¸ UpdateRole â€” 9 test cases 
+		// 3️⃣ UpdateRole — 9 test cases 
 		// =========================================================
 
-		#region UTCID 01: UpdateRole â€” Normal â€” ThÃ nh cÃ´ng
+		#region UTCID 01: UpdateRole — Normal — Thành công
 		[Fact]
 		public async Task UpdateRole_UTCID01_ReturnsOk_WhenSuccessful()
 		{
-			// Arrange â€” TargetId: 1, RoleCode: "NVVS", RoleName: "NhÃ¢n viÃªn vá»‡ sinh"
+			// Arrange — TargetId: 1, RoleCode: "NVVS", RoleName: "Nhân viên vệ sinh"
 			var controller = CreateControllerWithUser();
-			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
-			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
+			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "Nhân viên vệ sinh" };
+			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "Nhân viên vệ sinh" };
 
 			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request, It.IsAny<long>())).ReturnsAsync(expected);
 
@@ -379,52 +379,52 @@ namespace WarehouseTests.Role
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
 			var response = ok.Value.Should().BeOfType<ApiResponse<RoleResponse>>().Subject;
 
-			response.Message.Should().Be("Cáº­p nháº­t role thÃ nh cÃ´ng.");
+			response.Message.Should().Be("Cập nhật role thành công.");
 			response.Data!.RoleCode.Should().Be("NVVS");
 		}
 		#endregion
 
-		#region UTCID 02: UpdateRole â€” Abnormal â€” Role khÃ´ng tá»“n táº¡i (ID 999)
+		#region UTCID 02: UpdateRole — Abnormal — Role không tồn tại (ID 999)
 		[Fact]
 		public async Task UpdateRole_UTCID02_ReturnsNotFound_WhenIdNotExist()
 		{
 			// Arrange
 			var controller = CreateControllerWithUser();
-			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "NhÃ¢n viÃªn vá»‡ sinh" };
+			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "Nhân viên vệ sinh" };
 
 			_roleServiceMock.Setup(x => x.UpdateRoleAsync(999, request, It.IsAny<long>()))
-							.ThrowsAsync(new KeyNotFoundException("Role khÃ´ng tá»“n táº¡i."));
+							.ThrowsAsync(new KeyNotFoundException("Role không tồn tại."));
 
 			// Act
 			var result = await controller.UpdateRole(999, request);
 
 			// Assert
 			var nf = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-			((ApiResponse<object>)nf.Value!).Message.Should().Be("Role khÃ´ng tá»“n táº¡i.");
+			((ApiResponse<object>)nf.Value!).Message.Should().Be("Role không tồn tại.");
 		}
 		#endregion
 
-		#region UTCID 03: UpdateRole â€” Abnormal â€” MÃ£ role Ä‘Ã£ bá»‹ sá»­ dá»¥ng bá»Ÿi ID khÃ¡c
+		#region UTCID 03: UpdateRole — Abnormal — Mã role đã bị sử dụng bởi ID khác
 		[Fact]
 		public async Task UpdateRole_UTCID03_ReturnsBadRequest_WhenCodeDuplicate()
 		{
-			// Arrange â€” Cá»‘ tÃ¬nh update RoleCode trÃ¹ng vá»›i ID khÃ¡c
+			// Arrange — Cố tình update RoleCode trùng với ID khác
 			var controller = CreateControllerWithUser();
 			var request = new UpdateRoleRequest { RoleCode = "SALE", RoleName = "Admin" };
 
 			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request, It.IsAny<long>()))
-							.ThrowsAsync(new InvalidOperationException("MÃ£ role Ä‘Ã£ Ä‘Æ°á»£c sá»­ dá»¥ng bá»Ÿi role khÃ¡c."));
+							.ThrowsAsync(new InvalidOperationException("Mã role đã được sử dụng bởi role khác."));
 
 			// Act
 			var result = await controller.UpdateRole(1, request);
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("MÃ£ role Ä‘Ã£ Ä‘Æ°á»£c sá»­ dá»¥ng bá»Ÿi role khÃ¡c.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Mã role đã được sử dụng bởi role khác.");
 		}
 		#endregion
 
-		#region UTCID 04: UpdateRole â€” Abnormal â€” Dá»¯ liá»‡u khÃ´ng há»£p lá»‡ (Null/Empty)
+		#region UTCID 04: UpdateRole — Abnormal — Dữ liệu không hợp lệ (Null/Empty)
 		[Fact]
 		public async Task UpdateRole_UTCID04_ReturnsBadRequest_WhenDataEmpty()
 		{
@@ -437,13 +437,13 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 
 			_roleServiceMock.Verify(x => x.UpdateRoleAsync(It.IsAny<long>(), It.IsAny<UpdateRoleRequest>(), It.IsAny<long>()), Times.Never);
 		}
 		#endregion
 
-		#region UTCID 05: UpdateRole â€” Boundary â€” RoleCode quÃ¡ dÃ i (>50)
+		#region UTCID 05: UpdateRole — Boundary — RoleCode quá dài (>50)
 		[Fact]
 		public async Task UpdateRole_UTCID05_ReturnsBadRequest_WhenCodeTooLong()
 		{
@@ -456,18 +456,18 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 06: UpdateRole â€” Normal â€” Giá»¯ nguyÃªn RoleCode, chá»‰ Ä‘á»•i Name
+		#region UTCID 06: UpdateRole — Normal — Giữ nguyên RoleCode, chỉ đổi Name
 		[Fact]
 		public async Task UpdateRole_UTCID06_ReturnsOk_WhenCodeUnchanged()
 		{
-			// Arrange â€” Test logic: codeExists = false khi trÃ¹ng vá»›i chÃ­nh mÃ¬nh
+			// Arrange — Test logic: codeExists = false khi trùng với chính mình
 			var controller = CreateControllerWithUser();
-			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "TÃªn má»›i" };
-			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "TÃªn má»›i" };
+			var request = new UpdateRoleRequest { RoleCode = "NVVS", RoleName = "Tên mới" };
+			var expected = new RoleResponse { RoleId = 1, RoleCode = "NVVS", RoleName = "Tên mới" };
 
 			_roleServiceMock.Setup(x => x.UpdateRoleAsync(1, request, It.IsAny<long>())).ReturnsAsync(expected);
 
@@ -479,7 +479,7 @@ namespace WarehouseTests.Role
 		}
 		#endregion
 
-		#region UTCID 07: UpdateRole â€” Boundary â€” RoleCode chá»©a kÃ½ tá»± Ä‘áº·c biá»‡t
+		#region UTCID 07: UpdateRole — Boundary — RoleCode chứa ký tự đặc biệt
 		[Fact]
 		public async Task UpdateRole_UTCID07_ReturnsBadRequest_WhenSpecialChars()
 		{
@@ -492,11 +492,11 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 08: UpdateRole â€” Boundary â€” RoleName chá»‰ toÃ n khoáº£ng tráº¯ng
+		#region UTCID 08: UpdateRole — Boundary — RoleName chỉ toàn khoảng trắng
 		[Fact]
 		public async Task UpdateRole_UTCID08_ReturnsBadRequest_WhenNameWhitespace()
 		{
@@ -509,15 +509,15 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 		}
 		#endregion
 
-		#region UTCID 09: UpdateRole â€” Abnormal â€” Lá»—i há»‡ thá»‘ng 500
+		#region UTCID 09: UpdateRole — Abnormal — Lỗi hệ thống 500
 		[Fact]
 		public async Task UpdateRole_UTCID09_Returns500_WhenSystemError()
 		{
-			// Arrange â€” General Exception
+			// Arrange — General Exception
 			var controller = CreateControllerWithUser();
 			_roleServiceMock.Setup(x => x.UpdateRoleAsync(It.IsAny<long>(), It.IsAny<UpdateRoleRequest>(), It.IsAny<long>()))
 							.ThrowsAsync(new Exception());
@@ -528,19 +528,19 @@ namespace WarehouseTests.Role
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
 
 		// =========================================================
-		// 4ï¸ AssignRoleToUser â€” 7 test cases 
+		// 4️⃣ AssignRoleToUser — 7 test cases 
 		// =========================================================
 
-		#region UTCID 01: AssignRoleToUser â€” Normal â€” GÃ¡n má»›i thÃ nh cÃ´ng
+		#region UTCID 01: AssignRoleToUser — Normal — Gán mới thành công
 		[Fact]
 		public async Task AssignRoleToUser_UTCID01_ReturnsOk_WhenAssignNewSuccessful()
 		{
-			// Arrange â€” User chÆ°a cÃ³ role, gÃ¡n role STAFF
+			// Arrange — User chưa có role, gán role STAFF
 			var controller = CreateControllerWithUser(userId: 10);
 			var request = new AssignRoleRequest { UserId = 5, RoleId = 2 };
 			var expected = new AdminUserResponse { UserId = 5, RoleName = "STAFF" };
@@ -557,16 +557,16 @@ namespace WarehouseTests.Role
 			var response = ok.Value.Should().BeOfType<ApiResponse<AdminUserResponse>>().Subject;
 
 			response.Success.Should().BeTrue();
-			response.Message.Should().Be("GÃ¡n role cho ngÆ°á»i dÃ¹ng thÃ nh cÃ´ng.");
+			response.Message.Should().Be("Gán role cho người dùng thành công.");
 			response.Data!.RoleName.Should().Be("STAFF");
 		}
 		#endregion
 
-		#region UTCID 02: AssignRoleToUser â€” Normal â€” Cáº­p nháº­t role thÃ nh cÃ´ng
+		#region UTCID 02: AssignRoleToUser — Normal — Cập nhật role thành công
 		[Fact]
 		public async Task AssignRoleToUser_UTCID02_ReturnsOk_WhenUpdateSuccessful()
 		{
-			// Arrange â€” User Ä‘Ã£ cÃ³ role, cáº­p nháº­t sang ADMIN
+			// Arrange — User đã có role, cập nhật sang ADMIN
 			var controller = CreateControllerWithUser(userId: 10);
 			var request = new AssignRoleRequest { UserId = 5, RoleId = 1 };
 			var expected = new AdminUserResponse { UserId = 5, RoleName = "ADMIN" };
@@ -578,11 +578,11 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-			((ApiResponse<AdminUserResponse>)ok.Value!).Message.Should().Be("GÃ¡n role cho ngÆ°á»i dÃ¹ng thÃ nh cÃ´ng.");
+			((ApiResponse<AdminUserResponse>)ok.Value!).Message.Should().Be("Gán role cho người dùng thành công.");
 		}
 		#endregion
 
-		#region UTCID 03: AssignRoleToUser â€” Abnormal â€” Dá»¯ liá»‡u khÃ´ng há»£p lá»‡ (ModelState)
+		#region UTCID 03: AssignRoleToUser — Abnormal — Dữ liệu không hợp lệ (ModelState)
 		[Fact]
 		public async Task AssignRoleToUser_UTCID03_ReturnsBadRequest_WhenModelStateInvalid()
 		{
@@ -595,17 +595,17 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Dữ liệu không hợp lệ.");
 
 			_roleServiceMock.Verify(x => x.AssignRoleToUserAsync(It.IsAny<AssignRoleRequest>(), It.IsAny<long>()), Times.Never);
 		}
 		#endregion
 
-		#region UTCID 04: AssignRoleToUser â€” Abnormal â€” KhÃ´ng xÃ¡c Ä‘á»‹nh danh tÃ­nh (401)
+		#region UTCID 04: AssignRoleToUser — Abnormal — Không xác định danh tính (401)
 		[Fact]
 		public async Task AssignRoleToUser_UTCID04_ReturnsUnauthorized_WhenClaimMissing()
 		{
-			// Arrange â€” KhÃ´ng cÃ³ claim NameIdentifier trong Token
+			// Arrange — Không có claim NameIdentifier trong Token
 			var controller = CreateControllerWithoutUser();
 
 			// Act
@@ -613,51 +613,51 @@ namespace WarehouseTests.Role
 
 			// Assert
 			var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
-			((ApiResponse<object>)unauthorized.Value!).Message.Should().Be("KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c danh tÃ­nh ngÆ°á»i dÃ¹ng.");
+			((ApiResponse<object>)unauthorized.Value!).Message.Should().Be("Không xác định được danh tính người dùng.");
 		}
 		#endregion
 
-		#region UTCID 05: AssignRoleToUser â€” Abnormal â€” NgÆ°á»i dÃ¹ng khÃ´ng tá»“n táº¡i (404)
+		#region UTCID 05: AssignRoleToUser — Abnormal — Người dùng không tồn tại (404)
 		[Fact]
 		public async Task AssignRoleToUser_UTCID05_ReturnsNotFound_WhenUserNotExist()
 		{
-			// Arrange â€” UserId: 9999
+			// Arrange — UserId: 9999
 			var controller = CreateControllerWithUser();
 			var request = new AssignRoleRequest { UserId = 9999, RoleId = 1 };
 
 			_roleServiceMock.Setup(x => x.AssignRoleToUserAsync(request, It.IsAny<long>()))
-							.ThrowsAsync(new KeyNotFoundException("NgÆ°á»i dÃ¹ng khÃ´ng tá»“n táº¡i."));
+							.ThrowsAsync(new KeyNotFoundException("Người dùng không tồn tại."));
 
 			// Act
 			var result = await controller.AssignRoleToUser(request);
 
 			// Assert
 			var nf = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-			((ApiResponse<object>)nf.Value!).Message.Should().Be("NgÆ°á»i dÃ¹ng khÃ´ng tá»“n táº¡i.");
+			((ApiResponse<object>)nf.Value!).Message.Should().Be("Người dùng không tồn tại.");
 		}
 		#endregion
 
-		#region UTCID 06: AssignRoleToUser â€” Abnormal â€” Role khÃ´ng tá»“n táº¡i (400)
+		#region UTCID 06: AssignRoleToUser — Abnormal — Role không tồn tại (400)
 		[Fact]
 		public async Task AssignRoleToUser_UTCID06_ReturnsBadRequest_WhenRoleNotExist()
 		{
-			// Arrange â€” RoleId: 999
+			// Arrange — RoleId: 999
 			var controller = CreateControllerWithUser();
 			var request = new AssignRoleRequest { UserId = 1, RoleId = 999 };
 
 			_roleServiceMock.Setup(x => x.AssignRoleToUserAsync(request, It.IsAny<long>()))
-							.ThrowsAsync(new InvalidOperationException("Role khÃ´ng tá»“n táº¡i."));
+							.ThrowsAsync(new InvalidOperationException("Role không tồn tại."));
 
 			// Act
 			var result = await controller.AssignRoleToUser(request);
 
 			// Assert
 			var bad = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-			((ApiResponse<object>)bad.Value!).Message.Should().Be("Role khÃ´ng tá»“n táº¡i.");
+			((ApiResponse<object>)bad.Value!).Message.Should().Be("Role không tồn tại.");
 		}
 		#endregion
 
-		#region UTCID 07: AssignRoleToUser â€” Abnormal â€” Lá»—i há»‡ thá»‘ng 500
+		#region UTCID 07: AssignRoleToUser — Abnormal — Lỗi hệ thống 500
 		[Fact]
 		public async Task AssignRoleToUser_UTCID07_Returns500_WhenSystemError()
 		{
@@ -672,7 +672,7 @@ namespace WarehouseTests.Role
 			// Assert
 			var error = result.Should().BeOfType<ObjectResult>().Subject;
 			error.StatusCode.Should().Be(500);
-			((ApiResponse<object>)error.Value!).Message.Should().Be("ÄÃ£ xáº£y ra lá»—i há»‡ thá»‘ng.");
+			((ApiResponse<object>)error.Value!).Message.Should().Be("Đã xảy ra lỗi hệ thống.");
 		}
 		#endregion
 	}
