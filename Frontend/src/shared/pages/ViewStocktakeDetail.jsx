@@ -385,13 +385,21 @@ const ViewStocktakeDetail = () => {
 
     // Handle count input
     const handleCountChange = async (lineId, value) => {
-        const num = parseFloat(value);
-        if (isNaN(num) || num < 0) {
-            showToast('Số lượng không hợp lệ.', 'warning');
+        // Cho phép rỗng tạm thời để người dùng xóa/sửa số cũ.
+        if (value === '') {
+            setLines(prev => prev.map(l => l.id === lineId ? { ...l, countedQty: '' } : l));
             return;
         }
+
+        // Chuẩn hóa số thập phân, chặn ký tự không hợp lệ.
+        const normalized = String(value).replace(',', '.');
+        if (!/^\d*\.?\d*$/.test(normalized)) return;
+
+        const num = parseFloat(normalized);
+        if (isNaN(num) || num < 0) return;
+
         try {
-            setLines(prev => prev.map(l => l.id === lineId ? { ...l, countedQty: value } : l));
+            setLines(prev => prev.map(l => l.id === lineId ? { ...l, countedQty: normalized } : l));
         } catch {
             showToast('Lỗi khi cập nhật số lượng.', 'error');
         }
@@ -407,8 +415,13 @@ const ViewStocktakeDetail = () => {
         }
         try {
             setSubmitting(true);
-            await updateCountedQty(lineId, { countedQty: num });
-            await reloadLines();
+            const updatedLine = await updateCountedQty(lineId, { countedQty: num });
+            // Chỉ cập nhật đúng dòng vừa lưu để tránh reset các dòng khác.
+            if (updatedLine?.id !== undefined && updatedLine?.id !== null) {
+                setLines(prev =>
+                    prev.map(l => (l.id === lineId ? { ...l, ...updatedLine } : l))
+                );
+            }
             setSavedLineIds(prev => [...new Set([...prev, lineId])]);
             showToast('Lưu số lượng thành công!', 'success');
         } catch (err) {
@@ -865,9 +878,10 @@ const ViewStocktakeDetail = () => {
                                                                 <>
                                                                     <td>
                                                                         <input
-                                                                            type="number"
-                                                                            min="0"
+                                                                            type="text"
+                                                                            inputMode="decimal"
                                                                             value={line.countedQty ?? ''}
+                                                                            onFocus={e => e.target.select()}
                                                                             onChange={e => handleCountChange(line.id, e.target.value)}
                                                                             style={{
                                                                                 width: '100%',
