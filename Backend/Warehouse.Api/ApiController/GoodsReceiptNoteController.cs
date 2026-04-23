@@ -122,5 +122,36 @@ namespace Warehouse.Api.ApiController
                 return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
             }
         }
+
+        [HttpPost("ai-match-items")]
+        public async Task<IActionResult> MatchItemsFromExcel(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng upload file Excel." });
+            }
+
+            var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
+            if (extension != ".xlsx" && extension != ".xls")
+            {
+                return BadRequest(new { message = "Chỉ chấp nhận file định dạng Excel (.xlsx, .xls)." });
+            }
+
+            try
+            {
+                using var stream = file.OpenReadStream();
+                var result = await _goodsReceiptNoteService.ImportAndMatchItemsAsync(stream);
+                return Ok(new
+                {
+                    success = true,
+                    message = "So khớp sản phẩm bằng AI hoàn tất.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xử lý file bằng AI.", detail = ex.Message });
+            }
+        }
     }
 }

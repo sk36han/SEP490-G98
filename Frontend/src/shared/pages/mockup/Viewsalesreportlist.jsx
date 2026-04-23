@@ -22,6 +22,9 @@ import {
     Checkbox,
     Paper,
     Tooltip,
+    FormControl,
+    Select,
+    MenuItem,
     useTheme,
     useMediaQuery,
 } from '@mui/material';
@@ -34,6 +37,7 @@ import {
     FileBarChart,
     Download,
     Eye,
+    Warehouse as WarehouseIcon,
 } from 'lucide-react';
 import {
     BarChart, Bar, Line,
@@ -46,12 +50,48 @@ import SearchInput from '../../components/SearchInput';
 const LS_COL_ORDER  = 'salesReportColumnOrder';
 const LS_VISIBLE    = 'salesReportVisibleColumns';
 const LS_EXPANDED   = 'salesReportExpanded';
+const LS_WAREHOUSE  = 'salesReportWarehouseId';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const LEVEL = { YEAR: 'YEAR', QUARTER: 'QUARTER', MONTH: 'MONTH' };
 
+// ── Mock Warehouses ───────────────────────────────────────────────────────
+// TODO(API): Thay bằng GET /Warehouse/get-Warehouse (đã có sẵn trong warehouseService.js)
+// - 'all' = tổng hợp tất cả kho user được phép xem
+// - share: tỉ lệ đóng góp của kho vào tổng (chỉ dùng để mô phỏng số liệu ở FE, khi nối API sẽ bỏ)
+const MOCK_WAREHOUSES = [
+    { id: 'all', code: 'ALL',   name: 'Tất cả kho',             share: 1.00 },
+    { id: 1,     code: 'KHN',   name: 'Kho Hà Nội',             share: 0.45 },
+    { id: 2,     code: 'KHCM',  name: 'Kho TP. Hồ Chí Minh',    share: 0.35 },
+    { id: 3,     code: 'KDN',   name: 'Kho Đà Nẵng',            share: 0.20 },
+];
+
+const getWarehouseShare = (id) => {
+    const w = MOCK_WAREHOUSES.find(x => String(x.id) === String(id));
+    return w?.share ?? 1;
+};
+
+const SCALABLE_FIELDS = [
+    'deliveryNotes', 'grnNotes', 'lineItems',
+    'totalQty', 'grnQty',
+    'totalValue', 'grnValue',
+    'prevValue', 'change',
+];
+
+/** Scale các field số theo tỉ lệ kho (mock) — giữ nguyên growth/share */
+const scaleRow = (row, share) => {
+    if (!row || share === 1) return row;
+    const scaled = { ...row };
+    for (const key of SCALABLE_FIELDS) {
+        if (typeof scaled[key] === 'number') {
+            scaled[key] = Math.round(scaled[key] * share);
+        }
+    }
+    return scaled;
+};
+
 // ── Mock data ──────────────────────────────────────────────────────────────
-const MOCK_DATA = [
+const MOCK_DATA_RAW = [
     // Năm 2026
     { id: 'y2026', level: LEVEL.YEAR, periodLabel: '2026',   scope: 'Toàn công ty', unit: 'Công ty TNHH ABC',
       deliveryNotes: 245, grnNotes: 210, lineItems: 1_840, totalQty: 12_580, grnQty: 11_240, totalValue: 4_850_000_000,
@@ -381,6 +421,22 @@ export default function Viewsalesreportlist() {
     const [dataMode, setDataMode] = useState('outbound');
     const [quickFilter, setQuickFilter] = useState('all');
 
+    // Warehouse filter
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState(() => {
+        try {
+            const s = localStorage.getItem(LS_WAREHOUSE);
+            if (s == null || s === '') return 'all';
+            return s === 'all' ? 'all' : (Number.isNaN(Number(s)) ? s : Number(s));
+        } catch { return 'all'; }
+    });
+    const warehouseShare = useMemo(() => getWarehouseShare(selectedWarehouseId), [selectedWarehouseId]);
+
+    // Scaled mock theo kho đang chọn (mô phỏng — khi nối API sẽ bỏ)
+    const MOCK_DATA = useMemo(
+        () => MOCK_DATA_RAW.map(r => scaleRow(r, warehouseShare)),
+        [warehouseShare]
+    );
+
     // Chart state
     const [chartLevel, setChartLevel] = useState(LEVEL.QUARTER);
     const [chartYear, setChartYear] = useState('2026');
@@ -389,7 +445,7 @@ export default function Viewsalesreportlist() {
     const availableYears = useMemo(() => {
         const years = [...new Set(MOCK_DATA.filter(r => r.level === LEVEL.YEAR).map(r => r.periodLabel))];
         return years.sort((a, b) => b - a);
-    }, []);
+    }, [MOCK_DATA]);
 
     // Column management
     const [columnOrder, setColumnOrder] = useState(() => {
@@ -430,7 +486,7 @@ export default function Viewsalesreportlist() {
             });
         }
         return data;
-    }, [searchTerm, quickFilter]);
+    }, [searchTerm, quickFilter, MOCK_DATA]);
 
     // ── Chart data ────────────────────────────────────────────────────────────
     const chartData = useMemo(() => {
@@ -463,7 +519,7 @@ export default function Viewsalesreportlist() {
                 qtyInbound:    row.grnQty     || 0,
             };
         });
-    }, [chartLevel, chartYear]);
+    }, [chartLevel, chartYear, MOCK_DATA]);
 
     // ── Tree rows ─────────────────────────────────────────────────────────────
     const treeRows = useMemo(() => {
@@ -487,7 +543,7 @@ export default function Viewsalesreportlist() {
             }
         });
         return result;
-    }, [filteredData, expandedIds]);
+    }, [filteredData, expandedIds, MOCK_DATA]);
 
     // ── Summary totals ────────────────────────────────────────────────────────
     const summaryTotals = useMemo(() => {
@@ -502,6 +558,19 @@ export default function Viewsalesreportlist() {
     }, [filteredData]);
 
     // ── Handlers ───────────────────────────────────────────────────────────────
+    const handleWarehouseChange = useCallback((e) => {
+        const raw = e.target.value;
+        const val = raw === 'all' ? 'all' : Number(raw);
+        setSelectedWarehouseId(val);
+        try { localStorage.setItem(LS_WAREHOUSE, String(val)); } catch { /* ignore */ }
+    }, []);
+
+    /** Build query string giữ warehouseId khi drilldown sang Detail */
+    const withWarehouseQS = useCallback((base) => {
+        const sep = base.includes('?') ? '&' : '?';
+        return `${base}${sep}warehouseId=${encodeURIComponent(String(selectedWarehouseId))}`;
+    }, [selectedWarehouseId]);
+
     const toggleExpand = useCallback((id) => {
         setExpandedIds(prev => {
             const next = new Set(prev);
@@ -772,6 +841,48 @@ export default function Viewsalesreportlist() {
                                 <Box onClick={() => setQuickFilter('negative')} sx={{ px: 1.5, py: 0.75, fontSize: '12px', fontWeight: 500, cursor: 'pointer', bgcolor: quickFilter === 'negative' ? '#dc2626' : '#fff', color: quickFilter === 'negative' ? '#fff' : '#6b7280', borderLeft: '1px solid #e5e7eb', '&:hover': { bgcolor: quickFilter === 'negative' ? '#dc2626' : '#f9fafb' } }}>-Giảm</Box>
                             </Box>
 
+                            {/* Warehouse filter */}
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                                <Select
+                                    value={selectedWarehouseId}
+                                    onChange={handleWarehouseChange}
+                                    displayEmpty
+                                    renderValue={(val) => {
+                                        const w = MOCK_WAREHOUSES.find(x => String(x.id) === String(val));
+                                        return (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                                                <WarehouseIcon size={14} color="#6b7280" />
+                                                <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {w?.name ?? 'Tất cả kho'}
+                                                </Typography>
+                                            </Box>
+                                        );
+                                    }}
+                                    sx={{
+                                        height: 38, borderRadius: '10px', fontSize: '13px', bgcolor: '#ffffff',
+                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
+                                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d1d5db' },
+                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#0284c7', boxShadow: '0 0 0 3px rgba(2,132,199,0.10)' },
+                                        '& .MuiSelect-select': { py: '8px', pl: 1.25 },
+                                    }}
+                                    MenuProps={{
+                                        PaperProps: { sx: { mt: 0.5, borderRadius: '10px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' } },
+                                    }}
+                                >
+                                    {MOCK_WAREHOUSES.map(w => (
+                                        <MenuItem key={w.id} value={w.id} sx={{ fontSize: '13px', py: 1 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                                <WarehouseIcon size={14} color={w.id === 'all' ? '#6b7280' : '#0284c7'} />
+                                                <Typography sx={{ fontSize: '13px', color: '#111827', flex: 1 }}>{w.name}</Typography>
+                                                {w.id !== 'all' && (
+                                                    <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>{w.code}</Typography>
+                                                )}
+                                            </Box>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
                             <Tooltip title="Chọn cột hiển thị">
                                 <IconButton color="primary"
                                     onClick={(e) => { setTempColumnOrder(columnOrder); setColumnSelectorAnchor(e.currentTarget); }}
@@ -921,13 +1032,13 @@ export default function Viewsalesreportlist() {
                                                                         </Box>
                                                                         <Tooltip title="Xem chi tiết">
                                                                             <IconButton size="small" onClick={() => {
-                                                                                if (row.level === LEVEL.YEAR) navigate(`/reports/sales/detail/year/${row.periodLabel}?from=list`);
+                                                                                if (row.level === LEVEL.YEAR) navigate(withWarehouseQS(`/reports/sales/detail/year/${row.periodLabel}?from=list`));
                                                                                 else if (row.level === LEVEL.QUARTER) {
                                                                                     const parts = row.periodLabel.match(/Quý (\d+) \/ (\d{4})/);
-                                                                                    navigate(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=list`);
+                                                                                    navigate(withWarehouseQS(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=list`));
                                                                                 } else if (row.level === LEVEL.MONTH) {
                                                                                     const parts = row.periodLabel.match(/Tháng (\d+) \/ (\d{4})/);
-                                                                                    navigate(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=list`);
+                                                                                    navigate(withWarehouseQS(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=list`));
                                                                                 }
                                                                             }} sx={{ p: 0.5, color: '#9ca3af', '&:hover': { color: '#0284c7', bgcolor: 'rgba(2,132,199,0.08)' } }}>
                                                                                 <Eye size={15} />

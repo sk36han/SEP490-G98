@@ -178,10 +178,10 @@ const AppRoutes = () => (
         <Route path="/mockup/sales-target" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><SalesRevenueTarget /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Báo cáo doanh số ── */}
-        <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
-        <Route path="/reports/sales/detail/year/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/reports/sales/detail/quarter/:quarter/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/reports/sales/detail/month/:month/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/year/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/quarter/:quarter/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/month/:month/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
     </Routes>
 );
 
