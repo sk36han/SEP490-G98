@@ -194,12 +194,31 @@ const CreatePurchaseOrder = () => {
         return warehouses.filter((w) => (w.name || '').toLowerCase().includes(q) || String(w.id).toLowerCase().includes(q));
     }, [warehouseQuery, warehouses]);
 
+    /** Ngày tối thiểu (hôm nay, local) cho input type=date — không chọn quá khứ */
+    const minExpectedReceiptDateStr = useMemo(() => {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }, []);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         
         // Giới hạn 250 ký tự cho trường justification
         if (name === 'justification' && value.length > MAX_JUSTIFICATION_LENGTH) {
             return;
+        }
+
+        if (name === 'expectedReceiptDate' && value) {
+            if (value < minExpectedReceiptDateStr) {
+                setErrors((prev) => ({
+                    ...prev,
+                    expectedReceiptDate: 'Ngày nhập dự kiến không được trong quá khứ',
+                }));
+                return;
+            }
         }
         
         setFormData(prev => ({
@@ -844,7 +863,7 @@ const CreatePurchaseOrder = () => {
                                 {/* Ngày dự kiến nhập */}
                                 <div className="form-field">
                                     <label htmlFor="expectedReceiptDate" className="form-label">
-                                        Ngày nhập dự kiến 
+                                        Ngày nhập dự kiến <span className="required-mark">*</span>
                                     </label>
                                     <div className="input-wrapper">
                                         <Calendar className="input-icon" size={16} />
@@ -854,6 +873,8 @@ const CreatePurchaseOrder = () => {
                                             name="expectedReceiptDate"
                                             value={formData.expectedReceiptDate}
                                             onChange={handleChange}
+                                            min={minExpectedReceiptDateStr}
+                                            required
                                             className={`form-input ${errors.expectedReceiptDate ? 'error' : ''}`}
                                         />
                                     </div>
@@ -864,7 +885,57 @@ const CreatePurchaseOrder = () => {
                             </div>
                         </div>
 
-                            {/* 4. Nhà cung cấp - search select mock + chi tiết NCC */}
+                            {/* 4. Tệp đính kèm (dưới Thông tin chung, trên Nhà cung cấp) */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">
+                                        Tệp đính kèm <span className="required-mark">*</span>
+                                    </h2>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div className="form-field">
+                                        <label htmlFor="po-quotation-file" className="form-label">
+                                            File báo giá <span className="required-mark">*</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileSpreadsheet className="input-icon" size={16} />
+                                            <input
+                                                id="po-quotation-file"
+                                                type="file"
+                                                className="form-input"
+                                                onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
+                                            />
+                                        </div>
+                                        {quotationFile && (
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                Đã chọn: {quotationFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="form-field">
+                                        <label htmlFor="po-contract-appendix-file" className="form-label">
+                                            Hợp đồng nguyên tắc <span className="required-mark">*</span>
+                                        </label>
+                                        <div className="input-wrapper">
+                                            <FileText className="input-icon" size={16} />
+                                            <input
+                                                id="po-contract-appendix-file"
+                                                type="file"
+                                                className="form-input"
+                                                onChange={(e) => setContractAppendixFile(e.target.files?.[0] || null)}
+                                            />
+                                        </div>
+                                        {contractAppendixFile && (
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                Đã chọn: {contractAppendixFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 5. Nhà cung cấp - search select mock + chi tiết NCC */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
@@ -1117,7 +1188,7 @@ const CreatePurchaseOrder = () => {
                                 )}
                             </div>
 
-                            {/* 5. Ghi chú */}
+                            {/* 6. Ghi chú */}
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú</h2>
@@ -1145,54 +1216,6 @@ const CreatePurchaseOrder = () => {
                                         fontWeight: 500
                                     }}>
                                         {formData.justification.length}/{MAX_JUSTIFICATION_LENGTH} ký tự
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 6. File/Image đính kèm */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tệp đính kèm</h2>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <div className="form-field">
-                                        <label htmlFor="po-quotation-file" className="form-label">
-                                            File báo giá
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileSpreadsheet className="input-icon" size={16} />
-                                            <input
-                                                id="po-quotation-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {quotationFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {quotationFile.name}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="form-field">
-                                        <label htmlFor="po-contract-appendix-file" className="form-label">
-                                            Hợp đồng nguyên tắc
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileText className="input-icon" size={16} />
-                                            <input
-                                                id="po-contract-appendix-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setContractAppendixFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {contractAppendixFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {contractAppendixFile.name}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             </div>
