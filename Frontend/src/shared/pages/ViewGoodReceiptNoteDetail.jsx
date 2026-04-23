@@ -607,7 +607,7 @@ const ViewGoodReceiptNoteDetail = () => {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 16, alignItems: 'flex-start' }}>
-                        {/* Cột trái: Chi tiết sản phẩm nhập */}
+                        {/* Cột trái: Chi tiết sản phẩm + Ghi chú + Tóm tắt (cuối) */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                                 <h2 className="section-title">Chi tiết sản phẩm nhập</h2>
@@ -775,6 +775,87 @@ const ViewGoodReceiptNoteDetail = () => {
                                     {grnData.note?.trim() || 'Không có ghi chú.'}
                                 </div>
                             </SectionCard>
+
+                            <SectionCard
+                                title="Tóm tắt đơn hàng"
+                                subtitle="Giá trị nhanh của phiếu nhập kho"
+                            >
+                                <div className="grn-summary-grid">
+                                    <SummaryMetric
+                                        label="Tổng số lượng"
+                                        value={`${totalQuantity} sản phẩm`}
+                                    />
+                                    <SummaryMetric
+                                        label="Tạm tính"
+                                        value={formatCurrency(subtotal)}
+                                    />
+                                </div>
+
+                                <div
+                                    style={{
+                                        marginTop: 12,
+                                        padding: '14px 16px',
+                                        borderRadius: 12,
+                                        border: '1px solid #e5e7eb',
+                                        backgroundColor: '#f9fafb',
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            gap: 12,
+                                            fontSize: 14,
+                                            color: '#374151',
+                                        }}
+                                    >
+                                        <span>Phí vận chuyển</span>
+                                        <span
+                                            style={{
+                                                fontWeight: 700,
+                                                fontVariantNumeric: 'tabular-nums',
+                                            }}
+                                        >
+                                            {formatCurrency(grnData.shippingFee || 0)}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div
+                                    style={{
+                                        marginTop: 16,
+                                        padding: '18px 16px',
+                                        backgroundColor: '#e3f2fd',
+                                        borderRadius: 14,
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        gap: 12,
+                                        borderLeft: '4px solid #2196F3',
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: 16,
+                                            fontWeight: 700,
+                                            color: '#2196F3',
+                                        }}
+                                    >
+                                        Tổng giá trị
+                                    </span>
+                                    <span
+                                        style={{
+                                            fontSize: 22,
+                                            fontWeight: 800,
+                                            color: '#2196F3',
+                                            fontVariantNumeric: 'tabular-nums',
+                                        }}
+                                    >
+                                        {formatCurrency(grandTotal)}
+                                    </span>
+                                </div>
+                            </SectionCard>
                         </div>
 
                         {/* Cột phải: Thông tin chung + Lịch sử */}
@@ -911,87 +992,6 @@ const ViewGoodReceiptNoteDetail = () => {
                                     )}
                                 </div>
                             </div>
-
-                            <SectionCard
-                                title="Tóm tắt đơn hàng"
-                                subtitle="Giá trị nhanh của phiếu nhập kho"
-                            >
-                                <div className="grn-summary-grid">
-                                    <SummaryMetric
-                                        label="Tổng số lượng"
-                                        value={`${totalQuantity} sản phẩm`}
-                                    />
-                                    <SummaryMetric
-                                        label="Tạm tính"
-                                        value={formatCurrency(subtotal)}
-                                    />
-                                </div>
-
-                                <div
-                                    style={{
-                                        marginTop: 12,
-                                        padding: '14px 16px',
-                                        borderRadius: 12,
-                                        border: '1px solid #e5e7eb',
-                                        backgroundColor: '#f9fafb',
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            gap: 12,
-                                            fontSize: 14,
-                                            color: '#374151',
-                                        }}
-                                    >
-                                        <span>Phí vận chuyển</span>
-                                        <span
-                                            style={{
-                                                fontWeight: 700,
-                                                fontVariantNumeric: 'tabular-nums',
-                                            }}
-                                        >
-                                            {formatCurrency(grnData.shippingFee || 0)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div
-                                    style={{
-                                        marginTop: 16,
-                                        padding: '18px 16px',
-                                        backgroundColor: '#e3f2fd',
-                                        borderRadius: 14,
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        gap: 12,
-                                        borderLeft: '4px solid #2196F3',
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: 16,
-                                            fontWeight: 700,
-                                            color: '#2196F3',
-                                        }}
-                                    >
-                                        Tổng giá trị
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: 22,
-                                            fontWeight: 800,
-                                            color: '#2196F3',
-                                            fontVariantNumeric: 'tabular-nums',
-                                        }}
-                                    >
-                                        {formatCurrency(grandTotal)}
-                                    </span>
-                                </div>
-                            </SectionCard>
 
                             <SectionCard
                                 title="Lịch sử phiếu nhập"
