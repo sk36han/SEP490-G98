@@ -57,6 +57,11 @@ import {
 import '../styles/CreatePurchaseOrder.css';
 import '../styles/CreateSupplier.css';
 
+/** Tệp đính kèm PO: 2 ô = tối đa 2 tệp, mỗi tệp tối đa 10 MB */
+const PO_ATTACHMENT_MAX_COUNT = 2;
+const PO_ATTACHMENT_MAX_SIZE_MB = 10;
+const PO_ATTACHMENT_MAX_BYTES = PO_ATTACHMENT_MAX_SIZE_MB * 1024 * 1024;
+
 const CreatePurchaseOrder = () => {
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
@@ -498,11 +503,37 @@ const CreatePurchaseOrder = () => {
         return result.isValid;
     };
 
+    const handleQuotationFileChange = (e) => {
+        const file = e.target.files?.[0] ?? null;
+        if (file && file.size > PO_ATTACHMENT_MAX_BYTES) {
+            showToast(`File quá lớn. Mỗi tệp tối đa ${PO_ATTACHMENT_MAX_SIZE_MB} MB.`, 'error');
+            e.target.value = '';
+            return;
+        }
+        setQuotationFile(file);
+    };
+
+    const handleContractAppendixFileChange = (e) => {
+        const file = e.target.files?.[0] ?? null;
+        if (file && file.size > PO_ATTACHMENT_MAX_BYTES) {
+            showToast(`File quá lớn. Mỗi tệp tối đa ${PO_ATTACHMENT_MAX_SIZE_MB} MB.`, 'error');
+            e.target.value = '';
+            return;
+        }
+        setContractAppendixFile(file);
+    };
+
+    const attachmentExceedsLimit = (f) => f && f.size > PO_ATTACHMENT_MAX_BYTES;
+
     const handleSaveDraft = async (e) => {
         e.preventDefault();
 
         if (!validateFormDraft()) {
             showToast('Vui lòng kiểm tra lại thông tin!', 'error');
+            return;
+        }
+        if (attachmentExceedsLimit(quotationFile) || attachmentExceedsLimit(contractAppendixFile)) {
+            showToast(`Mỗi tệp đính kèm không vượt quá ${PO_ATTACHMENT_MAX_SIZE_MB} MB.`, 'error');
             return;
         }
 
@@ -543,6 +574,10 @@ const CreatePurchaseOrder = () => {
 
         if (!quotationFile || !contractAppendixFile) {
             showToast('Vui lòng tải lên đủ 2 tệp: File báo giá và Hợp đồng nguyên tắc trước khi gửi duyệt.', 'error');
+            return;
+        }
+        if (attachmentExceedsLimit(quotationFile) || attachmentExceedsLimit(contractAppendixFile)) {
+            showToast(`Mỗi tệp đính kèm không vượt quá ${PO_ATTACHMENT_MAX_SIZE_MB} MB.`, 'error');
             return;
         }
 
@@ -892,6 +927,17 @@ const CreatePurchaseOrder = () => {
                                         Tệp đính kèm <span className="required-mark">*</span>
                                     </h2>
                                 </div>
+                                <p
+                                    style={{
+                                        fontSize: 12,
+                                        color: '#6b7280',
+                                        margin: '0 0 12px',
+                                        lineHeight: 1.45,
+                                    }}
+                                >
+                                    Mỗi tệp tối đa{' '}
+                                    {PO_ATTACHMENT_MAX_SIZE_MB} MB.
+                                </p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     <div className="form-field">
                                         <label htmlFor="po-quotation-file" className="form-label">
@@ -903,7 +949,7 @@ const CreatePurchaseOrder = () => {
                                                 id="po-quotation-file"
                                                 type="file"
                                                 className="form-input"
-                                                onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
+                                                onChange={handleQuotationFileChange}
                                             />
                                         </div>
                                         {quotationFile && (
@@ -923,7 +969,7 @@ const CreatePurchaseOrder = () => {
                                                 id="po-contract-appendix-file"
                                                 type="file"
                                                 className="form-input"
-                                                onChange={(e) => setContractAppendixFile(e.target.files?.[0] || null)}
+                                                onChange={handleContractAppendixFileChange}
                                             />
                                         </div>
                                         {contractAppendixFile && (
