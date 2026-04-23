@@ -26,6 +26,9 @@ const MAX_REASON_LENGTH = 250;
 const MAX_NOTE_LENGTH = 250;
 const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 
+/** Tạm ẩn card Hoàn tiền — đặt `true` để hiện lại */
+const SHOW_PR_REFUND_CARD = false;
+
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 const toNumber = (val) => {
@@ -608,7 +611,8 @@ const CreatePurchaseReturn = () => {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        {/* LEFT COLUMN: Product lines (không fix height — tránh double scroll với MainLayout) */}
+                        {/* LEFT COLUMN: 2 card riêng — Chi tiết vật tư trả + Tổng hợp */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
                         <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết vật tư trả</h2>
@@ -936,6 +940,84 @@ const CreatePurchaseReturn = () => {
                             )}
                         </div>
 
+                        {/* Tổng hợp phiếu trả — card riêng trong cột trái */}
+                        <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Tổng hợp phiếu trả</h2>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
+                                        </div>
+                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
+                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div className="form-field">
+                                            <label className="form-label">Phí giảm trừ trả hàng</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    name="feeAmount"
+                                                    value={formData.feeAmount}
+                                                    onChange={handleChange}
+                                                    className={`form-input ${errors.feeAmount ? 'error' : ''}`}
+                                                    style={{ paddingLeft: '16px', paddingRight: '34px' }}
+                                                    placeholder="Nhập phí giảm trừ"
+                                                />
+                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>₫</span>
+                                            </div>
+                                            {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
+                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
+                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
+                                            )}
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="form-label">Lý do giảm trừ</label>
+                                            <div className="input-wrapper">
+                                                <input
+                                                    type="text"
+                                                    name="deductionReason"
+                                                    value={formData.deductionReason}
+                                                    onChange={handleChange}
+                                                    className="form-input"
+                                                    style={{ paddingLeft: '16px' }}
+                                                    placeholder="Nhập lý do giảm trừ"
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: formData.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
+                                                {formData.deductionReason.length}/{MAX_NOTE_LENGTH}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
+                                            <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
+                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí giảm trừ</span>
+                                            <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
+                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* end LEFT COLUMN wrapper */}
+
                         {/* RIGHT COLUMN: General info + Refund */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
@@ -1022,6 +1104,83 @@ const CreatePurchaseReturn = () => {
                                 </div>
                             </div>
 
+                            {/* Nhà cung cấp */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Nhà cung cấp</h2>
+                                </div>
+
+                                {formData.supplierName ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
+                                            <div><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{displaySupplierField(formData.supplierName)}</span></div>
+                                            <div><span style={{ fontWeight: 600 }}>Mã NCC: </span><span>{displaySupplierField(formData.supplierCode)}</span></div>
+                                            <div><span style={{ fontWeight: 600 }}>SĐT: </span><span>{displaySupplierField(formData.supplierPhone)}</span></div>
+                                            <div><span style={{ fontWeight: 600 }}>Email: </span><span>{displaySupplierField(formData.supplierEmail)}</span></div>
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
+                                                <span>{displaySupplierField(formData.supplierTaxCode)}</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                                            {[
+                                                { label: 'Tỉnh/Thành phố', value: formData.supplierAddressProvince },
+                                                { label: 'Quận/Huyện', value: formData.supplierAddressDistrict },
+                                                { label: 'Phường/Xã', value: formData.supplierAddressWard },
+                                                { label: 'Địa chỉ cụ thể', value: formData.supplierAddressStreet },
+                                            ].map(({ label, value }) => (
+                                                <div key={label}>
+                                                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                                                    <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
+                                                        {displaySupplierField(value)}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
+                                            <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
+                                            {[
+                                                displaySupplierField(formData.supplierAddressStreet),
+                                                displaySupplierField(formData.supplierAddressWard),
+                                                displaySupplierField(formData.supplierAddressDistrict),
+                                                displaySupplierField(formData.supplierAddressProvince),
+                                            ]
+                                                .filter((p) => p !== '—')
+                                                .join(', ') || '—'}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }}>
+                                        Chọn phiếu nhập tham chiếu để hiển thị thông tin nhà cung cấp
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Ghi chú */}
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Ghi chú trả hàng</h2>
+                                </div>
+                                <div className="form-field">
+                                    <label className="form-label">Ghi chú trả hàng</label>
+                                    <textarea
+                                        name="reason"
+                                        value={formData.reason}
+                                        onChange={handleChange}
+                                        placeholder="Nhập ghi chú / lý do trả hàng"
+                                        rows={4}
+                                        className={`form-input ${errors.reason ? 'error' : ''}`}
+                                        style={{ resize: 'vertical' }}
+                                    />
+                                    {errors.reason && <span className="error-message">{errors.reason}</span>}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: formData.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: '4px', fontWeight: 500 }}>
+                                        {formData.reason.length}/{MAX_REASON_LENGTH} ký tự
+                                    </div>
+                                </div>
+                            </div>
+
+                            {SHOW_PR_REFUND_CARD && (
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Hoàn tiền</h2>
@@ -1107,168 +1266,8 @@ const CreatePurchaseReturn = () => {
                                     </div>
                                 )}
                             </div>
+                            )}
                         </div>
-                    </div>
-
-                    {/* BOTTOM ROW: Supplier + Notes + Summary */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'stretch', marginTop: '24px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* Supplier info */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Nhà cung cấp</h2>
-                                </div>
-
-                                {formData.supplierName ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: '#334155' }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px' }}>
-                                            <div><span style={{ fontWeight: 600 }}>Tên NCC: </span><span>{displaySupplierField(formData.supplierName)}</span></div>
-                                            <div><span style={{ fontWeight: 600 }}>Mã NCC: </span><span>{displaySupplierField(formData.supplierCode)}</span></div>
-                                            <div><span style={{ fontWeight: 600 }}>SĐT: </span><span>{displaySupplierField(formData.supplierPhone)}</span></div>
-                                            <div><span style={{ fontWeight: 600 }}>Email: </span><span>{displaySupplierField(formData.supplierEmail)}</span></div>
-                                            <div style={{ gridColumn: '1 / -1' }}>
-                                                <span style={{ fontWeight: 600 }}>Mã số thuế: </span>
-                                                <span>{displaySupplierField(formData.supplierTaxCode)}</span>
-                                            </div>
-                                        </div>
-                                        <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Địa chỉ</div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                                            {[
-                                                { label: 'Tỉnh/Thành phố', value: formData.supplierAddressProvince },
-                                                { label: 'Quận/Huyện', value: formData.supplierAddressDistrict },
-                                                { label: 'Phường/Xã', value: formData.supplierAddressWard },
-                                                { label: 'Địa chỉ cụ thể', value: formData.supplierAddressStreet },
-                                            ].map(({ label, value }) => (
-                                                <div key={label}>
-                                                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
-                                                    <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: 32, display: 'flex', alignItems: 'center' }}>
-                                                        {displaySupplierField(value)}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: 13, color: '#475569' }}>
-                                            <span style={{ fontWeight: 600 }}>Địa chỉ gộp: </span>
-                                            {[
-                                                displaySupplierField(formData.supplierAddressStreet),
-                                                displaySupplierField(formData.supplierAddressWard),
-                                                displaySupplierField(formData.supplierAddressDistrict),
-                                                displaySupplierField(formData.supplierAddressProvince),
-                                            ]
-                                                .filter((p) => p !== '—')
-                                                .join(', ') || '—'}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }}>
-                                        Chọn phiếu nhập tham chiếu để hiển thị thông tin nhà cung cấp
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Notes */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Ghi chú trả hàng</h2>
-                                </div>
-                                <div className="form-field">
-                                    <label className="form-label">
-                                        Ghi chú trả hàng
-                                    </label>
-                                    <textarea
-                                        name="reason"
-                                        value={formData.reason}
-                                        onChange={handleChange}
-                                        placeholder="Nhập ghi chú / lý do trả hàng"
-                                        rows={4}
-                                        className={`form-input ${errors.reason ? 'error' : ''}`}
-                                        style={{ resize: 'vertical' }}
-                                    />
-                                    {errors.reason && <span className="error-message">{errors.reason}</span>}
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: formData.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: '4px', fontWeight: 500 }}>
-                                        {formData.reason.length}/{MAX_REASON_LENGTH} ký tự
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Summary */}
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tổng hợp phiếu trả</h2>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Tổng số lượng trả</div>
-                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{totalReturnQuantity} sản phẩm</div>
-                                        </div>
-                                        <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: 600 }}>Giá trị hàng trả</div>
-                                            <div style={{ fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>{formatCurrency(subtotal)}</div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div className="form-field">
-                                            <label className="form-label">Phí giảm trừ trả hàng</label>
-                                            <div className="input-wrapper">
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    name="feeAmount"
-                                                    value={formData.feeAmount}
-                                                    onChange={handleChange}
-                                                    className={`form-input ${errors.feeAmount ? 'error' : ''}`}
-                                                    style={{ paddingLeft: '16px', paddingRight: '34px' }}
-                                                    placeholder="Nhập phí giảm trừ"
-                                                />
-                                                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>₫</span>
-                                            </div>
-                                            {errors.feeAmount && <span className="error-message">{errors.feeAmount}</span>}
-                                            {!errors.feeAmount && isFeeAmountExceedSubtotal && (
-                                                <span className="error-message">Phí xử lí trả hàng không được phép lớn hơn Giá trị hàng trả</span>
-                                            )}
-                                        </div>
-
-                                        <div className="form-field">
-                                            <label className="form-label">Lý do giảm trừ</label>
-                                            <div className="input-wrapper">
-                                                <input
-                                                    type="text"
-                                                    name="deductionReason"
-                                                    value={formData.deductionReason}
-                                                    onChange={handleChange}
-                                                    className="form-input"
-                                                    style={{ paddingLeft: '16px' }}
-                                                    placeholder="Nhập lý do giảm trừ"
-                                                />
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: formData.deductionReason.length >= MAX_NOTE_LENGTH ? '#ef4444' : '#6b7280', marginTop: '2px', fontWeight: 500 }}>
-                                                {formData.deductionReason.length}/{MAX_NOTE_LENGTH}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: '14px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
-                                            <span style={{ color: '#475569', fontWeight: 600 }}>Giá trị hàng trả</span>
-                                            <span style={{ color: '#10b981', fontWeight: 700 }}>+ {formatCurrency(subtotal)}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
-                                            <span style={{ color: '#475569', fontWeight: 600 }}>Phí giảm trừ</span>
-                                            <span style={{ color: feeAmount > 0 ? '#ef4444' : '#64748b', fontWeight: 700 }}>- {formatCurrency(feeAmount)}</span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: '16px', backgroundColor: '#e3f2fd', borderRadius: '12px', borderLeft: '4px solid #2196F3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#2196F3' }}>Số tiền hoàn dự kiến</span>
-                                        <span style={{ fontSize: '22px', fontWeight: 700, color: '#2196F3' }}>{formatCurrency(estimatedRefundAmount)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div />
                     </div>
                 </form>
             </div>
