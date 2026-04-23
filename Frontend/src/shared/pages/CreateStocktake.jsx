@@ -500,6 +500,13 @@ const CreateStocktake = () => {
 
     // ── CREATE MODE handlers ──────────────────────────────────────────────────
 
+    /** Thời điểm hiện tại (local) ở dạng "YYYY-MM-DDTHH:mm" cho min của datetime-local */
+    const nowDatetimeLocal = () => {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
     const validateCreateForm = () => {
         const errors = {};
         if (!createForm.warehouseId) {
@@ -508,11 +515,18 @@ const CreateStocktake = () => {
         if (!createForm.mode) {
             errors.mode = 'Vui lòng chọn hình thức kiểm kê.';
         }
+        if (createForm.plannedAt && createForm.plannedAt < nowDatetimeLocal()) {
+            errors.plannedAt = 'Ngày giờ dự kiến kiểm kê không được ở trong quá khứ.';
+        }
         setCreateErrors(errors);
         return Object.keys(errors).length === 0;
     };
 
     const handleCreateChange = (field, value) => {
+        if (field === 'plannedAt' && value && value < nowDatetimeLocal()) {
+            setCreateErrors(prev => ({ ...prev, plannedAt: 'Ngày giờ dự kiến kiểm kê không được ở trong quá khứ.' }));
+            return;
+        }
         setCreateForm(prev => ({ ...prev, [field]: value }));
         if (createErrors[field]) {
             setCreateErrors(prev => ({ ...prev, [field]: undefined }));
@@ -672,11 +686,15 @@ const CreateStocktake = () => {
                                     <Calendar className="input-icon" size={16} />
                                     <input
                                         type="datetime-local"
-                                        className="form-input"
+                                        className={`form-input${createErrors.plannedAt ? ' error' : ''}`}
                                         value={createForm.plannedAt}
+                                        min={nowDatetimeLocal()}
                                         onChange={e => handleCreateChange('plannedAt', e.target.value)}
                                     />
                                 </div>
+                                {createErrors.plannedAt && (
+                                    <span className="error-message">{createErrors.plannedAt}</span>
+                                )}
                             </div>
 
                             {/* Ghi chú */}
@@ -1261,7 +1279,12 @@ const CreateStocktake = () => {
                                                 type="datetime-local"
                                                 name="plannedAt"
                                                 value={stocktakeData.plannedAt ? stocktakeData.plannedAt.slice(0, 16) : ''}
-                                                onChange={e => setDetailData(prev => ({ ...prev, plannedAt: e.target.value }))}
+                                                min={nowDatetimeLocal()}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    if (val && val < nowDatetimeLocal()) return;
+                                                    setDetailData(prev => ({ ...prev, plannedAt: val }));
+                                                }}
                                                 className="form-input"
                                             />
                                         ) : (
