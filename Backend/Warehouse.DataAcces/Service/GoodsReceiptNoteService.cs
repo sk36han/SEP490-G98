@@ -345,35 +345,6 @@ namespace Warehouse.DataAcces.Service
                 }
             }
 
-            // Tạo InventoryTransaction để ghi nhận lịch sử nhập kho
-            var inventoryTxn = new InventoryTransaction
-            {
-                TxnType = "INBOUND",
-                TxnDate = DateTime.UtcNow,
-                WarehouseId = grn.WarehouseId,
-                ReferenceType = "GRN",
-                ReferenceId = grn.Grnid,
-                Status = "POSTED",
-                PostedBy = userId,
-                PostedAt = DateTime.UtcNow
-            };
-            _context.InventoryTransactions.Add(inventoryTxn);
-            await _context.SaveChangesAsync();
-
-            // Tạo InventoryTransactionLine cho từng item
-            foreach (var grnLine in savedGrnLines)
-            {
-                var txnLine = new InventoryTransactionLine
-                {
-                    InventoryTxnId = inventoryTxn.InventoryTxnId,
-                    ItemId = grnLine.ItemId,
-                    QtyChange = grnLine.ActualQty,
-                    UomId = grnLine.UomId,
-                    Note = $"Nhập theo {grn.Grncode}"
-                };
-                _context.InventoryTransactionLines.Add(txnLine);
-            }
-
             await _auditLogService.LogAsync(
                 userId,
                 "CREATE",
@@ -453,6 +424,66 @@ namespace Warehouse.DataAcces.Service
             grn.PaymentMethod = request.IsPaid && !string.IsNullOrWhiteSpace(request.PaymentMethod)
                 ? request.PaymentMethod.Trim()
                 : null;
+
+            // Đảm bảo có InventoryTransaction và các dòng transaction cho GRN
+            var inventoryTxn = await _context.InventoryTransactions
+                .FirstOrDefaultAsync(t => t.ReferenceType == "GRN" && t.ReferenceId == grn.Grnid);
+
+            if (inventoryTxn == null)
+            {
+                inventoryTxn = new InventoryTransaction
+                {
+                    TxnType = "INBOUND",
+                    TxnDate = DateTime.UtcNow,
+                    WarehouseId = grn.WarehouseId,
+                    ReferenceType = "GRN",
+                    ReferenceId = grn.Grnid,
+                    Status = "POSTED",
+                    PostedBy = userId,
+                    PostedAt = DateTime.UtcNow
+                };
+                _context.InventoryTransactions.Add(inventoryTxn);
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                inventoryTxn.Status = "POSTED";
+                inventoryTxn.TxnType = "INBOUND";
+                inventoryTxn.TxnDate = DateTime.UtcNow;
+                inventoryTxn.PostedBy = userId;
+                inventoryTxn.PostedAt = DateTime.UtcNow;
+            }
+
+            var existingTxnLines = await _context.InventoryTransactionLines
+                .Where(l => l.InventoryTxnId == inventoryTxn.InventoryTxnId)
+                .OrderBy(l => l.InventoryTxnLineId)
+                .ToListAsync();
+
+            if (!existingTxnLines.Any())
+            {
+                foreach (var grnLine in grn.GoodsReceiptNoteLines.OrderBy(x => x.GrnlineId))
+                {
+                    _context.InventoryTransactionLines.Add(new InventoryTransactionLine
+                    {
+                        InventoryTxnId = inventoryTxn.InventoryTxnId,
+                        ItemId = grnLine.ItemId,
+                        QtyChange = grnLine.ActualQty,
+                        UomId = grnLine.UomId,
+                        Note = $"Nhập theo {grn.Grncode}"
+                    });
+                }
+                await _context.SaveChangesAsync();
+
+                existingTxnLines = await _context.InventoryTransactionLines
+                    .Where(l => l.InventoryTxnId == inventoryTxn.InventoryTxnId)
+                    .OrderBy(l => l.InventoryTxnLineId)
+                    .ToListAsync();
+            }
+
+            var pendingTxnLinesByItem = existingTxnLines
+                .Where(l => l.LotId == null)
+                .GroupBy(l => l.ItemId)
+                .ToDictionary(g => g.Key, g => new Queue<InventoryTransactionLine>(g));
 
             // Lấy thông tin PO
             var purchaseOrder = grn.PurchaseOrder;
@@ -575,6 +606,13 @@ namespace Warehouse.DataAcces.Service
                         IsActive = true
                     };
                     _context.InventoryLots.Add(lot);
+
+                    // Gắn Lot cho transaction line để ledger theo vị trí đọc được trực tiếp.
+                    if (pendingTxnLinesByItem.TryGetValue(grnLine.ItemId, out var txnQueue) && txnQueue.Count > 0)
+                    {
+                        var txnLine = txnQueue.Dequeue();
+                        txnLine.Lot = lot;
+                    }
 
                     // Theo dõi put-away: ghi nhận số lượng trước/sau tại vị trí để phục vụ quan sát vận hành
                     if (selectedLocationId.HasValue)

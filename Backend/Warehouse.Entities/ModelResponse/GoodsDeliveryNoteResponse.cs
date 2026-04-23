@@ -130,6 +130,8 @@ namespace Warehouse.Entities.ModelResponse
 
         public long? ReleaseRequestLineId { get; set; }
         public long? LotId { get; set; }
+        public long? LocationId { get; set; }
+        public string? LocationCode { get; set; }
         public string? Note { get; set; }
     }
 

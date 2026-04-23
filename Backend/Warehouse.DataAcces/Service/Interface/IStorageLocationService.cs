@@ -10,7 +10,16 @@ namespace Warehouse.DataAcces.Service.Interface
             int pageSize,
             long? warehouseId,
             string? keyword,
-            bool? isActive);
+            bool? isActive,
+            bool? hasStock,
+            string? itemCode,
+            decimal? minQty,
+            decimal? maxQty);
+
+        Task<PagedResponse<LocationLedgerEntryResponse>> GetLocationLedgerAsync(
+            long locationId,
+            int page,
+            int pageSize);
 
         Task<StorageLocationResponse> GetStorageLocationByIdAsync(long id);
 
