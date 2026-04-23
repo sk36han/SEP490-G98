@@ -247,3 +247,70 @@ export async function toggleReceiverStatus(id, isActive) {
         }
     }
 }
+
+/**
+ * Lay lich su giao dich cua receiver.
+ * GET /api/Receiver/view-transaction-history/{id}
+ */
+export async function getReceiverTransactions(receiverId, params = {}) {
+    const {
+        page = 1,
+        pageSize = 20,
+        transactionType = null,
+        status = null,
+        fromDate = null,
+        toDate = null,
+        detailType = null,
+        detailDocId = null,
+    } = params;
+
+    const response = await apiClient.get(`/Receiver/view-transaction-history/${receiverId}`, {
+        params: {
+            page,
+            pageSize,
+            transactionType: transactionType || undefined,
+            status: status || undefined,
+            fromDate: fromDate || undefined,
+            toDate: toDate || undefined,
+            detailType: detailType || undefined,
+            detailDocId: detailDocId || undefined,
+        },
+    });
+
+    const body = response?.data ?? {};
+    const payload = body?.data ?? body?.Data ?? body;
+    const summaryRaw = payload?.summary ?? payload?.Summary ?? {};
+    const historyRaw = payload?.history ?? payload?.History ?? {};
+    const rawItems = historyRaw?.items ?? historyRaw?.Items ?? [];
+
+    const items = (Array.isArray(rawItems) ? rawItems : [])
+        .filter((row) => row != null && typeof row === 'object')
+        .map((row) => ({
+            transactionId: row.transactionId ?? row.TransactionId ?? null,
+            transactionDate: row.transactionDate ?? row.TransactionDate ?? null,
+            transactionCode: row.transactionCode ?? row.TransactionCode ?? '',
+            transactionType: row.transactionType ?? row.TransactionType ?? '',
+            status: row.status ?? row.Status ?? '',
+            note: row.note ?? row.Note ?? '',
+            warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
+            createdBy: row.createdBy ?? row.CreatedBy ?? '',
+            itemCount: row.itemCount ?? row.ItemCount ?? 0,
+            totalQuantity: row.totalQuantity ?? row.TotalQuantity ?? 0,
+            createdAt: row.createdAt ?? row.CreatedAt ?? null,
+        }));
+
+    return {
+        summary: {
+            totalReleaseRequests: summaryRaw.totalReleaseRequests ?? summaryRaw.TotalReleaseRequests ?? 0,
+            totalGoodsDeliveryNotes: summaryRaw.totalGoodsDeliveryNotes ?? summaryRaw.TotalGoodsDeliveryNotes ?? 0,
+            totalQuantityRequested: summaryRaw.totalQuantityRequested ?? summaryRaw.TotalQuantityRequested ?? 0,
+            totalQuantityDelivered: summaryRaw.totalQuantityDelivered ?? summaryRaw.TotalQuantityDelivered ?? 0,
+        },
+        history: {
+            page: historyRaw.page ?? historyRaw.Page ?? page,
+            pageSize: historyRaw.pageSize ?? historyRaw.PageSize ?? pageSize,
+            totalItems: historyRaw.totalItems ?? historyRaw.TotalItems ?? 0,
+            items,
+        },
+    };
+}

@@ -37,6 +37,7 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import {
     getReceiverDetail,
+    getReceiverTransactions,
     updateReceiver,
     toggleReceiverStatus,
 } from '../lib/receiverService';
@@ -113,6 +114,12 @@ export default function ViewReceiverDetail() {
     const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
     const [addressDialogOpen, setAddressDialogOpen] = useState(false);
     const [errors, setErrors] = useState({});
+    const [loadingTransactions, setLoadingTransactions] = useState(false);
+    const [transactionSummary, setTransactionSummary] = useState(null);
+    const [transactionItems, setTransactionItems] = useState([]);
+    const [transactionPage, setTransactionPage] = useState(1);
+    const [transactionPageSize] = useState(10);
+    const [transactionTotalItems, setTransactionTotalItems] = useState(0);
 
     const fetchDetail = useCallback(async () => {
         if (!id) return;
@@ -126,6 +133,22 @@ export default function ViewReceiverDetail() {
             setLoading(false);
         }
     }, [id, showToast]);
+
+    const fetchTransactions = useCallback(async (page = 1) => {
+        if (!id) return;
+        setLoadingTransactions(true);
+        try {
+            const res = await getReceiverTransactions(id, { page, pageSize: transactionPageSize });
+            setTransactionSummary(res?.summary ?? null);
+            setTransactionItems(res?.history?.items ?? []);
+            setTransactionTotalItems(res?.history?.totalItems ?? 0);
+            setTransactionPage(res?.history?.page ?? page);
+        } catch (err) {
+            showToast(err?.message || 'Không tải được lịch sử giao dịch.', 'error');
+        } finally {
+            setLoadingTransactions(false);
+        }
+    }, [id, showToast, transactionPageSize]);
 
     const loadCompanies = useCallback(async () => {
         setLoadingCompanies(true);
@@ -155,7 +178,10 @@ export default function ViewReceiverDetail() {
         }
     }, [showToast]);
 
-    useEffect(() => { fetchDetail(); }, [fetchDetail]);
+    useEffect(() => {
+        fetchDetail();
+        fetchTransactions(1);
+    }, [fetchDetail, fetchTransactions]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -558,6 +584,101 @@ export default function ViewReceiverDetail() {
                                     </div>
                                 </>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Lịch sử giao dịch */}
+                    <div className="info-section">
+                        <div className="section-header-with-toggle">
+                            <h2 className="section-title">Lịch sử giao dịch</h2>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 12, marginBottom: 14 }}>
+                            <div style={{ padding: '10px 12px', borderRadius: 10, backgroundColor: '#f0f9ff' }}>
+                                <div style={{ fontSize: 12, color: '#64748b' }}>Release Request</div>
+                                <div style={{ fontWeight: 700, color: '#0284c7' }}>{transactionSummary?.totalReleaseRequests ?? 0}</div>
+                            </div>
+                            <div style={{ padding: '10px 12px', borderRadius: 10, backgroundColor: '#f0fdf4' }}>
+                                <div style={{ fontSize: 12, color: '#64748b' }}>Goods Delivery Note</div>
+                                <div style={{ fontWeight: 700, color: '#16a34a' }}>{transactionSummary?.totalGoodsDeliveryNotes ?? 0}</div>
+                            </div>
+                            <div style={{ padding: '10px 12px', borderRadius: 10, backgroundColor: '#fffbeb' }}>
+                                <div style={{ fontSize: 12, color: '#64748b' }}>SL yêu cầu</div>
+                                <div style={{ fontWeight: 700, color: '#d97706' }}>{Number(transactionSummary?.totalQuantityRequested ?? 0).toLocaleString('vi-VN')}</div>
+                            </div>
+                            <div style={{ padding: '10px 12px', borderRadius: 10, backgroundColor: '#f5f3ff' }}>
+                                <div style={{ fontSize: 12, color: '#64748b' }}>SL giao</div>
+                                <div style={{ fontWeight: 700, color: '#7c3aed' }}>{Number(transactionSummary?.totalQuantityDelivered ?? 0).toLocaleString('vi-VN')}</div>
+                            </div>
+                        </div>
+
+                        <div style={{ overflowX: 'auto' }}>
+                            <table className="product-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mã GD</th>
+                                        <th>Loại</th>
+                                        <th>Trạng thái</th>
+                                        <th>Kho</th>
+                                        <th style={{ textAlign: 'right' }}>SL</th>
+                                        <th>Ngày GD</th>
+                                        <th>Người tạo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {loadingTransactions ? (
+                                        <tr>
+                                            <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#6b7280' }}>
+                                                Đang tải lịch sử giao dịch...
+                                            </td>
+                                        </tr>
+                                    ) : transactionItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#6b7280' }}>
+                                                Chưa có giao dịch nào
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        transactionItems.map((tx, idx) => (
+                                            <tr key={`${tx.transactionType}-${tx.transactionId}-${idx}`}>
+                                                <td style={{ fontWeight: 600, color: '#2196F3' }}>{tx.transactionCode || '—'}</td>
+                                                <td>{tx.transactionType || '—'}</td>
+                                                <td>{tx.status || '—'}</td>
+                                                <td>{tx.warehouseName || '—'}</td>
+                                                <td style={{ textAlign: 'right' }}>{Number(tx.totalQuantity ?? 0).toLocaleString('vi-VN')}</td>
+                                                <td>{fmtDate(tx.transactionDate || tx.createdAt)}</td>
+                                                <td>{tx.createdBy || '—'}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                            <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                {transactionTotalItems === 0
+                                    ? '0 / 0'
+                                    : `${(transactionPage - 1) * transactionPageSize + 1}–${Math.min(transactionPage * transactionPageSize, transactionTotalItems)} / ${transactionTotalItems}`}
+                            </span>
+                            <button
+                                type="button"
+                                className="btn btn-cancel"
+                                onClick={() => fetchTransactions(transactionPage - 1)}
+                                disabled={loadingTransactions || transactionPage <= 1}
+                                style={{ padding: '4px 10px' }}
+                            >
+                                Trước
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-cancel"
+                                onClick={() => fetchTransactions(transactionPage + 1)}
+                                disabled={loadingTransactions || transactionPage * transactionPageSize >= transactionTotalItems}
+                                style={{ padding: '4px 10px' }}
+                            >
+                                Sau
+                            </button>
                         </div>
                     </div>
 
