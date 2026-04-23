@@ -92,6 +92,31 @@ namespace Warehouse.DataAcces.Service
 
             response.ItemCount = response.Items.Count;
 
+            // Lấy danh sách lô trong kho (kèm mã GRN và vị trí lưu trữ nếu đã gán)
+            response.Lots = await _context.InventoryLots
+                .AsNoTracking()
+                .Where(l => l.WarehouseId == warehouseId)
+                .Include(l => l.Grnline)
+                    .ThenInclude(gl => gl.Grn)
+                .Include(l => l.Location)
+                .OrderByDescending(l => l.ReceiptDate)
+                .ThenByDescending(l => l.LotId)
+                .Select(l => new WarehouseLotDto
+                {
+                    LotId = l.LotId,
+                    ItemId = l.ItemId,
+                    WarehouseId = l.WarehouseId,
+                    GrnlineId = l.GrnlineId,
+                    GrnCode = l.Grnline != null ? l.Grnline.Grn.Grncode : null,
+                    LocationCode = l.Location != null ? l.Location.LocationCode : null,
+                    ReceiptDate = l.ReceiptDate,
+                    Quantity = l.Quantity,
+                    UnitCost = l.UnitCost,
+                    ExpiryDate = l.ExpiryDate,
+                    IsActive = l.IsActive
+                })
+                .ToListAsync();
+
 
             // Lấy giấy tờ nhập kho (GRN)
             var importPapers = await _context.GoodsReceiptNotes

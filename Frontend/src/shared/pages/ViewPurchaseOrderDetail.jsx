@@ -29,7 +29,7 @@ import {
         Pencil,
 } from 'lucide-react';
 import authService from '../lib/authService';
-import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+import { getPermissionRole, getRawRoleFromUser, isWarehouseKeeper } from '../permissions/roleUtils';
 import { getPurchaseOrderDetail, approvePurchaseOrder, rejectPurchaseOrder } from '../lib/purchaseOrderService';
 import { useToastContext } from '../../app/context/ToastContext';
 import { hasPendingGRNForPO } from '../lib/goodReceiptNoteService';
@@ -386,6 +386,8 @@ const ViewPurchaseOrderDetail = () => {
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    /** TK (Thủ kho): không hiển thị NCC, tệp đính kèm (và metric NCC ở hero). */
+    const hideSensitiveForWarehouseKeeper = isWarehouseKeeper(permissionRole);
 
     const [loading, setLoading] = useState(true);
     const [accessDenied, setAccessDenied] = useState(false);
@@ -868,10 +870,12 @@ const ViewPurchaseOrderDetail = () => {
                 </div>
 
                 <div style={styles.heroMetrics}>
-                    <div style={styles.metricCard}>
-                        <div style={styles.metricLabel}>Nhà cung cấp</div>
-                        <div style={styles.metricValue}>{orderData.supplierName || '—'}</div>
-                    </div>
+                    {!hideSensitiveForWarehouseKeeper && (
+                        <div style={styles.metricCard}>
+                            <div style={styles.metricLabel}>Nhà cung cấp</div>
+                            <div style={styles.metricValue}>{orderData.supplierName || '—'}</div>
+                        </div>
+                    )}
 
                     <div style={styles.metricCard}>
                         <div style={styles.metricLabel}>Kho nhận</div>
@@ -1120,16 +1124,18 @@ const ViewPurchaseOrderDetail = () => {
                         </div>
                     </div>
 
-                    <div style={styles.sectionCard}>
-                        <div style={styles.sectionHeader}>
-                            <h2 style={styles.sectionTitle}>Nhà cung cấp</h2>
-                        </div>
-                        <div style={styles.sectionBody}>
-                            <div style={styles.infoGrid}>
-                                {renderReadonlyField('Tên nhà cung cấp', orderData.supplierName, Building2)}
+                    {!hideSensitiveForWarehouseKeeper && (
+                        <div style={styles.sectionCard}>
+                            <div style={styles.sectionHeader}>
+                                <h2 style={styles.sectionTitle}>Nhà cung cấp</h2>
+                            </div>
+                            <div style={styles.sectionBody}>
+                                <div style={styles.infoGrid}>
+                                    {renderReadonlyField('Tên nhà cung cấp', orderData.supplierName, Building2)}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     <div style={styles.sectionCard}>
                         <div style={styles.sectionHeader}>
@@ -1150,72 +1156,74 @@ const ViewPurchaseOrderDetail = () => {
                         </div>
                     </div>
 
-                    <div style={styles.sectionCard}>
-                        <div style={styles.sectionHeader}>
-                            <h2 style={styles.sectionTitle}>Tệp đính kèm</h2>
-                        </div>
-                        <div style={styles.sectionBody}>
-                            {orderData.quotationFileUrl || orderData.contractAppendixFileUrl ? (
-                                <div style={styles.fieldWrap}>
-                                    <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
-                                    <div
-                                        style={{
-                                            ...styles.fieldBox,
-                                            ...styles.fieldBoxMultiline,
-                                            flexDirection: 'column',
-                                            alignItems: 'flex-start',
-                                            gap: 10,
-                                        }}
-                                    >
-                                        {orderData.quotationFileUrl && (
-                                            <a
-                                                href={orderData.quotationFileUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                style={{
-                                                    color: '#1d4ed8',
-                                                    textDecoration: 'none',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 8,
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                <Paperclip size={16} />
-                                                File báo giá
-                                            </a>
-                                        )}
-                                        {orderData.contractAppendixFileUrl && (
-                                            <a
-                                                href={orderData.contractAppendixFileUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                style={{
-                                                    color: '#1d4ed8',
-                                                    textDecoration: 'none',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 8,
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                <FileText size={16} />
-                                                Hợp đồng nguyên tắc
-                                            </a>
-                                        )}
+                    {!hideSensitiveForWarehouseKeeper && (
+                        <div style={styles.sectionCard}>
+                            <div style={styles.sectionHeader}>
+                                <h2 style={styles.sectionTitle}>Tệp đính kèm</h2>
+                            </div>
+                            <div style={styles.sectionBody}>
+                                {orderData.quotationFileUrl || orderData.contractAppendixFileUrl ? (
+                                    <div style={styles.fieldWrap}>
+                                        <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
+                                        <div
+                                            style={{
+                                                ...styles.fieldBox,
+                                                ...styles.fieldBoxMultiline,
+                                                flexDirection: 'column',
+                                                alignItems: 'flex-start',
+                                                gap: 10,
+                                            }}
+                                        >
+                                            {orderData.quotationFileUrl && (
+                                                <a
+                                                    href={orderData.quotationFileUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        color: '#1d4ed8',
+                                                        textDecoration: 'none',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 8,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    <Paperclip size={16} />
+                                                    File báo giá
+                                                </a>
+                                            )}
+                                            {orderData.contractAppendixFileUrl && (
+                                                <a
+                                                    href={orderData.contractAppendixFileUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        color: '#1d4ed8',
+                                                        textDecoration: 'none',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 8,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    <FileText size={16} />
+                                                    Hợp đồng nguyên tắc
+                                                </a>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div style={styles.fieldWrap}>
-                                    <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
-                                    <div style={{ ...styles.fieldBox, color: '#94a3b8' }}>
-                                        <Paperclip size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                                        <span>Chưa có tệp đính kèm.</span>
+                                ) : (
+                                    <div style={styles.fieldWrap}>
+                                        <label style={styles.fieldLabel}>Tệp đính kèm PO</label>
+                                        <div style={{ ...styles.fieldBox, color: '#94a3b8' }}>
+                                            <Paperclip size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                                            <span>Chưa có tệp đính kèm.</span>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

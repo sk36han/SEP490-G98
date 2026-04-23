@@ -89,6 +89,8 @@ public partial class Mkiwms5Context : DbContext
 
     public virtual DbSet<StocktakeSession> StocktakeSessions { get; set; }
 
+    public virtual DbSet<StorageLocation> StorageLocations { get; set; }
+
     public virtual DbSet<Supplier> Suppliers { get; set; }
 
     public virtual DbSet<TransportInfo> TransportInfos { get; set; }
@@ -413,6 +415,8 @@ public partial class Mkiwms5Context : DbContext
         {
             entity.HasKey(e => e.LotId);
 
+            entity.HasIndex(e => e.LocationId, "IX_InventoryLots_LocationId");
+
             entity.Property(e => e.ExpiryDate).HasPrecision(0);
             entity.Property(e => e.GrnlineId).HasColumnName("GRNLineId");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
@@ -430,6 +434,10 @@ public partial class Mkiwms5Context : DbContext
                 .HasForeignKey(d => d.ItemId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_InventoryLots_Items");
+
+            entity.HasOne(d => d.Location).WithMany(p => p.InventoryLots)
+                .HasForeignKey(d => d.LocationId)
+                .HasConstraintName("FK_InventoryLots_StorageLocations");
 
             entity.HasOne(d => d.Warehouse).WithMany(p => p.InventoryLots)
                 .HasForeignKey(d => d.WarehouseId)
@@ -1000,6 +1008,26 @@ public partial class Mkiwms5Context : DbContext
                 .HasForeignKey(d => d.WarehouseId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ST_Warehouse");
+        });
+
+        modelBuilder.Entity<StorageLocation>(entity =>
+        {
+            entity.HasKey(e => e.LocationId).HasName("PK__StorageL__E7FEA4977C5F11EE");
+
+            entity.HasIndex(e => new { e.WarehouseId, e.LocationCode }, "UX_StorageLocations_Warehouse_Code").IsUnique();
+
+            entity.Property(e => e.CreatedAt)
+                .HasPrecision(0)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.LocationCode).HasMaxLength(50);
+            entity.Property(e => e.LocationName).HasMaxLength(200);
+            entity.Property(e => e.UpdatedAt).HasPrecision(0);
+
+            entity.HasOne(d => d.Warehouse).WithMany(p => p.StorageLocations)
+                .HasForeignKey(d => d.WarehouseId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_StorageLocations_Warehouses");
         });
 
         modelBuilder.Entity<Supplier>(entity =>

@@ -694,9 +694,9 @@ const ViewItemList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Package} label="Tổng vật tư" value={(totalCount || items.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Package} label="Đang hoạt động" value={items.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Package} label="Ngưng hoạt động" value={items.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Package} label="Tổng vật tư" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Package} label="Đang hoạt động" value={filteredItems.filter((r) => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Package} label="Ngưng hoạt động" value={filteredItems.filter((r) => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 

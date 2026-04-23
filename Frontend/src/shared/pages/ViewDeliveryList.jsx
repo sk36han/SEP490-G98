@@ -50,7 +50,7 @@ const LS_COL_ORDER = 'deliveryColumnOrder';
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 // Summary card (reuse style from ViewStocktakeList)
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
     <Box sx={{
         flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
         border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
@@ -61,7 +61,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
             width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-            <Icon size={22} color={color} />
+            {React.createElement(icon, { size: 22, color })}
         </Box>
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
@@ -346,9 +346,10 @@ const ViewDeliveryList = () => {
         setColumnSelectorAnchor(null);
     };
 
-    // Summary counts
-    const summaryActive = list.filter(r => r.isActive === true).length;
-    const summaryInactive = list.filter(r => r.isActive === false).length;
+    const summaryBreakdownReliable = totalCount > 0 && list.length >= totalCount;
+
+    const summaryActive = summaryBreakdownReliable ? list.filter((r) => r.isActive === true).length : null;
+    const summaryInactive = summaryBreakdownReliable ? list.filter((r) => r.isActive === false).length : null;
 
     return (
         <Box sx={{
@@ -368,9 +369,9 @@ const ViewDeliveryList = () => {
 
                 {/* Summary Cards */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Truck} label="Tổng đơn giao hàng" value={(totalCount || list.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Truck} label="Đang hoạt động" value={summaryActive.toLocaleString()} color="#16a34a" bgColor="rgba(22,163,74,0.1)" />
-                    <SummaryCard icon={Truck} label="Ngừng hoạt động" value={summaryInactive.toLocaleString()} color="#dc2626" bgColor="rgba(220,38,38,0.1)" />
+                    <SummaryCard icon={Truck} label="Tổng đơn giao hàng" value={totalCount.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Truck} label="Đang hoạt động" value={summaryActive != null ? summaryActive.toLocaleString() : '—'} color="#16a34a" bgColor="rgba(22,163,74,0.1)" />
+                    <SummaryCard icon={Truck} label="Ngừng hoạt động" value={summaryInactive != null ? summaryInactive.toLocaleString() : '—'} color="#dc2626" bgColor="rgba(220,38,38,0.1)" />
                 </Box>
             </Box>
 
@@ -607,8 +608,8 @@ const ViewDeliveryList = () => {
                                                         if (col.id === 'gdnCode') {
                                                             return (
                                                                 <TableCell key={col.id} sx={{ ...BODY_CELL_SX, width: `${getColWidthPct(col.id)}%` }}>
-                                                                    <Typography sx={{ color: '#3b82f6', fontSize: '13px', fontWeight: 500, cursor: 'pointer', '&:hover': { textDecoration: 'underline' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
-                                                                        onClick={() => navigate(`/deliveries/${item.transportId}`)}>
+                                                                    <Typography sx={{ color: '#3b82f6', fontSize: '13px', fontWeight: 500, cursor: item.gdnId != null ? 'pointer' : 'default', '&:hover': { textDecoration: item.gdnId != null ? 'underline' : 'none' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+                                                                        onClick={() => item.gdnId != null && navigate(`/good-delivery-notes/detail/${item.gdnId}`)}>
                                                                         {item.gdnCode || '-'}
                                                                     </Typography>
                                                                 </TableCell>

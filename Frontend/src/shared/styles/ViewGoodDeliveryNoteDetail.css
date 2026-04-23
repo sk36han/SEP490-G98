@@ -1,8 +1,26 @@
 /* ViewGoodDeliveryNoteDetail.css */
+
+/*
+ * Trang dùng kèm .create-supplier-page: MainLayout (main) đã là vùng cuộn —
+ * không đặt min-height:100vh + overflow-y:auto trên wrapper (tránh 2 thanh scroll).
+ */
+.create-supplier-page.gdn-detail-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    /* Ghi đè padding-bottom:100px của .create-supplier-page — tránh chiều cao dư + scroll kép */
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.gdn-detail-page .form-card {
+    margin-bottom: 24px;
+}
+
 .gdn-detail-page {
     padding: 24px;
     background-color: #f8fafc;
-    min-height: 100vh;
     font-family: 'Inter', sans-serif;
 }
 

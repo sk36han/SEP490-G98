@@ -31,7 +31,7 @@ export function StatusBadge({ status, label, dot, variant = 'filled', colors, sx
     PENDING:           { bgcolor: 'rgba(251,191,36,0.20)',  color: '#b45309', label: 'Chờ duyệt' },
     PENDING_ACC:       { bgcolor: 'rgba(251,191,36,0.20)',  color: '#b45309', label: 'Chờ kế toán duyệt' },
     PENDING_DIR:       { bgcolor: 'rgba(251,191,36,0.20)',  color: '#b45309', label: 'Chờ giám đốc duyệt' },
-    PENDING_ISSUE:     { bgcolor: 'rgba(14,165,233,0.18)',  color: '#0369a1', label: 'Chờ xuất hàng' },
+    PENDING_ISSUE:     { bgcolor: 'rgba(14,165,233,0.18)',  color: '#0369a1', label: 'Chuẩn bị hàng' },
     APPROVED:          { bgcolor: 'rgba(16,185,129,0.18)',  color: '#047857', label: 'Đã duyệt' },
     REJECTED:          { bgcolor: 'rgba(239,68,68,0.18)',   color: '#b91c1c', label: 'Từ chối' },
     DRAFT:             { bgcolor: 'rgba(107,114,128,0.2)', color: '#4b5563', label: 'Nháp' },

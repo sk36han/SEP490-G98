@@ -19,6 +19,12 @@ import '../styles/CreateGoodDeliveryNote.css';
 import { createDelivery } from '../lib/deliveryService';
 import { getGoodsDeliveryNotes } from '../lib/goodsDeliveryNoteService';
 
+/**
+ * Trang tạo thông tin vận chuyển (/deliveries/create)
+ * - GET  /api/GoodsDeliveryNote — getGoodsDeliveryNotes: chọn phiếu xuất (mã GDN, người nhận, kho…).
+ * - POST /api/TransportInfo — createDelivery: gửi { gdnid, carrierName, driverName, driverPhone, licensePlate, note }.
+ */
+
 const normalizeText = (value) =>
     String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
@@ -126,19 +132,12 @@ export default function CreateDelivery() {
         if (!validateForm()) return;
         setSubmitting(true);
         try {
-            const payload = {
-                Gdnid: Number(formData.gdnId),
-                CarrierName: formData.carrierName || null,
-                DriverName: formData.driverName || null,
-                DriverPhone: formData.driverPhone || null,
-                LicensePlate: formData.licensePlate || null,
-                Note: formData.note || null,
-            };
-            await createDelivery(payload);
+            // POST /api/TransportInfo — body camelCase: gdnid, carrierName, driverName, driverPhone, licensePlate, note
+            await createDelivery(formData);
             showToast('Tạo giao hàng thành công!', 'success');
             setTimeout(() => navigate('/deliveries'), 1200);
         } catch (e) {
-            showToast(e.message || 'Lỗi server', 'error');
+            showToast(e?.message || 'Lỗi server', 'error');
         } finally {
             setSubmitting(false);
         }

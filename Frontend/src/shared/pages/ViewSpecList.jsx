@@ -104,6 +104,8 @@ const ViewSpecList = () => {
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
+    /** Toàn bộ dòng sau lọc (trước khi slice trang) — dùng cho thẻ tổng kê */
+    const [filteredAllRows, setFilteredAllRows] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterAnchor, setFilterAnchor] = useState(null);
@@ -281,6 +283,7 @@ const ViewSpecList = () => {
                 isActive: filterStatus === 'all' ? undefined : filterStatus === 'active',
             });
             const filtered = applyFiltersAndSort(result.items);
+            setFilteredAllRows(filtered);
             setTotalItems(filtered.length);
             const start = page * pageSize;
             const paginated = filtered.slice(start, start + pageSize);
@@ -288,6 +291,7 @@ const ViewSpecList = () => {
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không tải được danh sách thông số');
             setRows([]);
+            setFilteredAllRows([]);
             setTotalItems(0);
         } finally {
             setLoading(false);
@@ -426,9 +430,9 @@ const ViewSpecList = () => {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
-                    <SummaryCard icon={Ruler} label="Tổng thông số" value={(totalItems || rows.length).toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
-                    <SummaryCard icon={Ruler} label="Đang hoạt động" value={rows.filter(r => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
-                    <SummaryCard icon={Ruler} label="Ngưng hoạt động" value={rows.filter(r => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
+                    <SummaryCard icon={Ruler} label="Tổng thông số" value={totalItems.toLocaleString()} color="#6b7280" bgColor="rgba(107,114,128,0.1)" />
+                    <SummaryCard icon={Ruler} label="Đang hoạt động" value={filteredAllRows.filter((r) => r.isActive).length.toLocaleString()} color="#059669" bgColor="rgba(5,150,105,0.1)" />
+                    <SummaryCard icon={Ruler} label="Ngưng hoạt động" value={filteredAllRows.filter((r) => !r.isActive).length.toLocaleString()} color="#d97706" bgColor="rgba(217,119,6,0.1)" />
                 </Box>
             </Box>
 

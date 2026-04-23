@@ -43,6 +43,10 @@ namespace Warehouse.Entities.ModelRequest
         [Required]
         public long ItemId { get; set; }
 
+        [Required(ErrorMessage = "Vị trí lưu trữ là bắt buộc.")]
+        [Range(1, long.MaxValue, ErrorMessage = "LocationId phải lớn hơn 0.")]
+        public long LocationId { get; set; }
+
         [Required]
         public decimal ExpectedQty { get; set; }
 

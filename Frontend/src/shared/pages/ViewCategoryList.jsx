@@ -257,6 +257,8 @@ const ViewCategoryList = () => {
     const start = totalItems === 0 ? 0 : page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalItems);
 
+    const summaryBreakdownReliable = totalItems > 0 && rows.length >= totalItems;
+
     return (
         <Box
             sx={{
@@ -298,21 +300,21 @@ const ViewCategoryList = () => {
                     <SummaryCard
                         icon={Package}
                         label="Tổng danh mục"
-                        value={(totalItems || rows.length).toLocaleString()}
+                        value={totalItems.toLocaleString()}
                         color="#6b7280"
                         bgColor="rgba(107,114,128,0.1)"
                     />
                     <SummaryCard
                         icon={Layers}
                         label="Đang hoạt động"
-                        value={rows.filter(r => r.isActive).length.toLocaleString()}
+                        value={summaryBreakdownReliable ? rows.filter((r) => r.isActive).length.toLocaleString() : '—'}
                         color="#059669"
                         bgColor="rgba(5,150,105,0.1)"
                     />
                     <SummaryCard
                         icon={Layers}
                         label="Ngưng hoạt động"
-                        value={rows.filter(r => !r.isActive).length.toLocaleString()}
+                        value={summaryBreakdownReliable ? rows.filter((r) => !r.isActive).length.toLocaleString() : '—'}
                         color="#d97706"
                         bgColor="rgba(217,119,6,0.1)"
                     />

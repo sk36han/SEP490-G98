@@ -32,10 +32,12 @@ const MOCK_DELIVERIES = [
 
 function mapDeliveryRow(row) {
     if (!row) return null;
+    const gdnId = row.gdnId ?? row.GdnId ?? row.gdnid ?? row.Gdnid ?? null;
+    const gdnCode = row.gdnCode ?? row.GdnCode ?? '';
     return {
         transportId: row.transportId ?? row.TransportId ?? row.id ?? row.Id ?? null,
-        gdnId: row.gdnId ?? row.GdnId ?? null,
-        gdnCode: row.gdnCode ?? row.GdnCode ?? '',
+        gdnId,
+        gdnCode: gdnCode || (gdnId != null ? `#${gdnId}` : ''),
         carrierName: row.carrierName ?? row.CarrierName ?? '',
         driverName: row.driverName ?? row.DriverName ?? '',
         driverPhone: row.driverPhone ?? row.DriverPhone ?? '',
@@ -51,28 +53,37 @@ function mapDeliveryRow(row) {
 
 /**
  * Lấy danh sách giao hàng (phân trang + filter).
+ * Backend: GET /api/TransportInfo — FilterTransportInfoRequest (PageNumber, PageSize, Keyword, Gdnid).
  * Ưu tiên dùng API thật, fallback mock data.
  */
 export async function getDeliveries(params = {}) {
-    const { page = 1, pageSize = 20, searchTerm = '', isActive, status, carrierName } = params;
+    const { page = 1, pageSize = 20, searchTerm = '', isActive, status, carrierName, gdnId } = params;
     const query = new URLSearchParams();
-    query.append('page', page);
-    query.append('pageSize', pageSize);
-    if (searchTerm) query.append('searchTerm', searchTerm);
-    if (isActive !== undefined && isActive !== null && isActive !== '') query.append('isActive', isActive);
-    if (status) query.append('status', status);
-    if (carrierName) query.append('carrierName', carrierName);
+    query.append('PageNumber', String(page));
+    query.append('PageSize', String(pageSize));
+    const kw = (searchTerm && String(searchTerm).trim())
+        || (carrierName && String(carrierName).trim())
+        || '';
+    if (kw) query.append('Keyword', kw);
+    if (gdnId !== undefined && gdnId !== null && gdnId !== '') query.append('Gdnid', String(gdnId));
+    if (isActive !== undefined && isActive !== null && isActive !== '') {
+        const want = isActive === 'true' || isActive === true;
+        query.append('IsActive', want ? 'true' : 'false');
+    }
 
     try {
         const response = await apiClient.get(`/TransportInfo?${query.toString()}`);
         const body = response?.data ?? {};
         const paged = body.data ?? body.Data ?? body;
         const rawItems = Array.isArray(paged) ? paged : (paged?.items ?? paged?.Items ?? []);
+        const items = rawItems.map(mapDeliveryRow).filter(Boolean);
+
+        const serverTotal = paged?.totalItems ?? paged?.TotalItems ?? rawItems.length;
         return {
-            items: rawItems.map(mapDeliveryRow),
-            totalItems: paged?.totalItems ?? paged?.totalCount ?? rawItems.length,
-            page: paged?.page ?? page,
-            pageSize: paged?.pageSize ?? pageSize,
+            items,
+            totalItems: serverTotal,
+            page: paged?.page ?? paged?.Page ?? page,
+            pageSize: paged?.pageSize ?? paged?.PageSize ?? pageSize,
             totalPages: paged?.totalPages ?? 1,
         };
     } catch {
@@ -122,19 +133,76 @@ export async function getDeliveryDetail(id) {
     }
 }
 
+const trimOrNull = (v) => {
+    if (v == null) return null;
+    const s = String(v).trim();
+    return s === '' ? null : s;
+};
+
 /**
- * Tạo giao hàng mới.
+ * Chuẩn hóa các trường vận chuyển (giống CreateDelivery / CreateTransportInfoRequest), không gồm gdnid.
+ * Dùng cho form dialog trước khi có phiếu xuất; `transportNote` map sang `note`.
+ * @returns {{ carrierName: string|null, driverName: string|null, driverPhone: string|null, licensePlate: string|null, note: string|null }}
  */
-export async function createDelivery(payload) {
+export function normalizeTransportInfoFields(input) {
+    let driverPhone = trimOrNull(input?.driverPhone ?? input?.DriverPhone);
+    if (driverPhone) {
+        driverPhone = driverPhone.replace(/\D/g, '');
+        driverPhone = driverPhone.length ? driverPhone : null;
+    }
+    return {
+        carrierName: trimOrNull(input?.carrierName ?? input?.CarrierName),
+        driverName: trimOrNull(input?.driverName ?? input?.DriverName),
+        driverPhone,
+        licensePlate: trimOrNull(input?.licensePlate ?? input?.LicensePlate),
+        note: trimOrNull(input?.note ?? input?.Note ?? input?.transportNote),
+    };
+}
+
+/**
+ * Body JSON cho POST /api/TransportInfo (camelCase, khớp CreateTransportInfoRequest khi serialize).
+ * @param {object} input – form: { gdnId, carrierName, driverName, driverPhone, licensePlate, note }
+ * @returns {{ gdnid: number, carrierName: string|null, driverName: string|null, driverPhone: string|null, licensePlate: string|null, note: string|null }}
+ */
+export function buildCreateTransportInfoBody(input) {
+    const gdnid = Number(input?.gdnId ?? input?.gdnid ?? input?.Gdnid);
+    if (!Number.isFinite(gdnid) || gdnid <= 0) {
+        throw new Error('Mã phiếu xuất (gdnid) không hợp lệ.');
+    }
+    const fields = normalizeTransportInfoFields(input);
+    return { gdnid, ...fields };
+}
+
+function getCreateTransportInfoErrorMessage(error) {
+    const d = error?.response?.data;
+    if (d == null) return error?.message || 'Không thể tạo thông tin vận chuyển.';
+    if (typeof d === 'string') return d;
+    if (d.message) return d.message;
+    if (d.Message) return d.Message;
+    const errs = d.errors ?? d.Errors;
+    if (errs && typeof errs === 'object') {
+        const firstKey = Object.keys(errs)[0];
+        const arr = firstKey ? errs[firstKey] : null;
+        if (Array.isArray(arr) && arr[0]) return String(arr[0]);
+    }
+    return error?.message || 'Không thể tạo thông tin vận chuyển.';
+}
+
+/**
+ * Tạo giao hàng (POST /api/TransportInfo).
+ * @param {object} input – cùng shape với buildCreateTransportInfoBody (vd. formData từ CreateDelivery)
+ */
+export async function createDelivery(input) {
+    const body = buildCreateTransportInfoBody(input);
     try {
-        const response = await apiClient.post('/TransportInfo', payload);
+        const response = await apiClient.post('/TransportInfo', body);
         invalidate('deliveries');
         return getPayload(response?.data);
     } catch (error) {
         if (error?.response?.status === 404) {
             throw new Error('Backend chưa hỗ trợ API tạo giao hàng.');
         }
-        throw error?.response?.data || error;
+        throw new Error(getCreateTransportInfoErrorMessage(error));
     }
 }
 

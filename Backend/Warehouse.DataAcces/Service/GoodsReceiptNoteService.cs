@@ -143,6 +143,80 @@ namespace Warehouse.DataAcces.Service
                 throw new KeyNotFoundException("Có đơn vị tính không tồn tại.");
             }
 
+            // Validate Storage Locations (phải thuộc đúng kho nhận và đang hoạt động)
+            var locationIds = request.Lines.Select(x => x.LocationId).Distinct().ToList();
+            var locations = await _context.StorageLocations
+                .Where(l => locationIds.Contains(l.LocationId))
+                .ToDictionaryAsync(l => l.LocationId, l => l);
+
+            if (request.Lines.Count != locationIds.Count)
+            {
+                throw new InvalidOperationException("Không được chọn trùng vị trí kho cho nhiều dòng trong cùng một phiếu nhập.");
+            }
+
+            if (locations.Count != locationIds.Count)
+            {
+                throw new KeyNotFoundException("Có vị trí lưu trữ không tồn tại.");
+            }
+
+            var invalidWarehouseLocation = locations.Values
+                .FirstOrDefault(l => l.WarehouseId != request.WarehouseId);
+            if (invalidWarehouseLocation != null)
+            {
+                throw new InvalidOperationException(
+                    $"Vị trí '{invalidWarehouseLocation.LocationCode}' không thuộc kho nhận đã chọn.");
+            }
+
+            var inactiveLocation = locations.Values.FirstOrDefault(l => !l.IsActive);
+            if (inactiveLocation != null)
+            {
+                throw new InvalidOperationException(
+                    $"Vị trí '{inactiveLocation.LocationCode}' đang không hoạt động.");
+            }
+
+            // Không cho trộn item khác nhau trong cùng 1 vị trí đang còn tồn
+            var selectedLocationIds = locationIds.ToList();
+            var existingItemByLocation = await _context.InventoryLots
+                .AsNoTracking()
+                .Where(l => l.WarehouseId == request.WarehouseId
+                            && l.LocationId != null
+                            && selectedLocationIds.Contains(l.LocationId.Value)
+                            && l.Quantity > 0)
+                .GroupBy(l => l.LocationId!.Value)
+                .Select(g => new
+                {
+                    LocationId = g.Key,
+                    ItemIds = g.Select(x => x.ItemId).Distinct().ToList()
+                })
+                .ToListAsync();
+
+            var requestLineByLocation = request.Lines.ToDictionary(l => l.LocationId, l => l.ItemId);
+            var existingItemIds = existingItemByLocation.SelectMany(x => x.ItemIds).Distinct().ToList();
+            var existingItemNameMap = await _context.Items
+                .AsNoTracking()
+                .Where(i => existingItemIds.Contains(i.ItemId))
+                .ToDictionaryAsync(i => i.ItemId, i => i.ItemName);
+
+            foreach (var locationStock in existingItemByLocation)
+            {
+                if (!requestLineByLocation.TryGetValue(locationStock.LocationId, out var requestedItemId))
+                    continue;
+
+                var conflictItemId = locationStock.ItemIds.FirstOrDefault(itemId => itemId != requestedItemId);
+                if (conflictItemId > 0)
+                {
+                    var locationCode = locations.TryGetValue(locationStock.LocationId, out var loc)
+                        ? loc.LocationCode
+                        : $"#{locationStock.LocationId}";
+                    var existingName = existingItemNameMap.TryGetValue(conflictItemId, out var itemName)
+                        ? itemName
+                        : $"Item #{conflictItemId}";
+
+                    throw new InvalidOperationException(
+                        $"Vị trí '{locationCode}' đang chứa '{existingName}', không thể nhập vật tư khác loại.");
+                }
+            }
+
             // Tạo GRN Code
             var grnCode = await GenerateNextGrnCodeAsync();
 
@@ -237,6 +311,39 @@ namespace Warehouse.DataAcces.Service
 
                 _context.GoodsReceiptNoteLines.Add(grnLine);
             }
+            await _context.SaveChangesAsync();
+
+            var savedGrnLines = await _context.GoodsReceiptNoteLines
+                .Where(x => x.Grnid == grn.Grnid)
+                .OrderBy(x => x.GrnlineId)
+                .ToListAsync();
+
+            // Map LocationId từ request sang GrnLineId thực tế vừa tạo
+            var locationByGrnLineId = new Dictionary<long, long>();
+            var usedLineIds = new HashSet<long>();
+            foreach (var reqLine in request.Lines)
+            {
+                GoodsReceiptNoteLine? matchedLine = savedGrnLines.FirstOrDefault(l =>
+                    !usedLineIds.Contains(l.GrnlineId) &&
+                    l.ItemId == reqLine.ItemId &&
+                    l.PurchaseOrderLineId == reqLine.PurchaseOrderLineId &&
+                    l.ActualQty == reqLine.ActualQty);
+
+                matchedLine ??= savedGrnLines.FirstOrDefault(l =>
+                    !usedLineIds.Contains(l.GrnlineId) &&
+                    l.ItemId == reqLine.ItemId &&
+                    l.ActualQty == reqLine.ActualQty);
+
+                matchedLine ??= savedGrnLines.FirstOrDefault(l =>
+                    !usedLineIds.Contains(l.GrnlineId) &&
+                    l.ItemId == reqLine.ItemId);
+
+                if (matchedLine != null)
+                {
+                    locationByGrnLineId[matchedLine.GrnlineId] = reqLine.LocationId;
+                    usedLineIds.Add(matchedLine.GrnlineId);
+                }
+            }
 
             // Tạo InventoryTransaction để ghi nhận lịch sử nhập kho
             var inventoryTxn = new InventoryTransaction
@@ -254,7 +361,7 @@ namespace Warehouse.DataAcces.Service
             await _context.SaveChangesAsync();
 
             // Tạo InventoryTransactionLine cho từng item
-            foreach (var grnLine in grn.GoodsReceiptNoteLines)
+            foreach (var grnLine in savedGrnLines)
             {
                 var txnLine = new InventoryTransactionLine
                 {
@@ -284,7 +391,7 @@ namespace Warehouse.DataAcces.Service
                 Note = request.Note
             };
 
-            return await ApproveGRNAsync(grn.Grnid, userId, approveRequest);
+            return await ApproveGRNInternalAsync(grn.Grnid, userId, approveRequest, locationByGrnLineId);
         }
 
         private async Task<string> GenerateNextGrnCodeAsync()
@@ -310,6 +417,13 @@ namespace Warehouse.DataAcces.Service
         }
 
         public async Task<GoodsReceiptNoteResponse> ApproveGRNAsync(long grnId, long userId, ApproveGRNRequest request)
+            => await ApproveGRNInternalAsync(grnId, userId, request, null);
+
+        private async Task<GoodsReceiptNoteResponse> ApproveGRNInternalAsync(
+            long grnId,
+            long userId,
+            ApproveGRNRequest request,
+            Dictionary<long, long>? locationByGrnLineId)
         {
             // Lấy GRN cùng với lines và PO
             var grn = await _context.GoodsReceiptNotes
@@ -344,6 +458,31 @@ namespace Warehouse.DataAcces.Service
             var purchaseOrder = grn.PurchaseOrder;
             if (purchaseOrder != null)
             {
+                var locationTrackingLogs = new List<string>();
+                var locationCurrentQty = new Dictionary<long, decimal>();
+                var locationCodeMap = new Dictionary<long, string>();
+
+                if (locationByGrnLineId != null && locationByGrnLineId.Count > 0)
+                {
+                    var selectedLocationIds = locationByGrnLineId.Values.Distinct().ToList();
+                    var locationInfos = await _context.StorageLocations
+                        .AsNoTracking()
+                        .Where(x => selectedLocationIds.Contains(x.LocationId))
+                        .Select(x => new { x.LocationId, x.LocationCode })
+                        .ToListAsync();
+
+                    locationCodeMap = locationInfos.ToDictionary(x => x.LocationId, x => x.LocationCode);
+
+                    locationCurrentQty = await _context.InventoryLots
+                        .Where(l => l.WarehouseId == grn.WarehouseId
+                                    && l.LocationId != null
+                                    && selectedLocationIds.Contains(l.LocationId.Value)
+                                    && l.Quantity > 0)
+                        .GroupBy(l => l.LocationId!.Value)
+                        .Select(g => new { LocationId = g.Key, TotalQty = g.Sum(x => x.Quantity) })
+                        .ToDictionaryAsync(x => x.LocationId, x => x.TotalQty);
+                }
+
                 // Duyệt từng line của GRN
                 foreach (var grnLine in grn.GoodsReceiptNoteLines)
                 {
@@ -419,17 +558,40 @@ namespace Warehouse.DataAcces.Service
                     }
 
                     // Tạo InventoryLot cho FIFO
+                    var selectedLocationId = locationByGrnLineId != null &&
+                                             locationByGrnLineId.TryGetValue(grnLine.GrnlineId, out var mappedLocationId)
+                        ? mappedLocationId
+                        : (long?)null;
+
                     var lot = new InventoryLot
                     {
                         ItemId = grnLine.ItemId,
                         WarehouseId = grn.WarehouseId,
                         GrnlineId = grnLine.GrnlineId,
+                        LocationId = selectedLocationId,
                         ReceiptDate = DateTime.UtcNow,
                         Quantity = grnLine.ActualQty,
                         UnitCost = costPrice,
                         IsActive = true
                     };
                     _context.InventoryLots.Add(lot);
+
+                    // Theo dõi put-away: ghi nhận số lượng trước/sau tại vị trí để phục vụ quan sát vận hành
+                    if (selectedLocationId.HasValue)
+                    {
+                        var beforeQty = locationCurrentQty.TryGetValue(selectedLocationId.Value, out var currentQty)
+                            ? currentQty
+                            : 0m;
+                        var afterQty = beforeQty + grnLine.ActualQty;
+                        locationCurrentQty[selectedLocationId.Value] = afterQty;
+
+                        var locationCode = locationCodeMap.TryGetValue(selectedLocationId.Value, out var code)
+                            ? code
+                            : $"#{selectedLocationId.Value}";
+
+                        locationTrackingLogs.Add(
+                            $"Vị trí {locationCode}: trước {beforeQty}, nhập {grnLine.ActualQty}, sau {afterQty}.");
+                    }
 
                     // Cập nhật giá mua (Purchase) vào ItemPrice
                     // ItemPrice lưu lịch sử giá theo từng đợt nhập hàng
@@ -478,6 +640,16 @@ namespace Warehouse.DataAcces.Service
                 else if (totalReceivedQty > 0)
                 {
                     purchaseOrder.LifecycleStatus = "PartRcv"; // Nhận một phần
+                }
+
+                if (locationTrackingLogs.Count > 0)
+                {
+                    await _auditLogService.LogAsync(
+                        userId,
+                        AuditAction.Update,
+                        AuditEntity.Warehouse,
+                        grn.WarehouseId,
+                        $"Theo dõi put-away cho {grn.Grncode}: {string.Join(" | ", locationTrackingLogs)}");
                 }
             }
 
@@ -612,6 +784,13 @@ namespace Warehouse.DataAcces.Service
                 Note = grn.Note,
                 Lines = lines
             };
+        }
+
+        // NOTE: Stub tạm để unblock build; chức năng Import Excel + AI match chưa triển khai.
+        // TODO: sẽ được đội Import/AI implement đầy đủ (xem IGoodsReceiptNoteService.ImportAndMatchItemsAsync).
+        public Task<ExcelImportResult> ImportAndMatchItemsAsync(System.IO.Stream excelStream)
+        {
+            throw new NotImplementedException("Chức năng nhập và khớp item từ Excel chưa được triển khai.");
         }
     }
 }

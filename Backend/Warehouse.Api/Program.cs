@@ -102,6 +102,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IAdminService, AdminService>();
 
             builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+            builder.Services.AddScoped<IStorageLocationService, StorageLocationService>();
             builder.Services.AddScoped<IClientNotificationService, ClientNotificationService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<IItemService, ItemService>();
@@ -124,6 +125,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IReleaseRequestService, ReleaseRequestService>();
             builder.Services.AddScoped<IGoodsDeliveryNoteService, GoodsDeliveryNoteService>();
             builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
+            builder.Services.AddScoped<ISalesReportService, SalesReportService>();
             builder.Services.AddScoped<IInventoryAdjustmentService, InventoryAdjustmentService>();
             builder.Services.AddScoped<IDocumentAttachmentService, DocumentAttachmentService>();
             builder.Services.AddScoped<IPrintTemplateService, PrintTemplateService>();

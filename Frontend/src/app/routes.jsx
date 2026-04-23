@@ -34,6 +34,7 @@ import ViewUomList from '../shared/pages/ViewUomList';
 import ViewWarehouseList from '../shared/pages/ViewWarehouseList';
 import ViewWarehouseDetail from '../shared/pages/ViewWarehouseDetail';
 import CreateWarehouse from '../shared/pages/CreateWarehouse';
+import ViewStorageLocationList from '../shared/pages/ViewStorageLocationList';
 
 // ── Inventory ──────────────────────────────────────────────────────────────────
 import ViewStocktakeList from '../shared/pages/ViewStocktakeList';
@@ -134,6 +135,7 @@ const AppRoutes = () => (
         <Route path="/inventory" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseList /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/create" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><CreateWarehouse /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/storage-locations" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewStorageLocationList /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentList /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments/create" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><CreateInventoryAdjustment /></MainLayout></ProtectedRoute>} />
         <Route path="/inventory/adjustments/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentDetail /></MainLayout></ProtectedRoute>} />
@@ -178,10 +180,10 @@ const AppRoutes = () => (
         <Route path="/mockup/sales-target" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><SalesRevenueTarget /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Báo cáo doanh số ── */}
-        <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
-        <Route path="/reports/sales/detail/year/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/reports/sales/detail/quarter/:quarter/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/reports/sales/detail/month/:month/:year" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/year/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/quarter/:quarter/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports/sales/detail/month/:month/:year" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><ViewSalesReportDetail /></MainLayout></ProtectedRoute>} />
     </Routes>
 );
 

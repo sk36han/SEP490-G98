@@ -40,11 +40,56 @@ import {
     Eye,
     Search,
     ClipboardList,
+    Warehouse as WarehouseIcon,
 } from 'lucide-react';
+
+// ── Mock Warehouses ──────────────────────────────────────────────────────────
+// TODO(API): Thay bằng GET /Warehouse/get-Warehouse (đã có trong warehouseService.js)
+const MOCK_WAREHOUSES = [
+    { id: 'all', code: 'ALL',  name: 'Tất cả kho',          share: 1.00 },
+    { id: 1,     code: 'KHN',  name: 'Kho Hà Nội',          share: 0.45 },
+    { id: 2,     code: 'KHCM', name: 'Kho TP. Hồ Chí Minh', share: 0.35 },
+    { id: 3,     code: 'KDN',  name: 'Kho Đà Nẵng',         share: 0.20 },
+];
+
+const getWarehouseShare = (id) => {
+    const w = MOCK_WAREHOUSES.find(x => String(x.id) === String(id));
+    return w?.share ?? 1;
+};
+
+const SCALABLE_FIELDS = [
+    'deliveryNotes', 'grnNotes', 'lineItems',
+    'totalQty', 'grnQty',
+    'totalValue', 'grnValue',
+    'prevValue', 'change',
+    'grnPrev',
+];
+
+/** Scale các field số theo tỉ lệ kho (mock) */
+const scaleRow = (row, share) => {
+    if (!row || share === 1) return row;
+    const out = { ...row };
+    for (const key of SCALABLE_FIELDS) {
+        if (typeof out[key] === 'number') out[key] = Math.round(out[key] * share);
+    }
+    return out;
+};
+const scaleArray = (arr, share) => (share === 1 || !arr) ? arr : arr.map(r => scaleRow(r, share));
+const scaleMap = (obj, share) => {
+    if (!obj || share === 1) return obj;
+    const out = {};
+    for (const k in obj) {
+        const v = obj[k];
+        if (Array.isArray(v)) out[k] = scaleArray(v, share);
+        else if (v && typeof v === 'object') out[k] = scaleMap(v, share);
+        else out[k] = v;
+    }
+    return out;
+};
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
-const MOCK_DATA = [
+const MOCK_DATA_RAW = [
     { id: 'y2026', level: 'YEAR', periodLabel: '2026', parentId: null,
       deliveryNotes: 245, totalQty: 12_580, totalValue: 4_850_000_000, grnNotes: 198, grnQty: 11_200, grnValue: 4_620_000_000 },
     { id: 'q1-2026', level: 'QUARTER', periodLabel: 'Quý 1 / 2026', parentId: 'y2026',
@@ -115,7 +160,7 @@ const MOCK_DATA = [
       deliveryNotes: 88, totalQty: 4_550, totalValue: 180_000_000, grnNotes: 76, grnQty: 4_150, grnValue: 155_000_000 },
 ];
 
-const MOCK_QUARTER_BREAKDOWN = {
+const MOCK_QUARTER_BREAKDOWN_RAW = {
     '2026': [
         { label: 'Quý 1 / 2026', deliveryNotes: 82, totalQty: 4_180, totalValue: 1_620_000_000, grnNotes: 65, grnQty: 3_740, grnValue: 1_540_000_000 },
         { label: 'Quý 2 / 2026', deliveryNotes: 68, totalQty: 3_420, totalValue: 1_320_000_000, grnNotes: 54, grnQty: 3_050, grnValue: 1_260_000_000 },
@@ -130,7 +175,7 @@ const MOCK_QUARTER_BREAKDOWN = {
     ],
 };
 
-const MOCK_MONTH_BREAKDOWN = {
+const MOCK_MONTH_BREAKDOWN_RAW = {
     '2026': [
         { label: 'Tháng 1', deliveryNotes: 28, totalQty: 1_420, totalValue: 550_000_000, grnNotes: 22, grnQty: 1_260, grnValue: 520_000_000 },
         { label: 'Tháng 2', deliveryNotes: 22, totalQty: 1_130, totalValue: 440_000_000, grnNotes: 18, grnQty: 1_010, grnValue: 420_000_000 },
@@ -161,7 +206,7 @@ const MOCK_MONTH_BREAKDOWN = {
     ],
 };
 
-const MOCK_WEEK_BREAKDOWN = {
+const MOCK_WEEK_BREAKDOWN_RAW = {
     '2026': {
         1: [
             { label: 'Tuần 1', days: '01–07', deliveryNotes: 8, totalQty: 410, totalValue: 158_000_000, grnNotes: 6, grnQty: 360, grnValue: 148_000_000 },
@@ -259,7 +304,7 @@ const MOCK_WEEK_BREAKDOWN = {
 };
 
 // ── Mock Item (Vật tư) ─────────────────────────────────────────────────────
-const MOCK_ITEMS_DATA = [
+const MOCK_ITEMS_DATA_RAW = [
     { code: 'VT-001', name: 'Bóng tái sinh Dunlop', uom: 'Cái', deliveryNotes: 42, totalQty: 420, totalValue: 1_260_000_000, prevValue: 1_063_500_000, growth: 18.48, grnNotes: 38, grnQty: 380, grnValue: 1_140_000_000, grnPrev: 962_400_000, grnGrowth: 18.46 },
     { code: 'VT-002', name: 'Lốp xe tải Michelin 11R22.5', uom: 'Cái', deliveryNotes: 28, totalQty: 280, totalValue: 980_000_000, prevValue: 872_800_000, growth: 12.28, grnNotes: 25, grnQty: 250, grnValue: 875_000_000, grnPrev: 740_000_000, grnGrowth: 18.24 },
     { code: 'VT-003', name: 'Dầu nhớt Castrol 15W-40', uom: 'Lon', deliveryNotes: 105, totalQty: 1_050, totalValue: 735_000_000, prevValue: 602_100_000, growth: 22.07, grnNotes: 92, grnQty: 920, grnValue: 644_000_000, grnPrev: 528_000_000, grnGrowth: 21.97 },
@@ -277,7 +322,7 @@ const MOCK_ITEMS_DATA = [
 });
 
 // ── Mock GRN Items ─────────────────────────────────────────────────────────
-const MOCK_GRN_ITEMS_DATA = MOCK_ITEMS_DATA.map(item => ({
+const MOCK_GRN_ITEMS_DATA_RAW = MOCK_ITEMS_DATA_RAW.map(item => ({
     code: item.code,
     name: item.name,
     uom: item.uom,
@@ -290,7 +335,7 @@ const MOCK_GRN_ITEMS_DATA = MOCK_ITEMS_DATA.map(item => ({
 }));
 
 // ── Mock GRN Supplier ──────────────────────────────────────────────────────
-const MOCK_GRN_SUPPLIER_DATA = [
+const MOCK_GRN_SUPPLIER_DATA_RAW = [
     { code: 'SUP-001', name: 'Công ty TNHH Phụ tùng Ô tô Phú Mỹ', grnNotes: 22, grnQty: 2_200, grnValue: 1_260_000_000, grnPrev: 1_068_000_000, grnGrowth: 17.98 },
     { code: 'SUP-002', name: 'Nhà phân phối Dunlop Việt Nam', grnNotes: 18, grnQty: 1_800, grnValue: 980_000_000, grnPrev: 830_000_000, grnGrowth: 18.07 },
     { code: 'SUP-003', name: 'Công ty TNHH Dầu nhớt Sài Gòn', grnNotes: 15, grnQty: 1_500, grnValue: 735_000_000, grnPrev: 602_000_000, grnGrowth: 22.09 },
@@ -307,7 +352,7 @@ const MOCK_GRN_SUPPLIER_DATA = [
 });
 
 // ── Mock Receiver ──────────────────────────────────────────────────────────
-const MOCK_RECEIVER_DATA = [
+const MOCK_RECEIVER_DATA_RAW = [
     { code: 'RCV-001', name: 'Công ty TNHH Vận tải Thành Đạt', deliveryNotes: 18, totalQty: 1_840, totalValue: 980_000_000, prevValue: 781_400_000, growth: 25.41 },
     { code: 'RCV-002', name: 'HTX Vận tải Sài Gòn', deliveryNotes: 14, totalQty: 1_420, totalValue: 720_000_000, prevValue: 647_500_000, growth: 11.20 },
     { code: 'RCV-003', name: 'Doanh nghiệp Tân Phú', deliveryNotes: 11, totalQty: 980, totalValue: 540_000_000, prevValue: 561_000_000, growth: -3.74 },
@@ -366,25 +411,25 @@ const calcGrowth = (change, prev) => {
 const changeColor = (v) =>
     v > 0 ? '#16a34a' : v < 0 ? '#dc2626' : '#6b7280';
 
-const getPreviousPeriodRow = (row) => {
+const getPreviousPeriodRow = (row, data = MOCK_DATA_RAW) => {
     if (!row) return null;
     if (row.level === LEVEL.YEAR) {
         const yearNum = parseInt(row.periodLabel);
-        return MOCK_DATA.find(r => r.level === LEVEL.YEAR && r.periodLabel === String(yearNum - 1));
+        return data.find(r => r.level === LEVEL.YEAR && r.periodLabel === String(yearNum - 1));
     }
     if (row.level === LEVEL.QUARTER) {
         const q = parseInt(row.periodLabel.match(/Quý (\d)/)?.[1] || '0');
         const y = parseInt(row.periodLabel.match(/(\d{4})$/)?.[1] || '0');
         let prevQ = q - 1, prevY = y;
         if (prevQ === 0) { prevQ = 4; prevY = y - 1; }
-        return MOCK_DATA.find(r => r.level === LEVEL.QUARTER && r.periodLabel === `Quý ${prevQ} / ${prevY}`);
+        return data.find(r => r.level === LEVEL.QUARTER && r.periodLabel === `Quý ${prevQ} / ${prevY}`);
     }
     if (row.level === LEVEL.MONTH) {
         const m = parseInt(row.periodLabel.match(/Tháng (\d+)/)?.[1] || '0');
         const y = parseInt(row.periodLabel.match(/(\d{4})$/)?.[1] || '0');
         let prevM = m - 1, prevY = y;
         if (prevM === 0) { prevM = 12; prevY = y - 1; }
-        return MOCK_DATA.find(r => r.level === LEVEL.MONTH && r.periodLabel === `Tháng ${prevM} / ${prevY}`);
+        return data.find(r => r.level === LEVEL.MONTH && r.periodLabel === `Tháng ${prevM} / ${prevY}`);
     }
     return null;
 };
@@ -454,11 +499,75 @@ const THLeft = ({ children }) => (
 );
 
 // ── Main Component ──────────────────────────────────────────────────────────
+const LS_WAREHOUSE = 'salesReportWarehouseId';
+
 export default function ViewSalesReportDetail() {
     const navigate = useNavigate();
     const params = useParams();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState(0);
+
+    // ── Warehouse filter: đồng bộ với URL (?warehouseId=...) & localStorage ─
+    const urlWarehouseId = searchParams.get('warehouseId');
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState(() => {
+        const readFrom = (raw) => {
+            if (raw == null || raw === '') return null;
+            return raw === 'all' ? 'all' : (Number.isNaN(Number(raw)) ? raw : Number(raw));
+        };
+        const fromUrl = readFrom(urlWarehouseId);
+        if (fromUrl != null) return fromUrl;
+        try {
+            const fromLs = readFrom(localStorage.getItem(LS_WAREHOUSE));
+            return fromLs ?? 'all';
+        } catch { return 'all'; }
+    });
+
+    useEffect(() => {
+        const fromUrl = urlWarehouseId;
+        if (fromUrl == null || fromUrl === '') return;
+        const parsed = fromUrl === 'all' ? 'all' : (Number.isNaN(Number(fromUrl)) ? fromUrl : Number(fromUrl));
+        if (String(parsed) !== String(selectedWarehouseId)) setSelectedWarehouseId(parsed);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [urlWarehouseId]);
+
+    const warehouseShare = useMemo(() => getWarehouseShare(selectedWarehouseId), [selectedWarehouseId]);
+
+    // ── Scaled mocks theo kho đang chọn (mô phỏng — khi nối API sẽ bỏ) ─
+    const {
+        MOCK_DATA,
+        MOCK_QUARTER_BREAKDOWN,
+        MOCK_MONTH_BREAKDOWN,
+        MOCK_WEEK_BREAKDOWN,
+        MOCK_ITEMS_DATA,
+        MOCK_GRN_ITEMS_DATA,
+        MOCK_GRN_SUPPLIER_DATA,
+        MOCK_RECEIVER_DATA,
+    } = useMemo(() => ({
+        MOCK_DATA:              scaleArray(MOCK_DATA_RAW,              warehouseShare),
+        MOCK_QUARTER_BREAKDOWN: scaleMap(MOCK_QUARTER_BREAKDOWN_RAW,  warehouseShare),
+        MOCK_MONTH_BREAKDOWN:   scaleMap(MOCK_MONTH_BREAKDOWN_RAW,    warehouseShare),
+        MOCK_WEEK_BREAKDOWN:    scaleMap(MOCK_WEEK_BREAKDOWN_RAW,     warehouseShare),
+        MOCK_ITEMS_DATA:        scaleArray(MOCK_ITEMS_DATA_RAW,        warehouseShare),
+        MOCK_GRN_ITEMS_DATA:    scaleArray(MOCK_GRN_ITEMS_DATA_RAW,    warehouseShare),
+        MOCK_GRN_SUPPLIER_DATA: scaleArray(MOCK_GRN_SUPPLIER_DATA_RAW, warehouseShare),
+        MOCK_RECEIVER_DATA:     scaleArray(MOCK_RECEIVER_DATA_RAW,     warehouseShare),
+    }), [warehouseShare]);
+
+    const handleWarehouseChange = (e) => {
+        const raw = e.target.value;
+        const val = raw === 'all' ? 'all' : Number(raw);
+        setSelectedWarehouseId(val);
+        try { localStorage.setItem(LS_WAREHOUSE, String(val)); } catch { /* ignore */ }
+        const next = new URLSearchParams(searchParams);
+        next.set('warehouseId', String(val));
+        setSearchParams(next, { replace: true });
+    };
+
+    /** Đính kèm warehouseId vào query string khi drilldown / back */
+    const withWarehouseQS = (base) => {
+        const sep = base.includes('?') ? '&' : '?';
+        return `${base}${sep}warehouseId=${encodeURIComponent(String(selectedWarehouseId))}`;
+    };
     // ── Mode toggle cho tab Doanh số ──────────────────────────────────
     const [salesMode, setSalesMode] = useState('outbound'); // 'outbound' | 'inbound'
     // ── Collapse state cho breakdown inline ─────────────────────────
@@ -477,29 +586,28 @@ export default function ViewSalesReportDetail() {
     const parentQuarter = searchParams.get('parentQuarter');
 
     const handleBack = () => {
+        // Bảo toàn warehouseId khi quay lại cả List lẫn Detail cấp trên
         if (periodType === 'year') {
-            navigate('/reports/sales');
+            navigate(withWarehouseQS('/reports/sales'));
         } else if (periodType === 'quarter') {
             if (from === 'list') {
-                navigate('/reports/sales');
+                navigate(withWarehouseQS('/reports/sales'));
             } else if (from === 'year' && parentYear) {
-                navigate(`/reports/sales/detail/year/${parentYear}`);
+                navigate(withWarehouseQS(`/reports/sales/detail/year/${parentYear}`));
             } else {
-                // fallback: về detail Năm hiện tại
-                navigate(`/reports/sales/detail/year/${params.year}`);
+                navigate(withWarehouseQS(`/reports/sales/detail/year/${params.year}`));
             }
         } else if (periodType === 'month') {
             if (from === 'list') {
-                navigate('/reports/sales');
+                navigate(withWarehouseQS('/reports/sales'));
             } else if (from === 'quarter' && parentQuarter && parentYear) {
-                navigate(`/reports/sales/detail/quarter/${parentQuarter}/${parentYear}`);
+                navigate(withWarehouseQS(`/reports/sales/detail/quarter/${parentQuarter}/${parentYear}`));
             } else {
-                // fallback: tính quý cha từ month rồi về
                 const derivedQuarter = Math.ceil(parseInt(params.month) / 3);
-                navigate(`/reports/sales/detail/quarter/${derivedQuarter}/${params.year}`);
+                navigate(withWarehouseQS(`/reports/sales/detail/quarter/${derivedQuarter}/${params.year}`));
             }
         } else {
-            navigate('/reports/sales');
+            navigate(withWarehouseQS('/reports/sales'));
         }
     };
 
@@ -512,7 +620,7 @@ export default function ViewSalesReportDetail() {
         if (periodType === 'quarter' && params.quarter) return MOCK_DATA.find(r => r.level === LEVEL.QUARTER && r.periodLabel === `Quý ${params.quarter} / ${params.year}`);
         if (periodType === 'month' && params.month) return MOCK_DATA.find(r => r.level === LEVEL.MONTH && r.periodLabel === `Tháng ${params.month} / ${params.year}`);
         return null;
-    }, [periodType, params.year, params.quarter, params.month]);
+    }, [periodType, params.year, params.quarter, params.month, MOCK_DATA]);
 
     // ── Options cho cấp NĂM (dropdown đơn) ──────────────────────────────
     const compareYearOptions = useMemo(() => {
@@ -520,7 +628,7 @@ export default function ViewSalesReportDetail() {
         const currentYear = parseInt(currentRow.periodLabel);
         const years = [...new Set(MOCK_DATA.filter(r => r.level === LEVEL.YEAR).map(r => r.periodLabel))].sort().reverse();
         return years.filter(y => parseInt(y) < currentYear).map(y => ({ value: y, label: `Năm ${y}` }));
-    }, [currentRow]);
+    }, [currentRow, MOCK_DATA]);
 
     const effectiveCompareYear = selectedCompareYear ?? compareYearOptions[0]?.value ?? null;
 
@@ -544,7 +652,7 @@ export default function ViewSalesReportDetail() {
             if (quarterRow) options.push({ value: y, label: `${y}` });
         });
         return options;
-    }, [currentRow]);
+    }, [currentRow, MOCK_DATA]);
 
     // Auto-set default cho cấp Quý
     const selectedCompareQ = compareQ ?? compareQOptions[0]?.value ?? null;
@@ -570,7 +678,7 @@ export default function ViewSalesReportDetail() {
             if (monthRow) options.push({ value: y, label: `${y}` });
         });
         return options;
-    }, [currentRow]);
+    }, [currentRow, MOCK_DATA]);
 
     // Auto-set default cho cấp Tháng
     const selectedCompareM = compareM ?? compareMOptions[0]?.value ?? null;
@@ -596,7 +704,7 @@ export default function ViewSalesReportDetail() {
             return MOCK_DATA.find(r => r.level === LEVEL.MONTH && r.periodLabel === `Tháng ${m} / ${y}`) || null;
         }
         return null;
-    }, [currentRow, effectiveCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions]);
+    }, [currentRow, effectiveCompareYear, selectedCompareQ, selectedCompareQY, selectedCompareM, selectedCompareMY, compareQOptions, compareQYOptions, compareMOptions, compareMYOptions, MOCK_DATA]);
 
     // ── Tính giá trị so sánh cho từng item/row dựa trên kỳ so sánh đang chọn ──
     // Chia tỷ trọng của compareRow cho các row con (item, supplier) theo share hiện tại
@@ -656,19 +764,19 @@ export default function ViewSalesReportDetail() {
             const parts = periodLabel.match(/Quý (\d) \/ (\d{4})/);
             // truyền context: từ cấp Năm -> vào Quý
             if (periodType === 'year') {
-                navigate(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=year&parentYear=${params.year}`);
+                navigate(withWarehouseQS(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=year&parentYear=${params.year}`));
             } else {
-                navigate(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=list`);
+                navigate(withWarehouseQS(`/reports/sales/detail/quarter/${parts[1]}/${parts[2]}?from=list`));
             }
         } else if (/^Tháng \d+ \/ \d{4}$/.test(periodLabel)) {
             const parts = periodLabel.match(/Tháng (\d+) \/ (\d{4})/);
             // truyền context: từ cấp Năm/Quý -> vào Tháng
             if (periodType === 'year') {
-                navigate(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=year&parentYear=${params.year}`);
+                navigate(withWarehouseQS(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=year&parentYear=${params.year}`));
             } else if (periodType === 'quarter') {
-                navigate(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=quarter&parentQuarter=${params.quarter}&parentYear=${params.year}`);
+                navigate(withWarehouseQS(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=quarter&parentQuarter=${params.quarter}&parentYear=${params.year}`));
             } else {
-                navigate(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=list`);
+                navigate(withWarehouseQS(`/reports/sales/detail/month/${parts[1]}/${parts[2]}?from=list`));
             }
         }
     };
@@ -686,7 +794,7 @@ export default function ViewSalesReportDetail() {
     const quarterBreakdown = useMemo(() => {
         if (currentRow?.level !== LEVEL.YEAR || !yearNum) return null;
         return MOCK_QUARTER_BREAKDOWN[yearNum] || null;
-    }, [currentRow, yearNum]);
+    }, [currentRow, yearNum, MOCK_QUARTER_BREAKDOWN]);
 
     const monthBreakdown = useMemo(() => {
         if (!yearNum) return null;
@@ -696,12 +804,12 @@ export default function ViewSalesReportDetail() {
             return all.slice((quarterNum - 1) * 3, (quarterNum - 1) * 3 + 3);
         }
         return null;
-    }, [currentRow, yearNum, quarterNum]);
+    }, [currentRow, yearNum, quarterNum, MOCK_MONTH_BREAKDOWN]);
 
     const weekBreakdown = useMemo(() => {
         if (currentRow?.level !== LEVEL.MONTH || !yearNum || !monthNum) return null;
         return MOCK_WEEK_BREAKDOWN[yearNum]?.[monthNum] || null;
-    }, [currentRow, yearNum, monthNum]);
+    }, [currentRow, yearNum, monthNum, MOCK_WEEK_BREAKDOWN]);
 
     // ── Item tab data ─────────────────────────────────────────────────────
     const [itemSearch, setItemSearch] = useState('');
@@ -716,7 +824,7 @@ export default function ViewSalesReportDetail() {
         totalQty: MOCK_ITEMS_DATA.reduce((s, i) => s + i.totalQty, 0),
         totalValue: MOCK_ITEMS_DATA.reduce((s, i) => s + i.totalValue, 0),
         bestItem: itemBest?.name || '—',
-    }), []);
+    }), [MOCK_ITEMS_DATA, itemBest]);
 
     const itemFiltered = useMemo(() => {
         const data = salesMode === 'inbound' ? MOCK_GRN_ITEMS_DATA : MOCK_ITEMS_DATA;
@@ -726,7 +834,7 @@ export default function ViewSalesReportDetail() {
             i.code.toLowerCase().includes(kw) ||
             i.name.toLowerCase().includes(kw)
         );
-    }, [itemSearch, salesMode]);
+    }, [itemSearch, salesMode, MOCK_ITEMS_DATA, MOCK_GRN_ITEMS_DATA]);
 
     const itemPaginated = useMemo(() => {
         return itemFiltered.slice(itemPage * itemRowsPerPage, (itemPage + 1) * itemRowsPerPage);
@@ -748,7 +856,7 @@ export default function ViewSalesReportDetail() {
             s.code.toLowerCase().includes(kw) ||
             s.name.toLowerCase().includes(kw)
         );
-    }, [supplierSearch, salesMode]);
+    }, [supplierSearch, salesMode, MOCK_GRN_SUPPLIER_DATA, MOCK_RECEIVER_DATA]);
 
     const supplierPaginated = useMemo(() => {
         return supplierFiltered.slice(supplierPage * supplierRowsPerPage, (supplierPage + 1) * supplierRowsPerPage);
@@ -763,7 +871,7 @@ export default function ViewSalesReportDetail() {
         totalValue: MOCK_RECEIVER_DATA.reduce((s, i) => s + i.totalValue, 0),
         totalNotes: MOCK_RECEIVER_DATA.reduce((s, i) => s + i.deliveryNotes, 0),
         bestReceiver: receiverBest?.name || '—',
-    }), []);
+    }), [MOCK_RECEIVER_DATA, receiverBest]);
 
     const receiverChange = calcChange(receiverStats.totalValue, receiverStats.totalValue * 0.85);
     const receiverGrowth = calcGrowth(receiverChange, receiverStats.totalValue * 0.85);
@@ -774,7 +882,7 @@ export default function ViewSalesReportDetail() {
             <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: '#fafafa' }}>
                 <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2 }}>
                     <Typography sx={{ fontSize: '16px', color: '#6b7280' }}>Không tìm thấy dữ liệu kỳ báo cáo</Typography>
-                    <Button variant="outlined" startIcon={<ArrowLeft size={16} />} onClick={() => navigate('/reports/sales')}
+                    <Button variant="outlined" startIcon={<ArrowLeft size={16} />} onClick={() => navigate(withWarehouseQS('/reports/sales'))}
                         sx={{ textTransform: 'none', borderRadius: '10px', borderColor: '#e5e7eb', color: '#374151', fontSize: '13px', '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' } }}>
                         Quay lại Báo cáo doanh số
                     </Button>
@@ -795,14 +903,60 @@ export default function ViewSalesReportDetail() {
                         Báo cáo doanh số
                     </Button>
                 </Box>
-                <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
-                    Chi tiết báo cáo doanh số
-                </Typography>
-                {subtitle && (
-                    <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '13px', mt: 0.5, fontWeight: 400 }}>
-                        {subtitle}
-                    </Typography>
-                )}
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
+                        <Typography variant="h5" component="h1" fontWeight="600" sx={{ color: '#111827', lineHeight: 1.3, fontSize: '22px' }}>
+                            Chi tiết báo cáo doanh số
+                        </Typography>
+                        {subtitle && (
+                            <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '13px', mt: 0.5, fontWeight: 400 }}>
+                                {subtitle}
+                            </Typography>
+                        )}
+                    </Box>
+
+                    {/* Warehouse filter */}
+                    <FormControl size="small" sx={{ minWidth: 220, flex: '0 0 auto' }}>
+                        <Select
+                            value={selectedWarehouseId}
+                            onChange={handleWarehouseChange}
+                            displayEmpty
+                            renderValue={(val) => {
+                                const w = MOCK_WAREHOUSES.find(x => String(x.id) === String(val));
+                                return (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                                        <WarehouseIcon size={14} color="#6b7280" />
+                                        <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {w?.name ?? 'Tất cả kho'}
+                                        </Typography>
+                                    </Box>
+                                );
+                            }}
+                            sx={{
+                                height: 38, borderRadius: '10px', fontSize: '13px', bgcolor: '#ffffff',
+                                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d1d5db' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#0284c7', boxShadow: '0 0 0 3px rgba(2,132,199,0.10)' },
+                                '& .MuiSelect-select': { py: '8px', pl: 1.25 },
+                            }}
+                            MenuProps={{
+                                PaperProps: { sx: { mt: 0.5, borderRadius: '10px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' } },
+                            }}
+                        >
+                            {MOCK_WAREHOUSES.map(w => (
+                                <MenuItem key={w.id} value={w.id} sx={{ fontSize: '13px', py: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                        <WarehouseIcon size={14} color={w.id === 'all' ? '#6b7280' : '#0284c7'} />
+                                        <Typography sx={{ fontSize: '13px', color: '#111827', flex: 1 }}>{w.name}</Typography>
+                                        {w.id !== 'all' && (
+                                            <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>{w.code}</Typography>
+                                        )}
+                                    </Box>
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </Box>
             </Box>
 
             {/* ── Main Content ── */}

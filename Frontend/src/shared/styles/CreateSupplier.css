@@ -883,6 +883,44 @@ select.form-input:disabled {
     min-height: auto;
 }
 
+/* ViewWarehouseDetail: một luồng cuộn (MainLayout); bỏ padding/margin “form dài” của .create-supplier-page để tránh scroll vài chục px dư */
+.create-supplier-page.view-warehouse-detail-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.view-warehouse-detail-page .form-card {
+    margin-bottom: 24px;
+}
+
+/* ViewItemDetail — một luồng cuộn (MainLayout), tránh cuộn kép với .create-supplier-page */
+.create-supplier-page.view-item-detail-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.view-item-detail-page .form-card {
+    margin-bottom: 24px;
+}
+
+.create-supplier-page .table-container.item-history-table-wrap {
+    max-height: none;
+    overflow-y: visible;
+}
+
+.create-supplier-page .table-container.warehouse-history-table-wrap {
+    max-height: none;
+    overflow-y: visible;
+}
+
 .create-supplier-page.create-purchase-order-page {
     min-height: unset;
     padding-bottom: 24px;
