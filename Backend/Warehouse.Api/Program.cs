@@ -102,6 +102,7 @@ namespace Warehouse.Api
             builder.Services.AddScoped<IAdminService, AdminService>();
 
             builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+            builder.Services.AddScoped<IStorageLocationService, StorageLocationService>();
             builder.Services.AddScoped<IClientNotificationService, ClientNotificationService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<IItemService, ItemService>();

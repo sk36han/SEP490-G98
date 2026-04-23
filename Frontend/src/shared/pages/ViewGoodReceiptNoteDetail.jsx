@@ -391,7 +391,8 @@ const ViewGoodReceiptNoteDetail = () => {
     const normalizedStatus = String(grnData?.status || '').toUpperCase();
     const canReview = !['APPROVED', 'POSTED', 'REJECTED'].includes(normalizedStatus);
     const showApproveButton = isPaymentEditor && canReview;
-    const showReturnButton = isPaymentEditor && normalizedStatus === 'APPROVED';
+    const showReturnButton =
+        isPaymentEditor && ['APPROVED', 'POSTED'].includes(normalizedStatus);
 
     const handleApprove = () => openConfirmDialog('approve');
     const handleReject = () => openConfirmDialog('reject');
@@ -560,6 +561,18 @@ const ViewGoodReceiptNoteDetail = () => {
                                 Duyệt phiếu
                             </button>
                         </>
+                    )}
+                    {showReturnButton && (
+                        <button
+                            type="button"
+                            className="btn btn-sm"
+                            onClick={() =>
+                                navigate(`/purchase-returns/create?grnId=${grnData.grnId}`)
+                            }
+                        >
+                            <RotateCcw size={15} />
+                            Trả hàng
+                        </button>
                     )}
                     {/* Neu la Thủ Kho - hien thi thong bao */}
                     {isWarehouseKeeper && (

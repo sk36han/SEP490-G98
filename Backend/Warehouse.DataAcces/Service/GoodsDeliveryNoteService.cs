@@ -369,6 +369,7 @@ namespace Warehouse.DataAcces.Service
                 WarehouseId = request.WarehouseId,
                 IssueDate = request.IssueDate,
                 CreatedBy = userId,
+                // Keep current business flow: GDN can skip accountant stage based on input/default.
                 Status = request.Status ?? "PENDING_ISSUE",
                 Note = $"[{pickingStrategy}] {request.Note ?? ""}".Trim(),
                 ShippingFee = shippingFee,
@@ -442,7 +443,7 @@ namespace Warehouse.DataAcces.Service
                 AuditAction.Create,
                 AuditEntity.GoodsDeliveryNote,
                 gdn.Gdnid,
-                $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}. Trạng thái: PENDING_ISSUE");
+                $"Tạo phiếu xuất kho {gdnCode} từ yêu cầu {releaseRequest.ReleaseRequestCode}. Trạng thái: {gdn.Status}");
 
             await _context.SaveChangesAsync();
 
@@ -702,6 +703,9 @@ namespace Warehouse.DataAcces.Service
                     .ThenInclude(l => l.Item)
                 .Include(g => g.GoodsDeliveryNoteLines)
                     .ThenInclude(l => l.Uom)
+                .Include(g => g.GoodsDeliveryNoteLines)
+                    .ThenInclude(l => l.Lot)
+                        .ThenInclude(lot => lot!.Location)
                 .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
             if (gdn == null)
@@ -750,6 +754,8 @@ namespace Warehouse.DataAcces.Service
                     RequiresCertificateCopy = l.RequiresCertificateCopy,
                     ReleaseRequestLineId = l.ReleaseRequestLineId,
                     LotId = l.LotId,
+                    LocationId = l.Lot?.LocationId,
+                    LocationCode = l.Lot?.Location?.LocationCode,
                     Note = l.Note,
                     
                     // New fields

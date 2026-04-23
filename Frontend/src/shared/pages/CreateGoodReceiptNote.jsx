@@ -39,6 +39,7 @@ import { getItemsForDisplay } from '../lib/itemService';
 import { createGoodReceiptNote } from '../lib/goodReceiptNoteService';
 import { getSupplierById } from '../lib/supplierService';
 import authService from '../lib/authService';
+import { getStorageLocationList } from '../lib/storageLocationService';
 
 // 7. Internal - Hooks
 import { useToast } from '../hooks/useToast';
@@ -99,6 +100,31 @@ const resolvePoLineUomLabel = (line) =>
     line?.Uom ??
     '';
 
+const resolvePoLineItemCode = (line) =>
+    line?.itemCode ??
+    line?.ItemCode ??
+    line?.sku ??
+    line?.Sku ??
+    '';
+
+const formatLocationQty = (value) => {
+    const qty = Number(value);
+    if (!Number.isFinite(qty)) return '0';
+    return Number.isInteger(qty) ? String(qty) : qty.toString();
+};
+
+const normalizeSummaryQtyText = (text) =>
+    (text || '').replace(/\b(\d+)\.0+\b/g, '$1');
+
+const locationContainsItemCode = (summary, itemCode) => {
+    const code = String(itemCode || '').trim().toUpperCase();
+    if (!code) return false;
+    return String(summary || '')
+        .split(',')
+        .map((part) => part.split(':')[0]?.trim()?.toUpperCase())
+        .includes(code);
+};
+
 /** Ô chỉ đọc trên form GRN — nền xám, dễ phân biệt với ô nhập liệu. */
 const READONLY_FIELD_STYLE = {
     backgroundColor: '#e5e7eb',
@@ -147,6 +173,8 @@ const CreateGoodReceiptNote = () => {
     const [poListLoading, setPoListLoading] = useState(true);
     const [poListError, setPoListError] = useState(null);
     const [supplierDetail, setSupplierDetail] = useState(null);
+    const [locationOptions, setLocationOptions] = useState([]);
+    const [locationLoading, setLocationLoading] = useState(false);
 
     const fetchAndSetSupplierDetail = useCallback(async (supplierId, fallbackName = '') => {
         if (!supplierId) {
@@ -290,7 +318,7 @@ const CreateGoodReceiptNote = () => {
                         id: Date.now() + Math.random(),
                         itemId: line.itemId ?? line.ItemId,
                         itemName: line.itemName ?? line.ItemName ?? '',
-                        itemSku: line.sku ?? line.Sku ?? '',
+                        itemSku: resolvePoLineItemCode(line),
                         uom: resolvePoLineUomLabel(line),
                         uomId: line.uomId ?? line.UomId ?? null,
                         orderedQty: ordered,
@@ -298,6 +326,7 @@ const CreateGoodReceiptNote = () => {
                         receivedQty: defaultReceivedQty,
                         unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
                         totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
+                        locationId: '',
                         note: '',
                         hasCO: !!(line.requiresCo ?? line.requiresCO ?? false),
                         hasCQ: !!(line.requiresCq ?? line.requiresCQ ?? false),
@@ -395,11 +424,13 @@ const CreateGoodReceiptNote = () => {
                             poLineId: line.purchaseOrderLineId || line.PurchaseOrderLineId || null,
                             itemId: line.itemId ?? line.ItemId,
                             itemName: line.itemName ?? line.ItemName ?? '',
+                            itemSku: resolvePoLineItemCode(line),
                             orderedQty: ordered,
                             remainingQty: remaining,
                             receivedQty: defaultReceivedQty,
                             unitPrice: line.unitPrice ?? line.UnitPrice ?? 0,
                             totalPrice: (line.unitPrice ?? line.UnitPrice ?? 0) * defaultReceivedQty,
+                            locationId: '',
                             uom: resolvePoLineUomLabel(line),
                             uomId: line.uomId ?? line.UomId ?? null,
                             note: '',
@@ -442,6 +473,33 @@ const CreateGoodReceiptNote = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        const loadLocations = async () => {
+            if (!formData.warehouseId) {
+                setLocationOptions([]);
+                return;
+            }
+
+            try {
+                setLocationLoading(true);
+                const locationRes = await getStorageLocationList({
+                    page: 1,
+                    pageSize: 200,
+                    warehouseId: Number(formData.warehouseId),
+                    isActive: true,
+                });
+                setLocationOptions(locationRes.items ?? []);
+            } catch (err) {
+                setLocationOptions([]);
+                showToast('Không tải được danh sách vị trí kho', 'error');
+            } finally {
+                setLocationLoading(false);
+            }
+        };
+
+        loadLocations();
+    }, [formData.warehouseId, showToast]);
 
     // Load items from API when opening product search
     const [productList, setProductList] = useState([]);
@@ -519,6 +577,7 @@ const CreateGoodReceiptNote = () => {
             id: Date.now(),
             itemId: product.id,
             itemName: product.name,
+            itemSku: product.sku ?? '',
             itemImage: product.image,
             uom: product.uom ?? '',
             uomId: product.uomId || null,
@@ -526,6 +585,7 @@ const CreateGoodReceiptNote = () => {
             receivedQty: 1,
             unitPrice: product.unitPrice,
             totalPrice: product.unitPrice,
+            locationId: '',
             note: '',
             hasCO: !!(product.requiresCo || product.requiresCO),
             hasCQ: !!(product.requiresCq || product.requiresCQ),
@@ -559,6 +619,7 @@ const CreateGoodReceiptNote = () => {
                     id: Date.now() + Math.random(),
                     itemId: product.id,
                     itemName: product.name,
+                    itemSku: product.sku ?? '',
                     itemImage: product.image,
                     uom: product.uom ?? '',
                     uomId: product.uomId || null,
@@ -566,6 +627,7 @@ const CreateGoodReceiptNote = () => {
                     receivedQty: 1,
                     unitPrice: product.unitPrice,
                     totalPrice: product.unitPrice,
+                    locationId: '',
                     note: '',
                     hasCO: !!(product.requiresCo || product.requiresCO),
                     hasCQ: !!(product.requiresCq || product.requiresCQ),
@@ -661,6 +723,55 @@ const CreateGoodReceiptNote = () => {
     const totals = useMemo(() => calculateGRNTotals(lines, formData, selectedPODetails), [lines, formData, selectedPODetails]);
     const { subtotal, discountAmount, grandTotal, totalQuantityOrdered } = totals;
 
+    const suggestedLocationByLineId = useMemo(() => {
+        if (!Array.isArray(lines) || lines.length === 0 || !Array.isArray(locationOptions) || locationOptions.length === 0) {
+            return {};
+        }
+
+        const suggestions = {};
+        const usedLocationIds = new Set(
+            lines
+                .map((line) => String(line.locationId || '').trim())
+                .filter(Boolean),
+        );
+
+        lines.forEach((line) => {
+            const currentLocationId = String(line.locationId || '').trim();
+            if (currentLocationId) return;
+
+            const available = locationOptions.filter((loc) => !usedLocationIds.has(String(loc.locationId)));
+            if (available.length === 0) return;
+
+            const sameItemCandidates = available
+                .filter((loc) => locationContainsItemCode(loc.currentItemsSummary, line.itemSku))
+                .sort((a, b) => Number(b.currentQty || 0) - Number(a.currentQty || 0));
+
+            const emptyCandidates = available
+                .filter((loc) => Number(loc.currentQty || 0) <= 0)
+                .sort((a, b) => String(a.locationCode || '').localeCompare(String(b.locationCode || '')));
+
+            const fallbackCandidates = available
+                .sort((a, b) => Number(a.currentQty || 0) - Number(b.currentQty || 0));
+
+            const picked = sameItemCandidates[0] || emptyCandidates[0] || fallbackCandidates[0];
+            if (picked) {
+                suggestions[line.id] = String(picked.locationId);
+                usedLocationIds.add(String(picked.locationId));
+            }
+        });
+
+        return suggestions;
+    }, [lines, locationOptions]);
+
+    const applyLocationSuggestions = () => {
+        setLines((prev) => prev.map((line) => {
+            if (String(line.locationId || '').trim()) return line;
+            const suggestedId = suggestedLocationByLineId[line.id];
+            if (!suggestedId) return line;
+            return { ...line, locationId: suggestedId };
+        }));
+    };
+
     const validateForm = () => {
         const result = validateGRNForm(formData, lines);
         setErrors(result.errors);
@@ -671,6 +782,15 @@ const CreateGoodReceiptNote = () => {
         e.preventDefault();
         if (!validateForm()) {
             showToast('Vui lòng kiểm tra lại thông tin!', 'error');
+            return;
+        }
+        if (lines.some((line) => !line.locationId)) {
+            showToast('Vui lòng chọn vị trí kho cho tất cả dòng hàng!', 'error');
+            return;
+        }
+        const selectedLocationIds = lines.map((line) => String(line.locationId));
+        if (new Set(selectedLocationIds).size !== selectedLocationIds.length) {
+            showToast('Không được chọn trùng vị trí kho cho nhiều dòng trong cùng phiếu nhập!', 'error');
             return;
         }
         try {
@@ -694,9 +814,9 @@ const CreateGoodReceiptNote = () => {
                     ExpectedQty: Number(line.orderedQty) || 0,
                     ActualQty: Number(line.receivedQty) || 0,
                     UomId: Number(line.uomId) || 1,
+                    LocationId: Number(line.locationId),
                     HasCO: line.hasCO || false,
                     HasCQ: line.hasCQ || false,
-                    Note: line.note || null,
                     PurchaseOrderLineId: line.poLineId ? Number(line.poLineId) : null,
                     UnitPrice: Number(line.unitPrice) || 0,
                 })),
@@ -820,6 +940,22 @@ const CreateGoodReceiptNote = () => {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Chi tiết sản phẩm</h2>
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {lines.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={applyLocationSuggestions}
+                                                className="btn btn-sm"
+                                                disabled={locationLoading || locationOptions.length === 0}
+                                                style={{
+                                                    fontWeight: 600,
+                                                    backgroundColor: '#0284c7',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                }}
+                                            >
+                                                Gợi ý vị trí
+                                            </button>
+                                        )}
                                         {selectedLineIds.length > 0 && (
                                             <button
                                                 type="button"
@@ -1058,10 +1194,10 @@ const CreateGoodReceiptNote = () => {
                                                     <th>Sản phẩm *</th>
                                                     <th style={{ width: '100px' }}>SL đặt</th>
                                                     <th style={{ width: '100px' }}>SL nhập *</th>
+                                                    <th style={{ width: '170px' }}>Vị trí kho *</th>
                                                     <th style={{ width: '70px', textAlign: 'center' }}>ĐVT</th>
                                                     <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ xuất xứ (CO)">CO</th>
                                                     <th style={{ width: '80px', textAlign: 'center' }} title="Chứng chỉ chất lượng (CQ)">CQ</th>
-                                                    <th style={{ width: '180px' }}>Ghi chú</th>
                                                     <th style={{ width: '60px' }}></th>
                                                 </tr>
                                             </thead>
@@ -1128,11 +1264,9 @@ const CreateGoodReceiptNote = () => {
                                                                     >
                                                                         {line.itemName}
                                                                     </a>
-                                                                    {line.itemSku && (
-                                                                        <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>
-                                                                            {line.itemSku}
-                                                                        </span>
-                                                                    )}
+                                                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                                                                        {line.itemSku ? `Mã: ${line.itemSku}` : 'Mã: —'}
+                                                                    </span>
                                                                     <button
                                                                         type="button"
                                                                         className="btn-icon-only"
@@ -1169,6 +1303,30 @@ const CreateGoodReceiptNote = () => {
                                                                 title={errors[`line_${index}`] || 'Tối đa bằng số còn thiếu trên đơn'}
                                                             />
                                                         </td>
+                                                        <td>
+                                                            <select
+                                                                value={line.locationId || ''}
+                                                                onChange={(e) => updateLine(index, 'locationId', e.target.value)}
+                                                                className="form-input"
+                                                                disabled={locationLoading || locationOptions.length === 0}
+                                                            >
+                                                                <option value="">
+                                                                    {locationLoading
+                                                                        ? 'Đang tải vị trí...'
+                                                                        : locationOptions.length === 0
+                                                                            ? 'Không có vị trí'
+                                                                            : 'Chọn vị trí'}
+                                                                </option>
+                                                                {locationOptions.map((loc) => (
+                                                                    <option key={loc.locationId} value={loc.locationId}>
+                                                                        {loc.locationCode}
+                                                                        {loc.locationName ? ` - ${loc.locationName}` : ''}
+                                                                        {` | Tồn: ${formatLocationQty(loc.currentQty)}`}
+                                                                        {loc.currentItemsSummary ? ` (${normalizeSummaryQtyText(loc.currentItemsSummary)})` : ''}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </td>
                                                         <td style={{ textAlign: 'center', verticalAlign: 'middle', fontSize: '14px', color: 'var(--slate-700)' }}>
                                                             {line.uom ?? '—'}
                                                         </td>
@@ -1188,15 +1346,6 @@ const CreateGoodReceiptNote = () => {
                                                                 readOnly
                                                                 disabled
                                                                 style={{ width: '18px', height: '18px', cursor: 'default', margin: 0 }}
-                                                            />
-                                                        </td>
-                                                        <td>
-                                                            <input
-                                                                type="text"
-                                                                value={line.note}
-                                                                onChange={(e) => updateLine(index, 'note', e.target.value)}
-                                                                placeholder="Nhập ghi chú"
-                                                                className="form-input"
                                                             />
                                                         </td>
                                                         <td style={{ textAlign: 'center' }}>
