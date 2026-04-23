@@ -5,23 +5,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Box,
-  Typography,
   TextField,
   MenuItem,
   Divider,
   Popover,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  IconButton,
-  Chip,
-  Autocomplete,
-  Paper,
-  FormControlLabel,
-  Switch,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -29,74 +16,24 @@ import {
   ImagePlus,
   Plus,
   X,
-  CheckCircle,
   ChevronDown,
-  Trash2,
-  Upload,
 } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
-import { CreateCategoryDialog, ImageDialog, UomFormDialog } from "@ui/dialogs";
+import { CreateCategoryDialog, CreatePackagingSpecDialog, CreateSpecDialog, ImageDialog, UomFormDialog } from "@ui/dialogs";
 import { createItem as createItemApi, uploadItemImage } from "../lib/itemService";
 import { getUomList, createUom } from "../lib/uomService";
 import { getCategoryList } from "../lib/categoryService";
 import { getBrandList } from "../lib/brandService";
+import { getPackagingSpecList } from "../lib/packagingSpecService";
+import { getItemParameterList } from "../lib/itemParameterService";
 import "../styles/CreateSupplier.css";
 
-// Design tokens (match ViewItemDetail)
-const EDIT_BG = "#f8fafc";
-const EDIT_BORDER = "#e2e8f0";
-const EDIT_FOCUS_BORDER = "#94a3b8";
-const EDIT_RADIUS = 8;
 const FIELD_GAP = 16;
 const ROW_HEIGHT = 32;
 
 const LABEL_STYLE = { fontSize: "13px", color: "#64748b", fontWeight: 600 };
 const FIELD_WRAPPER = { display: "flex", flexDirection: "column", gap: "4px" };
-
-const baseEditInput = {
-  borderRadius: EDIT_RADIUS,
-  backgroundColor: EDIT_BG,
-  "& fieldset": { borderColor: EDIT_BORDER, borderRadius: EDIT_RADIUS },
-  "&:hover fieldset": { borderColor: "#cbd5e1" },
-  "& .MuiOutlinedInput-root.Mui-focused": {
-    boxShadow: "0 0 0 2px rgba(148,163,184,0.15)",
-    "& fieldset": { borderColor: EDIT_FOCUS_BORDER + " !important" },
-  },
-};
-
-const editTextSx = {
-  "& .MuiOutlinedInput-root": {
-    ...baseEditInput,
-    minHeight: ROW_HEIGHT,
-    fontSize: "14px",
-    padding: "0 12px",
-    "& .MuiInputBase-input": { padding: "0", fontSize: "14px", color: "#334155" },
-    "& .MuiInputBase-input::placeholder": { color: "#9ca3af", opacity: 1 },
-  },
-  "& .MuiInputLabel-root": {
-    fontSize: "13px", color: "#64748b", fontWeight: 600,
-    transform: "none", position: "relative", marginBottom: "2px",
-    "&.Mui-focused": { color: "#64748b" },
-  },
-};
-
-const editTextareaSx = {
-  ...editTextSx,
-  "& .MuiOutlinedInput-root": {
-    ...baseEditInput,
-    minHeight: "auto",
-    padding: "8px 12px",
-    alignItems: "flex-start",
-    "& .MuiInputBase-input": { padding: "0", fontSize: "14px", color: "#334155", lineHeight: 1.6 },
-    "& .MuiInputBase-input::placeholder": { color: "#9ca3af", opacity: 1 },
-  },
-};
-
-const selectMenuProps = {
-  PaperProps: { sx: { borderRadius: 2, maxHeight: 280 } },
-  disableScrollLock: true,
-};
 
 // Form constants
 const INITIAL_FORM = {
@@ -129,23 +66,50 @@ const ITEM_TYPE_OPTIONS = [
   { value: "Material", label: "Nguyên vật liệu" },
   { value: "Service", label: "Dịch vụ" },
 ];
-// StatusBadge
-const StatusBadge = ({ active }) => {
-  const config = active
-    ? { label: "Đang giao dịch", color: "#047857", bg: "rgba(16,185,129,0.18)", icon: <CheckCircle size={16} /> }
-    : { label: "Tạm dừng", color: "#b91c1c", bg: "rgba(239,68,68,0.15)", icon: <X size={16} /> };
-  return (
-    <div style={{
-      padding: "6px 14px", borderRadius: 20,
-      backgroundColor: config.bg, color: config.color,
-      fontWeight: 600, fontSize: "13px",
-      display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
-    }}>
-      {config.icon}
-      {config.label}
-    </div>
-  );
+const toArray = (value) => (Array.isArray(value) ? value : []);
+const fromPagedResult = (value) => {
+  if (Array.isArray(value?.items)) return value.items;
+  if (Array.isArray(value)) return value;
+  return [];
 };
+
+const mapUomOption = (u) => ({ id: u.uomId ?? u.UomId ?? u.id, name: u.uomName ?? u.UomName ?? u.name ?? "" });
+const mapPackagingOption = (p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId ?? p.id, name: p.specName ?? p.SpecName ?? p.name ?? "" });
+const mapCategoryOption = (c) => ({
+  id: c.categoryId ?? c.CategoryId ?? c.id,
+  code: c.categoryCode ?? c.CategoryCode ?? c.code ?? "",
+  name: c.categoryName ?? c.CategoryName ?? c.name ?? "",
+});
+const mapBrandOption = (b) => ({ id: b.brandId ?? b.BrandId ?? b.id, name: b.brandName ?? b.BrandName ?? b.name ?? "" });
+const mapSpecOption = (s) => ({
+  specId: s.specificationId ?? s.paramId ?? s.ParamId ?? s.id,
+  specCode: s.specificationCode ?? s.paramCode ?? s.ParamCode ?? "",
+  specName: s.specificationName ?? s.paramName ?? s.ParamName ?? s.name ?? "",
+});
+
+const resolveUomCreated = (raw, fallbackName = "") => {
+  const data = raw?.data ?? raw;
+  return {
+    id: data?.uomId ?? data?.UomId ?? data?.id ?? data?.data?.uomId ?? data?.data?.id,
+    name: data?.uomName ?? data?.UomName ?? data?.data?.uomName ?? data?.data?.UomName ?? fallbackName,
+  };
+};
+const resolveCategoryCreated = (raw) => {
+  const data = raw?.data ?? raw;
+  return {
+    id: data?.categoryId ?? data?.id ?? data?.data?.categoryId ?? data?.data?.id,
+    name: data?.categoryName ?? data?.CategoryName ?? data?.name ?? data?.data?.categoryName ?? data?.data?.CategoryName ?? "",
+    code: data?.categoryCode ?? data?.CategoryCode ?? data?.data?.categoryCode ?? data?.data?.CategoryCode ?? "",
+  };
+};
+const resolvePackagingCreated = (created) => ({
+  id: created?.packagingSpecId ?? created?.PackagingSpecId ?? created?.id ?? created?.data?.packagingSpecId ?? created?.data?.id,
+  name: created?.specName ?? created?.SpecName ?? created?.data?.specName ?? created?.data?.SpecName ?? "",
+});
+const resolveSpecCreated = (created) => ({
+  id: created?.specificationId ?? created?.paramId ?? created?.ParamId ?? created?.id ?? created?.data?.specificationId ?? created?.data?.id,
+  name: created?.specificationName ?? created?.paramName ?? created?.ParamName ?? created?.data?.specificationName ?? created?.data?.paramName ?? "",
+});
 
 // EditUnderline - TextField gạch chân
 const EditUnderline = ({ value, onChange, placeholder, name, ...props }) => (
@@ -329,10 +293,11 @@ const CreateItem = () => {
 
   // Local options for create-new
   const [localMasterCategories, setLocalMasterCategories] = useState([]);
-  const [localMasterBrands, setLocalMasterBrands] = useState([]);
 
   const [createUomOpen, setCreateUomOpen] = useState(false);
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
+  const [createPackOpen, setCreatePackOpen] = useState(false);
+  const [createSpecOpen, setCreateSpecOpen] = useState(false);
   const [showPurchasePrice, setShowPurchasePrice] = useState(false);
 
   // Image states
@@ -343,8 +308,7 @@ const CreateItem = () => {
   const [imageOriginalWidth, setImageOriginalWidth] = useState(0);
   const [imageOriginalHeight, setImageOriginalHeight] = useState(0);
   const [imageDialogTempUrl, setImageDialogTempUrl] = useState("");
-  const [imageUploadedUrl, setImageUploadedUrl] = useState("");
-  const [imageUploading, setImageUploading] = useState(false);
+  const [, setImageUploading] = useState(false);
 
   // Open image dialog
   const handleOpenImageDialog = () => {
@@ -382,8 +346,7 @@ const CreateItem = () => {
       const fileName = imageFileName || 'item-image.jpg';
       const croppedFile = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
       setImageFile(croppedFile);
-      const result = await uploadItemImage(croppedFile);
-      setImageUploadedUrl(result.url || '');
+      await uploadItemImage(croppedFile);
     } catch (err) {
       console.error('[CreateItem] Image upload error:', err);
       showToast('Tải ảnh lên thất bại. Vui lòng thử lại.', 'error');
@@ -407,7 +370,6 @@ const CreateItem = () => {
     setImageOriginalHeight(0);
     setImageDialogOpen(false);
     setImageDialogTempUrl("");
-    setImageUploadedUrl("");
   };
 
   // Close dialog without applying
@@ -421,9 +383,9 @@ const CreateItem = () => {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+      if (imagePreviewUrl && imagePreviewUrl.startsWith("blob:")) URL.revokeObjectURL(imagePreviewUrl);
     };
-  }, []);
+  }, [imagePreviewUrl]);
 
   const PAGE_SIZE = 100;
 
@@ -431,29 +393,16 @@ const CreateItem = () => {
     try {
       const [uomRes, packList, catRes, brandRes, specRes] = await Promise.all([
         getUomList({ page: 1, pageSize: PAGE_SIZE }),
-        [], // getPackagingSpecList removed
+        getPackagingSpecList(),
         getCategoryList({ page: 1, pageSize: PAGE_SIZE }),
         getBrandList({ page: 1, pageSize: PAGE_SIZE }),
-        [], // getItemParameterList removed
+        getItemParameterList({ page: 1, pageSize: PAGE_SIZE }),
       ]);
-      const uomItems = Array.isArray(uomRes?.items) ? uomRes.items : (Array.isArray(uomRes) ? uomRes : []);
-      setUomOptions(uomItems.map((u) => ({ id: u.uomId ?? u.UomId, name: u.uomName ?? u.UomName ?? "" })));
-      const packItems = Array.isArray(packList?.items) ? packList.items : (Array.isArray(packList) ? packList : []);
-      setPackagingOptions(packItems.map((p) => ({ id: p.packagingSpecId ?? p.PackagingSpecId, name: p.specName ?? p.SpecName ?? "" })));
-      const catItems = Array.isArray(catRes?.items) ? catRes.items : (Array.isArray(catRes) ? catRes : []);
-      setCategoryOptions(catItems.map((c) => ({
-        id: c.categoryId ?? c.CategoryId,
-        code: c.categoryCode ?? c.CategoryCode ?? "",
-        name: c.categoryName ?? c.CategoryName ?? "",
-      })));
-      const brandItems = Array.isArray(brandRes?.items) ? brandRes.items : (Array.isArray(brandRes) ? brandRes : []);
-      setBrandOptions(brandItems.map((b) => ({ id: b.brandId ?? b.BrandId, name: b.brandName ?? b.BrandName ?? "" })));
-      const specItems = Array.isArray(specRes?.items) ? specRes.items : (Array.isArray(specRes) ? specRes : []);
-      setSpecOptions(specItems.map((s) => ({
-        specId: s.paramId ?? s.ParamId,
-        specCode: s.paramCode ?? s.ParamCode ?? "",
-        specName: s.paramName ?? s.ParamName ?? "",
-      })));
+      setUomOptions(toArray(fromPagedResult(uomRes)).map(mapUomOption));
+      setPackagingOptions(toArray(fromPagedResult(packList)).map(mapPackagingOption));
+      setCategoryOptions(toArray(fromPagedResult(catRes)).map(mapCategoryOption));
+      setBrandOptions(toArray(fromPagedResult(brandRes)).map(mapBrandOption));
+      setSpecOptions(toArray(fromPagedResult(specRes)).map(mapSpecOption));
     } catch { /* keep empty on error */ }
   }, []);
 
@@ -541,7 +490,7 @@ const CreateItem = () => {
   const handleCancel = () => { setForm({ ...INITIAL_FORM }); navigate("/products"); };
 
   const allCategoryOptions = [...categoryOptions, ...localMasterCategories];
-  const allBrandOptions = [...brandOptions, ...localMasterBrands];
+  const allBrandOptions = [...brandOptions];
 
   return (
     <div className="create-supplier-page create-item-page">
@@ -782,6 +731,7 @@ const CreateItem = () => {
                         onChange={handleChange}
                         options={packagingOptions.map((o) => ({ value: String(o.id), label: o.name }))}
                         placeholder="Chọn quy cách đóng gói"
+                        onAddNew={() => setCreatePackOpen(true)}
                       />
                     </div>
 
@@ -793,6 +743,7 @@ const CreateItem = () => {
                         onChange={handleChange}
                         options={specOptions.map((o) => ({ value: String(o.specId), label: o.specName }))}
                         placeholder="Chọn thông số sản phẩm"
+                        onAddNew={() => setCreateSpecOpen(true)}
                       />
                     </div>
 
@@ -848,12 +799,10 @@ const CreateItem = () => {
         onSuccess={async ({ uomName }) => {
           try {
             const response = await createUom({ uomName });
-            const data = response?.data ?? response;
-            const newId = data?.uomId ?? data?.UomId ?? data?.id ?? data?.data?.uomId ?? data?.data?.id;
-            const resolvedUomName = data?.uomName ?? data?.UomName ?? data?.data?.uomName ?? data?.data?.UomName ?? uomName;
-            if (newId) {
-              setUomOptions((prev) => [...prev, { id: newId, name: resolvedUomName }]);
-              setForm((prev) => ({ ...prev, baseUomId: newId }));
+            const created = resolveUomCreated(response, uomName);
+            if (created.id) {
+              setUomOptions((prev) => [...prev, { id: created.id, name: created.name }]);
+              setForm((prev) => ({ ...prev, baseUomId: created.id }));
               showToast("Tạo đơn vị tính thành công.", "success");
             }
           } catch (err) {
@@ -869,18 +818,38 @@ const CreateItem = () => {
         open={createCategoryOpen}
         onClose={() => setCreateCategoryOpen(false)}
         onSuccess={async (result) => {
-            const data = result?.data ?? result;
-            const newId = data?.categoryId ?? data?.id ?? data?.data?.categoryId ?? data?.data?.id;
-            if (newId) {
-                const newCategory = {
-                    categoryId: newId,
-                    categoryName: data?.categoryName ?? data?.CategoryName ?? data?.name ?? data?.data?.categoryName ?? data?.data?.CategoryName ?? '',
-                    categoryCode: data?.categoryCode ?? data?.CategoryCode ?? data?.data?.categoryCode ?? data?.data?.CategoryCode ?? '',
-                };
-                setLocalMasterCategories((prev) => [...prev, newCategory]);
-                setForm((prev) => ({ ...prev, categoryId: newId }));
-                showToast('Tạo danh mục thành công.', 'success');
+            const created = resolveCategoryCreated(result);
+            if (created.id) {
+              setLocalMasterCategories((prev) => [...prev, { categoryId: created.id, categoryName: created.name, categoryCode: created.code }]);
+              setForm((prev) => ({ ...prev, categoryId: created.id }));
+              showToast('Tạo danh mục thành công.', 'success');
             }
+        }}
+      />
+
+      <CreatePackagingSpecDialog
+        open={createPackOpen}
+        onClose={() => setCreatePackOpen(false)}
+        onSuccess={(created) => {
+          const mapped = resolvePackagingCreated(created);
+          if (mapped.id) {
+            setPackagingOptions((prev) => [...prev, { id: mapped.id, name: mapped.name }]);
+            setForm((prev) => ({ ...prev, packagingSpecId: mapped.id }));
+            showToast("Tạo quy cách đóng gói thành công.", "success");
+          }
+        }}
+      />
+
+      <CreateSpecDialog
+        open={createSpecOpen}
+        onClose={() => setCreateSpecOpen(false)}
+        onSuccess={(created) => {
+          const mapped = resolveSpecCreated(created);
+          if (mapped.id) {
+            setSpecOptions((prev) => [...prev, { specId: mapped.id, specName: mapped.name, specCode: "" }]);
+            setForm((prev) => ({ ...prev, specId: mapped.id }));
+            showToast("Tạo thông số thành công.", "success");
+          }
         }}
       />
 
