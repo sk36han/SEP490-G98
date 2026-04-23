@@ -1,6 +1,6 @@
 /**
  * ViewWarehouseDetail - Chi tiết kho
- * Hiển thị thông tin kho, vật tư và lịch sử biến động
+ * Hiển thị thông tin kho, vật tư (kèm lô theo từng vật tư) và lịch sử biến động
  *
  * API:
  *   GET  /api/Warehouse/{id}/detail          → WarehouseDetailResponse (kèm items)
@@ -13,6 +13,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Box,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
     CircularProgress,
     Typography,
 } from '@mui/material';
@@ -86,6 +90,31 @@ const ACTION_COLORS = {
     RETURN_OUT: { bg: 'rgba(139,92,246,0.15)', color: '#7c3aed', label: 'Xuất trả' },
 };
 
+/** Mock InventoryLots — khớp seed `DTB 14.4.sql` (MKIWMS5), chờ API thật */
+
+/**
+ * Mã phiếu nhập kho từ GRNLineId: mỗi GRNLineId i trong seed gắn GRNId i → GRNCode GRN000i
+ * (khi không có dòng GRN → null)
+ */
+const getGrnCodeFromLineId = (grnLineId) => {
+    if (grnLineId == null || grnLineId === '') return null;
+    const n = Number(grnLineId);
+    if (!Number.isFinite(n) || n < 1 || n > 20) return null;
+    return `GRN${String(n).padStart(4, '0')}`;
+};
+
+const getLotLocationCode = (lot) => {
+    return (
+        lot.locationCode ??
+        lot.LocationCode ??
+        lot.location?.locationCode ??
+        lot.location?.LocationCode ??
+        lot.Location?.locationCode ??
+        lot.Location?.LocationCode ??
+        null
+    );
+};
+
 // ── Map backend response → component state ────────────────────────────────────
 const mapDetail = (data) => ({
     warehouseId: data.warehouseId ?? data.WarehouseId ?? data.id,
@@ -115,6 +144,19 @@ const mapDetail = (data) => ({
         qcdg: it.qcdg ?? it.QCDG ?? it.minimumQty ?? 0,
         hasInventoryRecord: it.hasInventoryRecord ?? it.HasInventoryRecord ?? false,
     })),
+    lots: (data.lots ?? data.Lots ?? []).map((lot) => ({
+        lotId: lot.lotId ?? lot.LotId,
+        itemId: lot.itemId ?? lot.ItemId,
+        warehouseId: lot.warehouseId ?? lot.WarehouseId,
+        grnLineId: lot.grnlineId ?? lot.GrnlineId ?? lot.grnLineId ?? lot.GrnLineId ?? null,
+        grnCode: lot.grnCode ?? lot.GrnCode ?? null,
+        locationCode: lot.locationCode ?? lot.LocationCode ?? null,
+        receiptDate: lot.receiptDate ?? lot.ReceiptDate ?? null,
+        quantity: lot.quantity ?? lot.Quantity ?? 0,
+        unitCost: lot.unitCost ?? lot.UnitCost ?? 0,
+        expiryDate: lot.expiryDate ?? lot.ExpiryDate ?? null,
+        isActive: lot.isActive ?? lot.IsActive ?? false,
+    })),
 });
 
 const mapHistory = (item, idx) => ({
@@ -124,6 +166,9 @@ const mapHistory = (item, idx) => ({
     quantity: item.quantity ?? item.Quantity ?? null,
     referenceNo: item.referenceNo ?? item.ReferenceNo ?? '',
     voucherCode: item.voucherCode ?? item.VoucherCode ?? '',
+    itemName: item.itemName ?? item.ItemName ?? '',
+    transactionDate: item.transactionDate ?? item.TransactionDate ?? item.createdAt ?? item.CreatedAt ?? '',
+    approverName: item.approverName ?? item.ApproverName ?? item.approvedByName ?? item.ApprovedByName ?? '',
     performedByName: item.performedByName ?? item.PerformedByName ?? '',
     itemName: item.itemName ?? item.ItemName ?? '',
     transactionDate: item.transactionDate ?? item.TransactionDate ?? '',
@@ -166,6 +211,7 @@ const ViewWarehouseDetail = () => {
     const [historyPage, setHistoryPage] = useState(0);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState(null);
+    const [lotPopup, setLotPopup] = useState({ open: false, itemName: '', itemCode: '', lots: [] });
 
     // ── Load warehouse detail ────────────────────────────────────────────────
     const fetchWarehouseDetail = useCallback(async () => {
@@ -196,8 +242,7 @@ const ViewWarehouseDetail = () => {
                 pageNumber: pageNum + 1,
                 pageSize: WAREHOUSE_HISTORY_PAGE_SIZE,
             });
-            const raw = result.items ?? [];
-            setHistoryList(Array.isArray(raw) ? raw.map(mapHistory) : []);
+            setHistoryList((result.items ?? []).map((item, idx) => mapHistory(item, idx)));
             setHistoryTotal(result.totalItems ?? 0);
             setHistoryPage(pageNum);
         } catch (err) {
@@ -250,6 +295,47 @@ const ViewWarehouseDetail = () => {
             );
         });
     }, [warehouse, stockFilter, lineSearchKeyword]);
+
+    /** Các lô thuộc đúng kho đang xem (ưu tiên dữ liệu backend, fallback mock) */
+    const lotsForWarehouse = useMemo(() => {
+        if (!warehouse?.warehouseId) return [];
+        const wid = Number(warehouse.warehouseId);
+        const backendLots = Array.isArray(warehouse.lots) ? warehouse.lots : [];
+        if (backendLots.length > 0) {
+            return backendLots.filter((l) => Number(l.warehouseId) === wid);
+        }
+        return MOCK_INVENTORY_LOTS.filter((l) => l.warehouseId === wid);
+    }, [warehouse]);
+
+    const lotsByItemId = useMemo(() => {
+        const grouped = new Map();
+        lotsForWarehouse.forEach((lot) => {
+            const itemKey = Number(lot.itemId);
+            if (!Number.isFinite(itemKey)) return;
+            if (!grouped.has(itemKey)) grouped.set(itemKey, []);
+            grouped.get(itemKey).push(lot);
+        });
+        grouped.forEach((value, key) => {
+            grouped.set(
+                key,
+                value.sort((a, b) => new Date(b.receiptDate) - new Date(a.receiptDate)),
+            );
+        });
+        return grouped;
+    }, [lotsForWarehouse]);
+
+    const openLotPopup = (line, itemLots) => {
+        setLotPopup({
+            open: true,
+            itemName: line.itemName ?? 'Vật tư',
+            itemCode: line.itemCode ?? '',
+            lots: Array.isArray(itemLots) ? itemLots : [],
+        });
+    };
+
+    const closeLotPopup = () => {
+        setLotPopup({ open: false, itemName: '', itemCode: '', lots: [] });
+    };
 
     // ── Edit handlers ────────────────────────────────────────────────────────
     const handleEditClick = () => {
@@ -538,12 +624,13 @@ const ViewWarehouseDetail = () => {
                                                         <th style={{ width: '100px', textAlign: 'right' }}>Tồn kho</th>
                                                         <th style={{ width: '100px', textAlign: 'right' }}>Đang giao dịch</th>
                                                         <th style={{ width: '100px', textAlign: 'right' }}>Khả dụng</th>
+                                                        <th style={{ minWidth: '260px', textAlign: 'left' }}>Các lô theo vật tư</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {filteredLines.length === 0 ? (
                                                         <tr>
-                                                            <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                                                            <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
                                                                 <Package size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
                                                                 <p style={{ fontSize: '14px', margin: 0 }}>
                                                                     {warehouse.items?.length > 0 ? 'Không có vật tư phù hợp' : 'Chưa có vật tư trong kho'}
@@ -551,48 +638,72 @@ const ViewWarehouseDetail = () => {
                                                             </td>
                                                         </tr>
                                                     ) : (
-                                                        filteredLines.map((line, index) => (
-                                                            <tr key={line.id}>
-                                                                <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                                                                <td>
-                                                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                                        <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
-                                                                            <ImageIcon size={20} color="#9ca3af" />
+                                                        filteredLines.map((line, index) => {
+                                                            const itemLots = lotsByItemId.get(Number(line.itemId)) ?? [];
+                                                            return (
+                                                                <tr key={line.id}>
+                                                                    <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                                                    <td>
+                                                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                                                            <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: '1px solid #e5e7eb', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
+                                                                                <ImageIcon size={20} color="#9ca3af" />
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                                <span
+                                                                                    style={{ fontSize: 14, fontWeight: 500, color: '#2196F3', cursor: 'pointer', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+                                                                                    onClick={() => navigate(`/items/${line.itemId}`)}
+                                                                                    title={line.itemName}
+                                                                                >
+                                                                                    {line.itemName}
+                                                                                </span>
+                                                                                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                                                    Mã: {line.itemCode} • ĐVT: {line.uom || '-'} • QCĐG: {fmt(line.qcdg)}
+                                                                                </span>
+                                                                            </div>
                                                                         </div>
-                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                                            <span
-                                                                                style={{ fontSize: 14, fontWeight: 500, color: '#2196F3', cursor: 'pointer', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
-                                                                                onClick={() => navigate(`/items/${line.itemId}`)}
-                                                                                title={line.itemName}
+                                                                    </td>
+                                                                    <td>
+                                                                        <div style={{
+                                                                            textAlign: 'right',
+                                                                            paddingRight: '8px',
+                                                                            fontWeight: 600,
+                                                                            color: Number(line.onHandQty) === 0 ? '#dc2626' : Number(line.onHandQty) < LOW_STOCK_THRESHOLD ? '#f59e0b' : '#374151',
+                                                                        }}>
+                                                                            {fmt(line.onHandQty)}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#f59e0b' }}>
+                                                                            {fmt(line.reservedQty)}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
+                                                                        {fmt(Math.max(0, Number(line.onHandQty) - Number(line.reservedQty)))}
+                                                                    </td>
+                                                                    <td>
+                                                                        {itemLots.length === 0 ? (
+                                                                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>Chưa có lô</span>
+                                                                        ) : (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => openLotPopup(line, itemLots)}
+                                                                                className="btn btn-secondary"
+                                                                                style={{
+                                                                                    minWidth: '110px',
+                                                                                    height: '32px',
+                                                                                    borderRadius: '8px',
+                                                                                    fontSize: '12px',
+                                                                                    fontWeight: 600,
+                                                                                    padding: '0 10px',
+                                                                                }}
                                                                             >
-                                                                                {line.itemName}
-                                                                            </span>
-                                                                            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                                                                                Mã: {line.itemCode} • ĐVT: {line.uom || '-'} • QCĐG: {fmt(line.qcdg)}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                                <td>
-                                                                    <div style={{
-                                                                        textAlign: 'right',
-                                                                        paddingRight: '8px',
-                                                                        fontWeight: 600,
-                                                                        color: Number(line.onHandQty) === 0 ? '#dc2626' : Number(line.onHandQty) < LOW_STOCK_THRESHOLD ? '#f59e0b' : '#374151',
-                                                                    }}>
-                                                                        {fmt(line.onHandQty)}
-                                                                    </div>
-                                                                </td>
-                                                                <td>
-                                                                    <div style={{ textAlign: 'right', paddingRight: '8px', fontWeight: 500, color: '#f59e0b' }}>
-                                                                        {fmt(line.reservedQty)}
-                                                                    </div>
-                                                                </td>
-                                                                <td style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
-                                                                    {fmt(Math.max(0, Number(line.onHandQty) - Number(line.reservedQty)))}
-                                                                </td>
-                                                            </tr>
-                                                        ))
+                                                                                Xem lô ({itemLots.length})
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
                                                     )}
                                                 </tbody>
                                             </table>
@@ -800,6 +911,68 @@ const ViewWarehouseDetail = () => {
                     </div>
                 </form>
             </div>
+
+            <Dialog
+                open={lotPopup.open}
+                onClose={closeLotPopup}
+                fullWidth
+                maxWidth="md"
+            >
+                <DialogTitle style={{ fontWeight: 700 }}>
+                    Danh sách lô - {lotPopup.itemName}
+                    {lotPopup.itemCode ? ` (${lotPopup.itemCode})` : ''}
+                </DialogTitle>
+                <DialogContent dividers>
+                    {lotPopup.lots.length === 0 ? (
+                        <div style={{ padding: '12px 0', color: '#9ca3af', fontSize: '14px' }}>
+                            Chưa có lô cho vật tư này.
+                        </div>
+                    ) : (
+                        <div style={{ overflowX: 'auto', maxHeight: '420px', overflowY: 'auto' }}>
+                            <table className="product-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: 60, textAlign: 'center' }}>STT</th>
+                                        <th>Mã Phiếu Nhập Kho</th>
+                                        <th>Vị trí</th>
+                                        <th>Ngày nhập</th>
+                                        <th style={{ width: 120, textAlign: 'right' }}>Số lượng</th>
+                                        <th style={{ width: 90, textAlign: 'center' }}>IsActive</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {lotPopup.lots.map((lot, idx) => {
+                                        const lotLocation = getLotLocationCode(lot) ?? '—';
+                                        const lotGrn = lot.grnCode ?? getGrnCodeFromLineId(lot.grnLineId) ?? '—';
+                                        return (
+                                            <tr key={lot.lotId ?? `${lot.itemId}-${idx}`}>
+                                                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                                <td>{lotGrn}</td>
+                                                <td>{lotLocation}</td>
+                                                <td>{fmtDate(lot.receiptDate)}</td>
+                                                <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(lot.quantity)}</td>
+                                                <td style={{ textAlign: 'center', color: lot.isActive ? '#059669' : '#6b7280', fontWeight: 600 }}>
+                                                    {lot.isActive ? '1' : '0'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <button
+                        type="button"
+                        onClick={closeLotPopup}
+                        className="btn btn-secondary"
+                        style={{ minWidth: '90px', height: '36px', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}
+                    >
+                        Đóng
+                    </button>
+                </DialogActions>
+            </Dialog>
 
             {/* Unsaved Changes Dialog */}
             <ConfirmDialog

@@ -153,6 +153,7 @@ const menuCatalog = {
         label: 'Quản lý kho',
         children: [
             createChild('/inventory', 'Danh sách kho'),
+            createChild('/inventory/storage-locations', 'Vị trí lưu trữ'),
             createChild('/inventory/stocktakes', 'Kiểm kê kho'),
             createChild('/inventory/adjustments', 'Điều chỉnh tồn kho'),
         ],
@@ -164,6 +165,7 @@ const menuCatalog = {
         label: 'Quản lý kho',
         children: [
             createChild('/inventory', 'Danh sách kho'),
+            createChild('/inventory/storage-locations', 'Vị trí lưu trữ'),
         ],
     }),
 
