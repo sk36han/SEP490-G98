@@ -109,8 +109,8 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Thiếu cấu hình JWT (SecretKey/Issuer/Audience).");
             }
 
-            var defaultMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "60");
-            var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? defaultMinutes.ToString());
+            var defaultMinutes = int.Parse(jwtSettings["AccessTokenExpirationMinutes"] ?? "240");
+            var rememberMeMinutes = int.Parse(jwtSettings["AccessTokenRememberMeMinutes"] ?? "720");
             var expirationMinutes = rememberMe ? rememberMeMinutes : defaultMinutes;
 
             var roleCode = await _context.UserRoles

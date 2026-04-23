@@ -14,6 +14,7 @@ namespace Warehouse.Entities.ModelResponse
         public int ItemCount { get; set; }
 
         public List<WarehouseItemDto> Items { get; set; } = new List<WarehouseItemDto>();
+        public List<WarehouseLotDto> Lots { get; set; } = new List<WarehouseLotDto>();
         public List<WarehousePaperDto> ImportPapers { get; set; } = new List<WarehousePaperDto>();
         public List<WarehousePaperDto> ExportPapers { get; set; } = new List<WarehousePaperDto>();
         public List<WarehousePaperDto> ReturnPapers { get; set; } = new List<WarehousePaperDto>();
@@ -40,5 +41,20 @@ namespace Warehouse.Entities.ModelResponse
         public DateTime? Date { get; set; }
         public string Status { get; set; } = null!;
         public string? Note { get; set; }
+    }
+
+    public class WarehouseLotDto
+    {
+        public long LotId { get; set; }
+        public long ItemId { get; set; }
+        public long WarehouseId { get; set; }
+        public long? GrnlineId { get; set; }
+        public string? GrnCode { get; set; }
+        public string? LocationCode { get; set; }
+        public DateTime ReceiptDate { get; set; }
+        public decimal Quantity { get; set; }
+        public decimal UnitCost { get; set; }
+        public DateTime? ExpiryDate { get; set; }
+        public bool IsActive { get; set; }
     }
 }

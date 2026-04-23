@@ -92,6 +92,31 @@ namespace Warehouse.DataAcces.Service
 
             response.ItemCount = response.Items.Count;
 
+            // Lấy danh sách lô trong kho (kèm mã GRN và vị trí lưu trữ nếu đã gán)
+            response.Lots = await _context.InventoryLots
+                .AsNoTracking()
+                .Where(l => l.WarehouseId == warehouseId)
+                .Include(l => l.Grnline)
+                    .ThenInclude(gl => gl.Grn)
+                .Include(l => l.Location)
+                .OrderByDescending(l => l.ReceiptDate)
+                .ThenByDescending(l => l.LotId)
+                .Select(l => new WarehouseLotDto
+                {
+                    LotId = l.LotId,
+                    ItemId = l.ItemId,
+                    WarehouseId = l.WarehouseId,
+                    GrnlineId = l.GrnlineId,
+                    GrnCode = l.Grnline != null ? l.Grnline.Grn.Grncode : null,
+                    LocationCode = l.Location != null ? l.Location.LocationCode : null,
+                    ReceiptDate = l.ReceiptDate,
+                    Quantity = l.Quantity,
+                    UnitCost = l.UnitCost,
+                    ExpiryDate = l.ExpiryDate,
+                    IsActive = l.IsActive
+                })
+                .ToListAsync();
+
 
             // Lấy giấy tờ nhập kho (GRN)
             var importPapers = await _context.GoodsReceiptNotes
@@ -317,19 +342,46 @@ namespace Warehouse.DataAcces.Service
                 {
                     var grn = await _context.GoodsReceiptNotes.FindAsync(refId);
                     response.VoucherCode = grn?.Grncode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("GRN", refId);
+                    var approverName = await GetApproverNameAsync("GRN", refId);
+                    if (!string.IsNullOrWhiteSpace(approverName))
+                    {
+                        response.ApproverName = approverName;
+                    }
+                    else
+                    {
+                        var user = grn != null ? await _context.Users.FindAsync(grn.CreatedBy) : null;
+                        response.ApproverName = user?.FullName ?? "Hệ thống";
+                    }
                 }
                 else if (refType == "GDN")
                 {
                     var gdn = await _context.GoodsDeliveryNotes.FindAsync(refId);
                     response.VoucherCode = gdn?.Gdncode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("GDN", refId);
+                    var approverName = await GetApproverNameAsync("GDN", refId);
+                    if (!string.IsNullOrWhiteSpace(approverName))
+                    {
+                        response.ApproverName = approverName;
+                    }
+                    else
+                    {
+                        var user = gdn != null ? await _context.Users.FindAsync(gdn.CreatedBy) : null;
+                        response.ApproverName = user?.FullName ?? "Hệ thống";
+                    }
                 }
                 else if (refType == "ADJ")
                 {
                     var adj = await _context.InventoryAdjustmentRequests.FindAsync(refId);
                     response.VoucherCode = adj?.AdjustmentCode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("ADJ", refId);
+                    var approverName = await GetApproverNameAsync("ADJ", refId);
+                    if (!string.IsNullOrWhiteSpace(approverName))
+                    {
+                        response.ApproverName = approverName;
+                    }
+                    else
+                    {
+                        var user = adj != null ? await _context.Users.FindAsync(adj.SubmittedBy) : null;
+                        response.ApproverName = user?.FullName ?? "Hệ thống";
+                    }
                 }
                 else
                 {
@@ -344,7 +396,7 @@ namespace Warehouse.DataAcces.Service
             return new PagedResult<WarehouseHistoryResponse>(results, totalItems, pageNumber, pageSize);
         }
 
-        private async Task<string> GetApproverNameAsync(string docType, long docId)
+        private async Task<string?> GetApproverNameAsync(string docType, long docId)
         {
             var approval = await _context.DocumentApprovals
                 .Include(a => a.ActionByNavigation)
@@ -352,7 +404,7 @@ namespace Warehouse.DataAcces.Service
                 .OrderByDescending(a => a.ActionAt)
                 .FirstOrDefaultAsync();
 
-            return approval?.ActionByNavigation?.FullName ?? "Chưa được duyệt";
+            return approval?.ActionByNavigation?.FullName;
         }
     }
 }

@@ -1,6 +1,6 @@
 /**
  * ViewWarehouseDetail - Chi tiết kho
- * Hiển thị thông tin kho, vật tư, các lô (mock InventoryLots) và lịch sử biến động
+ * Hiển thị thông tin kho, vật tư (kèm lô theo từng vật tư) và lịch sử biến động
  *
  * API:
  *   GET  /api/Warehouse/{id}/detail          → WarehouseDetailResponse (kèm items)
@@ -13,6 +13,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Box,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
     CircularProgress,
     Typography,
 } from '@mui/material';
@@ -36,7 +40,6 @@ import {
     RefreshCw,
     History,
     FileText,
-    Layers,
 } from 'lucide-react';
 import { getWarehouseDetail, getWarehouseHistory, updateWarehouse, toggleWarehouseStatus } from '../lib/warehouseService';
 import { useToastContext } from '../../app/context/ToastContext';
@@ -107,14 +110,6 @@ const MOCK_INVENTORY_LOTS = [
     { lotId: 20, itemId: 20, warehouseId: 10, grnLineId: null, receiptDate: '2026-02-15T08:00:00', quantity: 16, unitCost: 85, expiryDate: '2027-02-15T08:00:00', isActive: true },
 ];
 
-/** Tên vật tư — khớp bảng Items trong seed DTB 14.4.sql */
-const MOCK_ITEM_NAME_BY_ID = Object.fromEntries(
-    Array.from({ length: 20 }, (_, i) => {
-        const id = i + 1;
-        return [id, `Vật tư mẫu ${String(id).padStart(3, '0')}`];
-    }),
-);
-
 /**
  * Mã phiếu nhập kho từ GRNLineId: mỗi GRNLineId i trong seed gắn GRNId i → GRNCode GRN000i
  * (khi không có dòng GRN → null)
@@ -126,10 +121,16 @@ const getGrnCodeFromLineId = (grnLineId) => {
     return `GRN${String(n).padStart(4, '0')}`;
 };
 
-const fmtMoney = (v) => {
-    const n = Number(v);
-    if (Number.isNaN(n)) return '—';
-    return `${n.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₫`;
+const getLotLocationCode = (lot) => {
+    return (
+        lot.locationCode ??
+        lot.LocationCode ??
+        lot.location?.locationCode ??
+        lot.location?.LocationCode ??
+        lot.Location?.locationCode ??
+        lot.Location?.LocationCode ??
+        null
+    );
 };
 
 // ── Map backend response → component state ────────────────────────────────────
@@ -161,6 +162,19 @@ const mapDetail = (data) => ({
         qcdg: it.qcdg ?? it.QCDG ?? it.minimumQty ?? 0,
         hasInventoryRecord: it.hasInventoryRecord ?? it.HasInventoryRecord ?? false,
     })),
+    lots: (data.lots ?? data.Lots ?? []).map((lot) => ({
+        lotId: lot.lotId ?? lot.LotId,
+        itemId: lot.itemId ?? lot.ItemId,
+        warehouseId: lot.warehouseId ?? lot.WarehouseId,
+        grnLineId: lot.grnlineId ?? lot.GrnlineId ?? lot.grnLineId ?? lot.GrnLineId ?? null,
+        grnCode: lot.grnCode ?? lot.GrnCode ?? null,
+        locationCode: lot.locationCode ?? lot.LocationCode ?? null,
+        receiptDate: lot.receiptDate ?? lot.ReceiptDate ?? null,
+        quantity: lot.quantity ?? lot.Quantity ?? 0,
+        unitCost: lot.unitCost ?? lot.UnitCost ?? 0,
+        expiryDate: lot.expiryDate ?? lot.ExpiryDate ?? null,
+        isActive: lot.isActive ?? lot.IsActive ?? false,
+    })),
 });
 
 const mapHistory = (item, idx) => ({
@@ -169,6 +183,10 @@ const mapHistory = (item, idx) => ({
     description: item.description ?? item.Description ?? '',
     quantity: item.quantity ?? item.Quantity ?? null,
     referenceNo: item.referenceNo ?? item.ReferenceNo ?? '',
+    voucherCode: item.voucherCode ?? item.VoucherCode ?? '',
+    itemName: item.itemName ?? item.ItemName ?? '',
+    transactionDate: item.transactionDate ?? item.TransactionDate ?? item.createdAt ?? item.CreatedAt ?? '',
+    approverName: item.approverName ?? item.ApproverName ?? item.approvedByName ?? item.ApprovedByName ?? '',
     performedByName: item.performedByName ?? item.PerformedByName ?? '',
     createdAt: item.createdAt ?? item.CreatedAt ?? '',
 });
@@ -209,6 +227,7 @@ const ViewWarehouseDetail = () => {
     const [historyPageSize, setHistoryPageSize] = useState(10);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState(null);
+    const [lotPopup, setLotPopup] = useState({ open: false, itemName: '', itemCode: '', lots: [] });
 
     // ── Load warehouse detail ────────────────────────────────────────────────
     const fetchWarehouseDetail = useCallback(async () => {
@@ -239,7 +258,7 @@ const ViewWarehouseDetail = () => {
                 pageNumber: pageNum + 1,
                 pageSize: historyPageSize,
             });
-            setHistoryList(result.items ?? []);
+            setHistoryList((result.items ?? []).map((item, idx) => mapHistory(item, idx)));
             setHistoryTotal(result.totalItems ?? 0);
             setHistoryPage(pageNum);
         } catch (err) {
@@ -280,12 +299,46 @@ const ViewWarehouseDetail = () => {
         });
     }, [warehouse, stockFilter, lineSearchKeyword]);
 
-    /** Các lô thuộc đúng kho đang xem (theo warehouseId) */
+    /** Các lô thuộc đúng kho đang xem (ưu tiên dữ liệu backend, fallback mock) */
     const lotsForWarehouse = useMemo(() => {
         if (!warehouse?.warehouseId) return [];
         const wid = Number(warehouse.warehouseId);
+        const backendLots = Array.isArray(warehouse.lots) ? warehouse.lots : [];
+        if (backendLots.length > 0) {
+            return backendLots.filter((l) => Number(l.warehouseId) === wid);
+        }
         return MOCK_INVENTORY_LOTS.filter((l) => l.warehouseId === wid);
-    }, [warehouse?.warehouseId]);
+    }, [warehouse]);
+
+    const lotsByItemId = useMemo(() => {
+        const grouped = new Map();
+        lotsForWarehouse.forEach((lot) => {
+            const itemKey = Number(lot.itemId);
+            if (!Number.isFinite(itemKey)) return;
+            if (!grouped.has(itemKey)) grouped.set(itemKey, []);
+            grouped.get(itemKey).push(lot);
+        });
+        grouped.forEach((value, key) => {
+            grouped.set(
+                key,
+                value.sort((a, b) => new Date(b.receiptDate) - new Date(a.receiptDate)),
+            );
+        });
+        return grouped;
+    }, [lotsForWarehouse]);
+
+    const openLotPopup = (line, itemLots) => {
+        setLotPopup({
+            open: true,
+            itemName: line.itemName ?? 'Vật tư',
+            itemCode: line.itemCode ?? '',
+            lots: Array.isArray(itemLots) ? itemLots : [],
+        });
+    };
+
+    const closeLotPopup = () => {
+        setLotPopup({ open: false, itemName: '', itemCode: '', lots: [] });
+    };
 
     // ── Edit handlers ────────────────────────────────────────────────────────
     const handleEditClick = () => {
@@ -485,28 +538,6 @@ const ViewWarehouseDetail = () => {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setActiveTab('lots')}
-                                    style={{
-                                        padding: '10px 20px',
-                                        background: 'none',
-                                        border: 'none',
-                                        borderBottom: activeTab === 'lots' ? '2px solid #2196F3' : '2px solid transparent',
-                                        color: activeTab === 'lots' ? '#2196F3' : '#6b7280',
-                                        fontWeight: activeTab === 'lots' ? 600 : 500,
-                                        fontSize: '14px',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        marginBottom: -2,
-                                        transition: 'all 0.2s',
-                                    }}
-                                >
-                                    <Layers size={16} />
-                                    Các lô đang có ({lotsForWarehouse.length})
-                                </button>
-                                <button
-                                    type="button"
                                     onClick={() => { setActiveTab('history'); }}
                                     style={{
                                         padding: '10px 20px',
@@ -591,12 +622,13 @@ const ViewWarehouseDetail = () => {
                                                         <th style={{ width: '100px', textAlign: 'right' }}>Tồn kho</th>
                                                         <th style={{ width: '100px', textAlign: 'right' }}>Đang giao dịch</th>
                                                         <th style={{ width: '100px', textAlign: 'right' }}>Khả dụng</th>
+                                                        <th style={{ minWidth: '260px', textAlign: 'left' }}>Các lô theo vật tư</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {filteredLines.length === 0 ? (
                                                         <tr>
-                                                            <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                                                            <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
                                                                 <Package size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
                                                                 <p style={{ fontSize: '14px', margin: 0 }}>
                                                                     {warehouse.items?.length > 0 ? 'Không có vật tư phù hợp' : 'Chưa có vật tư trong kho'}
@@ -604,7 +636,9 @@ const ViewWarehouseDetail = () => {
                                                             </td>
                                                         </tr>
                                                     ) : (
-                                                        filteredLines.map((line, index) => (
+                                                        filteredLines.map((line, index) => {
+                                                            const itemLots = lotsByItemId.get(Number(line.itemId)) ?? [];
+                                                            return (
                                                             <tr key={line.id}>
                                                                 <td style={{ textAlign: 'center' }}>{index + 1}</td>
                                                                 <td>
@@ -644,8 +678,30 @@ const ViewWarehouseDetail = () => {
                                                                 <td style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
                                                                     {fmt(Math.max(0, Number(line.onHandQty) - Number(line.reservedQty)))}
                                                                 </td>
+                                                                <td>
+                                                                    {itemLots.length === 0 ? (
+                                                                        <span style={{ fontSize: '12px', color: '#9ca3af' }}>Chưa có lô</span>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => openLotPopup(line, itemLots)}
+                                                                            className="btn btn-secondary"
+                                                                            style={{
+                                                                                minWidth: '110px',
+                                                                                height: '32px',
+                                                                                borderRadius: '8px',
+                                                                                fontSize: '12px',
+                                                                                fontWeight: 600,
+                                                                                padding: '0 10px',
+                                                                            }}
+                                                                        >
+                                                                            Xem lô ({itemLots.length})
+                                                                        </button>
+                                                                    )}
+                                                                </td>
                                                             </tr>
-                                                        ))
+                                                            );
+                                                        })
                                                     )}
                                                 </tbody>
                                             </table>
@@ -663,69 +719,6 @@ const ViewWarehouseDetail = () => {
                                             </div>
                                         </div>
                                     )}
-                                </div>
-                            )}
-
-                            {/* ── Lots tab (mock InventoryLots — chỉ lô đúng warehouseId) ── */}
-                            {activeTab === 'lots' && (
-                                <div>
-                                    <div className="info-section" style={{ margin: 0 }}>
-                                        <div className="section-header-with-toggle">
-                                            <h2 className="section-title">Các lô đang có</h2>
-                                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                                                {lotsForWarehouse.length} lô tại kho này (dữ liệu mẫu)
-                                            </span>
-                                        </div>
-                                        <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px 0' }}>
-                                            Chỉ hiển thị các lô có cùng mã kho với chi tiết hiện tại.
-                                        </p>
-
-                                        {lotsForWarehouse.length === 0 ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px', color: '#9ca3af' }}>
-                                                <Layers size={48} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.5 }} />
-                                                <p style={{ fontSize: '14px', margin: 0 }}>Không có lô hàng mẫu cho kho này</p>
-                                            </div>
-                                        ) : (
-                                            <div style={{ overflowX: 'auto' }}>
-                                                <table className="product-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th style={{ width: 56, textAlign: 'center' }}>STT</th>
-                                                            <th style={{ minWidth: 140 }}>Mã Phiếu Nhập Kho</th>
-                                                            <th style={{ minWidth: 180 }}>Tên vật tư</th>
-                                                            <th style={{ minWidth: 130 }}>Ngày Nhập Kho</th>
-                                                            <th style={{ width: 110, textAlign: 'right' }}>Số lượng</th>
-                                                            <th style={{ width: 120, textAlign: 'right' }}>Giá Lô</th>
-                                                            <th style={{ minWidth: 130 }}>ExpiryDate</th>
-                                                            <th style={{ width: 88, textAlign: 'center' }}>IsActive</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {lotsForWarehouse.map((lot, idx) => {
-                                                            const grnCode = getGrnCodeFromLineId(lot.grnLineId);
-                                                            const itemName = MOCK_ITEM_NAME_BY_ID[lot.itemId] ?? '—';
-                                                            return (
-                                                                <tr key={lot.lotId}>
-                                                                    <td style={{ textAlign: 'center', fontSize: 13 }}>{idx + 1}</td>
-                                                                    <td style={{ fontSize: 13, color: grnCode ? '#374151' : '#9ca3af', fontWeight: grnCode ? 600 : 400 }}>
-                                                                        {grnCode ?? '—'}
-                                                                    </td>
-                                                                    <td style={{ fontSize: 13, color: '#374151' }}>{itemName}</td>
-                                                                    <td style={{ fontSize: 12, color: '#374151' }}>{fmtDate(lot.receiptDate)}</td>
-                                                                    <td style={{ textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{lot.quantity}</td>
-                                                                    <td style={{ textAlign: 'right', fontSize: 13 }}>{fmtMoney(lot.unitCost)}</td>
-                                                                    <td style={{ fontSize: 12, color: '#374151' }}>{fmtDateTime(lot.expiryDate)}</td>
-                                                                    <td style={{ textAlign: 'center', fontSize: 13, color: lot.isActive ? '#059669' : '#6b7280', fontWeight: 600 }}>
-                                                                        {lot.isActive ? '1' : '0'}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
                                 </div>
                             )}
 
@@ -916,6 +909,68 @@ const ViewWarehouseDetail = () => {
                     </div>
                 </form>
             </div>
+
+            <Dialog
+                open={lotPopup.open}
+                onClose={closeLotPopup}
+                fullWidth
+                maxWidth="md"
+            >
+                <DialogTitle style={{ fontWeight: 700 }}>
+                    Danh sách lô - {lotPopup.itemName}
+                    {lotPopup.itemCode ? ` (${lotPopup.itemCode})` : ''}
+                </DialogTitle>
+                <DialogContent dividers>
+                    {lotPopup.lots.length === 0 ? (
+                        <div style={{ padding: '12px 0', color: '#9ca3af', fontSize: '14px' }}>
+                            Chưa có lô cho vật tư này.
+                        </div>
+                    ) : (
+                        <div style={{ overflowX: 'auto', maxHeight: '420px', overflowY: 'auto' }}>
+                            <table className="product-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: 60, textAlign: 'center' }}>STT</th>
+                                        <th>Mã Phiếu Nhập Kho</th>
+                                        <th>Vị trí</th>
+                                        <th>Ngày nhập</th>
+                                        <th style={{ width: 120, textAlign: 'right' }}>Số lượng</th>
+                                        <th style={{ width: 90, textAlign: 'center' }}>IsActive</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {lotPopup.lots.map((lot, idx) => {
+                                        const lotLocation = getLotLocationCode(lot) ?? '—';
+                                        const lotGrn = lot.grnCode ?? getGrnCodeFromLineId(lot.grnLineId) ?? '—';
+                                        return (
+                                            <tr key={lot.lotId ?? `${lot.itemId}-${idx}`}>
+                                                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                                <td>{lotGrn}</td>
+                                                <td>{lotLocation}</td>
+                                                <td>{fmtDate(lot.receiptDate)}</td>
+                                                <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(lot.quantity)}</td>
+                                                <td style={{ textAlign: 'center', color: lot.isActive ? '#059669' : '#6b7280', fontWeight: 600 }}>
+                                                    {lot.isActive ? '1' : '0'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <button
+                        type="button"
+                        onClick={closeLotPopup}
+                        className="btn btn-secondary"
+                        style={{ minWidth: '90px', height: '36px', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}
+                    >
+                        Đóng
+                    </button>
+                </DialogActions>
+            </Dialog>
 
             {/* Unsaved Changes Dialog */}
             <ConfirmDialog
