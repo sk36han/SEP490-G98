@@ -967,6 +967,20 @@ select.form-input:disabled {
     margin-bottom: 24px;
 }
 
+/* CreatePurchaseReturn: MainLayout đã scroll — bỏ cuộn lồng từ .create-supplier-page + vùng bảng cố định 760px */
+.create-supplier-page.create-purchase-return-page {
+    min-height: unset;
+    height: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+}
+
+.create-supplier-page.create-purchase-return-page .form-card {
+    margin-bottom: 24px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .table-container {

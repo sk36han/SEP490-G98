@@ -538,7 +538,7 @@ const CreatePurchaseReturn = () => {
     };
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page create-purchase-return-page">
             <div className="page-header">
                 <div className="page-header-left">
                     <button type="button" onClick={() => navigate(-1)} className="back-button">
@@ -607,9 +607,9 @@ const CreatePurchaseReturn = () => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', height: '760px' }}>
-                        {/* LEFT COLUMN: Product lines */}
-                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', height: '760px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
+                        {/* LEFT COLUMN: Product lines (không fix height — tránh double scroll với MainLayout) */}
+                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết vật tư trả</h2>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -858,7 +858,7 @@ const CreatePurchaseReturn = () => {
                                     <p style={{ fontSize: '14px', margin: 0 }}>Chọn phiếu nhập tham chiếu rồi bấm &quot;Thêm vật tư&quot;</p>
                                 </div>
                             ) : (
-                                <div className="table-container" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                                <div className="table-container">
                                     <table className="product-table">
                                         <thead>
                                             <tr>
