@@ -77,7 +77,7 @@ import ViewReceiver from '../shared/pages/ViewReceiverList';
 import ViewReceiverDetail from '../shared/pages/ViewReceiverDetail';
 import CreateReceiver from '../shared/pages/CreateReceiver';
 import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
-import ViewNotifications from '../shared/pages/ViewNotifications';
+import ViewNotificationsLive from '../shared/pages/ViewNotificationsLive';
 import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
 import SalesRevenueTarget from '../shared/pages/mockup/SalesRevenueTarget';
 import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
@@ -112,7 +112,7 @@ const AppRoutes = () => (
         <Route path="/profile" element={<ProtectedRoute><MainLayout><Profile /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/users/deactivated" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewDeactivatedUsersList /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />
-        <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotifications /></MainLayout></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotificationsLive /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewAdminAuditLog /></MainLayout></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
         <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />

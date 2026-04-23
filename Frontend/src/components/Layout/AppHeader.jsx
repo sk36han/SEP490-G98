@@ -16,6 +16,7 @@ import Button from '@mui/material/Button';
 import { Bell, ChevronDown, User, LogOut, FileText, Package, Truck, ShoppingCart, ClipboardCheck, CheckCheck, ArrowRight } from 'lucide-react';
 import authService from '../../shared/lib/authService';
 import { getPermissionRole, getPermissionRoleLabel, getRawRoleFromUser } from '../../shared/permissions/roleUtils';
+import { useNotifications } from '../../app/context/NotificationContext';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const TYPE_COLOR = {
@@ -26,42 +27,41 @@ const TYPE_COLOR = {
     default: { bg: 'rgba(17,24,39,0.07)',    icon: '#6b7280'  },
 };
 
-// ── Mock notifications ─────────────────────────────────────────────────────
-const MOCK_NOTIFICATIONS_BY_ROLE = {
-    ADMIN: [
-        { id: '1', title: 'Tài khoản mới được tạo',    message: 'Nguyễn Văn A đã được thêm vào hệ thống.', time: '10 phút trước', icon: User,          isNew: true,  type: 'info'    },
-        { id: '2', title: 'Yêu cầu đặt lại mật khẩu', message: 'Có 1 yêu cầu từ phòng Kế toán.',          time: '1 giờ trước',   icon: FileText,      isNew: false, type: 'warning' },
-        { id: '3', title: 'Audit log',                  message: 'Hoạt động đăng nhập bất thường.',         time: 'Hôm qua',       icon: ClipboardCheck, isNew: false, type: 'error'  },
-    ],
-    DIRECTOR: [
-        { id: '1', title: 'Báo cáo tháng đã sẵn sàng', message: 'Báo cáo tổng hợp tháng 02/2025 sẵn sàng.', time: '30 phút trước', icon: FileText, isNew: true,  type: 'success' },
-        { id: '2', title: 'Tổng quan kho',               message: 'Tồn kho trong ngưỡng an toàn.',             time: '2 giờ trước',   icon: Package,  isNew: false, type: 'info'    },
-    ],
-    WAREHOUSE_KEEPER: [
-        { id: '1', title: 'Phiếu nhập cần xử lý', message: '#GRN-2025-012 đang chờ xác nhận.',                    time: '15 phút trước', icon: Package,        isNew: true,  type: 'warning' },
-        { id: '2', title: 'Cảnh báo tồn kho',     message: '"Cáp mạng Cat6" dưới mức tối thiểu.',                 time: '1 giờ trước',   icon: ClipboardCheck, isNew: true,  type: 'error'   },
-        { id: '3', title: 'Phiếu xuất đã duyệt',  message: '#GDN-2025-008 đã duyệt, có thể thực hiện xuất kho.', time: 'Hôm qua',       icon: FileText,       isNew: false, type: 'success' },
-    ],
-    SALE_SUPPORT: [
-        { id: '1', title: 'Yêu cầu nhập hàng (PO) mới',      message: '#PO-2025-024 đã được tạo và chờ xử lý.',   time: '20 phút trước', icon: ShoppingCart, isNew: true,  type: 'info'    },
-        { id: '2', title: 'Nhà cung cấp cập nhật', message: 'Thông tin ABC Corp đã được cập nhật.',      time: '3 giờ trước',   icon: Truck,        isNew: false, type: 'default' },
-    ],
-    SALE_ENGINEER: [
-        { id: '1', title: 'Yêu cầu xuất hàng', message: 'Có yêu cầu xuất hàng mới từ Kinh doanh.', time: '5 phút trước',  icon: Package, isNew: true,  type: 'warning' },
-        { id: '2', title: 'Người nhận hàng',   message: 'Danh sách người nhận đã được cập nhật.',   time: '1 giờ trước',   icon: User,    isNew: false, type: 'default' },
-    ],
-    ACCOUNTANTS: [
-        { id: '1', title: 'Phiếu nhập cần đối soát', message: '#GRN-2025-011 chờ kế toán đối soát.', time: '25 phút trước', icon: FileText,       isNew: true,  type: 'warning' },
-        { id: '2', title: 'Báo cáo tài chính',        message: 'Báo cáo nhập/xuất tuần đã sẵn sàng.', time: '2 giờ trước',   icon: ClipboardCheck, isNew: false, type: 'success' },
-    ],
+const TYPE_ICON = {
+    info: FileText,
+    warning: ClipboardCheck,
+    success: CheckCheck,
+    error: Bell,
+    default: Bell,
 };
-const defaultList = [
-    { id: '1', title: 'Thông báo hệ thống', message: 'Chào mừng bạn đã đăng nhập.', time: 'Vừa xong', icon: Bell, isNew: true, type: 'info' },
-];
+
+const getNotificationIcon = (notification) => {
+    const type = String(notification?.type || '').toLowerCase();
+    const refType = String(notification?.refType || '').toLowerCase();
+    if (refType.includes('purchase') || refType.includes('po')) return ShoppingCart;
+    if (refType.includes('grn') || refType.includes('receipt')) return Package;
+    if (refType.includes('shipment') || refType.includes('delivery')) return Truck;
+    return TYPE_ICON[type] || Bell;
+};
+
+const formatNotificationTime = (value) => {
+    if (!value) return 'Vừa xong';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Vừa xong';
+    return date.toLocaleString('vi-VN', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+};
 
 // ── AppHeader ──────────────────────────────────────────────────────────────
 const AppHeader = () => {
     const navigate = useNavigate();
+    const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
     // Profile dropdown
     const [profileAnchor, setProfileAnchor] = useState(null);
@@ -71,9 +71,6 @@ const AppHeader = () => {
     const [notifAnchor, setNotifAnchor] = useState(null);
     const notifOpen = Boolean(notifAnchor);
 
-    // Read state
-    const [readIds, setReadIds] = useState([]);
-
     const userInfo        = authService.getUser();
     const roleFromBackend = getRawRoleFromUser(userInfo);
     const permissionRole  = getPermissionRole(roleFromBackend);
@@ -81,11 +78,8 @@ const AppHeader = () => {
     const displayName     = String(userInfo?.fullName ?? userInfo?.FullName ?? 'User').slice(0, 100);
     const avatarSrc       = userInfo?.avatar;
 
-    const allNotifs = MOCK_NOTIFICATIONS_BY_ROLE[permissionRole] || defaultList;
-    const isUnread  = (n) => n.isNew && !readIds.includes(n.id);
-    const unreadCount = allNotifs.filter(isUnread).length;
-    const markAllRead = () => setReadIds(allNotifs.map((n) => n.id));
-    const markRead    = (id) => setReadIds((prev) => [...new Set([...prev, id])]);
+    const allNotifs = notifications;
+    const isUnread  = (n) => !n.isRead;
 
     return (
         <Box
@@ -199,7 +193,7 @@ const AppHeader = () => {
                             <Button
                                 size="small"
                                 startIcon={<CheckCheck size={13} />}
-                                onClick={markAllRead}
+                                onClick={markAllAsRead}
                                 sx={{
                                     fontSize: '12px',
                                     fontWeight: 500,
@@ -228,17 +222,17 @@ const AppHeader = () => {
                             </Box>
                         ) : (
                             allNotifs.map((item, index) => {
-                                const Icon   = item.icon || Bell;
-                                const color  = TYPE_COLOR[item.type] ?? TYPE_COLOR.default;
+                                const Icon   = getNotificationIcon(item);
+                                const color  = TYPE_COLOR[String(item.type || '').toLowerCase()] ?? TYPE_COLOR.default;
                                 const unread = isUnread(item);
 
                                 return (
-                                    <React.Fragment key={item.id}>
+                                    <React.Fragment key={item.notificationId}>
                                         {index > 0 && (
                                             <Divider sx={{ borderColor: 'rgba(17,24,39,0.06)', mx: 2 }} />
                                         )}
                                         <Box
-                                            onClick={() => markRead(item.id)}
+                                            onClick={() => markAsRead(item.notificationId)}
                                             sx={{
                                                 display: 'flex',
                                                 alignItems: 'flex-start',
@@ -332,7 +326,7 @@ const AppHeader = () => {
                                                     {item.message}
                                                 </Typography>
                                                 <Typography sx={{ fontSize: '11px', color: 'rgba(17,24,39,0.30)', mt: 0.4 }}>
-                                                    {item.time}
+                                                    {formatNotificationTime(item.createdAt)}
                                                 </Typography>
                                             </Box>
                                         </Box>

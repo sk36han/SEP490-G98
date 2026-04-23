@@ -4,6 +4,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from './app/theme';
 import AppRoutes from './app/routes';
 import { AuthProvider } from './app/context/AuthContext';
+import { NotificationProvider } from './app/context/NotificationContext';
 import { ToastProvider } from './app/context/ToastContext';
 import { MasterDataProvider } from './app/context/MasterDataContext';
 import { RoleProvider } from './app/context/RoleContext';
@@ -16,14 +17,16 @@ function App() {
             <CssBaseline />
             <ToastProvider>
                 <AuthProvider>
-                    <MasterDataProvider>
-                        <RoleProvider>
-                            <ToastContainer />
-                            <Router>
-                                <AppRoutes />
-                            </Router>
-                        </RoleProvider>
-                    </MasterDataProvider>
+                    <NotificationProvider>
+                        <MasterDataProvider>
+                            <RoleProvider>
+                                <ToastContainer />
+                                <Router>
+                                    <AppRoutes />
+                                </Router>
+                            </RoleProvider>
+                        </MasterDataProvider>
+                    </NotificationProvider>
                 </AuthProvider>
             </ToastProvider>
         </ThemeProvider>
