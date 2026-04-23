@@ -36,7 +36,11 @@ import {
 } from "lucide-react";
 import Toast from "../../components/Toast/Toast";
 import { useToast } from "../hooks/useToast";
-import { CreateUomDialog, CreateCategoryDialog, ImageDialog, UomFormDialog } from "@ui/dialogs";
+import { CreateCategoryDialog, ImageDialog, UomFormDialog } from "@ui/dialogs";
+import { createItem as createItemApi, uploadItemImage } from "../lib/itemService";
+import { getUomList, createUom } from "../lib/uomService";
+import { getCategoryList } from "../lib/categoryService";
+import { getBrandList } from "../lib/brandService";
 import "../styles/CreateSupplier.css";
 
 // Design tokens (match ViewItemDetail)
@@ -540,7 +544,7 @@ const CreateItem = () => {
   const allBrandOptions = [...brandOptions, ...localMasterBrands];
 
   return (
-    <div className="create-supplier-page">
+    <div className="create-supplier-page create-item-page">
       {/* PAGE HEADER */}
       <div className="page-header">
         <div className="page-header-left">
@@ -664,7 +668,6 @@ const CreateItem = () => {
                             label: o.brandName ?? o.name,
                           }))}
                           placeholder="Chọn nhãn hiệu"
-                          onAddNew={() => setCreateBrandOpen(true)}
                         />
                       </div>
 
@@ -779,7 +782,6 @@ const CreateItem = () => {
                         onChange={handleChange}
                         options={packagingOptions.map((o) => ({ value: String(o.id), label: o.name }))}
                         placeholder="Chọn quy cách đóng gói"
-                        onAddNew={() => setCreatePackOpen(true)}
                       />
                     </div>
 
@@ -791,7 +793,6 @@ const CreateItem = () => {
                         onChange={handleChange}
                         options={specOptions.map((o) => ({ value: String(o.specId), label: o.specName }))}
                         placeholder="Chọn thông số sản phẩm"
-                        onAddNew={() => setCreateSpecOpen(true)}
                       />
                     </div>
 
@@ -848,9 +849,10 @@ const CreateItem = () => {
           try {
             const response = await createUom({ uomName });
             const data = response?.data ?? response;
-            const newId = data?.uomId ?? data?.UomId ?? data?.id;
+            const newId = data?.uomId ?? data?.UomId ?? data?.id ?? data?.data?.uomId ?? data?.data?.id;
+            const resolvedUomName = data?.uomName ?? data?.UomName ?? data?.data?.uomName ?? data?.data?.UomName ?? uomName;
             if (newId) {
-              setUomOptions((prev) => [...prev, { id: newId, name: data?.uomName ?? uomName }]);
+              setUomOptions((prev) => [...prev, { id: newId, name: resolvedUomName }]);
               setForm((prev) => ({ ...prev, baseUomId: newId }));
               showToast("Tạo đơn vị tính thành công.", "success");
             }
@@ -868,12 +870,12 @@ const CreateItem = () => {
         onClose={() => setCreateCategoryOpen(false)}
         onSuccess={async (result) => {
             const data = result?.data ?? result;
-            const newId = data?.categoryId ?? data?.id;
+            const newId = data?.categoryId ?? data?.id ?? data?.data?.categoryId ?? data?.data?.id;
             if (newId) {
                 const newCategory = {
                     categoryId: newId,
-                    categoryName: data?.categoryName ?? data?.name ?? '',
-                    categoryCode: data?.categoryCode ?? '',
+                    categoryName: data?.categoryName ?? data?.CategoryName ?? data?.name ?? data?.data?.categoryName ?? data?.data?.CategoryName ?? '',
+                    categoryCode: data?.categoryCode ?? data?.CategoryCode ?? data?.data?.categoryCode ?? data?.data?.CategoryCode ?? '',
                 };
                 setLocalMasterCategories((prev) => [...prev, newCategory]);
                 setForm((prev) => ({ ...prev, categoryId: newId }));
