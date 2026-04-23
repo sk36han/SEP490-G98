@@ -116,6 +116,15 @@ const formatLocationQty = (value) => {
 const normalizeSummaryQtyText = (text) =>
     (text || '').replace(/\b(\d+)\.0+\b/g, '$1');
 
+const locationContainsItemCode = (summary, itemCode) => {
+    const code = String(itemCode || '').trim().toUpperCase();
+    if (!code) return false;
+    return String(summary || '')
+        .split(',')
+        .map((part) => part.split(':')[0]?.trim()?.toUpperCase())
+        .includes(code);
+};
+
 /** Ô chỉ đọc trên form GRN — nền xám, dễ phân biệt với ô nhập liệu. */
 const READONLY_FIELD_STYLE = {
     backgroundColor: '#e5e7eb',
@@ -714,6 +723,55 @@ const CreateGoodReceiptNote = () => {
     const totals = useMemo(() => calculateGRNTotals(lines, formData, selectedPODetails), [lines, formData, selectedPODetails]);
     const { subtotal, discountAmount, grandTotal, totalQuantityOrdered } = totals;
 
+    const suggestedLocationByLineId = useMemo(() => {
+        if (!Array.isArray(lines) || lines.length === 0 || !Array.isArray(locationOptions) || locationOptions.length === 0) {
+            return {};
+        }
+
+        const suggestions = {};
+        const usedLocationIds = new Set(
+            lines
+                .map((line) => String(line.locationId || '').trim())
+                .filter(Boolean),
+        );
+
+        lines.forEach((line) => {
+            const currentLocationId = String(line.locationId || '').trim();
+            if (currentLocationId) return;
+
+            const available = locationOptions.filter((loc) => !usedLocationIds.has(String(loc.locationId)));
+            if (available.length === 0) return;
+
+            const sameItemCandidates = available
+                .filter((loc) => locationContainsItemCode(loc.currentItemsSummary, line.itemSku))
+                .sort((a, b) => Number(b.currentQty || 0) - Number(a.currentQty || 0));
+
+            const emptyCandidates = available
+                .filter((loc) => Number(loc.currentQty || 0) <= 0)
+                .sort((a, b) => String(a.locationCode || '').localeCompare(String(b.locationCode || '')));
+
+            const fallbackCandidates = available
+                .sort((a, b) => Number(a.currentQty || 0) - Number(b.currentQty || 0));
+
+            const picked = sameItemCandidates[0] || emptyCandidates[0] || fallbackCandidates[0];
+            if (picked) {
+                suggestions[line.id] = String(picked.locationId);
+                usedLocationIds.add(String(picked.locationId));
+            }
+        });
+
+        return suggestions;
+    }, [lines, locationOptions]);
+
+    const applyLocationSuggestions = () => {
+        setLines((prev) => prev.map((line) => {
+            if (String(line.locationId || '').trim()) return line;
+            const suggestedId = suggestedLocationByLineId[line.id];
+            if (!suggestedId) return line;
+            return { ...line, locationId: suggestedId };
+        }));
+    };
+
     const validateForm = () => {
         const result = validateGRNForm(formData, lines);
         setErrors(result.errors);
@@ -882,6 +940,22 @@ const CreateGoodReceiptNote = () => {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Chi tiết sản phẩm</h2>
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {lines.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={applyLocationSuggestions}
+                                                className="btn btn-sm"
+                                                disabled={locationLoading || locationOptions.length === 0}
+                                                style={{
+                                                    fontWeight: 600,
+                                                    backgroundColor: '#0284c7',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                }}
+                                            >
+                                                Gợi ý vị trí
+                                            </button>
+                                        )}
                                         {selectedLineIds.length > 0 && (
                                             <button
                                                 type="button"

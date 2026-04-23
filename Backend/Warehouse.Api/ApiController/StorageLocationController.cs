@@ -24,17 +24,42 @@ namespace Warehouse.Api.ApiController
             [FromQuery] int pageSize = 20,
             [FromQuery] long? warehouseId = null,
             [FromQuery] string? keyword = null,
-            [FromQuery] bool? isActive = null)
+            [FromQuery] bool? isActive = null,
+            [FromQuery] bool? hasStock = null,
+            [FromQuery] string? itemCode = null,
+            [FromQuery] decimal? minQty = null,
+            [FromQuery] decimal? maxQty = null)
         {
             try
             {
                 var result = await _storageLocationService.GetStorageLocationsAsync(
-                    page, pageSize, warehouseId, keyword, isActive);
+                    page, pageSize, warehouseId, keyword, isActive, hasStock, itemCode, minQty, maxQty);
                 return Ok(result);
             }
             catch (ArgumentException ex)
             {
                 return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("{id:long}/ledger")]
+        public async Task<IActionResult> GetLocationLedger(
+            long id,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            try
+            {
+                var result = await _storageLocationService.GetLocationLedgerAsync(id, page, pageSize);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
         }
 
