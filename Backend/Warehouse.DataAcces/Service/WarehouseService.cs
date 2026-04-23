@@ -95,54 +95,45 @@ namespace Warehouse.DataAcces.Service
 
             // Lấy giấy tờ nhập kho (GRN)
             var importPapers = await _context.GoodsReceiptNotes
+                .Include(g => g.PurchaseOrder)
                 .AsNoTracking()
                 .Where(g => g.WarehouseId == warehouseId)
-                .Select(g => new 
+                .Select(g => new WarehousePaperDto
                 {
-                    g.Grnid,
-                    g.Grncode,
-                    g.ReceiptDate,
-                    g.Status,
-                    g.Note
+                    PaperId = g.Grnid,
+                    PaperType = "GRN",
+                    PaperCode = g.Grncode,
+                    RelatedDocumentCode = g.PurchaseOrder != null ? g.PurchaseOrder.Pocode : null,
+                    Date = g.ReceiptDate.ToDateTime(TimeOnly.MinValue),
+                    Status = g.Status,
+                    Note = g.Note
                 })
                 .ToListAsync();
 
-            response.ImportPapers = importPapers.Select(g => new WarehousePaperDto
-            {
-                PaperId = g.Grnid,
-                PaperType = "GRN",
-                PaperCode = g.Grncode,
-                Date = g.ReceiptDate.ToDateTime(TimeOnly.MinValue),
-                Status = g.Status,
-                Note = g.Note
-            }).ToList();
+            response.ImportPapers = importPapers;
 
             // Lấy giấy tờ xuất kho (GDN)
             var exportPapers = await _context.GoodsDeliveryNotes
+                .Include(g => g.ReleaseRequest)
                 .AsNoTracking()
                 .Where(g => g.WarehouseId == warehouseId)
-                .Select(g => new 
+                .Select(g => new WarehousePaperDto
                 {
-                    g.Gdnid,
-                    g.Gdncode,
-                    g.IssueDate,
-                    g.Status,
-                    g.Note
+                    PaperId = g.Gdnid,
+                    PaperType = "GDN",
+                    PaperCode = g.Gdncode,
+                    RelatedDocumentCode = g.ReleaseRequest != null ? g.ReleaseRequest.ReleaseRequestCode : null,
+                    Date = g.IssueDate.ToDateTime(TimeOnly.MinValue),
+                    Status = g.Status,
+                    Note = g.Note
                 })
                 .ToListAsync();
 
-            response.ExportPapers = exportPapers.Select(g => new WarehousePaperDto
-            {
-                PaperId = g.Gdnid,
-                PaperType = "GDN",
-                PaperCode = g.Gdncode,
-                Date = g.IssueDate.ToDateTime(TimeOnly.MinValue),
-                Status = g.Status,
-                Note = g.Note
-            }).ToList();
+            response.ExportPapers = exportPapers;
 
             // Lấy giấy tờ trả lại hàng (PurchaseReturnNote) liên quan đến kho này
             response.ReturnPapers = await _context.PurchaseReturnNotes
+                .Include(p => p.RelatedGrn)
                 .AsNoTracking()
                 .Where(p => p.RelatedGrn != null && p.RelatedGrn.WarehouseId == warehouseId)
                 .Select(p => new WarehousePaperDto
@@ -150,9 +141,27 @@ namespace Warehouse.DataAcces.Service
                     PaperId = p.PurchaseReturnId,
                     PaperType = "PRN",
                     PaperCode = p.ReturnCode,
+                    RelatedDocumentCode = p.RelatedGrn != null ? p.RelatedGrn.Grncode : null,
                     Date = p.ReturnDate,
                     Status = p.Status,
                     Note = p.Note
+                })
+                .ToListAsync();
+
+            // Lấy giấy tờ điều chỉnh/kiểm kê kho (ADJ)
+            response.AdjustmentPapers = await _context.InventoryAdjustmentRequests
+                .Include(a => a.Stocktake)
+                .AsNoTracking()
+                .Where(a => a.WarehouseId == warehouseId)
+                .Select(a => new WarehousePaperDto
+                {
+                    PaperId = a.AdjustmentId,
+                    PaperType = "ADJ",
+                    PaperCode = a.AdjustmentCode,
+                    RelatedDocumentCode = a.Stocktake != null ? a.Stocktake.StocktakeCode : null,
+                    Date = a.SubmittedAt ?? a.PostedAt,
+                    Status = a.Status,
+                    Note = a.Reason
                 })
                 .ToListAsync();
 
@@ -307,52 +316,57 @@ namespace Warehouse.DataAcces.Service
                 {
                     ItemName = line.Item?.ItemName ?? "Vật tư không xác định",
                     Quantity = line.QtyChange,
-                    TransactionDate = line.InventoryTxn.TxnDate
+                    TransactionDate = line.InventoryTxn.TxnDate,
+                    Note = line.Note
                 };
 
                 string refType = line.InventoryTxn.ReferenceType;
                 long refId = line.InventoryTxn.ReferenceId;
+                
+                var user = await _context.Users.FindAsync(line.InventoryTxn.PostedBy);
+                response.ExecutorName = user?.FullName ?? "Hệ thống";
 
                 if (refType == "GRN")
                 {
-                    var grn = await _context.GoodsReceiptNotes.FindAsync(refId);
+                    var grn = await _context.GoodsReceiptNotes
+                        .Include(g => g.PurchaseOrder)
+                        .FirstOrDefaultAsync(g => g.Grnid == refId);
                     response.VoucherCode = grn?.Grncode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("GRN", refId);
+                    response.RelatedDocumentCode = grn?.PurchaseOrder?.Pocode;
                 }
                 else if (refType == "GDN")
                 {
-                    var gdn = await _context.GoodsDeliveryNotes.FindAsync(refId);
+                    var gdn = await _context.GoodsDeliveryNotes
+                        .Include(g => g.ReleaseRequest)
+                        .FirstOrDefaultAsync(g => g.Gdnid == refId);
                     response.VoucherCode = gdn?.Gdncode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("GDN", refId);
+                    response.RelatedDocumentCode = gdn?.ReleaseRequest?.ReleaseRequestCode;
                 }
                 else if (refType == "ADJ")
                 {
-                    var adj = await _context.InventoryAdjustmentRequests.FindAsync(refId);
+                    var adj = await _context.InventoryAdjustmentRequests
+                        .Include(a => a.Stocktake)
+                        .FirstOrDefaultAsync(a => a.AdjustmentId == refId);
                     response.VoucherCode = adj?.AdjustmentCode ?? "N/A";
-                    response.ApproverName = await GetApproverNameAsync("ADJ", refId);
+                    response.RelatedDocumentCode = adj?.Stocktake?.StocktakeCode;
+                }
+                else if (refType == "PRN")
+                {
+                    var prn = await _context.PurchaseReturnNotes
+                        .Include(p => p.RelatedGrn)
+                        .FirstOrDefaultAsync(p => p.PurchaseReturnId == refId);
+                    response.VoucherCode = prn?.ReturnCode ?? "N/A";
+                    response.RelatedDocumentCode = prn?.RelatedGrn?.Grncode;
                 }
                 else
                 {
                     response.VoucherCode = "N/A";
-                    var user = await _context.Users.FindAsync(line.InventoryTxn.PostedBy);
-                    response.ApproverName = user?.FullName ?? "Hệ thống";
                 }
 
                 results.Add(response);
             }
 
             return new PagedResult<WarehouseHistoryResponse>(results, totalItems, pageNumber, pageSize);
-        }
-
-        private async Task<string> GetApproverNameAsync(string docType, long docId)
-        {
-            var approval = await _context.DocumentApprovals
-                .Include(a => a.ActionByNavigation)
-                .Where(a => a.DocType == docType && a.DocId == docId && a.Decision == "APPROVE")
-                .OrderByDescending(a => a.ActionAt)
-                .FirstOrDefaultAsync();
-
-            return approval?.ActionByNavigation?.FullName ?? "Chưa được duyệt";
         }
     }
 }

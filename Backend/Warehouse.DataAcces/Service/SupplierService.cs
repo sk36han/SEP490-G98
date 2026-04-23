@@ -23,7 +23,7 @@ namespace Warehouse.DataAcces.Service
 		private readonly IAuditLogService _auditLogService;
 
 		// Các role sẽ nhận thông báo về supplier
-		private static readonly string[] _notifyRoleCodes = { "ADMIN", "GD", "SALE SP" };
+		private static readonly string[] _notifyRoleCodes = { UserRoleConstants.Admin, UserRoleConstants.Director, UserRoleConstants.SaleSupport };
 
 		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService, Mkiwms5Context context)
 		{

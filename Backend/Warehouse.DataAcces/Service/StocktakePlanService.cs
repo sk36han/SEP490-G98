@@ -117,13 +117,13 @@ namespace Warehouse.DataAcces.Service
 
             // Gửi thông báo cho Quản lý
             await _notificationService.CreateForRolesAsync(
-                new[] { "MANAGER", "ADMIN" },
+                new[] { UserRoleConstants.Director, UserRoleConstants.Admin },
                 "Kế hoạch kiểm kê mới chờ duyệt",
                 $"Kế hoạch kiểm kê {session.StocktakeCode} vừa được gửi duyệt và đang chờ bạn phê duyệt.",
                 "Stocktake",
                 session.StocktakeId,
                 currentUserId,
-                "NewRequest"
+                NotificationTypes.NewRequest
             );
 
             return await _stocktakeService.GetStocktakeDetailAsync(stocktakeId) ?? throw new Exception("Lỗi sảy ra khi gửi thông qua kế hoạch.");
@@ -195,8 +195,8 @@ namespace Warehouse.DataAcces.Service
                         $"Kế hoạch kiểm kê {session.StocktakeCode} của bạn đã {statusText.ToLower()}. Lý do: {request.Reason}",
                         "Stocktake",
                         session.StocktakeId,
-                        "ApprovalResult",
-                        (byte)(session.Status == "APPROVED" ? 1 : 2)
+                        NotificationTypes.ApprovalResult,
+                        (byte)(session.Status == "APPROVED" ? NotificationSeverity.Warning : NotificationSeverity.Error)
                     );
                 }
                 catch
@@ -246,8 +246,8 @@ namespace Warehouse.DataAcces.Service
                     $"Kế hoạch kiểm kê {session.StocktakeCode} tại kho {session.Warehouse.WarehouseName} đã bị hủy. Lý do: {reason}",
                     "Stocktake",
                     session.StocktakeId,
-                    "StatusChange",
-                    2
+                    NotificationTypes.StatusChange,
+                    (byte)NotificationSeverity.Error
                 );
             }
 

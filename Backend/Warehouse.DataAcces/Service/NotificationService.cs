@@ -58,16 +58,16 @@ namespace Warehouse.DataAcces.Service
 			await _clientNotificationService.SendNotificationAsync(userId, response);
 
 			// Push unread count
-			var unreadCount = await _context.Notifications
-				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted);
+			var unreadCount = await GetUnreadCountAsync(userId);
 			await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 		}
 
 		public async Task<PagedResponse<NotificationResponse>> GetByUserAsync(long userId, NotificationFilterRequest filter)
 		{
+			var now = DateTime.UtcNow;
 			var query = _context.Notifications
 				.AsNoTracking()
-				.Where(x => x.UserId == userId && !x.IsDeleted);
+				.Where(x => x.UserId == userId && !x.IsDeleted && (x.ExpiresAt == null || x.ExpiresAt > now));
 
 			// === Filter ===
 			if (!string.IsNullOrWhiteSpace(filter.Type))
@@ -120,8 +120,9 @@ namespace Warehouse.DataAcces.Service
 
 		public async Task<int> GetUnreadCountAsync(long userId)
 		{
+			var now = DateTime.UtcNow;
 			return await _context.Notifications
-				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted);
+				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted && (x.ExpiresAt == null || x.ExpiresAt > now));
 		}
 
 		public async Task MarkAsReadAsync(long notificationId, long userId)
@@ -139,6 +140,9 @@ namespace Warehouse.DataAcces.Service
 				noti.IsRead = true;
 				noti.ReadAt = DateTime.UtcNow;
 				await _context.SaveChangesAsync();
+
+				var unreadCount = await GetUnreadCountAsync(userId);
+				await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 			}
 		}
 
@@ -155,6 +159,9 @@ namespace Warehouse.DataAcces.Service
 			}
 
 			await _context.SaveChangesAsync();
+
+			var unreadCount = await GetUnreadCountAsync(userId);
+			await _clientNotificationService.SendUnreadCountAsync(userId, unreadCount);
 		}
 
 		public async Task CreateForRolesAsync(IEnumerable<string> roleCodes, string title, string message, string? refType = null, long? refId = null, long? excludeUserId = null, string? type = null, byte severity = 0, DateTime? expiresAt = null)
@@ -219,8 +226,7 @@ namespace Warehouse.DataAcces.Service
 				await _clientNotificationService.SendNotificationAsync(noti.UserId, response);
 
 				// Push unread count
-				var unreadCount = await _context.Notifications
-					.CountAsync(x => x.UserId == noti.UserId && !x.IsRead && !x.IsDeleted);
+				var unreadCount = await GetUnreadCountAsync(noti.UserId);
 				await _clientNotificationService.SendUnreadCountAsync(noti.UserId, unreadCount);
 			}
 		}
