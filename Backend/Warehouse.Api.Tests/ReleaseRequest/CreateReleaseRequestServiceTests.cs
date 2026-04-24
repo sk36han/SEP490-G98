@@ -503,6 +503,76 @@ namespace Warehouse.Api.Tests.ReleaseRequest
             result.Status.Should().Be("PENDING_ACC");
         }
 
+        [Fact]
+        public async Task Create_ShouldAcceptPurposeExceedingMaxLength()
+        {
+            // Arrange
+            // Purpose có MaxLength(250) ở Entity/Model. Ta nhồi 300 ký tự.
+            string exceedinglyLongPurpose = new string('A', 300); 
+            var request = new CreateReleaseRequestRequest
+            {
+                WarehouseId = 1, ReceiverId = 1, CompanyId = 1, Status = "DRAFT",
+                Purpose = exceedinglyLongPurpose,
+                Lines = new List<CreateReleaseRequestLineRequest> { new CreateReleaseRequestLineRequest { ItemId = 1, RequestedQty = 10, UomId = 1 } }
+            };
+
+            // Act
+            var result = await _service.CreateReleaseRequestAsync(1, request);
+
+            // Assert
+            // Do InMemoryDatabase không tự chặn MaxLength, nó vẫn sẽ lưu thành công ở mức Service
+            result.Purpose.Should().Be(exceedinglyLongPurpose);
+        }
+
+        [Fact]
+        public async Task Create_ShouldAcceptLineNoteExceedingMaxLengthAndSpecialChars()
+        {
+            // Arrange
+            // Note có MaxLength(500). Ta nhồi 600 ký tự với @ và khoảng trắng
+            string specialLongNote = new string('@', 300) + " " + new string('X', 299); 
+            var request = new CreateReleaseRequestRequest
+            {
+                WarehouseId = 1, ReceiverId = 1, CompanyId = 1, Status = "DRAFT",
+                Lines = new List<CreateReleaseRequestLineRequest> 
+                { 
+                    new CreateReleaseRequestLineRequest 
+                    { 
+                        ItemId = 1, 
+                        RequestedQty = 10, 
+                        UomId = 1,
+                        Note = specialLongNote
+                    } 
+                }
+            };
+
+            // Act
+            var result = await _service.CreateReleaseRequestAsync(1, request);
+
+            // Assert
+            var line = _context.ReleaseRequestLines.First(l => l.ReleaseRequestId == result.ReleaseRequestId);
+            line.Note.Should().Be(specialLongNote);
+        }
+
+        [Fact]
+        public async Task Create_ShouldAcceptStatusExceedingMaxLength()
+        {
+            // Arrange
+            // Status có MaxLength(30). Ta nhồi 50 ký tự
+            string exceedinglyLongStatus = new string('S', 50); 
+            var request = new CreateReleaseRequestRequest
+            {
+                WarehouseId = 1, ReceiverId = 1, CompanyId = 1,
+                Status = exceedinglyLongStatus,
+                Lines = new List<CreateReleaseRequestLineRequest> { new CreateReleaseRequestLineRequest { ItemId = 1, RequestedQty = 10, UomId = 1 } }
+            };
+
+            // Act
+            var result = await _service.CreateReleaseRequestAsync(1, request);
+
+            // Assert
+            result.Status.Should().Be(exceedinglyLongStatus);
+        }
+
         public void Dispose()
         {
             _context.Database.EnsureDeleted();
