@@ -9,10 +9,11 @@ const NotificationContext = createContext(null);
 const getHubUrl = () => {
     const apiBase = import.meta?.env?.VITE_API_BASE_URL;
     if (apiBase && String(apiBase).trim()) {
-        return `${String(apiBase).trim().replace(/\/api\/?$/, '')}/hubs/notification`;
+        const normalized = String(apiBase).trim().replace(/\/$/, '');
+        return `${normalized.replace(/\/api(?:\/v\d+)?\/?$/, '')}/hubs/notification`;
     }
     if (import.meta?.env?.DEV) {
-        return 'http://localhost:5141/hubs/notification';
+        return '/hubs/notification';
     }
     return '/hubs/notification';
 };

@@ -121,6 +121,36 @@ export async function getDeliveries(params = {}) {
 }
 
 /**
+ * Lấy lịch sử thông tin vận chuyển (không phụ thuộc gdnId), dùng làm template nhanh.
+ * Backend: GET /api/TransportInfo/history
+ */
+export async function getDeliveryHistory() {
+    try {
+        const response = await apiClient.get('/TransportInfo/history');
+        const payload = getPayload(response?.data);
+        const rows = Array.isArray(payload) ? payload : [];
+
+        return rows
+            .map((row, index) => ({
+                transportId: `history-${index + 1}`,
+                gdnId: null,
+                gdnCode: '',
+                carrierName: row?.carrierName ?? row?.CarrierName ?? '',
+                driverName: row?.driverName ?? row?.DriverName ?? '',
+                driverPhone: row?.driverPhone ?? row?.DriverPhone ?? '',
+                licensePlate: row?.licensePlate ?? row?.LicensePlate ?? '',
+                note: '',
+                isActive: true,
+                status: 'HISTORY',
+                createdAt: null,
+            }))
+            .filter((x) => x.carrierName || x.driverName || x.driverPhone || x.licensePlate);
+    } catch {
+        return [];
+    }
+}
+
+/**
  * Lấy chi tiết giao hàng.
  */
 export async function getDeliveryDetail(id) {
