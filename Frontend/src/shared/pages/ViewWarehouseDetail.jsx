@@ -148,6 +148,7 @@ const mapDetail = (data) => ({
         lotId: lot.lotId ?? lot.LotId,
         itemId: lot.itemId ?? lot.ItemId,
         warehouseId: lot.warehouseId ?? lot.WarehouseId,
+        grnId: lot.grnid ?? lot.Grnid ?? lot.grnId ?? lot.GrnId ?? null,
         grnLineId: lot.grnlineId ?? lot.GrnlineId ?? lot.grnLineId ?? lot.GrnLineId ?? null,
         grnCode: lot.grnCode ?? lot.GrnCode ?? null,
         locationCode: lot.locationCode ?? lot.LocationCode ?? null,
@@ -335,6 +336,26 @@ const ViewWarehouseDetail = () => {
 
     const closeLotPopup = () => {
         setLotPopup({ open: false, itemName: '', itemCode: '', lots: [] });
+    };
+
+    const handleCreatePrnFromLot = (lot) => {
+        const grnIdFromLot = Number(lot?.grnId);
+        const grnId = Number.isFinite(grnIdFromLot) && grnIdFromLot > 0 ? grnIdFromLot : null;
+
+        if (!grnId) {
+            showToast('Không xác định được GRN nguồn từ lô này để tạo phiếu trả.', 'warning');
+            return;
+        }
+
+        const params = new URLSearchParams();
+        params.set('grnId', String(grnId));
+        if (lot?.grnLineId != null) params.set('grnLineId', String(lot.grnLineId));
+        if (lot?.lotId != null) params.set('lotId', String(lot.lotId));
+        if (lot?.locationCode) params.set('locationCode', String(lot.locationCode));
+        if (lot?.quantity != null) params.set('qty', String(lot.quantity));
+
+        closeLotPopup();
+        navigate(`/purchase-returns/create?${params.toString()}`);
     };
 
     // ── Edit handlers ────────────────────────────────────────────────────────
@@ -938,6 +959,7 @@ const ViewWarehouseDetail = () => {
                                         <th>Ngày nhập</th>
                                         <th style={{ width: 120, textAlign: 'right' }}>Số lượng</th>
                                         <th style={{ width: 90, textAlign: 'center' }}>IsActive</th>
+                                        <th style={{ width: 150, textAlign: 'center' }}>Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -953,6 +975,16 @@ const ViewWarehouseDetail = () => {
                                                 <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(lot.quantity)}</td>
                                                 <td style={{ textAlign: 'center', color: lot.isActive ? '#059669' : '#6b7280', fontWeight: 600 }}>
                                                     {lot.isActive ? '1' : '0'}
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-primary"
+                                                        style={{ minWidth: '120px', height: '32px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, padding: '0 10px' }}
+                                                        onClick={() => handleCreatePrnFromLot(lot)}
+                                                    >
+                                                        Tạo phiếu trả
+                                                    </button>
                                                 </td>
                                             </tr>
                                         );

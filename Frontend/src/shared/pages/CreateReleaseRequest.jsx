@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
+    TextField,
     CircularProgress,
 } from '@mui/material';
 import {
@@ -52,26 +53,6 @@ function formatAddress(address, ward, district, city) {
     return parts.length ? parts.join(', ') : '';
 }
 
-/** Kiểm tra từng dòng vật tư (số lượng, ĐVT) */
-function getLineItemsValidationError(lineItems) {
-    for (let i = 0; i < lineItems.length; i++) {
-        const line = lineItems[i];
-        const row = i + 1;
-        if (!normalizeId(line.uomId ?? line.UomId)) {
-            return `Vật tư dòng ${row}: thiếu đơn vị tính.`;
-        }
-        const qty = Number(line.quantity);
-        if (!Number.isFinite(qty) || qty < 1) {
-            return `Vật tư dòng ${row}: số lượng phải ≥ 1.`;
-        }
-        const max = Number(line.availableQty ?? line.AvailableQty ?? 0);
-        if (Number.isFinite(max) && max > 0 && qty > max) {
-            return `Vật tư dòng ${row}: số lượng không được vượt tồn khả dụng (${max.toLocaleString('vi-VN')}).`;
-        }
-    }
-    return null;
-}
-
 export default function CreateReleaseRequest() {
     const navigate = useNavigate();
     const { toast, showToast, clearToast } = useToast();
@@ -104,6 +85,14 @@ export default function CreateReleaseRequest() {
         purpose: '',
         note: '',
         isPartialDeliveryAllowed: true,
+    });
+
+    const [addressMode, setAddressMode] = useState('list');
+    const [customAddress, setCustomAddress] = useState({
+        address: '',
+        city: '',
+        district: '',
+        ward: '',
     });
 
     const [lineItems, setLineItems] = useState([]);
@@ -204,6 +193,8 @@ export default function CreateReleaseRequest() {
         setSelectedReceiverId('');
         setSelectedAddressId('');
         setReceiverDetail(null);
+        setAddressMode('list');
+        setCustomAddress({ address: '', city: '', district: '', ward: '' });
         loadReceivers(companyId);
         loadAddresses(companyId);
     };
@@ -219,6 +210,8 @@ export default function CreateReleaseRequest() {
 
         const receiver = receivers.find((r) => normalizeId(r.receiverId ?? r.ReceiverId) === receiverId);
         setReceiverDetail(receiver || null);
+        setAddressMode('list');
+        setCustomAddress({ address: '', city: '', district: '', ward: '' });
         loadAddresses(selectedCompanyId);
     };
 
@@ -281,6 +274,7 @@ export default function CreateReleaseRequest() {
         };
         setAddresses((prev) => [...prev, newAddress]);
         setSelectedAddressId(normalizeId(newAddress.addressId));
+        setAddressMode('list');
         showToast('Tạo địa chỉ thành công!', 'success');
     };
 
@@ -408,28 +402,27 @@ export default function CreateReleaseRequest() {
         };
     }, [lineItems]);
 
-    /**
-     * Trường * chung (công ty, người nhận, kho, địa chỉ, ≥1 vật tư + dòng hợp lệ) — dùng cho Lưu nháp & Gửi duyệt.
-     * Lý do / file báo giá & hợp đồng chỉ bắt buộc khi gửi duyệt (submitValidationError).
-     */
-    const baseValidationError = useMemo(() => {
-        if (!selectedCompanyId) return 'Vui lòng chọn công ty.';
-        if (!selectedReceiverId) return 'Vui lòng chọn người nhận.';
-        if (!form.warehouseId) return 'Vui lòng chọn kho xuất.';
-        if (lineItems.length === 0) return 'Vui lòng thêm ít nhất 1 vật tư.';
-        if (!selectedAddressId) {
-            return 'Vui lòng chọn địa chỉ giao hàng.';
-        }
-        return getLineItemsValidationError(lineItems);
-    }, [selectedCompanyId, selectedReceiverId, form.warehouseId, lineItems, selectedAddressId]);
+    const canSaveDraft = useMemo(() => (
+        Boolean(selectedCompanyId)
+        && Boolean(selectedReceiverId)
+        && Boolean(form.warehouseId)
+        && lineItems.length > 0
+    ), [selectedCompanyId, selectedReceiverId, form.warehouseId, lineItems]);
 
-    const submitValidationError = useMemo(() => {
-        if (baseValidationError) return baseValidationError;
-        if (!form.purpose.trim()) return 'Vui lòng nhập lý do xuất hàng.';
-        if (!quotationFile) return 'Vui lòng tải file báo giá.';
-        if (!contractFile) return 'Vui lòng tải file hợp đồng.';
-        return null;
-    }, [baseValidationError, form.purpose, quotationFile, contractFile]);
+    const canCreateRequest = useMemo(() => (
+        Boolean(selectedCompanyId)
+        && Boolean(selectedReceiverId)
+        && Boolean(form.warehouseId)
+        && Boolean(form.purpose.trim())
+        && lineItems.length > 0
+    ), [selectedCompanyId, selectedReceiverId, form.warehouseId, form.purpose, lineItems]);
+
+    /** Gửi duyệt: backend bắt buộc đủ báo giá + hợp đồng (upload sau khi tạo) */
+    const canSubmitForApproval = useMemo(() => (
+        canCreateRequest
+        && Boolean(quotationFile)
+        && Boolean(contractFile)
+    ), [canCreateRequest, quotationFile, contractFile]);
 
     const buildPayload = () => {
         let address = '';
@@ -438,7 +431,12 @@ export default function CreateReleaseRequest() {
         let ward = '';
         let addressId = null;
 
-        if (selectedAddress) {
+        if (addressMode === 'custom') {
+            address = customAddress.address || '';
+            city = customAddress.city || '';
+            district = customAddress.district || '';
+            ward = customAddress.ward || '';
+        } else if (selectedAddress) {
             addressId = Number(selectedAddress.addressId ?? selectedAddress.AddressId);
             address = selectedAddress.addressDetail || selectedAddress.AddressDetail || selectedAddress.addressName || selectedAddress.AddressName || '';
             city = selectedAddress.city || selectedAddress.City || '';
@@ -472,10 +470,6 @@ export default function CreateReleaseRequest() {
 
     const handleSaveDraft = async (e) => {
         e?.preventDefault();
-        if (baseValidationError) {
-            showToast(baseValidationError, 'error');
-            return;
-        }
         setSavingDraft(true);
         try {
             const res = await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
@@ -489,8 +483,11 @@ export default function CreateReleaseRequest() {
                         appendixFile,
                     });
                 } catch (uploadErr) {
-                    const data = uploadErr?.response?.data;
-                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
+                    uploadWarning =
+                        uploadErr?.message
+                        || uploadErr?.response?.data?.detail
+                        || uploadErr?.response?.data?.message
+                        || 'Không thể tải tệp đính kèm.';
                 }
             }
             showToast(
@@ -510,8 +507,37 @@ export default function CreateReleaseRequest() {
 
     const handleCreateRequest = async (e) => {
         e?.preventDefault();
-        if (submitValidationError) {
-            showToast(submitValidationError, 'error');
+
+        if (!selectedCompanyId) {
+            showToast('Vui lòng chọn công ty.', 'error');
+            return;
+        }
+        if (!selectedReceiverId) {
+            showToast('Vui lòng chọn người nhận.', 'error');
+            return;
+        }
+        if (!form.warehouseId) {
+            showToast('Vui lòng chọn kho xuất.', 'error');
+            return;
+        }
+        if (!form.purpose.trim()) {
+            showToast('Vui lòng nhập lý do xuất hàng.', 'error');
+            return;
+        }
+        if (lineItems.length === 0) {
+            showToast('Vui lòng thêm ít nhất 1 vật tư.', 'error');
+            return;
+        }
+        if (addressMode === 'list' && !selectedAddressId) {
+            showToast('Vui lòng chọn địa chỉ giao hàng.', 'error');
+            return;
+        }
+        if (addressMode === 'custom' && !customAddress.address.trim()) {
+            showToast('Vui lòng nhập địa chỉ giao hàng.', 'error');
+            return;
+        }
+        if (!quotationFile || !contractFile) {
+            showToast('Vui lòng tải lên đủ Báo giá và Hợp đồng trước khi gửi duyệt.', 'error');
             return;
         }
 
@@ -528,8 +554,12 @@ export default function CreateReleaseRequest() {
                         appendixFile,
                     });
                 } catch (uploadErr) {
-                    const data = uploadErr?.response?.data;
-                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
+                    uploadWarning =
+                        uploadErr?.message
+                        || uploadErr?.response?.data?.detail
+                        || uploadErr?.response?.data?.innerDetail
+                        || uploadErr?.response?.data?.message
+                        || 'Không thể tải tệp đính kèm.';
                 }
             }
             showToast(
@@ -568,10 +598,10 @@ export default function CreateReleaseRequest() {
                     <button type="button" onClick={() => navigate(-1)} className="btn btn-cancel" disabled={submitting || savingDraft}>
                         <X size={15} />Hủy
                     </button>
-                    <button type="button" className="btn btn-secondary" disabled={savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }} title={baseValidationError ? `Chưa đủ điều kiện: ${baseValidationError}` : undefined}>
+                    <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
                         {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
                     </button>
-                    <button type="button" className="btn btn-primary" disabled={submitting || savingDraft} onClick={handleCreateRequest} title={submitValidationError ? `Chưa đủ điều kiện: ${submitValidationError}` : undefined}>
+                    <button type="button" className="btn btn-primary" disabled={!canSubmitForApproval || submitting || savingDraft} onClick={handleCreateRequest} title={!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined}>
                         {submitting ? <><Loader size={15} className="spinner" />Đang gửi...</> : <><Send size={15} />Tạo & Gửi duyệt</>}
                     </button>
                 </div>
@@ -581,9 +611,7 @@ export default function CreateReleaseRequest() {
                 <form id="create-rr-form" className="form-wrapper">
                     <div className="form-card-intro">
                         <h1 className="page-title">Tạo yêu cầu xuất hàng</h1>
-                        <p className="form-card-required-note">
-                            <span className="required-mark">*</span> là trường bắt buộc. Lý do xuất và tệp báo giá / hợp đồng chỉ bắt buộc khi bấm <strong>Tạo &amp; Gửi duyệt</strong>.
-                        </p>
+                        <p className="form-card-required-note">Các trường <span className="required-mark">*</span> là bắt buộc</p>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -668,14 +696,16 @@ export default function CreateReleaseRequest() {
 
                                     {receiverDetail && (
                                         <div className="form-field" style={{ margin: 0 }}>
-                                            <label className="form-label">Địa chỉ giao hàng <span className="required-mark">*</span></label>
+                                            <label className="form-label">Địa chỉ giao hàng</label>
                                             <div style={{ display: 'flex', gap: 8 }}>
                                                 <div className="input-wrapper" style={{ flex: 1 }}>
                                                     <MapPin className="input-icon" size={16} />
                                                     <select
                                                         value={selectedAddressId}
                                                         onChange={(e) => {
-                                                            setSelectedAddressId(normalizeId(e.target.value));
+                                                            const value = normalizeId(e.target.value);
+                                                            setSelectedAddressId(value);
+                                                            if (value) setAddressMode('list');
                                                         }}
                                                         className="form-input"
                                                         style={{ paddingLeft: 40 }}
@@ -695,10 +725,24 @@ export default function CreateReleaseRequest() {
                                                         })}
                                                     </select>
                                                 </div>
+                                                <button type="button" onClick={() => { setAddressMode('custom'); setSelectedAddressId(''); }} className="btn btn-secondary" title="Nhập địa chỉ khác">
+                                                    <Plus size={15} />
+                                                </button>
                                                 <button type="button" onClick={() => setAddressDialogOpen(true)} className="btn btn-secondary" disabled={!selectedCompanyId} title="Tạo địa chỉ mới">
                                                     <MapPin size={15} />
                                                 </button>
                                             </div>
+
+                                            {addressMode === 'custom' && (
+                                                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                    <TextField label="Địa chỉ cụ thể" value={customAddress.address} onChange={(e) => setCustomAddress((prev) => ({ ...prev, address: e.target.value }))} size="small" fullWidth />
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                                        <TextField label="Thành phố / Tỉnh" value={customAddress.city} onChange={(e) => setCustomAddress((prev) => ({ ...prev, city: e.target.value }))} size="small" fullWidth />
+                                                        <TextField label="Quận / Huyện" value={customAddress.district} onChange={(e) => setCustomAddress((prev) => ({ ...prev, district: e.target.value }))} size="small" fullWidth />
+                                                    </div>
+                                                    <TextField label="Phường / Xã" value={customAddress.ward} onChange={(e) => setCustomAddress((prev) => ({ ...prev, ward: e.target.value }))} size="small" fullWidth />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -708,8 +752,7 @@ export default function CreateReleaseRequest() {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">
                                         <span style={{ marginRight: 8, color: '#2196F3', fontWeight: 700 }}>2</span>
-                                        Danh sách vật tư <span className="required-mark">*</span>
-                                        <span style={{ fontWeight: 400, fontSize: 13, color: '#64748b', marginLeft: 6 }}>(ít nhất 1 dòng)</span>
+                                        Danh sách vật tư
                                     </h2>
                                     <div style={{ display: 'flex', gap: 8 }}>
                                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowItemSearch((prev) => !prev)} disabled={!form.warehouseId || itemsLoading}>
@@ -912,7 +955,7 @@ export default function CreateReleaseRequest() {
                                         <input type="date" value={form.expectedDate} onChange={(e) => setForm((prev) => ({ ...prev, expectedDate: e.target.value }))} className="form-input" />
                                     </div>
                                     <div className="form-field" style={{ margin: 0 }}>
-                                        <label className="form-label">Lý do xuất hàng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 12 }}>(khi gửi duyệt)</span></label>
+                                        <label className="form-label">Lý do xuất hàng <span className="required-mark">*</span></label>
                                         <input type="text" value={form.purpose} onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))} className="form-input" placeholder="Nhập lý do xuất hàng" />
                                     </div>
                                     <div className="form-field" style={{ margin: 0 }}>
@@ -1028,7 +1071,7 @@ export default function CreateReleaseRequest() {
 
             <CreateCompanyDialog open={companyDialogOpen} onClose={() => setCompanyDialogOpen(false)} onSuccess={handleCreateCompanySuccess} />
             <CreateReceiverDialog open={receiverDialogOpen} onClose={() => setReceiverDialogOpen(false)} onSuccess={handleCreateReceiverSuccess} companyId={selectedCompanyId} companyName={selectedCompany?.companyName ?? selectedCompany?.CompanyName ?? ''} />
-            <CreateAddressDialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} onSuccess={handleCreateAddressSuccess} companyId={selectedCompanyId} />
+            <CreateAddressDialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} onSuccess={handleCreateAddressSuccess} companyId={selectedCompanyId} companyName={selectedCompany?.companyName ?? selectedCompany?.CompanyName ?? ''} />
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>
