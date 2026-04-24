@@ -23,7 +23,7 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import '../styles/CreateGoodDeliveryNote.css'; // Đảm bảo đúng đường dẫn
 import { createGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
-import { getDeliveries, normalizeTransportInfoFields } from '../lib/deliveryService';
+import { getDeliveries, getDeliveryHistory, normalizeTransportInfoFields } from '../lib/deliveryService';
 import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -129,10 +129,21 @@ export default function CreateGoodDeliveryNote() {
             setDeliveryListLoading(true);
             try {
                 const res = await getDeliveries({ page: 1, pageSize: 100 });
-                if (!cancelled) setDeliveryList(res.items || []);
+                const listFromTransportInfo = res?.items || [];
+                if (listFromTransportInfo.length > 0) {
+                    if (!cancelled) setDeliveryList(listFromTransportInfo);
+                    return;
+                }
+
+                // Fallback: nếu danh sách TransportInfo rỗng, thử lấy lịch sử vận chuyển để làm template nhanh.
+                const historyTemplates = await getDeliveryHistory();
+                if (!cancelled) setDeliveryList(historyTemplates);
             } catch (err) {
                 console.warn('Load delivery list for transport templates failed', err);
-                if (!cancelled) setDeliveryList([]);
+                if (!cancelled) {
+                    const historyTemplates = await getDeliveryHistory();
+                    setDeliveryList(historyTemplates);
+                }
             } finally {
                 if (!cancelled) setDeliveryListLoading(false);
             }

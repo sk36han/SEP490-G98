@@ -12,6 +12,12 @@ export default defineConfig({
         target: 'http://localhost:5141',
         changeOrigin: true,
       },
+      // SignalR negotiate + websocket transport
+      '/hubs': {
+        target: 'http://localhost:5141',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   resolve: {

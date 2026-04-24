@@ -1,5 +1,5 @@
-import { Snackbar, Alert } from '@mui/material';
 import { useToastContext } from '../../app/context/ToastContext';
+import Toast from './Toast';
 
 export function ToastContainer() {
   const { toast, clearToast } = useToastContext();
@@ -7,20 +7,11 @@ export function ToastContainer() {
   if (!toast) return null;
 
   return (
-    <Snackbar
-      open={!!toast}
-      autoHideDuration={3000}
+    <Toast
+      message={toast.message}
+      type={toast.type}
       onClose={clearToast}
-      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-    >
-      <Alert
-        onClose={clearToast}
-        severity={toast.type}
-        variant="filled"
-        sx={{ width: '100%' }}
-      >
-        {toast.message}
-      </Alert>
-    </Snackbar>
+      duration={3000}
+    />
   );
 }
