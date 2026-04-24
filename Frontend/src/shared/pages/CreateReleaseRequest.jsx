@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Plus, X, MapPin, User, Send, Loader,
     Package, Search, Trash2,
-    Building2, Phone, Mail, Briefcase, Save,
+    Building2, Phone, Mail, Briefcase, Save, CircleHelp,
     FileSpreadsheet, FileText, FileStack,
 } from 'lucide-react';
 import {
@@ -297,6 +297,10 @@ export default function CreateReleaseRequest() {
         }
 
         const defaultUnit = item.unitPrice ?? item.UnitPrice;
+        const warehousePrice =
+            defaultUnit != null && defaultUnit !== '' && Number.isFinite(Number(defaultUnit))
+                ? Math.max(0, Math.round(Number(defaultUnit)))
+                : null;
         const specId = item.packagingSpecId ?? item.PackagingSpecId;
         setLineItems((prev) => [
             ...prev,
@@ -309,7 +313,8 @@ export default function CreateReleaseRequest() {
                 uomId: normalizeId(item.uomId ?? item.UomId),
                 availableQty: Number(item.availableQty ?? item.AvailableQty ?? item.onHandQty ?? item.OnHandQty ?? 0),
                 quantity: 1,
-                unitPrice: defaultUnit != null && defaultUnit !== '' ? Number(defaultUnit) : '',
+                warehousePrice,
+                unitPrice: warehousePrice ?? '',
                 packagingSpecId: specId != null && specId !== '' ? normalizeId(specId) : '',
                 packagingSpecName: item.packagingSpecName ?? item.PackagingSpecName ?? '',
                 note: '',
@@ -336,6 +341,10 @@ export default function CreateReleaseRequest() {
             .filter((item) => !existingIds.has(normalizeId(item.itemId ?? item.ItemId)))
             .map((item) => {
                 const defaultUnit = item.unitPrice ?? item.UnitPrice;
+                const warehousePrice =
+                    defaultUnit != null && defaultUnit !== '' && Number.isFinite(Number(defaultUnit))
+                        ? Math.max(0, Math.round(Number(defaultUnit)))
+                        : null;
                 const specId = item.packagingSpecId ?? item.PackagingSpecId;
                 return {
                     id: `${Date.now()}-${Math.random()}`,
@@ -346,7 +355,8 @@ export default function CreateReleaseRequest() {
                     uomId: normalizeId(item.uomId ?? item.UomId),
                     availableQty: Number(item.availableQty ?? item.AvailableQty ?? item.onHandQty ?? item.OnHandQty ?? 0),
                     quantity: 1,
-                    unitPrice: defaultUnit != null && defaultUnit !== '' ? Number(defaultUnit) : '',
+                    warehousePrice,
+                    unitPrice: warehousePrice ?? '',
                     packagingSpecId: specId != null && specId !== '' ? normalizeId(specId) : '',
                     packagingSpecName: item.packagingSpecName ?? item.PackagingSpecName ?? '',
                     note: '',
@@ -369,6 +379,23 @@ export default function CreateReleaseRequest() {
             return { ...line, [field]: value };
         }));
     };
+
+    const validateLineItems = useCallback(() => {
+        for (const line of lineItems) {
+            const qty = Number(line.quantity);
+            if (!Number.isFinite(qty) || qty <= 0) {
+                showToast(`Số lượng của vật tư "${line.itemName || line.itemCode || 'không xác định'}" phải lớn hơn 0.`, 'error');
+                return false;
+            }
+
+            const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
+            if (unit != null && Number.isFinite(unit) && line.warehousePrice != null && unit < Number(line.warehousePrice)) {
+                showToast('Đơn giá không thể nhỏ hơn giá bình quân trong kho', 'error');
+                return false;
+            }
+        }
+        return true;
+    }, [lineItems, showToast]);
 
     const removeLine = (index) => {
         setLineItems((prev) => prev.filter((_, lineIndex) => lineIndex !== index));
@@ -528,6 +555,7 @@ export default function CreateReleaseRequest() {
             showToast('Vui lòng thêm ít nhất 1 vật tư.', 'error');
             return;
         }
+        if (!validateLineItems()) return;
         if (addressMode === 'list' && !selectedAddressId) {
             showToast('Vui lòng chọn địa chỉ giao hàng.', 'error');
             return;
@@ -725,9 +753,6 @@ export default function CreateReleaseRequest() {
                                                         })}
                                                     </select>
                                                 </div>
-                                                <button type="button" onClick={() => { setAddressMode('custom'); setSelectedAddressId(''); }} className="btn btn-secondary" title="Nhập địa chỉ khác">
-                                                    <Plus size={15} />
-                                                </button>
                                                 <button type="button" onClick={() => setAddressDialogOpen(true)} className="btn btn-secondary" disabled={!selectedCompanyId} title="Tạo địa chỉ mới">
                                                     <MapPin size={15} />
                                                 </button>
@@ -830,7 +855,13 @@ export default function CreateReleaseRequest() {
                                                     <th style={{ width: 50, textAlign: 'center' }}>STT</th>
                                                     <th>Vật tư</th>
                                                     <th style={{ width: 120, textAlign: 'right' }}>Tồn kho</th>
-                                                    <th style={{ width: 140, textAlign: 'center' }}>Số lượng</th>
+                                                    <th style={{ width: 120, textAlign: 'center' }}>Số lượng</th>
+                                                    <th style={{ width: 140, textAlign: 'right' }}>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                            Giá bình quân kho
+                                                            <CircleHelp size={14} title="Giá bình quân kho" style={{ color: '#64748b', cursor: 'help' }} />
+                                                        </span>
+                                                    </th>
                                                     <th style={{ width: 140, textAlign: 'right' }}>Đơn giá (VNĐ)</th>
                                                     <th style={{ width: 150, textAlign: 'right' }}>Thành tiền (VNĐ)</th>
                                                     <th style={{ minWidth: 120, maxWidth: 180, textAlign: 'left' }}>Ghi chú</th>
@@ -852,7 +883,7 @@ export default function CreateReleaseRequest() {
                                                             </div>
                                                         </td>
                                                         <td style={{ textAlign: 'right' }}>{Number(line.availableQty || 0).toLocaleString()}</td>
-                                                        <td>
+                                                        <td style={{ textAlign: 'center' }}>
                                                             <input
                                                                 type="number"
                                                                 min="1"
@@ -862,9 +893,14 @@ export default function CreateReleaseRequest() {
                                                                     const value = Math.max(1, Math.min(Number(e.target.value || 1), Number(line.availableQty || 1)));
                                                                     updateLine(index, 'quantity', value);
                                                                 }}
-                                                                className="form-input"
-                                                                style={{ minWidth: 100 }}
+                                                                className="form-input rr-number-no-spin"
+                                                                style={{ width: 72, minWidth: 72, maxWidth: 72, textAlign: 'right', fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' }}
                                                             />
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#111827', fontSize: 13 }}>
+                                                            {line.warehousePrice == null
+                                                                ? <span style={{ color: '#94a3b8', fontWeight: 400 }}>—</span>
+                                                                : formatVndInteger(line.warehousePrice)}
                                                         </td>
                                                         <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
                                                             <input
@@ -883,10 +919,10 @@ export default function CreateReleaseRequest() {
                                                                     if (!Number.isFinite(n)) return;
                                                                     updateLine(index, 'unitPrice', Math.max(0, Math.round(n)));
                                                                 }}
-                                                                className="form-input"
+                                                                className="form-input rr-number-no-spin"
                                                                 placeholder="VNĐ"
-                                                                style={{ minWidth: 120, maxWidth: 160, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
-                                                                title="Đơn giá (VNĐ, số nguyên)"
+                                                                style={{ minWidth: 96, maxWidth: 120, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                                                                title="Đơn giá (VNĐ, số nguyên, không nhỏ hơn giá bình quân kho)"
                                                             />
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#111827', fontSize: 13 }}>

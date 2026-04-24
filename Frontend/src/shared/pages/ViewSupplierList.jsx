@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { usePolling } from '../hooks/usePolling';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Box,
     Button,
@@ -28,7 +27,6 @@ import {
 import { StatusBadge } from '@ui/badges';
 import { Filter, CloudOff, Columns, Plus, GripVertical, Truck } from 'lucide-react';
 import { getSuppliers } from '../lib/supplierService';
-import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import SupplierFilterPopup from '../components/SupplierFilterPopup';
 import { formatDateOnlyUtc } from '../lib/dateUtils';
@@ -41,7 +39,7 @@ const LS_SORT       = 'supplierSortConfig';
 // ── Constants ──────────────────────────────────────────────────────────────
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
     <Box sx={{
         flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
         border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
@@ -52,7 +50,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
             width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-            <Icon size={22} color={color} />
+            {React.createElement(icon, { size: 22, color })}
         </Box>
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
@@ -80,6 +78,8 @@ const SUPPLIER_COLUMNS = [
 
 const DEFAULT_VISIBLE_COLUMN_IDS = SUPPLIER_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS        = SUPPLIER_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
+const DEFAULT_PAGE_SIZE = 10;
+const POLLING_INTERVAL_MS = 15000;
 
 // ── Shared cell sx (matches ViewPurchaseOrderList exactly) ─────────────────
 const BODY_CELL_SX = {
@@ -104,6 +104,36 @@ export default function ViewSupplierList() {
     const theme    = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const buildStateFromQuery = useCallback(() => {
+        const pageParam = Number.parseInt(searchParams.get('page') || '1', 10);
+        const pageSizeParam = Number.parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
+        const sortByParam = searchParams.get('sortBy');
+        const orderParam = searchParams.get('order');
+        const isActiveParam = searchParams.get('isActive');
+
+        return {
+            page: Number.isFinite(pageParam) && pageParam > 0 ? pageParam - 1 : 0,
+            pageSize: ROWS_PER_PAGE_OPTIONS.includes(pageSizeParam) ? pageSizeParam : DEFAULT_PAGE_SIZE,
+            searchTerm: searchParams.get('q') || '',
+            orderBy: SORTABLE_COLUMN_IDS.includes(sortByParam) ? sortByParam : null,
+            order: orderParam === 'desc' ? 'desc' : 'asc',
+            filterValues: {
+                supplierCode: searchParams.get('supplierCode') || '',
+                supplierName: searchParams.get('supplierName') || '',
+                taxCode: searchParams.get('taxCode') || '',
+                isActive: isActiveParam === 'true' ? true : isActiveParam === 'false' ? false : null,
+                fromDate: searchParams.get('fromDate') || null,
+                toDate: searchParams.get('toDate') || null,
+                provinceCode: searchParams.get('provinceCode') || '',
+                districtCode: searchParams.get('districtCode') || '',
+                wardCode: searchParams.get('wardCode') || '',
+            },
+        };
+    }, [searchParams]);
+
+    const initialQueryStateRef = useRef(buildStateFromQuery());
 
     // Data / loading
     const [rows, setRows]           = useState([]);
@@ -112,13 +142,13 @@ export default function ViewSupplierList() {
     const [error, setError]         = useState(null);
 
     // Pagination
-    const [page, setPage]         = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [page, setPage]         = useState(initialQueryStateRef.current.page);
+    const [pageSize, setPageSize] = useState(initialQueryStateRef.current.pageSize);
 
     // Search & filter
-    const [searchTerm, setSearchTerm]     = useState('');
+    const [searchTerm, setSearchTerm]     = useState(initialQueryStateRef.current.searchTerm);
     const [filterOpen, setFilterOpen]     = useState(false);
-    const [filterValues, setFilterValues] = useState({});
+    const [filterValues, setFilterValues] = useState(initialQueryStateRef.current.filterValues);
     const activeFilterCount = useMemo(
         () => Object.values(filterValues).filter((v) => v !== undefined && v !== null && v !== '').length,
         [filterValues],
@@ -126,9 +156,11 @@ export default function ViewSupplierList() {
 
     // Sorting — 3-state: asc → desc → null (reset)
     const [orderBy, setOrderBy] = useState(() => {
+        if (initialQueryStateRef.current.orderBy) return initialQueryStateRef.current.orderBy;
         try { const s = JSON.parse(localStorage.getItem(LS_SORT)); return s?.orderBy || null; } catch { return null; }
     });
     const [order, setOrder] = useState(() => {
+        if (initialQueryStateRef.current.orderBy) return initialQueryStateRef.current.order;
         try { const s = JSON.parse(localStorage.getItem(LS_SORT)); return s?.order || 'asc'; } catch { return 'asc'; }
     });
 
@@ -282,14 +314,17 @@ export default function ViewSupplierList() {
         };
     }, [page, pageSize, searchTerm, filterValues]);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             const res = await getSuppliers(getApiParams());
             setRows(Array.isArray(res?.items) ? res.items : []);
             setTotalRows(res?.totalItems ?? 0);
         } catch (err) {
+            if (silent) return;
             const status = err?.response?.status;
             let msg = err?.response?.data?.message ?? err?.message;
             if (status === 404)                   msg = 'API trả 404. Kiểm tra backend đang chạy.';
@@ -298,17 +333,51 @@ export default function ViewSupplierList() {
             setRows([]);
             setTotalRows(0);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [getApiParams]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-    useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [searchTerm, filterValues]);
+    const hasMountedSearchFilterRef = useRef(false);
+    useEffect(() => {
+        if (!hasMountedSearchFilterRef.current) {
+            hasMountedSearchFilterRef.current = true;
+            return;
+        }
+        setPage(0);
+        setSelectedIds(new Set());
+    }, [searchTerm, filterValues]);
+
+    // ── Sync list state to URL query ───────────────────────────────
+    useEffect(() => {
+        const next = new URLSearchParams();
+        if (page > 0) next.set('page', String(page + 1));
+        if (pageSize !== DEFAULT_PAGE_SIZE) next.set('pageSize', String(pageSize));
+        if (searchTerm.trim()) next.set('q', searchTerm.trim());
+        if (orderBy) {
+            next.set('sortBy', orderBy);
+            next.set('order', order);
+        }
+
+        Object.entries(filterValues || {}).forEach(([key, value]) => {
+            if (value === undefined || value === null || value === '') return;
+            next.set(key, String(value));
+        });
+
+        if (next.toString() !== searchParams.toString()) {
+            setSearchParams(next, { replace: true });
+        }
+    }, [page, pageSize, searchTerm, orderBy, order, filterValues, searchParams, setSearchParams]);
 
     // ── Polling ────────────────────────────────────────────────────
     const fetchDataRef = useRef(fetchData);
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
-    usePolling('suppliers', () => fetchDataRef.current?.());
+    useEffect(() => {
+        const id = setInterval(() => {
+            fetchDataRef.current?.({ silent: true });
+        }, POLLING_INTERVAL_MS);
+        return () => clearInterval(id);
+    }, []);
 
     // Client-side sort on current page data
     const sortedRows = useMemo(() => {

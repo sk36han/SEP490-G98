@@ -1978,9 +1978,8 @@ export default function ViewPurchaseReturnDetail() {
 
                 </div>
             </div>
-        </div>
 
-            { toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} /> }
-        </div >
+            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+        </div>
     );
 }
