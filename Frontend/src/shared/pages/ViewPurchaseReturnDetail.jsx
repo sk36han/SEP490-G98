@@ -76,6 +76,7 @@ const MOCK_GRN_SOURCE = {
         { grnLineId: 3, productId: 3, sku: 'PAPER-001', productName: 'Giấy A4 Double A 80gsm', uom: 'Ram', receivedQty: 10, unitPrice: 62000 },
         { grnLineId: 4, productId: 4, sku: 'MARK-001', productName: 'Bút lông bảng Thiên Long', uom: 'Cây', receivedQty: 12, unitPrice: 15000 },
     ],
+    attachments: [],
 };
 
 const MOCK_DETAIL = {
@@ -137,6 +138,15 @@ const displaySupplierField = (v) => {
     if (v === null || v === undefined) return '—';
     const s = String(v).trim();
     return s.length ? s : '—';
+};
+
+const toAbsoluteFileUrl = (url) => {
+    if (!url) return '';
+    const s = String(url).trim();
+    if (!s) return '';
+    if (/^https?:\/\//i.test(s)) return s;
+    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
+    return `${apiBase}${s.startsWith('/') ? '' : '/'}${s}`;
 };
 
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -206,6 +216,13 @@ const mapApiToLegacyState = (api) => {
         refundRecordedDate: api?.refundedAt ? new Date(api.refundedAt).toLocaleDateString('en-CA') : null,
 
         lines,
+        attachments: (api?.attachments ?? api?.Attachments ?? []).map((a) => ({
+            attachmentId: a.attachmentId ?? a.AttachmentId ?? null,
+            fileName: a.fileName ?? a.FileName ?? 'Tệp minh chứng',
+            fileUrl: a.fileUrl ?? a.FileUrl ?? '',
+            attachmentType: a.attachmentType ?? a.AttachmentType ?? '',
+            uploadedAt: a.uploadedAt ?? a.UploadedAt ?? null,
+        })),
     };
 };
 
@@ -537,8 +554,8 @@ export default function ViewPurchaseReturnDetail() {
     // Nút "Bắt đầu trả hàng" chỉ hiện khi trạng thái SUBMITTED (Chờ hoàn hàng)
     const canStartReturnBtn = isSubmittedStatus;
 
-    // Nút "Xác nhận thanh toán": hiện khi SUBMITTED/APPROVED và payment chưa confirm
-    const canConfirmPaymentBtn = !isDraftStatus && canConfirmPayment(paymentConfirmed);
+    // Nút "Xác nhận thanh toán": chỉ hiện sau khi đã bắt đầu/hoàn tất trả hàng (APPROVED) và chưa confirm payment
+    const canConfirmPaymentBtn = isReturnLocked && canConfirmPayment(paymentConfirmed);
 
     const activeLines = isEditing ? draft.lines : detailData.lines;
     const subtotal = activeLines.reduce((sum, line) => sum + toNumber(line.totalPrice), 0);
@@ -826,6 +843,7 @@ export default function ViewPurchaseReturnDetail() {
     };
 
     const handleConfirmCreateReturn = async () => {
+        setConfirmDialogType(null);
         setSubmitting(true);
         try {
             await approvePurchaseReturn(detailData.purchaseReturnId);
@@ -850,9 +868,16 @@ export default function ViewPurchaseReturnDetail() {
     };
 
     const handleConfirmStartReturn = async () => {
+        setConfirmDialogType(null);
         setSubmitting(true);
         try {
             await approvePurchaseReturn(detailData.purchaseReturnId);
+            setDetailData((prev) => ({
+                ...prev,
+                workflowStatus: 'APPROVED',
+                returnConfirmed: true,
+                approvedAt: prev.approvedAt || new Date().toISOString(),
+            }));
             await fetchDetail();
             showToast('Đã bắt đầu trả hàng!', 'success');
         } catch (err) {
@@ -893,6 +918,7 @@ export default function ViewPurchaseReturnDetail() {
             showToast('Vui lòng kiểm tra lại ngày ghi nhận hoàn tiền.', 'error');
             return;
         }
+        setConfirmDialogType('refund');
     };
 
     // --- "Xác nhận hoàn tiền" ---
@@ -901,6 +927,7 @@ export default function ViewPurchaseReturnDetail() {
     };
 
     const handleConfirmRefundExecute = async () => {
+        setConfirmDialogType(null);
         setSubmitting(true);
         try {
             await refundPurchaseReturn(detailData.purchaseReturnId, {
@@ -941,7 +968,7 @@ export default function ViewPurchaseReturnDetail() {
 
     if (loading) {
         return (
-            <div className="create-supplier-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+            <div className="create-supplier-page view-purchase-return-detail-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280' }}>
                     <Loader size={18} className="spinner" />
                     Đang tải chi tiết phiếu trả hàng...
@@ -952,7 +979,7 @@ export default function ViewPurchaseReturnDetail() {
 
     if (loadError) {
         return (
-            <div className="create-supplier-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+            <div className="create-supplier-page view-purchase-return-detail-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
                 <div style={{ color: '#dc2626', textAlign: 'center' }}>
                     <XCircle size={28} style={{ marginBottom: 8 }} />
                     <div>{loadError}</div>
@@ -962,7 +989,7 @@ export default function ViewPurchaseReturnDetail() {
     }
 
     return (
-        <div className="create-supplier-page">
+        <div className="create-supplier-page view-purchase-return-detail-page">
             {confirmDialogType === 'create' && (
                 <ConfirmDialog
                     open={Boolean(confirmDialogType)}
@@ -1066,9 +1093,9 @@ export default function ViewPurchaseReturnDetail() {
                     </div>
 
                     {/* PHẦN TRÊN */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start', height: '760px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '24px', alignItems: 'start' }}>
                         {/* Cột trái: Chi tiết vật tư trả */}
-                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column', height: '760px' }}>
+                        <div className="info-section" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
                             <div className="section-header-with-toggle">
                                 <h2 className="section-title">Chi tiết vật tư trả</h2>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1244,7 +1271,7 @@ export default function ViewPurchaseReturnDetail() {
                                     <p style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>Chưa có vật tư trả nào</p>
                                 </div>
                             ) : (
-                                <div className="table-container" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                                <div className="table-container" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                                     <table className="product-table">
                                         <thead>
                                             <tr>
@@ -1328,7 +1355,7 @@ export default function ViewPurchaseReturnDetail() {
                         </div>
 
                         {/* Cột phải: Thông tin chung + Hoàn tiền */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '760px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div className="info-section" style={{ margin: 0 }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Thông tin chung</h2>
@@ -1565,9 +1592,9 @@ export default function ViewPurchaseReturnDetail() {
                     </div>
 
                     {/* PHẦN DƯỚI */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'stretch', marginTop: '24px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            <div className="info-section" style={{ margin: 0 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', alignItems: 'stretch', marginTop: '4px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '24px', alignItems: 'start' }}>
+                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Nhà cung cấp</h2>
                                 </div>
@@ -1631,7 +1658,7 @@ export default function ViewPurchaseReturnDetail() {
                                 </div>
                             </div>
 
-                            <div className="info-section" style={{ margin: 0 }}>
+                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Ghi chú trả hàng</h2>
                                 </div>
@@ -1656,7 +1683,7 @@ export default function ViewPurchaseReturnDetail() {
                                 </div>
                             </div>
 
-                            <div className="info-section" style={{ margin: 0 }}>
+                            <div className="info-section" style={{ margin: 0, gridColumn: '1 / 2' }}>
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">Tổng hợp phiếu trả</h2>
                                 </div>
@@ -1748,9 +1775,45 @@ export default function ViewPurchaseReturnDetail() {
                                     </div>
                                 </div>
                             </div>
+
+                            <div className="info-section" style={{ margin: 0 }}>
+                                <div className="section-header-with-toggle">
+                                    <h2 className="section-title">Ảnh minh chứng</h2>
+                                </div>
+                                {(detailData.attachments || []).length > 0 ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+                                        {(detailData.attachments || []).map((att) => {
+                                            const href = toAbsoluteFileUrl(att.fileUrl);
+                                            return (
+                                                <a
+                                                    key={att.attachmentId ?? `${att.fileName}-${att.fileUrl}`}
+                                                    href={href || '#'}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    style={{
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '6px',
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '10px',
+                                                        padding: '12px',
+                                                        textDecoration: 'none',
+                                                        background: '#f8fafc',
+                                                    }}
+                                                >
+                                                    <span style={{ color: '#0f172a', fontWeight: 600, wordBreak: 'break-word' }}>{att.fileName || 'Tệp minh chứng'}</span>
+                                                    <span style={{ color: '#64748b', fontSize: '12px' }}>{att.attachmentType || 'EVIDENCE'}</span>
+                                                    <span style={{ color: '#2563eb', fontSize: '12px', fontWeight: 600 }}>{href ? 'Xem tệp' : 'Không có đường dẫn tệp'}</span>
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div style={{ color: '#64748b', fontSize: '14px' }}>Chưa có ảnh minh chứng.</div>
+                                )}
+                            </div>
                         </div>
 
-                        <div />
                     </div>
                 </div>
             </div>

@@ -48,9 +48,11 @@ namespace Warehouse.Entities.ModelResponse
         public long LotId { get; set; }
         public long ItemId { get; set; }
         public long WarehouseId { get; set; }
+        public long? Grnid { get; set; }
         public long? GrnlineId { get; set; }
         public string? GrnCode { get; set; }
         public string? LocationCode { get; set; }
+        public string? LocationName { get; set; }
         public DateTime ReceiptDate { get; set; }
         public decimal Quantity { get; set; }
         public decimal UnitCost { get; set; }

@@ -168,9 +168,9 @@ const AppRoutes = () => (
         <Route path="/purchase-orders" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderList /></MainLayout></ProtectedRoute>} />
         <Route path="/purchase-orders/create" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><CreatePurchaseOrder /></MainLayout></ProtectedRoute>} />
         <Route path="/purchase-orders/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><ViewPurchaseReturnList /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns/create" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><CreatePurchaseReturn /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns/:id" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><ViewPurchaseReturnDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewPurchaseReturnList /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreatePurchaseReturn /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewPurchaseReturnDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/item-prices" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><ViewItemPriceList /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Inventory Alert Setup ── */}

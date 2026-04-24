@@ -18,12 +18,14 @@ import {
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import { getGRNDetail } from '../lib/goodReceiptNoteService';
-import { createPurchaseReturn } from '../lib/purchaseReturnNoteService';
+import { createPurchaseReturn, uploadPurchaseReturnAttachments } from '../lib/purchaseReturnNoteService';
 import '../styles/CreateSupplier.css';
 
 
 const MAX_REASON_LENGTH = 250;
 const MAX_NOTE_LENGTH = 250;
+const MAX_EVIDENCE_FILES = 5;
+const MAX_EVIDENCE_FILE_SIZE = 10 * 1024 * 1024; // 10MB/file
 const TODAY = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 
 const generateLineId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -43,9 +45,15 @@ const mapGrnLineToReturnLine = (item, idx) => {
             ? toNumber(availableRaw)
             : Math.max(0, actual - committed);
     const maxReturnQty = Math.max(0, available);
+    const resolvedGrnLineId =
+        item.GrnLineId
+        ?? item.grnLineId
+        ?? item.GrnlineId
+        ?? item.grnlineId
+        ?? idx;
     return {
         id: generateLineId(),
-        grnLineId: item.GrnlineId ?? item.grnlineId ?? idx,
+        grnLineId: resolvedGrnLineId,
         productId: item.ItemId ?? item.itemId ?? idx,
         sku: item.ItemCode ?? item.itemCode ?? '-',
         productName: item.ItemName ?? item.itemName ?? '-',
@@ -113,10 +121,21 @@ const CreatePurchaseReturn = () => {
     const [selectedSearchProductIds, setSelectedSearchProductIds] = useState([]);
     const [grnQuery, setGrnQuery] = useState('');
     const [errors, setErrors] = useState({});
+    const [evidenceFiles, setEvidenceFiles] = useState([]);
+    const [prefillFromLot, setPrefillFromLot] = useState({
+        lotId: '',
+        grnLineId: '',
+        locationCode: '',
+        qty: '',
+    });
 
     // Load GRN from URL params
     useEffect(() => {
         const grnId = searchParams.get('grnId');
+        const grnLineIdParam = searchParams.get('grnLineId');
+        const lotIdParam = searchParams.get('lotId');
+        const locationCodeParam = searchParams.get('locationCode');
+        const qtyParam = searchParams.get('qty');
         if (!grnId) return;
 
         const fetchGRN = async () => {
@@ -153,12 +172,46 @@ const CreatePurchaseReturn = () => {
 
                 const autoLines = grnLines.map((item, idx) => mapGrnLineToReturnLine(item, idx));
                 const usable = autoLines.filter((l) => l.maxReturnQty > 0);
-                if (usable.length === 0 && autoLines.length > 0) {
+
+                let linesForForm = usable;
+                const targetGrnLineId = Number(grnLineIdParam);
+                const hasTargetGrnLineId = Number.isFinite(targetGrnLineId) && targetGrnLineId > 0;
+                if (hasTargetGrnLineId) {
+                    const matched = usable.find((l) => Number(l.grnLineId) === targetGrnLineId);
+                    if (matched) {
+                        const qtyFromLot = Number(qtyParam);
+                        const lotQtyCap = Number.isFinite(qtyFromLot) && qtyFromLot > 0
+                            ? Math.min(qtyFromLot, matched.maxReturnQty)
+                            : matched.maxReturnQty;
+                        const suggestedQty = Number.isFinite(qtyFromLot) && qtyFromLot > 0
+                            ? Math.min(qtyFromLot, lotQtyCap)
+                            : Math.min(1, matched.maxReturnQty);
+                        linesForForm = [{
+                            ...matched,
+                            // Tạo từ lot: hiển thị và giới hạn theo số lượng hiện tại ở lot.
+                            receivedQty: lotQtyCap,
+                            maxReturnQty: lotQtyCap,
+                            qtyCommittedForReturn: 0,
+                            returnQty: suggestedQty,
+                            totalPrice: suggestedQty * matched.unitPrice,
+                        }];
+                    } else {
+                        showToast('Không tìm thấy dòng GRN tương ứng lô đã chọn, hiển thị toàn bộ dòng khả dụng.', 'warning');
+                    }
+                }
+
+                if (linesForForm.length === 0 && autoLines.length > 0) {
                     showToast('Các dòng trên phiếu nhập này không còn số lượng khả dụng để trả (đã bị giữ bởi phiếu trả khác).', 'warning');
                 }
-                setLines(usable);
-                setSelectedProductIds(usable.map((item) => item.productId));
+                setLines(linesForForm);
+                setSelectedProductIds(linesForForm.map((item) => item.productId));
                 setGrnQuery(grnCode);
+                setPrefillFromLot({
+                    lotId: lotIdParam || '',
+                    grnLineId: hasTargetGrnLineId ? String(targetGrnLineId) : '',
+                    locationCode: locationCodeParam || '',
+                    qty: qtyParam || '',
+                });
             } catch (error) {
                 console.error('Lỗi tải GRN:', error);
                 showToast(error?.response?.data?.message || 'Không thể tải dữ liệu GRN', 'error');
@@ -489,6 +542,38 @@ const CreatePurchaseReturn = () => {
         })),
     });
 
+    const handleSelectEvidenceFiles = (event) => {
+        const incoming = Array.from(event.target.files || []);
+        if (incoming.length === 0) return;
+
+        const allowedPrefix = 'image/';
+        const validIncoming = incoming.filter((f) => f.type?.startsWith(allowedPrefix));
+        if (validIncoming.length !== incoming.length) {
+            showToast('Chỉ chấp nhận tệp ảnh (jpg, png, webp...).', 'warning');
+        }
+
+        const tooLarge = validIncoming.find((f) => f.size > MAX_EVIDENCE_FILE_SIZE);
+        if (tooLarge) {
+            showToast(`Ảnh "${tooLarge.name}" vượt quá 10MB.`, 'warning');
+            event.target.value = '';
+            return;
+        }
+
+        const merged = [...evidenceFiles, ...validIncoming];
+        if (merged.length > MAX_EVIDENCE_FILES) {
+            showToast(`Chỉ được tải tối đa ${MAX_EVIDENCE_FILES} ảnh minh chứng.`, 'warning');
+            event.target.value = '';
+            return;
+        }
+
+        setEvidenceFiles(merged);
+        event.target.value = '';
+    };
+
+    const removeEvidenceFile = (idx) => {
+        setEvidenceFiles((prev) => prev.filter((_, i) => i !== idx));
+    };
+
     // --- Save Draft ---
     const handleSaveDraft = async () => {
         if (submitting) return;
@@ -501,8 +586,28 @@ const CreatePurchaseReturn = () => {
         try {
             setSubmitting(true);
             setSubmittingType('draft');
-            await createPurchaseReturn(buildCreatePayload('DRAFT'));
-            showToast('Lưu nháp thành công!', 'success');
+            const created = await createPurchaseReturn(buildCreatePayload('DRAFT'));
+            const prnId =
+                created?.purchaseReturnId
+                ?? created?.PurchaseReturnId
+                ?? created?.data?.purchaseReturnId
+                ?? created?.data?.PurchaseReturnId;
+
+            let uploadWarning = '';
+            if (prnId && evidenceFiles.length > 0) {
+                try {
+                    await uploadPurchaseReturnAttachments(prnId, evidenceFiles);
+                } catch (uploadErr) {
+                    uploadWarning = uploadErr?.response?.data?.message || uploadErr?.message || 'Không thể tải ảnh minh chứng.';
+                }
+            }
+
+            showToast(
+                uploadWarning
+                    ? `Lưu nháp thành công, nhưng upload ảnh lỗi: ${uploadWarning}`
+                    : 'Lưu nháp thành công!',
+                uploadWarning ? 'warning' : 'success',
+            );
             setTimeout(() => navigate('/purchase-returns'), 1200);
         } catch (error) {
             showToast(error?.response?.data?.message || error?.message || 'Có lỗi xảy ra', 'error');
@@ -526,8 +631,28 @@ const CreatePurchaseReturn = () => {
         try {
             setSubmitting(true);
             setSubmittingType('submit');
-            await createPurchaseReturn(buildCreatePayload('SUBMITTED'));
-            showToast('Tạo phiếu trả hàng thành công!', 'success');
+            const created = await createPurchaseReturn(buildCreatePayload('SUBMITTED'));
+            const prnId =
+                created?.purchaseReturnId
+                ?? created?.PurchaseReturnId
+                ?? created?.data?.purchaseReturnId
+                ?? created?.data?.PurchaseReturnId;
+
+            let uploadWarning = '';
+            if (prnId && evidenceFiles.length > 0) {
+                try {
+                    await uploadPurchaseReturnAttachments(prnId, evidenceFiles);
+                } catch (uploadErr) {
+                    uploadWarning = uploadErr?.response?.data?.message || uploadErr?.message || 'Không thể tải ảnh minh chứng.';
+                }
+            }
+
+            showToast(
+                uploadWarning
+                    ? `Tạo phiếu trả hàng thành công, nhưng upload ảnh lỗi: ${uploadWarning}`
+                    : 'Tạo phiếu trả hàng thành công!',
+                uploadWarning ? 'warning' : 'success',
+            );
             setTimeout(() => navigate('/purchase-returns'), 1200);
         } catch (error) {
             showToast(error?.response?.data?.message || error?.message || 'Có lỗi xảy ra', 'error');
@@ -864,7 +989,9 @@ const CreatePurchaseReturn = () => {
                                             <tr>
                                                 <th style={{ width: '40px', textAlign: 'center' }}>STT</th>
                                                 <th style={{ textAlign: 'left' }}>Vật tư</th>
-                                                <th style={{ width: '110px', textAlign: 'right' }}>SL nhập / còn trả</th>
+                                                <th style={{ width: '110px', textAlign: 'right' }}>
+                                                    {prefillFromLot.lotId ? 'SL lot hiện tại / còn trả' : 'SL nhập / còn trả'}
+                                                </th>
                                                 <th style={{ width: '120px', textAlign: 'center' }}>SL trả</th>
                                                 <th style={{ width: '120px', textAlign: 'right' }}>Đơn giá</th>
                                                 <th style={{ width: '140px', textAlign: 'right' }}>Thành tiền</th>
@@ -987,6 +1114,26 @@ const CreatePurchaseReturn = () => {
                                             />
                                         </div>
                                     </div>
+
+                                    {(prefillFromLot.lotId || prefillFromLot.grnLineId || prefillFromLot.locationCode) && (
+                                        <div
+                                            style={{
+                                                marginTop: '-4px',
+                                                padding: '10px 12px',
+                                                borderRadius: '8px',
+                                                border: '1px solid #bfdbfe',
+                                                backgroundColor: '#eff6ff',
+                                                fontSize: '12px',
+                                                color: '#1e3a8a',
+                                                lineHeight: 1.6,
+                                            }}
+                                        >
+                                            <strong>Tạo nhanh từ lô kho:</strong>{' '}
+                                            {prefillFromLot.lotId ? `Lô #${prefillFromLot.lotId}` : '—'}
+                                            {prefillFromLot.locationCode ? ` | Vị trí: ${prefillFromLot.locationCode}` : ''}
+                                            {prefillFromLot.grnLineId ? ` | GRN Line: ${prefillFromLot.grnLineId}` : ''}
+                                        </div>
+                                    )}
 
                                     <div className="form-field">
                                         <label className="form-label">
@@ -1188,6 +1335,53 @@ const CreatePurchaseReturn = () => {
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', color: formData.reason.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: '4px', fontWeight: 500 }}>
                                         {formData.reason.length}/{MAX_REASON_LENGTH} ký tự
                                     </div>
+                                </div>
+                                <div className="form-field">
+                                    <label className="form-label">Ảnh minh chứng ({evidenceFiles.length}/{MAX_EVIDENCE_FILES})</label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleSelectEvidenceFiles}
+                                        className="form-input"
+                                        style={{ padding: '8px 10px' }}
+                                    />
+                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                                        Hỗ trợ nhiều ảnh, tối đa {MAX_EVIDENCE_FILES} ảnh, mỗi ảnh không quá 10MB.
+                                    </div>
+                                    {evidenceFiles.length > 0 && (
+                                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            {evidenceFiles.map((file, idx) => (
+                                                <div
+                                                    key={`${file.name}-${idx}`}
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        gap: '10px',
+                                                        fontSize: '12px',
+                                                        padding: '6px 8px',
+                                                        border: '1px solid #e5e7eb',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: '#f8fafc',
+                                                    }}
+                                                >
+                                                    <span style={{ color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {file.name}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeEvidenceFile(idx)}
+                                                        className="btn-icon-only"
+                                                        style={{ width: 24, height: 24, color: '#ef4444' }}
+                                                        title="Xóa ảnh"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

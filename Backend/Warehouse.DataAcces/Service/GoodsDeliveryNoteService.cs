@@ -218,6 +218,33 @@ namespace Warehouse.DataAcces.Service
                     throw new KeyNotFoundException($"Đơn vị tính với ID {line.UomId} không tồn tại.");
             }
 
+            // 7b. Validate preferred lots (optional)
+            var preferredLotIds = request.Lines
+                .Where(x => x.LotId.HasValue)
+                .Select(x => x.LotId!.Value)
+                .Distinct()
+                .ToList();
+            Dictionary<long, InventoryLot> preferredLotMap = new();
+            if (preferredLotIds.Count > 0)
+            {
+                preferredLotMap = await _context.InventoryLots
+                    .Where(l => preferredLotIds.Contains(l.LotId))
+                    .ToDictionaryAsync(l => l.LotId, l => l);
+
+                foreach (var line in request.Lines.Where(x => x.LotId.HasValue))
+                {
+                    var lotId = line.LotId!.Value;
+                    if (!preferredLotMap.TryGetValue(lotId, out var lot))
+                        throw new KeyNotFoundException($"Không tìm thấy lô #{lotId}.");
+                    if (lot.WarehouseId != request.WarehouseId)
+                        throw new InvalidOperationException($"Lô #{lotId} không thuộc kho xuất đã chọn.");
+                    if (lot.ItemId != line.ItemId)
+                        throw new InvalidOperationException($"Lô #{lotId} không khớp với vật tư ItemId={line.ItemId}.");
+                    if (!lot.IsActive || lot.Quantity <= 0)
+                        throw new InvalidOperationException($"Lô #{lotId} không còn khả dụng để xuất.");
+                }
+            }
+
             // 8. Validate ReleaseRequestLineIds belong to this RR + check RemainingToIssue
             var rrLines = releaseRequest.ReleaseRequestLines.ToDictionary(l => l.ReleaseRequestLineId, l => l);
 
@@ -351,9 +378,12 @@ namespace Warehouse.DataAcces.Service
                     unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
                 }
 
+                if (unitPrice <= 0 && inventories.TryGetValue(line.ItemId, out var invCost) && invCost.UnitCost > 0)
+                    unitPrice = invCost.UnitCost;
+
                 if (unitPrice <= 0)
                     throw new InvalidOperationException(
-                        $"Vật tư '{items[line.ItemId].ItemName}' không có lô hàng nào hợp lệ và không có giá từ yêu cầu.");
+                        $"Vật tư '{items[line.ItemId].ItemName}' không có giá xuất: kiểm tra lô tồn, giá trên yêu cầu xuất (UnitCostAtIssue) hoặc giá vốn tồn kho (UnitCost).");
 
                 totalDeliveredQty += line.ActualQty;
                 totalDeliveredAmount += line.ActualQty * unitPrice;
@@ -405,6 +435,9 @@ namespace Warehouse.DataAcces.Service
                     unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
                 }
 
+                if (unitPrice <= 0 && inventories.TryGetValue(line.ItemId, out var invCost2) && invCost2.UnitCost > 0)
+                    unitPrice = invCost2.UnitCost;
+
                 var gdnLine = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
@@ -413,6 +446,7 @@ namespace Warehouse.DataAcces.Service
                     ActualQty = line.ActualQty,
                     UomId = line.UomId,
                     ReleaseRequestLineId = line.ReleaseRequestLineId,
+                    LotId = line.LotId,
                     UnitPrice = unitPrice,
                     LineTotal = line.ActualQty * unitPrice,
                     RequiresCertificateCopy = line.RequiresCertificateCopy,
@@ -903,9 +937,40 @@ namespace Warehouse.DataAcces.Service
                 decimal remainingQty = line.ActualQty;
                 long? firstLotId = null;
 
+                // Ưu tiên lô được chọn từ lúc tạo phiếu (nếu có)
+                if (line.LotId.HasValue)
+                {
+                    var preferredLot = lotsForItem.FirstOrDefault(lot => lot.LotId == line.LotId.Value);
+                    if (preferredLot == null || !preferredLot.IsActive || preferredLot.Quantity <= 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Lô #{line.LotId.Value} của vật tư '{line.Item?.ItemName ?? line.ItemId.ToString()}' không còn khả dụng để xuất.");
+                    }
+
+                    var preferredDeduct = Math.Min(preferredLot.Quantity, remainingQty);
+                    preferredLot.Quantity -= preferredDeduct;
+                    remainingQty -= preferredDeduct;
+
+                    if (preferredLot.Quantity == 0)
+                        preferredLot.IsActive = false;
+
+                    firstLotId = preferredLot.LotId;
+
+                    _context.InventoryTransactionLines.Add(new InventoryTransactionLine
+                    {
+                        InventoryTxnId = txn.InventoryTxnId,
+                        ItemId = line.ItemId,
+                        QtyChange = -preferredDeduct,
+                        UomId = line.UomId,
+                        LotId = preferredLot.LotId,
+                        Note = $"Xuất kho theo lô chỉ định GDN {gdn.Gdncode} - Lot #{preferredLot.LotId}"
+                    });
+                }
+
                 foreach (var lot in lotsForItem)
                 {
                     if (remainingQty <= 0) break;
+                    if (line.LotId.HasValue && lot.LotId == line.LotId.Value) continue;
 
                     var deductQty = Math.Min(lot.Quantity, remainingQty);
                     lot.Quantity -= deductQty;
