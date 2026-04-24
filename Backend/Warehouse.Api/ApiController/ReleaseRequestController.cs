@@ -248,7 +248,11 @@ namespace Warehouse.Api.ApiController
                     var existingAttachments = rr.Attachments?.Select(a => a.AttachmentType).ToList() ?? new List<string>();
                     
                     bool hasQuotation = existingAttachments.Contains("QUOTATION") || quotationFile != null;
-                    bool hasContract = existingAttachments.Contains("CONTRACT") || contractFile != null;
+                    // DB CK_DAtt_AttType: không có 'CONTRACT'; GIR/RR dùng 'CO' cho hợp đồng chính (tương thích bản ghi cũ 'CONTRACT' nếu có).
+                    bool hasContract =
+                        existingAttachments.Contains("CO")
+                        || existingAttachments.Contains("CONTRACT")
+                        || contractFile != null;
 
                     if (!hasQuotation || !hasContract)
                     {
@@ -263,7 +267,7 @@ namespace Warehouse.Api.ApiController
 
                 if (contractFile != null)
                 {
-                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, contractFile, currentUserId, "CONTRACT");
+                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, contractFile, currentUserId, "CO");
                 }
 
                 if (appendixFile != null)
