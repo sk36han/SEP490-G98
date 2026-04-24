@@ -23,10 +23,14 @@ export async function getStorageLocationList(params = {}) {
         warehouseId,
         keyword,
         isActive,
+        hasStock,
+        itemCode,
+        minQty,
+        maxQty,
     } = params;
 
     const response = await apiClient.get('/StorageLocation/list-all-storage-location', {
-        params: { page, pageSize, warehouseId, keyword, isActive },
+        params: { page, pageSize, warehouseId, keyword, isActive, hasStock, itemCode, minQty, maxQty },
     });
 
     const data = unwrapData(response) ?? {};
@@ -36,6 +40,20 @@ export async function getStorageLocationList(params = {}) {
     return {
         items,
         totalItems: data?.totalItems ?? data?.TotalItems ?? items.length,
+        page: data?.page ?? data?.Page ?? page,
+        pageSize: data?.pageSize ?? data?.PageSize ?? pageSize,
+    };
+}
+
+export async function getStorageLocationLedger(locationId, params = {}) {
+    const { page = 1, pageSize = 20 } = params;
+    const response = await apiClient.get(`/StorageLocation/${locationId}/ledger`, {
+        params: { page, pageSize },
+    });
+    const data = unwrapData(response) ?? {};
+    return {
+        items: data?.items ?? data?.Items ?? [],
+        totalItems: data?.totalItems ?? data?.TotalItems ?? 0,
         page: data?.page ?? data?.Page ?? page,
         pageSize: data?.pageSize ?? data?.PageSize ?? pageSize,
     };
