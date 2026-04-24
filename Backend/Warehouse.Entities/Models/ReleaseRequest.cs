@@ -31,7 +31,19 @@ public partial class ReleaseRequest
 
     public bool IsPartialDeliveryAllowed { get; set; }
 
+    public string? GmailThreadId { get; set; }
+
+    public DateTime? QuotationSentAt { get; set; }
+
+    public DateTime? QuotationConfirmedAt { get; set; }
+
+    public int QuotationVersion { get; set; }
+
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
+
+    public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
+
+    public virtual ICollection<ReleaseRequestEmailMessage> ReleaseRequestEmailMessages { get; set; } = new List<ReleaseRequestEmailMessage>();
 
     public virtual Receiver Receiver { get; set; } = null!;
 

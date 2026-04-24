@@ -24,17 +24,27 @@ import { TextField } from '@mui/material';
 import { ConfirmDialog } from '@ui/dialogs';
 import { StatusBadge } from '@ui/badges';
 import { useToastContext } from '../../app/context/ToastContext';
+import { formatDateOnly, formatDateTime } from '../lib/dateUtils';
 import '../styles/CreateSupplier.css';
 import '../styles/ViewGoodDeliveryNoteDetail.css';
 
 const MAX_REASON_LENGTH = 250;
+const UNKNOWN_ACTOR = 'Chưa xác định';
+
+const HISTORY_EVENT_META = {
+    created: { color: '#4b5563', fallbackActor: 'Hệ thống' },
+    submitted: { color: '#4b5563', fallbackActor: 'Hệ thống' },
+    approved: { color: '#059669', fallbackActor: UNKNOWN_ACTOR },
+    rejected: { color: '#dc2626', fallbackActor: UNKNOWN_ACTOR },
+    pending: { color: '#9ca3af', fallbackActor: UNKNOWN_ACTOR },
+    issued: { color: '#0284c7', fallbackActor: 'Kho' },
+};
 
 // ── Utils ──────────────────────────────────────────────────────────────────
 const toNumber = (v, f = 0) => { const p = Number(v); return Number.isFinite(p) ? p : f; };
 const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(toNumber(v));
 const formatQuantity = (v) => toNumber(v).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
-const formatDateTime = (v) => v ? new Date(v).toLocaleString('vi-VN') : '—';
-const formatDateOnly = (v) => v ? new Date(v).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+const firstDefined = (...values) => values.find((value) => value != null);
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 const SectionCard = ({ title, subtitle, children, rightSlot }) => (
@@ -67,11 +77,80 @@ const SummaryMetric = ({ label, value }) => (
     </div>
 );
 
-const ApprovalStep = ({ step, isLast }) => (
+const mapApprovalStep = (approval) => ({
+    stageNo: approval.stageNo ?? approval.StageNo ?? 1,
+    actionByName: approval.actionByName ?? approval.ActionByName ?? '',
+    actionAt: approval.actionAt ?? approval.ActionAt ?? null,
+    decision: approval.decision ?? approval.Decision ?? 'PENDING',
+    reason: approval.reason ?? approval.Reason ?? '',
+});
+
+const buildEmbeddedHistory = ({ data, approvals }) => {
+    const events = [];
+    const createdAt = firstDefined(data.createdAt, data.CreatedAt, null);
+    const submittedAt = firstDefined(data.submittedAt, data.SubmittedAt, null);
+    const issueDate = firstDefined(data.issueDate, data.IssueDate, null);
+    const createdByName = firstDefined(data.createdByName, data.CreatedByName, data.requesterName, data.RequesterName, '');
+
+    if (createdAt) {
+        events.push({
+            type: 'created',
+            title: 'Tạo phiếu xuất kho',
+            at: createdAt,
+            actor: createdByName || HISTORY_EVENT_META.created.fallbackActor,
+            note: '',
+        });
+    }
+
+    if (submittedAt) {
+        events.push({
+            type: 'submitted',
+            title: 'Gửi duyệt phiếu',
+            at: submittedAt,
+            actor: createdByName || HISTORY_EVENT_META.submitted.fallbackActor,
+            note: '',
+        });
+    }
+
+    approvals.forEach((ap) => {
+        if (!ap.actionAt) return;
+        const decision = String(ap.decision || 'PENDING').toUpperCase();
+        const title = decision === 'APPROVED'
+            ? `Duyệt bước ${ap.stageNo}`
+            : decision === 'REJECTED'
+            ? `Từ chối bước ${ap.stageNo}`
+            : `Xử lý bước ${ap.stageNo}`;
+        events.push({
+            type: decision === 'APPROVED' ? 'approved' : decision === 'REJECTED' ? 'rejected' : 'pending',
+            title,
+            at: ap.actionAt,
+            actor: ap.actionByName || HISTORY_EVENT_META.pending.fallbackActor,
+            note: ap.reason || '',
+        });
+    });
+
+    if (issueDate) {
+        events.push({
+            type: 'issued',
+            title: 'Xác nhận xuất kho',
+            at: issueDate,
+            actor: firstDefined(data.issuedByName, data.IssuedByName, HISTORY_EVENT_META.issued.fallbackActor),
+            note: '',
+        });
+    }
+
+    return events
+        .filter((event) => event.at)
+        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+};
+
+const HistoryStep = ({ event, isLast }) => {
+    const eventMeta = HISTORY_EVENT_META[event.type] ?? HISTORY_EVENT_META.pending;
+    return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{
             width: 10, height: 10, borderRadius: '50%', marginTop: 6, flexShrink: 0,
-            backgroundColor: step.decision === 'APPROVED' ? '#059669' : step.decision === 'REJECTED' ? '#dc2626' : '#9ca3af',
+            backgroundColor: eventMeta.color,
         }} />
         <div style={{
             flex: 1,
@@ -81,25 +160,20 @@ const ApprovalStep = ({ step, isLast }) => (
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
-                    Bước {step.stageNo}: {step.actionByName}
+                    {event.title}
                 </div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>{formatDateTime(step.actionAt)}</div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>{formatDateTime(event.at)}</div>
             </div>
-            <div style={{ fontSize: 13, color: '#374151', marginTop: 4 }}>
-                Kết quả:{' '}
-                <span style={{
-                    fontWeight: 600,
-                    color: step.decision === 'APPROVED' ? '#059669' : step.decision === 'REJECTED' ? '#dc2626' : '#d97706',
-                }}>
-                    {step.decision === 'APPROVED' ? '✓ Duyệt' : step.decision === 'REJECTED' ? '✗ Từ chối' : '⏳ Chờ'}
-                </span>
+            <div style={{ fontSize: 13, color: '#374151', marginTop: 4, fontWeight: 500 }}>
+                Người xử lý: {event.actor || eventMeta.fallbackActor}
             </div>
-            {step.reason && (
-                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>"{step.reason}"</div>
+            {event.note && (
+                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>"{event.note}"</div>
             )}
         </div>
     </div>
-);
+    );
+};
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function ViewGoodDeliveryNoteDetail() {
@@ -147,6 +221,8 @@ export default function ViewGoodDeliveryNoteDetail() {
                     }))
                     : [];
 
+                const approvals = (data.approvals ?? data.Approvals ?? []).map(mapApprovalStep);
+
                 setGdn({
                     gdnId: data.gdnId ?? id,
                     gdnCode: data.gdnCode ?? '',
@@ -154,7 +230,8 @@ export default function ViewGoodDeliveryNoteDetail() {
                     requesterName: data.requesterName ?? '',
                     releaseRequestCode: data.releaseRequestCode ?? '',
                     requestDate: formatDateOnly(data.requestDate ?? ''),
-                    submittedAt: formatDateTime(data.submittedAt ?? ''),
+                    createdAt: formatDateTime(data.createdAt ?? data.CreatedAt ?? data.submittedAt ?? data.SubmittedAt ?? ''),
+                    submittedAt: formatDateTime(data.submittedAt ?? data.SubmittedAt ?? ''),
                     status: data.status ?? '',
                     note: data.note || '',
                     receiverName: data.receiver?.receiverName ?? '',
@@ -166,13 +243,8 @@ export default function ViewGoodDeliveryNoteDetail() {
                     licensePlate: data.transportInfo?.licensePlate ?? '',
                     shippingFee: toNumber(data.shippingFee),
                     lines: mappedLines,
-                    approvals: (data.approvals ?? []).map((ap) => ({
-                        stageNo: ap.stageNo ?? 1,
-                        actionByName: ap.actionByName ?? '',
-                        actionAt: formatDateTime(ap.actionAt ?? ''),
-                        decision: ap.decision ?? 'PENDING',
-                        reason: ap.reason ?? '',
-                    })),
+                    approvals,
+                    history: buildEmbeddedHistory({ data, approvals }),
                 });
             }
         } catch (err) {
@@ -391,7 +463,8 @@ export default function ViewGoodDeliveryNoteDetail() {
                                     <ReadonlyField label="Kho xuất" value={gdn.warehouseName || '-'} icon={MapPin} />
                                     <ReadonlyField label="Người yêu cầu" value={gdn.requesterName || '-'} icon={MapPin} />
                                     <ReadonlyField label="Ngày yêu cầu" value={gdn.requestDate || '-'} icon={MapPin} />
-                                    <ReadonlyField label="Ngày tạo" value={gdn.submittedAt || '-'} icon={MapPin} />
+                                    <ReadonlyField label="Ngày tạo" value={gdn.createdAt || '-'} icon={MapPin} />
+                                    <ReadonlyField label="Ngày gửi duyệt" value={gdn.submittedAt || '-'} icon={MapPin} />
                                     <ReadonlyField label="Yêu cầu xuất kho" value={gdn.releaseRequestCode || '-'} icon={FileText} />
 
                                     {/* Người nhận */}
@@ -424,16 +497,16 @@ export default function ViewGoodDeliveryNoteDetail() {
                                 <div className="gdn-note-box">{gdn.note?.trim() || 'Không có ghi chú.'}</div>
                             </SectionCard>
 
-                            <SectionCard title="Lịch sử phê duyệt" subtitle="Các mốc phê duyệt của phiếu">
+                            <SectionCard title="Lịch sử xử lý phiếu" subtitle="Các mốc xử lý thực tế được nhúng trực tiếp trong chi tiết phiếu">
                                 <div style={{ padding: 16, backgroundColor: '#f9fafb', borderRadius: 12, border: '1px solid #e5e7eb' }}>
-                                    {gdn.approvals?.length ? (
+                                    {gdn.history?.length ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                            {gdn.approvals.map((ap, i) => (
-                                                <ApprovalStep key={i} step={ap} isLast={i === gdn.approvals.length - 1} />
+                                            {gdn.history.map((event, i) => (
+                                                <HistoryStep key={`${event.type}-${event.at}-${i}`} event={event} isLast={i === gdn.history.length - 1} />
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="gdn-empty-state" style={{ padding: 0 }}>Chưa có lịch sử phê duyệt.</div>
+                                        <div className="gdn-empty-state" style={{ padding: 0 }}>Chưa có lịch sử xử lý.</div>
                                     )}
                                 </div>
                             </SectionCard>

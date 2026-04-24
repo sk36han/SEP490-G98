@@ -25,9 +25,10 @@ import '../styles/CreateGoodDeliveryNote.css'; // Đảm bảo đúng đường 
 import { createGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
 import { getDeliveries, getDeliveryHistory, normalizeTransportInfoFields } from '../lib/deliveryService';
 import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
+import { formatLocalDateOnly, getLocalNowIso, normalizeDateOnlyLocalInput } from '../lib/dateUtils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TODAY = new Date().toLocaleDateString('en-CA');
+const TODAY = formatLocalDateOnly();
 /** Luôn gửi FIFO — không hiển thị chọn trên form. */
 const PICKING_STRATEGY_FIFO = 'FIFO';
 
@@ -82,6 +83,7 @@ export default function CreateGoodDeliveryNote() {
     const [lines, setLines] = useState([]);
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [createdAtClient, setCreatedAtClient] = useState('');
 
     const releaseRequestDropdownRef = useRef(null);
     const [releaseRequestDropdownOpen, setReleaseRequestDropdownOpen] = useState(false);
@@ -303,10 +305,15 @@ export default function CreateGoodDeliveryNote() {
         if (!validateForm()) return;
         setSubmitting(true);
         try {
+            if (!createdAtClient) {
+                // Capture exact client creation moment for fallback display/trace.
+                setCreatedAtClient(getLocalNowIso());
+            }
             const payload = {
                 ReleaseRequestId: Number(formData.releaseRequestId),
                 WarehouseId: Number(formData.warehouseId),
-                IssueDate: formData.issueDate,
+                // Backend uses DateOnly; always send local date string (YYYY-MM-DD), never UTC-converted datetime.
+                IssueDate: normalizeDateOnlyLocalInput(formData.issueDate),
                 Status: 'PENDING_ISSUE',
                 PickingStrategy: PICKING_STRATEGY_FIFO,
                 ShippingFee: 0,

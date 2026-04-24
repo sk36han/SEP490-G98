@@ -61,8 +61,10 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error) => {
+        const requestConfig = error?.config ?? {};
         // Handle 401 Unauthorized - token expired or invalid
-        if (error.response?.status === 401) {
+        // Skip auth endpoints (login/otp/forgot/reset) to avoid showing session-expired toast on login failures.
+        if (error.response?.status === 401 && !isPublicAuthRequest(requestConfig)) {
             handleSessionExpired({
                 redirectToLogin: true,
                 skipIfOtpPending: true,

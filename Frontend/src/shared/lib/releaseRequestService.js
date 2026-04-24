@@ -263,7 +263,6 @@ export async function createReleaseRequest(data) {
                     : null,
             })),
         };
-        console.log('[createReleaseRequest] payload:', JSON.stringify(payload, null, 2));
         const response = await apiClient.post('/ReleaseRequest/create', payload);
         invalidate('releaseRequest');
         return extractBody(response);
