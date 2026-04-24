@@ -25,6 +25,7 @@ import { ConfirmDialog } from '@ui/dialogs';
 import { StatusBadge } from '@ui/badges';
 import { useToastContext } from '../../app/context/ToastContext';
 import { formatDateOnly, formatDateTime } from '../lib/dateUtils';
+import { notifyApiError, notifyApiSuccess } from '../lib/toastMessageMapper';
 import '../styles/CreateSupplier.css';
 import '../styles/ViewGoodDeliveryNoteDetail.css';
 
@@ -249,7 +250,7 @@ export default function ViewGoodDeliveryNoteDetail() {
             }
         } catch (err) {
             console.error('Lỗi tải GDN:', err);
-            showToast(err?.response?.data?.message || err?.message || 'Không thể tải dữ liệu phiếu xuất kho', 'error');
+            notifyApiError(showToast, err, 'Khong the tai du lieu phieu xuat kho');
         } finally {
             setLoading(false);
         }
@@ -279,23 +280,23 @@ export default function ViewGoodDeliveryNoteDetail() {
         try {
             if (dialogConfig.type === 'approve') {
                 await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: true, reason: reasonText.trim() });
-                showToast('Đã duyệt phiếu xuất kho', 'success');
+                notifyApiSuccess(showToast, 'Đã duyệt phiếu xuất kho');
             } else if (dialogConfig.type === 'reject') {
                 await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: false, reason: reasonText.trim() });
-                showToast('Đã từ chối phiếu xuất kho', 'success');
+                notifyApiSuccess(showToast, 'Đã từ chối phiếu xuất kho');
             } else if (dialogConfig.type === 'issue') {
                 // Đủ hàng: chỉ IsAllItemsFulfilled — backend tự gán ActualQty = RequestedQty từng dòng (IssueGDNAsync)
                 await issueGoodsDeliveryNote(gdn.gdnId, {
                     isAllItemsFulfilled: true,
                     note: reasonText.trim() || null,
                 });
-                showToast('Xuất kho thành công', 'success');
+                notifyApiSuccess(showToast, 'Xuất kho thành công');
             }
             closeDialog();
             fetchData();
         } catch (err) {
             console.error('Lỗi thao tác:', err);
-            showToast(err?.response?.data?.message || err?.message || 'Thao tác thất bại', 'error');
+            notifyApiError(showToast, err, 'Thao tac that bai');
         } finally {
             setProcessing(false);
         }

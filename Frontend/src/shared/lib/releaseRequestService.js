@@ -1,6 +1,6 @@
 import apiClient from './axios';
-import authService from './authService';
 import { invalidate } from './pollingManager';
+import { normalizeApiError } from './apiErrorNormalizer';
 
 /** Backend endpoints (ReleaseRequestController):
  *   POST /api/ReleaseRequest/create
@@ -29,11 +29,6 @@ function extractPaged(response) {
         page: paged?.page ?? paged?.Page ?? 1,
         pageSize: paged?.pageSize ?? paged?.PageSize ?? 20,
     };
-}
-
-function getCurrentUserId() {
-    const user = authService.getUser();
-    return user?.userId ?? user?.UserId ?? null;
 }
 
 // ─── Row mappers ──────────────────────────────────────────────────────────
@@ -160,7 +155,7 @@ export async function getReleaseRequests(params = {}) {
         return { items, totalItems, page: pg, pageSize: ps };
     } catch (error) {
         console.error('[releaseRequestService] getReleaseRequests failed:', error);
-        throw error.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the tai danh sach yeu cau xuat kho.' });
     }
 }
 
@@ -204,7 +199,7 @@ export async function getReleaseRequestDetail(id) {
         };
     } catch (error) {
         console.error('[releaseRequestService] getReleaseRequestDetail failed:', error);
-        throw error.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the tai chi tiet yeu cau xuat kho.' });
     }
 }
 
@@ -268,15 +263,7 @@ export async function createReleaseRequest(data) {
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] createReleaseRequest failed:', error);
-        const errData = error.response?.data;
-        // Parse backend validation errors
-        if (errData?.errors) {
-            const msgs = Object.values(errData.errors).flat();
-            const err = new Error(msgs.join('; '));
-            err._raw = errData;
-            throw err;
-        }
-        throw errData || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the tao yeu cau xuat kho.' });
     }
 }
 
@@ -335,7 +322,7 @@ export async function updateReleaseRequest(id, data) {
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] updateReleaseRequest failed:', error);
-        throw error.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the cap nhat yeu cau xuat kho.' });
     }
 }
 
@@ -370,14 +357,7 @@ export async function approveReleaseRequest(id, data) {
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] approveReleaseRequest failed:', error);
-        const errData = error.response?.data;
-        if (errData?.errors) {
-            const msgs = Object.values(errData.errors).flat();
-            const err = new Error(msgs.join('; '));
-            err._raw = errData;
-            throw err;
-        }
-        throw errData || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the duyet yeu cau xuat kho.' });
     }
 }
 
@@ -397,6 +377,6 @@ export async function submitReleaseRequest(id) {
         return extractBody(response);
     } catch (error) {
         console.error('[releaseRequestService] submitReleaseRequest failed:', error);
-        throw error.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the gui yeu cau xuat kho.' });
     }
 }

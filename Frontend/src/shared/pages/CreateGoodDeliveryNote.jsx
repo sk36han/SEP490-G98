@@ -26,6 +26,7 @@ import { createGoodsDeliveryNote } from '../lib/goodsDeliveryNoteService';
 import { getDeliveries, getDeliveryHistory, normalizeTransportInfoFields } from '../lib/deliveryService';
 import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
 import { formatLocalDateOnly, getLocalNowIso, normalizeDateOnlyLocalInput } from '../lib/dateUtils';
+import { notifyApiError, notifyApiSuccess } from '../lib/toastMessageMapper';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TODAY = formatLocalDateOnly();
@@ -179,8 +180,8 @@ export default function CreateGoodDeliveryNote() {
         if (!rr.lines || rr.lines.length === 0) {
             try {
                 detail = await getReleaseRequestDetail(rr.releaseRequestId);
-            } catch {
-                showToast('Không tải được chi tiết yêu cầu.', 'error');
+            } catch (error) {
+                notifyApiError(showToast, error, 'Khong tai duoc chi tiet yeu cau.');
                 return;
             }
         }
@@ -344,10 +345,10 @@ export default function CreateGoodDeliveryNote() {
                 })(),
             };
             await createGoodsDeliveryNote(payload);
-            showToast('Tạo phiếu thành công. Phiếu chuyển sang bước chuẩn bị hàng.', 'success');
+            notifyApiSuccess(showToast, 'Tạo phiếu thành công. Phiếu chuyển sang bước chuẩn bị hàng.');
             setTimeout(() => navigate('/good-delivery-notes'), 1200);
         } catch (e) {
-            showToast(e.message || 'Lỗi server', 'error');
+            notifyApiError(showToast, e, 'Loi server');
         } finally {
             setSubmitting(false);
         }

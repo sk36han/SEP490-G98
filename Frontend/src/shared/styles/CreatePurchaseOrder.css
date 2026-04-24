@@ -12,22 +12,22 @@
 /* Form Layout */
 .po-form-grid {
     display: grid;
-    grid-template-columns: 1fr 350px;
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+    gap: 16px;
     align-items: start;
 }
 
 /* Section */
 .po-section {
     margin: 0;
-    min-height: 400px;
+    min-height: 320px;
     display: flex;
     flex-direction: column;
 }
 
 /* Product Table */
 .po-table-container {
-    max-height: 500px;
+    max-height: 420px;
     overflow-y: auto;
 }
 
@@ -41,7 +41,7 @@
 
 /* Search Dropdown */
 .po-search-wrapper {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     animation: slideDown 0.3s ease-out;
     position: relative;
 }
@@ -52,10 +52,10 @@
 
 .po-search-input {
     width: 100%;
-    padding: 12px 44px 12px 44px;
+    padding: 10px 40px 10px 40px;
     border: 2px solid #2196F3;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 13px;
     outline: none;
     box-sizing: border-box;
     box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.1);
@@ -102,7 +102,7 @@
 }
 
 .po-search-item {
-    padding: 12px 16px;
+    padding: 10px 12px;
     border-bottom: 1px solid #f3f4f6;
     display: flex;
     align-items: center;
@@ -142,7 +142,7 @@
 }
 
 .po-search-item-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: #1f2937;
 }
@@ -155,7 +155,7 @@
 }
 
 .po-search-item-price {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #2196F3;
     margin-left: 12px;
@@ -177,7 +177,7 @@
 .po-summary-grid {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
 }
 
 .po-summary-row {
@@ -193,7 +193,7 @@
 
 .po-summary-value {
     font-weight: 600;
-    padding: 10px;
+    padding: 8px;
     background-color: #f5f5f5;
     border-radius: 8px;
 }
@@ -219,8 +219,8 @@
 }
 
 .po-total-section {
-    margin-top: 16px;
-    padding: 20px;
+    margin-top: 12px;
+    padding: 14px;
     background-color: #e3f2fd;
     border-radius: 12px;
     display: flex;
@@ -230,13 +230,13 @@
 }
 
 .po-total-label {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: #2196F3;
 }
 
 .po-total-value {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: #2196F3;
 }
@@ -446,6 +446,22 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 16px;
     align-items: start;
+}
+
+@media (max-width: 1280px) {
+    .po-form-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    }
+}
+
+@media (max-width: 1080px) {
+    .po-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .po-table-container {
+        max-height: none;
+    }
 }

@@ -11,6 +11,7 @@
  */
 import apiClient, { extractBody } from './axios';
 import { invalidate } from './pollingManager';
+import { normalizeApiError } from './apiErrorNormalizer';
 
 function getPayload(data) {
     return data?.data ?? data?.Data ?? data ?? null;
@@ -203,21 +204,6 @@ export function buildCreateTransportInfoBody(input) {
     return { gdnid, ...fields };
 }
 
-function getCreateTransportInfoErrorMessage(error) {
-    const d = error?.response?.data;
-    if (d == null) return error?.message || 'Không thể tạo thông tin vận chuyển.';
-    if (typeof d === 'string') return d;
-    if (d.message) return d.message;
-    if (d.Message) return d.Message;
-    const errs = d.errors ?? d.Errors;
-    if (errs && typeof errs === 'object') {
-        const firstKey = Object.keys(errs)[0];
-        const arr = firstKey ? errs[firstKey] : null;
-        if (Array.isArray(arr) && arr[0]) return String(arr[0]);
-    }
-    return error?.message || 'Không thể tạo thông tin vận chuyển.';
-}
-
 /**
  * Tạo giao hàng (POST /api/TransportInfo).
  * @param {object} input – cùng shape với buildCreateTransportInfoBody (vd. formData từ CreateDelivery)
@@ -232,7 +218,7 @@ export async function createDelivery(input) {
         if (error?.response?.status === 404) {
             throw new Error('Backend chưa hỗ trợ API tạo giao hàng.');
         }
-        throw new Error(getCreateTransportInfoErrorMessage(error));
+        throw normalizeApiError(error, { defaultMessage: 'Không thể tạo thông tin vận chuyển.' });
     }
 }
 
@@ -245,6 +231,6 @@ export async function updateDelivery(id, payload) {
         invalidate('deliveries');
         return extractBody(response);
     } catch (error) {
-        throw error?.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Không thể cập nhật thông tin vận chuyển.' });
     }
 }

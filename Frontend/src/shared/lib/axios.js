@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { handleSessionExpired } from './sessionLifecycle';
+import { normalizeApiError } from './apiErrorNormalizer';
 
 /**
  * Base URL cho API:
@@ -71,7 +72,7 @@ apiClient.interceptors.response.use(
             });
         }
 
-        return Promise.reject(error);
+        return Promise.reject(normalizeApiError(error));
     }
 );
 

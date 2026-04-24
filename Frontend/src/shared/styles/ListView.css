@@ -40,6 +40,11 @@
     overflow-y: auto;
 }
 
+.list-view .MuiTable-root,
+.view-detail-view .MuiTable-root {
+    width: 100% !important;
+}
+
 /* ViewWarehouseList: một luồng cuộn dọc (MainLayout), không cuộn trong TableContainer khi ít dòng */
 .list-view.warehouse-list-page .MuiTableContainer-root {
     overflow-y: visible !important;
@@ -57,12 +62,12 @@
 .list-view .list-page-btn,
 .list-view .list-filter-card .list-page-btn,
 .view-detail-view .list-page-btn {
-    font-size: 13px !important;
+    font-size: 12px !important;
     font-weight: 600 !important;
     text-transform: none !important;
-    border-radius: 10px !important;
-    min-height: 36px !important;
-    padding: 6px 16px !important;
+    border-radius: 8px !important;
+    min-height: 32px !important;
+    padding: 4px 12px !important;
 }
 
 .list-view .list-grid-error-overlay,

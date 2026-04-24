@@ -1,5 +1,6 @@
 import apiClient, { extractBody } from './axios';
 import { invalidate } from './pollingManager';
+import { normalizeApiError } from './apiErrorNormalizer';
 
 function getPayload(data) {
     return data?.data ?? data?.Data ?? data ?? null;
@@ -152,15 +153,7 @@ export async function createGoodsDeliveryNote(payload) {
         if (error?.response?.status === 404) {
             throw new Error('Backend chưa hỗ trợ API tạo phiếu xuất hàng.');
         }
-        if (error?.response?.data?.errors) {
-            const msgs = Object.values(error.response.data.errors).flat();
-            throw new Error(msgs.join('; '));
-        }
-        throw new Error(
-            error?.response?.data?.message
-            || error?.response?.data?.detail
-            || 'Không thể tạo phiếu xuất hàng.'
-        );
+        throw normalizeApiError(error, { defaultMessage: 'Khong the tao phieu xuat hang.' });
     }
 }
 
@@ -174,11 +167,7 @@ export async function createTransportInfo(payload) {
         const response = await apiClient.post('/TransportInfo', payload);
         return getPayload(response?.data);
     } catch (error) {
-        throw new Error(
-            error?.response?.data?.message
-            || error?.response?.data?.detail
-            || 'Không thể tạo thông tin vận chuyển.'
-        );
+        throw normalizeApiError(error, { defaultMessage: 'Khong the tao thong tin van chuyen.' });
     }
 }
 
@@ -205,7 +194,7 @@ export async function approveGoodsDeliveryNote(gdnId, data) {
         });
         return extractBody(response);
     } catch (error) {
-        throw error?.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the duyet phieu xuat kho.' });
     }
 }
 
@@ -233,7 +222,7 @@ export async function issueGoodsDeliveryNote(gdnId, data) {
         });
         return extractBody(response);
     } catch (error) {
-        throw error?.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the xac nhan xuat kho.' });
     }
 }
 
@@ -262,6 +251,6 @@ export async function confirmDeliveryGoodsDeliveryNote(gdnId, data) {
         });
         return extractBody(response);
     } catch (error) {
-        throw error?.response?.data || error;
+        throw normalizeApiError(error, { defaultMessage: 'Khong the xac nhan giao hang.' });
     }
 }
