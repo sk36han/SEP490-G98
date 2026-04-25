@@ -67,40 +67,6 @@ export async function createPurchaseReturn(payload) {
 }
 
 /**
- * Upload nhieu tep minh chung cho PRN.
- * @param {number|string} prnId
- * @param {File[]} files
- */
-export async function uploadPurchaseReturnAttachments(prnId, files = []) {
-    const list = Array.isArray(files) ? files.filter(Boolean) : [];
-    if (!prnId || list.length === 0) return null;
-
-    const formData = new FormData();
-    list.forEach((file) => formData.append('evidenceFiles', file));
-
-    const response = await apiClient.post(
-        `/PurchaseReturnNote/${prnId}/attachments`,
-        formData,
-        {
-            transformRequest: [
-                (data, headers) => {
-                    if (typeof FormData !== 'undefined' && data instanceof FormData) {
-                        if (headers && typeof headers.delete === 'function') {
-                            headers.delete('Content-Type');
-                        } else if (headers && typeof headers === 'object') {
-                            delete headers['Content-Type'];
-                        }
-                    }
-                    return data;
-                },
-            ],
-        },
-    );
-
-    return response?.data;
-}
-
-/**
  * Cap nhat phieu tra hang (ngay tra, ly do, ghi chu phi, phi, dong hang).
  * @param {number} id - purchaseReturnId
  * @param {{

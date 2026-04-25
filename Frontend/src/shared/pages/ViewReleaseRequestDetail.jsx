@@ -44,9 +44,7 @@ function findAttachmentByType(attachments, typeUpper) {
 
 function ReleaseRequestAttachmentsCard({ attachments }) {
     const quotationAtt = findAttachmentByType(attachments, 'QUOTATION');
-    // Backend lưu hợp đồng chính là 'CO' (CK_DAtt_AttType); bản cũ có thể là 'CONTRACT'.
-    const contractAtt =
-        findAttachmentByType(attachments, 'CO') || findAttachmentByType(attachments, 'CONTRACT');
+    const contractAtt = findAttachmentByType(attachments, 'CONTRACT');
     return (
         <div className="info-section" style={{ margin: 0, minWidth: 0, overflow: 'hidden' }}>
             <div className="section-header-with-toggle">

@@ -297,20 +297,6 @@ namespace Warehouse.DataAcces.Service
                 RelatedGrnlineId = l.RelatedGrnlineId
             }).ToList();
 
-            var attachments = await _context.DocumentAttachments
-                .AsNoTracking()
-                .Where(a => a.DocType == "PRN" && a.DocId == prnId)
-                .OrderByDescending(a => a.UploadedAt)
-                .Select(a => new PRNAttachmentResponse
-                {
-                    AttachmentId = a.AttachmentId,
-                    FileName = a.FileName,
-                    FileUrl = a.FileUrlOrPath,
-                    AttachmentType = a.AttachmentType,
-                    UploadedAt = a.UploadedAt
-                })
-                .ToListAsync();
-
             return new PurchaseReturnNoteDetailResponse
             {
                 PurchaseReturnId = prn.PurchaseReturnId,
@@ -346,8 +332,7 @@ namespace Warehouse.DataAcces.Service
                 CreatedAt = prn.CreatedAt,
                 ApprovedAt = prn.ApprovedAt,
                 PostedAt = prn.PostedAt,
-                Lines = lines,
-                Attachments = attachments
+                Lines = lines
             };
         }
 

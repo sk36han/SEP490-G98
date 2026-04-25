@@ -340,7 +340,6 @@ const roleMenus = {
         menuCatalog.goodReceiptNotesManage,
         menuCatalog.releaseRequestsManage,
         menuCatalog.goodsDeliveryNotesManage,
-        menuCatalog.purchaseReturnsList,
     ],
     SALE_SUPPORT: [
         ...COMMON_ITEMS,

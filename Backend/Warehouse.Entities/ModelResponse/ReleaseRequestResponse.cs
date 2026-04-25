@@ -147,7 +147,7 @@ namespace Warehouse.Entities.ModelResponse
         public long AttachmentId { get; set; }
         public string FileName { get; set; } = null!;
         public string FileUrl { get; set; } = null!;
-        public string AttachmentType { get; set; } = null!; // QUOTATION, CO (hợp đồng), CONTRACT_APPENDIX, ...
+        public string AttachmentType { get; set; } = null!; // QUOTATION, CONTRACT, ...
         public DateTime UploadedAt { get; set; }
     }
 }

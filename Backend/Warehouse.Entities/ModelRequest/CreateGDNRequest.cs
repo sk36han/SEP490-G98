@@ -58,8 +58,6 @@ namespace Warehouse.Entities.ModelRequest
 
         public long? ReleaseRequestLineId { get; set; }
 
-        public long? LotId { get; set; }
-
         public decimal? UnitPrice { get; set; }
 
         public bool RequiresCertificateCopy { get; set; }

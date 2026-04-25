@@ -530,10 +530,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     // Kiểm tra hồ sơ bắt buộc khi gửi duyệt (Kiểm tra trong database)
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a =>
-                        a.DocType == "GIR"
-                        && a.DocId == id
-                        && (a.AttachmentType == "CO" || a.AttachmentType == "CONTRACT"));
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
 
                     if (!hasQuotation) throw new InvalidOperationException("Vui lòng tải lên tài liệu Báo giá trước khi gửi duyệt.");
                     if (!hasContract) throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi gửi duyệt.");
@@ -972,10 +969,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     // Kiểm tra hồ sơ bắt buộc khi duyệt
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a =>
-                        a.DocType == "GIR"
-                        && a.DocId == id
-                        && (a.AttachmentType == "CO" || a.AttachmentType == "CONTRACT"));
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
 
                     if (!hasQuotation) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Báo giá.");
                     if (!hasContract) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Hợp đồng.");
