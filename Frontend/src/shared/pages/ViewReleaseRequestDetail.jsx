@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, FileText, Package, MapPin, User,
     Phone, Mail, Briefcase, Calendar, Send, Edit, Loader, ImageIcon,
-    CheckCircle, XCircle, Truck, Download, Paperclip, ExternalLink,
+    CheckCircle, XCircle, Truck,
 } from 'lucide-react';
 import {
     Box, Typography, CircularProgress,
@@ -37,127 +37,93 @@ const toAbsoluteFileUrl = (url) => {
     return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-
-const ATTACHMENT_TYPE_LABEL = {
-    QUOTATION: 'Báo giá',
-    CONTRACT: 'Hợp đồng nguyên tắc',
-    APPENDIX: 'Phụ lục hợp đồng',
-};
-
-function getAttachmentTypeLabel(type) {
-    return ATTACHMENT_TYPE_LABEL[String(type || '').toUpperCase()] || 'Tệp đính kèm';
+function findAttachmentByType(attachments, typeUpper) {
+    if (!Array.isArray(attachments)) return null;
+    return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
 }
 
 function ReleaseRequestAttachmentsCard({ attachments }) {
-    const list = Array.isArray(attachments) ? attachments.filter(Boolean) : [];
+    const quotationAtt = findAttachmentByType(attachments, 'QUOTATION');
+    // Backend lưu hợp đồng chính là 'CO' (CK_DAtt_AttType); bản cũ có thể là 'CONTRACT'.
+    const contractAtt =
+        findAttachmentByType(attachments, 'CO') || findAttachmentByType(attachments, 'CONTRACT');
     return (
         <div className="info-section" style={{ margin: 0, minWidth: 0, overflow: 'hidden' }}>
             <div className="section-header-with-toggle">
                 <h2 className="section-title">
-                    <Paperclip size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                    <FileText size={16} style={{ marginRight: 8, color: '#2196F3' }} />
                     Tệp đính kèm
                 </h2>
-                {list.length > 0 && (
-                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 400 }}>
-                        {list.length} tệp
-                    </span>
-                )}
             </div>
-            {list.length === 0 ? (
-                <Box sx={{ py: 3, textAlign: 'center', color: '#9ca3af' }}>
-                    <Paperclip size={30} style={{ opacity: 0.35, margin: '0 auto 8px', display: 'block' }} />
-                    <Typography sx={{ fontSize: 13 }}>Không có tệp đính kèm</Typography>
-                </Box>
-            ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-                    {list.map((att, idx) => (
-                        <AttachmentFileItem
-                            key={att.attachmentId ?? att.fileUrl ?? idx}
-                            attachment={att}
-                            typeLabel={getAttachmentTypeLabel(att.attachmentType)}
-                        />
-                    ))}
-                </Box>
-            )}
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    minWidth: 0,
+                    width: '100%',
+                    maxWidth: '100%',
+                }}
+            >
+                <AttachmentFileRow
+                    label="Báo giá:"
+                    fileName={quotationAtt?.fileName}
+                    fileUrl={quotationAtt?.fileUrl}
+                />
+                <AttachmentFileRow
+                    label="Hợp đồng nguyên tắc:"
+                    fileName={contractAtt?.fileName}
+                    fileUrl={contractAtt?.fileUrl}
+                />
+            </Box>
         </div>
     );
 }
 
-function AttachmentFileItem({ attachment, typeLabel }) {
-    const href = attachment.fileUrl ? toAbsoluteFileUrl(attachment.fileUrl) : '';
-    const name = attachment.fileName?.trim() || 'Tệp đính kèm';
-
-    const actionBtnSx = {
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 28, height: 28, borderRadius: '6px',
-        border: '1px solid #e5e7eb', background: '#fff',
-        textDecoration: 'none', flexShrink: 0, cursor: 'pointer',
-        transition: 'all 0.15s',
+/** Một dòng: nhãn + tên file (ellipsis), không đẩy tràn card */
+function AttachmentFileRow({ label, fileName, fileUrl }) {
+    const name = fileName?.trim() || 'Tệp đính kèm';
+    const href = fileUrl ? toAbsoluteFileUrl(fileUrl) : '';
+    const lineSx = {
+        display: 'block',
+        fontSize: 13,
+        fontWeight: 500,
+        minWidth: 0,
+        maxWidth: '100%',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
     };
-
     return (
-        <Box sx={{
-            display: 'flex', alignItems: 'center', gap: 1.25,
-            px: 1.5, py: 1.25,
-            border: '1px solid #e5e7eb', borderRadius: '8px',
-            bgcolor: '#fafafa', minWidth: 0,
-            '&:hover': { borderColor: '#bfdbfe', bgcolor: '#f0f7ff' },
-            transition: 'all 0.15s',
-        }}>
-            <Box sx={{
-                width: 32, height: 32, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: '7px', bgcolor: '#eff6ff', border: '1px solid #bfdbfe',
-            }}>
-                <FileText size={16} color="#3b82f6" />
-            </Box>
-
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{
-                    fontSize: 10, fontWeight: 700, color: '#64748b',
-                    letterSpacing: 0.5, textTransform: 'uppercase', lineHeight: 1.2, mb: 0.2,
-                }}>
-                    {typeLabel}
-                </Typography>
+        <Box sx={{ minWidth: 0, width: '100%' }}>
+            <Typography
+                component="div"
+                sx={{ fontSize: 12, fontWeight: 600, color: '#64748b', mb: 0.5, letterSpacing: 0.2 }}
+            >
+                {label}
+            </Typography>
+            {href ? (
                 <Typography
+                    component="a"
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     title={name}
                     sx={{
-                        fontSize: 12.5, fontWeight: 500, color: '#1f2937',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        ...lineSx,
+                        color: '#2563eb',
+                        textDecoration: 'none',
+                        '&:hover': { textDecoration: 'underline' },
                     }}
                 >
                     {name}
                 </Typography>
-            </Box>
-
-            {href && (
-                <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                    <Box
-                        component="a"
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Xem tệp"
-                        sx={{
-                            ...actionBtnSx, color: '#2563eb',
-                            '&:hover': { bgcolor: '#eff6ff', borderColor: '#93c5fd' },
-                        }}
-                    >
-                        <ExternalLink size={13} />
-                    </Box>
-                    <Box
-                        component="a"
-                        href={href}
-                        download={name}
-                        title="Tải xuống"
-                        sx={{
-                            ...actionBtnSx, color: '#16a34a',
-                            '&:hover': { bgcolor: '#f0fdf4', borderColor: '#86efac' },
-                        }}
-                    >
-                        <Download size={13} />
-                    </Box>
-                </Box>
+            ) : name && name !== 'Tệp đính kèm' ? (
+                <Typography title={name} sx={{ ...lineSx, color: '#374151' }}>
+                    {name}
+                </Typography>
+            ) : (
+                <Typography sx={{ fontSize: 13, color: '#9ca3af' }}>—</Typography>
             )}
         </Box>
     );
@@ -735,7 +701,7 @@ export default function ViewReleaseRequestDetail() {
                             </div>
 
                             {/* Tệp đính kèm — ẩn với role TK */}
-                            {!hideSensitiveForWarehouseKeeper && (
+                            {!hideSensitiveForWarehouseKeeper && Array.isArray(data.attachments) && data.attachments.length > 0 && (
                                 <ReleaseRequestAttachmentsCard attachments={data.attachments} />
                             )}
 

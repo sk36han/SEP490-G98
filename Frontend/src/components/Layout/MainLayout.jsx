@@ -55,9 +55,9 @@ const MainLayout = ({ children }) => {
                         overflow: 'hidden',
                         display: 'flex',
                         flexDirection: 'column',
-                        pt: 1.5,
-                        px: 3,
-                        pb: 3,
+                        pt: 1,
+                        px: { xs: 1.5, md: 2 },
+                        pb: { xs: 1.5, md: 2 },
                         boxSizing: 'border-box',
                     }}
                 >

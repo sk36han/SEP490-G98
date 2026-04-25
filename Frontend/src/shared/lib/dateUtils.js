@@ -156,3 +156,35 @@ export function utcTimestamp(dateStr) {
     const d = parseDate(dateStr);
     return d ? d.getTime() : 0;
 }
+
+/**
+ * Return local calendar day as YYYY-MM-DD.
+ * Safe for DateOnly payloads (no UTC conversion).
+ */
+export function formatLocalDateOnly(value = new Date()) {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Normalize user input to DateOnly (YYYY-MM-DD) in local context.
+ */
+export function normalizeDateOnlyLocalInput(value) {
+    if (!value) return formatLocalDateOnly();
+    if (typeof value === 'string') {
+        const datePart = value.includes('T') ? value.split('T')[0] : value;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
+    }
+    return formatLocalDateOnly(value);
+}
+
+/**
+ * Client-side creation timestamp in ISO (UTC) for local trace/fallback display.
+ */
+export function getLocalNowIso() {
+    return new Date().toISOString();
+}

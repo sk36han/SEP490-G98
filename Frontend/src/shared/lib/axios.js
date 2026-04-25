@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { handleSessionExpired } from './sessionLifecycle';
+import { normalizeApiError } from './apiErrorNormalizer';
 
 /**
  * Base URL cho API:
@@ -61,15 +62,17 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error) => {
+        const requestConfig = error?.config ?? {};
         // Handle 401 Unauthorized - token expired or invalid
-        if (error.response?.status === 401) {
+        // Skip auth endpoints (login/otp/forgot/reset) to avoid showing session-expired toast on login failures.
+        if (error.response?.status === 401 && !isPublicAuthRequest(requestConfig)) {
             handleSessionExpired({
                 redirectToLogin: true,
                 skipIfOtpPending: true,
             });
         }
 
-        return Promise.reject(error);
+        return Promise.reject(normalizeApiError(error));
     }
 );
 

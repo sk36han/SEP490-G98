@@ -722,8 +722,8 @@ const CreatePurchaseOrder = () => {
                     </div>
 
                     {/* Layout 2 cột: Trái (vật tư + tổng hợp) | Phải (thông tin chung + NCC + ghi chú + tệp) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
+                    <div className="po-form-grid">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
                             {/* 1. Chi tiết sản phẩm */}
                             <ProductTable
                                 lines={lines}

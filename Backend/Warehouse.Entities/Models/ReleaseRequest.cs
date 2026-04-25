@@ -41,3 +41,4 @@ public partial class ReleaseRequest
 
     public virtual Warehouse Warehouse { get; set; } = null!;
 }
+ 
