@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Warehouse.Entities.Models;
 
@@ -43,9 +42,9 @@ public partial class ReleaseRequest
 
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
 
-    public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
-
     public virtual Receiver Receiver { get; set; } = null!;
+
+    public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
 
     public virtual ICollection<ReleaseRequestLine> ReleaseRequestLines { get; set; } = new List<ReleaseRequestLine>();
 

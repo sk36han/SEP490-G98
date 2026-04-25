@@ -55,6 +55,8 @@ public partial class User
 
     public virtual ICollection<PurchaseReturnNote> PurchaseReturnNoteCreatedByNavigations { get; set; } = new List<PurchaseReturnNote>();
 
+    public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
+
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
 
     public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
