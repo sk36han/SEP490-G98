@@ -1343,7 +1343,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 3,
-                Decision = "ISSUE",
+                Decision = NormalizeApprovalDecision("ISSUE"),
                 Reason = request.Note,
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1465,7 +1465,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 4,
-                Decision = "POSTED",
+                Decision = NormalizeApprovalDecision("POSTED"),
                 Reason = note ?? "Upload bằng chứng xuất hàng",
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1524,6 +1524,16 @@ namespace Warehouse.DataAcces.Service
                 CompanyId = receiver?.CompanyId,
                 CompanyName = company?.CompanyName,
                 ReceiverAddress = addr?.AddressDetail
+            };
+        }
+
+        // CK_DA_Decision only accepts approval decisions, not workflow statuses.
+        private static string NormalizeApprovalDecision(string? rawDecision)
+        {
+            return rawDecision?.Trim().ToUpperInvariant() switch
+            {
+                "REJECT" or "REJECTED" => "REJECT",
+                _ => "APPROVE"
             };
         }
     }

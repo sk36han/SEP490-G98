@@ -4,6 +4,7 @@ import {
     getGoodsDeliveryNoteDetail,
     approveGoodsDeliveryNote,
     issueGoodsDeliveryNote,
+    confirmDeliveryGoodsDeliveryNote,
 } from '../lib/goodsDeliveryNoteService';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -187,6 +188,7 @@ export default function ViewGoodDeliveryNoteDetail() {
     const [processing, setProcessing] = useState(false);
     const [dialogConfig, setDialogConfig] = useState({ open: false, type: null });
     const [reasonText, setReasonText] = useState('');
+    const [evidenceFile, setEvidenceFile] = useState(null);
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
@@ -278,16 +280,22 @@ export default function ViewGoodDeliveryNoteDetail() {
 
     const openDialog = (type) => {
         setReasonText('');
+        setEvidenceFile(null);
         setDialogConfig({ open: true, type });
     };
     const closeDialog = () => {
         setDialogConfig({ open: false, type: null });
         setReasonText('');
+        setEvidenceFile(null);
     };
 
     const handleAction = async () => {
-        if ((dialogConfig.type === 'reject' || dialogConfig.type === 'confirm') && !reasonText.trim()) {
+        if (dialogConfig.type === 'reject' && !reasonText.trim()) {
             showToast('Vui lòng nhập lý do', 'warning');
+            return;
+        }
+        if (dialogConfig.type === 'confirm' && !evidenceFile) {
+            showToast('Vui lòng tải lên ảnh minh chứng trước khi hoàn thành phiếu', 'warning');
             return;
         }
         setProcessing(true);
@@ -305,6 +313,12 @@ export default function ViewGoodDeliveryNoteDetail() {
                     note: reasonText.trim() || null,
                 });
                 notifyApiSuccess(showToast, 'Xuất kho thành công');
+            } else if (dialogConfig.type === 'confirm') {
+                await confirmDeliveryGoodsDeliveryNote(gdn.gdnId, {
+                    evidenceFile,
+                    note: reasonText.trim() || undefined,
+                });
+                notifyApiSuccess(showToast, 'Hoàn thành phiếu xuất kho thành công');
             }
             closeDialog();
             fetchData();
@@ -573,15 +587,35 @@ export default function ViewGoodDeliveryNoteDetail() {
                                     ? 'Bạn có chắc chắn muốn từ chối phiếu xuất kho này không?'
                                     : 'Bạn có chắc chắn muốn hoàn thành phiếu xuất kho này không?'}
                             </p>
+                            {dialogConfig.type === 'confirm' && (
+                                <TextField
+                                    type="file"
+                                    fullWidth
+                                    disabled={processing}
+                                    inputProps={{ accept: 'image/*,.pdf' }}
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] ?? null;
+                                        setEvidenceFile(file);
+                                    }}
+                                    helperText="Bắt buộc: tải lên ảnh/PDF phiếu xuất có chữ ký xác nhận."
+                                    sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                />
+                            )}
                             <TextField
-                                label="Lý do"
+                                label={dialogConfig.type === 'reject' ? 'Lý do' : 'Ghi chú'}
                                 multiline rows={3}
                                 fullWidth
                                 value={reasonText}
                                 onChange={(e) => setReasonText(e.target.value)}
                                 disabled={processing}
                                 inputProps={{ maxLength: MAX_REASON_LENGTH }}
-                                placeholder={dialogConfig.type === 'approve' ? 'Nhập ghi chú (không bắt buộc)' : 'Nhập lý do từ chối'}
+                                placeholder={
+                                    dialogConfig.type === 'reject'
+                                        ? 'Nhập lý do từ chối'
+                                        : dialogConfig.type === 'confirm'
+                                        ? 'Nhập ghi chú (không bắt buộc)'
+                                        : 'Nhập ghi chú (không bắt buộc)'
+                                }
                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                             />
                             <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, color: reasonText.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: 4 }}>
@@ -598,7 +632,11 @@ export default function ViewGoodDeliveryNoteDetail() {
                 cancelText="Hủy"
                 loading={processing}
                 confirmDanger={dialogConfig.type === 'reject'}
-                confirmDisabled={processing || (dialogConfig.type !== 'issue' && !reasonText.trim())}
+                confirmDisabled={
+                    processing
+                    || (dialogConfig.type === 'reject' && !reasonText.trim())
+                    || (dialogConfig.type === 'confirm' && !evidenceFile)
+                }
             />
         </div>
     );

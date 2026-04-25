@@ -440,9 +440,9 @@ export async function submitReleaseRequest(id, linesFromUi) {
     }
 }
 
-export async function exportQuotationExcel(releaseRequestId) {
+export async function exportQuotationExcel(releaseRequestId, payload) {
     try {
-        const response = await apiClient.get(`/ReleaseRequest/${releaseRequestId}/quotation/export-excel`, {
+        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/export-excel`, payload, {
             responseType: 'blob',
         });
         return response.data;
@@ -509,9 +509,9 @@ export async function importQuotationExcel(releaseRequestId, file) {
     }
 }
 
-export async function confirmQuotation(releaseRequestId, note) {
+export async function confirmQuotation(releaseRequestId, payload) {
     try {
-        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/confirm`, { note });
+        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/confirm`, payload);
         invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {
