@@ -261,6 +261,20 @@ export default function ViewGoodDeliveryNoteDetail() {
     const subtotal = useMemo(() => (gdn?.lines || []).reduce((sum, l) => sum + l.lineTotal, 0), [gdn]);
     const grandTotal = subtotal + toNumber(gdn?.shippingFee);
     const totalQty = useMemo(() => (gdn?.lines || []).reduce((sum, l) => sum + l.actualQty, 0), [gdn]);
+    const lotDetails = useMemo(
+        () => (gdn?.lines || [])
+            .filter((line) => line?.lotId != null || line?.locationCode || line?.locationId != null)
+            .map((line, idx) => ({
+                key: `${line.id || idx}-lot`,
+                itemCode: line.itemCode || '-',
+                itemName: line.itemName || '-',
+                lotId: line.lotId,
+                locationDisplay: line.locationCode || (line.locationId != null ? `#${line.locationId}` : '—'),
+                qty: toNumber(line.actualQty),
+                uomName: line.uomName || '',
+            })),
+        [gdn],
+    );
 
     const openDialog = (type) => {
         setReasonText('');
@@ -396,7 +410,6 @@ export default function ViewGoodDeliveryNoteDetail() {
                                                 <tr>
                                                     <th style={{ width: 56, textAlign: 'center' }}>STT</th>
                                                     <th>Vật tư</th>
-                                                    <th style={{ width: 170 }}>Vị trí / Lô</th>
                                                     <th style={{ width: 120, textAlign: 'right' }}>SL Yêu cầu</th>
                                                     <th style={{ width: 120, textAlign: 'right' }}>Thực xuất</th>
                                                     <th style={{ width: 130, textAlign: 'right' }}>Đơn giá</th>
@@ -413,16 +426,6 @@ export default function ViewGoodDeliveryNoteDetail() {
                                                                 <span style={{ fontSize: 12, color: '#6b7280' }}>Mã: {line.itemCode || '-'} | ĐVT: {line.uomName || '-'}</span>
                                                             </div>
                                                         </td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                                <span style={{ fontSize: 13, fontWeight: 600, color: line.locationCode ? '#0f766e' : '#6b7280' }}>
-                                                                    {line.locationCode || (line.locationId ? `#${line.locationId}` : '—')}
-                                                                </span>
-                                                                <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                                                    Lô: {line.lotId ?? '—'}
-                                                                </span>
-                                                            </div>
-                                                        </td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatQuantity(line.requestedQty)}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: '#111827' }}>{formatQuantity(line.actualQty)}</td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(line.unitPrice)}</td>
@@ -431,6 +434,45 @@ export default function ViewGoodDeliveryNoteDetail() {
                                                 ))}
                                             </tbody>
                                         </table>
+                                    </div>
+                                )}
+
+                                {lotDetails.length > 0 && (
+                                    <div style={{ marginTop: 16 }}>
+                                        <h3 className="gdn-lines-summary-title" style={{ marginBottom: 10 }}>
+                                            Chi tiết vị trí / lô xuất
+                                        </h3>
+                                        <div className="gdn-table-wrap">
+                                            <table className="product-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: 56, textAlign: 'center' }}>STT</th>
+                                                        <th>Vật tư</th>
+                                                        <th style={{ width: 180 }}>Vị trí</th>
+                                                        <th style={{ width: 120 }}>Lô</th>
+                                                        <th style={{ width: 130, textAlign: 'right' }}>SL xuất</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {lotDetails.map((row, idx) => (
+                                                        <tr key={row.key}>
+                                                            <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                                            <td>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                    <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{row.itemName}</span>
+                                                                    <span style={{ fontSize: 12, color: '#6b7280' }}>Mã: {row.itemCode}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td>{row.locationDisplay}</td>
+                                                            <td>{row.lotId != null ? `#${row.lotId}` : '—'}</td>
+                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                                {formatQuantity(row.qty)} {row.uomName}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 )}
 

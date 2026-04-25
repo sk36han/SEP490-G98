@@ -282,11 +282,42 @@ export async function uploadReleaseRequestAttachments(releaseRequestId, { quotat
         return null;
     }
 
-    const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/attachments`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    invalidate('releaseRequest');
-    return response?.data;
+    try {
+        // apiClient mặc định Content-Type: application/json — với FormData phải bỏ header
+        // để axios/browser tự gắn multipart/form-data kèm boundary; nếu không, backend không nhận IFormFile.
+        const response = await apiClient.post(
+            `/ReleaseRequest/${releaseRequestId}/attachments`,
+            formData,
+            {
+                transformRequest: [
+                    (data, headers) => {
+                        if (typeof FormData !== 'undefined' && data instanceof FormData) {
+                            if (headers && typeof headers.delete === 'function') {
+                                headers.delete('Content-Type');
+                            } else if (headers && typeof headers === 'object') {
+                                delete headers['Content-Type'];
+                            }
+                        }
+                        return data;
+                    },
+                ],
+            },
+        );
+        invalidate('releaseRequest');
+        return response?.data;
+    } catch (error) {
+        const d = error?.response?.data;
+        const msg =
+            d?.detail
+            || d?.Detail
+            || d?.message
+            || d?.Message
+            || error?.message
+            || 'Không thể tải tệp đính kèm.';
+        const err = new Error(msg);
+        err.response = error.response;
+        throw err;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

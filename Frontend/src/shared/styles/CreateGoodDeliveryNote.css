@@ -46,14 +46,14 @@
     --slate-700: #334155;
     --slate-800: #1e293b;
     --slate-900: #0f172a;
-    
+
     --sky-500: #0ea5e9;
     --sky-600: #0284c7;
     --sky-700: #0369a1;
-    
+
     --emerald-500: #10b981;
     --emerald-600: #059669;
-    
+
     --radius-md: 12px;
     --radius-lg: 16px;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -90,9 +90,19 @@
 }
 
 .create-good-delivery-note-page .gdn-main-content {
+    display: grid;
     gap: 10px;
     min-height: 0;
     min-width: 0;
+    overflow: hidden;
+    /* Hàng 2 (danh sách vật tư) luôn chiếm toàn bộ chiều cao còn lại */
+    grid-template-rows: auto 1fr;
+    align-content: stretch;
+}
+
+/* Có gợi ý FIFO: hàng 3 giới hạn cao → phần vật tư (1fr) tối đa hóa */
+.create-good-delivery-note-page .gdn-main-content:has(.gdn-fifo-card) {
+    grid-template-rows: auto 1fr minmax(0, min(24vh, 260px));
 }
 
 /* Sidebar mặc định (CreateDelivery, …) */
@@ -129,10 +139,11 @@
     gap: 6px;
 }
 
-/* Card vật tư: chiếm phần còn lại; bảng ôm sát nội dung — không tạo khối xám trống khi ít dòng */
+/* Card vật tư: trong grid — fill ô hàng 1fr; bảng cuộn bên trong */
 .create-good-delivery-note-page .gdn-items-card {
-    flex: 1;
     min-height: 0;
+    height: 100%;
+    align-self: stretch;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -223,6 +234,44 @@
 
 .create-good-delivery-note-page .gdn-card--compact:hover {
     box-shadow: var(--shadow-sm);
+}
+
+/* Gợi ý FIFO: ô grid hàng 3 đã giới hạn cao — card fill ô và cuộn nội dung */
+.create-good-delivery-note-page .gdn-fifo-card {
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    align-self: stretch;
+}
+
+.create-good-delivery-note-page .gdn-fifo-card>.gdn-card-header {
+    flex-shrink: 0;
+}
+
+.create-good-delivery-note-page .gdn-fifo-card>.gdn-card-body--compact {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Một thanh cuộn ở body card; bảng bên trong không cần vùng cuộn riêng */
+.create-good-delivery-note-page .gdn-fifo-card .gdn-table-scroll {
+    flex: 0 1 auto;
+    max-height: none;
+    overflow: visible;
+}
+
+.create-good-delivery-note-page .gdn-fifo-shortfalls {
+    max-height: min(28vh, 200px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .create-good-delivery-note-page .gdn-ref-change-btn {
@@ -368,7 +417,8 @@
 /* ─── Product Table Styling ──────────────────────────────────────────────── */
 .gdn-table-wrapper {
     overflow-x: auto;
-    margin: 0 -24px; /* Phủ hết padding của card body */
+    margin: 0 -24px;
+    /* Phủ hết padding của card body */
 }
 
 .gdn-table {
@@ -403,10 +453,6 @@
 
 .create-good-delivery-note-page .gdn-table--compact th {
     padding: 6px 8px;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    box-shadow: 0 1px 0 var(--slate-200);
 }
 
 .create-good-delivery-note-page .gdn-table--compact td {
@@ -608,6 +654,11 @@
         height: auto;
         max-height: none;
         overflow: visible;
+    }
+
+    .create-good-delivery-note-page .gdn-main-content {
+        display: flex;
+        flex-direction: column;
     }
 
     .create-good-delivery-note-page .gdn-items-card {

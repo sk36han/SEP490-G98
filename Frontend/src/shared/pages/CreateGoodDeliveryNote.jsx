@@ -18,6 +18,7 @@ import {
     Phone,
     ClipboardList,
     User,
+    RefreshCw,
 } from 'lucide-react';
 import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
@@ -55,6 +56,92 @@ const getRemainingQty = (line) => {
     return Math.max(baseQty - issuedQty, 0);
 };
 
+/** Map `GET /Warehouse/{id}/detail` → danh sách lô dùng cho gợi ý FIFO trên form GDN. */
+const mapWarehouseLotsFromDetailResponse = (wd) => {
+    const rawLots = wd?.lots ?? wd?.Lots ?? [];
+    return (Array.isArray(rawLots) ? rawLots : [])
+        .map((lot) => ({
+            lotId: lot.lotId ?? lot.LotId,
+            itemId: lot.itemId ?? lot.ItemId,
+            locationId: lot.locationId ?? lot.LocationId ?? null,
+            locationCode: lot.locationCode ?? lot.LocationCode ?? '',
+            locationName: lot.locationName ?? lot.LocationName ?? '',
+            quantity: Number(lot.quantity ?? lot.Quantity ?? 0),
+            isActive: Boolean(lot.isActive ?? lot.IsActive ?? true),
+            receiptDate: lot.receiptDate ?? lot.ReceiptDate ?? null,
+        }))
+        .filter((lot) => lot.lotId != null && lot.itemId != null && lot.isActive && lot.quantity > 0);
+};
+
+/** Chuẩn hóa ReceiptDate để sort giống backend (OrderBy ReceiptDate). */
+const receiptDateSortKey = (value) => {
+    if (value == null || value === '') return Number.MAX_SAFE_INTEGER;
+    const t = Date.parse(String(value));
+    return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+};
+
+/**
+ * Mô phỏng phân bổ FIFO trên danh sách lô (cùng kho), thứ tự duyệt lô giống GoodsDeliveryNoteService:
+ * toàn bộ lô active, sort theo ReceiptDate, từng dòng GDN lấy tuần tự theo thứ tự lô đó (lọc theo ItemId).
+ */
+const buildFifoPickPreview = (gdnLines, lotsInput) => {
+    const working = (Array.isArray(lotsInput) ? lotsInput : [])
+        .filter((l) => l.lotId && l.itemId && l.isActive && toNumber(l.quantity) > 0)
+        .map((l) => ({
+            lotId: l.lotId,
+            itemId: Number(l.itemId),
+            locationId: l.locationId ?? null,
+            locationName: String(l.locationName || '').trim(),
+            receiptDate: l.receiptDate ?? l.ReceiptDate ?? null,
+            remaining: toNumber(l.quantity),
+        }))
+        .sort((a, b) => {
+            const da = receiptDateSortKey(a.receiptDate);
+            const db = receiptDateSortKey(b.receiptDate);
+            if (da !== db) return da - db;
+            return Number(a.lotId) - Number(b.lotId);
+        });
+
+    const rows = [];
+    const shortfalls = [];
+
+    (Array.isArray(gdnLines) ? gdnLines : []).forEach((line) => {
+        const need = Math.min(Math.max(toNumber(line.actualQty), 0), toNumber(line.remainingQty));
+        let left = need;
+
+        for (let i = 0; i < working.length && left > 0; i += 1) {
+            const lot = working[i];
+            if (lot.itemId !== Number(line.itemId)) continue;
+            if (lot.remaining <= 0) continue;
+            const take = Math.min(lot.remaining, left);
+            rows.push({
+                key: `${line.id}-${lot.lotId}-${rows.length}`,
+                lineLocalId: line.id,
+                itemCode: line.itemCode,
+                itemName: line.itemName,
+                uomName: line.uomName,
+                lotId: lot.lotId,
+                locationName: lot.locationName,
+                receiptDate: lot.receiptDate,
+                qty: take,
+                lineNeed: need,
+            });
+            lot.remaining -= take;
+            left -= take;
+        }
+
+        if (left > 0.000001) {
+            shortfalls.push({
+                itemCode: line.itemCode,
+                itemName: line.itemName,
+                shortage: left,
+            });
+        }
+    });
+
+    return { rows, shortfalls };
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function CreateGoodDeliveryNote() {
     const navigate = useNavigate();
@@ -90,6 +177,8 @@ export default function CreateGoodDeliveryNote() {
     const [releaseRequestDropdownOpen, setReleaseRequestDropdownOpen] = useState(false);
     const [releaseRequestQuery, setReleaseRequestQuery] = useState('');
     const [rrList, setRrList] = useState([]);
+    const [warehouseLots, setWarehouseLots] = useState([]);
+    const [warehouseLotsLoading, setWarehouseLotsLoading] = useState(false);
     const [deliveryList, setDeliveryList] = useState([]);
     const [deliveryListLoading, setDeliveryListLoading] = useState(false);
     const [deliveryTemplateId, setDeliveryTemplateId] = useState('');
@@ -174,6 +263,11 @@ export default function CreateGoodDeliveryNote() {
         );
     }, [releaseRequestQuery, rrList]);
 
+    const fifoPickPreview = useMemo(
+        () => buildFifoPickPreview(lines, warehouseLots),
+        [lines, warehouseLots],
+    );
+
     // ─── Handlers ────────────────────────────────────────────────────────────
     const handleSelectReleaseRequest = async (rr) => {
         let detail = rr;
@@ -228,6 +322,40 @@ export default function CreateGoodDeliveryNote() {
             licensePlate: '',
             transportNote: '',
         }));
+
+        if (detail.warehouseId) {
+            try {
+                setWarehouseLotsLoading(true);
+                const wd = await getWarehouseDetail(Number(detail.warehouseId));
+                setWarehouseLots(mapWarehouseLotsFromDetailResponse(wd));
+            } catch {
+                setWarehouseLots([]);
+                showToast('Không tải được tồn theo lô để gợi ý lấy hàng.', 'warning');
+            } finally {
+                setWarehouseLotsLoading(false);
+            }
+        } else {
+            setWarehouseLots([]);
+        }
+    };
+
+    const refreshFifoWarehouseLots = async () => {
+        const wid = Number(formData.warehouseId);
+        if (!formData.warehouseId || !Number.isFinite(wid) || wid <= 0) {
+            showToast('Chưa có kho để làm mới gợi ý.', 'warning');
+            return;
+        }
+        try {
+            setWarehouseLotsLoading(true);
+            const wd = await getWarehouseDetail(wid);
+            setWarehouseLots(mapWarehouseLotsFromDetailResponse(wd));
+            showToast('Đã làm mới gợi ý lấy hàng (FIFO).', 'success');
+        } catch {
+            setWarehouseLots([]);
+            showToast('Không tải được tồn theo lô để gợi ý lấy hàng.', 'warning');
+        } finally {
+            setWarehouseLotsLoading(false);
+        }
     };
 
     const applyDeliveryTemplate = (transportIdStr) => {
@@ -415,6 +543,7 @@ export default function CreateGoodDeliveryNote() {
                                         onClick={() => {
                                             setDeliveryTemplateId('');
                                             setTransportSource('none');
+                                            setWarehouseLots([]);
                                             setFormData((p) => ({
                                                 ...p,
                                                 releaseRequestId: '',
@@ -521,6 +650,120 @@ export default function CreateGoodDeliveryNote() {
                             )}
                         </div>
                     </div>
+
+                    {/* Gợi ý lấy hàng FIFO + vị trí (khi đang tạo phiếu) */}
+                    {lines.length > 0 && (
+                        <div className="gdn-modern-card gdn-card--compact gdn-fifo-card">
+                            <div
+                                className="gdn-card-header gdn-card-header--compact"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 12,
+                                    flexWrap: 'wrap',
+                                }}
+                            >
+                                <h2 className="gdn-card-title" style={{ margin: 0 }}>
+                                    <MapPin size={16} color="#b45309" /> Gợi ý lấy hàng (FIFO)
+                                </h2>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={refreshFifoWarehouseLots}
+                                    disabled={warehouseLotsLoading || !formData.warehouseId}
+                                    title="Tải lại tồn theo lô từ server (sau khi có phiếu xuất/nhập khác)"
+                                >
+                                    {warehouseLotsLoading ? (
+                                        <Loader className="spinner" size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                                    ) : (
+                                        <RefreshCw size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                                    )}
+                                    Làm mới gợi ý
+                                </button>
+                            </div>
+                            <div className="gdn-card-body gdn-card-body--compact">
+                                <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>
+                                    Lô được sắp theo ngày nhập kho (FIFO); bảng chỉ phản ánh tồn tại thời điểm tải, nên bấm <strong>Làm mới gợi ý</strong> trước khi ra kho nếu vừa có phiếu xuất/nhập khác.
+                                </p>
+                                {warehouseLotsLoading ? (
+                                    <p className="gdn-sidebar-muted" style={{ margin: 0 }}>Đang tải tồn theo lô của kho…</p>
+                                ) : !warehouseLots.length ? (
+                                    <p className="gdn-sidebar-muted" style={{ margin: 0 }}>
+                                        Chưa có dữ liệu lô hoặc kho chưa có tồn theo lô để hiển thị.
+                                    </p>
+                                ) : (
+                                    <>
+                                        {fifoPickPreview.shortfalls.length > 0 && (
+                                            <div
+                                                className="gdn-fifo-shortfalls"
+                                                style={{
+                                                    marginBottom: 12,
+                                                    padding: '10px 12px',
+                                                    borderRadius: 8,
+                                                    background: '#fef2f2',
+                                                    border: '1px solid #fecaca',
+                                                    fontSize: '13px',
+                                                    color: '#991b1b',
+                                                }}
+                                            >
+                                                <strong>Thiếu tồn theo lô:</strong>{' '}
+                                                {fifoPickPreview.shortfalls.map((s) => (
+                                                    <span key={s.itemCode} style={{ display: 'block', marginTop: 4 }}>
+                                                        {s.itemCode} — {s.itemName}: thiếu{' '}
+                                                        <strong>{formatQuantity(s.shortage)}</strong>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {fifoPickPreview.rows.length === 0 && fifoPickPreview.shortfalls.length === 0 ? (
+                                            <p className="gdn-sidebar-muted" style={{ margin: 0 }}>
+                                                Nhập số lượng thực xuất để xem gợi ý.
+                                            </p>
+                                        ) : (
+                                            <div className="gdn-table-scroll">
+                                                <table className="gdn-table gdn-table--compact">
+                                                    <thead>
+                                                        <tr>
+                                                            <th style={{ width: 44 }}>STT</th>
+                                                            <th>Vật tư</th>
+                                                            <th>Vị trí</th>
+                                                            <th>Lô</th>
+                                                            <th style={{ width: 110 }}>Ngày nhập</th>
+                                                            <th style={{ textAlign: 'right', width: 100 }}>SL lấy</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {fifoPickPreview.rows.map((r, idx) => (
+                                                            <tr key={r.key}>
+                                                                <td style={{ fontWeight: 600 }}>{idx + 1}</td>
+                                                                <td>
+                                                                    <div style={{ fontWeight: 600, fontSize: '12px' }}>{r.itemCode}</div>
+                                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>{r.itemName}</div>
+                                                                </td>
+                                                                <td style={{ fontWeight: 600, color: '#0f766e' }}>
+                                                                    {r.locationName ? r.locationName : '—'}
+                                                                </td>
+                                                                <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>#{r.lotId}</td>
+                                                                <td style={{ fontSize: '12px', color: '#475569' }}>
+                                                                    {r.receiptDate != null && String(r.receiptDate).trim() !== ''
+                                                                        ? String(r.receiptDate).slice(0, 10)
+                                                                        : '—'}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                                                                    {formatQuantity(r.qty)} <span style={{ fontSize: '11px', fontWeight: 400 }}>{r.uomName}</span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ─── CỘT PHẢI (Sidebar) — sticky, cùng chiều rộng 350px ─── */}
