@@ -31,7 +31,9 @@ public partial class ReleaseRequest
 
     public bool IsPartialDeliveryAllowed { get; set; }
 
-    public string? GmailThreadId { get; set; }
+    public bool IsQuotationFlow { get; set; }
+
+    public string? QuotationStatus { get; set; }
 
     public DateTime? QuotationSentAt { get; set; }
 
@@ -41,11 +43,9 @@ public partial class ReleaseRequest
 
     public virtual ICollection<GoodsDeliveryNote> GoodsDeliveryNotes { get; set; } = new List<GoodsDeliveryNote>();
 
-    public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
-
-    public virtual ICollection<ReleaseRequestEmailMessage> ReleaseRequestEmailMessages { get; set; } = new List<ReleaseRequestEmailMessage>();
-
     public virtual Receiver Receiver { get; set; } = null!;
+
+    public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
 
     public virtual ICollection<ReleaseRequestLine> ReleaseRequestLines { get; set; } = new List<ReleaseRequestLine>();
 
