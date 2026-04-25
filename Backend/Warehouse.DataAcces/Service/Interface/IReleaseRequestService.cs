@@ -29,5 +29,13 @@ namespace Warehouse.DataAcces.Service.Interface
         /// Duyệt/Từ chối yêu cầu xuất kho (2 giai đoạn: Kế toán → Giám đốc)
         Task<ReleaseRequestDetailResponse> ApproveReleaseRequestAsync(long id, long userId, ApproveReleaseRequest request);
 
+        Task<byte[]> ExportQuotationExcelAsync(long id, long userId);
+
+        Task SendQuotationEmailAsync(long id, long userId, SendRrQuotationEmailRequest request);
+
+        Task<ReleaseRequestDetailResponse> ImportQuotationExcelAsync(long id, long userId, IFormFile file);
+
+        Task<ReleaseRequestDetailResponse> ConfirmQuotationAsync(long id, long userId, ConfirmRrQuotationRequest request);
+
     }
 }

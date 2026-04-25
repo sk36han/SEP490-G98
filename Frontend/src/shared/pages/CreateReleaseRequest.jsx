@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Plus, X, MapPin, User, Send, Loader,
     Package, Search, Trash2,
@@ -23,7 +23,12 @@ import { getReceiversByCompany } from '../lib/receiverService';
 import { getAddressesByCompany } from '../lib/addressService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsByWarehouse } from '../lib/itemService';
-import { createReleaseRequest, uploadReleaseRequestAttachments } from '../lib/releaseRequestService';
+import {
+    createReleaseRequest,
+    uploadReleaseRequestAttachments,
+    getReleaseRequestDetail,
+    updateReleaseRequest,
+} from '../lib/releaseRequestService';
 import '../styles/CreateSupplier.css';
 const MAX_NOTE = 250;
 const MAX_LINE_NOTE = 500;
@@ -55,6 +60,8 @@ function formatAddress(address, ward, district, city) {
 
 export default function CreateReleaseRequest() {
     const navigate = useNavigate();
+    const { id: editId } = useParams();
+    const isEditMode = Boolean(editId);
     const { toast, showToast, clearToast } = useToast();
 
     const [submitting, setSubmitting] = useState(false);
@@ -71,7 +78,9 @@ export default function CreateReleaseRequest() {
     const [addresses, setAddresses] = useState([]);
 
     const [loading, setLoading] = useState(true);
+    const [editLoading, setEditLoading] = useState(false);
     const [itemsLoading, setItemsLoading] = useState(false);
+    const [isHydratingEdit, setIsHydratingEdit] = useState(false);
 
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
     const [selectedReceiverId, setSelectedReceiverId] = useState('');
@@ -85,6 +94,7 @@ export default function CreateReleaseRequest() {
         purpose: '',
         note: '',
         isPartialDeliveryAllowed: true,
+        isQuotationFlow: false,
     });
 
     const [addressMode, setAddressMode] = useState('list');
@@ -127,13 +137,13 @@ export default function CreateReleaseRequest() {
     useEffect(() => {
         if (!form.warehouseId) {
             setItems([]);
-            setLineItems([]);
+            if (!isEditMode && !isHydratingEdit) setLineItems([]);
             return;
         }
 
         const fetchItems = async () => {
             setItemsLoading(true);
-            setLineItems([]);
+            if (!isEditMode && !isHydratingEdit) setLineItems([]);
             try {
                 const data = await getItemsByWarehouse(Number(form.warehouseId));
                 setItems(Array.isArray(data) ? data : []);
@@ -145,7 +155,7 @@ export default function CreateReleaseRequest() {
         };
 
         fetchItems();
-    }, [form.warehouseId, showToast]);
+    }, [form.warehouseId, showToast, isHydratingEdit, isEditMode]);
 
     const loadReceivers = useCallback(async (companyId) => {
         if (!companyId) {
@@ -224,6 +234,76 @@ export default function CreateReleaseRequest() {
             warehouseName: found?.warehouseName ?? found?.WarehouseName ?? '',
         }));
     };
+
+    useEffect(() => {
+        const loadEditData = async () => {
+            if (!isEditMode || !editId) return;
+            setEditLoading(true);
+            setIsHydratingEdit(true);
+            try {
+                const detail = await getReleaseRequestDetail(editId);
+                if (!detail || detail.status !== 'DRAFT') {
+                    showToast('Chỉ cho phép chỉnh sửa RR ở trạng thái DRAFT.', 'warning');
+                    navigate(`/release-request/${editId}`);
+                    return;
+                }
+
+                const companyId = normalizeId(detail.companyId ?? detail.receiver?.companyId);
+                const receiverId = normalizeId(detail.receiverId ?? detail.receiver?.receiverId);
+                const warehouseId = normalizeId(detail.warehouseId);
+
+                setSelectedCompanyId(companyId);
+                setSelectedReceiverId(receiverId);
+                setReceiverDetail(detail.receiver ?? null);
+                setForm((prev) => ({
+                    ...prev,
+                    warehouseId,
+                    warehouseName: detail.warehouseName ?? '',
+                    expectedDate: detail.expectedDate ?? '',
+                    purpose: detail.purpose ?? '',
+                    isPartialDeliveryAllowed: Boolean(detail.isPartialDeliveryAllowed),
+                    isQuotationFlow: Boolean(detail.isQuotationFlow),
+                }));
+
+                await Promise.all([loadReceivers(companyId), loadAddresses(companyId)]);
+
+                const warehouseItems = await getItemsByWarehouse(Number(detail.warehouseId));
+                const normalizedItems = Array.isArray(warehouseItems) ? warehouseItems : [];
+                setItems(normalizedItems);
+                const itemMap = new Map(
+                    normalizedItems.map((it) => [normalizeId(it.itemId ?? it.ItemId), it])
+                );
+
+                const mappedLines = (detail.lines ?? []).map((line) => {
+                    const item = itemMap.get(normalizeId(line.itemId));
+                    return {
+                        id: `${Date.now()}-${line.releaseRequestLineId ?? line.itemId}`,
+                        itemId: normalizeId(line.itemId),
+                        itemName: line.itemName ?? '',
+                        itemCode: line.itemCode ?? '',
+                        uomName: line.uomName ?? '',
+                        uomId: normalizeId(line.uomId),
+                        availableQty: Number(item?.availableQty ?? item?.AvailableQty ?? line.stockQty ?? 0),
+                        quantity: Number(line.requestedQty ?? 0),
+                        warehousePrice: line.costPrice ?? null,
+                        unitPrice: line.unitPrice ?? '',
+                        packagingSpecId: line.packagingSpecId != null ? normalizeId(line.packagingSpecId) : '',
+                        packagingSpecName: line.packagingSpecName ?? '',
+                        note: line.note ?? '',
+                    };
+                });
+                setLineItems(mappedLines);
+            } catch (err) {
+                showToast(err?.message || 'Không tải được dữ liệu chỉnh sửa RR.', 'error');
+                navigate('/release-request');
+            } finally {
+                setIsHydratingEdit(false);
+                setEditLoading(false);
+            }
+        };
+
+        loadEditData();
+    }, [isEditMode, editId, loadReceivers, loadAddresses, navigate, showToast]);
 
     const handleCreateCompanySuccess = (result) => {
         const newCompany = {
@@ -444,12 +524,13 @@ export default function CreateReleaseRequest() {
         && lineItems.length > 0
     ), [selectedCompanyId, selectedReceiverId, form.warehouseId, form.purpose, lineItems]);
 
-    /** Gửi duyệt: backend bắt buộc đủ báo giá + hợp đồng (upload sau khi tạo) */
+    /** Luồng báo giá: tạo nháp trước rồi thao tác ở màn chi tiết RR. */
     const canSubmitForApproval = useMemo(() => (
         canCreateRequest
+        && !Boolean(form.isQuotationFlow)
         && Boolean(quotationFile)
         && Boolean(contractFile)
-    ), [canCreateRequest, quotationFile, contractFile]);
+    ), [canCreateRequest, form.isQuotationFlow, quotationFile, contractFile]);
 
     const buildPayload = () => {
         let address = '';
@@ -479,6 +560,7 @@ export default function CreateReleaseRequest() {
             purpose: form.purpose.trim() || null,
             note: form.note.trim() || null,
             isPartialDeliveryAllowed: Boolean(form.isPartialDeliveryAllowed),
+            isQuotationFlow: Boolean(form.isQuotationFlow),
             addressId,
             address,
             city,
@@ -499,8 +581,10 @@ export default function CreateReleaseRequest() {
         e?.preventDefault();
         setSavingDraft(true);
         try {
-            const res = await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
-            const rrId = res?.releaseRequestId ?? res?.ReleaseRequestId;
+            const res = isEditMode
+                ? await updateReleaseRequest(editId, { ...buildPayload(), status: 'DRAFT' })
+                : await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
+            const rrId = Number(editId) || res?.releaseRequestId || res?.ReleaseRequestId;
             let uploadWarning = '';
             if (rrId && (quotationFile || contractFile || appendixFile)) {
                 try {
@@ -519,11 +603,16 @@ export default function CreateReleaseRequest() {
             }
             showToast(
                 uploadWarning
-                    ? `Lưu nháp thành công, nhưng upload file lỗi: ${uploadWarning}`
-                    : 'Lưu nháp thành công!',
+                    ? `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công, nhưng upload file lỗi: ${uploadWarning}`
+                    : `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công!`,
                 uploadWarning ? 'warning' : 'success'
             );
-            setTimeout(() => navigate('/release-request'), 1500);
+            const nextPath = (() => {
+                if (isEditMode) return `/release-request/${editId}`;
+                if (form.isQuotationFlow && rrId) return `/release-request/${rrId}`;
+                return '/release-request';
+            })();
+            setTimeout(() => navigate(nextPath), 1200);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Lưu nháp thất bại.';
             showToast(msg, 'error');
@@ -571,8 +660,10 @@ export default function CreateReleaseRequest() {
 
         setSubmitting(true);
         try {
-            const res = await createReleaseRequest({ ...buildPayload(), status: 'PENDING_ACC' });
-            const rrId = res?.releaseRequestId ?? res?.ReleaseRequestId;
+            const res = isEditMode
+                ? await updateReleaseRequest(editId, { ...buildPayload(), status: 'PENDING_ACC' })
+                : await createReleaseRequest({ ...buildPayload(), status: 'PENDING_ACC' });
+            const rrId = Number(editId) || res?.releaseRequestId || res?.ReleaseRequestId;
             let uploadWarning = '';
             if (rrId && (quotationFile || contractFile || appendixFile)) {
                 try {
@@ -592,11 +683,11 @@ export default function CreateReleaseRequest() {
             }
             showToast(
                 uploadWarning
-                    ? `Tạo yêu cầu xuất hàng thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
-                    : `Tạo yêu cầu xuất hàng thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}!`,
+                    ? `${isEditMode ? 'Cập nhật RR' : 'Tạo yêu cầu xuất hàng'} thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
+                    : `${isEditMode ? 'Cập nhật RR' : 'Tạo yêu cầu xuất hàng'} thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}!`,
                 uploadWarning ? 'warning' : 'success'
             );
-            setTimeout(() => navigate('/release-request'), 1500);
+            setTimeout(() => navigate(isEditMode ? `/release-request/${editId}` : '/release-request'), 1200);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Tạo yêu cầu xuất hàng thất bại.';
             showToast(msg, 'error');
@@ -605,7 +696,7 @@ export default function CreateReleaseRequest() {
         }
     };
 
-    if (loading) {
+    if (loading || editLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
                 <CircularProgress />
@@ -629,8 +720,24 @@ export default function CreateReleaseRequest() {
                     <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
                         {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
                     </button>
-                    <button type="button" className="btn btn-primary" disabled={!canSubmitForApproval || submitting || savingDraft} onClick={handleCreateRequest} title={!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined}>
-                        {submitting ? <><Loader size={15} className="spinner" />Đang gửi...</> : <><Send size={15} />Tạo & Gửi duyệt</>}
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={!canSubmitForApproval || submitting || savingDraft}
+                        onClick={handleCreateRequest}
+                        title={
+                            form.isQuotationFlow
+                                ? 'Luồng báo giá: hãy Lưu Nháp trước, rồi gửi/import/chốt ở màn chi tiết'
+                                : (!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined)
+                        }
+                    >
+                        {submitting ? (
+                            <><Loader size={15} className="spinner" />Đang gửi...</>
+                        ) : form.isQuotationFlow ? (
+                            <><Send size={15} />Tạo báo giá (nháp)</>
+                        ) : (
+                            <><Send size={15} />Tạo & Gửi duyệt</>
+                        )}
                     </button>
                 </div>
             </div>
@@ -638,7 +745,7 @@ export default function CreateReleaseRequest() {
             <div className="form-card">
                 <form id="create-rr-form" className="form-wrapper">
                     <div className="form-card-intro">
-                        <h1 className="page-title">Tạo yêu cầu xuất hàng</h1>
+                        <h1 className="page-title">{isEditMode ? 'Chỉnh sửa yêu cầu xuất hàng' : 'Tạo yêu cầu xuất hàng'}</h1>
                         <p className="form-card-required-note">Các trường <span className="required-mark">*</span> là bắt buộc</p>
                     </div>
 
@@ -1005,6 +1112,17 @@ export default function CreateReleaseRequest() {
                                             Cho phép xuất kho từng phần (không bắt buộc đủ tồn một lần khi gửi duyệt)
                                         </label>
                                     </div>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(form.isQuotationFlow)}
+                                                onChange={(e) => setForm((prev) => ({ ...prev, isQuotationFlow: e.target.checked }))}
+                                                style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: '#2196F3' }}
+                                            />
+                                            Tạo theo luồng báo giá (cần chốt báo giá trước khi gửi kế toán duyệt)
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1037,7 +1155,9 @@ export default function CreateReleaseRequest() {
                                     <h2 className="section-title">Tệp đính kèm</h2>
                                 </div>
                                 <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                                    Khi <strong>Tạo &amp; Gửi duyệt</strong>, bắt buộc có <strong>Báo giá</strong> và <strong>Hợp đồng</strong>. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.
+                                    {form.isQuotationFlow
+                                        ? 'Luồng báo giá: tạo nháp trước, sau đó vào màn chi tiết để Xuất Excel/Gửi email/Import phản hồi/Chốt báo giá rồi mới gửi duyệt.'
+                                        : 'Khi Tạo & Gửi duyệt, bắt buộc có Báo giá và Hợp đồng. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.'}
                                 </p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     <div className="form-field" style={{ margin: 0 }}>

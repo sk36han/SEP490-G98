@@ -7,8 +7,7 @@ import { normalizeApiError } from './apiErrorNormalizer';
  *   POST /api/ReleaseRequest/{id}/attachments
  *   GET  /api/ReleaseRequest/list
  *   GET  /api/ReleaseRequest/detail/{id}
- *   PUT  /api/ReleaseRequest/update/{id}
- *   PUT  /api/ReleaseRequest/submit/{id}
+ *   PUT  /api/ReleaseRequest/update/{id}  (gửi duyệt: status PENDING_ACC + lines)
  */
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -67,6 +66,11 @@ function mapReleaseRequestRow(row) {
         createdAt: row.createdAt ?? row.CreatedAt ?? null,
         submittedAt: row.submittedAt ?? row.SubmittedAt ?? null,
         approvedAt: row.approvedAt ?? row.ApprovedAt ?? null,
+        isQuotationFlow: row.isQuotationFlow ?? row.IsQuotationFlow ?? false,
+        quotationStatus: row.quotationStatus ?? row.QuotationStatus ?? null,
+        quotationSentAt: row.quotationSentAt ?? row.QuotationSentAt ?? null,
+        quotationConfirmedAt: row.quotationConfirmedAt ?? row.QuotationConfirmedAt ?? null,
+        quotationVersion: row.quotationVersion ?? row.QuotationVersion ?? 0,
     };
 }
 
@@ -240,6 +244,7 @@ export async function createReleaseRequest(data) {
             purpose: data.purpose?.trim() || null,
             note: data.note?.trim() || null,
             status: data.status || null,
+            isQuotationFlow: Boolean(data.isQuotationFlow),
             isPartialDeliveryAllowed: Boolean(data.isPartialDeliveryAllowed),
             // Address
             addressId: data.addressId != null ? Number(data.addressId) : null,
@@ -339,14 +344,27 @@ export async function updateReleaseRequest(id, data) {
         if (data.receiverId != null) payload.receiverId = Number(data.receiverId);
         if (data.expectedDate != null) payload.expectedDate = data.expectedDate;
         if (data.purpose != null) payload.purpose = data.purpose;
+        if (data.isQuotationFlow != null) payload.isQuotationFlow = Boolean(data.isQuotationFlow);
+        if (data.status != null && String(data.status).trim() !== '') {
+            payload.status = String(data.status).trim();
+        }
         if (data.lines != null) {
-            payload.lines = data.lines.map(l => ({
-                releaseRequestLineId: l.releaseRequestLineId || null,
-                itemId: Number(l.itemId),
-                requestedQty: Number(l.requestedQty),
-                uomId: Number(l.uomId),
-                note: l.note || null,
-            }));
+            payload.lines = data.lines.map((l) => {
+                const row = {
+                    releaseRequestLineId: l.releaseRequestLineId || null,
+                    itemId: Number(l.itemId),
+                    requestedQty: Number(l.requestedQty),
+                    uomId: Number(l.uomId),
+                    note: l.note || null,
+                };
+                if (l.unitPrice != null && l.unitPrice !== '') {
+                    row.unitPrice = Number(l.unitPrice);
+                }
+                if (l.packagingSpecId != null && l.packagingSpecId !== '') {
+                    row.packagingSpecId = Number(l.packagingSpecId);
+                }
+                return row;
+            });
         }
         const response = await apiClient.put(`/ReleaseRequest/update/${id}`, payload);
         invalidate('releaseRequest');
@@ -357,15 +375,6 @@ export async function updateReleaseRequest(id, data) {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 5. SUBMIT
-// PUT /api/ReleaseRequest/submit/{id}
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Gửi yêu cầu xuất kho (chốt AllocatedQty = RequestedQty).
- * @param {number|string} id
- */
 // ═══════════════════════════════════════════════════════════════════════════════
 // 5. APPROVE / REJECT
 // PUT /api/ReleaseRequest/approve/{id}
@@ -393,21 +402,119 @@ export async function approveReleaseRequest(id, data) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 6. SUBMIT
-// PUT /api/ReleaseRequest/submit/{id}
+// 6. SUBMIT (gửi duyệt)
+// PUT /api/ReleaseRequest/update/{id} — body { status: 'PENDING_ACC', lines: [...] }
+// (Backend không có route /submit; gửi kèm lines để giữ tồn kho khi chuyển DRAFT → PENDING_ACC.)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Gửi yêu cầu xuất kho (chốt AllocatedQty = RequestedQty).
+ * Gửi duyệt yêu cầu xuất kho (DRAFT → PENDING_ACC).
  * @param {number|string} id
+ * @param {Array|undefined} linesFromUi — dòng vật tư trên màn chi tiết (khuyến nghị). Nếu thiếu, gọi lại API detail.
  */
-export async function submitReleaseRequest(id) {
+export async function submitReleaseRequest(id, linesFromUi) {
     try {
-        const response = await apiClient.put(`/ReleaseRequest/submit/${id}`);
-        invalidate('releaseRequest');
-        return extractBody(response);
+        let lines = linesFromUi;
+        if (!Array.isArray(lines) || lines.length === 0) {
+            const detail = await getReleaseRequestDetail(id);
+            lines = detail?.lines ?? [];
+        }
+        if (!Array.isArray(lines) || lines.length === 0) {
+            throw new Error('Yêu cầu xuất kho không có dòng vật tư để gửi duyệt.');
+        }
+        return await updateReleaseRequest(id, {
+            status: 'PENDING_ACC',
+            lines: lines.map((l) => ({
+                releaseRequestLineId: l.releaseRequestLineId ?? null,
+                itemId: Number(l.itemId),
+                requestedQty: Number(l.requestedQty),
+                uomId: Number(l.uomId),
+                note: l.note ?? null,
+                unitPrice: l.unitPrice != null && l.unitPrice !== '' ? Number(l.unitPrice) : undefined,
+                packagingSpecId: l.packagingSpecId != null && l.packagingSpecId !== '' ? Number(l.packagingSpecId) : undefined,
+            })),
+        });
     } catch (error) {
         console.error('[releaseRequestService] submitReleaseRequest failed:', error);
         throw normalizeApiError(error, { defaultMessage: 'Khong the gui yeu cau xuat kho.' });
+    }
+}
+
+export async function exportQuotationExcel(releaseRequestId) {
+    try {
+        const response = await apiClient.get(`/ReleaseRequest/${releaseRequestId}/quotation/export-excel`, {
+            responseType: 'blob',
+        });
+        return response.data;
+    } catch (error) {
+        throw normalizeApiError(error, { defaultMessage: 'Khong the xuat file Excel bao gia.' });
+    }
+}
+
+/**
+ * Chuyển nội dung người dùng gõ (thuần văn bản) sang HTML an toàn khi gửi email (IsBodyHtml).
+ * - Khối cách nhau bằng dòng trống → đoạn văn (thẻ p).
+ * - Xuống dòng trong cùng đoạn → xuống dòng HTML (br).
+ * - Ký tự &lt; &gt; &amp; được escape để tránh nhập nhầm mã HTML/script.
+ */
+export function plainTextEmailBodyToHtml(text) {
+    const normalized = String(text ?? '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+    const trimmed = normalized.trim();
+    if (!trimmed) {
+        return '<p style="margin:0 0 12px 0;line-height:1.5;">&nbsp;</p>';
+    }
+    const escapeLine = (s) =>
+        s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    const blocks = trimmed.split(/\n{2,}/);
+    return blocks
+        .map((block) => {
+            const lines = block.split('\n').map((line) => escapeLine(line));
+            const inner = lines.join('<br />');
+            return `<p style="margin:0 0 12px 0;line-height:1.5;">${inner}</p>`;
+        })
+        .join('');
+}
+
+export async function sendQuotationEmail(releaseRequestId, payload) {
+    try {
+        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/send-email`, payload);
+        invalidate('releaseRequest');
+        return extractBody(response);
+    } catch (error) {
+        throw normalizeApiError(error, { defaultMessage: 'Khong the gui email bao gia.' });
+    }
+}
+
+export async function importQuotationExcel(releaseRequestId, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/import-excel`, formData, {
+            transformRequest: [(data, headers) => {
+                if (headers?.delete) headers.delete('Content-Type');
+                return data;
+            }],
+        });
+        invalidate('releaseRequest');
+        return extractBody(response);
+    } catch (error) {
+        throw normalizeApiError(error, { defaultMessage: 'Khong the import file bao gia.' });
+    }
+}
+
+export async function confirmQuotation(releaseRequestId, note) {
+    try {
+        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/confirm`, { note });
+        invalidate('releaseRequest');
+        return extractBody(response);
+    } catch (error) {
+        throw normalizeApiError(error, { defaultMessage: 'Khong the chot bao gia.' });
     }
 }

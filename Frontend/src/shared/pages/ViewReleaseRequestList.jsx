@@ -552,8 +552,11 @@ export default function ViewReleaseRequestList() {
                                                         if (col.id === 'status') {
                                                             return (
                                                                 <TableCell key={col.id} align="left">
-                                                                    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
                                                                         <StatusChip status={row.status} />
+                                                                        {row.isQuotationFlow && row.quotationStatus && (
+                                                                            <StatusBadge status={row.quotationStatus} />
+                                                                        )}
                                                                     </Box>
                                                                 </TableCell>
                                                             );

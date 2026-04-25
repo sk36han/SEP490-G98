@@ -37,6 +37,9 @@ namespace Warehouse.Entities.ModelRequest
         /// Cho phép xuất từng phần
         public bool IsPartialDeliveryAllowed { get; set; }
 
+        /// Luồng báo giá trước duyệt kế toán
+        public bool IsQuotationFlow { get; set; }
+
         /// Danh sách vật tư xuất kho (ít nhất 1)
         [Required(ErrorMessage = "Phải có ít nhất 1 vật tư.")]
         [MinLength(1, ErrorMessage = "Phải có ít nhất 1 vật tư.")]

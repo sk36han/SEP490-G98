@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, FileText, Package, MapPin, User,
-    Phone, Mail, Briefcase, Calendar, Send, Edit, Loader, ImageIcon,
+    Phone, Mail, Briefcase, Calendar, Send, Edit, Loader, ImageIcon, Upload,
     CheckCircle, XCircle, Truck,
 } from 'lucide-react';
 import {
@@ -18,7 +18,17 @@ import Toast from '../../components/Toast/Toast';
 import { useToast } from '../hooks/useToast';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser, isWarehouseKeeper } from '../permissions/roleUtils';
-import { getReleaseRequestDetail, submitReleaseRequest, approveReleaseRequest } from '../lib/releaseRequestService';
+import {
+    getReleaseRequestDetail,
+    submitReleaseRequest,
+    approveReleaseRequest,
+    exportQuotationExcel,
+    sendQuotationEmail,
+    plainTextEmailBodyToHtml,
+    importQuotationExcel,
+    confirmQuotation,
+    updateReleaseRequest,
+} from '../lib/releaseRequestService';
 import { formatDateOnly as formatDate, formatDateTime } from '../lib/dateUtils';
 import { canShowCreateGdnFromReleaseRequest } from '../utils/releaseRequestGdnUtils';
 import '../styles/CreateSupplier.css';
@@ -42,11 +52,13 @@ function findAttachmentByType(attachments, typeUpper) {
     return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
 }
 
-function ReleaseRequestAttachmentsCard({ attachments }) {
-    const quotationAtt = findAttachmentByType(attachments, 'QUOTATION');
+function ReleaseRequestAttachmentsCard({ attachments, isQuotationFlow }) {
+    const list = Array.isArray(attachments) ? attachments : [];
+    const quotationAtt = findAttachmentByType(list, 'QUOTATION');
     // Backend lưu hợp đồng chính là 'CO' (CK_DAtt_AttType); bản cũ có thể là 'CONTRACT'.
     const contractAtt =
-        findAttachmentByType(attachments, 'CO') || findAttachmentByType(attachments, 'CONTRACT');
+        findAttachmentByType(list, 'CO') || findAttachmentByType(list, 'CONTRACT');
+    const appendixAtt = findAttachmentByType(list, 'CONTRACT_APPENDIX');
     return (
         <div className="info-section" style={{ margin: 0, minWidth: 0, overflow: 'hidden' }}>
             <div className="section-header-with-toggle">
@@ -55,6 +67,12 @@ function ReleaseRequestAttachmentsCard({ attachments }) {
                     Tệp đính kèm
                 </h2>
             </div>
+            {isQuotationFlow && (
+                <Typography variant="body2" sx={{ color: '#64748b', mb: 1.5, lineHeight: 1.55 }}>
+                    Khi <strong>Chốt báo giá</strong>, hệ thống tự xuất Excel và cập nhật <strong>Báo giá chính thức</strong> bên dưới.
+                    Trước <strong>Gửi duyệt</strong>, hãy vào <strong>Chỉnh sửa RR</strong> để tải thêm <strong>HĐNT</strong> và <strong>PLHĐ</strong> (nếu có) — mục đính kèm trên form chỉnh sửa.
+                </Typography>
+            )}
             <Box
                 sx={{
                     display: 'flex',
@@ -66,14 +84,19 @@ function ReleaseRequestAttachmentsCard({ attachments }) {
                 }}
             >
                 <AttachmentFileRow
-                    label="Báo giá:"
+                    label="Báo giá chính thức:"
                     fileName={quotationAtt?.fileName}
                     fileUrl={quotationAtt?.fileUrl}
                 />
                 <AttachmentFileRow
-                    label="Hợp đồng nguyên tắc:"
+                    label="Hợp đồng nguyên tắc (HĐNT):"
                     fileName={contractAtt?.fileName}
                     fileUrl={contractAtt?.fileUrl}
+                />
+                <AttachmentFileRow
+                    label="Phụ lục hợp đồng (PLHĐ):"
+                    fileName={appendixAtt?.fileName}
+                    fileUrl={appendixAtt?.fileUrl}
                 />
             </Box>
         </div>
@@ -174,6 +197,15 @@ export default function ViewReleaseRequestDetail() {
     const [approveReason, setApproveReason] = useState('');
     const [rejectReason, setRejectReason] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [enablingQuotationFlow, setEnablingQuotationFlow] = useState(false);
+    const [quotationEmailForm, setQuotationEmailForm] = useState({
+        toEmails: '',
+        ccEmails: '',
+        bccEmails: '',
+        subject: '',
+        body: '',
+    });
 
     const fetchDetail = useCallback(async () => {
         if (!id) return;
@@ -188,6 +220,15 @@ export default function ViewReleaseRequestDetail() {
             setData(result);
             setLines(result.lines ?? []);
             setApprovals(result.approvals ?? []);
+            
+
+
+            setQuotationEmailForm((prev) => ({
+                ...prev,
+                toEmails: result.receiverEmail ?? '',
+                subject: result.releaseRequestCode ? `Báo giá ${result.releaseRequestCode}` : prev.subject,
+                body: prev.body ,
+            }));
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Không tải được chi tiết yêu cầu xuất hàng.';
             showToast(msg, 'error');
@@ -202,7 +243,7 @@ export default function ViewReleaseRequestDetail() {
         if (!data) return;
         setSubmitting(true);
         try {
-            await submitReleaseRequest(data.releaseRequestId);
+            await submitReleaseRequest(data.releaseRequestId, lines);
             showToast('Gửi yêu cầu duyệt thành công!', 'success');
             fetchDetail();
         } catch (err) {
@@ -213,8 +254,11 @@ export default function ViewReleaseRequestDetail() {
         }
     };
 
-    const canSubmit = data?.status === 'DRAFT';
+    const canSubmit = data?.status === 'DRAFT' && (!data?.isQuotationFlow || data?.quotationStatus === 'CONFIRMED');
     const canEdit = data?.status === 'DRAFT';
+    const canQuotationActions = data?.status === 'DRAFT' && data?.isQuotationFlow;
+    const canConfirmQuotation = canQuotationActions && Boolean(data?.quotationSentAt);
+    const canEnableQuotationFlow = data?.status === 'DRAFT' && !data?.isQuotationFlow;
 
     // Kế toán có thể duyệt / từ chối yêu cầu đang chờ duyệt
     const userInfo = authService.getUser();
@@ -231,6 +275,94 @@ export default function ViewReleaseRequestDetail() {
 
     const handleCreateGDN = () => {
         navigate(`/good-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);
+    };
+
+    const handleExportQuotation = async () => {
+        try {
+            const blob = await exportQuotationExcel(data.releaseRequestId);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${data.releaseRequestCode}-quotation.xlsx`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            showToast(err?.message || 'Không thể xuất excel báo giá.', 'error');
+        }
+    };
+
+    const handleSendQuotation = async () => {
+        try {
+            const toEmails = quotationEmailForm.toEmails
+                .split(/[;,]/)
+                .map((x) => x.trim())
+                .filter(Boolean);
+            if (toEmails.length === 0) {
+                showToast('Vui lòng nhập ít nhất 1 email người nhận.', 'warning');
+                return;
+            }
+            const defaultPlain = `Kính gửi ${data.receiverName || 'Quý khách'},
+
+Vui lòng xem file báo giá đính kèm.
+
+Trân trọng,`;
+            const plainBody = (quotationEmailForm.body || '').trim() || defaultPlain;
+            await sendQuotationEmail(data.releaseRequestId, {
+                toEmails,
+                ccEmails: quotationEmailForm.ccEmails.split(/[;,]/).map((x) => x.trim()).filter(Boolean),
+                bccEmails: quotationEmailForm.bccEmails.split(/[;,]/).map((x) => x.trim()).filter(Boolean),
+                subject: quotationEmailForm.subject.trim() || `Báo giá ${data.releaseRequestCode}`,
+                body: plainTextEmailBodyToHtml(plainBody),
+            });
+            showToast('Đã gửi báo giá qua email.', 'success');
+            fetchDetail();
+        } catch (err) {
+            showToast(err?.message || 'Không thể gửi email báo giá.', 'error');
+        }
+    };
+
+    const handleImportQuotation = async (evt) => {
+        const file = evt?.target?.files?.[0];
+        if (!file) return;
+        setImporting(true);
+        try {
+            await importQuotationExcel(data.releaseRequestId, file);
+            showToast('Import báo giá thành công.', 'success');
+            fetchDetail();
+        } catch (err) {
+            showToast(err?.message || 'Import báo giá thất bại.', 'error');
+        } finally {
+            setImporting(false);
+            evt.target.value = '';
+        }
+    };
+
+    const handleEnableQuotationFlow = async () => {
+        if (!data?.releaseRequestId) return;
+        setEnablingQuotationFlow(true);
+        try {
+            await updateReleaseRequest(data.releaseRequestId, { isQuotationFlow: true });
+            showToast('Đã bật luồng báo giá. Bạn có thể xuất Excel và gửi email cho khách.', 'success');
+            fetchDetail();
+        } catch (err) {
+            showToast(err?.message || 'Không thể bật luồng báo giá.', 'error');
+        } finally {
+            setEnablingQuotationFlow(false);
+        }
+    };
+
+    const handleConfirmQuotation = async () => {
+        if (!canConfirmQuotation) {
+            showToast('Vui lòng gửi báo giá qua email ít nhất 1 lần trước khi chốt.', 'warning');
+            return;
+        }
+        try {
+            await confirmQuotation(data.releaseRequestId, 'SE xác nhận chốt báo giá với khách');
+            showToast('Đã chốt báo giá. File báo giá chính thức (Excel) đã được lưu vào tệp đính kèm.', 'success');
+            fetchDetail();
+        } catch (err) {
+            showToast(err?.message || 'Không thể chốt báo giá.', 'error');
+        }
     };
 
     const handleApprove = async () => {
@@ -325,6 +457,40 @@ export default function ViewReleaseRequestDetail() {
                             <Edit size={15} />Chỉnh sửa
                         </button>
                     )}
+                    {canEnableQuotationFlow && (
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={enablingQuotationFlow}
+                            onClick={handleEnableQuotationFlow}
+                            title="Bật để xuất Excel báo giá và gửi email cho khách"
+                        >
+                            {enablingQuotationFlow ? <><Loader size={15} className="spinner" />Đang bật...</> : <><Mail size={15} />Bật luồng báo giá</>}
+                        </button>
+                    )}
+                    {canQuotationActions && (
+                        <>
+                            <button type="button" className="btn btn-secondary" onClick={handleExportQuotation}>
+                                <FileText size={15} />Xuất Excel báo giá
+                            </button>
+                            <button type="button" className="btn btn-secondary" onClick={handleSendQuotation}>
+                                <Mail size={15} />Gửi email báo giá
+                            </button>
+                            <label className="btn btn-secondary" style={{ cursor: importing ? 'not-allowed' : 'pointer', opacity: importing ? 0.6 : 1 }}>
+                                <Upload size={15} />Import Excel báo giá
+                                <input type="file" accept=".xlsx,.xls" onChange={handleImportQuotation} disabled={importing} style={{ display: 'none' }} />
+                            </label>
+                            <button
+                                type="button"
+                                className="btn btn-success"
+                                onClick={handleConfirmQuotation}
+                                disabled={!canConfirmQuotation}
+                                title={!canConfirmQuotation ? 'Cần gửi email báo giá trước khi chốt' : undefined}
+                            >
+                                <CheckCircle size={15} />Chốt báo giá
+                            </button>
+                        </>
+                    )}
                     {canSubmit && (
                         <button type="button" className="btn btn-primary" disabled={submitting} onClick={handleSubmit}>
                             {submitting ? (
@@ -351,8 +517,39 @@ export default function ViewReleaseRequestDetail() {
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                 <StatusBadge status={data.status} />
                                 {data.lifecycleStatus && <LifecycleChip lifecycleStatus={data.lifecycleStatus} />}
+                                {data.isQuotationFlow && data.quotationStatus && (
+                                    <StatusBadge status={data.quotationStatus} />
+                                )}
                             </Box>
                         </Box>
+                        {canEnableQuotationFlow && (
+                            <Box
+                                sx={{
+                                    mt: 2,
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: 'rgba(37, 99, 235, 0.08)',
+                                    border: '1px solid rgba(37, 99, 235, 0.25)',
+                                }}
+                            >
+                                <Typography sx={{ fontSize: 14, color: '#1e3a5f', mb: 1.5 }}>
+                                    RR này chưa bật <strong>luồng báo giá</strong>. Bật để xuất file Excel và gửi email cho khách (hệ thống SMTP).
+                                </Typography>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    disabled={enablingQuotationFlow}
+                                    onClick={handleEnableQuotationFlow}
+                                >
+                                    {enablingQuotationFlow ? <><Loader size={15} className="spinner" />Đang bật...</> : <><Mail size={15} />Bật luồng báo giá</>}
+                                </button>
+                            </Box>
+                        )}
+                        {canQuotationActions && (
+                            <Typography sx={{ mt: 2, fontSize: 13, color: '#64748b' }}>
+                                Điền email người nhận và nội dung thư (chỉ cần gõ chữ thường, không cần HTML), rồi bấm <strong>Gửi email báo giá</strong> — file Excel báo giá được đính kèm tự động.
+                            </Typography>
+                        )}
                     </div>
 
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 3, alignItems: 'start' }}>
@@ -426,6 +623,72 @@ export default function ViewReleaseRequestDetail() {
                                     <InfoRow icon={FileText} label="Lý do xuất" value={data.purpose} fullWidth />
                                 </Box>
                             </div>
+
+                            {canQuotationActions && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">
+                                            <Mail size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                            Gửi báo giá qua email
+                                        </h2>
+                                    </div>
+                                    <Typography variant="body2" sx={{ color: '#64748b', mb: 1.5, lineHeight: 1.6 }}>
+                                        Chỉ cần điền địa chỉ email và nội dung thư bằng <strong>chữ thường</strong> (giống soạn Gmail).
+                                        Hệ thống tự đính kèm file Excel báo giá. Không cần biết HTML.
+                                    </Typography>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                                        <TextField
+                                            size="small"
+                                            required
+                                            label="Gửi đến (email)"
+                                            placeholder="vd: khach@congty.vn"
+                                            helperText="Bắt buộc. Nhiều người nhận: gõ từng email, cách nhau bằng dấu phẩy (,) hoặc chấm phẩy (;)."
+                                            value={quotationEmailForm.toEmails}
+                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, toEmails: e.target.value }))}
+                                            fullWidth
+                                        />
+                                        <TextField
+                                            size="small"
+                                            label="CC (tùy chọn)"
+                                            placeholder="vd: quanly@congty.vn"
+                                            helperText="Người nhận chính sẽ thấy các email ở dòng này."
+                                            value={quotationEmailForm.ccEmails}
+                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, ccEmails: e.target.value }))}
+                                            fullWidth
+                                        />
+                                        <TextField
+                                            size="small"
+                                            label="BCC (tùy chọn)"
+                                            placeholder="vd: luutru@congty.vn"
+                                            helperText="Ẩn: người nhận chính không thấy các email này."
+                                            value={quotationEmailForm.bccEmails}
+                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, bccEmails: e.target.value }))}
+                                            fullWidth
+                                        />
+                                        <TextField
+                                            size="small"
+                                            label="Tiêu đề email"
+                                            placeholder="vd: Báo giá theo yêu cầu"
+                                            helperText="Dòng chủ đề hiển thị trong hộp thư của khách."
+                                            value={quotationEmailForm.subject}
+                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, subject: e.target.value }))}
+                                            fullWidth
+                                        />
+                                        <TextField
+                                            size="small"
+                                            label="Nội dung thư"
+                                            placeholder="Soạn lời chào và nội dung như tin nhắn..."
+                                            helperText="Gõ bình thường. Xuống dòng = xuống dòng trong email. Để trống một dòng (Enter hai lần) = cách đoạn. Không dùng thẻ HTML."
+                                            value={quotationEmailForm.body}
+                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, body: e.target.value }))}
+                                            multiline
+                                            minRows={6}
+                                            fullWidth
+                                            sx={{ gridColumn: '1 / -1' }}
+                                        />
+                                    </Box>
+                                </div>
+                            )}
 
                             {/* ── Tab: Vật tư ─────────────────────────────────── */}
                             {activeTab === 'items' && (
@@ -701,8 +964,8 @@ export default function ViewReleaseRequestDetail() {
                             </div>
 
                             {/* Tệp đính kèm — ẩn với role TK */}
-                            {!hideSensitiveForWarehouseKeeper && Array.isArray(data.attachments) && data.attachments.length > 0 && (
-                                <ReleaseRequestAttachmentsCard attachments={data.attachments} />
+                            {!hideSensitiveForWarehouseKeeper && (Boolean(data.isQuotationFlow) || (Array.isArray(data.attachments) && data.attachments.length > 0)) && (
+                                <ReleaseRequestAttachmentsCard attachments={data.attachments ?? []} isQuotationFlow={Boolean(data.isQuotationFlow)} />
                             )}
 
                             {/* Lịch sử duyệt */}
