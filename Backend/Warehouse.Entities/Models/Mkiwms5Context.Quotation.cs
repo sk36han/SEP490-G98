@@ -4,7 +4,6 @@ namespace Warehouse.Entities.Models;
 
 public partial class Mkiwms5Context
 {
-    public virtual DbSet<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
