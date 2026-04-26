@@ -15,7 +15,7 @@ namespace Warehouse.Api.ApiController;
 /// </summary>
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "DIRECTOR")]
+[Authorize(Roles = "GD")]
 public class SalesReportController : ControllerBase
 {
     private readonly ISalesReportService _service;
