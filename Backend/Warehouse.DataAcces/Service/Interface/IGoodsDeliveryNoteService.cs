@@ -12,7 +12,6 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<GoodsDeliveryNoteResponse> UpdateGDNAsync(long gdnId, long userId, CreateGDNRequest request);
         Task<bool> CancelGDNAsync(long gdnId, long userId, string reason);
         Task<GDNDetailResponse> GetGDNDetailAsync(long gdnId);
-        Task<GoodsDeliveryNoteResponse> ApproveGDNAsync(long gdnId, long userId, ApproveGDNRequest request);
         Task<GoodsDeliveryNoteResponse> IssueGDNAsync(long gdnId, long userId, WarehouseIssueRequest request);
         Task<GoodsDeliveryNoteResponse> ConfirmDeliveryAsync(long gdnId, long userId, IFormFile evidenceFile, string note);
     }

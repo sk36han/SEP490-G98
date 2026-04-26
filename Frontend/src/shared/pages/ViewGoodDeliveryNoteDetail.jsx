@@ -2,7 +2,6 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     getGoodsDeliveryNoteDetail,
-    approveGoodsDeliveryNote,
     issueGoodsDeliveryNote,
     confirmDeliveryGoodsDeliveryNote,
 } from '../lib/goodsDeliveryNoteService';
@@ -194,8 +193,6 @@ export default function ViewGoodDeliveryNoteDetail() {
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const currentStatus = String(gdn?.status || '').toUpperCase();
 
-    const canAct = (currentStatus === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS') ||
-        (currentStatus === 'PENDING_DIR' && permissionRole === 'DIRECTOR');
     const canIssue = currentStatus === 'PENDING_ISSUE' && permissionRole === 'WAREHOUSE_KEEPER';
     const canConfirm = currentStatus === 'ISSUED' && (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR');
 
@@ -300,13 +297,7 @@ export default function ViewGoodDeliveryNoteDetail() {
         }
         setProcessing(true);
         try {
-            if (dialogConfig.type === 'approve') {
-                await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: true, reason: reasonText.trim() });
-                notifyApiSuccess(showToast, 'Đã duyệt phiếu xuất kho');
-            } else if (dialogConfig.type === 'reject') {
-                await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: false, reason: reasonText.trim() });
-                notifyApiSuccess(showToast, 'Đã từ chối phiếu xuất kho');
-            } else if (dialogConfig.type === 'issue') {
+            if (dialogConfig.type === 'issue') {
                 // Đủ hàng: chỉ IsAllItemsFulfilled — backend tự gán ActualQty = RequestedQty từng dòng (IssueGDNAsync)
                 await issueGoodsDeliveryNote(gdn.gdnId, {
                     isAllItemsFulfilled: true,
@@ -347,8 +338,6 @@ export default function ViewGoodDeliveryNoteDetail() {
     }
 
     const dialogTitles = {
-        approve: 'Xác nhận duyệt phiếu',
-        reject: 'Xác nhận từ chối phiếu',
         issue: 'Xác nhận xuất kho',
         confirm: 'Xác nhận hoàn thành phiếu',
     };
@@ -368,18 +357,6 @@ export default function ViewGoodDeliveryNoteDetail() {
                         <Printer size={16} />
                         In phiếu
                     </button>
-                    {canAct && (
-                        <>
-                            <button type="button" className="btn btn-cancel" disabled={processing} onClick={() => openDialog('reject')}>
-                                <XCircle size={15} />
-                                Từ chối
-                            </button>
-                            <button type="button" className="btn btn-primary" disabled={processing} onClick={() => openDialog('approve')}>
-                                <CheckCircle size={16} />
-                                Duyệt phiếu
-                            </button>
-                        </>
-                    )}
                     {canIssue && (
                         <button type="button" className="btn btn-primary" disabled={processing} onClick={() => openDialog('issue')}>
                             <CheckCircle size={16} />
