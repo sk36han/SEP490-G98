@@ -228,26 +228,7 @@ namespace Warehouse.DataAcces.Service
                     break;
 
                 case "goodsdelivery":
-                    // Delegate to GoodsDeliveryNoteService for full business logic (2-stage, FIFO/LIFO inventory deduction)
-                    try
-                    {
-                        var gdnService = _serviceProvider.GetRequiredService<IGoodsDeliveryNoteService>();
-                        var gdnApproveRequest = new ApproveGDNRequest
-                        {
-                            IsApproved = decision == "APPROVED",
-                            Reason = reason
-                        };
-                        await gdnService.ApproveGDNAsync(requestId, currentUserId, gdnApproveRequest);
-                        return ApprovalResult.Succeeded($"Thực hiện thành công: Đã xử lý phiếu xuất kho.");
-                    }
-                    catch (KeyNotFoundException ex)
-                    {
-                        return ApprovalResult.Failed(ex.Message, 404);
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        return ApprovalResult.Failed(ex.Message, 400);
-                    }
+                    return ApprovalResult.Failed("Phiếu xuất kho (GDN) không còn yêu cầu phê duyệt trong quy trình mới.", 400);
 
                 case "inventoryadjustment":
                     var adjustment = await _context.InventoryAdjustmentRequests.FindAsync(requestId);

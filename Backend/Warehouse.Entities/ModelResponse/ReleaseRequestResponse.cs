@@ -36,6 +36,12 @@ namespace Warehouse.Entities.ModelResponse
         public decimal TotalRequestedQty { get; set; }
 
         public DateTime CreatedAt { get; set; }
+
+        public bool IsQuotationFlow { get; set; }
+        public string? QuotationStatus { get; set; }
+        public DateTime? QuotationSentAt { get; set; }
+        public DateTime? QuotationConfirmedAt { get; set; }
+        public int QuotationVersion { get; set; }
     }
 
 
@@ -71,6 +77,11 @@ namespace Warehouse.Entities.ModelResponse
         public DateTime CreatedAt { get; set; }
         public DateTime? SubmittedAt { get; set; }
         public DateTime? ApprovedAt { get; set; }
+        public bool IsQuotationFlow { get; set; }
+        public string? QuotationStatus { get; set; }
+        public DateTime? QuotationSentAt { get; set; }
+        public DateTime? QuotationConfirmedAt { get; set; }
+        public int QuotationVersion { get; set; }
 
         // Danh sách vật tư
         public List<ReleaseRequestLineResponse> Lines { get; set; } = new();

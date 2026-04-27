@@ -10,11 +10,8 @@ import {
 const STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
     { value: 'Draft', label: 'Nháp' },
-    { value: 'PendingAcc', label: 'Chờ kế toán duyệt' },
-    { value: 'PendingDir', label: 'Chờ giám đốc duyệt' },
-    { value: 'Approved', label: 'Đã duyệt' },
-    { value: 'Dispatched', label: 'Đã xuất hàng' },
-    { value: 'Signed', label: 'Đã ký nhận' },
+    { value: 'PendingIssue', label: 'Chờ xuất hàng' },
+    { value: 'Issued', label: 'Đã xuất hàng' },
     { value: 'Posted', label: 'Đã ghi sổ' },
     { value: 'Rejected', label: 'Từ chối' },
 ];

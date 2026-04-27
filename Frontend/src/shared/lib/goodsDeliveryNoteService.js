@@ -171,32 +171,7 @@ export async function createTransportInfo(payload) {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 5. APPROVE
-// PUT /api/GoodsDeliveryNote/{id}/approve
-// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Duyệt hoặc từ chối phiếu xuất kho.
- * Luồng tùy chọn: Stage 1 (PENDING_ACC) → Kế toán duyệt → PENDING_DIR
- * Stage 2 (PENDING_DIR) → Giám đốc duyệt → PENDING_ISSUE
- * Tạo mới từ UI: thường gửi thẳng PENDING_ISSUE (chuẩn bị hàng), bỏ qua hai bước duyệt trên.
- * @param {number} gdnId
- * @param {{ isApproved: boolean, reason?: string }} data
- */
-export async function approveGoodsDeliveryNote(gdnId, data) {
-    try {
-        // Hỗ trợ cả camelCase (isApproved) lẫn PascalCase (IsApproved) từ caller
-        const isApproved = data.isApproved ?? data.IsApproved ?? false;
-        const response = await apiClient.put(`/GoodsDeliveryNote/${gdnId}/approve`, {
-            IsApproved: Boolean(isApproved),
-            Reason: data.reason ?? data.Reason ?? null,
-        });
-        return extractBody(response);
-    } catch (error) {
-        throw normalizeApiError(error, { defaultMessage: 'Khong the duyet phieu xuat kho.' });
-    }
-}
 
 export async function issueGoodsDeliveryNote(gdnId, data) {
     try {

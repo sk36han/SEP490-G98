@@ -516,207 +516,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        // ==================== APPROVE (2-stage: Kế toán → Giám đốc) ====================
-        public async Task<GoodsDeliveryNoteResponse> ApproveGDNAsync(long gdnId, long userId, ApproveGDNRequest request)
-        {
-            // 1. Validate GDN exists
-            var gdn = await _context.GoodsDeliveryNotes
-                .Include(g => g.ReleaseRequest)
-                    .ThenInclude(rr => rr.Receiver)
-                        .ThenInclude(r => r.Company)
-                            .ThenInclude(c => c.Addresses)
-                .Include(g => g.Warehouse)
-                .Include(g => g.CreatedByNavigation)
-                .Include(g => g.GoodsDeliveryNoteLines)
-                .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
-            if (gdn == null)
-                throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
-
-            // 2. Validate user exists and get role
-            var user = await _context.Users
-                .Include(u => u.UserRoleUser)
-                    .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.UserId == userId);
-
-            if (user == null)
-                throw new KeyNotFoundException("Không tìm thấy người dùng.");
-            // 3. Determine current stage and validate role
-            string decision = request.IsApproved ? "APPROVE" : "REJECT";
-
-            if (!request.IsApproved && string.IsNullOrWhiteSpace(request.Reason))
-                throw new ArgumentException("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
-
-            if (gdn.Status == "PENDING_ACC")
-            {
-                // Stage 1: Kế toán duyệt
-                if (request.IsApproved)
-                {
-                    // Approved by Accountant → move to Director
-                    gdn.Status = "PENDING_DIR";
-                }
-                else
-                {
-                    // Rejected by Accountant
-                    gdn.Status = "REJECTED";
-                }
-
-                // Log approval to DocumentApproval (Stage 1)
-                _context.DocumentApprovals.Add(new DocumentApproval
-                {
-                    DocType = "GDN",
-                    DocId = gdn.Gdnid,
-                    StageNo = 1,
-                    Decision = decision,
-                    Reason = request.Reason,
-                    ActionBy = userId,
-                    ActionAt = DateTime.UtcNow
-                });
-            }
-            else if (gdn.Status == "PENDING_DIR")
-            {
-                // Stage 2: Giám đốc duyệt
-
-                if (request.IsApproved)
-                {
-                    // Kiểm tra kho có đang bị khóa (kiểm kê) không trước khi chốt trừ hàng
-                    if (await _stocktakeService.IsWarehouseFrozenAsync(gdn.WarehouseId))
-                        throw new InvalidOperationException($"Kho '{gdn.Warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể duyệt chốt phiếu xuất kho.");
-
-                    // Final approval by Director -> move to PENDING_ISSUE for Warehouse Keeper
-                    gdn.Status = "PENDING_ISSUE";
-                    gdn.ApprovedAt = DateTime.UtcNow;
-
-                    // Do NOT process inventory here anymore. It will be done by Warehouse Keeper.
-                    // await ProcessGDNApprovalInventoryAsync(gdn, userId);
-                }
-                else
-                {
-                    // Rejected by Director
-                    gdn.Status = "REJECTED";
-                }
-
-                // Log approval to DocumentApproval (Stage 2)
-                _context.DocumentApprovals.Add(new DocumentApproval
-                {
-                    DocType = "GDN",
-                    DocId = gdn.Gdnid,
-                    StageNo = 2,
-                    Decision = decision,
-                    Reason = request.Reason,
-                    ActionBy = userId,
-                    ActionAt = DateTime.UtcNow
-                });
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    $"Phiếu xuất kho không ở trạng thái chờ duyệt. Trạng thái hiện tại: {gdn.Status}.");
-            }
-
-            // Audit log
-            await _auditLogService.LogAsync(
-                userId,
-                request.IsApproved ? AuditAction.Approve : AuditAction.Reject,
-                AuditEntity.GoodsDeliveryNote,
-                gdn.Gdnid,
-                $"{(request.IsApproved ? "Duyệt" : "Từ chối")} phiếu xuất kho {gdn.Gdncode}" +
-                         $" (Stage: {(gdn.Status == "PENDING_ISSUE" || gdn.Status == "REJECTED" ? "Director" : "Accountant")})" +
-                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"));
-
-            await _context.SaveChangesAsync();
-
-            // Gửi thông báo chuyển cấp hoặc kết quả
-            if (request.IsApproved)
-            {
-                if (gdn.Status == "PENDING_DIR")
-                {
-                    // Thông báo cho Giám đốc
-                    await _notificationService.CreateForRolesAsync(
-                        new[] { UserRoleConstants.Director },
-                        "Phiếu xuất kho chờ Giám đốc duyệt",
-                        $"Phiếu xuất {gdn.Gdncode} đã được Kế toán duyệt và đang chờ bạn phê duyệt cuối cùng.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        userId,
-                        NotificationTypes.NewRequest
-                    );
-                }
-                else if (gdn.Status == "PENDING_ISSUE")
-                {
-                    // Thông báo cho Thủ kho
-                    await _notificationService.CreateForRolesAsync(
-                        new[] { UserRoleConstants.Storekeeper },
-                        "Phiếu xuất kho sẵn sàng xuất hàng",
-                        $"Phiếu xuất {gdn.Gdncode} đã được Giám đốc phê duyệt. Vui lòng thực hiện xuất hàng thực tế.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        userId,
-                        "WarehouseAction"
-                    );
-
-                    // Thông báo cho người tạo phiếu biết đã duyệt xong
-                    await _notificationService.CreateAsync(
-                        gdn.CreatedBy,
-                        $"Phiếu xuất kho {gdn.Gdncode} ĐÃ ĐƯỢC DUYỆT",
-                        $"Phiếu xuất kho {gdn.Gdncode} đã được Giám đốc phê duyệt. Thủ kho sẽ thực hiện xuất hàng.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        NotificationTypes.ApprovalResult,
-                        (byte)NotificationSeverity.Info
-                    );
-                }
-            }
-            else
-            {
-                // Thông báo bị từ chối cho người tạo
-                await _notificationService.CreateAsync(
-                    gdn.CreatedBy,
-                    $"Phiếu xuất kho {gdn.Gdncode} BỊ TỪ CHỐI",
-                    $"Phiếu xuất kho {gdn.Gdncode} của bạn đã bị từ chối bởi {user.FullName}. Lý do: {request.Reason}",
-                    "GoodsDelivery",
-                    gdn.Gdnid,
-                    NotificationTypes.ApprovalResult,
-                    (byte)NotificationSeverity.Error
-                );
-            }
-
-            var rr = gdn.ReleaseRequest;
-            var receiver = rr?.Receiver;
-            var company = receiver?.Company;
-            var addr = company?.Addresses?
-                .OrderByDescending(a => a.IsDefault)
-                .ThenByDescending(a => a.IsActive)
-                .FirstOrDefault();
-
-            return new GoodsDeliveryNoteResponse
-            {
-                GdnId = gdn.Gdnid,
-                GdnCode = gdn.Gdncode,
-                IssueDate = gdn.IssueDate,
-                Status = gdn.Status,
-                IsPaid = gdn.IsPaid,
-                ReleaseRequestId = gdn.ReleaseRequestId,
-                ReleaseRequestCode = rr?.ReleaseRequestCode,
-                WarehouseId = gdn.WarehouseId,
-                WarehouseName = gdn.Warehouse?.WarehouseName,
-                CreatedBy = gdn.CreatedBy,
-                CreatedByName = gdn.CreatedByNavigation?.FullName,
-                TotalDeliveredQty = gdn.TotalDeliveredQty,
-                TotalDeliveredAmount = gdn.TotalDeliveredAmount,
-                ShippingFee = gdn.ShippingFee,
-                NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
-                SubmittedAt = gdn.SubmittedAt,
-                ApprovedAt = gdn.ApprovedAt,
-                PostedAt = gdn.PostedAt,
-                Note = gdn.Note,
-                ReceiverId = receiver?.ReceiverId,
-                ReceiverName = receiver?.ReceiverName,
-                CompanyId = receiver?.CompanyId,
-                CompanyName = company?.CompanyName,
-                ReceiverAddress = addr?.AddressDetail
-            };
-        }
 
         // ==================== DETAIL ====================
         public async Task<GDNDetailResponse> GetGDNDetailAsync(long gdnId)
@@ -1114,7 +914,7 @@ namespace Warehouse.DataAcces.Service
                 .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
             if (gdn == null) throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
-            if (gdn.Status != "PENDING_ACC")
+            if (gdn.Status != "PENDING_ISSUE" && gdn.Status != "DRAFT")
                 throw new InvalidOperationException($"Không thể cập nhật phiếu ở trạng thái {gdn.Status}.");
 
             // Kiểm tra kho có đang bị khóa (kiểm kê) không
@@ -1343,7 +1143,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 3,
-                Decision = "ISSUE",
+                Decision = NormalizeApprovalDecision("ISSUE"),
                 Reason = request.Note,
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1465,7 +1265,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 4,
-                Decision = "POSTED",
+                Decision = NormalizeApprovalDecision("POSTED"),
                 Reason = note ?? "Upload bằng chứng xuất hàng",
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1524,6 +1324,16 @@ namespace Warehouse.DataAcces.Service
                 CompanyId = receiver?.CompanyId,
                 CompanyName = company?.CompanyName,
                 ReceiverAddress = addr?.AddressDetail
+            };
+        }
+
+        // CK_DA_Decision only accepts approval decisions, not workflow statuses.
+        private static string NormalizeApprovalDecision(string? rawDecision)
+        {
+            return rawDecision?.Trim().ToUpperInvariant() switch
+            {
+                "REJECT" or "REJECTED" => "REJECT",
+                _ => "APPROVE"
             };
         }
     }
