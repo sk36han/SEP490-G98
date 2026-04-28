@@ -43,6 +43,7 @@ namespace Warehouse.Entities.ModelResponse
         public string? RefundReference { get; set; }
         public DateTime? RefundedAt { get; set; }
         public List<PRNLineDetailResponse> Lines { get; set; } = new();
+        public List<PRNAttachmentResponse> Attachments { get; set; } = new();
     }
 
     public class PRNLineDetailResponse
@@ -59,5 +60,14 @@ namespace Warehouse.Entities.ModelResponse
         public string? Reason { get; set; }
         public string? Note { get; set; }
         public long? RelatedGrnlineId { get; set; }
+    }
+
+    public class PRNAttachmentResponse
+    {
+        public long AttachmentId { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public string FileUrl { get; set; } = string.Empty;
+        public string AttachmentType { get; set; } = string.Empty;
+        public DateTime UploadedAt { get; set; }
     }
 }

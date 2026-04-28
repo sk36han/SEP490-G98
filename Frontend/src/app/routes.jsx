@@ -57,7 +57,6 @@ import CreatePurchaseReturn from '../shared/pages/CreatePurchaseReturn';
 import ViewReleaseRequestList from '../shared/pages/ViewReleaseRequestList';
 import ViewReleaseRequestDetail from '../shared/pages/ViewReleaseRequestDetail';
 import CreateReleaseRequest from '../shared/pages/CreateReleaseRequest';
-import EditReleaseRequest from '../shared/pages/EditReleaseRequest';
 import ViewGoodDeliveryNoteList from '../shared/pages/ViewGoodDeliveryNoteList';
 import ViewGoodDeliveryNoteDetail from '../shared/pages/ViewGoodDeliveryNoteDetail';
 import CreateGoodDeliveryNote from '../shared/pages/CreateGoodDeliveryNote';
@@ -79,7 +78,7 @@ import ViewReceiver from '../shared/pages/ViewReceiverList';
 import ViewReceiverDetail from '../shared/pages/ViewReceiverDetail';
 import CreateReceiver from '../shared/pages/CreateReceiver';
 import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
-import ViewNotificationsLive from '../shared/pages/ViewNotificationsLive';
+import ViewNotifications from '../shared/pages/ViewNotificationsLive';
 import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
 import SalesRevenueTarget from '../shared/pages/mockup/SalesRevenueTarget';
 import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
@@ -114,7 +113,7 @@ const AppRoutes = () => (
         <Route path="/profile" element={<ProtectedRoute><MainLayout><Profile /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/users/deactivated" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewDeactivatedUsersList /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />
-        <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotificationsLive /></MainLayout></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotifications /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewAdminAuditLog /></MainLayout></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
         <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
@@ -155,7 +154,6 @@ const AppRoutes = () => (
         <Route path="/good-delivery-notes/create" element={<ProtectedRoute allowedRoles={ROLES_DW}><MainLayout><CreateGoodDeliveryNote /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateReleaseRequest /></MainLayout></ProtectedRoute>} />
-        <Route path="/release-request/:id/edit" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><EditReleaseRequest /></MainLayout></ProtectedRoute>} />
         <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/good-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/goods-delivery-notes" element={<Navigate to="/good-delivery-notes" replace />} />
@@ -170,9 +168,9 @@ const AppRoutes = () => (
         <Route path="/purchase-orders" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderList /></MainLayout></ProtectedRoute>} />
         <Route path="/purchase-orders/create" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><CreatePurchaseOrder /></MainLayout></ProtectedRoute>} />
         <Route path="/purchase-orders/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><ViewPurchaseReturnList /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns/create" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><CreatePurchaseReturn /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns/:id" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><ViewPurchaseReturnDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewPurchaseReturnList /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreatePurchaseReturn /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewPurchaseReturnDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/item-prices" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><ViewItemPriceList /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Inventory Alert Setup ── */}

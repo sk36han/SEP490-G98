@@ -214,18 +214,18 @@ const menuCatalog = {
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: icon(ShoppingCart),
-        label: 'Yêu cầu nhập hàng',
+        label: 'Đơn mua',
         children: [
-            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
+            createChild('/purchase-orders', 'Danh sách đơn mua'),
         ],
     }),
     purchaseOrdersManage: createItem({
         id: 'purchase-orders-mgmt',
         path: '/purchase-orders',
         icon: icon(ShoppingCart),
-        label: 'Yêu cầu nhập hàng',
+        label: 'Đơn mua',
         children: [
-            createChild('/purchase-orders', 'Danh sách yêu cầu nhập hàng'),
+            createChild('/purchase-orders', 'Danh sách đơn mua'),
         ],
     }),
 
@@ -340,6 +340,7 @@ const roleMenus = {
         menuCatalog.goodReceiptNotesManage,
         menuCatalog.releaseRequestsManage,
         menuCatalog.goodsDeliveryNotesManage,
+        menuCatalog.purchaseReturnsList,
     ],
     SALE_SUPPORT: [
         ...COMMON_ITEMS,
