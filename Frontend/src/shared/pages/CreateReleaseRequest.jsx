@@ -75,6 +75,8 @@ function getLineItemsValidationError(lineItems) {
         }
     }
     return null;
+}
+
 function findAttachmentByType(attachments, typeUpper) {
     if (!Array.isArray(attachments)) return null;
     return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
@@ -87,7 +89,7 @@ function toAbsoluteFileUrl(url) {
     return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-export default function CreateReleaseRequest() {
+export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotationFlowInEdit = false }) {
     const navigate = useNavigate();
     const { id: editId } = useParams();
     const isEditMode = Boolean(editId);
@@ -576,6 +578,7 @@ export default function CreateReleaseRequest() {
         && Boolean(quotationFile)
         && Boolean(contractFile)
     ), [canCreateRequest, form.isQuotationFlow, quotationFile, contractFile]);
+    const canSaveDraft = useMemo(() => !baseValidationError, [baseValidationError]);
 
     const canCreateQuotationDraft = useMemo(() => (
         canSaveDraft
@@ -691,11 +694,7 @@ export default function CreateReleaseRequest() {
             return;
         }
         if (!validateLineItems()) return;
-        if (addressMode === 'list' && !selectedAddressId) {
-            showToast('Vui lòng chọn địa chỉ giao hàng.', 'error');
-            return;
-        }
-        if (addressMode === 'custom' && !customAddress.address.trim()) {
+        if (!selectedAddressId) {
             showToast('Vui lòng nhập địa chỉ giao hàng.', 'error');
             return;
         }
@@ -1200,7 +1199,9 @@ export default function CreateReleaseRequest() {
                                 </div>
                             </div>
 
-                            {(isEditMode || !form.isQuotationFlow) && (
+                            {(isEditMode
+                                ? (forceHideAttachmentsWhenQuotationFlowInEdit ? !form.isQuotationFlow : true)
+                                : !form.isQuotationFlow) && (
                                 <div className="info-section" style={{ margin: 0 }}>
                                     <div className="section-header-with-toggle">
                                         <h2 className="section-title">Tệp đính kèm</h2>
