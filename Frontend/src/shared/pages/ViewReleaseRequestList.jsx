@@ -34,11 +34,13 @@ import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
 import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
     <Box sx={{
         flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
         border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
@@ -49,7 +51,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
             width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-            <Icon size={22} color={color} />
+            {React.createElement(icon, { size: 22, color })}
         </Box>
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
@@ -99,6 +101,17 @@ const LifecycleChip = ({ lifecycleStatus }) => (
     <StatusBadge status={lifecycleStatus} />
 );
 
+function getDisplayLifecycleStatus(status, lifecycleStatus, isQuotationFlow) {
+    const normalizedStatus = String(status ?? '').toUpperCase();
+    if (normalizedStatus === 'DRAFT') {
+        return isQuotationFlow ? null : 'RR_DRAFT_PENDING_SUBMIT';
+    }
+    if (normalizedStatus === 'PENDING_ACC') return 'PENDING_ACC';
+    if (normalizedStatus === 'REJECTED') return 'REJECTED';
+    if (normalizedStatus !== 'APPROVED') return null;
+    return lifecycleStatus;
+}
+
 const RR_COLUMNS = [
     { id: 'stt',                  label: 'STT',                     sortable: false, getValue: (row, idx, { pageNumber, pageSize }) => (pageNumber - 1) * pageSize + idx + 1 },
     { id: 'releaseRequestCode',   label: 'Mã yêu cầu xuất hàng',    sortable: true,  getValue: (row) => row.releaseRequestCode ?? '' },
@@ -106,24 +119,56 @@ const RR_COLUMNS = [
     { id: 'receiverName',         label: 'Người nhận',               sortable: true,  getValue: (row) => row.receiverName ?? '' },
     { id: 'companyName',          label: 'Công ty',                  sortable: false, getValue: (row) => row.companyName ?? '' },
     { id: 'warehouseName',        label: 'Kho xuất',                 sortable: true,  getValue: (row) => row.warehouseName ?? '' },
-    { id: 'purpose',              label: 'Lý do xuất',               sortable: false, getValue: (row) => row.purpose ?? '' },
+
     { id: 'requestedDate',        label: 'Ngày yêu cầu',             sortable: true,  getValue: (row) => row.requestedDate ?? '' },
     { id: 'expectedDate',         label: 'Ngày xuất dự kiến',        sortable: true,  getValue: (row) => row.expectedDate ?? '' },
     { id: 'totalItems',           label: 'Tổng vật tư',             sortable: false, getValue: (row) => row.totalItems ?? 0 },
     { id: 'totalRequestedQty',   label: 'Tổng số lượng',           sortable: false, getValue: (row) => row.totalRequestedQty ?? 0 },
-    { id: 'lifecycleStatus',     label: 'Tình trạng xuất',          sortable: false, getValue: (row) => row.lifecycleStatus ?? '' },
     { id: 'status',              label: 'Trạng thái',               sortable: true,  getValue: (row) => row.status ?? '' },
+    { id: 'quotationStatus',     label: 'Trạng thái báo giá',       sortable: false, getValue: (row) => row.quotationStatus ?? '' },
+    { id: 'lifecycleStatus',     label: 'Tình trạng xuất',          sortable: false, getValue: (row) => row.lifecycleStatus ?? '' },
     { id: 'createdAt',            label: 'Ngày tạo',                 sortable: true,  getValue: (row) => row.createdAt ?? '' },
 ];
 
+const ALL_COLUMN_IDS = RR_COLUMNS.map((c) => c.id);
 const DEFAULT_VISIBLE_COLUMN_IDS = RR_COLUMNS.map((c) => c.id);
 const SORTABLE_COLUMN_IDS = RR_COLUMNS.filter((c) => c.sortable).map((c) => c.id);
 const DATE_COLUMN_IDS = ['requestedDate', 'expectedDate', 'createdAt'];
+const DEFAULT_SORT = { orderBy: 'createdAt', order: 'desc' };
+
+function normalizeColumnOrder(rawOrder) {
+    const validSet = new Set(ALL_COLUMN_IDS);
+    const normalized = [];
+    const seen = new Set();
+
+    if (Array.isArray(rawOrder)) {
+        rawOrder.forEach((id) => {
+            if (validSet.has(id) && !seen.has(id)) {
+                normalized.push(id);
+                seen.add(id);
+            }
+        });
+    }
+
+    ALL_COLUMN_IDS.forEach((id) => {
+        if (!seen.has(id)) normalized.push(id);
+    });
+
+    return normalized;
+}
+
+function getColumnOrderIndex(order, id) {
+    const idx = order.indexOf(id);
+    return idx >= 0 ? idx : Number.MAX_SAFE_INTEGER;
+}
 
 export default function ViewReleaseRequestList() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
+    const currentUserId = authService.getCurrentUserId();
+    const canCreate = permissionRole !== 'ACCOUNTANTS' && permissionRole !== 'WAREHOUSE_KEEPER';
 
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -133,26 +178,39 @@ export default function ViewReleaseRequestList() {
     const [pageSize, setPageSize] = useState(20);
     const [visibleColumnIds, setVisibleColumnIds] = useState(() => new Set(DEFAULT_VISIBLE_COLUMN_IDS));
     const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-    const [orderBy, setOrderBy] = useState(null);
-    const [order, setOrder] = useState('asc');
+    const [orderBy, setOrderBy] = useState(DEFAULT_SORT.orderBy);
+    const [order, setOrder] = useState(DEFAULT_SORT.order);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [columnOrder, setColumnOrder] = useState(() => {
         const saved = localStorage.getItem(LS_COL_ORDER);
-        return saved ? JSON.parse(saved) : RR_COLUMNS.map((c) => c.id);
+        if (!saved) return ALL_COLUMN_IDS;
+        try {
+            return normalizeColumnOrder(JSON.parse(saved));
+        } catch {
+            return ALL_COLUMN_IDS;
+        }
     });
     const [tempColumnOrder, setTempColumnOrder] = useState(columnOrder);
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [draggedPopupColumn, setDraggedPopupColumn] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [_error, setError] = useState(null);
+    const [totalItems, setTotalItems] = useState(0);
 
     useEffect(() => {
-        const saved = localStorage.getItem(LS_SORT);
-        if (saved) {
-            const cfg = JSON.parse(saved);
-            if (cfg.orderBy) { setOrderBy(cfg.orderBy); setOrder(cfg.order); }
-        }
+        localStorage.setItem(LS_SORT, JSON.stringify(DEFAULT_SORT));
     }, []);
+
+    useEffect(() => {
+        const normalized = normalizeColumnOrder(columnOrder);
+        const isSame = normalized.length === columnOrder.length
+            && normalized.every((id, idx) => id === columnOrder[idx]);
+        if (!isSame) {
+            setColumnOrder(normalized);
+            setTempColumnOrder(normalized);
+            localStorage.setItem(LS_COL_ORDER, JSON.stringify(normalized));
+        }
+    }, [columnOrder]);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -160,10 +218,12 @@ export default function ViewReleaseRequestList() {
         try {
             const result = await getReleaseRequests({ page: page + 1, pageSize });
             setList(result.items || []);
+            setTotalItems(Number(result.totalItems ?? 0));
         } catch (err) {
             const msg = err?.response?.data?.message || err?.message || 'Không tải được danh sách yêu cầu xuất hàng';
             setError(msg);
             setList([]);
+            setTotalItems(0);
         } finally {
             setLoading(false);
         }
@@ -180,9 +240,10 @@ export default function ViewReleaseRequestList() {
         refetch();
     }, [refetch]);
 
+    const columnSelectorOpen = Boolean(columnSelectorAnchor);
     useEffect(() => {
-        if (Boolean(columnSelectorAnchor)) setTempColumnOrder(columnOrder);
-    }, [Boolean(columnSelectorAnchor)]);
+        if (columnSelectorOpen) setTempColumnOrder(columnOrder);
+    }, [columnSelectorOpen, columnOrder]);
 
     const handleColumnVisibilityChange = (id, checked) => {
         setVisibleColumnIds((prev) => {
@@ -197,7 +258,7 @@ export default function ViewReleaseRequestList() {
     const visibleColumns = useMemo(() =>
         RR_COLUMNS
             .slice()
-            .sort((a, b) => columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id))
+            .sort((a, b) => getColumnOrderIndex(columnOrder, a.id) - getColumnOrderIndex(columnOrder, b.id))
             .filter((c) => visibleColumnIds.has(c.id)),
         [columnOrder, visibleColumnIds]);
 
@@ -242,8 +303,9 @@ export default function ViewReleaseRequestList() {
     };
 
     const handleSaveColumnOrder = () => {
-        setColumnOrder(tempColumnOrder);
-        localStorage.setItem(LS_COL_ORDER, JSON.stringify(tempColumnOrder));
+        const normalized = normalizeColumnOrder(tempColumnOrder);
+        setColumnOrder(normalized);
+        localStorage.setItem(LS_COL_ORDER, JSON.stringify(normalized));
         setColumnSelectorAnchor(null);
     };
     const handleCancelColumnOrder = () => {
@@ -254,6 +316,13 @@ export default function ViewReleaseRequestList() {
     const filteredAndSortedRows = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
         let result = [...list];
+
+        // Chỉ người tạo mới thấy phiếu nháp của chính mình.
+        result = result.filter((r) => {
+            if (String(r.status || '').toUpperCase() !== 'DRAFT') return true;
+            const ownerId = r.requestedBy ?? null;
+            return ownerId != null && currentUserId != null && String(ownerId) === String(currentUserId);
+        });
 
         if (term) {
             result = result.filter((r) =>
@@ -266,6 +335,8 @@ export default function ViewReleaseRequestList() {
             );
         }
         if (filterValues.status) result = result.filter((r) => r.status === filterValues.status);
+        if (filterValues.quotationStatus) result = result.filter((r) => (r.quotationStatus ?? '') === filterValues.quotationStatus);
+        if (filterValues.lifecycleStatus) result = result.filter((r) => (r.lifecycleStatus ?? '') === filterValues.lifecycleStatus);
         if (filterValues.requestedBy) result = result.filter((r) => (r.requestedByName ?? '').toLowerCase().includes(filterValues.requestedBy.toLowerCase()));
         if (filterValues.receiverName) result = result.filter((r) => (r.receiverName ?? '').toLowerCase().includes(filterValues.receiverName.toLowerCase()));
         if (filterValues.fromExportDate) result = result.filter((r) => r.expectedDate && r.expectedDate >= filterValues.fromExportDate);
@@ -274,27 +345,30 @@ export default function ViewReleaseRequestList() {
         if (filterValues.toCreatedDate) result = result.filter((r) => r.createdAt && r.createdAt.substring(0, 10) <= filterValues.toCreatedDate);
 
         result.sort((a, b) => {
-            if (!orderBy) return 0;
-            let aVal = a[orderBy] ?? '';
-            let bVal = b[orderBy] ?? '';
+            const activeOrderBy = orderBy || DEFAULT_SORT.orderBy;
+            const activeOrder = orderBy ? order : DEFAULT_SORT.order;
+
+            let aVal = a[activeOrderBy] ?? '';
+            let bVal = b[activeOrderBy] ?? '';
             let cmp = 0;
-            if (DATE_COLUMN_IDS.includes(orderBy)) {
+            if (DATE_COLUMN_IDS.includes(activeOrderBy)) {
                 const tA = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
                 const tB = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
                 cmp = tA - tB;
             } else {
                 cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
             }
-            return order === 'asc' ? cmp : -cmp;
+            return activeOrder === 'asc' ? cmp : -cmp;
         });
         return result;
-    }, [list, searchTerm, filterValues, orderBy, order]);
+    }, [list, searchTerm, filterValues, orderBy, order, currentUserId]);
 
-    const totalCount = filteredAndSortedRows.length;
+    // API đã phân trang phía server; không slice thêm phía client theo page nữa.
+    const totalCount = totalItems;
     const start = totalCount === 0 ? 0 : page * pageSize + 1;
-    const end = Math.min((page + 1) * pageSize, totalCount);
+    const end = totalCount === 0 ? 0 : Math.min(page * pageSize + filteredAndSortedRows.length, totalCount);
     const totalPages = pageSize > 0 ? Math.max(0, Math.ceil(totalCount / pageSize)) : 0;
-    const rows = filteredAndSortedRows.slice(page * pageSize, (page + 1) * pageSize);
+    const rows = filteredAndSortedRows;
 
     useEffect(() => setPage(0), [searchTerm, filterValues]);
 
@@ -313,7 +387,6 @@ export default function ViewReleaseRequestList() {
     const isAllSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.releaseRequestId));
     const isSomeSelected = rows.some((r) => selectedIds.has(r.releaseRequestId)) && !isAllSelected;
 
-    const columnSelectorOpen = Boolean(columnSelectorAnchor);
     const activeFilterCount = Object.values(filterValues).filter((v) => v && v !== '').length;
 
     const iconBtnSx = {
@@ -404,27 +477,29 @@ export default function ViewReleaseRequestList() {
                             </Tooltip>
 
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                <Button
-                                    variant="contained"
-                                    startIcon={<Plus size={18} />}
-                                    onClick={() => navigate('/release-request/create')}
-                                    sx={{
-                                        fontSize: '13px',
-                                        fontWeight: 500,
-                                        textTransform: 'none',
-                                        borderRadius: '10px',
-                                        height: 38,
-                                        px: 2.5,
-                                        bgcolor: '#3b82f6',
-                                        boxShadow: '0 1px 2px rgba(59,130,246,0.3)',
-                                        '&:hover': {
-                                            bgcolor: '#2563eb',
-                                            boxShadow: '0 4px 12px rgba(59,130,246,0.4)',
-                                        },
-                                    }}
-                                >
-                                    Tạo yêu cầu xuất hàng
-                                </Button>
+                                {canCreate && (
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<Plus size={18} />}
+                                        onClick={() => navigate('/release-request/create')}
+                                        sx={{
+                                            fontSize: '13px',
+                                            fontWeight: 500,
+                                            textTransform: 'none',
+                                            borderRadius: '10px',
+                                            height: 38,
+                                            px: 2.5,
+                                            bgcolor: '#3b82f6',
+                                            boxShadow: '0 1px 2px rgba(59,130,246,0.3)',
+                                            '&:hover': {
+                                                bgcolor: '#2563eb',
+                                                boxShadow: '0 4px 12px rgba(59,130,246,0.4)',
+                                            },
+                                        }}
+                                    >
+                                        Tạo yêu cầu xuất hàng
+                                    </Button>
+                                )}
                             </Box>
                         </Box>
                     </Box>
@@ -448,7 +523,7 @@ export default function ViewReleaseRequestList() {
                                     label={<Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Tất cả</Typography>}
                                     sx={{ mb: 1, py: 0.5 }}
                                 />
-                                {RR_COLUMNS.slice().sort((a, b) => tempColumnOrder.indexOf(a.id) - tempColumnOrder.indexOf(b.id)).map((col) => (
+                                {RR_COLUMNS.slice().sort((a, b) => getColumnOrderIndex(tempColumnOrder, a.id) - getColumnOrderIndex(tempColumnOrder, b.id)).map((col) => (
                                     <Box key={col.id}
                                         sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: draggedPopupColumn === col.id ? '#f9fafb' : 'transparent', opacity: draggedPopupColumn === col.id ? 0.5 : 1, transition: 'all 0.2s', borderRadius: '8px', px: 0.75, py: 0.25, '&:hover': { bgcolor: '#f9fafb' } }}
                                         onDragOver={handlePopupDragOver}
@@ -559,11 +634,32 @@ export default function ViewReleaseRequestList() {
                                                             );
                                                         }
 
-                                                        if (col.id === 'lifecycleStatus') {
+                                                        if (col.id === 'quotationStatus') {
+                                                            const quotationStatus = row.quotationStatus ?? '';
+                                                            const isQuotationFlow = Boolean(row.isQuotationFlow);
                                                             return (
                                                                 <TableCell key={col.id} align="left">
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                                                        <LifecycleChip lifecycleStatus={row.lifecycleStatus} />
+                                                                        {isQuotationFlow && quotationStatus ? (
+                                                                            <StatusBadge status={quotationStatus} />
+                                                                        ) : (
+                                                                            <Box component="span" sx={{ color: '#d1d5db' }}>-</Box>
+                                                                        )}
+                                                                    </Box>
+                                                                </TableCell>
+                                                            );
+                                                        }
+
+                                                        if (col.id === 'lifecycleStatus') {
+                                                            const displayLifecycleStatus = getDisplayLifecycleStatus(row.status, row.lifecycleStatus, row.isQuotationFlow);
+                                                            return (
+                                                                <TableCell key={col.id} align="left">
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                                                        {displayLifecycleStatus ? (
+                                                                            <LifecycleChip lifecycleStatus={displayLifecycleStatus} />
+                                                                        ) : (
+                                                                            <Box component="span" sx={{ color: '#d1d5db' }}>-</Box>
+                                                                        )}
                                                                     </Box>
                                                                 </TableCell>
                                                             );
@@ -642,7 +738,7 @@ export default function ViewReleaseRequestList() {
                             sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)', '&:hover': { borderColor: 'rgba(0,0,0,0.2)' } }}>
                             Trước
                         </Button>
-                        <Button size="small" variant="outlined" disabled={end >= totalCount || totalCount === 0} onClick={() => handlePageChange(page + 1)}
+                        <Button size="small" variant="outlined" disabled={totalCount === 0 || page >= totalPages - 1} onClick={() => handlePageChange(page + 1)}
                             sx={{ minWidth: 36, textTransform: 'none', fontSize: '13px', borderRadius: '8px', borderColor: 'rgba(0,0,0,0.1)', '&:hover': { borderColor: 'rgba(0,0,0,0.2)' } }}>
                             Sau
                         </Button>

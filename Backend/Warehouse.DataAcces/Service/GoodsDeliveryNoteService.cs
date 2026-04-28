@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
@@ -482,207 +486,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        // ==================== APPROVE (2-stage: Kế toán → Giám đốc) ====================
-        public async Task<GoodsDeliveryNoteResponse> ApproveGDNAsync(long gdnId, long userId, ApproveGDNRequest request)
-        {
-            // 1. Validate GDN exists
-            var gdn = await _context.GoodsDeliveryNotes
-                .Include(g => g.ReleaseRequest)
-                    .ThenInclude(rr => rr.Receiver)
-                        .ThenInclude(r => r.Company)
-                            .ThenInclude(c => c.Addresses)
-                .Include(g => g.Warehouse)
-                .Include(g => g.CreatedByNavigation)
-                .Include(g => g.GoodsDeliveryNoteLines)
-                .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
-            if (gdn == null)
-                throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
-
-            // 2. Validate user exists and get role
-            var user = await _context.Users
-                .Include(u => u.UserRoleUser)
-                    .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.UserId == userId);
-
-            if (user == null)
-                throw new KeyNotFoundException("Không tìm thấy người dùng.");
-            // 3. Determine current stage and validate role
-            string decision = request.IsApproved ? "APPROVE" : "REJECT";
-
-            if (!request.IsApproved && string.IsNullOrWhiteSpace(request.Reason))
-                throw new ArgumentException("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
-
-            if (gdn.Status == "PENDING_ACC")
-            {
-                // Stage 1: Kế toán duyệt
-                if (request.IsApproved)
-                {
-                    // Approved by Accountant → move to Director
-                    gdn.Status = "PENDING_DIR";
-                }
-                else
-                {
-                    // Rejected by Accountant
-                    gdn.Status = "REJECTED";
-                }
-
-                // Log approval to DocumentApproval (Stage 1)
-                _context.DocumentApprovals.Add(new DocumentApproval
-                {
-                    DocType = "GDN",
-                    DocId = gdn.Gdnid,
-                    StageNo = 1,
-                    Decision = decision,
-                    Reason = request.Reason,
-                    ActionBy = userId,
-                    ActionAt = DateTime.UtcNow
-                });
-            }
-            else if (gdn.Status == "PENDING_DIR")
-            {
-                // Stage 2: Giám đốc duyệt
-
-                if (request.IsApproved)
-                {
-                    // Kiểm tra kho có đang bị khóa (kiểm kê) không trước khi chốt trừ hàng
-                    if (await _stocktakeService.IsWarehouseFrozenAsync(gdn.WarehouseId))
-                        throw new InvalidOperationException($"Kho '{gdn.Warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể duyệt chốt phiếu xuất kho.");
-
-                    // Final approval by Director -> move to PENDING_ISSUE for Warehouse Keeper
-                    gdn.Status = "PENDING_ISSUE";
-                    gdn.ApprovedAt = DateTime.UtcNow;
-
-                    // Do NOT process inventory here anymore. It will be done by Warehouse Keeper.
-                    // await ProcessGDNApprovalInventoryAsync(gdn, userId);
-                }
-                else
-                {
-                    // Rejected by Director
-                    gdn.Status = "REJECTED";
-                }
-
-                // Log approval to DocumentApproval (Stage 2)
-                _context.DocumentApprovals.Add(new DocumentApproval
-                {
-                    DocType = "GDN",
-                    DocId = gdn.Gdnid,
-                    StageNo = 2,
-                    Decision = decision,
-                    Reason = request.Reason,
-                    ActionBy = userId,
-                    ActionAt = DateTime.UtcNow
-                });
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    $"Phiếu xuất kho không ở trạng thái chờ duyệt. Trạng thái hiện tại: {gdn.Status}.");
-            }
-
-            // Audit log
-            await _auditLogService.LogAsync(
-                userId,
-                request.IsApproved ? AuditAction.Approve : AuditAction.Reject,
-                AuditEntity.GoodsDeliveryNote,
-                gdn.Gdnid,
-                $"{(request.IsApproved ? "Duyệt" : "Từ chối")} phiếu xuất kho {gdn.Gdncode}" +
-                         $" (Stage: {(gdn.Status == "PENDING_ISSUE" || gdn.Status == "REJECTED" ? "Director" : "Accountant")})" +
-                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"));
-
-            await _context.SaveChangesAsync();
-
-            // Gửi thông báo chuyển cấp hoặc kết quả
-            if (request.IsApproved)
-            {
-                if (gdn.Status == "PENDING_DIR")
-                {
-                    // Thông báo cho Giám đốc
-                    await _notificationService.CreateForRolesAsync(
-                        new[] { UserRoleConstants.Director },
-                        "Phiếu xuất kho chờ Giám đốc duyệt",
-                        $"Phiếu xuất {gdn.Gdncode} đã được Kế toán duyệt và đang chờ bạn phê duyệt cuối cùng.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        userId,
-                        NotificationTypes.NewRequest
-                    );
-                }
-                else if (gdn.Status == "PENDING_ISSUE")
-                {
-                    // Thông báo cho Thủ kho
-                    await _notificationService.CreateForRolesAsync(
-                        new[] { UserRoleConstants.Storekeeper },
-                        "Phiếu xuất kho sẵn sàng xuất hàng",
-                        $"Phiếu xuất {gdn.Gdncode} đã được Giám đốc phê duyệt. Vui lòng thực hiện xuất hàng thực tế.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        userId,
-                        "WarehouseAction"
-                    );
-
-                    // Thông báo cho người tạo phiếu biết đã duyệt xong
-                    await _notificationService.CreateAsync(
-                        gdn.CreatedBy,
-                        $"Phiếu xuất kho {gdn.Gdncode} ĐÃ ĐƯỢC DUYỆT",
-                        $"Phiếu xuất kho {gdn.Gdncode} đã được Giám đốc phê duyệt. Thủ kho sẽ thực hiện xuất hàng.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        NotificationTypes.ApprovalResult,
-                        (byte)NotificationSeverity.Info
-                    );
-                }
-            }
-            else
-            {
-                // Thông báo bị từ chối cho người tạo
-                await _notificationService.CreateAsync(
-                    gdn.CreatedBy,
-                    $"Phiếu xuất kho {gdn.Gdncode} BỊ TỪ CHỐI",
-                    $"Phiếu xuất kho {gdn.Gdncode} của bạn đã bị từ chối bởi {user.FullName}. Lý do: {request.Reason}",
-                    "GoodsDelivery",
-                    gdn.Gdnid,
-                    NotificationTypes.ApprovalResult,
-                    (byte)NotificationSeverity.Error
-                );
-            }
-
-            var rr = gdn.ReleaseRequest;
-            var receiver = rr?.Receiver;
-            var company = receiver?.Company;
-            var addr = company?.Addresses?
-                .OrderByDescending(a => a.IsDefault)
-                .ThenByDescending(a => a.IsActive)
-                .FirstOrDefault();
-
-            return new GoodsDeliveryNoteResponse
-            {
-                GdnId = gdn.Gdnid,
-                GdnCode = gdn.Gdncode,
-                IssueDate = gdn.IssueDate,
-                Status = gdn.Status,
-                IsPaid = gdn.IsPaid,
-                ReleaseRequestId = gdn.ReleaseRequestId,
-                ReleaseRequestCode = rr?.ReleaseRequestCode,
-                WarehouseId = gdn.WarehouseId,
-                WarehouseName = gdn.Warehouse?.WarehouseName,
-                CreatedBy = gdn.CreatedBy,
-                CreatedByName = gdn.CreatedByNavigation?.FullName,
-                TotalDeliveredQty = gdn.TotalDeliveredQty,
-                TotalDeliveredAmount = gdn.TotalDeliveredAmount,
-                ShippingFee = gdn.ShippingFee,
-                NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
-                SubmittedAt = gdn.SubmittedAt,
-                ApprovedAt = gdn.ApprovedAt,
-                PostedAt = gdn.PostedAt,
-                Note = gdn.Note,
-                ReceiverId = receiver?.ReceiverId,
-                ReceiverName = receiver?.ReceiverName,
-                CompanyId = receiver?.CompanyId,
-                CompanyName = company?.CompanyName,
-                ReceiverAddress = addr?.AddressDetail
-            };
-        }
 
         // ==================== DETAIL ====================
         public async Task<GDNDetailResponse> GetGDNDetailAsync(long gdnId)
@@ -846,6 +650,84 @@ namespace Warehouse.DataAcces.Service
                     ActionAt = a.ActionAt
                 }).ToList()
             };
+        }
+
+        public async Task<byte[]> ExportGdnPdfAsync(long gdnId, long userId)
+        {
+            _ = userId;
+            var data = await GetGDNDetailAsync(gdnId);
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(24);
+                    page.DefaultTextStyle(x => x.FontSize(10));
+
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Text("PHIEU XUAT KHO").Bold().FontSize(16).AlignCenter();
+                        col.Item().Text($"So phieu: {data.GdnCode}").AlignCenter();
+                        col.Item().Text($"Ngay xuat: {data.IssueDate:dd/MM/yyyy}").AlignCenter();
+                    });
+
+                    page.Content().Column(col =>
+                    {
+                        col.Spacing(8);
+                        col.Item().Text($"Nguoi nhan: {data.Receiver?.ReceiverName ?? "-"}");
+                        col.Item().Text($"Dia chi: {data.Receiver?.Address ?? "-"}");
+                        col.Item().Text($"Kho xuat: {data.WarehouseName ?? "-"}");
+                        col.Item().Text($"Yeu cau xuat: {data.ReleaseRequestCode ?? "-"}");
+                        col.Item().Text($"Trang thai: {data.Status}");
+                        col.Item().Text($"Ghi chu: {data.Note ?? "-"}");
+
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(c =>
+                            {
+                                c.ConstantColumn(24);
+                                c.RelativeColumn(3);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1.3f);
+                                c.RelativeColumn(1.6f);
+                            });
+
+                            static IContainer CellStyle(IContainer c) => c.Border(1).BorderColor(Colors.Grey.Lighten1).Padding(4);
+                            static IContainer HeadStyle(IContainer c) => CellStyle(c).Background(Colors.Grey.Lighten3);
+
+                            table.Header(h =>
+                            {
+                                h.Cell().Element(HeadStyle).Text("STT").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("Vat tu").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("DVT").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("SL xuat").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Don gia").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Thanh tien").SemiBold();
+                            });
+
+                            for (var i = 0; i < data.Lines.Count; i++)
+                            {
+                                var line = data.Lines[i];
+                                table.Cell().Element(CellStyle).Text((i + 1).ToString());
+                                table.Cell().Element(CellStyle).Text($"{line.ItemCode ?? ""} - {line.ItemName ?? ""}".Trim(' ', '-'));
+                                table.Cell().Element(CellStyle).Text(line.UomName ?? "-");
+                                table.Cell().Element(CellStyle).AlignRight().Text(line.ActualQty.ToString("N2", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.UnitPrice ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.LineTotal ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                            }
+                        });
+
+                        col.Item().AlignRight().Text($"Tong tien hang: {data.TotalDeliveredAmount:N0} VND").SemiBold();
+                        col.Item().AlignRight().Text($"Phi van chuyen: {data.ShippingFee:N0} VND");
+                        col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
+                    });
+
+                    page.Footer().AlignCenter().Text($"In luc {DateTime.Now:dd/MM/yyyy HH:mm}");
+                });
+            }).GeneratePdf();
         }
 
         // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO ONLY) ====================
@@ -1049,7 +931,7 @@ namespace Warehouse.DataAcces.Service
                 .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
             if (gdn == null) throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
-            if (gdn.Status != "PENDING_ACC")
+            if (gdn.Status != "PENDING_ISSUE" && gdn.Status != "DRAFT")
                 throw new InvalidOperationException($"Không thể cập nhật phiếu ở trạng thái {gdn.Status}.");
 
             // Kiểm tra kho có đang bị khóa (kiểm kê) không
@@ -1278,7 +1160,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 3,
-                Decision = "ISSUE",
+                Decision = NormalizeApprovalDecision("ISSUE"),
                 Reason = request.Note,
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1400,7 +1282,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 4,
-                Decision = "POSTED",
+                Decision = NormalizeApprovalDecision("POSTED"),
                 Reason = note ?? "Upload bằng chứng xuất hàng",
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1459,6 +1341,16 @@ namespace Warehouse.DataAcces.Service
                 CompanyId = receiver?.CompanyId,
                 CompanyName = company?.CompanyName,
                 ReceiverAddress = addr?.AddressDetail
+            };
+        }
+
+        // CK_DA_Decision only accepts approval decisions, not workflow statuses.
+        private static string NormalizeApprovalDecision(string? rawDecision)
+        {
+            return rawDecision?.Trim().ToUpperInvariant() switch
+            {
+                "REJECT" or "REJECTED" => "REJECT",
+                _ => "APPROVE"
             };
         }
     }

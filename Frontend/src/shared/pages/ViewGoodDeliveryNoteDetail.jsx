@@ -2,8 +2,8 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     getGoodsDeliveryNoteDetail,
-    approveGoodsDeliveryNote,
     issueGoodsDeliveryNote,
+    confirmDeliveryGoodsDeliveryNote,
 } from '../lib/goodsDeliveryNoteService';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
@@ -187,13 +187,12 @@ export default function ViewGoodDeliveryNoteDetail() {
     const [processing, setProcessing] = useState(false);
     const [dialogConfig, setDialogConfig] = useState({ open: false, type: null });
     const [reasonText, setReasonText] = useState('');
+    const [evidenceFile, setEvidenceFile] = useState(null);
 
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const currentStatus = String(gdn?.status || '').toUpperCase();
 
-    const canAct = (currentStatus === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS') ||
-        (currentStatus === 'PENDING_DIR' && permissionRole === 'DIRECTOR');
     const canIssue = currentStatus === 'PENDING_ISSUE' && permissionRole === 'WAREHOUSE_KEEPER';
     const canConfirm = currentStatus === 'ISSUED' && (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR');
 
@@ -264,33 +263,39 @@ export default function ViewGoodDeliveryNoteDetail() {
 
     const openDialog = (type) => {
         setReasonText('');
+        setEvidenceFile(null);
         setDialogConfig({ open: true, type });
     };
     const closeDialog = () => {
         setDialogConfig({ open: false, type: null });
         setReasonText('');
+        setEvidenceFile(null);
     };
 
     const handleAction = async () => {
-        if ((dialogConfig.type === 'reject' || dialogConfig.type === 'confirm') && !reasonText.trim()) {
+        if (dialogConfig.type === 'reject' && !reasonText.trim()) {
             showToast('Vui lòng nhập lý do', 'warning');
+            return;
+        }
+        if (dialogConfig.type === 'confirm' && !evidenceFile) {
+            showToast('Vui lòng tải lên ảnh minh chứng trước khi hoàn thành phiếu', 'warning');
             return;
         }
         setProcessing(true);
         try {
-            if (dialogConfig.type === 'approve') {
-                await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: true, reason: reasonText.trim() });
-                notifyApiSuccess(showToast, 'Đã duyệt phiếu xuất kho');
-            } else if (dialogConfig.type === 'reject') {
-                await approveGoodsDeliveryNote(gdn.gdnId, { isApproved: false, reason: reasonText.trim() });
-                notifyApiSuccess(showToast, 'Đã từ chối phiếu xuất kho');
-            } else if (dialogConfig.type === 'issue') {
+            if (dialogConfig.type === 'issue') {
                 // Đủ hàng: chỉ IsAllItemsFulfilled — backend tự gán ActualQty = RequestedQty từng dòng (IssueGDNAsync)
                 await issueGoodsDeliveryNote(gdn.gdnId, {
                     isAllItemsFulfilled: true,
                     note: reasonText.trim() || null,
                 });
                 notifyApiSuccess(showToast, 'Xuất kho thành công');
+            } else if (dialogConfig.type === 'confirm') {
+                await confirmDeliveryGoodsDeliveryNote(gdn.gdnId, {
+                    evidenceFile,
+                    note: reasonText.trim() || undefined,
+                });
+                notifyApiSuccess(showToast, 'Hoàn thành phiếu xuất kho thành công');
             }
             closeDialog();
             fetchData();
@@ -319,8 +324,6 @@ export default function ViewGoodDeliveryNoteDetail() {
     }
 
     const dialogTitles = {
-        approve: 'Xác nhận duyệt phiếu',
-        reject: 'Xác nhận từ chối phiếu',
         issue: 'Xác nhận xuất kho',
         confirm: 'Xác nhận hoàn thành phiếu',
     };
@@ -340,18 +343,6 @@ export default function ViewGoodDeliveryNoteDetail() {
                         <Printer size={16} />
                         In phiếu
                     </button>
-                    {canAct && (
-                        <>
-                            <button type="button" className="btn btn-cancel" disabled={processing} onClick={() => openDialog('reject')}>
-                                <XCircle size={15} />
-                                Từ chối
-                            </button>
-                            <button type="button" className="btn btn-primary" disabled={processing} onClick={() => openDialog('approve')}>
-                                <CheckCircle size={16} />
-                                Duyệt phiếu
-                            </button>
-                        </>
-                    )}
                     {canIssue && (
                         <button type="button" className="btn btn-primary" disabled={processing} onClick={() => openDialog('issue')}>
                             <CheckCircle size={16} />
@@ -531,15 +522,35 @@ export default function ViewGoodDeliveryNoteDetail() {
                                     ? 'Bạn có chắc chắn muốn từ chối phiếu xuất kho này không?'
                                     : 'Bạn có chắc chắn muốn hoàn thành phiếu xuất kho này không?'}
                             </p>
+                            {dialogConfig.type === 'confirm' && (
+                                <TextField
+                                    type="file"
+                                    fullWidth
+                                    disabled={processing}
+                                    inputProps={{ accept: 'image/*,.pdf' }}
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] ?? null;
+                                        setEvidenceFile(file);
+                                    }}
+                                    helperText="Bắt buộc: tải lên ảnh/PDF phiếu xuất có chữ ký xác nhận."
+                                    sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                />
+                            )}
                             <TextField
-                                label="Lý do"
+                                label={dialogConfig.type === 'reject' ? 'Lý do' : 'Ghi chú'}
                                 multiline rows={3}
                                 fullWidth
                                 value={reasonText}
                                 onChange={(e) => setReasonText(e.target.value)}
                                 disabled={processing}
                                 inputProps={{ maxLength: MAX_REASON_LENGTH }}
-                                placeholder={dialogConfig.type === 'approve' ? 'Nhập ghi chú (không bắt buộc)' : 'Nhập lý do từ chối'}
+                                placeholder={
+                                    dialogConfig.type === 'reject'
+                                        ? 'Nhập lý do từ chối'
+                                        : dialogConfig.type === 'confirm'
+                                        ? 'Nhập ghi chú (không bắt buộc)'
+                                        : 'Nhập ghi chú (không bắt buộc)'
+                                }
                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                             />
                             <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, color: reasonText.length >= MAX_REASON_LENGTH ? '#ef4444' : '#6b7280', marginTop: 4 }}>
@@ -556,7 +567,11 @@ export default function ViewGoodDeliveryNoteDetail() {
                 cancelText="Hủy"
                 loading={processing}
                 confirmDanger={dialogConfig.type === 'reject'}
-                confirmDisabled={processing || (dialogConfig.type !== 'issue' && !reasonText.trim())}
+                confirmDisabled={
+                    processing
+                    || (dialogConfig.type === 'reject' && !reasonText.trim())
+                    || (dialogConfig.type === 'confirm' && !evidenceFile)
+                }
             />
         </div>
     );

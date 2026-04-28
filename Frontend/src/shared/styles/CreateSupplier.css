@@ -1005,3 +1005,15 @@ select.form-input:disabled {
         min-width: 760px;
     }
 }
+
+/* Hide browser spin arrows on number inputs in Create Release Request lines */
+.create-release-request-page .rr-number-no-spin::-webkit-outer-spin-button,
+.create-release-request-page .rr-number-no-spin::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.create-release-request-page .rr-number-no-spin[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}

@@ -27,9 +27,10 @@ import { getDeliveries, getDeliveryHistory, normalizeTransportInfoFields } from 
 import { getReleaseRequestDetail, getReleaseRequests } from '../lib/releaseRequestService';
 import { formatLocalDateOnly, getLocalNowIso, normalizeDateOnlyLocalInput } from '../lib/dateUtils';
 import { notifyApiError, notifyApiSuccess } from '../lib/toastMessageMapper';
+import { getWarehouseDetail } from '../lib/warehouseService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TODAY = formatLocalDateOnly();
+const TODAY = new Date().toLocaleDateString('en-CA');
 /** Luôn gửi FIFO — không hiển thị chọn trên form. */
 const PICKING_STRATEGY_FIFO = 'FIFO';
 
@@ -84,7 +85,6 @@ export default function CreateGoodDeliveryNote() {
     const [lines, setLines] = useState([]);
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
-    const [createdAtClient, setCreatedAtClient] = useState('');
 
     const releaseRequestDropdownRef = useRef(null);
     const [releaseRequestDropdownOpen, setReleaseRequestDropdownOpen] = useState(false);
@@ -180,8 +180,8 @@ export default function CreateGoodDeliveryNote() {
         if (!rr.lines || rr.lines.length === 0) {
             try {
                 detail = await getReleaseRequestDetail(rr.releaseRequestId);
-            } catch (error) {
-                notifyApiError(showToast, error, 'Khong tai duoc chi tiet yeu cau.');
+            } catch {
+                showToast('Không tải được chi tiết yêu cầu.', 'error');
                 return;
             }
         }
@@ -306,15 +306,10 @@ export default function CreateGoodDeliveryNote() {
         if (!validateForm()) return;
         setSubmitting(true);
         try {
-            if (!createdAtClient) {
-                // Capture exact client creation moment for fallback display/trace.
-                setCreatedAtClient(getLocalNowIso());
-            }
             const payload = {
                 ReleaseRequestId: Number(formData.releaseRequestId),
                 WarehouseId: Number(formData.warehouseId),
-                // Backend uses DateOnly; always send local date string (YYYY-MM-DD), never UTC-converted datetime.
-                IssueDate: normalizeDateOnlyLocalInput(formData.issueDate),
+                IssueDate: formData.issueDate,
                 Status: 'PENDING_ISSUE',
                 PickingStrategy: PICKING_STRATEGY_FIFO,
                 ShippingFee: 0,
@@ -345,10 +340,10 @@ export default function CreateGoodDeliveryNote() {
                 })(),
             };
             await createGoodsDeliveryNote(payload);
-            notifyApiSuccess(showToast, 'Tạo phiếu thành công. Phiếu chuyển sang bước chuẩn bị hàng.');
+            showToast('Tạo phiếu thành công. Phiếu chuyển sang bước chuẩn bị hàng.', 'success');
             setTimeout(() => navigate('/good-delivery-notes'), 1200);
         } catch (e) {
-            notifyApiError(showToast, e, 'Loi server');
+            showToast(e.message || 'Lỗi server', 'error');
         } finally {
             setSubmitting(false);
         }

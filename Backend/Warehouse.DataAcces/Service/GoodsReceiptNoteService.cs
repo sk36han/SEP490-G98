@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -822,6 +826,82 @@ namespace Warehouse.DataAcces.Service
                 Note = grn.Note,
                 Lines = lines
             };
+        }
+
+        public async Task<byte[]> ExportGrnPdfAsync(long grnId, long userId)
+        {
+            _ = userId;
+            var data = await GetGRNDetailAsync(grnId);
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(24);
+                    page.DefaultTextStyle(x => x.FontSize(10));
+
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Text("PHIEU NHAP KHO").Bold().FontSize(16).AlignCenter();
+                        col.Item().Text($"So phieu: {data.GrnCode}").AlignCenter();
+                        col.Item().Text($"Ngay nhap: {data.ReceiptDate:dd/MM/yyyy}").AlignCenter();
+                    });
+
+                    page.Content().Column(col =>
+                    {
+                        col.Spacing(8);
+                        col.Item().Text($"Nha cung cap: {data.SupplierName ?? "-"}");
+                        col.Item().Text($"Kho nhap: {data.WarehouseName ?? "-"}");
+                        col.Item().Text($"Trang thai: {data.Status}");
+                        col.Item().Text($"Ghi chu: {data.Note ?? "-"}");
+
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(c =>
+                            {
+                                c.ConstantColumn(24);
+                                c.RelativeColumn(3);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1.3f);
+                                c.RelativeColumn(1.6f);
+                            });
+
+                            static IContainer CellStyle(IContainer c) => c.Border(1).BorderColor(Colors.Grey.Lighten1).Padding(4);
+                            static IContainer HeadStyle(IContainer c) => CellStyle(c).Background(Colors.Grey.Lighten3);
+
+                            table.Header(h =>
+                            {
+                                h.Cell().Element(HeadStyle).Text("STT").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("Vat tu").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("DVT").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("SL").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Don gia").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Thanh tien").SemiBold();
+                            });
+
+                            for (var i = 0; i < data.Lines.Count; i++)
+                            {
+                                var line = data.Lines[i];
+                                table.Cell().Element(CellStyle).Text((i + 1).ToString());
+                                table.Cell().Element(CellStyle).Text($"{line.ItemCode ?? ""} - {line.ItemName ?? ""}".Trim(' ', '-'));
+                                table.Cell().Element(CellStyle).Text(line.UomName ?? "-");
+                                table.Cell().Element(CellStyle).AlignRight().Text(line.ActualQty.ToString("N2", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.UnitPrice ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.LineTotal ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                            }
+                        });
+
+                        col.Item().AlignRight().Text($"Tong tien hang: {data.TotalAmount:N0} VND").SemiBold();
+                        col.Item().AlignRight().Text($"Phi van chuyen: {data.ShippingFee:N0} VND");
+                        col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
+                    });
+
+                    page.Footer().AlignCenter().Text($"In luc {DateTime.Now:dd/MM/yyyy HH:mm}");
+                });
+            }).GeneratePdf();
         }
 
         // NOTE: Stub tạm để unblock build; chức năng Import Excel + AI match chưa triển khai.

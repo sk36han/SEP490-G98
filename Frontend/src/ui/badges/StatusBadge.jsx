@@ -35,6 +35,8 @@ export function StatusBadge({ status, label, dot, variant = 'filled', colors, sx
     APPROVED:          { bgcolor: 'rgba(16,185,129,0.18)',  color: '#047857', label: 'Đã duyệt' },
     REJECTED:          { bgcolor: 'rgba(239,68,68,0.18)',   color: '#b91c1c', label: 'Từ chối' },
     DRAFT:             { bgcolor: 'rgba(107,114,128,0.2)', color: '#4b5563', label: 'Nháp' },
+    SENT:              { bgcolor: 'rgba(59,130,246,0.15)', color: '#1d4ed8', label: 'Đã gửi báo giá' },
+    CONFIRMED:         { bgcolor: 'rgba(16,185,129,0.18)', color: '#047857', label: 'Đã chốt báo giá' },
     CANCELLED:         { bgcolor: 'rgba(239,68,68,0.18)',   color: '#b91c1c', label: 'Đã hủy' },
 
     // Purchase Order - Receiving Status
@@ -83,6 +85,7 @@ export function StatusBadge({ status, label, dot, variant = 'filled', colors, sx
     IssueFull:        { bgcolor: 'rgba(16,185,129,0.15)', color: '#065f46', label: 'Xuất đủ hàng' },
     IssuePartial:     { bgcolor: 'rgba(251,191,36,0.20)', color: '#92400e', label: 'Xuất một phần hàng' },
     IssuePending:     { bgcolor: 'rgba(59,130,246,0.15)', color: '#1e40af', label: 'Đang đợi xuất hàng' },
+    RR_DRAFT_PENDING_SUBMIT: { bgcolor: 'rgba(107,114,128,0.15)', color: '#4b5563', label: 'Chưa gửi duyệt' },
 
     // Release Request Status
     RELEASED:         { bgcolor: 'rgba(16,185,129,0.15)', color: '#065f46', label: 'Đã xuất kho' },

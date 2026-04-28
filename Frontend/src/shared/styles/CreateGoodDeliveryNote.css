@@ -4,7 +4,7 @@
  * --gdn-shell-offset: khoảng trừ cho AppHeader + padding MainLayout (tinh chỉnh nếu lệch).
  */
 .create-supplier-page.create-good-delivery-note-page {
-    --gdn-shell-offset: 104px;
+    --gdn-shell-offset: 120px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -14,7 +14,7 @@
     max-height: calc(100dvh - var(--gdn-shell-offset));
     overflow: hidden;
     /* Gọn hơn padding mặc định 24px của .create-supplier-page */
-    padding: 6px 12px 8px !important;
+    padding: 8px 16px 10px !important;
 }
 
 .create-good-delivery-note-page .gdn-page-toolbar {
@@ -64,10 +64,10 @@
 /* ─── Layout Structure ────────────────────────────────────────────────────── */
 .gdn-layout-container {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) 350px;
+    gap: 24px;
     align-items: start;
-    margin-top: 12px;
+    margin-top: 24px;
 }
 
 .create-good-delivery-note-page .gdn-layout-container {
@@ -75,8 +75,8 @@
     min-height: 0;
     height: 100%;
     display: grid;
-    /* Cột trái ~3/4, phải ~1/4 như mockup */
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+    /* Cột trái rộng hơn một chút; sidebar hẹp hơn để bảng vật tư có thêm ngang */
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
     grid-template-rows: minmax(0, 1fr);
     gap: 16px;
     align-items: stretch;
@@ -86,7 +86,7 @@
 .gdn-main-content {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
 }
 
 .create-good-delivery-note-page .gdn-main-content {
@@ -99,7 +99,7 @@
 .gdn-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
     width: 100%;
     min-width: 0;
     align-self: start;
@@ -181,7 +181,7 @@
 }
 
 .gdn-card-header {
-    padding: 14px 18px;
+    padding: 18px 24px;
     border-bottom: 1px solid var(--slate-100);
     display: flex;
     align-items: center;
@@ -194,7 +194,7 @@
 }
 
 .gdn-card-title {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--slate-900);
     margin: 0;
@@ -209,7 +209,7 @@
 }
 
 .gdn-card-body {
-    padding: 16px;
+    padding: 24px;
 }
 
 .create-good-delivery-note-page .gdn-card-body--compact {
@@ -311,10 +311,10 @@
     background-color: #f0f9ff;
     border: 1px solid #bae6fd;
     border-radius: var(--radius-md);
-    padding: 14px;
+    padding: 20px;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 16px;
     position: relative;
 }
 
@@ -342,7 +342,7 @@
 }
 
 .gdn-ref-value {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--slate-800);
 }
@@ -374,12 +374,12 @@
 .gdn-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .gdn-table th {
     background-color: var(--slate-50);
-    padding: 10px 12px;
+    padding: 12px 16px;
     text-align: left;
     font-weight: 600;
     color: var(--slate-600);
@@ -388,7 +388,7 @@
 }
 
 .gdn-table td {
-    padding: 10px 12px;
+    padding: 16px;
     border-bottom: 1px solid var(--slate-100);
     vertical-align: middle;
 }
@@ -433,7 +433,7 @@
     border: 1px solid var(--slate-200);
     border-radius: 8px;
     padding-right: 8px;
-    width: 108px;
+    width: 120px;
 }
 
 .create-good-delivery-note-page .gdn-items-card .gdn-qty-input-container {
@@ -445,7 +445,7 @@
 .gdn-qty-input-field {
     width: 100%;
     border: none !important;
-    padding: 6px 8px;
+    padding: 8px 10px;
     text-align: right;
     font-weight: 600;
     outline: none;
@@ -519,7 +519,7 @@
 }
 
 .gdn-total-amount {
-    font-size: 20px;
+    font-size: 24px;
     font-weight: 800;
     color: var(--emerald-600);
 }
@@ -541,7 +541,7 @@
 }
 
 .gdn-rr-item {
-    padding: 10px 12px;
+    padding: 12px 16px;
     cursor: pointer;
     border-bottom: 1px solid var(--slate-50);
 }
@@ -611,7 +611,13 @@
     }
 
     .create-good-delivery-note-page .gdn-items-card {
-        flex: none;
-        min-height: 220px;
+        flex: 1;
+        min-height: 280px;
+        height: auto;
+    }
+
+    .create-good-delivery-note-page .gdn-fifo-card {
+        height: auto;
+        max-height: min(36vh, 340px);
     }
 }

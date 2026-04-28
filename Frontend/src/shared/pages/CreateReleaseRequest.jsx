@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Plus, X, MapPin, User, Send, Loader,
     Package, Search, Trash2,
-    Building2, Phone, Mail, Briefcase, Save,
+    Building2, Phone, Mail, Briefcase, Save, CircleHelp,
     FileSpreadsheet, FileText, FileStack,
 } from 'lucide-react';
 import {
@@ -22,7 +22,12 @@ import { getReceiversByCompany } from '../lib/receiverService';
 import { getAddressesByCompany } from '../lib/addressService';
 import { getWarehouseList } from '../lib/warehouseService';
 import { getItemsByWarehouse } from '../lib/itemService';
-import { createReleaseRequest, uploadReleaseRequestAttachments } from '../lib/releaseRequestService';
+import {
+    createReleaseRequest,
+    uploadReleaseRequestAttachments,
+    getReleaseRequestDetail,
+    updateReleaseRequest,
+} from '../lib/releaseRequestService';
 import '../styles/CreateSupplier.css';
 const MAX_NOTE = 250;
 const MAX_LINE_NOTE = 500;
@@ -70,10 +75,22 @@ function getLineItemsValidationError(lineItems) {
         }
     }
     return null;
+function findAttachmentByType(attachments, typeUpper) {
+    if (!Array.isArray(attachments)) return null;
+    return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
+}
+
+function toAbsoluteFileUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
+    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
 export default function CreateReleaseRequest() {
     const navigate = useNavigate();
+    const { id: editId } = useParams();
+    const isEditMode = Boolean(editId);
     const { toast, showToast, clearToast } = useToast();
 
     const [submitting, setSubmitting] = useState(false);
@@ -90,7 +107,9 @@ export default function CreateReleaseRequest() {
     const [addresses, setAddresses] = useState([]);
 
     const [loading, setLoading] = useState(true);
+    const [editLoading, setEditLoading] = useState(false);
     const [itemsLoading, setItemsLoading] = useState(false);
+    const [isHydratingEdit, setIsHydratingEdit] = useState(false);
 
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
     const [selectedReceiverId, setSelectedReceiverId] = useState('');
@@ -104,12 +123,14 @@ export default function CreateReleaseRequest() {
         purpose: '',
         note: '',
         isPartialDeliveryAllowed: true,
+        isQuotationFlow: false,
     });
 
     const [lineItems, setLineItems] = useState([]);
     const [quotationFile, setQuotationFile] = useState(null);
     const [contractFile, setContractFile] = useState(null);
     const [appendixFile, setAppendixFile] = useState(null);
+    const [existingAttachments, setExistingAttachments] = useState([]);
     const [showItemSearch, setShowItemSearch] = useState(false);
     const [itemKeyword, setItemKeyword] = useState('');
     const [selectedItemIds, setSelectedItemIds] = useState([]);
@@ -138,13 +159,13 @@ export default function CreateReleaseRequest() {
     useEffect(() => {
         if (!form.warehouseId) {
             setItems([]);
-            setLineItems([]);
+            if (!isEditMode && !isHydratingEdit) setLineItems([]);
             return;
         }
 
         const fetchItems = async () => {
             setItemsLoading(true);
-            setLineItems([]);
+            if (!isEditMode && !isHydratingEdit) setLineItems([]);
             try {
                 const data = await getItemsByWarehouse(Number(form.warehouseId));
                 setItems(Array.isArray(data) ? data : []);
@@ -156,7 +177,7 @@ export default function CreateReleaseRequest() {
         };
 
         fetchItems();
-    }, [form.warehouseId, showToast]);
+    }, [form.warehouseId, showToast, isHydratingEdit, isEditMode]);
 
     const loadReceivers = useCallback(async (companyId) => {
         if (!companyId) {
@@ -232,6 +253,77 @@ export default function CreateReleaseRequest() {
         }));
     };
 
+    useEffect(() => {
+        const loadEditData = async () => {
+            if (!isEditMode || !editId) return;
+            setEditLoading(true);
+            setIsHydratingEdit(true);
+            try {
+                const detail = await getReleaseRequestDetail(editId);
+                if (!detail || detail.status !== 'DRAFT') {
+                    showToast('Chỉ cho phép chỉnh sửa RR ở trạng thái DRAFT.', 'warning');
+                    navigate(`/release-request/${editId}`);
+                    return;
+                }
+
+                const companyId = normalizeId(detail.companyId ?? detail.receiver?.companyId);
+                const receiverId = normalizeId(detail.receiverId ?? detail.receiver?.receiverId);
+                const warehouseId = normalizeId(detail.warehouseId);
+
+                setSelectedCompanyId(companyId);
+                setSelectedReceiverId(receiverId);
+                setReceiverDetail(detail.receiver ?? null);
+                setForm((prev) => ({
+                    ...prev,
+                    warehouseId,
+                    warehouseName: detail.warehouseName ?? '',
+                    expectedDate: detail.expectedDate ?? '',
+                    purpose: detail.purpose ?? '',
+                    isPartialDeliveryAllowed: Boolean(detail.isPartialDeliveryAllowed),
+                    isQuotationFlow: Boolean(detail.isQuotationFlow),
+                }));
+
+                await Promise.all([loadReceivers(companyId), loadAddresses(companyId)]);
+
+                const warehouseItems = await getItemsByWarehouse(Number(detail.warehouseId));
+                const normalizedItems = Array.isArray(warehouseItems) ? warehouseItems : [];
+                setItems(normalizedItems);
+                const itemMap = new Map(
+                    normalizedItems.map((it) => [normalizeId(it.itemId ?? it.ItemId), it])
+                );
+
+                const mappedLines = (detail.lines ?? []).map((line) => {
+                    const item = itemMap.get(normalizeId(line.itemId));
+                    return {
+                        id: `${Date.now()}-${line.releaseRequestLineId ?? line.itemId}`,
+                        itemId: normalizeId(line.itemId),
+                        itemName: line.itemName ?? '',
+                        itemCode: line.itemCode ?? '',
+                        uomName: line.uomName ?? '',
+                        uomId: normalizeId(line.uomId),
+                        availableQty: Number(item?.availableQty ?? item?.AvailableQty ?? line.stockQty ?? 0),
+                        quantity: Number(line.requestedQty ?? 0),
+                        warehousePrice: line.costPrice ?? null,
+                        unitPrice: line.unitPrice ?? '',
+                        packagingSpecId: line.packagingSpecId != null ? normalizeId(line.packagingSpecId) : '',
+                        packagingSpecName: line.packagingSpecName ?? '',
+                        note: line.note ?? '',
+                    };
+                });
+                setLineItems(mappedLines);
+                setExistingAttachments(Array.isArray(detail.attachments) ? detail.attachments : []);
+            } catch (err) {
+                showToast(err?.message || 'Không tải được dữ liệu chỉnh sửa RR.', 'error');
+                navigate('/release-request');
+            } finally {
+                setIsHydratingEdit(false);
+                setEditLoading(false);
+            }
+        };
+
+        loadEditData();
+    }, [isEditMode, editId, loadReceivers, loadAddresses, navigate, showToast]);
+
     const handleCreateCompanySuccess = (result) => {
         const newCompany = {
             companyId: result?.companyId ?? result?.CompanyId,
@@ -303,6 +395,10 @@ export default function CreateReleaseRequest() {
         }
 
         const defaultUnit = item.unitPrice ?? item.UnitPrice;
+        const warehousePrice =
+            defaultUnit != null && defaultUnit !== '' && Number.isFinite(Number(defaultUnit))
+                ? Math.max(0, Math.round(Number(defaultUnit)))
+                : null;
         const specId = item.packagingSpecId ?? item.PackagingSpecId;
         setLineItems((prev) => [
             ...prev,
@@ -315,7 +411,8 @@ export default function CreateReleaseRequest() {
                 uomId: normalizeId(item.uomId ?? item.UomId),
                 availableQty: Number(item.availableQty ?? item.AvailableQty ?? item.onHandQty ?? item.OnHandQty ?? 0),
                 quantity: 1,
-                unitPrice: defaultUnit != null && defaultUnit !== '' ? Number(defaultUnit) : '',
+                warehousePrice,
+                unitPrice: warehousePrice ?? '',
                 packagingSpecId: specId != null && specId !== '' ? normalizeId(specId) : '',
                 packagingSpecName: item.packagingSpecName ?? item.PackagingSpecName ?? '',
                 note: '',
@@ -342,6 +439,10 @@ export default function CreateReleaseRequest() {
             .filter((item) => !existingIds.has(normalizeId(item.itemId ?? item.ItemId)))
             .map((item) => {
                 const defaultUnit = item.unitPrice ?? item.UnitPrice;
+                const warehousePrice =
+                    defaultUnit != null && defaultUnit !== '' && Number.isFinite(Number(defaultUnit))
+                        ? Math.max(0, Math.round(Number(defaultUnit)))
+                        : null;
                 const specId = item.packagingSpecId ?? item.PackagingSpecId;
                 return {
                     id: `${Date.now()}-${Math.random()}`,
@@ -352,7 +453,8 @@ export default function CreateReleaseRequest() {
                     uomId: normalizeId(item.uomId ?? item.UomId),
                     availableQty: Number(item.availableQty ?? item.AvailableQty ?? item.onHandQty ?? item.OnHandQty ?? 0),
                     quantity: 1,
-                    unitPrice: defaultUnit != null && defaultUnit !== '' ? Number(defaultUnit) : '',
+                    warehousePrice,
+                    unitPrice: warehousePrice ?? '',
                     packagingSpecId: specId != null && specId !== '' ? normalizeId(specId) : '',
                     packagingSpecName: item.packagingSpecName ?? item.PackagingSpecName ?? '',
                     note: '',
@@ -376,6 +478,23 @@ export default function CreateReleaseRequest() {
         }));
     };
 
+    const validateLineItems = useCallback(() => {
+        for (const line of lineItems) {
+            const qty = Number(line.quantity);
+            if (!Number.isFinite(qty) || qty <= 0) {
+                showToast(`Số lượng của vật tư "${line.itemName || line.itemCode || 'không xác định'}" phải lớn hơn 0.`, 'error');
+                return false;
+            }
+
+            const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
+            if (unit != null && Number.isFinite(unit) && line.warehousePrice != null && unit < Number(line.warehousePrice)) {
+                showToast('Đơn giá không thể nhỏ hơn giá bình quân trong kho', 'error');
+                return false;
+            }
+        }
+        return true;
+    }, [lineItems, showToast]);
+
     const removeLine = (index) => {
         setLineItems((prev) => prev.filter((_, lineIndex) => lineIndex !== index));
     };
@@ -388,6 +507,18 @@ export default function CreateReleaseRequest() {
     const selectedAddress = useMemo(
         () => addresses.find((a) => normalizeId(a.addressId ?? a.AddressId) === selectedAddressId) || null,
         [addresses, selectedAddressId]
+    );
+    const existingQuotationAttachment = useMemo(
+        () => findAttachmentByType(existingAttachments, 'QUOTATION'),
+        [existingAttachments]
+    );
+    const existingContractAttachment = useMemo(
+        () => findAttachmentByType(existingAttachments, 'CO') || findAttachmentByType(existingAttachments, 'CONTRACT'),
+        [existingAttachments]
+    );
+    const existingAppendixAttachment = useMemo(
+        () => findAttachmentByType(existingAttachments, 'CONTRACT_APPENDIX'),
+        [existingAttachments]
     );
 
     /** Tóm tắt Đơn Xuất (cột phải): tổng loại vật tư + tổng tiền ước tính */
@@ -430,6 +561,26 @@ export default function CreateReleaseRequest() {
         if (!contractFile) return 'Vui lòng tải file hợp đồng.';
         return null;
     }, [baseValidationError, form.purpose, quotationFile, contractFile]);
+    const canCreateRequest = useMemo(() => (
+        Boolean(selectedCompanyId)
+        && Boolean(selectedReceiverId)
+        && Boolean(form.warehouseId)
+        && Boolean(form.purpose.trim())
+        && lineItems.length > 0
+    ), [selectedCompanyId, selectedReceiverId, form.warehouseId, form.purpose, lineItems]);
+
+    /** Luồng báo giá: tạo nháp trước rồi thao tác ở màn chi tiết RR. */
+    const canSubmitForApproval = useMemo(() => (
+        canCreateRequest
+        && !form.isQuotationFlow
+        && Boolean(quotationFile)
+        && Boolean(contractFile)
+    ), [canCreateRequest, form.isQuotationFlow, quotationFile, contractFile]);
+
+    const canCreateQuotationDraft = useMemo(() => (
+        canSaveDraft
+        && form.isQuotationFlow
+    ), [canSaveDraft, form.isQuotationFlow]);
 
     const buildPayload = () => {
         let address = '';
@@ -454,6 +605,7 @@ export default function CreateReleaseRequest() {
             purpose: form.purpose.trim() || null,
             note: form.note.trim() || null,
             isPartialDeliveryAllowed: Boolean(form.isPartialDeliveryAllowed),
+            isQuotationFlow: Boolean(form.isQuotationFlow),
             addressId,
             address,
             city,
@@ -478,8 +630,10 @@ export default function CreateReleaseRequest() {
         }
         setSavingDraft(true);
         try {
-            const res = await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
-            const rrId = res?.releaseRequestId ?? res?.ReleaseRequestId;
+            const res = isEditMode
+                ? await updateReleaseRequest(editId, { ...buildPayload(), status: 'DRAFT' })
+                : await createReleaseRequest({ ...buildPayload(), status: 'DRAFT' });
+            const rrId = Number(editId) || res?.releaseRequestId || res?.ReleaseRequestId;
             let uploadWarning = '';
             if (rrId && (quotationFile || contractFile || appendixFile)) {
                 try {
@@ -495,11 +649,16 @@ export default function CreateReleaseRequest() {
             }
             showToast(
                 uploadWarning
-                    ? `Lưu nháp thành công, nhưng upload file lỗi: ${uploadWarning}`
-                    : 'Lưu nháp thành công!',
+                    ? `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công, nhưng upload file lỗi: ${uploadWarning}`
+                    : `${isEditMode ? 'Cập nhật nháp' : 'Lưu nháp'} thành công!`,
                 uploadWarning ? 'warning' : 'success'
             );
-            setTimeout(() => navigate('/release-request'), 1500);
+            const nextPath = (() => {
+                if (isEditMode) return `/release-request/${editId}`;
+                if (form.isQuotationFlow && rrId) return `/release-request/${rrId}`;
+                return '/release-request';
+            })();
+            setTimeout(() => navigate(nextPath), 1200);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Lưu nháp thất bại.';
             showToast(msg, 'error');
@@ -510,15 +669,47 @@ export default function CreateReleaseRequest() {
 
     const handleCreateRequest = async (e) => {
         e?.preventDefault();
-        if (submitValidationError) {
-            showToast(submitValidationError, 'error');
+
+        if (!selectedCompanyId) {
+            showToast('Vui lòng chọn công ty.', 'error');
+            return;
+        }
+        if (!selectedReceiverId) {
+            showToast('Vui lòng chọn người nhận.', 'error');
+            return;
+        }
+        if (!form.warehouseId) {
+            showToast('Vui lòng chọn kho xuất.', 'error');
+            return;
+        }
+        if (!form.purpose.trim()) {
+            showToast('Vui lòng nhập lý do xuất hàng.', 'error');
+            return;
+        }
+        if (lineItems.length === 0) {
+            showToast('Vui lòng thêm ít nhất 1 vật tư.', 'error');
+            return;
+        }
+        if (!validateLineItems()) return;
+        if (addressMode === 'list' && !selectedAddressId) {
+            showToast('Vui lòng chọn địa chỉ giao hàng.', 'error');
+            return;
+        }
+        if (addressMode === 'custom' && !customAddress.address.trim()) {
+            showToast('Vui lòng nhập địa chỉ giao hàng.', 'error');
+            return;
+        }
+        if (!quotationFile || !contractFile) {
+            showToast('Vui lòng tải lên đủ Báo giá và Hợp đồng trước khi gửi duyệt.', 'error');
             return;
         }
 
         setSubmitting(true);
         try {
-            const res = await createReleaseRequest({ ...buildPayload(), status: 'PENDING_ACC' });
-            const rrId = res?.releaseRequestId ?? res?.ReleaseRequestId;
+            const res = isEditMode
+                ? await updateReleaseRequest(editId, { ...buildPayload(), status: 'PENDING_ACC' })
+                : await createReleaseRequest({ ...buildPayload(), status: 'PENDING_ACC' });
+            const rrId = Number(editId) || res?.releaseRequestId || res?.ReleaseRequestId;
             let uploadWarning = '';
             if (rrId && (quotationFile || contractFile || appendixFile)) {
                 try {
@@ -534,11 +725,11 @@ export default function CreateReleaseRequest() {
             }
             showToast(
                 uploadWarning
-                    ? `Tạo yêu cầu xuất hàng thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
-                    : `Tạo yêu cầu xuất hàng thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}!`,
+                    ? `${isEditMode ? 'Cập nhật RR' : 'Tạo yêu cầu xuất hàng'} thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}, nhưng upload file lỗi: ${uploadWarning}`
+                    : `${isEditMode ? 'Cập nhật RR' : 'Tạo yêu cầu xuất hàng'} thành công${res?.releaseRequestCode || res?.ReleaseRequestCode ? ` (${res.releaseRequestCode ?? res.ReleaseRequestCode})` : ''}!`,
                 uploadWarning ? 'warning' : 'success'
             );
-            setTimeout(() => navigate('/release-request'), 1500);
+            setTimeout(() => navigate(isEditMode ? `/release-request/${editId}` : '/release-request'), 1200);
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Tạo yêu cầu xuất hàng thất bại.';
             showToast(msg, 'error');
@@ -547,7 +738,7 @@ export default function CreateReleaseRequest() {
         }
     };
 
-    if (loading) {
+    if (loading || editLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
                 <CircularProgress />
@@ -568,11 +759,29 @@ export default function CreateReleaseRequest() {
                     <button type="button" onClick={() => navigate(-1)} className="btn btn-cancel" disabled={submitting || savingDraft}>
                         <X size={15} />Hủy
                     </button>
-                    <button type="button" className="btn btn-secondary" disabled={savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }} title={baseValidationError ? `Chưa đủ điều kiện: ${baseValidationError}` : undefined}>
-                        {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
-                    </button>
-                    <button type="button" className="btn btn-primary" disabled={submitting || savingDraft} onClick={handleCreateRequest} title={submitValidationError ? `Chưa đủ điều kiện: ${submitValidationError}` : undefined}>
-                        {submitting ? <><Loader size={15} className="spinner" />Đang gửi...</> : <><Send size={15} />Tạo & Gửi duyệt</>}
+                    {!form.isQuotationFlow && (
+                        <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
+                            {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={form.isQuotationFlow ? !canCreateQuotationDraft || submitting || savingDraft : !canSubmitForApproval || submitting || savingDraft}
+                        onClick={form.isQuotationFlow ? handleSaveDraft : handleCreateRequest}
+                        title={
+                            form.isQuotationFlow
+                                ? (!canCreateQuotationDraft ? 'Vui lòng nhập đủ thông tin bắt buộc để tạo báo giá.' : undefined)
+                                : (!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined)
+                        }
+                    >
+                        {submitting ? (
+                            <><Loader size={15} className="spinner" />Đang gửi...</>
+                        ) : form.isQuotationFlow ? (
+                            <><Send size={15} />{isEditMode ? 'Lưu báo giá' : 'Tạo báo giá'}</>
+                        ) : (
+                            <><Send size={15} />Tạo & Gửi duyệt</>
+                        )}
                     </button>
                 </div>
             </div>
@@ -580,10 +789,8 @@ export default function CreateReleaseRequest() {
             <div className="form-card">
                 <form id="create-rr-form" className="form-wrapper">
                     <div className="form-card-intro">
-                        <h1 className="page-title">Tạo yêu cầu xuất hàng</h1>
-                        <p className="form-card-required-note">
-                            <span className="required-mark">*</span> là trường bắt buộc. Lý do xuất và tệp báo giá / hợp đồng chỉ bắt buộc khi bấm <strong>Tạo &amp; Gửi duyệt</strong>.
-                        </p>
+                        <h1 className="page-title">{isEditMode ? 'Chỉnh sửa yêu cầu xuất hàng' : 'Tạo yêu cầu xuất hàng'}</h1>
+                        <p className="form-card-required-note">Các trường <span className="required-mark">*</span> là bắt buộc</p>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -787,7 +994,13 @@ export default function CreateReleaseRequest() {
                                                     <th style={{ width: 50, textAlign: 'center' }}>STT</th>
                                                     <th>Vật tư</th>
                                                     <th style={{ width: 120, textAlign: 'right' }}>Tồn kho</th>
-                                                    <th style={{ width: 140, textAlign: 'center' }}>Số lượng</th>
+                                                    <th style={{ width: 120, textAlign: 'center' }}>Số lượng</th>
+                                                    <th style={{ width: 140, textAlign: 'right' }}>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                            Giá bình quân kho
+                                                            <CircleHelp size={14} title="Giá bình quân kho" style={{ color: '#64748b', cursor: 'help' }} />
+                                                        </span>
+                                                    </th>
                                                     <th style={{ width: 140, textAlign: 'right' }}>Đơn giá (VNĐ)</th>
                                                     <th style={{ width: 150, textAlign: 'right' }}>Thành tiền (VNĐ)</th>
                                                     <th style={{ minWidth: 120, maxWidth: 180, textAlign: 'left' }}>Ghi chú</th>
@@ -809,7 +1022,7 @@ export default function CreateReleaseRequest() {
                                                             </div>
                                                         </td>
                                                         <td style={{ textAlign: 'right' }}>{Number(line.availableQty || 0).toLocaleString()}</td>
-                                                        <td>
+                                                        <td style={{ textAlign: 'center' }}>
                                                             <input
                                                                 type="number"
                                                                 min="1"
@@ -819,9 +1032,14 @@ export default function CreateReleaseRequest() {
                                                                     const value = Math.max(1, Math.min(Number(e.target.value || 1), Number(line.availableQty || 1)));
                                                                     updateLine(index, 'quantity', value);
                                                                 }}
-                                                                className="form-input"
-                                                                style={{ minWidth: 100 }}
+                                                                className="form-input rr-number-no-spin"
+                                                                style={{ width: 72, minWidth: 72, maxWidth: 72, textAlign: 'right', fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box' }}
                                                             />
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#111827', fontSize: 13 }}>
+                                                            {line.warehousePrice == null
+                                                                ? <span style={{ color: '#94a3b8', fontWeight: 400 }}>—</span>
+                                                                : formatVndInteger(line.warehousePrice)}
                                                         </td>
                                                         <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
                                                             <input
@@ -840,10 +1058,10 @@ export default function CreateReleaseRequest() {
                                                                     if (!Number.isFinite(n)) return;
                                                                     updateLine(index, 'unitPrice', Math.max(0, Math.round(n)));
                                                                 }}
-                                                                className="form-input"
+                                                                className="form-input rr-number-no-spin"
                                                                 placeholder="VNĐ"
-                                                                style={{ minWidth: 120, maxWidth: 160, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
-                                                                title="Đơn giá (VNĐ, số nguyên)"
+                                                                style={{ minWidth: 96, maxWidth: 120, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                                                                title="Đơn giá (VNĐ, số nguyên, không nhỏ hơn giá bình quân kho)"
                                                             />
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#111827', fontSize: 13 }}>
@@ -926,6 +1144,35 @@ export default function CreateReleaseRequest() {
                                             Cho phép xuất kho từng phần (không bắt buộc đủ tồn một lần khi gửi duyệt)
                                         </label>
                                     </div>
+                                    <div className="form-field" style={{ margin: 0 }}>
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151', lineHeight: 1.45 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(form.isQuotationFlow)}
+                                                onChange={(e) => setForm((prev) => ({ ...prev, isQuotationFlow: e.target.checked }))}
+                                                style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: '#2196F3' }}
+                                            />
+                                            Tạo theo luồng báo giá (cần chốt báo giá trước khi gửi kế toán duyệt)
+                                        </label>
+                                        {Boolean(form.isQuotationFlow) && (
+                                            <div
+                                                style={{
+                                                    marginTop: 10,
+                                                    padding: '10px 12px',
+                                                    borderRadius: 8,
+                                                    background: 'rgba(37, 99, 235, 0.08)',
+                                                    border: '1px solid rgba(37, 99, 235, 0.25)',
+                                                    fontSize: 13,
+                                                    color: '#1e3a8a',
+                                                    lineHeight: 1.55,
+                                                }}
+                                            >
+                                                Luồng báo giá: 
+                                                <br/>tạo Báo giá → vào màn chi tiết để nhập nội dung báo giá, 
+                                                xuất/import Excel và chốt báo giá → sau khi chốt mới gửi duyệt kế toán.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -953,73 +1200,90 @@ export default function CreateReleaseRequest() {
                                 </div>
                             </div>
 
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tệp đính kèm</h2>
+                            {(isEditMode || !form.isQuotationFlow) && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">Tệp đính kèm</h2>
+                                    </div>
+                                    <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+                                        Khi Tạo & Gửi duyệt, bắt buộc có Báo giá và Hợp đồng. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div className="form-field" style={{ margin: 0 }}>
+                                            <label htmlFor="rr-quotation-file" className="form-label">
+                                                File báo giá <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
+                                            </label>
+                                            <div className="input-wrapper">
+                                                <FileSpreadsheet className="input-icon" size={16} />
+                                                <input
+                                                    id="rr-quotation-file"
+                                                    type="file"
+                                                    className="form-input"
+                                                    onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            {quotationFile && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Đã chọn: {quotationFile.name}
+                                                </div>
+                                            )}
+                                            {!quotationFile && isEditMode && existingQuotationAttachment && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Hiện có: <a href={toAbsoluteFileUrl(existingQuotationAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingQuotationAttachment.fileName}</a>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="form-field" style={{ margin: 0 }}>
+                                            <label htmlFor="rr-contract-file" className="form-label">
+                                                Hợp đồng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
+                                            </label>
+                                            <div className="input-wrapper">
+                                                <FileText className="input-icon" size={16} />
+                                                <input
+                                                    id="rr-contract-file"
+                                                    type="file"
+                                                    className="form-input"
+                                                    onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            {contractFile && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Đã chọn: {contractFile.name}
+                                                </div>
+                                            )}
+                                            {!contractFile && isEditMode && existingContractAttachment && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Hiện có: <a href={toAbsoluteFileUrl(existingContractAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingContractAttachment.fileName}</a>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="form-field" style={{ margin: 0 }}>
+                                            <label htmlFor="rr-appendix-file" className="form-label">
+                                                Phụ lục hợp đồng <span style={{ fontWeight: 400, color: '#94a3b8' }}>(tùy chọn)</span>
+                                            </label>
+                                            <div className="input-wrapper">
+                                                <FileStack className="input-icon" size={16} />
+                                                <input
+                                                    id="rr-appendix-file"
+                                                    type="file"
+                                                    className="form-input"
+                                                    onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            {appendixFile && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Đã chọn: {appendixFile.name}
+                                                </div>
+                                            )}
+                                            {!appendixFile && isEditMode && existingAppendixAttachment && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Hiện có: <a href={toAbsoluteFileUrl(existingAppendixAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingAppendixAttachment.fileName}</a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                                    Khi <strong>Tạo &amp; Gửi duyệt</strong>, bắt buộc có <strong>Báo giá</strong> và <strong>Hợp đồng</strong>. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.
-                                </p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label htmlFor="rr-quotation-file" className="form-label">
-                                            File báo giá <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileSpreadsheet className="input-icon" size={16} />
-                                            <input
-                                                id="rr-quotation-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {quotationFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {quotationFile.name}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label htmlFor="rr-contract-file" className="form-label">
-                                            Hợp đồng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileText className="input-icon" size={16} />
-                                            <input
-                                                id="rr-contract-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setContractFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {contractFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {contractFile.name}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label htmlFor="rr-appendix-file" className="form-label">
-                                            Phụ lục hợp đồng <span style={{ fontWeight: 400, color: '#94a3b8' }}>(tùy chọn)</span>
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileStack className="input-icon" size={16} />
-                                            <input
-                                                id="rr-appendix-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {appendixFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {appendixFile.name}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                     </div>

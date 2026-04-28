@@ -110,5 +110,17 @@ namespace Warehouse.Api.ApiController
             var result = await _gdnService.ConfirmDeliveryAsync(id, userId, evidenceFile, note ?? "");
             return Ok(ApiResponse<GoodsDeliveryNoteResponse>.SuccessResponse(result, "Xác nhận hoàn tất xuất kho thành công."));
         }
+
+        /// <summary>
+        /// Xuất PDF phiếu xuất kho (GDN) để in.
+        /// </summary>
+        [HttpGet("{id}/export-pdf")]
+        [Authorize(Roles = "SP,SE,KT,TK,GD")]
+        public async Task<IActionResult> ExportPdf(long id)
+        {
+            var userId = GetCurrentUserId();
+            var bytes = await _gdnService.ExportGdnPdfAsync(id, userId);
+            return File(bytes, "application/pdf", $"GDN-{id}.pdf");
+        }
     }
 }
