@@ -613,8 +613,8 @@ export default function ViewReleaseRequestList() {
                                                                 <TableCell key={col.id} align="left">
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                         <Box component="a"
-                                                                            href={`/release-request/${row.releaseRequestId}`}
-                                                                            onClick={(e) => { e.preventDefault(); navigate(`/release-request/${row.releaseRequestId}`); }}
+                                                                            href={`/release-request/${row.releaseRequestId}/edit`}
+                                                                            onClick={(e) => { e.preventDefault(); navigate(`/release-request/${row.releaseRequestId}/edit`); }}
                                                                             sx={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
                                                                             title={row.releaseRequestCode}>
                                                                             {row.releaseRequestCode}

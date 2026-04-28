@@ -1,6 +1,5 @@
 import apiClient from './axios';
 import { getRoleFromToken } from '../permissions/roleUtils';
-import { handleSessionExpired } from './sessionLifecycle';
 
 const authService = {
     async login(identifier, password, rememberMe = false) {
@@ -244,13 +243,7 @@ const authService = {
         if (!token) return false;
         
         const expiresAt = localStorage.getItem('tokenExpiresAt');
-        if (expiresAt && new Date(expiresAt) < new Date()) {
-            handleSessionExpired({
-                redirectToLogin: false,
-                skipIfOtpPending: true,
-            });
-            return false;
-        }
+        if (expiresAt && new Date(expiresAt) < new Date()) return false;
         
         return true;
     },
