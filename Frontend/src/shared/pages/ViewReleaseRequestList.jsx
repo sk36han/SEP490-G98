@@ -168,7 +168,7 @@ export default function ViewReleaseRequestList() {
     const navigate = useNavigate();
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
     const currentUserId = authService.getCurrentUserId();
-    const canCreate = permissionRole !== 'ACCOUNTANTS' && permissionRole !== 'WAREHOUSE_KEEPER';
+    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'SALE_ENGINEER';
 
     const [list, setList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');

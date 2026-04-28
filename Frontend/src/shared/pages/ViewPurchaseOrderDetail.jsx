@@ -516,20 +516,20 @@ const ViewPurchaseOrderDetail = () => {
         : orderData.lines.reduce((sum, line) => sum + (Number(line.orderedQty) || 0), 0);
 
     const isPending = orderData.approvalStatus === 'PENDING_ACC' || orderData.approvalStatus === 'PENDING';
-    const canApprove = permissionRole === 'ACCOUNTANTS' && isPending;
+    const canApprove = (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR') && isPending;
 
     const isPendingGrnCheckedForCurrentPO =
         Number(hasPendingGRNState.purchaseOrderId) === Number(orderData.purchaseOrderId);
 
     const showPendingGRNChip =
-        permissionRole === 'WAREHOUSE_KEEPER' &&
+        (permissionRole === 'WAREHOUSE_KEEPER' || permissionRole === 'DIRECTOR') &&
         orderData.approvalStatus === 'APPROVED' &&
         isPendingGrnCheckedForCurrentPO &&
         !hasPendingGRNState.checking &&
         hasPendingGRNState.hasPending;
 
     const canCreateGRN =
-        permissionRole === 'WAREHOUSE_KEEPER' &&
+        (permissionRole === 'WAREHOUSE_KEEPER' || permissionRole === 'DIRECTOR') &&
         orderData.approvalStatus === 'APPROVED' &&
         isPendingGrnCheckedForCurrentPO &&
         !hasPendingGRNState.checking &&

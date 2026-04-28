@@ -117,13 +117,6 @@ export const pollingConfig = {
         paths: ['/receivers', '/receivers/create', '/receivers/:id'],
         interval: 30_000,
     },
-    itemPrices: {
-        pageKey: 'itemPrices',
-        fetchKey: 'ItemPrice',
-        paths: ['/item-prices'],
-        interval: 30_000,
-    },
-
     // ── Admin ───────────────────────────────────────────────────
     users: {
         pageKey: 'users',

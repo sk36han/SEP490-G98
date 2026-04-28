@@ -48,7 +48,7 @@ import '../styles/CreateSupplier.css';
 
 // ─── Role helpers ─────────────────────────────────────────────────────────
 const isWarehouseKeeper = (role) => role === 'WAREHOUSE_KEEPER';
-const canEditItem = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS'].includes(role);
+const canEditItem = (role) => ['DIRECTOR', 'WAREHOUSE_KEEPER'].includes(role);
 const canSeeFullPrices = (role) => role === 'ACCOUNTANTS' || role === 'DIRECTOR';
 const showStockBlockForRole = (role) => ['WAREHOUSE_KEEPER', 'SALE_SUPPORT', 'SALE_ENGINEER', 'ACCOUNTANTS', 'DIRECTOR'].includes(role);
 

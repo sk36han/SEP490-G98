@@ -297,19 +297,20 @@ export default function ViewReleaseRequestDetail() {
         }
     };
 
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const canSubmit = data?.status === 'DRAFT' && (!data?.isQuotationFlow || data?.quotationStatus === 'CONFIRMED');
-    const canEdit = data?.status === 'DRAFT';
+    const canEdit = data?.status === 'DRAFT' && (permissionRole === 'DIRECTOR' || permissionRole === 'SALE_ENGINEER');
     const canQuotationActions = data?.status === 'DRAFT' && data?.isQuotationFlow;
     const canConfirmQuotation = canQuotationActions;
     const canEnableQuotationFlow = data?.status === 'DRAFT' && !data?.isQuotationFlow;
     const shouldShowAmountOnly = data?.status === 'DRAFT';
 
-    // Kế toán có thể duyệt / từ chối yêu cầu đang chờ duyệt
-    const userInfo = authService.getUser();
-    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    // Kế toán hoặc giám đốc có thể duyệt / từ chối yêu cầu đang chờ duyệt
     /** TK (Thủ kho): không hiển thị tệp đính kèm, người nhận (và thông tin nhạy cảm liên quan). */
     const hideSensitiveForWarehouseKeeper = isWarehouseKeeper(permissionRole);
-    const canApprove = data?.status === 'PENDING_ACC' && permissionRole === 'ACCOUNTANTS';
+    const canApprove = data?.status === 'PENDING_ACC'
+        && (permissionRole === 'ACCOUNTANTS' || permissionRole === 'DIRECTOR');
     // RR: status APPROVED + lifecycle Đang đợi xuất / Đã xuất một phần (IssuePending | IssuePartial)
     const canCreateGDN = canShowCreateGdnFromReleaseRequest({
         status: data?.status,

@@ -149,9 +149,9 @@ const ViewWarehouseList = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    // Permission: Director and Accountant can create warehouses
+    // Permission: Director and Warehouse Keeper can create warehouses
     const permissionRole = getPermissionRole(getRawRoleFromUser(authService.getUser()));
-    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'ACCOUNTANTS';
+    const canCreate = permissionRole === 'DIRECTOR' || permissionRole === 'WAREHOUSE_KEEPER';
 
     // State
     const [loading, setLoading] = useState(true);

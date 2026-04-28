@@ -78,26 +78,15 @@ import CreateSupplier from '../shared/pages/CreateSupplier';
 import ViewReceiver from '../shared/pages/ViewReceiverList';
 import ViewReceiverDetail from '../shared/pages/ViewReceiverDetail';
 import CreateReceiver from '../shared/pages/CreateReceiver';
-import ViewItemPriceList from '../shared/pages/ViewItemPriceList';
 import ViewNotificationsLive from '../shared/pages/ViewNotificationsLive';
 import InventoryAlertSetup from '../shared/pages/mockup/InventoryAlertSetup';
 import SalesRevenueTarget from '../shared/pages/mockup/SalesRevenueTarget';
 import Viewsalesreportlist from '../shared/pages/mockup/Viewsalesreportlist';
 import ViewSalesReportDetail from '../shared/pages/mockup/ViewSalesReportDetail';
+import { ROLE_GROUPS } from '../shared/permissions/roleUtils';
 
-const ROLES_WS = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT'];
-const ROLES_WSA = ['WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS'];
-const ROLES_ALL = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'SALE_SUPPORT', 'ACCOUNTANTS'];
-const ROLES_WA = ['WAREHOUSE_KEEPER', 'ACCOUNTANTS'];
-const ROLES_DA = ['DIRECTOR', 'ACCOUNTANTS'];
-const ROLES_DW = ['DIRECTOR', 'WAREHOUSE_KEEPER'];
-const ROLES_WDA = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'ACCOUNTANTS'];
-const ROLES_WDSA = ['DIRECTOR', 'WAREHOUSE_KEEPER', 'SALE_ENGINEER', 'ACCOUNTANTS'];
-const ROLES_SA = ['SALE_ENGINEER', 'ACCOUNTANTS'];
-const ROLES_SSA = ['SALE_SUPPORT', 'ACCOUNTANTS', 'WAREHOUSE_KEEPER'];
-const ROLES_DIRECTOR = ['DIRECTOR'];
-const ROLES_ADMIN = ['ADMIN'];
-const ROLES_ACC = ['ACCOUNTANTS'];
+const ROLES_DIRECTOR = ROLE_GROUPS.REPORT_VIEW;
+const ROLES_ADMIN = ROLE_GROUPS.ADMIN_ONLY;
 
 const AppRoutes = () => (
     <Routes>
@@ -116,70 +105,69 @@ const AppRoutes = () => (
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewUserAccountList /></MainLayout></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><MainLayout><ViewNotificationsLive /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={ROLES_ADMIN}><MainLayout><ViewAdminAuditLog /></MainLayout></ProtectedRoute>} />
-        <Route path="/products" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
-        <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
+        <Route path="/products" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_VIEW}><MainLayout><ViewItemList /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_MANAGE}><MainLayout><CreateItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/edit/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_MANAGE}><MainLayout><EditItem /></MainLayout></ProtectedRoute>} />
+        <Route path="/items/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_VIEW}><MainLayout><ViewItemDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/categories" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_VIEW}><MainLayout><ViewCategoryList /></MainLayout></ProtectedRoute>} />
         <Route path="/categories/create" element={<Navigate to="/categories" replace />} />
-        <Route path="/categories/edit/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><EditCategory /></MainLayout></ProtectedRoute>} />
-        <Route path="/packaging-spec" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewPackagingSpecList /></MainLayout></ProtectedRoute>} />
-        <Route path="/specs" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewSpecList /></MainLayout></ProtectedRoute>} />
+        <Route path="/categories/edit/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_MANAGE}><MainLayout><EditCategory /></MainLayout></ProtectedRoute>} />
+        <Route path="/packaging-spec" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_MANAGE}><MainLayout><ViewPackagingSpecList /></MainLayout></ProtectedRoute>} />
+        <Route path="/specs" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_MANAGE}><MainLayout><ViewSpecList /></MainLayout></ProtectedRoute>} />
         <Route path="/item-masters" element={<Navigate to="/categories" replace />} />
-        <Route path="/uom" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewUomList /></MainLayout></ProtectedRoute>} />
+        <Route path="/uom" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_MANAGE}><MainLayout><ViewUomList /></MainLayout></ProtectedRoute>} />
         <Route path="/uom/create" element={<Navigate to="/uom" replace />} />
         <Route path="/uom/edit/:id" element={<Navigate to="/uom" replace />} />
-        <Route path="/brands" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewBrandList /></MainLayout></ProtectedRoute>} />
-        <Route path="/suppliers" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
-        <Route path="/suppliers/create" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><CreateSupplier /></MainLayout></ProtectedRoute>} />
-        <Route path="/suppliers/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewSupplierDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseList /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/create" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><CreateWarehouse /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewWarehouseDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/storage-locations" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewStorageLocationList /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/adjustments" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentList /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/adjustments/create" element={<ProtectedRoute allowedRoles={ROLES_WS}><MainLayout><CreateInventoryAdjustment /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/adjustments/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewInventoryAdjustmentDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/stocktakes" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewStocktakeList /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/stocktakes/create" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><CreateStocktake /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/stocktakes/report/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><StocktakeReport /></MainLayout></ProtectedRoute>} />
-        <Route path="/inventory/stocktakes/:id" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><ViewStocktakeDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><Outlet /></MainLayout></ProtectedRoute>}>
+        <Route path="/brands" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.ITEM_VIEW}><MainLayout><ViewBrandList /></MainLayout></ProtectedRoute>} />
+        <Route path="/suppliers" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.SUPPLIER_VIEW}><MainLayout><ViewSupplierList /></MainLayout></ProtectedRoute>} />
+        <Route path="/suppliers/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.SUPPLIER_MANAGE}><MainLayout><CreateSupplier /></MainLayout></ProtectedRoute>} />
+        <Route path="/suppliers/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.SUPPLIER_VIEW}><MainLayout><ViewSupplierDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.WAREHOUSE_VIEW}><MainLayout><ViewWarehouseList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.WAREHOUSE_MANAGE}><MainLayout><CreateWarehouse /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.WAREHOUSE_VIEW}><MainLayout><ViewWarehouseDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/storage-locations" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.WAREHOUSE_VIEW}><MainLayout><ViewStorageLocationList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/adjustments" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><ViewInventoryAdjustmentList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/adjustments/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.INVENTORY_ADJUSTMENT_CREATE}><MainLayout><CreateInventoryAdjustment /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/adjustments/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><ViewInventoryAdjustmentDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><ViewStocktakeList /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_CREATE}><MainLayout><CreateStocktake /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/report/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><StocktakeReport /></MainLayout></ProtectedRoute>} />
+        <Route path="/inventory/stocktakes/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><ViewStocktakeDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.REPORT_VIEW}><MainLayout><Outlet /></MainLayout></ProtectedRoute>}>
             <Route path="stocktakes" element={<ViewStocktakeList />} />
         </Route>
-        <Route path="/good-receipt-notes" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNotesList /></MainLayout></ProtectedRoute>} />
-        <Route path="/good-receipt-notes/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/good-receipt-notes/create" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><CreateGoodReceiptNote /></MainLayout></ProtectedRoute>} />
-        <Route path="/good-receipt-notes/confirmation/:id" element={<ProtectedRoute allowedRoles={ROLES_WA}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/good-delivery-notes" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewGoodDeliveryNoteList /></MainLayout></ProtectedRoute>} />
-        <Route path="/good-delivery-notes/create" element={<ProtectedRoute allowedRoles={ROLES_DW}><MainLayout><CreateGoodDeliveryNote /></MainLayout></ProtectedRoute>} />
-        <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
-        <Route path="/release-request/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateReleaseRequest /></MainLayout></ProtectedRoute>} />
-        <Route path="/release-request/:id/edit" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><EditReleaseRequest /></MainLayout></ProtectedRoute>} />
-        <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/good-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GRN_VIEW}><MainLayout><ViewGoodReceiptNotesList /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GRN_VIEW}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GRN_MANAGE}><MainLayout><CreateGoodReceiptNote /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-receipt-notes/confirmation/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GRN_MANAGE}><MainLayout><ViewGoodReceiptNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GDN_VIEW}><MainLayout><ViewGoodDeliveryNoteList /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GDN_MANAGE}><MainLayout><CreateGoodDeliveryNote /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.RELEASE_REQUEST_VIEW}><MainLayout><ViewReleaseRequestList /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.RELEASE_REQUEST_MANAGE}><MainLayout><CreateReleaseRequest /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request/:id/edit" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.RELEASE_REQUEST_MANAGE}><MainLayout><EditReleaseRequest /></MainLayout></ProtectedRoute>} />
+        <Route path="/release-request/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.RELEASE_REQUEST_VIEW}><MainLayout><ViewReleaseRequestDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/good-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GDN_VIEW}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
         <Route path="/goods-delivery-notes" element={<Navigate to="/good-delivery-notes" replace />} />
         <Route path="/goods-delivery-notes/create" element={<Navigate to="/good-delivery-notes/create" replace />} />
-        <Route path="/goods-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/deliveries" element={<ProtectedRoute allowedRoles={ROLES_ALL}><MainLayout><ViewDeliveryList /></MainLayout></ProtectedRoute>} />
-        <Route path="/deliveries/create" element={<ProtectedRoute allowedRoles={ROLES_WSA}><MainLayout><CreateDelivery /></MainLayout></ProtectedRoute>} />
+        <Route path="/goods-delivery-notes/detail/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.GDN_VIEW}><MainLayout><ViewGoodDeliveryNoteDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/deliveries" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.DELIVERY_VIEW}><MainLayout><ViewDeliveryList /></MainLayout></ProtectedRoute>} />
+        <Route path="/deliveries/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.DELIVERY_MANAGE}><MainLayout><CreateDelivery /></MainLayout></ProtectedRoute>} />
 
-        <Route path="/receivers" element={<ProtectedRoute allowedRoles={ROLES_WDSA}><MainLayout><ViewReceiver /></MainLayout></ProtectedRoute>} />
-        <Route path="/receivers/:id" element={<ProtectedRoute allowedRoles={ROLES_WDSA}><MainLayout><ViewReceiverDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/receivers/create" element={<ProtectedRoute allowedRoles={ROLES_SA}><MainLayout><CreateReceiver /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-orders" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderList /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-orders/create" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><CreatePurchaseOrder /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-orders/:id" element={<ProtectedRoute allowedRoles={ROLES_SSA}><MainLayout><ViewPurchaseOrderDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><ViewPurchaseReturnList /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns/create" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><CreatePurchaseReturn /></MainLayout></ProtectedRoute>} />
-        <Route path="/purchase-returns/:id" element={<ProtectedRoute allowedRoles={ROLES_ACC}><MainLayout><ViewPurchaseReturnDetail /></MainLayout></ProtectedRoute>} />
-        <Route path="/item-prices" element={<ProtectedRoute allowedRoles={ROLES_DA}><MainLayout><ViewItemPriceList /></MainLayout></ProtectedRoute>} />
+        <Route path="/receivers" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.RECEIVER_VIEW}><MainLayout><ViewReceiver /></MainLayout></ProtectedRoute>} />
+        <Route path="/receivers/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.RECEIVER_VIEW}><MainLayout><ViewReceiverDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/receivers/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.RECEIVER_MANAGE}><MainLayout><CreateReceiver /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-orders" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.PURCHASE_ORDER_VIEW}><MainLayout><ViewPurchaseOrderList /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-orders/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.PURCHASE_ORDER_MANAGE}><MainLayout><CreatePurchaseOrder /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-orders/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.PURCHASE_ORDER_VIEW}><MainLayout><ViewPurchaseOrderDetail /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.PRN_VIEW}><MainLayout><ViewPurchaseReturnList /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/create" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.PRN_MANAGE}><MainLayout><CreatePurchaseReturn /></MainLayout></ProtectedRoute>} />
+        <Route path="/purchase-returns/:id" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.PRN_VIEW}><MainLayout><ViewPurchaseReturnDetail /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Inventory Alert Setup ── */}
-        <Route path="/mockup/inventory-alert" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><InventoryAlertSetup /></MainLayout></ProtectedRoute>} />
+        <Route path="/mockup/inventory-alert" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><InventoryAlertSetup /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Sales Revenue Target (Finance Alert) ── */}
-        <Route path="/mockup/sales-target" element={<ProtectedRoute allowedRoles={ROLES_WDA}><MainLayout><SalesRevenueTarget /></MainLayout></ProtectedRoute>} />
+        <Route path="/mockup/sales-target" element={<ProtectedRoute allowedRoles={ROLE_GROUPS.STOCKTAKE_VIEW}><MainLayout><SalesRevenueTarget /></MainLayout></ProtectedRoute>} />
 
         {/* ── Mockup: Báo cáo doanh số ── */}
         <Route path="/reports/sales" element={<ProtectedRoute allowedRoles={ROLES_DIRECTOR}><MainLayout><Viewsalesreportlist /></MainLayout></ProtectedRoute>} />
