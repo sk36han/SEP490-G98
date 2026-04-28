@@ -360,7 +360,6 @@ const ViewGoodReceiptNoteDetail = () => {
                     paymentMethod,
                 }));
             } else {
-                // Gọi API reject
                 await rejectGoodReceiptNote(grnData.grnId, reason);
                 setGrnData((prev) => ({
                     ...prev,
@@ -446,7 +445,6 @@ const ViewGoodReceiptNoteDetail = () => {
                 padding: 16,
             }}
         >
-            {/* Dialog xác nhận duyệt/hủy */}
             <ConfirmDialog
                 open={confirmDialogOpen}
                 onClose={closeConfirmDialog}

@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 
@@ -18,5 +19,11 @@ namespace Warehouse.DataAcces.Service.Interface
         Task<bool> CancelPurchaseOrderAsync(long id);
 
         Task<PurchaseOrderDetailResponse> UpdatePurchaseOrderAsync(long poId, long userId, UpdatePurchaseOrderRequest request);
+
+        Task<PurchaseOrderAttachmentUploadResponse> UploadPurchaseOrderAttachmentsAsync(
+            long purchaseOrderId,
+            long currentUserId,
+            IFormFile? quotationFile,
+            IFormFile? contractAppendixFile);
     }
 }
