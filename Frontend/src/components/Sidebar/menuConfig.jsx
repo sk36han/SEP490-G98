@@ -20,7 +20,6 @@ const PRODUCT_MATCH_PATHS = {
     FULL: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands'],
     BASIC: ['/products', '/uom', '/brands'],
     SALE_SUPPORT: ['/products', '/categories', '/brands'],
-    ACCOUNTANT: ['/products', '/categories', '/uom', '/packaging-spec', '/specs', '/brands', '/items', '/items/create', '/items/edit'],
 };
 
 const createItem = ({ id, path, icon: itemIcon, label, children, matchPaths }) => {
@@ -130,21 +129,6 @@ const menuCatalog = {
             createChild('/brands', 'Thương hiệu'),
         ],
     }),
-    accountantProducts: createItem({
-        id: 'products-mgmt',
-        path: '/products',
-        icon: icon(BoxIcon),
-        label: 'Vật tư',
-        matchPaths: PRODUCT_MATCH_PATHS.ACCOUNTANT,
-        children: [
-            createChild('/products', 'Danh sách vật tư'),
-            createChild('/categories', 'Danh mục'),
-            createChild('/uom', 'Đơn vị tính'),
-            createChild('/packaging-spec', 'Quy cách đóng gói'),
-            createChild('/specs', 'Thông số'),
-            createChild('/brands', 'Thương hiệu'),
-        ],
-    }),
 
     warehouseInventory: createItem({
         id: 'inventory-mgmt',
@@ -173,11 +157,6 @@ const menuCatalog = {
         path: '/mockup/inventory-alert',
         icon: icon(Bell),
         label: 'Cảnh báo tồn kho',
-    }),
-    financeAlert: createItem({
-        path: '/mockup/sales-target',
-        icon: icon(DollarSign),
-        label: 'Cảnh báo tài chính',
     }),
 
     suppliersSimple: createItem({
@@ -309,7 +288,6 @@ const menuCatalog = {
         label: 'Chính sách',
         children: [
             createChild('/mockup/inventory-alert', 'Chính sách tồn kho'),
-            createChild('/mockup/sales-target', 'Chính sách tài chính'),
         ],
     }),
     reports: createItem({
@@ -333,7 +311,6 @@ const roleMenus = {
         menuCatalog.warehouseProducts,
         menuCatalog.warehouseInventory,
         menuCatalog.inventoryAlert,
-        menuCatalog.financeAlert,
         menuCatalog.suppliersSimple,
         menuCatalog.receiversSimple,
         menuCatalog.purchaseOrdersList,
@@ -346,6 +323,7 @@ const roleMenus = {
         ...COMMON_ITEMS,
         menuCatalog.saleSupportProducts,
         menuCatalog.simpleInventory,
+        menuCatalog.inventoryAlert,
         menuCatalog.suppliersSimple,
         menuCatalog.purchaseOrdersManage,
         menuCatalog.goodReceiptNotesList,
@@ -359,7 +337,6 @@ const roleMenus = {
     ],
     ACCOUNTANTS: [
         ...COMMON_ITEMS,
-        menuCatalog.accountantProducts,
         menuCatalog.warehouseInventory,
         menuCatalog.suppliersManage,
         menuCatalog.receiversManage,

@@ -36,19 +36,6 @@ namespace Warehouse.DataAcces.Service
 
             if (!inventoryItems.Any()) return new List<RRItemLookupResponse>();
 
-            var itemIds = inventoryItems.Select(i => i.ItemId).ToList();
-
-            // Fetch the oldest active lot for FIFO picking to show an estimated UnitPrice
-            var oldestLots = await _context.InventoryLots
-                .Where(lot => lot.WarehouseId == warehouseId && lot.IsActive && lot.Quantity > 0 && itemIds.Contains(lot.ItemId))
-                .GroupBy(lot => lot.ItemId)
-                .Select(g => g.OrderBy(lot => lot.ReceiptDate).FirstOrDefault())
-                .ToListAsync();
-
-            var unitPriceDict = oldestLots
-                .Where(lot => lot != null)
-                .ToDictionary(lot => lot!.ItemId, lot => lot!.UnitCost);
-
             return inventoryItems.Select(ioh => new RRItemLookupResponse
             {
                 ItemId = ioh.ItemId,
@@ -61,7 +48,8 @@ namespace Warehouse.DataAcces.Service
                 AvailableQty = ioh.OnHandQty - ioh.ReservedQty,
                 PackagingSpecId = ioh.Item.PackagingSpecId,
                 PackagingSpecName = ioh.Item.PackagingSpec?.SpecName,
-                UnitPrice = unitPriceDict.ContainsKey(ioh.ItemId) ? unitPriceDict[ioh.ItemId] : null
+                // Giá bình quân kho lấy trực tiếp từ InventoryOnHand.UnitCost
+                UnitPrice = ioh.UnitCost
             }).ToList();
         }
 

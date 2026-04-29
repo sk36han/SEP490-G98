@@ -490,7 +490,7 @@ export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotation
 
             const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
             if (unit != null && Number.isFinite(unit) && line.warehousePrice != null && unit < Number(line.warehousePrice)) {
-                showToast('Đơn giá không thể nhỏ hơn giá bình quân trong kho', 'error');
+                showToast('Đơn giá không thể nhỏ hơn giá bình quân gia quyền trong kho.', 'error');
                 return false;
             }
         }

@@ -18,17 +18,20 @@ namespace Warehouse.Api.Tests.CategoryTest
     public class UpdateCategoryServiceTests
     {
         private readonly Mock<IGenericRepository<ItemCategory>> _mockCategoryRepo;
+        private readonly Mock<IGenericRepository<Item>> _mockItemRepo;
         private readonly Mock<IAuditLogService> _mockAuditLogService;
         private readonly CategoryService _categoryService;
 
         public UpdateCategoryServiceTests()
         {
             _mockCategoryRepo = new Mock<IGenericRepository<ItemCategory>>();
+            _mockItemRepo = new Mock<IGenericRepository<Item>>();
+            _mockItemRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Item>());
             _mockAuditLogService = new Mock<IAuditLogService>();
             _mockAuditLogService.Setup(s => s.LogAsync(It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(Task.CompletedTask);
 
-            _categoryService = new CategoryService(_mockCategoryRepo.Object, _mockAuditLogService.Object);
+            _categoryService = new CategoryService(_mockCategoryRepo.Object, _mockItemRepo.Object, _mockAuditLogService.Object);
         }
 
         // 1. Success Case

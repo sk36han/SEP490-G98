@@ -284,9 +284,17 @@ export default function ViewGoodDeliveryNoteDetail() {
         setProcessing(true);
         try {
             if (dialogConfig.type === 'issue') {
-                // Đủ hàng: chỉ IsAllItemsFulfilled — backend tự gán ActualQty = RequestedQty từng dòng (IssueGDNAsync)
+                // Luôn gửi actualQty theo từng dòng hiện có trên phiếu để tránh backend tự override = RequestedQty.
+                const issueLines = (gdn?.lines ?? [])
+                    .map((line) => ({
+                        gdnLineId: Number(line.gdnLineId),
+                        actualQty: toNumber(line.actualQty),
+                    }))
+                    .filter((line) => Number.isFinite(line.gdnLineId) && line.gdnLineId > 0);
+
                 await issueGoodsDeliveryNote(gdn.gdnId, {
-                    isAllItemsFulfilled: true,
+                    isAllItemsFulfilled: false,
+                    lines: issueLines,
                     note: reasonText.trim() || null,
                 });
                 notifyApiSuccess(showToast, 'Xuất kho thành công');

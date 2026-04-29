@@ -511,16 +511,6 @@ const CreatePurchaseReturn = () => {
             newErrors.feeAmount = 'Phí giảm trừ không được cao hơn Giá trị hoàn trả';
         }
 
-        if (formData.refundReceiveStatus === 'received') {
-            if (!formData.refundRecordedDate) {
-                newErrors.refundRecordedDate = 'Ngày ghi nhận là bắt buộc';
-            } else if (formData.refundRecordedDate > TODAY) {
-                newErrors.refundRecordedDate = 'Ngày ghi nhận không được ở tương lai';
-            } else if (formData.grnReceiptDate && formData.refundRecordedDate < formData.grnReceiptDate) {
-                newErrors.refundRecordedDate = 'Ngày ghi nhận không được sớm hơn Ngày nhập của GRN';
-            }
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -531,9 +521,10 @@ const CreatePurchaseReturn = () => {
         Reason: formData.reason.trim() || null,
         Note: formData.deductionReason?.trim() || null,
         FeeAmount: feeAmount,
-        RefundMethod: formData.refundReceiveStatus === 'received' ? formData.refundMethod : null,
+        // Trạng thái hoàn tiền chỉ do kế toán xác nhận ở màn chi tiết PRN.
+        RefundMethod: null,
         Status: status,
-        RefundStatus: formData.refundReceiveStatus === 'received' ? 'Refunded' : 'NotRefunded',
+        RefundStatus: 'NotRefunded',
         Lines: lines.map((line) => ({
             RelatedGrnlineId: Number(line.grnLineId),
             ReturnQty: toNumber(line.returnQty),
@@ -1175,84 +1166,20 @@ const CreatePurchaseReturn = () => {
                                 </div>
                                 <div className="form-field">
                                     <label className="form-label">Trạng thái hoàn tiền</label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#334155', fontWeight: 500 }}>
-                                            <input
-                                                type="radio"
-                                                name="refundReceiveStatus"
-                                                value="received"
-                                                checked={formData.refundReceiveStatus === 'received'}
-                                                onChange={handleChange}
-                                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                            />
-                                            Đã nhận hoàn tiền
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#334155', fontWeight: 500 }}>
-                                            <input
-                                                type="radio"
-                                                name="refundReceiveStatus"
-                                                value="later"
-                                                checked={formData.refundReceiveStatus === 'later'}
-                                                onChange={handleChange}
-                                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                            />
-                                            Nhận hoàn tiền sau
-                                        </label>
+                                    <div
+                                        style={{
+                                            padding: '10px 12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #fde68a',
+                                            backgroundColor: '#fffbeb',
+                                            fontSize: '13px',
+                                            color: '#92400e',
+                                            lineHeight: 1.6,
+                                        }}
+                                    >
+                                        Khi tạo phiếu trả hàng, hệ thống mặc định là <strong>Chưa hoàn tiền</strong>. Trạng thái hoàn tiền sẽ do kế toán xác nhận tại trang chi tiết phiếu trả.
                                     </div>
                                 </div>
-
-                                {formData.refundReceiveStatus === 'received' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
-                                        <div className="form-field">
-                                            <label className="form-label">Hình thức thanh toán</label>
-                                            <div className="input-wrapper">
-                                                <select
-                                                    name="refundMethod"
-                                                    value={formData.refundMethod}
-                                                    onChange={handleChange}
-                                                    className="form-input"
-                                                    style={{ paddingLeft: '16px' }}
-                                                >
-                                                    <option value="cash">Tiền mặt</option>
-                                                    <option value="bank_transfer">Chuyển khoản</option>
-                                                    <option value="card">Thanh toán thẻ</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div className="form-field">
-                                            <label className="form-label">Số tiền nhận hoàn</label>
-                                            <div className="input-wrapper">
-                                                <input
-                                                    type="text"
-                                                    readOnly
-                                                    value={formatCurrency(estimatedRefundAmount)}
-                                                    className="form-input"
-                                                    style={{ backgroundColor: '#f5f5f5', paddingLeft: '16px' }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="form-field">
-                                            <label className="form-label">Ngày ghi nhận</label>
-                                            <div className="input-wrapper">
-                                                <input
-                                                    type="date"
-                                                    name="refundRecordedDate"
-                                                    value={formData.refundRecordedDate}
-                                                    onChange={handleChange}
-                                                    max={TODAY}
-                                                    min={formData.grnReceiptDate || ''}
-                                                    className={`form-input ${errors.refundRecordedDate ? 'error' : ''}`}
-                                                    style={{ paddingLeft: '16px' }}
-                                                />
-                                            </div>
-                                            {errors.refundRecordedDate && (
-                                                <span className="error-message">{errors.refundRecordedDate}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>

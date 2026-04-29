@@ -86,6 +86,7 @@ const mapSpecOption = (s) => ({
   specCode: s.specificationCode ?? s.paramCode ?? s.ParamCode ?? "",
   specName: s.specificationName ?? s.paramName ?? s.ParamName ?? s.name ?? "",
 });
+const isActiveOption = (x) => (x?.isActive ?? x?.IsActive ?? true) === true;
 
 const resolveUomCreated = (raw, fallbackName = "") => {
   const data = raw?.data ?? raw;
@@ -398,11 +399,11 @@ const CreateItem = () => {
         getBrandList({ page: 1, pageSize: PAGE_SIZE }),
         getItemParameterList({ page: 1, pageSize: PAGE_SIZE }),
       ]);
-      setUomOptions(toArray(fromPagedResult(uomRes)).map(mapUomOption));
-      setPackagingOptions(toArray(fromPagedResult(packList)).map(mapPackagingOption));
-      setCategoryOptions(toArray(fromPagedResult(catRes)).map(mapCategoryOption));
-      setBrandOptions(toArray(fromPagedResult(brandRes)).map(mapBrandOption));
-      setSpecOptions(toArray(fromPagedResult(specRes)).map(mapSpecOption));
+      setUomOptions(toArray(fromPagedResult(uomRes)).filter(isActiveOption).map(mapUomOption));
+      setPackagingOptions(toArray(fromPagedResult(packList)).filter(isActiveOption).map(mapPackagingOption));
+      setCategoryOptions(toArray(fromPagedResult(catRes)).filter(isActiveOption).map(mapCategoryOption));
+      setBrandOptions(toArray(fromPagedResult(brandRes)).filter(isActiveOption).map(mapBrandOption));
+      setSpecOptions(toArray(fromPagedResult(specRes)).filter(isActiveOption).map(mapSpecOption));
     } catch { /* keep empty on error */ }
   }, []);
 

@@ -102,7 +102,7 @@ const Login = () => {
 
             showToast('Đăng nhập thành công!', 'success');
 
-            // Chuyển hướng theo role: Admin → listUserAccount, Director → Home, WD/Accountant/Sale Support/Sale Engine → ItemList
+            // Chuyển hướng theo role: Admin → users, Director → Home, Sale/WH → vật tư, Kế toán → đơn mua
             setTimeout(() => {
                 switch (permissionRole) {
                     case 'ADMIN':
@@ -111,10 +111,12 @@ const Login = () => {
                     case 'DIRECTOR':
                         navigate('/home'); // Home
                         break;
+                    case 'ACCOUNTANTS':
+                        navigate('/purchase-orders');
+                        break;
                     case 'WAREHOUSE_KEEPER':
                     case 'SALE_SUPPORT':
                     case 'SALE_ENGINEER':
-                    case 'ACCOUNTANTS':
                         navigate('/products'); // ItemList
                         break;
                     default:
@@ -148,10 +150,12 @@ const Login = () => {
                 case 'DIRECTOR':
                     navigate('/home');
                     break;
+                case 'ACCOUNTANTS':
+                    navigate('/purchase-orders');
+                    break;
                 case 'WAREHOUSE_KEEPER':
                 case 'SALE_SUPPORT':
                 case 'SALE_ENGINEER':
-                case 'ACCOUNTANTS':
                     navigate('/products');
                     break;
                 default:

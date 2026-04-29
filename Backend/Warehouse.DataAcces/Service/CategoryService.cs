@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -16,6 +17,7 @@ namespace Warehouse.DataAcces.Service
 	public class CategoryService : ICategoryService
 	{
 		private readonly IGenericRepository<ItemCategory> _categoryRepository;
+		private readonly IGenericRepository<Item> _itemRepository;
 		private readonly IAuditLogService _auditLogService;
 
 		// Chỉ cho phép chữ cái (unicode), chữ số, khoảng trắng, gạch ngang, dấu chấm, & và /
@@ -28,9 +30,11 @@ namespace Warehouse.DataAcces.Service
 
 		public CategoryService(
 			IGenericRepository<ItemCategory> categoryRepository,
+			IGenericRepository<Item> itemRepository,
 			IAuditLogService auditLogService)
 		{
 			_categoryRepository = categoryRepository;
+			_itemRepository = itemRepository;
 			_auditLogService = auditLogService;
 		}
 
@@ -105,7 +109,7 @@ namespace Warehouse.DataAcces.Service
 				? allAfter.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -151,13 +155,21 @@ namespace Warehouse.DataAcces.Service
 			// Build a lookup for parent names
 			var parentLookup = all.ToDictionary(c => c.CategoryId, c => c.CategoryName);
 
-			var items = query
+			var pageCategories = query
 				.OrderBy(c => c.CategoryCode)
 				.Skip((page - 1) * pageSize)
 				.Take(pageSize)
-				.Select(c => ToResponse(c, c.ParentId.HasValue && parentLookup.ContainsKey(c.ParentId.Value)
-					? new ItemCategory { CategoryName = parentLookup[c.ParentId.Value] }
-					: null))
+				.ToList();
+
+			var itemCounts = await GetItemCountsForCategoriesAsync(pageCategories.Select(c => c.CategoryId));
+
+			var items = pageCategories
+				.Select(c => ToResponse(
+					c,
+					c.ParentId.HasValue && parentLookup.ContainsKey(c.ParentId.Value)
+						? new ItemCategory { CategoryName = parentLookup[c.ParentId.Value] }
+						: null,
+					itemCounts.TryGetValue(c.CategoryId, out var cnt) ? cnt : 0))
 				.ToList();
 
 			return new PagedResponse<CategoryResponse>
@@ -185,7 +197,7 @@ namespace Warehouse.DataAcces.Service
 				? all.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -281,7 +293,7 @@ namespace Warehouse.DataAcces.Service
 				? all.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -327,7 +339,7 @@ namespace Warehouse.DataAcces.Service
 				? all.FirstOrDefault(c => c.CategoryId == category.ParentId.Value)
 				: null;
 
-			return ToResponse(category, parentEntity);
+			return await ToResponseWithItemCountAsync(category, parentEntity);
 		}
 
 		// =====================================================================
@@ -403,14 +415,35 @@ namespace Warehouse.DataAcces.Service
 		// =====================================================================
 		// HELPER
 		// =====================================================================
-		private static CategoryResponse ToResponse(ItemCategory c, ItemCategory? parent) => new CategoryResponse
+		private async Task<Dictionary<long, int>> GetItemCountsForCategoriesAsync(IEnumerable<long> categoryIds)
+		{
+			var idSet = categoryIds.Distinct().ToHashSet();
+			if (idSet.Count == 0)
+				return new Dictionary<long, int>();
+
+			var items = await _itemRepository.GetAllAsync();
+			return items
+				.Where(i => i.CategoryId.HasValue && idSet.Contains(i.CategoryId.Value))
+				.GroupBy(i => i.CategoryId!.Value)
+				.ToDictionary(g => g.Key, g => g.Count());
+		}
+
+		private async Task<CategoryResponse> ToResponseWithItemCountAsync(ItemCategory c, ItemCategory? parent)
+		{
+			var counts = await GetItemCountsForCategoriesAsync(new[] { c.CategoryId });
+			var n = counts.TryGetValue(c.CategoryId, out var cnt) ? cnt : 0;
+			return ToResponse(c, parent, n);
+		}
+
+		private static CategoryResponse ToResponse(ItemCategory c, ItemCategory? parent, int itemCount = 0) => new CategoryResponse
 		{
 			CategoryId = c.CategoryId,
 			CategoryCode = c.CategoryCode,
 			CategoryName = c.CategoryName,
 			ParentId = c.ParentId,
 			ParentName = parent?.CategoryName,
-			IsActive = c.IsActive
+			IsActive = c.IsActive,
+			ItemCount = itemCount
 		};
 	}
 }

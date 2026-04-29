@@ -319,11 +319,12 @@ namespace Warehouse.DataAcces.Service
                 po.PurchaseOrderId,
                 $"Tạo đơn mua hàng {po.Pocode}");
 
-            // Gửi thông báo cho Quản lý/Admin nếu đơn ở trạng thái chờ duyệt
+            // Gửi thông báo cho nhóm duyệt khi đơn ở trạng thái chờ duyệt.
+            // Đơn mua cần thông báo cho Sale Support.
             if (po.Status == "PENDING")
             {
                 await _notificationService.CreateForRolesAsync(
-                    new[] { UserRoleConstants.Admin, UserRoleConstants.Director },
+                    new[] { UserRoleConstants.Admin, UserRoleConstants.Director, UserRoleConstants.SaleSupport },
                     "Đơn mua hàng mới cần duyệt",
                     $"Đơn mua hàng {po.Pocode} vừa được tạo bởi {requestedByUser.FullName} và đang chờ bạn phê duyệt.",
                     "PurchaseOrder",

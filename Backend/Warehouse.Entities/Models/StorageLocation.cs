@@ -19,6 +19,8 @@ public partial class StorageLocation
 
     public DateTime? UpdatedAt { get; set; }
 
+    public decimal? MaxCapacityQty { get; set; }
+
     public virtual ICollection<InventoryLot> InventoryLots { get; set; } = new List<InventoryLot>();
 
     public virtual Warehouse Warehouse { get; set; } = null!;
