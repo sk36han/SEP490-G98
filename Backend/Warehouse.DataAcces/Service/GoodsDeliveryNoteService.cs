@@ -19,15 +19,17 @@ namespace Warehouse.DataAcces.Service
         private readonly IAuditLogService _auditLogService;
         private readonly IDocumentAttachmentService _documentAttachmentService;
         private readonly INotificationService _notificationService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
 
-		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService)
+		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService, IDateTimeProvider dateTimeProvider)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _auditLogService = auditLogService;
             _documentAttachmentService = documentAttachmentService;
             _notificationService = notificationService;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         // ==================== LIST ====================
@@ -882,6 +884,87 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
+<<<<<<< Updated upstream
+=======
+        public async Task<byte[]> ExportGdnPdfAsync(long gdnId, long userId)
+        {
+            _ = userId;
+            var data = await GetGDNDetailAsync(gdnId);
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(24);
+                    page.DefaultTextStyle(x => x.FontSize(10));
+
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Text("PHIEU XUAT KHO").Bold().FontSize(16).AlignCenter();
+                        col.Item().Text($"So phieu: {data.GdnCode}").AlignCenter();
+                        col.Item().Text($"Ngay xuat: {data.IssueDate:dd/MM/yyyy}").AlignCenter();
+                    });
+
+                    page.Content().Column(col =>
+                    {
+                        col.Spacing(8);
+                        col.Item().Text($"Nguoi nhan: {data.Receiver?.ReceiverName ?? "-"}");
+                        col.Item().Text($"Dia chi: {data.Receiver?.Address ?? "-"}");
+                        col.Item().Text($"Kho xuat: {data.WarehouseName ?? "-"}");
+                        col.Item().Text($"Yeu cau xuat: {data.ReleaseRequestCode ?? "-"}");
+                        col.Item().Text($"Trang thai: {data.Status}");
+                        col.Item().Text($"Ghi chu: {data.Note ?? "-"}");
+
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(c =>
+                            {
+                                c.ConstantColumn(24);
+                                c.RelativeColumn(3);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1);
+                                c.RelativeColumn(1.3f);
+                                c.RelativeColumn(1.6f);
+                            });
+
+                            static IContainer CellStyle(IContainer c) => c.Border(1).BorderColor(Colors.Grey.Lighten1).Padding(4);
+                            static IContainer HeadStyle(IContainer c) => CellStyle(c).Background(Colors.Grey.Lighten3);
+
+                            table.Header(h =>
+                            {
+                                h.Cell().Element(HeadStyle).Text("STT").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("Vat tu").SemiBold();
+                                h.Cell().Element(HeadStyle).Text("DVT").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("SL xuat").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Don gia").SemiBold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Thanh tien").SemiBold();
+                            });
+
+                            for (var i = 0; i < data.Lines.Count; i++)
+                            {
+                                var line = data.Lines[i];
+                                table.Cell().Element(CellStyle).Text((i + 1).ToString());
+                                table.Cell().Element(CellStyle).Text($"{line.ItemCode ?? ""} - {line.ItemName ?? ""}".Trim(' ', '-'));
+                                table.Cell().Element(CellStyle).Text(line.UomName ?? "-");
+                                table.Cell().Element(CellStyle).AlignRight().Text(line.ActualQty.ToString("N2", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.UnitPrice ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                                table.Cell().Element(CellStyle).AlignRight().Text((line.LineTotal ?? 0).ToString("N0", CultureInfo.InvariantCulture));
+                            }
+                        });
+
+                        col.Item().AlignRight().Text($"Tong tien hang: {data.TotalDeliveredAmount:N0} VND").SemiBold();
+                        col.Item().AlignRight().Text($"Phi van chuyen: {data.ShippingFee:N0} VND");
+                        col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
+                    });
+
+                    page.Footer().AlignCenter().Text($"In luc {_dateTimeProvider.BusinessNow():dd/MM/yyyy HH:mm}");
+                });
+            }).GeneratePdf();
+        }
+
+>>>>>>> Stashed changes
         // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO ONLY) ====================
         private async Task ProcessGDNApprovalInventoryAsync(GoodsDeliveryNote gdn, long userId)
         {

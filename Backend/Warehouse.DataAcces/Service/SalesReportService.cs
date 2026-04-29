@@ -28,10 +28,12 @@ namespace Warehouse.DataAcces.Service
         private const string POSTED = "POSTED";
 
         private readonly Mkiwms5Context _context;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public SalesReportService(Mkiwms5Context context)
+        public SalesReportService(Mkiwms5Context context, IDateTimeProvider dateTimeProvider)
         {
             _context = context;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -265,7 +267,7 @@ namespace Warehouse.DataAcces.Service
 
         public async Task<List<SalesReportChartPointResponse>> GetChartAsync(SalesReportQueryRequest request)
         {
-            var chartYear = request.ChartYear ?? DateTime.Now.Year;
+            var chartYear = request.ChartYear ?? _dateTimeProvider.BusinessNow().Year;
             var gdn = await AggregateGdnAsync(request.WarehouseId, chartYear);
             var grn = await AggregateGrnAsync(request.WarehouseId, chartYear);
             var gdnPrev = await AggregateGdnAsync(request.WarehouseId, chartYear - 1);
@@ -841,7 +843,7 @@ namespace Warehouse.DataAcces.Service
             var summary = await GetSummaryAsync(request);
 
             // Top Items / Partners: nếu người dùng filter Year thì lấy top cả năm đó, không thì top năm hiện tại.
-            var topYear = request.Year ?? DateTime.Now.Year;
+            var topYear = request.Year ?? _dateTimeProvider.BusinessNow().Year;
             var topReq = new SalesReportTopQueryRequest
             {
                 Level = "YEAR", Year = topYear, Mode = request.Mode,
@@ -934,7 +936,7 @@ namespace Warehouse.DataAcces.Service
 
             using var ms = new MemoryStream();
             wb.SaveAs(ms);
-            var fileName = $"SalesReport_{request.Mode}_{(request.Year?.ToString() ?? "all")}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName = $"SalesReport_{request.Mode}_{(request.Year?.ToString() ?? "all")}_{_dateTimeProvider.BusinessNow():yyyyMMdd_HHmmss}.xlsx";
             return (ms.ToArray(), fileName);
         }
 

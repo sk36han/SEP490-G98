@@ -19,10 +19,12 @@ namespace Warehouse.DataAcces.Service
         private static readonly Regex StrongPasswordRegex = new(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{6,100}$", RegexOptions.Compiled);
         private static readonly Regex PhoneRegex = new(@"^[0-9+\-\s()]{8,20}$", RegexOptions.Compiled);
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public UserService(Mkiwms5Context context, IAuditLogService auditLogService) : base(context)
+        public UserService(Mkiwms5Context context, IAuditLogService auditLogService, IDateTimeProvider dateTimeProvider) : base(context)
         {
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<UserResponse?> GetUserProfileAsync(long userId)
@@ -126,7 +128,7 @@ namespace Warehouse.DataAcces.Service
             // Validate Dob nếu có
             if (request.Dob.HasValue)
             {
-                var today = DateOnly.FromDateTime(DateTime.Today);
+                var today = _dateTimeProvider.BusinessToday();
                 if (request.Dob.Value > today)
                 {
                     throw new InvalidOperationException("Ngày sinh không được lớn hơn ngày hiện tại.");

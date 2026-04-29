@@ -22,15 +22,17 @@ namespace Warehouse.DataAcces.Service
         private readonly IAuthService _emailService;
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
 
-        public AdminService(Mkiwms5Context context, IConfiguration configuration, IAuthService emailService, INotificationService notificationService, IAuditLogService auditLogService) : base(context)
+        public AdminService(Mkiwms5Context context, IConfiguration configuration, IAuthService emailService, INotificationService notificationService, IAuditLogService auditLogService, IDateTimeProvider dateTimeProvider) : base(context)
 
         {
             _configuration = configuration;
             _emailService = emailService;
             _notificationService = notificationService;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider;
         }
         public async Task<CreateUserResponse> CreateUserAccountAsync(CreateUserRequest request, long assignedBy)
         {
@@ -554,7 +556,7 @@ namespace Warehouse.DataAcces.Service
             using var stream = new System.IO.MemoryStream();
             workbook.SaveAs(stream);
             var content = stream.ToArray();
-            var fileName = $"Users_Export_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            var fileName = $"Users_Export_{_dateTimeProvider.BusinessNow():yyyyMMddHHmmss}.xlsx";
 
             return (content, fileName);
         }

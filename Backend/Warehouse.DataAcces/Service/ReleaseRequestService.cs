@@ -28,6 +28,7 @@ namespace Warehouse.DataAcces.Service
         private readonly IDocumentAttachmentService _documentAttachmentService;
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _hostEnvironment;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         public ReleaseRequestService(
             Mkiwms5Context context,
@@ -36,7 +37,8 @@ namespace Warehouse.DataAcces.Service
             IAuditLogService auditLogService,
             IDocumentAttachmentService documentAttachmentService,
             IConfiguration configuration,
-            IWebHostEnvironment hostEnvironment)
+            IWebHostEnvironment hostEnvironment,
+            IDateTimeProvider dateTimeProvider)
         {
             _context = context;
             _stocktakeService = stocktakeService;
@@ -45,6 +47,7 @@ namespace Warehouse.DataAcces.Service
             _documentAttachmentService = documentAttachmentService;
             _configuration = configuration;
             _hostEnvironment = hostEnvironment;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         // ──────────────────────────── CREATE ────────────────────────────
@@ -1600,7 +1603,7 @@ namespace Warehouse.DataAcces.Service
         /// </summary>
         private async Task<string> GenerateNextRRCodeAsync()
         {
-            var year = DateTime.Now.Year;
+            var year = _dateTimeProvider.BusinessNow().Year;
             var prefix = $"RR-{year}-";
             
             var lastCode = await _context.ReleaseRequests

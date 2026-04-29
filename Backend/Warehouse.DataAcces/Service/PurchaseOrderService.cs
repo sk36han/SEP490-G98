@@ -7,7 +7,6 @@ using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
-using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -16,12 +15,29 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly IAuditLogService _auditLogService;
         private readonly INotificationService _notificationService;
+<<<<<<< Updated upstream
 
         public PurchaseOrderService(Mkiwms5Context context, IAuditLogService auditLogService, INotificationService notificationService)
+=======
+        private readonly IDocumentAttachmentService _documentAttachmentService;
+        private readonly IDateTimeProvider _dateTimeProvider;
+
+        public PurchaseOrderService(
+            Mkiwms5Context context,
+            IAuditLogService auditLogService,
+            INotificationService notificationService,
+            IDocumentAttachmentService documentAttachmentService,
+            IDateTimeProvider dateTimeProvider)
+>>>>>>> Stashed changes
         {
             _context = context;
             _auditLogService = auditLogService;
             _notificationService = notificationService;
+<<<<<<< Updated upstream
+=======
+            _documentAttachmentService = documentAttachmentService;
+            _dateTimeProvider = dateTimeProvider;
+>>>>>>> Stashed changes
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
@@ -211,7 +227,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Validate ExpectedDeliveryDate
-            if (request.ExpectedDeliveryDate.HasValue && request.ExpectedDeliveryDate.Value < DateOnly.FromDateTime(DateTime.Today))
+            if (request.ExpectedDeliveryDate.HasValue && request.ExpectedDeliveryDate.Value < _dateTimeProvider.BusinessToday())
             {
                 throw new InvalidOperationException("Ngày giao hàng dự kiến không được trong quá khứ.");
             }

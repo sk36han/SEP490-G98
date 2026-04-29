@@ -142,6 +142,28 @@ export function formatDateOnlyUtc(dateStr) {
     return d.toLocaleDateString('vi-VN', { timeZone: 'UTC' });
 }
 
+const BUSINESS_TIMEZONE = 'Asia/Ho_Chi_Minh';
+
+/**
+ * Format datetime in business timezone (vi-VN).
+ */
+export function formatDateTimeBusiness(dateStr, emptyDisplay = '–') {
+    if (!dateStr) return emptyDisplay;
+    const d = parseDate(dateStr);
+    if (!d) return String(dateStr);
+    return d.toLocaleString('vi-VN', { timeZone: BUSINESS_TIMEZONE });
+}
+
+/**
+ * Calendar date in business timezone (vi-VN).
+ */
+export function formatDateOnlyBusiness(dateStr, emptyDisplay = '–') {
+    if (!dateStr) return emptyDisplay;
+    const d = parseDate(dateStr);
+    if (!d) return String(dateStr);
+    return d.toLocaleDateString('vi-VN', { timeZone: BUSINESS_TIMEZONE });
+}
+
 /**
  * Parse ISO datetime string as UTC (kept for backwards compat).
  */

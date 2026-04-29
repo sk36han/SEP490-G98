@@ -16,6 +16,7 @@ public class ItemServiceTests : IDisposable
     private readonly ItemService _service;
     private readonly Mock<ILogger<ItemService>> _loggerMock;
     private readonly Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService> _auditLogServiceMock;
+    private readonly Mock<IDateTimeProvider> _dateTimeProviderMock;
 
     public ItemServiceTests()
     {
@@ -26,7 +27,11 @@ public class ItemServiceTests : IDisposable
         _context = new Mkiwms5Context(options);
         _loggerMock = new Mock<ILogger<ItemService>>();
         _auditLogServiceMock = new Mock<Warehouse.DataAcces.Service.Interface.IAuditLogService>();
-        _service = new ItemService(_context, _loggerMock.Object, _auditLogServiceMock.Object);
+        _dateTimeProviderMock = new Mock<IDateTimeProvider>();
+        _dateTimeProviderMock.Setup(x => x.BusinessNow()).Returns(DateTime.UtcNow);
+        _dateTimeProviderMock.Setup(x => x.BusinessToday()).Returns(DateOnly.FromDateTime(DateTime.UtcNow));
+        _dateTimeProviderMock.Setup(x => x.UtcNow()).Returns(DateTime.UtcNow);
+        _service = new ItemService(_context, _loggerMock.Object, _auditLogServiceMock.Object, _dateTimeProviderMock.Object);
 
         SeedData();
     }

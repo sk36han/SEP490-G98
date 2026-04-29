@@ -33,7 +33,13 @@ import { Plus, Filter, Columns, GripVertical, PackageOpen, Send, RefreshCw } fro
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
+<<<<<<< Updated upstream
 import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
+=======
+import { formatDateOnlyUtc, formatDateTimeNewlineUtc, utcTimestamp } from '../lib/dateUtils';
+import authService from '../lib/authService';
+import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
+>>>>>>> Stashed changes
 import '../styles/ListView.css';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -278,10 +284,15 @@ export default function ViewReleaseRequestList() {
             let aVal = a[orderBy] ?? '';
             let bVal = b[orderBy] ?? '';
             let cmp = 0;
+<<<<<<< Updated upstream
             if (DATE_COLUMN_IDS.includes(orderBy)) {
                 const tA = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
                 const tB = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
                 cmp = tA - tB;
+=======
+            if (DATE_COLUMN_IDS.includes(activeOrderBy)) {
+                cmp = utcTimestamp(aVal) - utcTimestamp(bVal);
+>>>>>>> Stashed changes
             } else {
                 cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
             }

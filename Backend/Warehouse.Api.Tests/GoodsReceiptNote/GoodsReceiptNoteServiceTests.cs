@@ -13,9 +13,16 @@ namespace Warehouse.Api.Tests.GoodsReceiptNote;
 public class GoodsReceiptNoteServiceTests : IDisposable
 {
     private readonly Mkiwms5Context _context;
+<<<<<<< Updated upstream
     private readonly GoodsReceiptNoteService _service;
     private readonly Mock<INotificationService> _mockNotificationService;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
+=======
+    private readonly GoodsReceiptNoteService _sut;
+    private readonly Mock<IAuditLogService> _audit = new();
+    private readonly Mock<INotificationService> _notify = new();
+    private readonly Mock<IDateTimeProvider> _dateTimeProvider = new();
+>>>>>>> Stashed changes
 
     public GoodsReceiptNoteServiceTests()
     {
@@ -28,7 +35,28 @@ public class GoodsReceiptNoteServiceTests : IDisposable
         _mockAuditLogService = new Mock<IAuditLogService>();
         _service = new GoodsReceiptNoteService(_context, _mockNotificationService.Object, _mockAuditLogService.Object);
 
+<<<<<<< Updated upstream
         SeedData();
+=======
+        _audit
+            .Setup(a => a.LogAsync(
+                It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long?>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        _notify
+            .Setup(n => n.CreateAsync(
+                It.IsAny<long>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<byte>(), It.IsAny<DateTime?>()))
+            .Returns(Task.CompletedTask);
+
+        _dateTimeProvider.Setup(x => x.BusinessNow()).Returns(DateTime.UtcNow);
+        _dateTimeProvider.Setup(x => x.BusinessToday()).Returns(DateOnly.FromDateTime(DateTime.UtcNow));
+        _dateTimeProvider.Setup(x => x.UtcNow()).Returns(DateTime.UtcNow);
+
+        _sut = new GoodsReceiptNoteService(_context, _notify.Object, _audit.Object, _dateTimeProvider.Object);
+        SeedBaseData();
+>>>>>>> Stashed changes
     }
 
     private void SeedData()

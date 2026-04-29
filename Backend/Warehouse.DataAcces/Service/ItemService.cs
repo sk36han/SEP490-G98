@@ -17,11 +17,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly ILogger<ItemService> _logger;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public ItemService(Mkiwms5Context context, ILogger<ItemService> logger, IAuditLogService auditLogService) : base(context)
+        public ItemService(Mkiwms5Context context, ILogger<ItemService> logger, IAuditLogService auditLogService, IDateTimeProvider dateTimeProvider) : base(context)
         {
             _logger = logger;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<List<RRItemLookupResponse>> GetAvailableItemsByWarehouseAsync(long warehouseId)
@@ -822,7 +824,7 @@ namespace Warehouse.DataAcces.Service
             using var stream = new System.IO.MemoryStream();
             workbook.SaveAs(stream);
             var content = stream.ToArray();
-            var fileName = $"Items_Export_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            var fileName = $"Items_Export_{_dateTimeProvider.BusinessNow():yyyyMMddHHmmss}.xlsx";
 
             return (content, fileName);
         }

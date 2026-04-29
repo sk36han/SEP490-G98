@@ -39,7 +39,7 @@ import { removeDiacritics } from '../utils/stringUtils';
 import SearchInput from '../components/SearchInput';
 import GoodReceiptNoteFilterPopup from '../components/GoodReceiptNoteFilterPopup';
 import { getGoodReceiptNotes } from '../lib/goodReceiptNoteService';
-import { formatDateOnlyUtc, formatDateTimeUtc } from '../lib/dateUtils';
+import { formatDateOnlyUtc, formatDateTimeUtc, utcTimestamp } from '../lib/dateUtils';
 import '../styles/ListView.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -325,7 +325,7 @@ export default function ViewGoodReceiptNotes() {
             } else if (NUMBER_COLUMN_IDS.includes(orderBy)) {
                 cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
             } else if (DATE_COLUMN_IDS.includes(orderBy)) {
-                cmp = (aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0) - (bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0);
+                cmp = utcTimestamp(aVal) - utcTimestamp(bVal);
             } else {
                 cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
             }

@@ -15,6 +15,11 @@ public class PurchaseOrderServiceTests : IDisposable
     private readonly PurchaseOrderService _service;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
     private readonly Mock<INotificationService> _mockNotificationService;
+<<<<<<< Updated upstream
+=======
+    private readonly Mock<IDocumentAttachmentService> _mockDocumentAttachmentService;
+    private readonly Mock<IDateTimeProvider> _mockDateTimeProvider;
+>>>>>>> Stashed changes
 
     public PurchaseOrderServiceTests()
     {
@@ -27,8 +32,32 @@ public class PurchaseOrderServiceTests : IDisposable
         // Mock dependencies
         _mockAuditLogService = new Mock<IAuditLogService>();
         _mockNotificationService = new Mock<INotificationService>();
+<<<<<<< Updated upstream
         
         _service = new PurchaseOrderService(_context, _mockAuditLogService.Object, _mockNotificationService.Object);
+=======
+        _mockDocumentAttachmentService = new Mock<IDocumentAttachmentService>();
+        _mockDateTimeProvider = new Mock<IDateTimeProvider>();
+        _mockDateTimeProvider.Setup(x => x.BusinessToday()).Returns(DateOnly.FromDateTime(DateTime.UtcNow));
+        _mockDateTimeProvider.Setup(x => x.BusinessNow()).Returns(DateTime.UtcNow);
+        _mockDateTimeProvider.Setup(x => x.UtcNow()).Returns(DateTime.UtcNow);
+        _mockDocumentAttachmentService
+            .Setup(x => x.UploadAttachmentAsync(
+                It.IsAny<string>(),
+                It.IsAny<long>(),
+                It.IsAny<IFormFile>(),
+                It.IsAny<long>(),
+                It.IsAny<string>()))
+            .ReturnsAsync((string docType, long docId, IFormFile file, long userId, string attachmentType)
+                => $"https://files.test/{docType}/{docId}/{attachmentType}/{file.FileName}");
+        
+        _service = new PurchaseOrderService(
+            _context,
+            _mockAuditLogService.Object,
+            _mockNotificationService.Object,
+            _mockDocumentAttachmentService.Object,
+            _mockDateTimeProvider.Object);
+>>>>>>> Stashed changes
 
         SeedData();
     }
