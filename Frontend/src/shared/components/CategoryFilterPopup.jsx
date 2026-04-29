@@ -15,8 +15,6 @@ const TRANG_THAI_OPTIONS = [
 
 export default function CategoryFilterPopup({ open, onClose, initialValues = {}, onApply }) {
     const [trangThaiOption, setTrangThaiOption] = useState(TRANG_THAI_OPTIONS[0]);
-    const [fromDate, setFromDate] = useState('');
-    const [toDate, setToDate] = useState('');
 
     useEffect(() => {
         if (!open) return;
@@ -27,24 +25,18 @@ export default function CategoryFilterPopup({ open, onClose, initialValues = {},
         } else {
             setTrangThaiOption(TRANG_THAI_OPTIONS[0]);
         }
-        setFromDate(initialValues.fromDate ?? '');
-        setToDate(initialValues.toDate ?? '');
-    }, [open, initialValues.isActive, initialValues.fromDate, initialValues.toDate]);
+    }, [open, initialValues.isActive]);
 
     const handleApply = useCallback(() => {
         onApply({
             filterStatus: trangThaiOption.value,
-            fromDate: fromDate || undefined,
-            toDate: toDate || undefined,
         });
         onClose();
-    }, [trangThaiOption, fromDate, toDate, onApply, onClose]);
+    }, [trangThaiOption, onApply, onClose]);
 
     const handleClear = useCallback(() => {
         setTrangThaiOption(TRANG_THAI_OPTIONS[0]);
-        setFromDate('');
-        setToDate('');
-        onApply({ filterStatus: 'all', fromDate: undefined, toDate: undefined });
+        onApply({ filterStatus: 'all' });
         onClose();
     }, [onApply, onClose]);
 
@@ -66,34 +58,6 @@ export default function CategoryFilterPopup({ open, onClose, initialValues = {},
                         <TextField {...params} placeholder="Chọn trạng thái" sx={LIST_FILTER_INPUT_SX} />
                     )}
                 />
-            </Box>
-
-            <Box>
-                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
-                    Ngày tạo
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                        size="small"
-                        type="date"
-                        value={fromDate}
-                        onChange={(e) => setFromDate(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        placeholder="Từ ngày"
-                        fullWidth
-                        sx={LIST_FILTER_INPUT_SX}
-                    />
-                    <TextField
-                        size="small"
-                        type="date"
-                        value={toDate}
-                        onChange={(e) => setToDate(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        placeholder="Đến ngày"
-                        fullWidth
-                        sx={LIST_FILTER_INPUT_SX}
-                    />
-                </Box>
             </Box>
         </ListFilterPopupShell>
     );

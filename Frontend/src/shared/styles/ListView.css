@@ -46,7 +46,8 @@
 }
 
 /* ViewWarehouseList: một luồng cuộn dọc (MainLayout), không cuộn trong TableContainer khi ít dòng */
-.list-view.warehouse-list-page .MuiTableContainer-root {
+.list-view.warehouse-list-page .MuiTableContainer-root,
+.list-view.storage-location-list-page .MuiTableContainer-root {
     overflow-y: visible !important;
     max-height: none !important;
 }

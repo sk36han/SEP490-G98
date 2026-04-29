@@ -34,9 +34,12 @@ import '../styles/ListView.css';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import SearchInput from '../components/SearchInput';
+import Toast from '../../components/Toast/Toast';
+import { useToast } from '../hooks/useToast';
 import UomFormDialog from '@ui/dialogs/UomFormDialog';
 import UomFilterPopup from '../components/UomFilterPopup';
 import { getUomList, createUom, updateUom, toggleUomStatus } from '../lib/uomService';
+import PollingManager from '../lib/pollingManager';
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
@@ -83,6 +86,7 @@ const SORTABLE_COLUMN_IDS = UOM_COLUMNS.filter((c) => c.sortable).map((c) => c.i
 const ViewUomList = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const { toast, showToast, clearToast } = useToast();
     const userInfo = authService.getUser();
     const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
     const canManage = permissionRole === 'WAREHOUSE_KEEPER';
@@ -271,9 +275,16 @@ const ViewUomList = () => {
                 });
             }
 
+            setError(null);
             setUomDialogOpen(false);
             fetchList();
             PollingManager.triggerRefreshByFetchKey('Uom');
+            showToast(
+                payload.mode === 'edit'
+                    ? 'Cập nhật đơn vị tính thành công.'
+                    : 'Tạo đơn vị tính thành công.',
+                'success',
+            );
         } catch (err) {
             setError(err?.response?.data?.message || err?.message || 'Không lưu được đơn vị tính.');
         }
@@ -1228,6 +1239,7 @@ const ViewUomList = () => {
                 editRow={uomEditRow}
                 onSuccess={handleUomDialogSuccess}
             />
+            {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </Box>
     );
 };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Box, Typography } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Box, Typography, TextField } from '@mui/material';
 import { X } from 'lucide-react';
-import { createPackagingSpec } from '../../shared/lib/packagingSpecService';
+import { createPackagingSpec, validatePackagingSpecFields } from '../../shared/lib/packagingSpecService';
 
 /**
  * Dialog tạo nhanh Quy cách đóng gói (PackagingSpec).
@@ -12,6 +12,7 @@ export function CreatePackagingSpecDialog({ open, onClose, onSuccess }) {
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
 
     useEffect(() => {
         if (open) {
@@ -19,26 +20,33 @@ export function CreatePackagingSpecDialog({ open, onClose, onSuccess }) {
             setDescription('');
             setSubmitting(false);
             setError(null);
+            setFieldErrors({});
         }
     }, [open]);
 
     const handleSubmit = async (e) => {
         e?.preventDefault?.();
-        const name = (specName || '').trim();
-        if (!name) return;
+        const v = validatePackagingSpecFields(specName, description);
+        if (!v.valid) {
+            setFieldErrors(v.errors);
+            setError(null);
+            return;
+        }
+        setFieldErrors({});
         setSubmitting(true);
         setError(null);
         try {
             const result = await createPackagingSpec({
-                specName: name,
-                description: (description || '').trim() || null,
+                specName: specName.trim(),
+                description: description.trim(),
             });
             setSpecName('');
             setDescription('');
             onSuccess?.(result);
             onClose();
         } catch (err) {
-            setError(err?.response?.data?.message ?? err?.message ?? 'Không thể tạo quy cách đóng gói.');
+            const msg = err?.response?.data?.message ?? err?.message ?? 'Không thể tạo quy cách đóng gói.';
+            setError(msg);
         } finally {
             setSubmitting(false);
         }
@@ -81,49 +89,33 @@ export function CreatePackagingSpecDialog({ open, onClose, onSuccess }) {
                 </DialogTitle>
 
                 <DialogContent sx={{ px: 3, pt: 2.5, pb: 2.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                        Tên quy cách
-                    </Typography>
-                    <Box
-                        component="input"
-                        type="text"
+                    <TextField
+                        label="Tên quy cách"
                         value={specName}
                         onChange={(e) => setSpecName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(e); }}
                         placeholder="VD: Hộp, Thùng carton"
                         autoFocus
-                        sx={{
-                            width: '100%',
-                            border: '1px solid rgba(0,0,0,0.12)',
-                            borderRadius: '8px',
-                            padding: '10px 12px',
-                            fontSize: '14px',
-                            outline: 'none',
-                            boxSizing: 'border-box',
-                            '&:focus': { borderColor: '#1976d2', boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)' },
-                            mb: 2,
-                        }}
+                        fullWidth
+                        size="small"
+                        error={Boolean(fieldErrors.specName)}
+                        helperText={fieldErrors.specName || ' '}
+                        FormHelperTextProps={{ sx: { mt: 0, minHeight: 20 } }}
+                        sx={{ mb: 1 }}
                     />
 
-                    <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '12px', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                        Mô tả (tùy chọn)
-                    </Typography>
-                    <Box
-                        component="input"
-                        type="text"
+                    <TextField
+                        label="Mô tả"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Mô tả quy cách"
-                        sx={{
-                            width: '100%',
-                            border: '1px solid rgba(0,0,0,0.12)',
-                            borderRadius: '8px',
-                            padding: '10px 12px',
-                            fontSize: '14px',
-                            outline: 'none',
-                            boxSizing: 'border-box',
-                            '&:focus': { borderColor: '#1976d2', boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)' },
-                        }}
+                        placeholder="Mô tả quy cách đóng gói (bắt buộc)"
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        size="small"
+                        required
+                        error={Boolean(fieldErrors.description)}
+                        helperText={fieldErrors.description || 'Tối thiểu 2 ký tự, tối đa 500 ký tự.'}
+                        FormHelperTextProps={{ sx: { mt: 0 } }}
                     />
 
                     {error && (
@@ -143,9 +135,8 @@ export function CreatePackagingSpecDialog({ open, onClose, onSuccess }) {
                         Hủy
                     </button>
                     <button
-                        type="button"
+                        type="submit"
                         className="btn btn-primary"
-                        onClick={handleSubmit}
                         disabled={submitting}
                     >
                         {submitting ? 'Đang tạo...' : 'Tạo'}
@@ -155,4 +146,3 @@ export function CreatePackagingSpecDialog({ open, onClose, onSuccess }) {
         </Dialog>
     );
 }
-

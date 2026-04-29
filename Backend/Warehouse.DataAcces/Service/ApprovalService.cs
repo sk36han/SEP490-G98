@@ -228,26 +228,7 @@ namespace Warehouse.DataAcces.Service
                     break;
 
                 case "goodsdelivery":
-                    // Delegate to GoodsDeliveryNoteService for full business logic (2-stage, FIFO/LIFO inventory deduction)
-                    try
-                    {
-                        var gdnService = _serviceProvider.GetRequiredService<IGoodsDeliveryNoteService>();
-                        var gdnApproveRequest = new ApproveGDNRequest
-                        {
-                            IsApproved = decision == "APPROVED",
-                            Reason = reason
-                        };
-                        await gdnService.ApproveGDNAsync(requestId, currentUserId, gdnApproveRequest);
-                        return ApprovalResult.Succeeded($"Thực hiện thành công: Đã xử lý phiếu xuất kho.");
-                    }
-                    catch (KeyNotFoundException ex)
-                    {
-                        return ApprovalResult.Failed(ex.Message, 404);
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        return ApprovalResult.Failed(ex.Message, 400);
-                    }
+                    return ApprovalResult.Failed("Phiếu xuất kho (GDN) không còn yêu cầu phê duyệt trong quy trình mới.", 400);
 
                 case "inventoryadjustment":
                     var adjustment = await _context.InventoryAdjustmentRequests.FindAsync(requestId);
@@ -323,12 +304,13 @@ namespace Warehouse.DataAcces.Service
                     long? requesterId = null;
                     string code = "";
                     string displayType = "";
+                    PurchaseOrder? purchaseOrderForNotify = null;
 
                     if (normalizedType == "purchaseorder")
                     {
-                        var po = await _context.PurchaseOrders.FindAsync(requestId);
-                        requesterId = po?.RequestedBy;
-                        code = po?.Pocode ?? "";
+                        purchaseOrderForNotify = await _context.PurchaseOrders.FindAsync(requestId);
+                        requesterId = purchaseOrderForNotify?.RequestedBy;
+                        code = purchaseOrderForNotify?.Pocode ?? "";
                         displayType = "Đơn mua hàng";
                     }
                     else if (normalizedType == "goodsreceipt")
@@ -360,6 +342,33 @@ namespace Warehouse.DataAcces.Service
                             NotificationTypes.ApprovalResult,
                             (byte)(decision == "APPROVED" ? NotificationSeverity.Warning : NotificationSeverity.Error)
                         );
+                    }
+
+                    // Khi KT duyệt PO thì phát thêm thông báo cho Sale Support để theo dõi xử lý tiếp.
+                    if (normalizedType == "purchaseorder" && decision == "APPROVED")
+                    {
+                        var approverRoleCodes = await _context.UserRoles
+                            .Include(ur => ur.Role)
+                            .Where(ur => ur.UserId == currentUserId)
+                            .Select(ur => ur.Role.RoleCode)
+                            .ToListAsync();
+
+                        var approvedByAccountant = approverRoleCodes
+                            .Any(rc => string.Equals(rc, UserRoleConstants.Accountant, StringComparison.OrdinalIgnoreCase));
+
+                        if (approvedByAccountant)
+                        {
+                            await _notificationService.CreateForRolesAsync(
+                                new[] { UserRoleConstants.SaleSupport },
+                                "Đơn mua hàng đã được Kế toán duyệt",
+                                $"Đơn mua hàng {code} đã được Kế toán duyệt. Vui lòng theo dõi và xử lý bước tiếp theo.",
+                                "PurchaseOrder",
+                                requestId,
+                                null,
+                                NotificationTypes.StatusChange,
+                                (byte)NotificationSeverity.Info
+                            );
+                        }
                     }
                 }
 

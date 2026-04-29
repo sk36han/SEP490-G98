@@ -8,6 +8,7 @@ namespace Warehouse.Entities.ModelResponse
         public string LocationCode { get; set; } = null!;
         public string? LocationName { get; set; }
         public bool IsActive { get; set; }
+        public decimal? MaxCapacityQty { get; set; }
         public decimal CurrentQty { get; set; }
         public string? CurrentItemsSummary { get; set; }
     }

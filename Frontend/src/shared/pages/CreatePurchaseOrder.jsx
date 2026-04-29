@@ -1,8 +1,8 @@
 // 1. React/External libraries
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 // 2. React Router
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // 3. MUI Components
 import Tooltip from '@mui/material/Tooltip';
@@ -64,9 +64,11 @@ const PO_ATTACHMENT_MAX_BYTES = PO_ATTACHMENT_MAX_SIZE_MB * 1024 * 1024;
 
 const CreatePurchaseOrder = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { toast, showToast, clearToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
     const currentUser = authService.getUser();
+    const prefillAppliedRef = useRef(false);
 
     // Helper function để map item từ API
     const mapItemFromAPI = (it) => ({
@@ -198,6 +200,50 @@ const CreatePurchaseOrder = () => {
         if (!q) return warehouses;
         return warehouses.filter((w) => (w.name || '').toLowerCase().includes(q) || String(w.id).toLowerCase().includes(q));
     }, [warehouseQuery, warehouses]);
+
+    useEffect(() => {
+        if (prefillAppliedRef.current) return;
+        const prefill = location?.state?.prefillFromAlert;
+        if (!prefill) return;
+        if (!warehouses.length || !products.length) return;
+
+        const targetWarehouseId = Number(prefill.warehouseId);
+        const targetItemId = Number(prefill.itemId);
+        const suggestedQty = Math.max(1, Number(prefill.reorderQty) || 1);
+        if (!targetWarehouseId || !targetItemId) return;
+
+        const selectedWarehouse = warehouses.find((w) => Number(w.id) === targetWarehouseId);
+        const selectedItem = products.find((p) => Number(p.id) === targetItemId);
+        if (!selectedWarehouse || !selectedItem) return;
+
+        setFormData((prev) => ({
+            ...prev,
+            warehouseId: selectedWarehouse.id,
+            warehouseName: selectedWarehouse.name,
+        }));
+        setWarehouseQuery(selectedWarehouse.name);
+
+        setLines((prev) => {
+            if (prev.some((line) => Number(line.itemId) === targetItemId)) return prev;
+            return [
+                ...prev,
+                {
+                    id: Date.now(),
+                    itemId: selectedItem.id,
+                    itemName: selectedItem.name,
+                    itemImage: selectedItem.image,
+                    orderedQty: suggestedQty,
+                    unitPrice: selectedItem.unitPrice,
+                    totalPrice: selectedItem.unitPrice * suggestedQty,
+                    hasCO: !!selectedItem.hasCO,
+                    hasCQ: !!selectedItem.hasCQ,
+                    note: '',
+                },
+            ];
+        });
+        prefillAppliedRef.current = true;
+        showToast('Đã tự động điền kho và vật tư từ cảnh báo tồn kho.', 'success');
+    }, [location?.state, warehouses, products, showToast]);
 
     /** Ngày tối thiểu (hôm nay, local) cho input type=date — không chọn quá khứ */
     const minExpectedReceiptDateStr = useMemo(() => {

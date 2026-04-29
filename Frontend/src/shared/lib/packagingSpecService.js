@@ -6,6 +6,32 @@ import { invalidate } from './pollingManager';
  * GET /, GET /:id, POST, PUT /:id, DELETE /:id
  */
 
+/** Khớp quy tắc tên với backend (PackagingSpecService.ValidateSpecName) */
+export const PACKAGING_SPEC_NAME_REGEX = /^[\p{L}\p{N}\s\-.&/]+$/u;
+
+/**
+ * Validate tên + mô tả trước khi gọi API (mô tả bắt buộc, 2–500 ký tự).
+ * @returns {{ valid: boolean, errors: { specName?: string, description?: string } }}
+ */
+export function validatePackagingSpecFields(specNameRaw, descriptionRaw) {
+    const errors = {};
+    const name = String(specNameRaw ?? '').trim();
+    const desc = String(descriptionRaw ?? '').trim();
+    if (name.length < 2) {
+        errors.specName = 'Tên quy cách phải có ít nhất 2 ký tự.';
+    } else if (name.length > 255) {
+        errors.specName = 'Tên không được vượt quá 255 ký tự.';
+    } else if (!PACKAGING_SPEC_NAME_REGEX.test(name)) {
+        errors.specName = 'Tên chỉ được chứa chữ cái, chữ số, khoảng trắng, dấu - . & và /.';
+    }
+    if (desc.length < 2) {
+        errors.description = 'Mô tả bắt buộc, tối thiểu 2 ký tự.';
+    } else if (desc.length > 500) {
+        errors.description = 'Mô tả không được vượt quá 500 ký tự.';
+    }
+    return { valid: Object.keys(errors).length === 0, errors };
+}
+
 function mapPackagingSpecRow(row) {
     if (row == null || typeof row !== 'object') return null;
     return {
@@ -49,7 +75,7 @@ export async function getPackagingSpecById(id) {
 export async function createPackagingSpec(payload) {
     const response = await apiClient.post(BASE, {
         SpecName: payload.specName ?? payload.SpecName,
-        Description: payload.description ?? payload.Description ?? null,
+        Description: payload.description ?? payload.Description ?? '',
     });
     invalidate('packaging-spec');
     return response?.data?.data ?? response?.data;
@@ -61,7 +87,7 @@ export async function createPackagingSpec(payload) {
 export async function updatePackagingSpec(id, payload) {
     const response = await apiClient.put(`${BASE}/${id}`, {
         SpecName: payload.specName ?? payload.SpecName,
-        Description: payload.description ?? payload.Description ?? null,
+        Description: payload.description ?? payload.Description ?? '',
         IsActive: payload.isActive,
     });
     invalidate('packaging-spec');

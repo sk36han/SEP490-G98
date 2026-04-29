@@ -3,8 +3,8 @@
  *
  * Nghiệp vụ:
  *   - Mỗi vật tư tại mỗi kho có ngưỡng MinQty (tối thiểu) và ReorderQty (đặt lại).
- *   - Nếu OnHandQty < MinQty → cảnh báo "Dưới định mức" (đỏ).
- *   - Nếu OnHandQty >= MinQty → "An toàn" (xanh).
+ *   - Nếu OnHandQty <= MinQty → cảnh báo "Chạm/Dưới định mức" (đỏ).
+ *   - Nếu OnHandQty > MinQty → "An toàn" (xanh).
  *
  * Backend: ItemWarehousePolicyController (GET /api/itemwarehousepolicy/list).
  *
@@ -46,6 +46,7 @@ import {
     Package,
     RotateCcw,
     Plus,
+    ShoppingCart,
 } from 'lucide-react';
 
 const isValidUrl = (str) => str && (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('/'));
@@ -55,7 +56,9 @@ import SearchInput from '../../components/SearchInput';
 import AlertFilterPopup from '../../components/AlertFilterPopup';
 import { default as CreateAlertDialog } from '@ui/dialogs/CreateAlert';
 import { default as AlertDetailDialog } from '@ui/dialogs/AlertDetailDialog';
-import { getItemWarehousePolicyList } from '../../lib/itemWarehousePolicyService';
+import { getItemWarehousePolicyList, createItemWarehousePolicy, updateItemWarehousePolicy } from '../../lib/itemWarehousePolicyService';
+import { getWarehouses } from '../../lib/warehouseService';
+import { getItemsByWarehouse } from '../../lib/itemService';
 import '../../styles/ListView.css';
 
 // ─── Mock data (thay thế API thực khi backend chưa hoạt động) ───────────────
@@ -324,7 +327,7 @@ const ALERT_COLUMNS = [
         getColor: (row) => {
             const qty = row.onHandQty ?? 0;
             const min = row.minQty ?? 0;
-            return qty < min ? '#dc2626' : '#16a34a'; // đỏ nếu dưới định mức, xanh nếu an toàn
+            return qty <= min ? '#dc2626' : '#16a34a'; // đỏ nếu chạm/dưới định mức, xanh nếu an toàn
         },
     },
     {
@@ -348,15 +351,9 @@ const ALERT_COLUMNS = [
         getValue: (row) => {
             const qty = row.onHandQty ?? 0;
             const min = row.minQty ?? 0;
-            if (qty < min) return 'Dưới định mức';
+            if (qty <= min) return 'Dưới định mức';
             return 'An toàn';
         },
-    },
-    {
-        id: 'createdBy',
-        label: 'Nhân viên tạo',
-        sortable: true,
-        getValue: (row) => row.createdBy ?? '-',
     },
     {
         id: 'createdAt',
@@ -386,7 +383,6 @@ const getTableColumnWidth = (colId) => {
         case 'minQty': return 150;
         case 'reorderQty': return 150;
         case 'status': return 150;
-        case 'createdBy': return 140;
         case 'createdAt': return 120;
         default: return 160;
     }
@@ -416,6 +412,7 @@ const InventoryAlertSetup = () => {
     const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [warehouseOptions, setWarehouseOptions] = useState([]);
 
     // Phân trang
     const [page, setPage] = useState(0);
@@ -463,39 +460,58 @@ const InventoryAlertSetup = () => {
     const [orderBy, setOrderBy] = useState(null);
     const [order, setOrder] = useState('asc');
 
-    // Load data (dùng mock data, bỏ comment để gọi API thật khi backend sẵn sàng)
+    const loadCreateOptions = useCallback(async () => {
+        try {
+            const warehouseRes = await getWarehouses({ pageNumber: 1, pageSize: 500 });
+            setWarehouseOptions(warehouseRes?.items ?? []);
+        } catch {
+            setWarehouseOptions([]);
+        }
+    }, []);
+
+    const handleLoadItemsByWarehouse = useCallback(async (warehouseId) => {
+        if (!warehouseId) return [];
+        const items = await getItemsByWarehouse(warehouseId);
+        return Array.isArray(items) ? items : [];
+    }, []);
+
+    // Load data từ API
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            // ── Mock data fallback (bỏ comment dòng dưới, comment dòng API khi backend sẵn sàng) ──
-            // const result = await getItemWarehousePolicyList({ ... });
-
-            // Mock: trả về đúng cấu trúc { items, totalItems }
-            const result = {
-                items: MOCK_WAREHOUSE_POLICIES,
-                totalItems: MOCK_WAREHOUSE_POLICIES.length,
-            };
+            const result = await getItemWarehousePolicyList({
+                page: 1,
+                pageSize: 1000,
+                keyword: searchTerm?.trim() || null,
+                warehouseId: null,
+                statusFilter: filterValues?.statusFilter || null,
+            });
 
             setData(result.items);
-            setTotalItems(result.totalItems);
+            setTotalItems(result.totalItems ?? result.items.length);
 
-            // Khởi tạo activeMap từ mock data
             const initActive = {};
-            result.items.forEach((item) => { initActive[item.alertId] = item.isActive ?? true; });
+            result.items.forEach((item) => { initActive[item.alertId] = true; });
             setActiveMap(initActive);
         } catch (err) {
             const msg = err?.message ?? err?.response?.data?.message ?? err?.response?.data?.detail ?? 'Không thể tải danh sách cảnh báo.';
             setError(msg);
-            setData([]);
+            // fallback để màn không bị trống hoàn toàn khi backend chưa deploy endpoint
+            setData(MOCK_WAREHOUSE_POLICIES);
+            setTotalItems(MOCK_WAREHOUSE_POLICIES.length);
         } finally {
             setLoading(false);
         }
-    }, [page, pageSize, searchTerm]);
+    }, [searchTerm, filterValues?.statusFilter]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useEffect(() => {
+        loadCreateOptions();
+    }, [loadCreateOptions]);
 
     // Lọc + tìm kiếm
     const filteredData = data.filter((row) => {
@@ -515,9 +531,6 @@ const InventoryAlertSetup = () => {
         if (filterValues.warehouseName) {
             if ((row.warehouseName ?? '') !== filterValues.warehouseName) return false;
         }
-        if (filterValues.createdBy) {
-            if (!(row.createdBy ?? '').toLowerCase().includes(filterValues.createdBy.toLowerCase())) return false;
-        }
         if (filterValues.fromDate || filterValues.toDate) {
             const rowDate = new Date(row.createdAt);
             const from = filterValues.fromDate ? new Date(filterValues.fromDate) : null;
@@ -528,7 +541,7 @@ const InventoryAlertSetup = () => {
         if (filterValues.statusFilter) {
             const qty = row.onHandQty ?? 0;
             const min = row.minQty ?? 0;
-            const isUnder = qty < min;
+            const isUnder = qty <= min;
             if (filterValues.statusFilter === 'under' && !isUnder) return false;
             if (filterValues.statusFilter === 'safe' && isUnder) return false;
         }
@@ -641,12 +654,9 @@ const InventoryAlertSetup = () => {
     };
 
     // Thêm thiết lập mới
-    const handleCreateAlert = (newAlert) => {
-        const alertId = `AL-${String(MOCK_WAREHOUSE_POLICIES.length + 1).padStart(3, '0')}`;
-        const newRow = { ...newAlert, alertId };
-        setData((prev) => [newRow, ...prev]);
-        setTotalItems((prev) => prev + 1);
-        setActiveMap((prev) => ({ ...prev, [alertId]: true }));
+    const handleCreateAlert = async (newAlert) => {
+        await createItemWarehousePolicy(newAlert);
+        await fetchData();
         showToast('Thêm thiết lập cảnh báo thành công!', 'success');
     };
 
@@ -657,9 +667,13 @@ const InventoryAlertSetup = () => {
     };
 
     // Lưu chỉnh sửa từ detail dialog
-    const handleSaveDetail = (updatedRow) => {
-        setData((prev) => prev.map((r) => (r.alertId === updatedRow.alertId ? { ...r, ...updatedRow } : r)));
-        setDetailData(updatedRow);
+    const handleSaveDetail = async (updatedRow) => {
+        const saved = await updateItemWarehousePolicy(updatedRow.alertId, {
+            minQty: updatedRow.minQty,
+            reorderQty: updatedRow.reorderQty,
+        });
+        setData((prev) => prev.map((r) => (r.alertId === saved.alertId ? { ...r, ...saved } : r)));
+        setDetailData(saved);
         showToast('Cập nhật thiết lập thành công!', 'success');
     };
 
@@ -1219,7 +1233,7 @@ const InventoryAlertSetup = () => {
                                                                             flex: 1,
                                                                             '& .MuiTableSortLabel-icon': { fontSize: '14px', opacity: orderBy === col.id ? 1 : 0 },
                                                                         }}
-                                                                        >
+                                                                    >
                                                                         {col.label}
                                                                     </TableSortLabel>
                                                                 ) : (
@@ -1236,7 +1250,7 @@ const InventoryAlertSetup = () => {
                                             {paginatedData.map((row, index) => {
                                                 const qty = row?.onHandQty ?? 0;
                                                 const min = row?.minQty ?? 0;
-                                                const isUnder = qty < min;
+                                                const isUnder = qty <= min;
                                                 return (
                                                     <TableRow
                                                         key={row.alertId}
@@ -1419,7 +1433,7 @@ const InventoryAlertSetup = () => {
                                                                     >
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                                                             <Chip
-                                                                                label={isUnder ? '• Dưới định mức' : '• An toàn'}
+                                                                                label={isUnder ? '• Chạm/Dưới định mức' : '• An toàn'}
                                                                                 size="small"
                                                                                 sx={{
                                                                                     fontWeight: 500,
@@ -1443,6 +1457,32 @@ const InventoryAlertSetup = () => {
                                                                                     },
                                                                                 }}
                                                                             />
+                                                                            {isUnder && (
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="text"
+                                                                                    startIcon={<ShoppingCart size={14} />}
+                                                                                    onClick={() => navigate('/purchase-orders/create', {
+                                                                                        state: {
+                                                                                            prefillFromAlert: {
+                                                                                                itemId: row.itemId,
+                                                                                                warehouseId: row.warehouseId,
+                                                                                                reorderQty: row.reorderQty,
+                                                                                            },
+                                                                                        },
+                                                                                    })}
+                                                                                    sx={{
+                                                                                        ml: 1,
+                                                                                        textTransform: 'none',
+                                                                                        minWidth: 'auto',
+                                                                                        color: '#2563eb',
+                                                                                        fontSize: '12px',
+                                                                                        px: 1,
+                                                                                    }}
+                                                                                >
+                                                                                    Tạo PO
+                                                                                </Button>
+                                                                            )}
                                                                         </Box>
                                                                     </TableCell>
                                                                 );
@@ -1587,12 +1627,17 @@ const InventoryAlertSetup = () => {
                     onClose={() => setFilterOpen(false)}
                     initialValues={filterValues}
                     onApply={handleFilterApply}
+                    warehouses={warehouseOptions}
+                    policyRows={data}
                 />
 
                 <CreateAlertDialog
                     open={createDialogOpen}
                     onClose={() => setCreateDialogOpen(false)}
-                    onSubmit={handleCreateAlert}
+                    onSuccess={handleCreateAlert}
+                    warehouses={warehouseOptions}
+                    existingPolicies={data}
+                    loadItemsByWarehouse={handleLoadItemsByWarehouse}
                 />
 
                 <AlertDetailDialog

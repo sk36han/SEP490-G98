@@ -248,11 +248,7 @@ namespace Warehouse.Api.ApiController
                     var existingAttachments = rr.Attachments?.Select(a => a.AttachmentType).ToList() ?? new List<string>();
                     
                     bool hasQuotation = existingAttachments.Contains("QUOTATION") || quotationFile != null;
-                    // DB CK_DAtt_AttType: không có 'CONTRACT'; GIR/RR dùng 'CO' cho hợp đồng chính (tương thích bản ghi cũ 'CONTRACT' nếu có).
-                    bool hasContract =
-                        existingAttachments.Contains("CO")
-                        || existingAttachments.Contains("CONTRACT")
-                        || contractFile != null;
+                    bool hasContract = existingAttachments.Contains("CONTRACT") || contractFile != null;
 
                     if (!hasQuotation || !hasContract)
                     {
@@ -267,7 +263,7 @@ namespace Warehouse.Api.ApiController
 
                 if (contractFile != null)
                 {
-                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, contractFile, currentUserId, "CO");
+                    await _documentAttachmentService.UploadAttachmentAsync("GIR", id, contractFile, currentUserId, "CONTRACT");
                 }
 
                 if (appendixFile != null)
@@ -292,15 +288,15 @@ namespace Warehouse.Api.ApiController
             }
         }
 
-        [HttpGet("{id:long}/quotation/export-excel")]
+        [HttpPost("{id:long}/quotation/export-excel")]
         [Authorize(Roles = "SP,KT,TK,SE")]
-        public async Task<IActionResult> ExportQuotationExcel(long id)
+        public async Task<IActionResult> ExportQuotationExcel(long id, [FromBody] ExportRrQuotationExcelRequest request)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
                 return Unauthorized(new { message = "Không xác định được người dùng." });
 
-            var bytes = await _releaseRequestService.ExportQuotationExcelAsync(id, currentUserId);
+            var bytes = await _releaseRequestService.ExportQuotationExcelAsync(id, currentUserId, request);
             return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"RR-{id}-quotation.xlsx");
         }
 
@@ -323,9 +319,30 @@ namespace Warehouse.Api.ApiController
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
                 return Unauthorized(new { message = "Không xác định được người dùng." });
-
-            var data = await _releaseRequestService.ImportQuotationExcelAsync(id, currentUserId, file);
-            return Ok(data);
+            try
+            {
+                var data = await _releaseRequestService.ImportQuotationExcelAsync(id, currentUserId, file);
+                return Ok(data);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("Bad binary signature", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new
+                    {
+                        message = "Không thể đọc file import. Vui lòng dùng đúng file Excel (.xlsx) do hệ thống xuất ra và thử lại."
+                    });
+                }
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống khi import báo giá.", detail = ex.Message });
+            }
         }
 
         [HttpPost("{id:long}/quotation/confirm")]

@@ -4,10 +4,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, FileText, Package, MapPin, User,
     Phone, Mail, Briefcase, Calendar, Send, Edit, Loader, ImageIcon, Upload,
-    CheckCircle, XCircle, Truck,
+    CheckCircle, XCircle, Truck, Plus, Trash2,
 } from 'lucide-react';
 import {
-    Box, Typography, CircularProgress,
+    Box, Typography, CircularProgress, Backdrop,
     Table, TableHead, TableBody, TableRow, TableCell,
     TableContainer, Paper,
     TextField,
@@ -28,6 +28,7 @@ import {
     importQuotationExcel,
     confirmQuotation,
     updateReleaseRequest,
+    uploadReleaseRequestAttachments,
 } from '../lib/releaseRequestService';
 import { formatDateOnly as formatDate, formatDateTime } from '../lib/dateUtils';
 import { canShowCreateGdnFromReleaseRequest } from '../utils/releaseRequestGdnUtils';
@@ -52,6 +53,25 @@ function findAttachmentByType(attachments, typeUpper) {
     return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
 }
 
+function extractReadableImportError(err) {
+    const raw =
+        err?.response?.data?.message
+        || err?.response?.data?.detail
+        || err?.message
+        || '';
+    const text = String(raw).trim();
+    if (!text) return 'Import báo giá thất bại.';
+    // Khi backend ở developer mode có thể trả cả stacktrace, chỉ lấy câu đầu dễ hiểu.
+    const firstLine = text.split('\n').map((x) => x.trim()).find(Boolean) || text;
+    if (firstLine.startsWith('System.')) {
+        const idx = firstLine.indexOf(':');
+        if (idx >= 0 && idx < firstLine.length - 1) {
+            return firstLine.slice(idx + 1).trim();
+        }
+    }
+    return firstLine;
+}
+
 function ReleaseRequestAttachmentsCard({ attachments, isQuotationFlow }) {
     const list = Array.isArray(attachments) ? attachments : [];
     const quotationAtt = findAttachmentByType(list, 'QUOTATION');
@@ -70,7 +90,7 @@ function ReleaseRequestAttachmentsCard({ attachments, isQuotationFlow }) {
             {isQuotationFlow && (
                 <Typography variant="body2" sx={{ color: '#64748b', mb: 1.5, lineHeight: 1.55 }}>
                     Khi <strong>Chốt báo giá</strong>, hệ thống tự xuất Excel và cập nhật <strong>Báo giá chính thức</strong> bên dưới.
-                    Trước <strong>Gửi duyệt</strong>, hãy vào <strong>Chỉnh sửa RR</strong> để tải thêm <strong>HĐNT</strong> và <strong>PLHĐ</strong> (nếu có) — mục đính kèm trên form chỉnh sửa.
+                    Trước <strong>Gửi duyệt</strong>, cần có thêm <strong>HĐNT</strong> và có thể kèm <strong>PLHĐ</strong>.
                 </Typography>
             )}
             <Box
@@ -163,6 +183,17 @@ const LifecycleChip = ({ lifecycleStatus }) => (
     <StatusBadge status={lifecycleStatus} />
 );
 
+function getDisplayLifecycleStatus(status, lifecycleStatus, isQuotationFlow) {
+    const normalizedStatus = String(status ?? '').toUpperCase();
+    if (normalizedStatus === 'DRAFT') {
+        return isQuotationFlow ? null : 'RR_DRAFT_PENDING_SUBMIT';
+    }
+    if (normalizedStatus === 'PENDING_ACC') return 'PENDING_ACC';
+    if (normalizedStatus === 'REJECTED') return 'REJECTED';
+    if (normalizedStatus !== 'APPROVED') return null;
+    return lifecycleStatus;
+}
+
 const InfoRow = ({ icon: Icon, label, value, fullWidth }) => (
     <Box sx={{ display: 'flex', alignItems: fullWidth ? 'flex-start' : 'center', gap: 1.5, minHeight: 36 }}>
         {Icon && <Icon size={15} style={{ color: '#9ca3af', flexShrink: 0, marginTop: 2 }} />}
@@ -198,13 +229,27 @@ export default function ViewReleaseRequestDetail() {
     const [rejectReason, setRejectReason] = useState('');
     const [processing, setProcessing] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [sendingQuotation, setSendingQuotation] = useState(false);
+    const [uploadingContractFiles, setUploadingContractFiles] = useState(false);
+    const [contractFile, setContractFile] = useState(null);
+    const [appendixFile, setAppendixFile] = useState(null);
     const [enablingQuotationFlow, setEnablingQuotationFlow] = useState(false);
+    const [showCcField, setShowCcField] = useState(false);
+    const [showBccField, setShowBccField] = useState(false);
+    const [importErrorDialog, setImportErrorDialog] = useState({ open: false, message: '' });
     const [quotationEmailForm, setQuotationEmailForm] = useState({
         toEmails: '',
         ccEmails: '',
         bccEmails: '',
         subject: '',
         body: '',
+        quotationNo: '',
+        notes: [
+            { title: 'Giao hàng', detail: '' },
+            { title: 'Chất lượng', detail: '' },
+            { title: 'Thanh toán', detail: '' },
+            { title: 'Hiệu lực báo giá', detail: '' },
+        ],
     });
 
     const fetchDetail = useCallback(async () => {
@@ -227,7 +272,8 @@ export default function ViewReleaseRequestDetail() {
                 ...prev,
                 toEmails: result.receiverEmail ?? '',
                 subject: result.releaseRequestCode ? `Báo giá ${result.releaseRequestCode}` : prev.subject,
-                body: prev.body ,
+                body: prev.body,
+                quotationNo: prev.quotationNo || result.releaseRequestCode || '',
             }));
         } catch (err) {
             const msg = err?.message || err?.response?.data?.message || 'Không tải được chi tiết yêu cầu xuất hàng.';
@@ -254,11 +300,36 @@ export default function ViewReleaseRequestDetail() {
         }
     };
 
+    const handleUploadContractFiles = async () => {
+        if (!data?.releaseRequestId) return;
+        if (!contractFile && !appendixFile) {
+            showToast('Vui lòng chọn ít nhất 1 tệp để tải lên.', 'warning');
+            return;
+        }
+        try {
+            setUploadingContractFiles(true);
+            await uploadReleaseRequestAttachments(data.releaseRequestId, {
+                contractFile,
+                appendixFile,
+            });
+            showToast('Đã tải tệp đính kèm thành công.', 'success');
+            setContractFile(null);
+            setAppendixFile(null);
+            await fetchDetail();
+        } catch (err) {
+            const msg = err?.message || err?.response?.data?.message || 'Không thể tải tệp đính kèm.';
+            showToast(msg, 'error');
+        } finally {
+            setUploadingContractFiles(false);
+        }
+    };
+
     const canSubmit = data?.status === 'DRAFT' && (!data?.isQuotationFlow || data?.quotationStatus === 'CONFIRMED');
     const canEdit = data?.status === 'DRAFT';
     const canQuotationActions = data?.status === 'DRAFT' && data?.isQuotationFlow;
-    const canConfirmQuotation = canQuotationActions && Boolean(data?.quotationSentAt);
+    const canConfirmQuotation = canQuotationActions;
     const canEnableQuotationFlow = data?.status === 'DRAFT' && !data?.isQuotationFlow;
+    const shouldShowAmountOnly = data?.status === 'DRAFT';
 
     // Kế toán có thể duyệt / từ chối yêu cầu đang chờ duyệt
     const userInfo = authService.getUser();
@@ -273,13 +344,52 @@ export default function ViewReleaseRequestDetail() {
         permissionRole,
     });
 
+    useEffect(() => {
+        if (shouldShowAmountOnly && activeTab !== 'amount') {
+            setActiveTab('amount');
+        }
+    }, [shouldShowAmountOnly, activeTab]);
+
     const handleCreateGDN = () => {
         navigate(`/good-delivery-notes/create?releaseRequestId=${data.releaseRequestId}`);
     };
 
+    const buildQuotationLayoutPayload = () => {
+        const maxNotes = 4;
+        const quotationNo = (quotationEmailForm.quotationNo || '').trim();
+        if (!quotationNo) {
+            showToast('Vui lòng nhập Số báo giá.', 'warning');
+            return null;
+        }
+
+        const notes = (quotationEmailForm.notes || [])
+            .map((x) => ({
+                title: (x?.title || '').trim(),
+                detail: (x?.detail || '').trim(),
+            }));
+
+        if (notes.length === 0) {
+            showToast('Vui lòng nhập ít nhất 1 ghi chú báo giá.', 'warning');
+            return null;
+        }
+        if (notes.length > maxNotes) {
+            showToast(`Chỉ hỗ trợ tối đa ${maxNotes} ghi chú (A27:A30).`, 'warning');
+            return null;
+        }
+        const invalidIndex = notes.findIndex((x) => !x.title || !x.detail);
+        if (invalidIndex >= 0) {
+            showToast(`Ghi chú dòng ${invalidIndex + 1} phải có đủ Tiêu đề và Nội dung.`, 'warning');
+            return null;
+        }
+
+        return { quotationNo, notes };
+    };
+
     const handleExportQuotation = async () => {
         try {
-            const blob = await exportQuotationExcel(data.releaseRequestId);
+            const layoutPayload = buildQuotationLayoutPayload();
+            if (!layoutPayload) return;
+            const blob = await exportQuotationExcel(data.releaseRequestId, layoutPayload);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -292,7 +402,10 @@ export default function ViewReleaseRequestDetail() {
     };
 
     const handleSendQuotation = async () => {
+        setSendingQuotation(true);
         try {
+            const layoutPayload = buildQuotationLayoutPayload();
+            if (!layoutPayload) return;
             const toEmails = quotationEmailForm.toEmails
                 .split(/[;,]/)
                 .map((x) => x.trim())
@@ -313,11 +426,15 @@ Trân trọng,`;
                 bccEmails: quotationEmailForm.bccEmails.split(/[;,]/).map((x) => x.trim()).filter(Boolean),
                 subject: quotationEmailForm.subject.trim() || `Báo giá ${data.releaseRequestCode}`,
                 body: plainTextEmailBodyToHtml(plainBody),
+                quotationNo: layoutPayload.quotationNo,
+                notes: layoutPayload.notes,
             });
             showToast('Đã gửi báo giá qua email.', 'success');
             fetchDetail();
         } catch (err) {
             showToast(err?.message || 'Không thể gửi email báo giá.', 'error');
+        } finally {
+            setSendingQuotation(false);
         }
     };
 
@@ -330,7 +447,8 @@ Trân trọng,`;
             showToast('Import báo giá thành công.', 'success');
             fetchDetail();
         } catch (err) {
-            showToast(err?.message || 'Import báo giá thất bại.', 'error');
+            const message = extractReadableImportError(err);
+            setImportErrorDialog({ open: true, message });
         } finally {
             setImporting(false);
             evt.target.value = '';
@@ -352,12 +470,26 @@ Trân trọng,`;
     };
 
     const handleConfirmQuotation = async () => {
-        if (!canConfirmQuotation) {
-            showToast('Vui lòng gửi báo giá qua email ít nhất 1 lần trước khi chốt.', 'warning');
+        if (!canQuotationActions) {
+            showToast('Chỉ chốt báo giá khi RR đang ở trạng thái nháp và bật luồng báo giá.', 'warning');
             return;
         }
         try {
-            await confirmQuotation(data.releaseRequestId, 'SE xác nhận chốt báo giá với khách');
+            const layoutPayload = buildQuotationLayoutPayload();
+            if (!layoutPayload) return;
+            // Luôn đưa file báo giá vào DB qua API attachments trước khi chốt.
+            const blob = await exportQuotationExcel(data.releaseRequestId, layoutPayload);
+            const quotationFile = new File(
+                [blob],
+                `${data.releaseRequestCode || `RR-${data.releaseRequestId}`}-quotation.xlsx`,
+                { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+            );
+            await uploadReleaseRequestAttachments(data.releaseRequestId, { quotationFile });
+            await confirmQuotation(data.releaseRequestId, {
+                note: 'SE xác nhận chốt báo giá với khách',
+                quotationNo: layoutPayload.quotationNo,
+                notes: layoutPayload.notes,
+            });
             showToast('Đã chốt báo giá. File báo giá chính thức (Excel) đã được lưu vào tệp đính kèm.', 'success');
             fetchDetail();
         } catch (err) {
@@ -480,15 +612,17 @@ Trân trọng,`;
                                 <Upload size={15} />Import Excel báo giá
                                 <input type="file" accept=".xlsx,.xls" onChange={handleImportQuotation} disabled={importing} style={{ display: 'none' }} />
                             </label>
-                            <button
-                                type="button"
-                                className="btn btn-success"
-                                onClick={handleConfirmQuotation}
-                                disabled={!canConfirmQuotation}
-                                title={!canConfirmQuotation ? 'Cần gửi email báo giá trước khi chốt' : undefined}
-                            >
-                                <CheckCircle size={15} />Chốt báo giá
-                            </button>
+                            {data?.quotationStatus !== 'CONFIRMED' && (
+                                <button
+                                    type="button"
+                                    className="btn btn-success"
+                                    onClick={handleConfirmQuotation}
+                                    disabled={!canConfirmQuotation}
+                                    title={!canConfirmQuotation ? 'Chỉ chốt khi RR ở trạng thái DRAFT và bật luồng báo giá' : undefined}
+                                >
+                                    <CheckCircle size={15} />Chốt báo giá
+                                </button>
+                            )}
                         </>
                     )}
                     {canSubmit && (
@@ -516,7 +650,9 @@ Trân trọng,`;
                             </Box>
                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                 <StatusBadge status={data.status} />
-                                {data.lifecycleStatus && <LifecycleChip lifecycleStatus={data.lifecycleStatus} />}
+                                {getDisplayLifecycleStatus(data.status, data.lifecycleStatus, data.isQuotationFlow) && (
+                                    <LifecycleChip lifecycleStatus={getDisplayLifecycleStatus(data.status, data.lifecycleStatus, data.isQuotationFlow)} />
+                                )}
                                 {data.isQuotationFlow && data.quotationStatus && (
                                     <StatusBadge status={data.quotationStatus} />
                                 )}
@@ -547,7 +683,7 @@ Trân trọng,`;
                         )}
                         {canQuotationActions && (
                             <Typography sx={{ mt: 2, fontSize: 13, color: '#64748b' }}>
-                                Điền email người nhận và nội dung thư (chỉ cần gõ chữ thường, không cần HTML), rồi bấm <strong>Gửi email báo giá</strong> — file Excel báo giá được đính kèm tự động.
+                                Điền email người nhận và nội dung thư, rồi bấm <strong>Gửi email báo giá</strong> — file Excel báo giá được đính kèm tự động.
                             </Typography>
                         )}
                     </div>
@@ -559,28 +695,30 @@ Trân trọng,`;
 
                             {/* Tab header */}
                             <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb' }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setActiveTab('items')}
-                                    style={{
-                                        padding: '10px 20px',
-                                        background: 'none',
-                                        border: 'none',
-                                        borderBottom: activeTab === 'items' ? '2px solid #2196F3' : '2px solid transparent',
-                                        color: activeTab === 'items' ? '#2196F3' : '#6b7280',
-                                        fontWeight: activeTab === 'items' ? 600 : 500,
-                                        fontSize: '14px',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        marginBottom: -2,
-                                        transition: 'all 0.2s',
-                                    }}
-                                >
-                                    <Package size={16} />
-                                    Vật tư ({lines.length})
-                                </button>
+                                {!shouldShowAmountOnly && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('items')}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: 'none',
+                                            border: 'none',
+                                            borderBottom: activeTab === 'items' ? '2px solid #2196F3' : '2px solid transparent',
+                                            color: activeTab === 'items' ? '#2196F3' : '#6b7280',
+                                            fontWeight: activeTab === 'items' ? 600 : 500,
+                                            fontSize: '14px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            marginBottom: -2,
+                                            transition: 'all 0.2s',
+                                        }}
+                                    >
+                                        <Package size={16} />
+                                        Vật tư ({lines.length})
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab('amount')}
@@ -629,42 +767,162 @@ Trân trọng,`;
                                     <div className="section-header-with-toggle">
                                         <h2 className="section-title">
                                             <Mail size={16} style={{ marginRight: 8, color: '#2196F3' }} />
-                                            Gửi báo giá qua email
+                                            Báo giá & Email
                                         </h2>
                                     </div>
                                     <Typography variant="body2" sx={{ color: '#64748b', mb: 1.5, lineHeight: 1.6 }}>
-                                        Chỉ cần điền địa chỉ email và nội dung thư bằng <strong>chữ thường</strong> (giống soạn Gmail).
-                                        Hệ thống tự đính kèm file Excel báo giá. Không cần biết HTML.
+                                        Tách thành 2 phần để thao tác dễ hơn: <strong>Nội dung trong báo giá</strong> và <strong>Nội dung trong Email</strong>.
+                                        Bạn có thể chốt báo giá mà không cần gửi email trước.
                                     </Typography>
-                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 2, p: 2, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                        <Typography variant="subtitle2" sx={{ color: '#1e293b', fontWeight: 700 }}>
+                                            1) Nội dung trong báo giá
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: '#64748b', mb: 0.5 }}>
+                                            Các ghi chú này là điều khoản/điều kiện hiển thị trong báo giá gửi khách (giao hàng, chất lượng, thanh toán, hiệu lực...).
+                                        </Typography>
                                         <TextField
                                             size="small"
                                             required
-                                            label="Gửi đến (email)"
-                                            placeholder="vd: khach@congty.vn"
-                                            helperText="Bắt buộc. Nhiều người nhận: gõ từng email, cách nhau bằng dấu phẩy (,) hoặc chấm phẩy (;)."
-                                            value={quotationEmailForm.toEmails}
-                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, toEmails: e.target.value }))}
+                                            label="Số báo giá (bắt buộc)"
+                                            placeholder="vd: 2603/MK-TMT/14"
+                                            helperText="Giá trị này sẽ ghi vào dòng 'Số:' dưới tiêu đề BÁO GIÁ trên file Excel."
+                                            value={quotationEmailForm.quotationNo}
+                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, quotationNo: e.target.value }))}
                                             fullWidth
                                         />
-                                        <TextField
-                                            size="small"
-                                            label="CC (tùy chọn)"
-                                            placeholder="vd: quanly@congty.vn"
-                                            helperText="Người nhận chính sẽ thấy các email ở dòng này."
-                                            value={quotationEmailForm.ccEmails}
-                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, ccEmails: e.target.value }))}
-                                            fullWidth
-                                        />
-                                        <TextField
-                                            size="small"
-                                            label="BCC (tùy chọn)"
-                                            placeholder="vd: luutru@congty.vn"
-                                            helperText="Ẩn: người nhận chính không thấy các email này."
-                                            value={quotationEmailForm.bccEmails}
-                                            onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, bccEmails: e.target.value }))}
-                                            fullWidth
-                                        />
+                                        <Typography variant="body2" sx={{ color: '#334155', fontWeight: 600 }}>
+                                            Ghi chú báo giá (bắt buộc)
+                                        </Typography>
+                                        {(quotationEmailForm.notes || []).map((note, idx) => (
+                                            <Box
+                                                key={idx}
+                                                sx={{
+                                                    border: '1px solid #dbeafe',
+                                                    borderLeft: '4px solid #3b82f6',
+                                                    borderRadius: 2,
+                                                    p: 1.5,
+                                                    background: '#f8fbff',
+                                                    display: 'grid',
+                                                    gridTemplateColumns: '1fr 1fr auto',
+                                                    gap: 1.5,
+                                                    alignItems: 'start',
+                                                }}
+                                            >
+                                                <TextField
+                                                    size="small"
+                                                    required
+                                                    label={`Tiêu đề ghi chú ${idx + 1}`}
+                                                    value={note.title}
+                                                    onChange={(e) => setQuotationEmailForm((prev) => ({
+                                                        ...prev,
+                                                        notes: prev.notes.map((x, i) => (i === idx ? { ...x, title: e.target.value } : x)),
+                                                    }))}
+                                                />
+                                                <TextField
+                                                    size="small"
+                                                    required
+                                                    label="Nội dung hiển thị trong báo giá"
+                                                    value={note.detail}
+                                                    onChange={(e) => setQuotationEmailForm((prev) => ({
+                                                        ...prev,
+                                                        notes: prev.notes.map((x, i) => (i === idx ? { ...x, detail: e.target.value } : x)),
+                                                    }))}
+                                                    multiline
+                                                    minRows={2}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-cancel"
+                                                    onClick={() => setQuotationEmailForm((prev) => ({
+                                                        ...prev,
+                                                        notes: prev.notes.length <= 1 ? prev.notes : prev.notes.filter((_, i) => i !== idx),
+                                                    }))}
+                                                    disabled={(quotationEmailForm.notes || []).length <= 1}
+                                                    title="Xóa ghi chú"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </Box>
+                                        ))}
+                                        <Box>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => setQuotationEmailForm((prev) => ({
+                                                    ...prev,
+                                                    notes: [...(prev.notes || []), { title: '', detail: '' }],
+                                                }))}
+                                                disabled={(quotationEmailForm.notes || []).length >= 4}
+                                            >
+                                                <Plus size={14} style={{ marginRight: 6 }} />
+                                                Thêm ghi chú
+                                            </button>
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, p: 2, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                        <Box sx={{ gridColumn: '1 / -1' }}>
+                                            <Typography variant="subtitle2" sx={{ color: '#1e293b', fontWeight: 700 }}>
+                                                2) Nội dung trong Email
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                                Chỉ dùng khi bấm Gửi email báo giá. File Excel được đính kèm tự động.
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'start' }}>
+                                            <TextField
+                                                size="small"
+                                                required
+                                                label="Đến (email)"
+                                                placeholder="vd: khach@congty.vn"
+                                                helperText="Bắt buộc. Nhiều người nhận: cách nhau bằng dấu phẩy (,) hoặc chấm phẩy (;)."
+                                                value={quotationEmailForm.toEmails}
+                                                onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, toEmails: e.target.value }))}
+                                                fullWidth
+                                            />
+                                            <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-secondary"
+                                                    style={{ minWidth: 52, height: 32, padding: '0 10px', fontSize: 12 }}
+                                                    onClick={() => setShowCcField((v) => !v)}
+                                                >
+                                                    Cc
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-secondary"
+                                                    style={{ minWidth: 58, height: 32, padding: '0 10px', fontSize: 12 }}
+                                                    onClick={() => setShowBccField((v) => !v)}
+                                                >
+                                                    Bcc
+                                                </button>
+                                            </Box>
+                                        </Box>
+                                        {(showCcField || (quotationEmailForm.ccEmails || '').trim() !== '') && (
+                                            <TextField
+                                                size="small"
+                                                label="CC (tùy chọn)"
+                                                placeholder="vd: quanly@congty.vn"
+                                                helperText="Người nhận chính sẽ nhìn thấy danh sách email ở trường CC."
+                                                value={quotationEmailForm.ccEmails}
+                                                onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, ccEmails: e.target.value }))}
+                                                fullWidth
+                                                sx={{ gridColumn: '1 / -1' }}
+                                            />
+                                        )}
+                                        {(showBccField || (quotationEmailForm.bccEmails || '').trim() !== '') && (
+                                            <TextField
+                                                size="small"
+                                                label="BCC (tùy chọn)"
+                                                placeholder="vd: luutru@congty.vn"
+                                                helperText="Ẩn: người nhận chính không thấy các email này."
+                                                value={quotationEmailForm.bccEmails}
+                                                onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, bccEmails: e.target.value }))}
+                                                fullWidth
+                                                sx={{ gridColumn: '1 / -1' }}
+                                            />
+                                        )}
                                         <TextField
                                             size="small"
                                             label="Tiêu đề email"
@@ -678,7 +936,7 @@ Trân trọng,`;
                                             size="small"
                                             label="Nội dung thư"
                                             placeholder="Soạn lời chào và nội dung như tin nhắn..."
-                                            helperText="Gõ bình thường. Xuống dòng = xuống dòng trong email. Để trống một dòng (Enter hai lần) = cách đoạn. Không dùng thẻ HTML."
+                                            helperText="Gõ bình thường. Xuống dòng = xuống dòng trong email. Để trống một dòng (Enter hai lần) = cách đoạn."
                                             value={quotationEmailForm.body}
                                             onChange={(e) => setQuotationEmailForm((prev) => ({ ...prev, body: e.target.value }))}
                                             multiline
@@ -691,7 +949,7 @@ Trân trọng,`;
                             )}
 
                             {/* ── Tab: Vật tư ─────────────────────────────────── */}
-                            {activeTab === 'items' && (
+                            {!shouldShowAmountOnly && activeTab === 'items' && (
                                 <div className="info-section" style={{ margin: 0 }}>
                                     <div className="section-header-with-toggle">
                                         <h2 className="section-title">
@@ -965,7 +1223,59 @@ Trân trọng,`;
 
                             {/* Tệp đính kèm — ẩn với role TK */}
                             {!hideSensitiveForWarehouseKeeper && (Boolean(data.isQuotationFlow) || (Array.isArray(data.attachments) && data.attachments.length > 0)) && (
-                                <ReleaseRequestAttachmentsCard attachments={data.attachments ?? []} isQuotationFlow={Boolean(data.isQuotationFlow)} />
+                                <>
+                                    <ReleaseRequestAttachmentsCard attachments={data.attachments ?? []} isQuotationFlow={Boolean(data.isQuotationFlow)} />
+                                    {Boolean(data.isQuotationFlow) && data.status === 'DRAFT' && (
+                                        <div className="info-section" style={{ margin: 0 }}>
+                                            <div className="section-header-with-toggle">
+                                                <h2 className="section-title">
+                                                    <Upload size={16} style={{ marginRight: 8, color: '#2196F3' }} />
+                                                    Bổ sung HĐNT/PLHĐ
+                                                </h2>
+                                            </div>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                                <Typography variant="body2" sx={{ color: '#64748b' }}>
+                                                    Bạn có thể tải trực tiếp tệp HĐNT và PLHĐ tại đây trước khi bấm gửi duyệt.
+                                                </Typography>
+
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                    <Typography sx={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                        Hợp đồng nguyên tắc (HĐNT)
+                                                    </Typography>
+                                                    <input
+                                                        type="file"
+                                                        onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                                                        disabled={uploadingContractFiles}
+                                                    />
+                                                </Box>
+
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                    <Typography sx={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                                                        Phụ lục hợp đồng (PLHĐ)
+                                                    </Typography>
+                                                    <input
+                                                        type="file"
+                                                        onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
+                                                        disabled={uploadingContractFiles}
+                                                    />
+                                                </Box>
+
+                                                <Box>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-secondary"
+                                                        onClick={handleUploadContractFiles}
+                                                        disabled={uploadingContractFiles || (!contractFile && !appendixFile)}
+                                                    >
+                                                        {uploadingContractFiles
+                                                            ? <><Loader size={15} className="spin" />Đang tải tệp...</>
+                                                            : <><Upload size={15} />Tải tệp đính kèm</>}
+                                                    </button>
+                                                </Box>
+                                            </Box>
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {/* Lịch sử duyệt */}
@@ -1004,7 +1314,32 @@ Trân trọng,`;
                 </form>
             </div>
 
+            <Backdrop
+                open={sendingQuotation}
+                sx={{
+                    color: '#fff',
+                    zIndex: (theme) => theme.zIndex.modal + 1,
+                    flexDirection: 'column',
+                    gap: 1.5,
+                }}
+            >
+                <CircularProgress color="inherit" />
+                <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                    Hệ thống đang xử lý gửi email báo giá, vui lòng chờ...
+                </Typography>
+            </Backdrop>
+
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
+
+            <ConfirmDialog
+                open={importErrorDialog.open}
+                onClose={() => setImportErrorDialog({ open: false, message: '' })}
+                onConfirm={() => setImportErrorDialog({ open: false, message: '' })}
+                title="Không thể import báo giá"
+                message={importErrorDialog.message}
+                confirmText="Đã hiểu"
+                cancelText="Đóng"
+            />
 
             <ConfirmDialog
                 open={approveDialogOpen}

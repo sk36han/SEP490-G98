@@ -105,7 +105,7 @@ public partial class Mkiwms5Context : DbContext
 
     public virtual DbSet<Warehouse> Warehouses { get; set; }
 
-
+ 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1044,6 +1044,7 @@ public partial class Mkiwms5Context : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.LocationCode).HasMaxLength(50);
             entity.Property(e => e.LocationName).HasMaxLength(200);
+            entity.Property(e => e.MaxCapacityQty).HasColumnType("decimal(18, 4)");
             entity.Property(e => e.UpdatedAt).HasPrecision(0);
 
             entity.HasOne(d => d.Warehouse).WithMany(p => p.StorageLocations)

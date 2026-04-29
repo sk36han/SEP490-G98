@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField,
     CircularProgress,
 } from '@mui/material';
 import {
@@ -58,7 +57,39 @@ function formatAddress(address, ward, district, city) {
     return parts.length ? parts.join(', ') : '';
 }
 
-export default function CreateReleaseRequest() {
+/** Kiểm tra từng dòng vật tư (số lượng, ĐVT) */
+function getLineItemsValidationError(lineItems) {
+    for (let i = 0; i < lineItems.length; i++) {
+        const line = lineItems[i];
+        const row = i + 1;
+        if (!normalizeId(line.uomId ?? line.UomId)) {
+            return `Vật tư dòng ${row}: thiếu đơn vị tính.`;
+        }
+        const qty = Number(line.quantity);
+        if (!Number.isFinite(qty) || qty < 1) {
+            return `Vật tư dòng ${row}: số lượng phải ≥ 1.`;
+        }
+        const max = Number(line.availableQty ?? line.AvailableQty ?? 0);
+        if (Number.isFinite(max) && max > 0 && qty > max) {
+            return `Vật tư dòng ${row}: số lượng không được vượt tồn khả dụng (${max.toLocaleString('vi-VN')}).`;
+        }
+    }
+    return null;
+}
+
+function findAttachmentByType(attachments, typeUpper) {
+    if (!Array.isArray(attachments)) return null;
+    return attachments.find((a) => String(a?.attachmentType || '').toUpperCase() === typeUpper) || null;
+}
+
+function toAbsoluteFileUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = (import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:5141/api').replace(/\/api\/?$/, '');
+    return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+export default function CreateReleaseRequest({ forceHideAttachmentsWhenQuotationFlowInEdit = false }) {
     const navigate = useNavigate();
     const { id: editId } = useParams();
     const isEditMode = Boolean(editId);
@@ -97,18 +128,11 @@ export default function CreateReleaseRequest() {
         isQuotationFlow: false,
     });
 
-    const [addressMode, setAddressMode] = useState('list');
-    const [customAddress, setCustomAddress] = useState({
-        address: '',
-        city: '',
-        district: '',
-        ward: '',
-    });
-
     const [lineItems, setLineItems] = useState([]);
     const [quotationFile, setQuotationFile] = useState(null);
     const [contractFile, setContractFile] = useState(null);
     const [appendixFile, setAppendixFile] = useState(null);
+    const [existingAttachments, setExistingAttachments] = useState([]);
     const [showItemSearch, setShowItemSearch] = useState(false);
     const [itemKeyword, setItemKeyword] = useState('');
     const [selectedItemIds, setSelectedItemIds] = useState([]);
@@ -203,8 +227,6 @@ export default function CreateReleaseRequest() {
         setSelectedReceiverId('');
         setSelectedAddressId('');
         setReceiverDetail(null);
-        setAddressMode('list');
-        setCustomAddress({ address: '', city: '', district: '', ward: '' });
         loadReceivers(companyId);
         loadAddresses(companyId);
     };
@@ -220,8 +242,6 @@ export default function CreateReleaseRequest() {
 
         const receiver = receivers.find((r) => normalizeId(r.receiverId ?? r.ReceiverId) === receiverId);
         setReceiverDetail(receiver || null);
-        setAddressMode('list');
-        setCustomAddress({ address: '', city: '', district: '', ward: '' });
         loadAddresses(selectedCompanyId);
     };
 
@@ -293,6 +313,7 @@ export default function CreateReleaseRequest() {
                     };
                 });
                 setLineItems(mappedLines);
+                setExistingAttachments(Array.isArray(detail.attachments) ? detail.attachments : []);
             } catch (err) {
                 showToast(err?.message || 'Không tải được dữ liệu chỉnh sửa RR.', 'error');
                 navigate('/release-request');
@@ -354,7 +375,6 @@ export default function CreateReleaseRequest() {
         };
         setAddresses((prev) => [...prev, newAddress]);
         setSelectedAddressId(normalizeId(newAddress.addressId));
-        setAddressMode('list');
         showToast('Tạo địa chỉ thành công!', 'success');
     };
 
@@ -470,7 +490,7 @@ export default function CreateReleaseRequest() {
 
             const unit = line.unitPrice === '' || line.unitPrice == null ? null : Number(line.unitPrice);
             if (unit != null && Number.isFinite(unit) && line.warehousePrice != null && unit < Number(line.warehousePrice)) {
-                showToast('Đơn giá không thể nhỏ hơn giá bình quân trong kho', 'error');
+                showToast('Đơn giá không thể nhỏ hơn giá bình quân gia quyền trong kho.', 'error');
                 return false;
             }
         }
@@ -489,6 +509,18 @@ export default function CreateReleaseRequest() {
     const selectedAddress = useMemo(
         () => addresses.find((a) => normalizeId(a.addressId ?? a.AddressId) === selectedAddressId) || null,
         [addresses, selectedAddressId]
+    );
+    const existingQuotationAttachment = useMemo(
+        () => findAttachmentByType(existingAttachments, 'QUOTATION'),
+        [existingAttachments]
+    );
+    const existingContractAttachment = useMemo(
+        () => findAttachmentByType(existingAttachments, 'CO') || findAttachmentByType(existingAttachments, 'CONTRACT'),
+        [existingAttachments]
+    );
+    const existingAppendixAttachment = useMemo(
+        () => findAttachmentByType(existingAttachments, 'CONTRACT_APPENDIX'),
+        [existingAttachments]
     );
 
     /** Tóm tắt Đơn Xuất (cột phải): tổng loại vật tư + tổng tiền ước tính */
@@ -509,13 +541,28 @@ export default function CreateReleaseRequest() {
         };
     }, [lineItems]);
 
-    const canSaveDraft = useMemo(() => (
-        Boolean(selectedCompanyId)
-        && Boolean(selectedReceiverId)
-        && Boolean(form.warehouseId)
-        && lineItems.length > 0
-    ), [selectedCompanyId, selectedReceiverId, form.warehouseId, lineItems]);
+    /**
+     * Trường * chung (công ty, người nhận, kho, địa chỉ, ≥1 vật tư + dòng hợp lệ) — dùng cho Lưu nháp & Gửi duyệt.
+     * Lý do / file báo giá & hợp đồng chỉ bắt buộc khi gửi duyệt (submitValidationError).
+     */
+    const baseValidationError = useMemo(() => {
+        if (!selectedCompanyId) return 'Vui lòng chọn công ty.';
+        if (!selectedReceiverId) return 'Vui lòng chọn người nhận.';
+        if (!form.warehouseId) return 'Vui lòng chọn kho xuất.';
+        if (lineItems.length === 0) return 'Vui lòng thêm ít nhất 1 vật tư.';
+        if (!selectedAddressId) {
+            return 'Vui lòng chọn địa chỉ giao hàng.';
+        }
+        return getLineItemsValidationError(lineItems);
+    }, [selectedCompanyId, selectedReceiverId, form.warehouseId, lineItems, selectedAddressId]);
 
+    const submitValidationError = useMemo(() => {
+        if (baseValidationError) return baseValidationError;
+        if (!form.purpose.trim()) return 'Vui lòng nhập lý do xuất hàng.';
+        if (!quotationFile) return 'Vui lòng tải file báo giá.';
+        if (!contractFile) return 'Vui lòng tải file hợp đồng.';
+        return null;
+    }, [baseValidationError, form.purpose, quotationFile, contractFile]);
     const canCreateRequest = useMemo(() => (
         Boolean(selectedCompanyId)
         && Boolean(selectedReceiverId)
@@ -527,10 +574,16 @@ export default function CreateReleaseRequest() {
     /** Luồng báo giá: tạo nháp trước rồi thao tác ở màn chi tiết RR. */
     const canSubmitForApproval = useMemo(() => (
         canCreateRequest
-        && !Boolean(form.isQuotationFlow)
+        && !form.isQuotationFlow
         && Boolean(quotationFile)
         && Boolean(contractFile)
     ), [canCreateRequest, form.isQuotationFlow, quotationFile, contractFile]);
+    const canSaveDraft = useMemo(() => !baseValidationError, [baseValidationError]);
+
+    const canCreateQuotationDraft = useMemo(() => (
+        canSaveDraft
+        && form.isQuotationFlow
+    ), [canSaveDraft, form.isQuotationFlow]);
 
     const buildPayload = () => {
         let address = '';
@@ -539,12 +592,7 @@ export default function CreateReleaseRequest() {
         let ward = '';
         let addressId = null;
 
-        if (addressMode === 'custom') {
-            address = customAddress.address || '';
-            city = customAddress.city || '';
-            district = customAddress.district || '';
-            ward = customAddress.ward || '';
-        } else if (selectedAddress) {
+        if (selectedAddress) {
             addressId = Number(selectedAddress.addressId ?? selectedAddress.AddressId);
             address = selectedAddress.addressDetail || selectedAddress.AddressDetail || selectedAddress.addressName || selectedAddress.AddressName || '';
             city = selectedAddress.city || selectedAddress.City || '';
@@ -579,6 +627,10 @@ export default function CreateReleaseRequest() {
 
     const handleSaveDraft = async (e) => {
         e?.preventDefault();
+        if (baseValidationError) {
+            showToast(baseValidationError, 'error');
+            return;
+        }
         setSavingDraft(true);
         try {
             const res = isEditMode
@@ -594,11 +646,8 @@ export default function CreateReleaseRequest() {
                         appendixFile,
                     });
                 } catch (uploadErr) {
-                    uploadWarning =
-                        uploadErr?.message
-                        || uploadErr?.response?.data?.detail
-                        || uploadErr?.response?.data?.message
-                        || 'Không thể tải tệp đính kèm.';
+                    const data = uploadErr?.response?.data;
+                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
                 }
             }
             showToast(
@@ -645,11 +694,7 @@ export default function CreateReleaseRequest() {
             return;
         }
         if (!validateLineItems()) return;
-        if (addressMode === 'list' && !selectedAddressId) {
-            showToast('Vui lòng chọn địa chỉ giao hàng.', 'error');
-            return;
-        }
-        if (addressMode === 'custom' && !customAddress.address.trim()) {
+        if (!selectedAddressId) {
             showToast('Vui lòng nhập địa chỉ giao hàng.', 'error');
             return;
         }
@@ -673,12 +718,8 @@ export default function CreateReleaseRequest() {
                         appendixFile,
                     });
                 } catch (uploadErr) {
-                    uploadWarning =
-                        uploadErr?.message
-                        || uploadErr?.response?.data?.detail
-                        || uploadErr?.response?.data?.innerDetail
-                        || uploadErr?.response?.data?.message
-                        || 'Không thể tải tệp đính kèm.';
+                    const data = uploadErr?.response?.data;
+                    uploadWarning = data?.message || uploadErr?.message || 'Không thể tải tệp đính kèm.';
                 }
             }
             showToast(
@@ -717,24 +758,26 @@ export default function CreateReleaseRequest() {
                     <button type="button" onClick={() => navigate(-1)} className="btn btn-cancel" disabled={submitting || savingDraft}>
                         <X size={15} />Hủy
                     </button>
-                    <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
-                        {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
-                    </button>
+                    {!form.isQuotationFlow && (
+                        <button type="button" className="btn btn-secondary" disabled={!canSaveDraft || savingDraft || submitting} onClick={handleSaveDraft} style={{ minWidth: 120 }}>
+                            {savingDraft ? <><Loader size={15} className="spinner" />Đang lưu...</> : <><Save size={15} />Lưu Nháp</>}
+                        </button>
+                    )}
                     <button
                         type="button"
                         className="btn btn-primary"
-                        disabled={!canSubmitForApproval || submitting || savingDraft}
-                        onClick={handleCreateRequest}
+                        disabled={form.isQuotationFlow ? !canCreateQuotationDraft || submitting || savingDraft : !canSubmitForApproval || submitting || savingDraft}
+                        onClick={form.isQuotationFlow ? handleSaveDraft : handleCreateRequest}
                         title={
                             form.isQuotationFlow
-                                ? 'Luồng báo giá: hãy Lưu Nháp trước, rồi gửi/import/chốt ở màn chi tiết'
+                                ? (!canCreateQuotationDraft ? 'Vui lòng nhập đủ thông tin bắt buộc để tạo báo giá.' : undefined)
                                 : (!canSubmitForApproval && canCreateRequest ? 'Cần tải Báo giá và Hợp đồng' : undefined)
                         }
                     >
                         {submitting ? (
                             <><Loader size={15} className="spinner" />Đang gửi...</>
                         ) : form.isQuotationFlow ? (
-                            <><Send size={15} />Tạo báo giá (nháp)</>
+                            <><Send size={15} />{isEditMode ? 'Lưu báo giá' : 'Tạo báo giá'}</>
                         ) : (
                             <><Send size={15} />Tạo & Gửi duyệt</>
                         )}
@@ -831,16 +874,14 @@ export default function CreateReleaseRequest() {
 
                                     {receiverDetail && (
                                         <div className="form-field" style={{ margin: 0 }}>
-                                            <label className="form-label">Địa chỉ giao hàng</label>
+                                            <label className="form-label">Địa chỉ giao hàng <span className="required-mark">*</span></label>
                                             <div style={{ display: 'flex', gap: 8 }}>
                                                 <div className="input-wrapper" style={{ flex: 1 }}>
                                                     <MapPin className="input-icon" size={16} />
                                                     <select
                                                         value={selectedAddressId}
                                                         onChange={(e) => {
-                                                            const value = normalizeId(e.target.value);
-                                                            setSelectedAddressId(value);
-                                                            if (value) setAddressMode('list');
+                                                            setSelectedAddressId(normalizeId(e.target.value));
                                                         }}
                                                         className="form-input"
                                                         style={{ paddingLeft: 40 }}
@@ -864,17 +905,6 @@ export default function CreateReleaseRequest() {
                                                     <MapPin size={15} />
                                                 </button>
                                             </div>
-
-                                            {addressMode === 'custom' && (
-                                                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                    <TextField label="Địa chỉ cụ thể" value={customAddress.address} onChange={(e) => setCustomAddress((prev) => ({ ...prev, address: e.target.value }))} size="small" fullWidth />
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                                        <TextField label="Thành phố / Tỉnh" value={customAddress.city} onChange={(e) => setCustomAddress((prev) => ({ ...prev, city: e.target.value }))} size="small" fullWidth />
-                                                        <TextField label="Quận / Huyện" value={customAddress.district} onChange={(e) => setCustomAddress((prev) => ({ ...prev, district: e.target.value }))} size="small" fullWidth />
-                                                    </div>
-                                                    <TextField label="Phường / Xã" value={customAddress.ward} onChange={(e) => setCustomAddress((prev) => ({ ...prev, ward: e.target.value }))} size="small" fullWidth />
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -884,7 +914,8 @@ export default function CreateReleaseRequest() {
                                 <div className="section-header-with-toggle">
                                     <h2 className="section-title">
                                         <span style={{ marginRight: 8, color: '#2196F3', fontWeight: 700 }}>2</span>
-                                        Danh sách vật tư
+                                        Danh sách vật tư <span className="required-mark">*</span>
+                                        <span style={{ fontWeight: 400, fontSize: 13, color: '#64748b', marginLeft: 6 }}>(ít nhất 1 dòng)</span>
                                     </h2>
                                     <div style={{ display: 'flex', gap: 8 }}>
                                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowItemSearch((prev) => !prev)} disabled={!form.warehouseId || itemsLoading}>
@@ -1098,7 +1129,7 @@ export default function CreateReleaseRequest() {
                                         <input type="date" value={form.expectedDate} onChange={(e) => setForm((prev) => ({ ...prev, expectedDate: e.target.value }))} className="form-input" />
                                     </div>
                                     <div className="form-field" style={{ margin: 0 }}>
-                                        <label className="form-label">Lý do xuất hàng <span className="required-mark">*</span></label>
+                                        <label className="form-label">Lý do xuất hàng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 12 }}>(khi gửi duyệt)</span></label>
                                         <input type="text" value={form.purpose} onChange={(e) => setForm((prev) => ({ ...prev, purpose: e.target.value }))} className="form-input" placeholder="Nhập lý do xuất hàng" />
                                     </div>
                                     <div className="form-field" style={{ margin: 0 }}>
@@ -1122,6 +1153,24 @@ export default function CreateReleaseRequest() {
                                             />
                                             Tạo theo luồng báo giá (cần chốt báo giá trước khi gửi kế toán duyệt)
                                         </label>
+                                        {Boolean(form.isQuotationFlow) && (
+                                            <div
+                                                style={{
+                                                    marginTop: 10,
+                                                    padding: '10px 12px',
+                                                    borderRadius: 8,
+                                                    background: 'rgba(37, 99, 235, 0.08)',
+                                                    border: '1px solid rgba(37, 99, 235, 0.25)',
+                                                    fontSize: 13,
+                                                    color: '#1e3a8a',
+                                                    lineHeight: 1.55,
+                                                }}
+                                            >
+                                                Luồng báo giá: 
+                                                <br/>tạo Báo giá → vào màn chi tiết để nhập nội dung báo giá, 
+                                                xuất/import Excel và chốt báo giá → sau khi chốt mới gửi duyệt kế toán.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1150,75 +1199,92 @@ export default function CreateReleaseRequest() {
                                 </div>
                             </div>
 
-                            <div className="info-section" style={{ margin: 0 }}>
-                                <div className="section-header-with-toggle">
-                                    <h2 className="section-title">Tệp đính kèm</h2>
+                            {(isEditMode
+                                ? (forceHideAttachmentsWhenQuotationFlowInEdit ? !form.isQuotationFlow : true)
+                                : !form.isQuotationFlow) && (
+                                <div className="info-section" style={{ margin: 0 }}>
+                                    <div className="section-header-with-toggle">
+                                        <h2 className="section-title">Tệp đính kèm</h2>
+                                    </div>
+                                    <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+                                        Khi Tạo & Gửi duyệt, bắt buộc có Báo giá và Hợp đồng. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div className="form-field" style={{ margin: 0 }}>
+                                            <label htmlFor="rr-quotation-file" className="form-label">
+                                                File báo giá <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
+                                            </label>
+                                            <div className="input-wrapper">
+                                                <FileSpreadsheet className="input-icon" size={16} />
+                                                <input
+                                                    id="rr-quotation-file"
+                                                    type="file"
+                                                    className="form-input"
+                                                    onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            {quotationFile && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Đã chọn: {quotationFile.name}
+                                                </div>
+                                            )}
+                                            {!quotationFile && isEditMode && existingQuotationAttachment && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Hiện có: <a href={toAbsoluteFileUrl(existingQuotationAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingQuotationAttachment.fileName}</a>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="form-field" style={{ margin: 0 }}>
+                                            <label htmlFor="rr-contract-file" className="form-label">
+                                                Hợp đồng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
+                                            </label>
+                                            <div className="input-wrapper">
+                                                <FileText className="input-icon" size={16} />
+                                                <input
+                                                    id="rr-contract-file"
+                                                    type="file"
+                                                    className="form-input"
+                                                    onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            {contractFile && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Đã chọn: {contractFile.name}
+                                                </div>
+                                            )}
+                                            {!contractFile && isEditMode && existingContractAttachment && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Hiện có: <a href={toAbsoluteFileUrl(existingContractAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingContractAttachment.fileName}</a>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="form-field" style={{ margin: 0 }}>
+                                            <label htmlFor="rr-appendix-file" className="form-label">
+                                                Phụ lục hợp đồng <span style={{ fontWeight: 400, color: '#94a3b8' }}>(tùy chọn)</span>
+                                            </label>
+                                            <div className="input-wrapper">
+                                                <FileStack className="input-icon" size={16} />
+                                                <input
+                                                    id="rr-appendix-file"
+                                                    type="file"
+                                                    className="form-input"
+                                                    onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
+                                                />
+                                            </div>
+                                            {appendixFile && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Đã chọn: {appendixFile.name}
+                                                </div>
+                                            )}
+                                            {!appendixFile && isEditMode && existingAppendixAttachment && (
+                                                <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
+                                                    Hiện có: <a href={toAbsoluteFileUrl(existingAppendixAttachment.fileUrl)} target="_blank" rel="noreferrer">{existingAppendixAttachment.fileName}</a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                                    {form.isQuotationFlow
-                                        ? 'Luồng báo giá: tạo nháp trước, sau đó vào màn chi tiết để Xuất Excel/Gửi email/Import phản hồi/Chốt báo giá rồi mới gửi duyệt.'
-                                        : 'Khi Tạo & Gửi duyệt, bắt buộc có Báo giá và Hợp đồng. Lưu nháp có thể bỏ qua hoặc chỉ đính kèm một phần.'}
-                                </p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label htmlFor="rr-quotation-file" className="form-label">
-                                            File báo giá <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileSpreadsheet className="input-icon" size={16} />
-                                            <input
-                                                id="rr-quotation-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setQuotationFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {quotationFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {quotationFile.name}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label htmlFor="rr-contract-file" className="form-label">
-                                            Hợp đồng <span className="required-mark">*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(khi gửi duyệt)</span>
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileText className="input-icon" size={16} />
-                                            <input
-                                                id="rr-contract-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setContractFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {contractFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {contractFile.name}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="form-field" style={{ margin: 0 }}>
-                                        <label htmlFor="rr-appendix-file" className="form-label">
-                                            Phụ lục hợp đồng <span style={{ fontWeight: 400, color: '#94a3b8' }}>(tùy chọn)</span>
-                                        </label>
-                                        <div className="input-wrapper">
-                                            <FileStack className="input-icon" size={16} />
-                                            <input
-                                                id="rr-appendix-file"
-                                                type="file"
-                                                className="form-input"
-                                                onChange={(e) => setAppendixFile(e.target.files?.[0] || null)}
-                                            />
-                                        </div>
-                                        {appendixFile && (
-                                            <div style={{ marginTop: 6, fontSize: 12, color: '#4b5563' }}>
-                                                Đã chọn: {appendixFile.name}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                     </div>
@@ -1227,7 +1293,7 @@ export default function CreateReleaseRequest() {
 
             <CreateCompanyDialog open={companyDialogOpen} onClose={() => setCompanyDialogOpen(false)} onSuccess={handleCreateCompanySuccess} />
             <CreateReceiverDialog open={receiverDialogOpen} onClose={() => setReceiverDialogOpen(false)} onSuccess={handleCreateReceiverSuccess} companyId={selectedCompanyId} companyName={selectedCompany?.companyName ?? selectedCompany?.CompanyName ?? ''} />
-            <CreateAddressDialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} onSuccess={handleCreateAddressSuccess} companyId={selectedCompanyId} companyName={selectedCompany?.companyName ?? selectedCompany?.CompanyName ?? ''} />
+            <CreateAddressDialog open={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} onSuccess={handleCreateAddressSuccess} companyId={selectedCompanyId} />
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
         </div>

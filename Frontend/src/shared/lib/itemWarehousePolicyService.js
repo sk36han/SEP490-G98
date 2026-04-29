@@ -41,6 +41,8 @@ function mapPolicyRow(row) {
         itemCode: row.itemCode ?? row.ItemCode ?? '',
         itemName: row.itemName ?? row.ItemName ?? '',
         warehouseName: row.warehouseName ?? row.WarehouseName ?? '',
+        createdAt: row.createdAt ?? row.CreatedAt ?? null,
+        createdBy: row.createdBy ?? row.CreatedBy ?? row.createdByName ?? row.CreatedByName ?? '',
     };
 }
 

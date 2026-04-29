@@ -3,7 +3,7 @@
  * Pattern giống ViewCategoryList / ViewSupplierList, bám sát theme hệ thống.
  * Chỉ là mockup, không gọi API thật.
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -45,6 +45,8 @@ import {
     ResponsiveContainer, Legend,
 } from 'recharts';
 import SearchInput from '../../components/SearchInput';
+import { getSalesReportList, getSalesReportSummary } from '../../lib/salesReportService';
+import { getWarehouseList } from '../../lib/warehouseService';
 
 // ── LocalStorage keys ──────────────────────────────────────────────────────
 const LS_COL_ORDER  = 'salesReportColumnOrder';
@@ -332,7 +334,7 @@ const VALUE_FONT = {
 };
 
 // ── SummaryCard ─────────────────────────────────────────────────────────────
-const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
+const SummaryCard = ({ icon, label, value, color, bgColor }) => (
     <Box sx={{
         flex: '1 1 200px', minWidth: 200, bgcolor: '#fff',
         border: '1px solid #e5e7eb', borderRadius: '14px', p: 2.5,
@@ -343,7 +345,7 @@ const SummaryCard = ({ icon: Icon, label, value, color, bgColor }) => (
             width: 48, height: 48, borderRadius: '12px', bgcolor: bgColor,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-            <Icon size={22} color={color} />
+            {React.createElement(icon, { size: 22, color })}
         </Box>
         <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.3 }}>{label}</Typography>
@@ -420,6 +422,11 @@ export default function Viewsalesreportlist() {
     const [searchTerm, setSearchTerm] = useState('');
     const [dataMode, setDataMode] = useState('outbound');
     const [quickFilter, setQuickFilter] = useState('all');
+    const [rows, setRows] = useState([]);
+    const [summaryFromApi, setSummaryFromApi] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [loadError, setLoadError] = useState('');
+    const [warehouseOptions, setWarehouseOptions] = useState(MOCK_WAREHOUSES);
 
     // Warehouse filter
     const [selectedWarehouseId, setSelectedWarehouseId] = useState(() => {
@@ -430,22 +437,83 @@ export default function Viewsalesreportlist() {
         } catch { return 'all'; }
     });
     const warehouseShare = useMemo(() => getWarehouseShare(selectedWarehouseId), [selectedWarehouseId]);
-
-    // Scaled mock theo kho đang chọn (mô phỏng — khi nối API sẽ bỏ)
-    const MOCK_DATA = useMemo(
-        () => MOCK_DATA_RAW.map(r => scaleRow(r, warehouseShare)),
-        [warehouseShare]
+    // Ưu tiên dữ liệu API; fallback mock để tránh trắng trang khi backend lỗi.
+    const reportRows = useMemo(
+        () => (rows.length > 0 ? rows : MOCK_DATA_RAW.map(r => scaleRow(r, warehouseShare))),
+        [rows, warehouseShare]
     );
 
     // Chart state
     const [chartLevel, setChartLevel] = useState(LEVEL.QUARTER);
     const [chartYear, setChartYear] = useState('2026');
 
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const { items } = await getWarehouseList({ pageNumber: 1, pageSize: 200 });
+                if (!mounted) return;
+                const mapped = (items || []).map((w) => ({
+                    id: w.warehouseId,
+                    code: w.warehouseCode,
+                    name: w.warehouseName,
+                    share: 1,
+                }));
+                setWarehouseOptions([{ id: 'all', code: 'ALL', name: 'Tất cả kho', share: 1 }, ...mapped]);
+            } catch {
+                if (!mounted) return;
+                setWarehouseOptions(MOCK_WAREHOUSES);
+            }
+        })();
+        return () => { mounted = false; };
+    }, []);
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            setIsLoading(true);
+            setLoadError('');
+            try {
+                const keyword = searchTerm.trim();
+                const [listRows, summary] = await Promise.all([
+                    getSalesReportList({
+                        mode: dataMode,
+                        quickFilter,
+                        keyword: keyword || undefined,
+                        warehouseId: selectedWarehouseId === 'all' ? null : selectedWarehouseId,
+                    }),
+                    getSalesReportSummary({
+                        mode: dataMode,
+                        warehouseId: selectedWarehouseId === 'all' ? null : selectedWarehouseId,
+                    }),
+                ]);
+                if (!mounted) return;
+                setRows(Array.isArray(listRows) ? listRows : []);
+                setSummaryFromApi(summary);
+            } catch (err) {
+                if (!mounted) return;
+                setRows([]);
+                setSummaryFromApi(null);
+                setLoadError(err?.message || 'Khong the tai bao cao doanh so.');
+            } finally {
+                if (mounted) setIsLoading(false);
+            }
+        })();
+        return () => { mounted = false; };
+    }, [dataMode, quickFilter, searchTerm, selectedWarehouseId]);
+
     // Lấy danh sách năm có trong dữ liệu
     const availableYears = useMemo(() => {
-        const years = [...new Set(MOCK_DATA.filter(r => r.level === LEVEL.YEAR).map(r => r.periodLabel))];
+        const years = [...new Set(reportRows.filter(r => r.level === LEVEL.YEAR).map(r => r.periodLabel))];
         return years.sort((a, b) => b - a);
-    }, [MOCK_DATA]);
+    }, [reportRows]);
+
+    useEffect(() => {
+        if (!availableYears.length) return;
+        if (!availableYears.includes(chartYear)) {
+            setChartYear(availableYears[0]);
+        }
+    }, [availableYears, chartYear]);
 
     // Column management
     const [columnOrder, setColumnOrder] = useState(() => {
@@ -476,8 +544,8 @@ export default function Viewsalesreportlist() {
 
     const filteredData = useMemo(() => {
         let data = searchTerm.trim()
-            ? MOCK_DATA.filter(row => row.periodLabel.toLowerCase().includes(searchTerm.toLowerCase()))
-            : MOCK_DATA;
+            ? reportRows.filter(row => row.periodLabel.toLowerCase().includes(searchTerm.toLowerCase()))
+            : reportRows;
         if (quickFilter !== 'all') {
             data = data.filter(r => {
                 if (quickFilter === 'positive') return r.change > 0;
@@ -486,25 +554,25 @@ export default function Viewsalesreportlist() {
             });
         }
         return data;
-    }, [searchTerm, quickFilter, MOCK_DATA]);
+    }, [searchTerm, quickFilter, reportRows]);
 
     // ── Chart data ────────────────────────────────────────────────────────────
     const chartData = useMemo(() => {
-        const yearRow = MOCK_DATA.find(r => r.level === LEVEL.YEAR && r.periodLabel === chartYear);
+        const yearRow = reportRows.find(r => r.level === LEVEL.YEAR && r.periodLabel === chartYear);
         const parentId = yearRow?.id;
-        let rows = MOCK_DATA;
+        let rows = reportRows;
         if (chartLevel === LEVEL.QUARTER) {
-            rows = MOCK_DATA.filter(r => r.level === LEVEL.QUARTER && r.parentId === parentId);
+            rows = reportRows.filter(r => r.level === LEVEL.QUARTER && r.parentId === parentId);
         } else if (chartLevel === LEVEL.MONTH) {
             // Lấy các quarter thuộc năm đang chọn
-            const quartersOfYear = MOCK_DATA.filter(r => r.level === LEVEL.QUARTER && r.parentId === parentId);
+            const quartersOfYear = reportRows.filter(r => r.level === LEVEL.QUARTER && r.parentId === parentId);
             const quarterIds = new Set(quartersOfYear.map(q => q.id));
-            rows = MOCK_DATA.filter(r => r.level === LEVEL.MONTH && quarterIds.has(r.parentId));
+            rows = reportRows.filter(r => r.level === LEVEL.MONTH && quarterIds.has(r.parentId));
         } else {
-            rows = MOCK_DATA.filter(r => r.level === LEVEL.YEAR);
+            rows = reportRows.filter(r => r.level === LEVEL.YEAR);
         }
         return rows.map(row => {
-            const { compGrowth } = getComputedComparison(row, MOCK_DATA);
+            const { compGrowth } = getComputedComparison(row, reportRows);
             let shortLabel = row.periodLabel;
             if (chartLevel === LEVEL.QUARTER) shortLabel = row.periodLabel.replace('Quý ', 'Q').replace(' / ', '/');
             if (chartLevel === LEVEL.MONTH) shortLabel = row.periodLabel.replace('Tháng ', '').replace(' / ', '/');
@@ -519,14 +587,14 @@ export default function Viewsalesreportlist() {
                 qtyInbound:    row.grnQty     || 0,
             };
         });
-    }, [chartLevel, chartYear, MOCK_DATA]);
+    }, [chartLevel, chartYear, reportRows]);
 
     // ── Tree rows ─────────────────────────────────────────────────────────────
     const treeRows = useMemo(() => {
         const result = [];
         const idSet = new Set(filteredData.map(r => r.id));
         filteredData.forEach(row => {
-            const { compPrev, compChange, compGrowth } = getComputedComparison(row, MOCK_DATA);
+            const { compPrev, compChange, compGrowth } = getComputedComparison(row, reportRows);
             if (row.level === LEVEL.YEAR) {
                 result.push({ ...row, depth: 0, hasChildren: filteredData.some(r => r.parentId === row.id && idSet.has(r.id)), compPrev, compChange, compGrowth });
             } else if (row.level === LEVEL.QUARTER) {
@@ -543,10 +611,11 @@ export default function Viewsalesreportlist() {
             }
         });
         return result;
-    }, [filteredData, expandedIds, MOCK_DATA]);
+    }, [filteredData, expandedIds, reportRows]);
 
     // ── Summary totals ────────────────────────────────────────────────────────
     const summaryTotals = useMemo(() => {
+        if (summaryFromApi) return summaryFromApi;
         const years = filteredData.filter(r => r.level === LEVEL.YEAR);
         return {
             totalSales: years.reduce((s, r) => s + r.totalValue, 0),
@@ -555,7 +624,7 @@ export default function Viewsalesreportlist() {
             totalGrnNotes: years.reduce((s, r) => s + (r.grnNotes || 0), 0),
             totalGrnQty:   years.reduce((s, r) => s + (r.grnQty   || 0), 0),
         };
-    }, [filteredData]);
+    }, [filteredData, summaryFromApi]);
 
     // ── Handlers ───────────────────────────────────────────────────────────────
     const handleWarehouseChange = useCallback((e) => {
@@ -624,6 +693,16 @@ export default function Viewsalesreportlist() {
                 <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '12px', mt: 0.5, fontWeight: 400 }}>
                     Theo dõi số liệu xuất/nhập hàng thực tế theo Năm, Quý, Tháng
                 </Typography>
+                {isLoading && (
+                    <Typography variant="body2" sx={{ color: '#0284c7', fontSize: '12px', mt: 0.5, fontWeight: 500 }}>
+                        Dang tai du lieu tu API...
+                    </Typography>
+                )}
+                {loadError && (
+                    <Typography variant="body2" sx={{ color: '#dc2626', fontSize: '12px', mt: 0.5, fontWeight: 500 }}>
+                        {loadError}
+                    </Typography>
+                )}
 
                 {/* Summary Cards */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 2.5, flexWrap: 'wrap' }}>
@@ -848,7 +927,7 @@ export default function Viewsalesreportlist() {
                                     onChange={handleWarehouseChange}
                                     displayEmpty
                                     renderValue={(val) => {
-                                        const w = MOCK_WAREHOUSES.find(x => String(x.id) === String(val));
+                                        const w = warehouseOptions.find(x => String(x.id) === String(val));
                                         return (
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
                                                 <WarehouseIcon size={14} color="#6b7280" />
@@ -869,7 +948,7 @@ export default function Viewsalesreportlist() {
                                         PaperProps: { sx: { mt: 0.5, borderRadius: '10px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' } },
                                     }}
                                 >
-                                    {MOCK_WAREHOUSES.map(w => (
+                                    {warehouseOptions.map(w => (
                                         <MenuItem key={w.id} value={w.id} sx={{ fontSize: '13px', py: 1 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
                                                 <WarehouseIcon size={14} color={w.id === 'all' ? '#6b7280' : '#0284c7'} />

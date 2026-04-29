@@ -15,6 +15,8 @@ function mapCategoryRow(row) {
         parentId: row.parentId ?? row.ParentId ?? null,
         parentName: row.parentName ?? row.ParentName ?? null,
         isActive: row.isActive ?? row.IsActive ?? true,
+        /** Số vật tư gán danh mục (API: itemCount / ItemCount) */
+        itemCount: Number(row.itemCount ?? row.ItemCount ?? 0),
     };
 }
 

@@ -171,6 +171,14 @@ namespace Warehouse.DataAcces.Service
             // 10. Tạo các dòng vật tư và thực hiện giữ hàng (ReservedQty)
             foreach (var line in request.Lines)
             {
+                if (line.UnitPrice.HasValue
+                    && unitCostsDb.TryGetValue(line.ItemId, out var weightedAvgCost)
+                    && line.UnitPrice.Value < weightedAvgCost)
+                {
+                    throw new InvalidOperationException(
+                        $"Đơn giá của vật tư '{items[line.ItemId].ItemName}' không được nhỏ hơn giá bình quân gia quyền ({weightedAvgCost}).");
+                }
+
                 decimal unitPrice = line.UnitPrice ?? (unitCostsDb.TryGetValue(line.ItemId, out var cost) ? cost : 0);
 
                 var rrLine = new ReleaseRequestLine
@@ -442,6 +450,7 @@ namespace Warehouse.DataAcces.Service
                     Note = l.Note,
                     ApprovedQty = l.ApprovedQty,
                     AllocatedQty = l.AllocatedQty,
+                    IssuedQty = l.IssuedQty,
                     LineStatus = l.LineStatus,
                     StockQty = stockQtys.TryGetValue(l.ItemId, out var sq) ? sq : 0,
                     CostPrice = costPrices.TryGetValue(l.ItemId, out var cp) ? cp : 0,
@@ -575,10 +584,7 @@ namespace Warehouse.DataAcces.Service
 
                     // Kiểm tra hồ sơ bắt buộc khi gửi duyệt (Kiểm tra trong database)
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a =>
-                        a.DocType == "GIR"
-                        && a.DocId == id
-                        && (a.AttachmentType == "CO" || a.AttachmentType == "CONTRACT"));
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
 
                     if (!hasQuotation) throw new InvalidOperationException("Vui lòng tải lên tài liệu Báo giá trước khi gửi duyệt.");
                     if (!hasContract) throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi gửi duyệt.");
@@ -668,6 +674,17 @@ namespace Warehouse.DataAcces.Service
                 // 9b. Cập nhật dòng cũ + thêm dòng mới
                 foreach (var lineReq in request.Lines)
                 {
+                    if (lineReq.UnitPrice.HasValue
+                        && unitCostsDb.TryGetValue(lineReq.ItemId, out var weightedAvgCost)
+                        && lineReq.UnitPrice.Value < weightedAvgCost)
+                    {
+                        var itemName = items.TryGetValue(lineReq.ItemId, out var item)
+                            ? item.ItemName
+                            : $"ID {lineReq.ItemId}";
+                        throw new InvalidOperationException(
+                            $"Đơn giá của vật tư '{itemName}' không được nhỏ hơn giá bình quân gia quyền ({weightedAvgCost}).");
+                    }
+
                     decimal unitPrice = lineReq.UnitPrice ?? (unitCostsDb.TryGetValue(lineReq.ItemId, out var cost) ? cost : 0);
 
                     if (lineReq.ReleaseRequestLineId.HasValue && lineReq.ReleaseRequestLineId > 0)
@@ -1017,10 +1034,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     // Kiểm tra hồ sơ bắt buộc khi duyệt
                     var hasQuotation = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "QUOTATION");
-                    var hasContract = await _context.DocumentAttachments.AnyAsync(a =>
-                        a.DocType == "GIR"
-                        && a.DocId == id
-                        && (a.AttachmentType == "CO" || a.AttachmentType == "CONTRACT"));
+                    var hasContract = await _context.DocumentAttachments.AnyAsync(a => a.DocType == "GIR" && a.DocId == id && a.AttachmentType == "CONTRACT");
 
                     if (!hasQuotation) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Báo giá.");
                     if (!hasContract) throw new InvalidOperationException("Không thể duyệt: Thiếu tài liệu Hợp đồng.");
@@ -1126,7 +1140,7 @@ namespace Warehouse.DataAcces.Service
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
         }
 
-        public async Task<byte[]> ExportQuotationExcelAsync(long id, long userId)
+        public async Task<byte[]> ExportQuotationExcelAsync(long id, long userId, ExportRrQuotationExcelRequest request)
         {
             var rr = await GetReleaseRequestByIdAsync(id)
                 ?? throw new KeyNotFoundException("Không tìm thấy yêu cầu xuất kho.");
@@ -1143,33 +1157,50 @@ namespace Warehouse.DataAcces.Service
             var vatPercent = _configuration.GetValue("Quotation:VatPercent", 8m);
             if (vatPercent < 0 || vatPercent > 100)
                 vatPercent = 8m;
+            var quoteNo = string.IsNullOrWhiteSpace(request?.QuotationNo)
+                ? throw new InvalidOperationException("Vui lòng nhập Số báo giá.")
+                : request.QuotationNo.Trim();
+            var notes = NormalizeQuotationNotes(request?.Notes);
 
             using var templateStream = File.OpenRead(templatePath);
             using var workbook = new XLWorkbook(templateStream);
             var ws = workbook.Worksheets.First();
+            ApplyQuotationStampOverlay(ws);
 
-            // Chèn cột ItemCode trước cột "Tên hàng" (B cũ → C)
-            ws.Column(2).InsertColumnsBefore(1);
-            ws.Cell("B19").Value = "Mã hàng (ItemCode)";
+            // Giữ nguyên bố cục tổng thể của template (không chèn cột toàn sheet để tránh lệch chữ ký/dấu).
+            // Chỉ tách vùng bảng hàng: B = Mã hàng, C:E = Tên hàng.
+            ws.Range("B19:E19").Unmerge();
+            ws.Cell("B19").Value = "Mã sản phẩm";
+            ws.Range("C19:E19").Merge();
+            ws.Cell("C19").Value = "Tên hàng hóa sản phẩm";
 
             var customer = !string.IsNullOrWhiteSpace(rr.Receiver?.CompanyName)
                 ? rr.Receiver!.CompanyName!.Trim()
                 : (rr.Receiver?.ReceiverName ?? string.Empty).Trim();
-            // Ô khách hàng dịch sang D sau khi chèn cột
-            ws.Cell("D12").Value = customer;
+            ws.Cell("C12").Value = customer;
 
             var draftLocal = ToVietnamLocal(rr.CreatedAt);
-            ws.Cell("A9").Value = $"Ngày: {draftLocal:dd/MM/yyyy}";
-            ws.Cell("A10").Value = $"Số: {rr.ReleaseRequestCode}";
+            ws.Cell("A9").Value = $"Số: {quoteNo}";
+            ws.Cell("A10").Value = $"Ngày: {draftLocal:dd/MM/yyyy}";
+            // Metadata để validate import đúng RR (ẩn với người dùng).
+            ws.Cell("Z1").Value = rr.ReleaseRequestCode ?? string.Empty;
+            ws.Column("Z").Hide();
 
             const int templateFirstDataRow = 20;
             const int templateFirstTotalRow = 22;
             var lineCount = lines.Count;
+            var rowShift = 0;
 
             if (lineCount == 1)
+            {
                 ws.Row(21).Delete();
+                rowShift = -1;
+            }
             else if (lineCount > 2)
+            {
                 ws.Row(templateFirstTotalRow).InsertRowsAbove(lineCount - 2);
+                rowShift = lineCount - 2;
+            }
 
             var firstDataRow = templateFirstDataRow;
             var lastDataRow = templateFirstDataRow + lineCount - 1;
@@ -1184,35 +1215,138 @@ namespace Warehouse.DataAcces.Service
 
                 ws.Cell(r, 1).Value = i + 1;
                 ws.Cell(r, 2).Value = line.ItemCode ?? string.Empty;
-                ws.Range(ws.Cell(r, 3), ws.Cell(r, 6)).Merge();
+                ws.Range(ws.Cell(r, 2), ws.Cell(r, 5)).Unmerge();
+                ws.Range(ws.Cell(r, 3), ws.Cell(r, 5)).Merge();
                 ws.Cell(r, 3).Value = line.ItemName ?? string.Empty;
-                ws.Cell(r, 7).Value = FormatUomForQuotationExcel(line.UomName);
-                ws.Cell(r, 8).Value = line.RequestedQty;
+                ws.Cell(r, 6).Value = FormatUomForQuotationExcel(line.UomName);
+                ws.Cell(r, 7).Value = line.RequestedQty;
                 var price = line.UnitPrice ?? 0;
-                ws.Cell(r, 9).Value = price;
-                ws.Cell(r, 10).FormulaA1 = $"I{r}*H{r}";
+                ws.Cell(r, 8).Value = price;
+                ws.Cell(r, 9).FormulaA1 = $"H{r}*G{r}";
             }
 
-            // Tổng / VAT / sau thuế — cột thành tiền là J (10)
-            ws.Range(ws.Cell(subtotalRow, 3), ws.Cell(subtotalRow, 9)).Merge();
+            // Tổng / VAT / sau thuế — cột thành tiền là I (9), nhãn tổng ở C:H.
+            ws.Range(ws.Cell(subtotalRow, 2), ws.Cell(subtotalRow, 8)).Unmerge();
+            ws.Range(ws.Cell(subtotalRow, 3), ws.Cell(subtotalRow, 8)).Merge();
             ws.Cell(subtotalRow, 3).Value = "Tổng tiền hàng (VND)";
-            ws.Cell(subtotalRow, 10).FormulaA1 = $"SUM(J{firstDataRow}:J{lastDataRow})";
+            ws.Cell(subtotalRow, 9).FormulaA1 = $"SUM(I{firstDataRow}:I{lastDataRow})";
 
-            ws.Range(ws.Cell(vatRow, 3), ws.Cell(vatRow, 9)).Merge();
+            ws.Range(ws.Cell(vatRow, 2), ws.Cell(vatRow, 8)).Unmerge();
+            ws.Range(ws.Cell(vatRow, 3), ws.Cell(vatRow, 8)).Merge();
             ws.Cell(vatRow, 3).Value = $"Thuế VAT {vatPercent}%";
             var vatFactor = (vatPercent / 100m).ToString(CultureInfo.InvariantCulture);
-            ws.Cell(vatRow, 10).FormulaA1 = $"J{subtotalRow}*{vatFactor}";
+            ws.Cell(vatRow, 9).FormulaA1 = $"I{subtotalRow}*{vatFactor}";
 
-            ws.Range(ws.Cell(grandRow, 3), ws.Cell(grandRow, 9)).Merge();
+            ws.Range(ws.Cell(grandRow, 2), ws.Cell(grandRow, 8)).Unmerge();
+            ws.Range(ws.Cell(grandRow, 3), ws.Cell(grandRow, 8)).Merge();
             ws.Cell(grandRow, 3).Value = "Tổng giá trị sau thuế (VND)";
-            ws.Cell(grandRow, 10).FormulaA1 = $"J{subtotalRow}+J{vatRow}";
+            ws.Cell(grandRow, 9).FormulaA1 = $"I{subtotalRow}+I{vatRow}";
+
+            // Vùng ghi chú gốc bắt đầu tại A27; cần dịch theo số dòng đã chèn/xóa phía trên.
+            ApplyCustomQuotationNotes(ws, notes, 27 + rowShift);
 
             using var ms = new MemoryStream();
             workbook.SaveAs(ms);
             return ms.ToArray();
         }
 
+        private static List<(string Title, string Detail)> NormalizeQuotationNotes(List<RrQuotationNoteItemRequest>? notes)
+        {
+            const int maxNotes = 4;
+            if (notes == null || notes.Count == 0)
+                throw new InvalidOperationException("Vui lòng nhập ít nhất 1 ghi chú báo giá.");
+            if (notes.Count > maxNotes)
+                throw new InvalidOperationException($"Chỉ hỗ trợ tối đa {maxNotes} ghi chú báo giá (A27:A30).");
+
+            var normalized = notes
+                .Select((n, idx) => new
+                {
+                    Index = idx + 1,
+                    Title = n?.Title?.Trim() ?? string.Empty,
+                    Detail = n?.Detail?.Trim() ?? string.Empty
+                })
+                .ToList();
+
+            var invalid = normalized.FirstOrDefault(x => string.IsNullOrWhiteSpace(x.Title) || string.IsNullOrWhiteSpace(x.Detail));
+            if (invalid != null)
+                throw new InvalidOperationException($"Ghi chú dòng {invalid.Index} phải có đủ tiêu đề và nội dung.");
+
+            return normalized.Select(x => (x.Title, x.Detail)).ToList();
+        }
+
+        private static void ApplyCustomQuotationNotes(IXLWorksheet ws, List<(string Title, string Detail)> notes, int firstNoteRow)
+        {
+            const int fixedNoteRows = 4; // A27:A30
+            var noteCount = Math.Min(notes.Count, fixedNoteRows);
+
+            for (var i = 0; i < noteCount; i++)
+            {
+                var row = firstNoteRow + i;
+                var (title, detail) = notes[i];
+                ws.Range(row, 1, row, 3).Unmerge();
+                ws.Range(row, 4, row, 9).Unmerge();
+                ws.Range(row, 4, row, 9).Merge();
+                ws.Cell(row, 1).Value = title;
+                var detailCell = ws.Cell(row, 4);
+                detailCell.Value = detail;
+                detailCell.Style.Alignment.WrapText = true;
+                detailCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+
+                // Excel thường không auto-fit đúng chiều cao cho ô đã merge.
+                // Tính gần đúng số dòng hiển thị để tăng chiều cao row tương ứng.
+                var estimatedLines = EstimateWrappedLineCount(detail);
+                var baseHeight = ws.Row(row).Height > 0 ? ws.Row(row).Height : 15d;
+                var targetHeight = Math.Max(baseHeight, 18d + ((estimatedLines - 1) * 14d));
+                ws.Row(row).Height = targetHeight;
+            }
+
+            // Xóa sạch phần ghi chú mẫu còn dư theo đúng vùng cố định A27:A30.
+            for (var row = firstNoteRow + noteCount; row < firstNoteRow + fixedNoteRows; row++)
+            {
+                ws.Range(row, 1, row, 3).Unmerge();
+                ws.Range(row, 4, row, 9).Unmerge();
+                ws.Range(row, 4, row, 9).Merge();
+                ws.Cell(row, 1).Value = string.Empty;
+                ws.Cell(row, 4).Value = string.Empty;
+                ws.Row(row).Height = 15d;
+            }
+        }
+
+        private static int EstimateWrappedLineCount(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return 1;
+
+            const int charsPerVisualLine = 68;
+            var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
+            var physicalLines = normalized.Split('\n');
+
+            var total = 0;
+            foreach (var line in physicalLines)
+            {
+                var len = line.Length;
+                total += Math.Max(1, (int)Math.Ceiling(len / (double)charsPerVisualLine));
+            }
+            return Math.Max(1, total);
+        }
+
         private string? ResolveQuotationTemplatePath() => ResolveQuotationTemplatePathFromConfig(_configuration);
+
+        private void ApplyQuotationStampOverlay(IXLWorksheet ws)
+        {
+            var stampPath = ResolveQuotationStampPathFromConfig(_configuration);
+            if (string.IsNullOrWhiteSpace(stampPath) || !File.Exists(stampPath))
+                return;
+
+            var configuredScale = _configuration.GetValue("Quotation:StampScale", 0.95d);
+            var scale = configuredScale < 0.2d || configuredScale > 3d ? 0.95d : configuredScale;
+
+            // Overlay con dấu mới tại khu vực ký bên phải của mẫu báo giá.
+            // Dùng overlay để giữ nguyên bố cục template hiện tại.
+            ws.AddPicture(stampPath)
+                .MoveTo(ws.Cell("H35"))
+                .Scale(scale);
+        }
 
         private static string? ResolveQuotationTemplatePathFromConfig(IConfiguration configuration)
         {
@@ -1226,6 +1360,22 @@ namespace Warehouse.DataAcces.Service
                 Path.Combine(baseDir, "wwwroot", "templates", "Mau-bao-gia-MK.xlsx"),
                 Path.Combine(baseDir, "Templates", "Mau-bao-gia-MK.xlsx"),
                 Path.Combine(baseDir, "Mau-bao-gia-MK.xlsx"),
+            };
+            return candidates.FirstOrDefault(File.Exists);
+        }
+
+        private static string? ResolveQuotationStampPathFromConfig(IConfiguration configuration)
+        {
+            var cfg = configuration["Quotation:StampImagePath"];
+            if (!string.IsNullOrWhiteSpace(cfg) && File.Exists(cfg))
+                return cfg;
+
+            var baseDir = AppContext.BaseDirectory;
+            var candidates = new[]
+            {
+                Path.Combine(baseDir, "wwwroot", "templates", "quotation-stamp.png"),
+                Path.Combine(baseDir, "Templates", "quotation-stamp.png"),
+                Path.Combine(baseDir, "quotation-stamp.png"),
             };
             return candidates.FirstOrDefault(File.Exists);
         }
@@ -1346,7 +1496,11 @@ namespace Warehouse.DataAcces.Service
             if (rr.Status != "DRAFT" || !rr.IsQuotationFlow)
                 throw new InvalidOperationException("Chỉ gửi báo giá khi RR đang ở trạng thái DRAFT và bật luồng báo giá.");
 
-            var excelBytes = await ExportQuotationExcelAsync(id, userId);
+            var excelBytes = await ExportQuotationExcelAsync(id, userId, new ExportRrQuotationExcelRequest
+            {
+                QuotationNo = request.QuotationNo,
+                Notes = request.Notes
+            });
             var fileName = $"{rr.ReleaseRequestCode}-quotation.xlsx";
 
             var smtpSection = _configuration.GetSection("Smtp");
@@ -1433,9 +1587,54 @@ namespace Warehouse.DataAcces.Service
 
             using var ms = new MemoryStream();
             await file.CopyToAsync(ms);
-            ms.Position = 0;
+            var fileBytes = ms.ToArray();
+            if (fileBytes.Length < 4
+                || fileBytes[0] != (byte)'P'
+                || fileBytes[1] != (byte)'K')
+            {
+                throw new InvalidOperationException(
+                    "File import không đúng định dạng .xlsx hợp lệ. Vui lòng dùng file Excel do hệ thống xuất ra.");
+            }
 
-            using var wb = new XLWorkbook(ms);
+            XLWorkbook wb;
+            try
+            {
+                wb = new XLWorkbook(new MemoryStream(fileBytes, writable: false));
+            }
+            catch (Exception ex) when (ex.Message.Contains("Bad binary signature", StringComparison.OrdinalIgnoreCase))
+            {
+                // Fallback: một số workbook mở được trên Excel nhưng ClosedXML có thể lỗi khi load trực tiếp từ stream.
+                // Thử lại bằng file tạm trên đĩa để tăng khả năng tương thích.
+                var tempPath = Path.Combine(Path.GetTempPath(), $"rr-import-{Guid.NewGuid():N}.xlsx");
+                try
+                {
+                    await File.WriteAllBytesAsync(tempPath, fileBytes);
+                    wb = new XLWorkbook(tempPath);
+                }
+                catch
+                {
+                    throw new InvalidOperationException(
+                        "Không thể đọc file import. Vui lòng dùng đúng file Excel (.xlsx) do hệ thống xuất ra và thử lại.");
+                }
+                finally
+                {
+                    try
+                    {
+                        if (File.Exists(tempPath)) File.Delete(tempPath);
+                    }
+                    catch
+                    {
+                        // Bỏ qua lỗi xóa file tạm
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "File import không hợp lệ hoặc đã bị hỏng. Vui lòng kiểm tra lại file Excel rồi thử lại.", ex);
+            }
+            using (wb)
+            {
             var ws = wb.Worksheets.FirstOrDefault() ?? throw new InvalidOperationException("File Excel không hợp lệ.");
 
             var headerRow = 5;
@@ -1447,7 +1646,8 @@ namespace Warehouse.DataAcces.Service
             var b19 = ws.Cell(19, 2).GetString().Trim();
             if (a19.Contains("STT", StringComparison.OrdinalIgnoreCase)
                 && (b19.Contains("ItemCode", StringComparison.OrdinalIgnoreCase)
-                    || b19.Contains("Mã hàng", StringComparison.OrdinalIgnoreCase)))
+                    || b19.Contains("Mã hàng", StringComparison.OrdinalIgnoreCase)
+                    || b19.Contains("Mã sản phẩm", StringComparison.OrdinalIgnoreCase)))
             {
                 headerRow = 19;
                 dataStart = 20;
@@ -1465,6 +1665,18 @@ namespace Warehouse.DataAcces.Service
             var lineByItemCode = rr.ReleaseRequestLines
                 .Where(l => l.Item != null && !string.IsNullOrWhiteSpace(l.Item.ItemCode))
                 .ToDictionary(l => l.Item!.ItemCode, l => l, StringComparer.OrdinalIgnoreCase);
+
+            var embeddedRrCode = ws.Cell("Z1").GetString().Trim();
+            if (string.IsNullOrWhiteSpace(embeddedRrCode))
+            {
+                throw new InvalidOperationException(
+                    "File import không đúng định dạng do hệ thống xuất ra. Vui lòng dùng đúng file Excel báo giá đã export từ RR.");
+            }
+            if (!string.Equals(embeddedRrCode, rr.ReleaseRequestCode, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Báo giá này thuộc yêu cầu '{embeddedRrCode}', không phải '{rr.ReleaseRequestCode}'. Vui lòng kiểm tra lại.");
+            }
 
             while (row < 5000)
             {
@@ -1501,6 +1713,7 @@ namespace Warehouse.DataAcces.Service
 
             return await GetReleaseRequestByIdAsync(id)
                 ?? throw new Exception("Lỗi khi lấy thông tin yêu cầu xuất kho.");
+            }
         }
 
         public async Task<ReleaseRequestDetailResponse> ConfirmQuotationAsync(long id, long userId, ConfirmRrQuotationRequest request)
@@ -1510,7 +1723,11 @@ namespace Warehouse.DataAcces.Service
             if (rr.Status != "DRAFT" || !rr.IsQuotationFlow)
                 throw new InvalidOperationException("Chỉ chốt báo giá khi RR DRAFT và thuộc luồng báo giá.");
 
-            var excelBytes = await ExportQuotationExcelAsync(id, userId);
+            var excelBytes = await ExportQuotationExcelAsync(id, userId, new ExportRrQuotationExcelRequest
+            {
+                QuotationNo = request.QuotationNo,
+                Notes = request.Notes
+            });
             await ReplaceGirQuotationAttachmentAsync(id, userId, rr.ReleaseRequestCode, excelBytes);
 
             rr.QuotationStatus = "CONFIRMED";

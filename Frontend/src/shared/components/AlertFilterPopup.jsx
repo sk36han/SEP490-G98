@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Box, Paper, Typography, TextField, Autocomplete } from '@mui/material';
 import {
     ListFilterPopupShell,
@@ -7,75 +7,105 @@ import {
     LIST_FILTER_LABEL_SX,
 } from './listFilterPopup';
 
-const ALL_DATA = [
-    { alertId: 'AL-001', itemCode: 'SKU-001', itemName: 'Sữa tươi Vinamilk 180ml', warehouseName: 'Kho Tổng Hà Nội', createdBy: 'Nguyễn Văn Minh' },
-    { alertId: 'AL-002', itemCode: 'SKU-002', itemName: 'Nước suối Aquafina 500ml', warehouseName: 'Kho Tổng Hà Nội', createdBy: 'Trần Thị Lan' },
-    { alertId: 'AL-003', itemCode: 'SKU-003', itemName: 'Mì Hảo Hảo Tôm chua cay', warehouseName: 'Kho Tổng Hà Nội', createdBy: 'Lê Hoàng Nam' },
-    { alertId: 'AL-004', itemCode: 'SKU-004', itemName: 'Gạo ST25 (Túi 5kg)', warehouseName: 'Kho Quận 9', createdBy: 'Phạm Thị Hương' },
-    { alertId: 'AL-005', itemCode: 'SKU-005', itemName: 'Dầu ăn Tường An 1L', warehouseName: 'Kho Quận 9', createdBy: 'Nguyễn Văn Minh' },
-    { alertId: 'AL-006', itemCode: 'SKU-006', itemName: 'Bánh Oreo vani 133g', warehouseName: 'Kho Tổng Hà Nội', createdBy: 'Trần Thị Lan' },
-    { alertId: 'AL-007', itemCode: 'SKU-007', itemName: 'Bia Tiger lon 330ml', warehouseName: 'Kho Sài Gòn', createdBy: 'Lê Hoàng Nam' },
-    { alertId: 'AL-008', itemCode: 'SKU-008', itemName: 'Trứng gà ta (vỉ 10)', warehouseName: 'Kho Sài Gòn', createdBy: 'Phạm Thị Hương' },
-    { alertId: 'AL-009', itemCode: 'SKU-009', itemName: 'Xúc xích Vissan 500g', warehouseName: 'Kho Tổng Hà Nội', createdBy: 'Nguyễn Văn Minh' },
-    { alertId: 'AL-010', itemCode: 'SKU-010', itemName: 'Sữa đặc Ông Thọ 397g', warehouseName: 'Kho Quận 9', createdBy: 'Trần Thị Lan' },
-    { alertId: 'AL-011', itemCode: 'SKU-011', itemName: 'Cà phê G7 3in1', warehouseName: 'Kho Tổng Hà Nội', createdBy: 'Lê Hoàng Nam' },
-    { alertId: 'AL-012', itemCode: 'SKU-012', itemName: 'Nước mắm Nam Ngư 500ml', warehouseName: 'Kho Sài Gòn', createdBy: 'Phạm Thị Hương' },
-    { alertId: 'AL-013', itemCode: 'SKU-013', itemName: 'Gói tương ăn liền 200g', warehouseName: 'Kho Quận 9', createdBy: 'Nguyễn Văn Minh' },
-    { alertId: 'AL-014', itemCode: 'SKU-014', itemName: 'Tã dán newborn (pack 40)', warehouseName: 'Kho Tổng Hà Nội', createdBy: 'Trần Thị Lan' },
-    { alertId: 'AL-015', itemCode: 'SKU-015', itemName: 'Nước rửa chén Sunlight 750ml', warehouseName: 'Kho Sài Gòn', createdBy: 'Lê Hoàng Nam' },
-];
-
-const WAREHOUSE_OPTIONS = [
-    { value: '', label: 'Tất cả' },
-    { value: 'WH-001', label: 'Kho Tổng Hà Nội' },
-    { value: 'WH-002', label: 'Kho Quận 9' },
-    { value: 'WH-003', label: 'Kho Sài Gòn' },
-];
-
-export default function AlertFilterPopup({ open, onClose, initialValues = {}, onApply }) {
+/**
+ * Bộ lọc cảnh báo tồn kho — dữ liệu gợi ý lấy từ policyRows + warehouses (không mock).
+ *
+ * @param {Object} props
+ * @param {boolean} props.open
+ * @param {() => void} props.onClose
+ * @param {Record<string, unknown>} [props.initialValues]
+ * @param {(values: Record<string, string|undefined>) => void} props.onApply
+ * @param {Array<{ warehouseId?: number, warehouseName?: string }>} [props.warehouses]
+ * @param {Array<{ itemCode?: string, itemName?: string, warehouseName?: string }>} [props.policyRows]
+ */
+export default function AlertFilterPopup({
+    open,
+    onClose,
+    initialValues = {},
+    onApply,
+    warehouses = [],
+    policyRows = [],
+}) {
     const [itemCode, setItemCode] = useState('');
     const [itemName, setItemName] = useState('');
-    const [warehouseOption, setWarehouseOption] = useState(WAREHOUSE_OPTIONS[0]);
-    const [createdBy, setCreatedBy] = useState('');
+    const [warehouseOption, setWarehouseOption] = useState({ value: '', label: 'Tất cả' });
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
 
-    const itemCodeOptions = [...new Set(ALL_DATA.map((d) => d.itemCode))].map((v) => ({ label: v }));
-    const itemNameOptions = ALL_DATA.map((d) => ({ label: d.itemName, sub: d.itemCode }));
-    const createdByOptions = [...new Set(ALL_DATA.map((d) => d.createdBy))].map((v) => ({ label: v }));
+    const warehouseOptions = useMemo(() => {
+        const base = [{ value: '', label: 'Tất cả' }];
+        const rows = Array.isArray(warehouses) ? warehouses : [];
+        const seen = new Set();
+        rows.forEach((w) => {
+            const name = w?.warehouseName ?? '';
+            if (!name || seen.has(name)) return;
+            seen.add(name);
+            base.push({
+                value: String(w.warehouseId ?? ''),
+                label: name,
+            });
+        });
+        return base;
+    }, [warehouses]);
+
+    const itemCodeOptions = useMemo(() => {
+        const codes = new Set();
+        (Array.isArray(policyRows) ? policyRows : []).forEach((r) => {
+            const c = r?.itemCode;
+            if (c != null && String(c).trim() !== '') codes.add(String(c).trim());
+        });
+        return [...codes].sort((a, b) => a.localeCompare(b, 'vi')).map((label) => ({ label }));
+    }, [policyRows]);
+
+    const itemNameOptions = useMemo(() => {
+        const list = [];
+        const seen = new Set();
+        (Array.isArray(policyRows) ? policyRows : []).forEach((r) => {
+            const name = r?.itemName;
+            if (name == null || String(name).trim() === '') return;
+            const label = String(name).trim();
+            if (seen.has(label)) return;
+            seen.add(label);
+            list.push({
+                label,
+                sub: r?.itemCode != null ? String(r.itemCode) : '',
+            });
+        });
+        list.sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+        return list;
+    }, [policyRows]);
 
     useEffect(() => {
         if (!open) return;
         setItemCode(initialValues.itemCode ?? '');
         setItemName(initialValues.itemName ?? '');
-        setWarehouseOption(WAREHOUSE_OPTIONS.find((o) => o.label === (initialValues.warehouseName ?? 'Tất cả')) ?? WAREHOUSE_OPTIONS[0]);
-        setCreatedBy(initialValues.createdBy ?? '');
+        const whLabel = initialValues.warehouseName;
+        const match = warehouseOptions.find((o) => o.label === (whLabel ?? 'Tất cả'));
+        setWarehouseOption(match ?? warehouseOptions[0] ?? { value: '', label: 'Tất cả' });
         setFromDate(initialValues.fromDate ?? '');
         setToDate(initialValues.toDate ?? '');
-    }, [open, initialValues]);
+    }, [open, initialValues, warehouseOptions]);
 
     const handleApply = useCallback(() => {
         onApply({
             itemCode: itemCode || undefined,
             itemName: itemName || undefined,
             warehouseName: warehouseOption.label !== 'Tất cả' ? warehouseOption.label : undefined,
-            createdBy: createdBy || undefined,
             fromDate: fromDate || undefined,
             toDate: toDate || undefined,
         });
         onClose();
-    }, [itemCode, itemName, warehouseOption, createdBy, fromDate, toDate, onApply, onClose]);
+    }, [itemCode, itemName, warehouseOption, fromDate, toDate, onApply, onClose]);
 
     const handleClear = useCallback(() => {
         setItemCode('');
         setItemName('');
-        setWarehouseOption(WAREHOUSE_OPTIONS[0]);
-        setCreatedBy('');
+        setWarehouseOption(warehouseOptions[0] ?? { value: '', label: 'Tất cả' });
         setFromDate('');
         setToDate('');
         onApply({});
         onClose();
-    }, [onApply, onClose]);
+    }, [warehouseOptions, onApply, onClose]);
 
     return (
         <ListFilterPopupShell open={open} onClose={onClose} onClear={handleClear} onApply={handleApply} width={360}>
@@ -121,32 +151,14 @@ export default function AlertFilterPopup({ open, onClose, initialValues = {}, on
                 </Typography>
                 <Autocomplete
                     size="small"
-                    options={WAREHOUSE_OPTIONS}
+                    options={warehouseOptions}
                     getOptionLabel={(opt) => opt.label}
                     value={warehouseOption}
-                    onChange={(_, v) => setWarehouseOption(v || WAREHOUSE_OPTIONS[0])}
-                    isOptionEqualToValue={(a, b) => a.value === b.value}
+                    onChange={(_, v) => setWarehouseOption(v || warehouseOptions[0] || { value: '', label: 'Tất cả' })}
+                    isOptionEqualToValue={(a, b) => a.value === b.value && a.label === b.label}
                     PaperComponent={(props) => <Paper {...props} sx={LIST_FILTER_DROPDOWN_PAPER_SX} />}
                     renderInput={(params) => (
                         <TextField {...params} placeholder="Chọn kho" sx={LIST_FILTER_INPUT_SX} />
-                    )}
-                />
-            </Box>
-
-            <Box>
-                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
-                    Nhân viên tạo
-                </Typography>
-                <Autocomplete
-                    size="small"
-                    options={createdByOptions}
-                    getOptionLabel={(opt) => opt.label}
-                    value={createdByOptions.find((o) => o.label === createdBy) || null}
-                    onChange={(_, v) => setCreatedBy(v?.label ?? '')}
-                    isOptionEqualToValue={(a, b) => a.label === b.label}
-                    PaperComponent={(props) => <Paper {...props} sx={LIST_FILTER_DROPDOWN_PAPER_SX} />}
-                    renderInput={(params) => (
-                        <TextField {...params} placeholder="Tìm nhân viên tạo…" sx={LIST_FILTER_INPUT_SX} />
                     )}
                 />
             </Box>

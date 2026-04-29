@@ -18,16 +18,54 @@ public class SendRrQuotationEmailRequest
 
     [Required]
     public string Body { get; set; } = null!;
+
+    [Required]
+    [MaxLength(200)]
+    public string QuotationNo { get; set; } = null!;
+
+    [Required]
+    [MinLength(1)]
+    public List<RrQuotationNoteItemRequest> Notes { get; set; } = new();
 }
 
 public class ConfirmRrQuotationRequest
 {
     [MaxLength(500)]
     public string? Note { get; set; }
+
+    [Required]
+    [MaxLength(200)]
+    public string QuotationNo { get; set; } = null!;
+
+    [Required]
+    [MinLength(1)]
+    public List<RrQuotationNoteItemRequest> Notes { get; set; } = new();
 }
 
 public class ImportRrQuotationExcelRequest
 {
     [Required]
     public IFormFile File { get; set; } = null!;
+}
+
+public class ExportRrQuotationExcelRequest
+{
+    [Required]
+    [MaxLength(200)]
+    public string QuotationNo { get; set; } = null!;
+
+    [Required]
+    [MinLength(1)]
+    public List<RrQuotationNoteItemRequest> Notes { get; set; } = new();
+}
+
+public class RrQuotationNoteItemRequest
+{
+    [Required]
+    [MaxLength(200)]
+    public string Title { get; set; } = null!;
+
+    [Required]
+    [MaxLength(4000)]
+    public string Detail { get; set; } = null!;
 }

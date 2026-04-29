@@ -123,6 +123,29 @@ namespace Warehouse.Api.ApiController
             }
         }
 
+        [HttpGet("export-pdf/{id:long}")]
+        [Authorize(Roles = "GD,TK,KT,SE,SP")]
+        public async Task<IActionResult> ExportGrnPdf(long id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được người dùng." });
+
+            try
+            {
+                var bytes = await _goodsReceiptNoteService.ExportGrnPdfAsync(id, currentUserId);
+                return File(bytes, "application/pdf", $"GRN-{id}.pdf");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Đã xảy ra lỗi hệ thống.", detail = ex.Message });
+            }
+        }
+
         [HttpPost("ai-match-items")]
         public async Task<IActionResult> MatchItemsFromExcel(IFormFile file)
         {

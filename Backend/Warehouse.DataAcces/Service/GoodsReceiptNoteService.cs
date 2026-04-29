@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
@@ -16,14 +20,12 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
-        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService, IDateTimeProvider dateTimeProvider)
+        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService)
         {
             _context = context;
             _notificationService = notificationService;
             _auditLogService = auditLogService;
-            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<PagedResponse<GoodsReceiptNoteResponse>> GetGoodsReceiptNotesAsync(int page, int pageSize)
@@ -216,6 +218,34 @@ namespace Warehouse.DataAcces.Service
 
                     throw new InvalidOperationException(
                         $"Vị trí '{locationCode}' đang chứa '{existingName}', không thể nhập vật tư khác loại.");
+                }
+            }
+
+            // Chặn vượt sức chứa ô kệ (nếu vị trí có cấu hình MaxCapacityQty).
+            var locationCurrentQty = await _context.InventoryLots
+                .AsNoTracking()
+                .Where(l => l.WarehouseId == request.WarehouseId
+                            && l.LocationId != null
+                            && selectedLocationIds.Contains(l.LocationId.Value)
+                            && l.Quantity > 0)
+                .GroupBy(l => l.LocationId!.Value)
+                .Select(g => new { LocationId = g.Key, Qty = g.Sum(x => x.Quantity) })
+                .ToDictionaryAsync(x => x.LocationId, x => x.Qty);
+
+            foreach (var line in request.Lines)
+            {
+                if (!locations.TryGetValue(line.LocationId, out var locationInfo))
+                    continue;
+                if (!locationInfo.MaxCapacityQty.HasValue)
+                    continue;
+
+                var currentQty = locationCurrentQty.TryGetValue(line.LocationId, out var q) ? q : 0m;
+                var afterQty = currentQty + line.ActualQty;
+                if (afterQty > locationInfo.MaxCapacityQty.Value)
+                {
+                    throw new InvalidOperationException(
+                        $"Vị trí '{locationInfo.LocationCode}' vượt sức chứa tối đa ({locationInfo.MaxCapacityQty.Value:0.###}). " +
+                        $"Hiện có {currentQty:0.###}, nhập thêm {line.ActualQty:0.###} sẽ thành {afterQty:0.###}.");
                 }
             }
 
@@ -501,7 +531,7 @@ namespace Warehouse.DataAcces.Service
                     var locationInfos = await _context.StorageLocations
                         .AsNoTracking()
                         .Where(x => selectedLocationIds.Contains(x.LocationId))
-                        .Select(x => new { x.LocationId, x.LocationCode })
+                        .Select(x => new { x.LocationId, x.LocationCode, x.MaxCapacityQty })
                         .ToListAsync();
 
                     locationCodeMap = locationInfos.ToDictionary(x => x.LocationId, x => x.LocationCode);
@@ -514,6 +544,25 @@ namespace Warehouse.DataAcces.Service
                         .GroupBy(l => l.LocationId!.Value)
                         .Select(g => new { LocationId = g.Key, TotalQty = g.Sum(x => x.Quantity) })
                         .ToDictionaryAsync(x => x.LocationId, x => x.TotalQty);
+
+                    var locationCapMap = locationInfos.ToDictionary(x => x.LocationId, x => x.MaxCapacityQty);
+                    foreach (var grnLine in grn.GoodsReceiptNoteLines)
+                    {
+                        if (!locationByGrnLineId.TryGetValue(grnLine.GrnlineId, out var locId))
+                            continue;
+                        if (!locationCapMap.TryGetValue(locId, out var maxCap) || !maxCap.HasValue)
+                            continue;
+
+                        var currentQty = locationCurrentQty.TryGetValue(locId, out var q) ? q : 0m;
+                        var afterQty = currentQty + grnLine.ActualQty;
+                        if (afterQty > maxCap.Value)
+                        {
+                            var locationCode = locationCodeMap.TryGetValue(locId, out var code) ? code : $"#{locId}";
+                            throw new InvalidOperationException(
+                                $"Vị trí '{locationCode}' vượt sức chứa tối đa ({maxCap.Value:0.###}). " +
+                                $"Hiện có {currentQty:0.###}, nhập thêm {grnLine.ActualQty:0.###} sẽ thành {afterQty:0.###}.");
+                        }
+                    }
                 }
 
                 // Duyệt từng line của GRN
@@ -826,8 +875,6 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-<<<<<<< Updated upstream
-=======
         public async Task<byte[]> ExportGrnPdfAsync(long grnId, long userId)
         {
             _ = userId;
@@ -899,12 +946,11 @@ namespace Warehouse.DataAcces.Service
                         col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
                     });
 
-                    page.Footer().AlignCenter().Text($"In luc {_dateTimeProvider.BusinessNow():dd/MM/yyyy HH:mm}");
+                    page.Footer().AlignCenter().Text($"In luc {DateTime.Now:dd/MM/yyyy HH:mm}");
                 });
             }).GeneratePdf();
         }
 
->>>>>>> Stashed changes
         // NOTE: Stub tạm để unblock build; chức năng Import Excel + AI match chưa triển khai.
         // TODO: sẽ được đội Import/AI implement đầy đủ (xem IGoodsReceiptNoteService.ImportAndMatchItemsAsync).
         public Task<ExcelImportResult> ImportAndMatchItemsAsync(System.IO.Stream excelStream)

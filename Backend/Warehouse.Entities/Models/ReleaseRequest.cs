@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Warehouse.Entities.Models;
 
@@ -52,4 +53,3 @@ public partial class ReleaseRequest
 
     public virtual Warehouse Warehouse { get; set; } = null!;
 }
- 

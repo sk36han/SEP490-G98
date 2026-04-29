@@ -11,6 +11,20 @@ const STATUS_OPTIONS = [
     { value: 'CANCELLED', label: 'Đã hủy' },
 ];
 
+const QUOTATION_STATUS_OPTIONS = [
+    { value: '', label: 'Tất cả' },
+    { value: 'DRAFT', label: 'Nháp báo giá' },
+    { value: 'SENT', label: 'Đã gửi báo giá' },
+    { value: 'CONFIRMED', label: 'Đã chốt báo giá' },
+];
+
+const LIFECYCLE_STATUS_OPTIONS = [
+    { value: '', label: 'Tất cả' },
+    { value: 'IssuePending', label: 'Đang đợi xuất hàng' },
+    { value: 'IssuePartial', label: 'Xuất một phần hàng' },
+    { value: 'IssueFull', label: 'Xuất đủ hàng' },
+];
+
 const STAFF_OPTIONS = [
     { value: 'Nguyen Van A', label: 'Nguyen Van A' },
     { value: 'Pham Thi B', label: 'Pham Thi B' },
@@ -31,6 +45,8 @@ const RECEIVER_OPTIONS = [
 
 export default function ReleaseRequestFilterPopup({ open, onClose, initialValues = {}, onApply }) {
     const [statusOption, setStatusOption] = useState(STATUS_OPTIONS[0]);
+    const [quotationStatusOption, setQuotationStatusOption] = useState(QUOTATION_STATUS_OPTIONS[0]);
+    const [lifecycleStatusOption, setLifecycleStatusOption] = useState(LIFECYCLE_STATUS_OPTIONS[0]);
     const [requestedByOption, setRequestedByOption] = useState(null);
     const [receiverOption, setReceiverOption] = useState(null);
     const [fromExportDate, setFromExportDate] = useState('');
@@ -38,9 +54,12 @@ export default function ReleaseRequestFilterPopup({ open, onClose, initialValues
     const [fromCreatedDate, setFromCreatedDate] = useState('');
     const [toCreatedDate, setToCreatedDate] = useState('');
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         if (!open) return;
         setStatusOption(STATUS_OPTIONS.find((o) => o.value === (initialValues.status ?? '')) ?? STATUS_OPTIONS[0]);
+        setQuotationStatusOption(QUOTATION_STATUS_OPTIONS.find((o) => o.value === (initialValues.quotationStatus ?? '')) ?? QUOTATION_STATUS_OPTIONS[0]);
+        setLifecycleStatusOption(LIFECYCLE_STATUS_OPTIONS.find((o) => o.value === (initialValues.lifecycleStatus ?? '')) ?? LIFECYCLE_STATUS_OPTIONS[0]);
         setRequestedByOption(STAFF_OPTIONS.find((o) => o.value === (initialValues.requestedBy ?? '')) ?? null);
         setReceiverOption(RECEIVER_OPTIONS.find((o) => o.value === (initialValues.receiverName ?? '')) ?? null);
         setFromExportDate(initialValues.fromExportDate ?? '');
@@ -52,6 +71,8 @@ export default function ReleaseRequestFilterPopup({ open, onClose, initialValues
     const handleApply = useCallback(() => {
         onApply({
             status: statusOption.value || undefined,
+            quotationStatus: quotationStatusOption.value || undefined,
+            lifecycleStatus: lifecycleStatusOption.value || undefined,
             requestedBy: requestedByOption?.value || undefined,
             receiverName: receiverOption?.value || undefined,
             fromExportDate: fromExportDate || undefined,
@@ -62,6 +83,8 @@ export default function ReleaseRequestFilterPopup({ open, onClose, initialValues
         onClose();
     }, [
         statusOption,
+        quotationStatusOption,
+        lifecycleStatusOption,
         requestedByOption,
         receiverOption,
         fromExportDate,
@@ -74,6 +97,8 @@ export default function ReleaseRequestFilterPopup({ open, onClose, initialValues
 
     const handleClear = useCallback(() => {
         setStatusOption(STATUS_OPTIONS[0]);
+        setQuotationStatusOption(QUOTATION_STATUS_OPTIONS[0]);
+        setLifecycleStatusOption(LIFECYCLE_STATUS_OPTIONS[0]);
         setRequestedByOption(null);
         setReceiverOption(null);
         setFromExportDate('');
@@ -99,6 +124,38 @@ export default function ReleaseRequestFilterPopup({ open, onClose, initialValues
                     isOptionEqualToValue={(a, b) => a.value === b.value}
                     renderInput={(params) => (
                         <TextField {...params} placeholder="Chọn trạng thái" sx={LIST_FILTER_INPUT_SX} />
+                    )}
+                />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Trạng thái báo giá
+                </Typography>
+                <Autocomplete
+                    size="small"
+                    options={QUOTATION_STATUS_OPTIONS}
+                    getOptionLabel={(o) => o.label}
+                    value={quotationStatusOption}
+                    onChange={(_, v) => setQuotationStatusOption(v ?? QUOTATION_STATUS_OPTIONS[0])}
+                    isOptionEqualToValue={(a, b) => a.value === b.value}
+                    renderInput={(params) => (
+                        <TextField {...params} placeholder="Chọn trạng thái báo giá" sx={LIST_FILTER_INPUT_SX} />
+                    )}
+                />
+            </Box>
+            <Box>
+                <Typography variant="body2" sx={LIST_FILTER_LABEL_SX}>
+                    Tình trạng xuất
+                </Typography>
+                <Autocomplete
+                    size="small"
+                    options={LIFECYCLE_STATUS_OPTIONS}
+                    getOptionLabel={(o) => o.label}
+                    value={lifecycleStatusOption}
+                    onChange={(_, v) => setLifecycleStatusOption(v ?? LIFECYCLE_STATUS_OPTIONS[0])}
+                    isOptionEqualToValue={(a, b) => a.value === b.value}
+                    renderInput={(params) => (
+                        <TextField {...params} placeholder="Chọn tình trạng xuất" sx={LIST_FILTER_INPUT_SX} />
                     )}
                 />
             </Box>

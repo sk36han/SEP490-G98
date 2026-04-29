@@ -128,6 +128,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("approve/{id:long}")]
+        [Authorize(Roles = "TK")]
         public async Task<IActionResult> ApprovePRN(long id)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -157,6 +158,7 @@ namespace Warehouse.Api.ApiController
         }
 
         [HttpPost("refund/{id:long}")]
+        [Authorize(Roles = "KT")]
         public async Task<IActionResult> RefundPRN(long id, [FromBody] RefundPRNRequest request)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);

@@ -10,8 +10,8 @@ import {
 const STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
     { value: 'DRAFT', label: 'Nháp' },
-    { value: 'SUBMITTED', label: 'Đã gửi duyệt' },
-    { value: 'APPROVED', label: 'Đã duyệt' },
+    { value: 'SUBMITTED', label: 'Chờ trả hàng' },
+    { value: 'APPROVED', label: 'Đã bắt đầu trả hàng' },
     { value: 'POSTED', label: 'Đã hoàn thành' },
     { value: 'CANCELLED', label: 'Đã hủy' },
 ];

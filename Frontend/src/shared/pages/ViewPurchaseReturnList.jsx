@@ -20,9 +20,25 @@ import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils'
 import '../styles/PurchaseReturnList.css';
 
 // Constants & Configs
+const PRN_STATUS_LABELS = {
+    DRAFT: 'Nháp',
+    SUBMITTED: 'Chờ trả hàng',
+    APPROVED: 'Đã bắt đầu trả hàng',
+    POSTED: 'Đã hoàn thành',
+    CANCELLED: 'Đã hủy',
+};
+
+const REFUND_STATUS_LABELS = {
+    NotRefunded: 'Chưa hoàn tiền',
+    PartiallyRefunded: 'Hoàn một phần',
+    Refunded: 'Đã hoàn tiền',
+};
 
 export default function ViewPurchaseReturnList() {
     const navigate = useNavigate();
+    const userInfo = authService.getUser();
+    const permissionRole = getPermissionRole(getRawRoleFromUser(userInfo));
+    const canCreatePurchaseReturn = permissionRole !== 'ACCOUNTANTS';
     const [list, setList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -113,15 +129,17 @@ export default function ViewPurchaseReturnList() {
                                     <Columns size={20} />
                                 </IconButton>
                             </Tooltip>
-                            <Button
-                                variant="contained"
-                                startIcon={<Plus size={18} />}
-                                onClick={() => setShowGRNListPopup(true)}
-                                className="create-btn"
-                                sx={{ bgcolor: '#0284c7', textTransform: 'none', borderRadius: '8px' }}
-                            >
-                                Tạo phiếu trả hàng
-                            </Button>
+                            {canCreatePurchaseReturn && (
+                                <Button
+                                    variant="contained"
+                                    startIcon={<Plus size={18} />}
+                                    onClick={() => setShowGRNListPopup(true)}
+                                    className="create-btn"
+                                    sx={{ bgcolor: '#0284c7', textTransform: 'none', borderRadius: '8px' }}
+                                >
+                                    Tạo phiếu trả hàng
+                                </Button>
+                            )}
                         </Box>
                     </div>
 
@@ -138,6 +156,7 @@ export default function ViewPurchaseReturnList() {
                                         <TableCell>Nhà cung cấp</TableCell>
                                         <TableCell>Ngày trả</TableCell>
                                         <TableCell>Trạng thái</TableCell>
+                                        <TableCell>Trạng thái hoàn tiền</TableCell>
                                         <TableCell align="right">Tổng tiền hoàn</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -156,7 +175,13 @@ export default function ViewPurchaseReturnList() {
                                                 <TableCell className="custom-table-cell">{row.supplierName}</TableCell>
                                                 <TableCell className="custom-table-cell">{row.returnDate}</TableCell>
                                                 <TableCell className="custom-table-cell">
-                                                    <StatusBadge status={row.status} />
+                                                    <StatusBadge status={row.status} label={PRN_STATUS_LABELS[row.status] || row.status} />
+                                                </TableCell>
+                                                <TableCell className="custom-table-cell">
+                                                    <StatusBadge
+                                                        status={row.refundStatus}
+                                                        label={REFUND_STATUS_LABELS[row.refundStatus] || row.refundStatus || 'Chưa hoàn tiền'}
+                                                    />
                                                 </TableCell>
                                                 <TableCell align="right" className="custom-table-cell font-bold">
                                                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.totalReturnedAmount)}

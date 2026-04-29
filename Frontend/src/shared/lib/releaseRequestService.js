@@ -287,42 +287,11 @@ export async function uploadReleaseRequestAttachments(releaseRequestId, { quotat
         return null;
     }
 
-    try {
-        // apiClient mặc định Content-Type: application/json — với FormData phải bỏ header
-        // để axios/browser tự gắn multipart/form-data kèm boundary; nếu không, backend không nhận IFormFile.
-        const response = await apiClient.post(
-            `/ReleaseRequest/${releaseRequestId}/attachments`,
-            formData,
-            {
-                transformRequest: [
-                    (data, headers) => {
-                        if (typeof FormData !== 'undefined' && data instanceof FormData) {
-                            if (headers && typeof headers.delete === 'function') {
-                                headers.delete('Content-Type');
-                            } else if (headers && typeof headers === 'object') {
-                                delete headers['Content-Type'];
-                            }
-                        }
-                        return data;
-                    },
-                ],
-            },
-        );
-        invalidate('releaseRequest');
-        return response?.data;
-    } catch (error) {
-        const d = error?.response?.data;
-        const msg =
-            d?.detail
-            || d?.Detail
-            || d?.message
-            || d?.Message
-            || error?.message
-            || 'Không thể tải tệp đính kèm.';
-        const err = new Error(msg);
-        err.response = error.response;
-        throw err;
-    }
+    const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    invalidate('releaseRequest');
+    return response?.data;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -440,9 +409,9 @@ export async function submitReleaseRequest(id, linesFromUi) {
     }
 }
 
-export async function exportQuotationExcel(releaseRequestId) {
+export async function exportQuotationExcel(releaseRequestId, payload) {
     try {
-        const response = await apiClient.get(`/ReleaseRequest/${releaseRequestId}/quotation/export-excel`, {
+        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/export-excel`, payload, {
             responseType: 'blob',
         });
         return response.data;
@@ -509,9 +478,9 @@ export async function importQuotationExcel(releaseRequestId, file) {
     }
 }
 
-export async function confirmQuotation(releaseRequestId, note) {
+export async function confirmQuotation(releaseRequestId, payload) {
     try {
-        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/confirm`, { note });
+        const response = await apiClient.post(`/ReleaseRequest/${releaseRequestId}/quotation/confirm`, payload);
         invalidate('releaseRequest');
         return extractBody(response);
     } catch (error) {

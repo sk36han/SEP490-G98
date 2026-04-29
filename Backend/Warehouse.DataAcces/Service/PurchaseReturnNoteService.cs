@@ -115,8 +115,13 @@ namespace Warehouse.DataAcces.Service
                 Reason = request.Reason,
                 Note = request.Note,
                 FeeAmount = request.FeeAmount,
-                RefundStatus = request.RefundStatus ?? "NotRefunded",
+                // Khi tạo PRN luôn mặc định "Chưa hoàn tiền".
+                // Việc xác nhận hoàn tiền được xử lý bởi kế toán qua API refund.
+                RefundStatus = "NotRefunded",
                 RefundedAmount = 0,
+                RefundMethod = null,
+                RefundReference = null,
+                RefundedAt = null,
                 SupplierId = grn.SupplierId,
                 WarehouseId = grn.WarehouseId,
                 TotalReturnedQty = totalReturnedQty,

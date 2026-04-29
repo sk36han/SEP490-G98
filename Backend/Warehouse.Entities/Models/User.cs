@@ -58,6 +58,7 @@ public partial class User
     public virtual ICollection<ReleaseRequestEmailLog> ReleaseRequestEmailLogs { get; set; } = new List<ReleaseRequestEmailLog>();
 
     public virtual ICollection<ReleaseRequest> ReleaseRequests { get; set; } = new List<ReleaseRequest>();
+
     public virtual ICollection<StocktakeSession> StocktakeSessions { get; set; } = new List<StocktakeSession>();
 
     public virtual ICollection<UserRole> UserRoleAssignedByNavigations { get; set; } = new List<UserRole>();

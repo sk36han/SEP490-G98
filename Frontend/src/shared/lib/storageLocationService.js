@@ -12,6 +12,7 @@ const mapStorageLocation = (row) => ({
     locationCode: row?.locationCode ?? row?.LocationCode ?? '',
     locationName: row?.locationName ?? row?.LocationName ?? '',
     isActive: row?.isActive ?? row?.IsActive ?? false,
+    maxCapacityQty: row?.maxCapacityQty ?? row?.MaxCapacityQty ?? null,
     currentQty: row?.currentQty ?? row?.CurrentQty ?? 0,
     currentItemsSummary: row?.currentItemsSummary ?? row?.CurrentItemsSummary ?? '',
 });

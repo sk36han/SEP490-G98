@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using Warehouse.DataAcces.Service.Interface;
 using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
@@ -19,17 +23,15 @@ namespace Warehouse.DataAcces.Service
         private readonly IAuditLogService _auditLogService;
         private readonly IDocumentAttachmentService _documentAttachmentService;
         private readonly INotificationService _notificationService;
-        private readonly IDateTimeProvider _dateTimeProvider;
 
 
-		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService, IDateTimeProvider dateTimeProvider)
+		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _auditLogService = auditLogService;
             _documentAttachmentService = documentAttachmentService;
             _notificationService = notificationService;
-            _dateTimeProvider = dateTimeProvider;
         }
 
         // ==================== LIST ====================
@@ -220,33 +222,6 @@ namespace Warehouse.DataAcces.Service
                     throw new KeyNotFoundException($"Đơn vị tính với ID {line.UomId} không tồn tại.");
             }
 
-            // 7b. Validate preferred lots (optional)
-            var preferredLotIds = request.Lines
-                .Where(x => x.LotId.HasValue)
-                .Select(x => x.LotId!.Value)
-                .Distinct()
-                .ToList();
-            Dictionary<long, InventoryLot> preferredLotMap = new();
-            if (preferredLotIds.Count > 0)
-            {
-                preferredLotMap = await _context.InventoryLots
-                    .Where(l => preferredLotIds.Contains(l.LotId))
-                    .ToDictionaryAsync(l => l.LotId, l => l);
-
-                foreach (var line in request.Lines.Where(x => x.LotId.HasValue))
-                {
-                    var lotId = line.LotId!.Value;
-                    if (!preferredLotMap.TryGetValue(lotId, out var lot))
-                        throw new KeyNotFoundException($"Không tìm thấy lô #{lotId}.");
-                    if (lot.WarehouseId != request.WarehouseId)
-                        throw new InvalidOperationException($"Lô #{lotId} không thuộc kho xuất đã chọn.");
-                    if (lot.ItemId != line.ItemId)
-                        throw new InvalidOperationException($"Lô #{lotId} không khớp với vật tư ItemId={line.ItemId}.");
-                    if (!lot.IsActive || lot.Quantity <= 0)
-                        throw new InvalidOperationException($"Lô #{lotId} không còn khả dụng để xuất.");
-                }
-            }
-
             // 8. Validate ReleaseRequestLineIds belong to this RR + check RemainingToIssue
             var rrLines = releaseRequest.ReleaseRequestLines.ToDictionary(l => l.ReleaseRequestLineId, l => l);
 
@@ -380,12 +355,9 @@ namespace Warehouse.DataAcces.Service
                     unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
                 }
 
-                if (unitPrice <= 0 && inventories.TryGetValue(line.ItemId, out var invCost) && invCost.UnitCost > 0)
-                    unitPrice = invCost.UnitCost;
-
                 if (unitPrice <= 0)
                     throw new InvalidOperationException(
-                        $"Vật tư '{items[line.ItemId].ItemName}' không có giá xuất: kiểm tra lô tồn, giá trên yêu cầu xuất (UnitCostAtIssue) hoặc giá vốn tồn kho (UnitCost).");
+                        $"Vật tư '{items[line.ItemId].ItemName}' không có lô hàng nào hợp lệ và không có giá từ yêu cầu.");
 
                 totalDeliveredQty += line.ActualQty;
                 totalDeliveredAmount += line.ActualQty * unitPrice;
@@ -437,9 +409,6 @@ namespace Warehouse.DataAcces.Service
                     unitPrice = unitPriceByItem.ContainsKey(line.ItemId) ? unitPriceByItem[line.ItemId] : 0;
                 }
 
-                if (unitPrice <= 0 && inventories.TryGetValue(line.ItemId, out var invCost2) && invCost2.UnitCost > 0)
-                    unitPrice = invCost2.UnitCost;
-
                 var gdnLine = new GoodsDeliveryNoteLine
                 {
                     Gdnid = gdn.Gdnid,
@@ -448,7 +417,6 @@ namespace Warehouse.DataAcces.Service
                     ActualQty = line.ActualQty,
                     UomId = line.UomId,
                     ReleaseRequestLineId = line.ReleaseRequestLineId,
-                    LotId = line.LotId,
                     UnitPrice = unitPrice,
                     LineTotal = line.ActualQty * unitPrice,
                     RequiresCertificateCopy = line.RequiresCertificateCopy,
@@ -518,207 +486,7 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-        // ==================== APPROVE (2-stage: Kế toán → Giám đốc) ====================
-        public async Task<GoodsDeliveryNoteResponse> ApproveGDNAsync(long gdnId, long userId, ApproveGDNRequest request)
-        {
-            // 1. Validate GDN exists
-            var gdn = await _context.GoodsDeliveryNotes
-                .Include(g => g.ReleaseRequest)
-                    .ThenInclude(rr => rr.Receiver)
-                        .ThenInclude(r => r.Company)
-                            .ThenInclude(c => c.Addresses)
-                .Include(g => g.Warehouse)
-                .Include(g => g.CreatedByNavigation)
-                .Include(g => g.GoodsDeliveryNoteLines)
-                .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
-            if (gdn == null)
-                throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
-
-            // 2. Validate user exists and get role
-            var user = await _context.Users
-                .Include(u => u.UserRoleUser)
-                    .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.UserId == userId);
-
-            if (user == null)
-                throw new KeyNotFoundException("Không tìm thấy người dùng.");
-            // 3. Determine current stage and validate role
-            string decision = request.IsApproved ? "APPROVE" : "REJECT";
-
-            if (!request.IsApproved && string.IsNullOrWhiteSpace(request.Reason))
-                throw new ArgumentException("Bắt buộc phải nhập lý do khi từ chối yêu cầu.");
-
-            if (gdn.Status == "PENDING_ACC")
-            {
-                // Stage 1: Kế toán duyệt
-                if (request.IsApproved)
-                {
-                    // Approved by Accountant → move to Director
-                    gdn.Status = "PENDING_DIR";
-                }
-                else
-                {
-                    // Rejected by Accountant
-                    gdn.Status = "REJECTED";
-                }
-
-                // Log approval to DocumentApproval (Stage 1)
-                _context.DocumentApprovals.Add(new DocumentApproval
-                {
-                    DocType = "GDN",
-                    DocId = gdn.Gdnid,
-                    StageNo = 1,
-                    Decision = decision,
-                    Reason = request.Reason,
-                    ActionBy = userId,
-                    ActionAt = DateTime.UtcNow
-                });
-            }
-            else if (gdn.Status == "PENDING_DIR")
-            {
-                // Stage 2: Giám đốc duyệt
-
-                if (request.IsApproved)
-                {
-                    // Kiểm tra kho có đang bị khóa (kiểm kê) không trước khi chốt trừ hàng
-                    if (await _stocktakeService.IsWarehouseFrozenAsync(gdn.WarehouseId))
-                        throw new InvalidOperationException($"Kho '{gdn.Warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể duyệt chốt phiếu xuất kho.");
-
-                    // Final approval by Director -> move to PENDING_ISSUE for Warehouse Keeper
-                    gdn.Status = "PENDING_ISSUE";
-                    gdn.ApprovedAt = DateTime.UtcNow;
-
-                    // Do NOT process inventory here anymore. It will be done by Warehouse Keeper.
-                    // await ProcessGDNApprovalInventoryAsync(gdn, userId);
-                }
-                else
-                {
-                    // Rejected by Director
-                    gdn.Status = "REJECTED";
-                }
-
-                // Log approval to DocumentApproval (Stage 2)
-                _context.DocumentApprovals.Add(new DocumentApproval
-                {
-                    DocType = "GDN",
-                    DocId = gdn.Gdnid,
-                    StageNo = 2,
-                    Decision = decision,
-                    Reason = request.Reason,
-                    ActionBy = userId,
-                    ActionAt = DateTime.UtcNow
-                });
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    $"Phiếu xuất kho không ở trạng thái chờ duyệt. Trạng thái hiện tại: {gdn.Status}.");
-            }
-
-            // Audit log
-            await _auditLogService.LogAsync(
-                userId,
-                request.IsApproved ? AuditAction.Approve : AuditAction.Reject,
-                AuditEntity.GoodsDeliveryNote,
-                gdn.Gdnid,
-                $"{(request.IsApproved ? "Duyệt" : "Từ chối")} phiếu xuất kho {gdn.Gdncode}" +
-                         $" (Stage: {(gdn.Status == "PENDING_ISSUE" || gdn.Status == "REJECTED" ? "Director" : "Accountant")})" +
-                         (string.IsNullOrEmpty(request.Reason) ? "" : $" - Lý do: {request.Reason}"));
-
-            await _context.SaveChangesAsync();
-
-            // Gửi thông báo chuyển cấp hoặc kết quả
-            if (request.IsApproved)
-            {
-                if (gdn.Status == "PENDING_DIR")
-                {
-                    // Thông báo cho Giám đốc
-                    await _notificationService.CreateForRolesAsync(
-                        new[] { UserRoleConstants.Director },
-                        "Phiếu xuất kho chờ Giám đốc duyệt",
-                        $"Phiếu xuất {gdn.Gdncode} đã được Kế toán duyệt và đang chờ bạn phê duyệt cuối cùng.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        userId,
-                        NotificationTypes.NewRequest
-                    );
-                }
-                else if (gdn.Status == "PENDING_ISSUE")
-                {
-                    // Thông báo cho Thủ kho
-                    await _notificationService.CreateForRolesAsync(
-                        new[] { UserRoleConstants.Storekeeper },
-                        "Phiếu xuất kho sẵn sàng xuất hàng",
-                        $"Phiếu xuất {gdn.Gdncode} đã được Giám đốc phê duyệt. Vui lòng thực hiện xuất hàng thực tế.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        userId,
-                        "WarehouseAction"
-                    );
-
-                    // Thông báo cho người tạo phiếu biết đã duyệt xong
-                    await _notificationService.CreateAsync(
-                        gdn.CreatedBy,
-                        $"Phiếu xuất kho {gdn.Gdncode} ĐÃ ĐƯỢC DUYỆT",
-                        $"Phiếu xuất kho {gdn.Gdncode} đã được Giám đốc phê duyệt. Thủ kho sẽ thực hiện xuất hàng.",
-                        "GoodsDelivery",
-                        gdn.Gdnid,
-                        NotificationTypes.ApprovalResult,
-                        (byte)NotificationSeverity.Info
-                    );
-                }
-            }
-            else
-            {
-                // Thông báo bị từ chối cho người tạo
-                await _notificationService.CreateAsync(
-                    gdn.CreatedBy,
-                    $"Phiếu xuất kho {gdn.Gdncode} BỊ TỪ CHỐI",
-                    $"Phiếu xuất kho {gdn.Gdncode} của bạn đã bị từ chối bởi {user.FullName}. Lý do: {request.Reason}",
-                    "GoodsDelivery",
-                    gdn.Gdnid,
-                    NotificationTypes.ApprovalResult,
-                    (byte)NotificationSeverity.Error
-                );
-            }
-
-            var rr = gdn.ReleaseRequest;
-            var receiver = rr?.Receiver;
-            var company = receiver?.Company;
-            var addr = company?.Addresses?
-                .OrderByDescending(a => a.IsDefault)
-                .ThenByDescending(a => a.IsActive)
-                .FirstOrDefault();
-
-            return new GoodsDeliveryNoteResponse
-            {
-                GdnId = gdn.Gdnid,
-                GdnCode = gdn.Gdncode,
-                IssueDate = gdn.IssueDate,
-                Status = gdn.Status,
-                IsPaid = gdn.IsPaid,
-                ReleaseRequestId = gdn.ReleaseRequestId,
-                ReleaseRequestCode = rr?.ReleaseRequestCode,
-                WarehouseId = gdn.WarehouseId,
-                WarehouseName = gdn.Warehouse?.WarehouseName,
-                CreatedBy = gdn.CreatedBy,
-                CreatedByName = gdn.CreatedByNavigation?.FullName,
-                TotalDeliveredQty = gdn.TotalDeliveredQty,
-                TotalDeliveredAmount = gdn.TotalDeliveredAmount,
-                ShippingFee = gdn.ShippingFee,
-                NetAmount = gdn.TotalDeliveredAmount + gdn.ShippingFee,
-                SubmittedAt = gdn.SubmittedAt,
-                ApprovedAt = gdn.ApprovedAt,
-                PostedAt = gdn.PostedAt,
-                Note = gdn.Note,
-                ReceiverId = receiver?.ReceiverId,
-                ReceiverName = receiver?.ReceiverName,
-                CompanyId = receiver?.CompanyId,
-                CompanyName = company?.CompanyName,
-                ReceiverAddress = addr?.AddressDetail
-            };
-        }
 
         // ==================== DETAIL ====================
         public async Task<GDNDetailResponse> GetGDNDetailAsync(long gdnId)
@@ -884,8 +652,6 @@ namespace Warehouse.DataAcces.Service
             };
         }
 
-<<<<<<< Updated upstream
-=======
         public async Task<byte[]> ExportGdnPdfAsync(long gdnId, long userId)
         {
             _ = userId;
@@ -959,12 +725,11 @@ namespace Warehouse.DataAcces.Service
                         col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
                     });
 
-                    page.Footer().AlignCenter().Text($"In luc {_dateTimeProvider.BusinessNow():dd/MM/yyyy HH:mm}");
+                    page.Footer().AlignCenter().Text($"In luc {DateTime.Now:dd/MM/yyyy HH:mm}");
                 });
             }).GeneratePdf();
         }
 
->>>>>>> Stashed changes
         // ==================== INVENTORY PROCESSING ON APPROVAL (FIFO ONLY) ====================
         private async Task ProcessGDNApprovalInventoryAsync(GoodsDeliveryNote gdn, long userId)
         {
@@ -1022,40 +787,9 @@ namespace Warehouse.DataAcces.Service
                 decimal remainingQty = line.ActualQty;
                 long? firstLotId = null;
 
-                // Ưu tiên lô được chọn từ lúc tạo phiếu (nếu có)
-                if (line.LotId.HasValue)
-                {
-                    var preferredLot = lotsForItem.FirstOrDefault(lot => lot.LotId == line.LotId.Value);
-                    if (preferredLot == null || !preferredLot.IsActive || preferredLot.Quantity <= 0)
-                    {
-                        throw new InvalidOperationException(
-                            $"Lô #{line.LotId.Value} của vật tư '{line.Item?.ItemName ?? line.ItemId.ToString()}' không còn khả dụng để xuất.");
-                    }
-
-                    var preferredDeduct = Math.Min(preferredLot.Quantity, remainingQty);
-                    preferredLot.Quantity -= preferredDeduct;
-                    remainingQty -= preferredDeduct;
-
-                    if (preferredLot.Quantity == 0)
-                        preferredLot.IsActive = false;
-
-                    firstLotId = preferredLot.LotId;
-
-                    _context.InventoryTransactionLines.Add(new InventoryTransactionLine
-                    {
-                        InventoryTxnId = txn.InventoryTxnId,
-                        ItemId = line.ItemId,
-                        QtyChange = -preferredDeduct,
-                        UomId = line.UomId,
-                        LotId = preferredLot.LotId,
-                        Note = $"Xuất kho theo lô chỉ định GDN {gdn.Gdncode} - Lot #{preferredLot.LotId}"
-                    });
-                }
-
                 foreach (var lot in lotsForItem)
                 {
                     if (remainingQty <= 0) break;
-                    if (line.LotId.HasValue && lot.LotId == line.LotId.Value) continue;
 
                     var deductQty = Math.Min(lot.Quantity, remainingQty);
                     lot.Quantity -= deductQty;
@@ -1197,7 +931,7 @@ namespace Warehouse.DataAcces.Service
                 .FirstOrDefaultAsync(g => g.Gdnid == gdnId);
 
             if (gdn == null) throw new KeyNotFoundException("Không tìm thấy phiếu xuất kho.");
-            if (gdn.Status != "PENDING_ACC")
+            if (gdn.Status != "PENDING_ISSUE" && gdn.Status != "DRAFT")
                 throw new InvalidOperationException($"Không thể cập nhật phiếu ở trạng thái {gdn.Status}.");
 
             // Kiểm tra kho có đang bị khóa (kiểm kê) không
@@ -1426,7 +1160,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 3,
-                Decision = "ISSUE",
+                Decision = NormalizeApprovalDecision("ISSUE"),
                 Reason = request.Note,
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1548,7 +1282,7 @@ namespace Warehouse.DataAcces.Service
                 DocType = "GDN",
                 DocId = gdn.Gdnid,
                 StageNo = 4,
-                Decision = "POSTED",
+                Decision = NormalizeApprovalDecision("POSTED"),
                 Reason = note ?? "Upload bằng chứng xuất hàng",
                 ActionBy = userId,
                 ActionAt = DateTime.UtcNow
@@ -1607,6 +1341,16 @@ namespace Warehouse.DataAcces.Service
                 CompanyId = receiver?.CompanyId,
                 CompanyName = company?.CompanyName,
                 ReceiverAddress = addr?.AddressDetail
+            };
+        }
+
+        // CK_DA_Decision only accepts approval decisions, not workflow statuses.
+        private static string NormalizeApprovalDecision(string? rawDecision)
+        {
+            return rawDecision?.Trim().ToUpperInvariant() switch
+            {
+                "REJECT" or "REJECTED" => "REJECT",
+                _ => "APPROVE"
             };
         }
     }

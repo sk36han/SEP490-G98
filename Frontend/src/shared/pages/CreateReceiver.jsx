@@ -11,7 +11,6 @@ import {
     Loader,
     Building2,
     MapPin,
-    Briefcase,
 } from 'lucide-react';
 
 import Toast from '../../components/Toast/Toast';
@@ -23,7 +22,7 @@ import { CreateCompanyDialog, CreateAddressDialog } from '@ui/dialogs';
 
 import '../styles/CreateSupplier.css';
 
-/* ─── Luong: Company → Address (cua company) → Receiver ─── */
+/* ─── Luồng: Công ty → Địa chỉ (của công ty) → Người nhận ─── */
 
 const CreateReceiver = () => {
     const navigate = useNavigate();
@@ -52,7 +51,7 @@ const CreateReceiver = () => {
     });
     const [addressErrors, setAddressErrors] = useState({});
     const [creatingAddress, setCreatingAddress] = useState(false);
-    /** "Nhap dia chi khac" — bo qua dropdown, cho nhap tay */
+    /** "Nhập địa chỉ khác" — bỏ qua dropdown, cho nhập tay */
     const [useCustomAddress, setUseCustomAddress] = useState(false);
 
     /* ── Receiver form state ── */
@@ -80,7 +79,7 @@ const CreateReceiver = () => {
             const list = await getCompanies();
             setCompanies(list ?? []);
         } catch (err) {
-            showToast('Khong tai duoc danh sach cong ty.', 'error');
+            showToast('Không tải được danh sách công ty.', 'error');
         } finally {
             setLoadingCompanies(false);
         }
@@ -96,7 +95,7 @@ const CreateReceiver = () => {
             const list = await getAddresses(companyId);
             setAddresses(list ?? []);
         } catch {
-            showToast('Khong tai duoc danh sach dia chi.', 'error');
+            showToast('Không tải được danh sách địa chỉ.', 'error');
         } finally {
             setLoadingAddresses(false);
         }
@@ -305,7 +304,7 @@ const CreateReceiver = () => {
         }
 
         if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-            newErrors.email = 'Email khong hop le.';
+            newErrors.email = 'Email không hợp lệ.';
         }
 
         if (useCustomAddress && !formData.address.trim()) {
@@ -320,7 +319,7 @@ const CreateReceiver = () => {
         e.preventDefault();
 
         if (!validateForm()) {
-            showToast('Vui long kiem tra lai thong tin!', 'error');
+            showToast('Vui lòng kiểm tra lại thông tin!', 'error');
             return;
         }
 
@@ -352,7 +351,7 @@ const CreateReceiver = () => {
                 navigate(-1);
             }, 900);
         } catch (error) {
-            const msg = error?.response?.data?.message || error?.message || 'Da xay ra loi khi tao nguoi nhan.';
+            const msg = error?.response?.data?.message || error?.message || 'Đã xảy ra lỗi khi tạo người nhận.';
             showToast(msg, 'error');
         } finally {
             setSubmitting(false);
@@ -370,14 +369,14 @@ const CreateReceiver = () => {
                 <div className="page-header-left">
                     <button type="button" onClick={handleCancel} className="back-button">
                         <ArrowLeft size={20} />
-                        <span>Quay lai</span>
+                        <span>Quay lại</span>
                     </button>
                 </div>
 
                 <div className="page-header-actions">
                     <button type="button" onClick={handleCancel} className="btn btn-cancel" disabled={submitting}>
                         <X size={16} className="btn-icon" />
-                        Huy
+                        Hủy
                     </button>
 
                     <button
@@ -389,7 +388,7 @@ const CreateReceiver = () => {
                         {submitting ? (
                             <>
                                 <Loader size={16} className="btn-icon spinner" />
-                                Dang tao...
+                                Đang tạo...
                             </>
                         ) : (
                             <>
@@ -404,22 +403,22 @@ const CreateReceiver = () => {
             <div className="form-card">
                 <form id="create-receiver-form" onSubmit={handleSubmit} className="form-wrapper">
                     <div className="form-card-intro">
-                        <h1 className="page-title">Them moi nguoi nhan</h1>
+                        <h1 className="page-title">Thêm mới người nhận</h1>
                         <p className="form-card-required-note">
                             Các trường được đánh dấu <span className="required-mark">*</span> là bắt buộc
                         </p>
                     </div>
 
-                    {/* ── Section 1: Cong ty ── */}
+                    {/* ── Section 1: Công ty ── */}
                     <div className="info-section">
                         <div className="section-header-with-toggle">
-                            <h2 className="section-title">Thong tin cong ty</h2>
+                            <h2 className="section-title">Thông tin công ty</h2>
                         </div>
 
                         <div className="form-grid">
                             <div className="form-field span-2">
                                 <label className="form-label" htmlFor="companyId">
-                                    Cong ty <span className="required-mark">*</span>
+                                    Công ty <span className="required-mark">*</span>
                                 </label>
                                 <div className="input-wrapper">
                                     <Building2 className="input-icon" size={16} />
@@ -431,7 +430,7 @@ const CreateReceiver = () => {
                                         className={`form-input ${errors.companyId ? 'error' : ''}`}
                                     >
                                         <option value="">
-                                            {loadingCompanies ? 'Dang tai...' : '-- Chon cong ty --'}
+                                            {loadingCompanies ? 'Đang tải...' : '-- Chọn công ty --'}
                                         </option>
                                         {companies.map((c) => (
                                             <option key={c.companyId} value={c.companyId}>
@@ -455,7 +454,7 @@ const CreateReceiver = () => {
                                         }}
                                     >
                                         <Plus size={15} className="btn-icon" />
-                                        Tao moi cong ty
+                                        Tạo mới công ty
                                     </button>
                                 </div>
 
@@ -464,7 +463,7 @@ const CreateReceiver = () => {
                         </div>
                     </div>
 
-                    {/* ── Section 2: Dia chi giao hang ── */}
+                    {/* ── Section 2: Địa chỉ giao hàng ── */}
                     <div className="info-section">
                         <div className="section-header-with-toggle">
                             <h2 className="section-title">Địa chỉ giao hàng</h2>
@@ -486,7 +485,7 @@ const CreateReceiver = () => {
                                                     setErrors(prev => ({ ...prev, addressId: '' }));
                                                 }}
                                             />
-                                            Chon dia chi co san
+                                            Chọn địa chỉ có sẵn
                                         </label>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px' }}>
                                             <input
@@ -499,7 +498,7 @@ const CreateReceiver = () => {
                                                     setErrors(prev => ({ ...prev, addressId: '' }));
                                                 }}
                                             />
-                                            Nhap dia chi khac
+                                            Nhập địa chỉ khác
                                         </label>
                                     </div>
 
@@ -517,7 +516,7 @@ const CreateReceiver = () => {
                                                         className={`form-input ${errors.addressId ? 'error' : ''}`}
                                                     >
                                                         <option value="">
-                                                            {loadingAddresses ? 'Dang tai...' : '-- Chon dia chi --'}
+                                                            {loadingAddresses ? 'Đang tải...' : '-- Chọn địa chỉ --'}
                                                         </option>
                                                         {addresses.map((addr) => (
                                                             <option key={addr.addressId} value={addr.addressId}>
@@ -545,7 +544,7 @@ const CreateReceiver = () => {
                                                 }}
                                             >
                                                 <Plus size={15} className="btn-icon" />
-                                                Tao moi
+                                                Tạo mới
                                             </button>
                                         </div>
                                     )}
@@ -570,7 +569,7 @@ const CreateReceiver = () => {
                                         </div>
                                     )}
 
-                                    {/* Nhap tay dia chi */}
+                                    {/* Nhập tay địa chỉ */}
                                     {useCustomAddress && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                             <div className="form-field">
@@ -585,7 +584,7 @@ const CreateReceiver = () => {
                                                         name="addressName"
                                                         value={formData.addressName}
                                                         onChange={handleChange}
-                                                        placeholder="VD: Nha kho A, Van phong chinh"
+                                                        placeholder="VD: Nhà kho A, Văn phòng chính"
                                                         className="form-input"
                                                         autoComplete="off"
                                                     />
@@ -604,7 +603,7 @@ const CreateReceiver = () => {
                                                         name="address"
                                                         value={formData.address}
                                                         onChange={handleChange}
-                                                        placeholder="VD: So 123, Duong Nguyen Trai"
+                                                        placeholder="VD: Số 123, Đường Nguyễn Trãi"
                                                         className={`form-input ${errors.address ? 'error' : ''}`}
                                                         autoComplete="off"
                                                     />
@@ -623,7 +622,7 @@ const CreateReceiver = () => {
                                                             name="city"
                                                             value={formData.city}
                                                             onChange={handleChange}
-                                                            placeholder="VD: Ho Chi Minh"
+                                                            placeholder="VD: Hồ Chí Minh"
                                                             className="form-input"
                                                             autoComplete="off"
                                                         />
@@ -631,7 +630,7 @@ const CreateReceiver = () => {
                                                 </div>
 
                                                 <div className="form-field">
-                                                    <label className="form-label" htmlFor="district">Quan / Huyen</label>
+                                                    <label className="form-label" htmlFor="district">Quận / Huyện</label>
                                                     <div className="input-wrapper">
                                                         <MapPin className="input-icon" size={16} />
                                                         <input
@@ -640,7 +639,7 @@ const CreateReceiver = () => {
                                                             name="district"
                                                             value={formData.district}
                                                             onChange={handleChange}
-                                                            placeholder="VD: Quan 1"
+                                                            placeholder="VD: Quận 1"
                                                             className="form-input"
                                                             autoComplete="off"
                                                         />
@@ -657,7 +656,7 @@ const CreateReceiver = () => {
                                                             name="ward"
                                                             value={formData.ward}
                                                             onChange={handleChange}
-                                                            placeholder="VD: Phuong Ben Nghe"
+                                                            placeholder="VD: Phường Bến Nghé"
                                                             className="form-input"
                                                             autoComplete="off"
                                                         />
@@ -671,16 +670,16 @@ const CreateReceiver = () => {
                         </div>
                     </div>
 
-                    {/* ── Section 3: Thong tin nguoi nhan ── */}
+                    {/* ── Section 3: Thông tin người nhận ── */}
                     <div className="info-section">
                         <div className="section-header-with-toggle">
-                            <h2 className="section-title">Thong tin nguoi nhan</h2>
+                            <h2 className="section-title">Thông tin người nhận</h2>
                         </div>
 
                         <div className="form-grid">
                             <div className="form-field span-2">
                                 <label className="form-label" htmlFor="receiverName">
-                                    Ten nguoi nhan <span className="required-mark">*</span>
+                                    Tên người nhận <span className="required-mark">*</span>
                                 </label>
                                 <div className="input-wrapper">
                                     <User className="input-icon" size={16} />
@@ -749,7 +748,7 @@ const CreateReceiver = () => {
                                         name="notes"
                                         value={formData.notes}
                                         onChange={handleChange}
-                                        placeholder="Nhap ghi chu (neu co)"
+                                        placeholder="Nhập ghi chú (nếu có)"
                                         rows="3"
                                         className="form-textarea"
                                     />
