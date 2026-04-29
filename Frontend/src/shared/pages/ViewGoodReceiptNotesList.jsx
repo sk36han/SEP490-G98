@@ -30,7 +30,6 @@ import {
     FileText,
     Filter,
     Columns,
-    Plus,
     GripVertical,
     PackageOpen,
     ClipboardCheck,
@@ -439,21 +438,6 @@ export default function ViewGoodReceiptNotes() {
                                 </IconButton>
                             </Tooltip>
 
-                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', ml: isMobile ? 0 : 'auto' }}>
-                                <Button
-                                    variant="contained"
-                                    startIcon={<Plus size={18} />}
-                                    onClick={() => navigate('/good-receipt-notes/create')}
-                                    sx={{
-                                        fontSize: '13px', fontWeight: 500, textTransform: 'none',
-                                        borderRadius: '10px', height: 38, px: 2.5,
-                                        bgcolor: '#3b82f6', boxShadow: '0 1px 2px rgba(59,130,246,0.3)',
-                                        '&:hover': { bgcolor: '#2563eb', boxShadow: '0 4px 12px rgba(59,130,246,0.4)' },
-                                    }}
-                                >
-                                    Tạo phiếu nhập kho
-                                </Button>
-                            </Box>
                         </Box>
                     </Box>
 
