@@ -84,7 +84,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             user.PasswordHash = AuthService.CreatePasswordHash(newPassword);
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = _dateTimeProvider.UtcNow();
 
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
@@ -167,7 +167,7 @@ namespace Warehouse.DataAcces.Service
                 user.Dob = request.Dob.Value;
             }
 
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = _dateTimeProvider.UtcNow();
             await _context.SaveChangesAsync();
 
             // Audit log

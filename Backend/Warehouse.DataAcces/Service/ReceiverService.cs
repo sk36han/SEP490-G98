@@ -19,12 +19,14 @@ namespace Warehouse.DataAcces.Service
         private readonly IGenericRepository<Receiver> _receiverRepository;
         private readonly Mkiwms5Context _context;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public ReceiverService(IGenericRepository<Receiver> receiverRepository, Mkiwms5Context context, IAuditLogService auditLogService)
+        public ReceiverService(IGenericRepository<Receiver> receiverRepository, Mkiwms5Context context, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null)
         {
             _receiverRepository = receiverRepository;
             _context = context;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         public async Task<List<ReceiverResponse>> GetReceiversByCompanyAsync(long companyId)
@@ -84,7 +86,7 @@ namespace Warehouse.DataAcces.Service
                 Position = null, // Backend mặc định
                 CompanyId = request.CompanyId,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _dateTimeProvider.UtcNow()
             };
 
             // 3. Save
@@ -411,7 +413,7 @@ namespace Warehouse.DataAcces.Service
                 CreatedBy = x.CreatedByNavigation.FullName,
                 ItemCount = x.GoodsDeliveryNoteLines.Count,
                 TotalQuantity = x.GoodsDeliveryNoteLines.Sum(l => (decimal?)l.ActualQty) ?? 0,
-                CreatedAt = x.SubmittedAt ?? x.PostedAt ?? x.ApprovedAt ?? DateTime.UtcNow
+                CreatedAt = x.SubmittedAt ?? x.PostedAt ?? x.ApprovedAt ?? _dateTimeProvider.UtcNow()
             }).ToList();
 
             // Merge and Filter

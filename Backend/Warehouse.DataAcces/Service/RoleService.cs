@@ -17,11 +17,13 @@ namespace Warehouse.DataAcces.Service
 	{
 		private readonly IConfiguration _configuration;
 		private readonly IAuditLogService _auditLogService;
+		private readonly IDateTimeProvider _dateTimeProvider;
 
-		public RoleService(Mkiwms5Context context, IConfiguration configuration, IAuditLogService auditLogService) : base(context)
+		public RoleService(Mkiwms5Context context, IConfiguration configuration, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null) : base(context)
 		{
 			_configuration = configuration;
 			_auditLogService = auditLogService;
+			_dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
 		}
 
 		public async Task<List<RoleResponse>> GetAllRolesAsync()
@@ -136,7 +138,7 @@ namespace Warehouse.DataAcces.Service
             if (user.UserRoleUser != null)
             {
                 user.UserRoleUser.RoleId = role.RoleId;
-                user.UserRoleUser.AssignedAt = DateTime.UtcNow;
+                user.UserRoleUser.AssignedAt = _dateTimeProvider.UtcNow();
                 user.UserRoleUser.AssignedBy = assignedBy;
             }
             else
@@ -145,13 +147,13 @@ namespace Warehouse.DataAcces.Service
                 {
                     UserId = user.UserId,
                     RoleId = role.RoleId,
-                    AssignedAt = DateTime.UtcNow,
+                    AssignedAt = _dateTimeProvider.UtcNow(),
                     AssignedBy = assignedBy
                 };
                 _context.UserRoles.Add(userRole);
             }
 
-			user.UpdatedAt = DateTime.UtcNow;
+			user.UpdatedAt = _dateTimeProvider.UtcNow();
 			await _context.SaveChangesAsync();
 
 			// Audit log

@@ -15,11 +15,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public PurchaseReturnNoteService(Mkiwms5Context context, IAuditLogService auditLogService)
+        public PurchaseReturnNoteService(Mkiwms5Context context, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null)
         {
             _context = context;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         public async Task<PurchaseReturnNoteResponse> CreatePRNAsync(long userId, CreatePRNRequest request)
@@ -127,7 +129,7 @@ namespace Warehouse.DataAcces.Service
                 TotalReturnedQty = totalReturnedQty,
                 TotalReturnedAmount = netAmount,
                 CreatedBy = userId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _dateTimeProvider.UtcNow()
             };
 
             _context.PurchaseReturnNotes.Add(prn);
@@ -161,7 +163,7 @@ namespace Warehouse.DataAcces.Service
                 if (inventory != null)
                 {
                     inventory.ReservedQty += line.ReturnQty;
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                 }
             }
 
@@ -463,7 +465,7 @@ namespace Warehouse.DataAcces.Service
                             inventory.ReservedQty = 0;
                         }
 
-                        inventory.UpdatedAt = DateTime.UtcNow;
+                        inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                     }
 
                     _context.PurchaseReturnNoteLines.Remove(oldLine);
@@ -502,7 +504,7 @@ namespace Warehouse.DataAcces.Service
                     if (inv != null)
                     {
                         inv.ReservedQty += line.ReturnQty;
-                        inv.UpdatedAt = DateTime.UtcNow;
+                        inv.UpdatedAt = _dateTimeProvider.UtcNow();
                     }
                 }
 
@@ -589,7 +591,7 @@ namespace Warehouse.DataAcces.Service
             // Cap nhat Status
             prn.Status = "APPROVED";
             prn.ApprovedBy = userId;
-            prn.ApprovedAt = DateTime.UtcNow;
+            prn.ApprovedAt = _dateTimeProvider.UtcNow();
 
             // Tru ton kho - giam ReservedQty (da reserve khi tao), giam OnHandQty (hang di ra);
             // dong thoi tru InventoryLot theo dong GRN (giong mo hinh nhap tao lot, xuat tru lot).
@@ -604,19 +606,19 @@ namespace Warehouse.DataAcces.Service
                     inventory.ReservedQty -= line.ReturnQty;
                     if (inventory.OnHandQty < 0) inventory.OnHandQty = 0;
                     if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                 }
 
                 var txn = new InventoryTransaction
                 {
                     TxnType = "PURCHASE_RETURN",
-                    TxnDate = DateTime.UtcNow,
+                    TxnDate = _dateTimeProvider.UtcNow(),
                     WarehouseId = warehouseId,
                     ReferenceType = "PRN",
                     ReferenceId = prn.PurchaseReturnId,
                     Status = "POSTED",
                     PostedBy = userId,
-                    PostedAt = DateTime.UtcNow
+                    PostedAt = _dateTimeProvider.UtcNow()
                 };
                 _context.InventoryTransactions.Add(txn);
                 await _context.SaveChangesAsync();
@@ -669,7 +671,7 @@ namespace Warehouse.DataAcces.Service
             prn.RefundMethod = request.RefundMethod;
             prn.RefundReference = request.RefundReference;
             prn.RefundStatus = request.RefundStatus ?? "NotRefunded";
-            prn.RefundedAt = DateTime.UtcNow;
+            prn.RefundedAt = _dateTimeProvider.UtcNow();
 
             // AuditLog
             await _auditLogService.LogAsync(
@@ -724,7 +726,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     inventory.ReservedQty -= line.ReturnQty;
                     if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                 }
             }
 

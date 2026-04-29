@@ -8,7 +8,6 @@ using Warehouse.Entities.Constants;
 using Warehouse.Entities.ModelRequest;
 using Warehouse.Entities.ModelResponse;
 using Warehouse.Entities.Models;
-using Warehouse.Entities.Constants;
 
 namespace Warehouse.DataAcces.Service
 {
@@ -18,17 +17,20 @@ namespace Warehouse.DataAcces.Service
         private readonly IAuditLogService _auditLogService;
         private readonly INotificationService _notificationService;
         private readonly IDocumentAttachmentService _documentAttachmentService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         public PurchaseOrderService(
             Mkiwms5Context context,
             IAuditLogService auditLogService,
             INotificationService notificationService,
-            IDocumentAttachmentService documentAttachmentService)
+            IDocumentAttachmentService documentAttachmentService,
+            IDateTimeProvider dateTimeProvider)
         {
             _context = context;
             _auditLogService = auditLogService;
             _notificationService = notificationService;
             _documentAttachmentService = documentAttachmentService;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<PagedResponse<PurchaseOrderResponse>> GetPurchaseOrdersAsync(
@@ -218,7 +220,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Validate ExpectedDeliveryDate
-            if (request.ExpectedDeliveryDate.HasValue && request.ExpectedDeliveryDate.Value < DateOnly.FromDateTime(DateTime.Today))
+            if (request.ExpectedDeliveryDate.HasValue && request.ExpectedDeliveryDate.Value < _dateTimeProvider.BusinessToday())
             {
                 throw new InvalidOperationException("Ngày giao hàng dự kiến không được trong quá khứ.");
             }
@@ -245,7 +247,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             var poCode = await GenerateNextPoCodeAsync();
-            var now = DateTime.UtcNow;
+            var now = _dateTimeProvider.UtcNow();
             var discount = request.DiscountAmount ?? 0m;
 
             var po = new PurchaseOrder
@@ -463,7 +465,7 @@ namespace Warehouse.DataAcces.Service
             po.NetAmount = po.TotalAmount - po.DiscountAmount;
             if (po.NetAmount < 0) po.NetAmount = 0;
 
-            po.UpdatedAt = DateTime.UtcNow;
+            po.UpdatedAt = _dateTimeProvider.UtcNow();
 
             // Audit log
             await _auditLogService.LogAsync(

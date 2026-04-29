@@ -23,15 +23,17 @@ namespace Warehouse.DataAcces.Service
         private readonly IAuditLogService _auditLogService;
         private readonly IDocumentAttachmentService _documentAttachmentService;
         private readonly INotificationService _notificationService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
 
-		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService)
+		public GoodsDeliveryNoteService(Mkiwms5Context context, IStocktakeService stocktakeService, IAuditLogService auditLogService, IDocumentAttachmentService documentAttachmentService, INotificationService notificationService, IDateTimeProvider dateTimeProvider)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _auditLogService = auditLogService;
             _documentAttachmentService = documentAttachmentService;
             _notificationService = notificationService;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         // ==================== LIST ====================
@@ -179,7 +181,7 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException($"Kho '{warehouse.WarehouseName}' đang trong quá trình kiểm kê, không thể tạo phiếu xuất kho.");
 
             // 4. Validate IssueDate >= Today
-            var today = DateTime.UtcNow.Date;
+            var today = _dateTimeProvider.BusinessNow().Date;
             if (request.IssueDate.ToDateTime(TimeOnly.MinValue).Date < today)
                 throw new InvalidOperationException("Ngày xuất kho không được ở trong quá khứ.");
 
@@ -389,7 +391,7 @@ namespace Warehouse.DataAcces.Service
             // If created with non-DRAFT status, set SubmittedAt
             if (gdn.Status != "DRAFT")
             {
-                gdn.SubmittedAt = DateTime.UtcNow;
+                gdn.SubmittedAt = _dateTimeProvider.UtcNow();
             }
 
             _context.GoodsDeliveryNotes.Add(gdn);
@@ -725,7 +727,7 @@ namespace Warehouse.DataAcces.Service
                         col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
                     });
 
-                    page.Footer().AlignCenter().Text($"In luc {DateTime.Now:dd/MM/yyyy HH:mm}");
+                    page.Footer().AlignCenter().Text($"In luc {_dateTimeProvider.BusinessNow():dd/MM/yyyy HH:mm}");
                 });
             }).GeneratePdf();
         }
@@ -737,13 +739,13 @@ namespace Warehouse.DataAcces.Service
             var txn = new InventoryTransaction
             {
                 TxnType = "OUTBOUND",
-                TxnDate = DateTime.UtcNow,
+                TxnDate = _dateTimeProvider.UtcNow(),
                 WarehouseId = gdn.WarehouseId,
                 ReferenceType = "GDN",
                 ReferenceId = gdn.Gdnid,
                 Status = "POSTED",
                 PostedBy = userId,
-                PostedAt = DateTime.UtcNow
+                PostedAt = _dateTimeProvider.UtcNow()
             };
             _context.InventoryTransactions.Add(txn);
             await _context.SaveChangesAsync(); // Lưu để có InventoryTxnId
@@ -779,7 +781,7 @@ namespace Warehouse.DataAcces.Service
                         inv.ReservedQty -= line.ActualQty;
                     else
                         inv.ReservedQty = 0;
-                    inv.UpdatedAt = DateTime.UtcNow;
+                    inv.UpdatedAt = _dateTimeProvider.UtcNow();
                 }
 
                 // 3b. Trừ tồn kho từ InventoryLots theo FIFO
@@ -848,7 +850,7 @@ namespace Warehouse.DataAcces.Service
         // ==================== HELPERS ====================
         private async Task<string> GenerateNextGdnCodeAsync()
         {
-            var year = DateTime.UtcNow.Year;
+            var year = _dateTimeProvider.BusinessNow().Year;
             var prefix = $"GDN-{year}-";
 
             var countThisYear = await _context.GoodsDeliveryNotes
@@ -939,7 +941,7 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException($"Kho đang trong quá trình kiểm kê, không thể cập nhật phiếu xuất kho.");
 
             // Validate IssueDate >= Today
-            var today = DateTime.UtcNow.Date;
+            var today = _dateTimeProvider.BusinessNow().Date;
             if (request.IssueDate.ToDateTime(TimeOnly.MinValue).Date < today)
                 throw new InvalidOperationException("Ngày xuất kho không được ở trong quá khứ.");
 
@@ -1163,7 +1165,7 @@ namespace Warehouse.DataAcces.Service
                 Decision = NormalizeApprovalDecision("ISSUE"),
                 Reason = request.Note,
                 ActionBy = userId,
-                ActionAt = DateTime.UtcNow
+                ActionAt = _dateTimeProvider.UtcNow()
             });
 
             await _auditLogService.LogAsync(
@@ -1274,7 +1276,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             // Cập nhật thời điểm hoàn thành toàn bộ quy trình
-            gdn.PostedAt = DateTime.UtcNow;
+            gdn.PostedAt = _dateTimeProvider.UtcNow();
 
             // Document Approval
             _context.DocumentApprovals.Add(new DocumentApproval
@@ -1285,7 +1287,7 @@ namespace Warehouse.DataAcces.Service
                 Decision = NormalizeApprovalDecision("POSTED"),
                 Reason = note ?? "Upload bằng chứng xuất hàng",
                 ActionBy = userId,
-                ActionAt = DateTime.UtcNow
+                ActionAt = _dateTimeProvider.UtcNow()
             });
 
             // Audit log

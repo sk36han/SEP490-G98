@@ -24,12 +24,14 @@ namespace Warehouse.DataAcces.Service
         private readonly IConfiguration _configuration;
         private readonly IMemoryCache _cache;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public AuthService(Mkiwms5Context context, IConfiguration configuration, IMemoryCache cache, IAuditLogService auditLogService) : base(context)
+        public AuthService(Mkiwms5Context context, IConfiguration configuration, IMemoryCache cache, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null) : base(context)
         {
             _configuration = configuration;
             _cache = cache;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         public async Task<User?> ValidateLoginAsync(string identifier, string password)
@@ -72,7 +74,7 @@ namespace Warehouse.DataAcces.Service
                 return null;
             }
 
-            user.LastLoginAt = DateTime.UtcNow;
+            user.LastLoginAt = _dateTimeProvider.UtcNow();
             await _context.SaveChangesAsync();
 
             // Log successful login
@@ -139,7 +141,7 @@ namespace Warehouse.DataAcces.Service
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+            var expiresAt = _dateTimeProvider.UtcNow().AddMinutes(expirationMinutes);
 
             var token = new JwtSecurityToken(
                 issuer: issuer,
@@ -187,7 +189,7 @@ namespace Warehouse.DataAcces.Service
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddMinutes(5);
+            var expires = _dateTimeProvider.UtcNow().AddMinutes(5);
 
             var claims = new List<Claim>
             {
@@ -202,7 +204,7 @@ namespace Warehouse.DataAcces.Service
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
-                notBefore: DateTime.UtcNow,
+                notBefore: _dateTimeProvider.UtcNow(),
                 expires: expires,
                 signingCredentials: creds
             );
@@ -326,7 +328,7 @@ namespace Warehouse.DataAcces.Service
                               ?? throw new InvalidOperationException("Không tìm thấy tài khoản.");
 
                 account.PasswordHash = CreatePasswordHash(newPassword);
-                account.UpdatedAt = DateTime.UtcNow;
+                account.UpdatedAt = _dateTimeProvider.UtcNow();
 
                 _context.Update(account);
                 await _context.SaveChangesAsync();
@@ -381,7 +383,7 @@ namespace Warehouse.DataAcces.Service
                 return false;
 
             account.PasswordHash = CreatePasswordHash(newPassword);
-            account.UpdatedAt = DateTime.UtcNow;
+            account.UpdatedAt = _dateTimeProvider.UtcNow();
 
             _context.Users.Update(account);
             await _context.SaveChangesAsync();
@@ -453,7 +455,7 @@ namespace Warehouse.DataAcces.Service
             {
                 OtpHash = otpHash,
                 FailedAttempts = 0,
-                ExpiryAt = DateTime.UtcNow.Add(expiry)
+                ExpiryAt = _dateTimeProvider.UtcNow().Add(expiry)
             };
 
             // Lưu vào IMemoryCache với thời gian hết hạn cố định là 5 phút
@@ -528,7 +530,7 @@ namespace Warehouse.DataAcces.Service
                 else
                 {
                     // Cập nhật lại cache với số đếm mới nhưng giữ nguyên thời gian hết hạn cũ
-                    var remaining = otpData.ExpiryAt - DateTime.UtcNow;
+                    var remaining = otpData.ExpiryAt - _dateTimeProvider.UtcNow();
                     if (remaining > TimeSpan.Zero)
                     {
                         _cache.Set(cacheKey, otpData, remaining);

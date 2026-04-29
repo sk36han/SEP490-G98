@@ -15,6 +15,7 @@ namespace Warehouse.DataAcces.Service
     public class PrintTemplateService : GenericRepository<PrintTemplate>, IPrintTemplateService
     {
         private readonly ILogger<PrintTemplateService> _logger;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         // Các loại chứng từ hợp lệ
         private static readonly HashSet<string> ValidDocumentTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -25,9 +26,11 @@ namespace Warehouse.DataAcces.Service
 
         public PrintTemplateService(
             Mkiwms5Context context,
-            ILogger<PrintTemplateService> logger) : base(context)
+            ILogger<PrintTemplateService> logger,
+            IDateTimeProvider? dateTimeProvider = null) : base(context)
         {
             _logger = logger;
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         // =====================================================================
@@ -126,7 +129,7 @@ namespace Warehouse.DataAcces.Service
                 HtmlBody = request.HtmlBody,
                 PaperSize = request.PaperSize?.Trim(),
                 IsDefault = request.IsDefault,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _dateTimeProvider.UtcNow()
             };
 
             // 4️⃣ Nếu là mẫu mặc định, bỏ mặc định các mẫu khác cùng DocumentType

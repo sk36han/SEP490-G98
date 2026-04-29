@@ -14,10 +14,12 @@ namespace Warehouse.DataAcces.Service
 	public class NotificationService : GenericRepository<Notification>, INotificationService
 	{
 		private readonly IClientNotificationService _clientNotificationService;
+		private readonly IDateTimeProvider _dateTimeProvider;
 
-		public NotificationService(Mkiwms5Context context, IClientNotificationService clientNotificationService) : base(context)
+		public NotificationService(Mkiwms5Context context, IClientNotificationService clientNotificationService, IDateTimeProvider? dateTimeProvider = null) : base(context)
 		{
 			_clientNotificationService = clientNotificationService;
+			_dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
 		}
 
 		public async Task CreateAsync(long userId, string title, string message, string? refType = null, long? refId = null, string? type = null, byte severity = 0, DateTime? expiresAt = null)
@@ -30,7 +32,7 @@ namespace Warehouse.DataAcces.Service
 				RefType = refType,
 				RefId = refId,
 				IsRead = false,
-				CreatedAt = DateTime.UtcNow,
+				CreatedAt = _dateTimeProvider.UtcNow(),
 				Type = type,
 				Severity = severity,
 				IsDeleted = false,
@@ -64,7 +66,7 @@ namespace Warehouse.DataAcces.Service
 
 		public async Task<PagedResponse<NotificationResponse>> GetByUserAsync(long userId, NotificationFilterRequest filter)
 		{
-			var now = DateTime.UtcNow;
+			var now = _dateTimeProvider.UtcNow();
 			var query = _context.Notifications
 				.AsNoTracking()
 				.Where(x => x.UserId == userId && !x.IsDeleted && (x.ExpiresAt == null || x.ExpiresAt > now));
@@ -120,7 +122,7 @@ namespace Warehouse.DataAcces.Service
 
 		public async Task<int> GetUnreadCountAsync(long userId)
 		{
-			var now = DateTime.UtcNow;
+			var now = _dateTimeProvider.UtcNow();
 			return await _context.Notifications
 				.CountAsync(x => x.UserId == userId && !x.IsRead && !x.IsDeleted && (x.ExpiresAt == null || x.ExpiresAt > now));
 		}
@@ -138,7 +140,7 @@ namespace Warehouse.DataAcces.Service
 			if (!noti.IsRead)
 			{
 				noti.IsRead = true;
-				noti.ReadAt = DateTime.UtcNow;
+				noti.ReadAt = _dateTimeProvider.UtcNow();
 				await _context.SaveChangesAsync();
 
 				var unreadCount = await GetUnreadCountAsync(userId);
@@ -155,7 +157,7 @@ namespace Warehouse.DataAcces.Service
 			foreach (var item in notifications)
 			{
 				item.IsRead = true;
-				item.ReadAt = DateTime.UtcNow;
+				item.ReadAt = _dateTimeProvider.UtcNow();
 			}
 
 			await _context.SaveChangesAsync();
@@ -182,7 +184,7 @@ namespace Warehouse.DataAcces.Service
 
 			if (!userIds.Any()) return;
 
-			var now = DateTime.UtcNow;
+			var now = _dateTimeProvider.UtcNow();
 			var notifications = new List<Notification>();
 
 			foreach (var userId in userIds)

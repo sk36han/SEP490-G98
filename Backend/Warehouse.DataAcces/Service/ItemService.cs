@@ -131,7 +131,7 @@ namespace Warehouse.DataAcces.Service
                 _logger.LogDebug("[ItemService] DefaultWarehouseId: {DefaultWarehouseId}", request.DefaultWarehouseId);
             }
 
-            var now = DateTime.UtcNow;
+            var now = _dateTimeProvider.UtcNow();
             var entity = new Item
             {
                 ItemCode = itemCode,
@@ -294,7 +294,7 @@ namespace Warehouse.DataAcces.Service
                 return null;
             }
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = _dateTimeProvider.BusinessToday();
 
             var purchasePrice = _context.ItemPrices
                 .Where(p => p.ItemId == itemId
@@ -472,14 +472,14 @@ namespace Warehouse.DataAcces.Service
             item.DefaultWarehouseId = request.DefaultWarehouseId;
             item.InventoryAccount = request.InventoryAccount?.Trim();
             item.RevenueAccount = request.RevenueAccount?.Trim();
-                item.UpdatedAt = DateTime.UtcNow;
+                item.UpdatedAt = _dateTimeProvider.UtcNow();
 
             _logger.LogDebug("[ItemService] Cap nhat thong tin item: ItemName={ItemName}, CategoryId={CategoryId}, BaseUomId={BaseUomId}",
                 item.ItemName, item.CategoryId, item.BaseUomId);
 
             await UpdateAsync(item);
 
-            var effectiveFrom = request.PriceEffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var effectiveFrom = request.PriceEffectiveFrom ?? _dateTimeProvider.BusinessToday();
 
             if (request.PurchasePrice.HasValue)
             {
@@ -510,7 +510,7 @@ namespace Warehouse.DataAcces.Service
                     EffectiveFrom = effectiveFrom,
                     EffectiveTo = null,
                     IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = _dateTimeProvider.UtcNow()
                 });
             }
 
@@ -538,7 +538,7 @@ namespace Warehouse.DataAcces.Service
                     EffectiveFrom = effectiveFrom,
                     EffectiveTo = null,
                     IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = _dateTimeProvider.UtcNow()
                 });
             }
 
@@ -576,7 +576,7 @@ namespace Warehouse.DataAcces.Service
                 _logger.LogDebug("[ItemService] Thay doi trang thai item: {OldStatus} -> {NewStatus}", item.IsActive, isActive);
                 var oldStatus = item.IsActive;
                 item.IsActive = isActive;
-                item.UpdatedAt = DateTime.UtcNow;
+                item.UpdatedAt = _dateTimeProvider.UtcNow();
                 await UpdateAsync(item);
 
                 // Audit log
@@ -612,7 +612,7 @@ namespace Warehouse.DataAcces.Service
                     .Select(c => c.CategoryName)
                     .FirstOrDefault();
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = _dateTimeProvider.BusinessToday();
 
             var purchasePrice = _context.ItemPrices
                 .Where(p => p.ItemId == itemId
@@ -768,7 +768,7 @@ namespace Warehouse.DataAcces.Service
                 worksheet.Cell(row, 10).Value = item.RequiresCq ? "Có" : "Không";
 
                 // Giá mua / bán — lấy giá hiệu lực mới nhất theo PriceType
-                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                var today = _dateTimeProvider.BusinessToday();
                 var allPrices = await _context.ItemPrices
                     .Where(p => p.ItemId == item.ItemId && p.IsActive && p.EffectiveFrom <= today)
                     .ToListAsync();

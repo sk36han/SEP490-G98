@@ -135,7 +135,7 @@ namespace Warehouse.DataAcces.Service
 
             // 8. Tạo mã yêu cầu xuất kho tự động
             var rrCode = await GenerateNextRRCodeAsync();
-            var now = DateTime.UtcNow;
+            var now = _dateTimeProvider.UtcNow();
 
             // 9. Tạo entity ReleaseRequest
             var releaseRequest = new ReleaseRequest
@@ -233,7 +233,7 @@ namespace Warehouse.DataAcces.Service
                         // Không chặn gửi duyệt dù chưa đủ hàng
                     }
 
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                 }
                 else
                 {
@@ -590,7 +590,7 @@ namespace Warehouse.DataAcces.Service
                     if (!hasContract) throw new InvalidOperationException("Vui lòng tải lên tài liệu Hợp đồng trước khi gửi duyệt.");
 
                     rr.Status = "PENDING_ACC";
-                    rr.SubmittedAt = DateTime.UtcNow;
+                    rr.SubmittedAt = _dateTimeProvider.UtcNow();
                 }
                 else
                 {
@@ -665,7 +665,7 @@ namespace Warehouse.DataAcces.Service
                         {
                             inventory.ReservedQty -= line.AllocatedQty;
                             if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
-                            inventory.UpdatedAt = DateTime.UtcNow;
+                            inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                         }
                     }
                     _context.ReleaseRequestLines.Remove(line);
@@ -832,7 +832,7 @@ namespace Warehouse.DataAcces.Service
                                 if (allocateQty > 0) inv.ReservedQty += allocateQty;
                             }
 
-                            inv.UpdatedAt = DateTime.UtcNow;
+                            inv.UpdatedAt = _dateTimeProvider.UtcNow();
                         }
                     }
                 }
@@ -959,7 +959,7 @@ namespace Warehouse.DataAcces.Service
                     else
                         inventory.ReservedQty = 0;
                         
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                     
                     // Cập nhật lại AllocatedQty bằng IssuedQty để phản ánh không còn giữ hàng dư
                     line.AllocatedQty = line.IssuedQty;
@@ -1069,7 +1069,7 @@ namespace Warehouse.DataAcces.Service
                         {
                             inventory.ReservedQty += delta;
                             if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
-                            inventory.UpdatedAt = DateTime.UtcNow;
+                            inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                         }
                     }
                 }
@@ -1088,7 +1088,7 @@ namespace Warehouse.DataAcces.Service
                     Decision = decision,
                     Reason = request.Reason,
                     ActionBy = userId,
-                    ActionAt = DateTime.UtcNow
+                    ActionAt = _dateTimeProvider.UtcNow()
                 });
             }
             else
@@ -1528,7 +1528,7 @@ namespace Warehouse.DataAcces.Service
                 CcEmails = request.CcEmails == null ? null : string.Join(";", request.CcEmails),
                 BccEmails = request.BccEmails == null ? null : string.Join(";", request.BccEmails),
                 Subject = request.Subject,
-                SentAt = DateTime.UtcNow,
+                SentAt = _dateTimeProvider.UtcNow(),
                 Status = "FAILED"
             };
 
@@ -1557,7 +1557,7 @@ namespace Warehouse.DataAcces.Service
 
                 log.Status = "SENT";
                 rr.QuotationStatus = "SENT";
-                rr.QuotationSentAt = DateTime.UtcNow;
+                rr.QuotationSentAt = _dateTimeProvider.UtcNow();
             }
             catch (Exception ex)
             {
@@ -1731,7 +1731,7 @@ namespace Warehouse.DataAcces.Service
             await ReplaceGirQuotationAttachmentAsync(id, userId, rr.ReleaseRequestCode, excelBytes);
 
             rr.QuotationStatus = "CONFIRMED";
-            rr.QuotationConfirmedAt = DateTime.UtcNow;
+            rr.QuotationConfirmedAt = _dateTimeProvider.UtcNow();
             await _context.SaveChangesAsync();
             await _auditLogService.LogAsync(userId, "CONFIRM_QUOTATION", "ReleaseRequest", id, $"Chốt báo giá {rr.ReleaseRequestCode}. {request.Note}");
 
@@ -1809,7 +1809,7 @@ namespace Warehouse.DataAcces.Service
                 {
                     inventory.ReservedQty -= line.AllocatedQty;
                     if (inventory.ReservedQty < 0) inventory.ReservedQty = 0;
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                 }
             }
         }

@@ -18,13 +18,15 @@ namespace Warehouse.DataAcces.Service
         private readonly IServiceProvider _serviceProvider;
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public ApprovalService(Mkiwms5Context context, IServiceProvider serviceProvider)
+        public ApprovalService(Mkiwms5Context context, IServiceProvider serviceProvider, IDateTimeProvider? dateTimeProvider = null)
         {
             _context = context;
             _serviceProvider = serviceProvider;
             _notificationService = serviceProvider.GetRequiredService<INotificationService>();
             _auditLogService = serviceProvider.GetRequiredService<IAuditLogService>();
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         public async Task<PagedResult<ApprovalQueueResponse>> GetPendingApprovalsAsync(ApprovalQueueFilterRequest filter)
@@ -273,7 +275,7 @@ namespace Warehouse.DataAcces.Service
                     Decision = dbDecision,
                     Reason = reason,
                     ActionBy = currentUserId,
-                    ActionAt = DateTime.UtcNow,
+                    ActionAt = _dateTimeProvider.UtcNow(),
                 };
 
                 _context.DocumentApprovals.Add(log);

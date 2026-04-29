@@ -82,8 +82,8 @@ namespace Warehouse.DataAcces.Service
                 FullName = request.FullName,
                 PasswordHash = passwordHash,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = _dateTimeProvider.UtcNow(),
+                UpdatedAt = _dateTimeProvider.UtcNow()
             };
 
             _context.Users.Add(newUser);
@@ -94,7 +94,7 @@ namespace Warehouse.DataAcces.Service
             {
                 UserId = newUser.UserId,
                 RoleId = role.RoleId,
-                AssignedAt = DateTime.UtcNow,
+                AssignedAt = _dateTimeProvider.UtcNow(),
                 AssignedBy = assignedBy
             };
             _context.UserRoles.Add(userRole);
@@ -375,7 +375,7 @@ namespace Warehouse.DataAcces.Service
                 if (user.UserRoleUser != null)
                 {
                     user.UserRoleUser.RoleId = request.RoleId.Value;
-                    user.UserRoleUser.AssignedAt = DateTime.UtcNow;
+                    user.UserRoleUser.AssignedAt = _dateTimeProvider.UtcNow();
                     user.UserRoleUser.AssignedBy = assignedBy;
                 }
                 else
@@ -384,14 +384,14 @@ namespace Warehouse.DataAcces.Service
                     {
                         UserId = user.UserId,
                         RoleId = request.RoleId.Value,
-                        AssignedAt = DateTime.UtcNow,
+                        AssignedAt = _dateTimeProvider.UtcNow(),
                         AssignedBy = assignedBy
                     };
                     _context.UserRoles.Add(userRole);
                 }
             }
 
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = _dateTimeProvider.UtcNow();
             await _context.SaveChangesAsync();
 
             // Reload để lấy RoleName mới
@@ -470,7 +470,7 @@ namespace Warehouse.DataAcces.Service
 
             // Chuyển đổi trạng thái: Enable <-> Disable
             user.IsActive = !user.IsActive;
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = _dateTimeProvider.UtcNow();
 
             await _context.SaveChangesAsync();
 

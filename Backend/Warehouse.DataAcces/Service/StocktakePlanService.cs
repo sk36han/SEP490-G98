@@ -17,16 +17,18 @@ namespace Warehouse.DataAcces.Service
         private readonly IStocktakeService _stocktakeService;
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         private static readonly string[] AllowedStatuses = { "DRAFT", "PENDING_APPROVAL", "APPROVED", "CANCELLED" };
         private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
-        public StocktakePlanService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService, IAuditLogService auditLogService)
+        public StocktakePlanService(Mkiwms5Context context, IStocktakeService stocktakeService, INotificationService notificationService, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null)
         {
             _context = context;
             _stocktakeService = stocktakeService;
             _notificationService = notificationService;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         public async Task<StocktakeDetailResponse> CreateStocktakePlanAsync(CreateStocktakeDraftRequest request, long currentUserId)
@@ -56,11 +58,11 @@ namespace Warehouse.DataAcces.Service
                     "Vui lòng hoàn tất hoặc hủy phiên đó trước khi tạo mới.");
 
             // 3️⃣ Validate – ngày kiểm kê dự kiến không được ở quá khứ
-            if (request.PlannedAt.HasValue && request.PlannedAt.Value.Date < DateTime.UtcNow.Date)
+            if (request.PlannedAt.HasValue && request.PlannedAt.Value.Date < _dateTimeProvider.BusinessNow().Date)
                 throw new ArgumentException("Ngày kiểm kê dự kiến (PlannedAt) không được ở trong quá khứ.");
 
             // 4️⃣ Tạo mã phiếu tự động: ST-2025-0001
-            var year = DateTime.UtcNow.Year;
+            var year = _dateTimeProvider.BusinessNow().Year;
             var countThisYear = await _context.StocktakeSessions
                 .CountAsync(s => s.StocktakeCode.StartsWith($"ST-{year}-"));
             var newCode = $"ST-{year}-{(countThisYear + 1):D4}";
@@ -156,7 +158,7 @@ namespace Warehouse.DataAcces.Service
                         Decision = request.Decision,
                         Reason = request.Reason,
                         ActionBy = currentUserId,
-                        ActionAt = DateTime.UtcNow
+                        ActionAt = _dateTimeProvider.UtcNow()
                     };
                     await _context.DocumentApprovals.AddAsync(approval);
 
@@ -224,7 +226,7 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException($"Không thể hủy kế hoạch kiểm kê đang ở trạng thái {session.Status} qua API này.");
 
             session.Status = "CANCELLED";
-            session.EndedAt = DateTime.UtcNow;
+            session.EndedAt = _dateTimeProvider.UtcNow();
 
             await _context.SaveChangesAsync();
 

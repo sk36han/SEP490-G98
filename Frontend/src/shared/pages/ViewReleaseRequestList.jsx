@@ -33,7 +33,7 @@ import { Plus, Filter, Columns, GripVertical, PackageOpen, Send, RefreshCw } fro
 import SearchInput from '../components/SearchInput';
 import ReleaseRequestFilterPopup from '../components/ReleaseRequestFilterPopup';
 import { getReleaseRequests } from '../lib/releaseRequestService';
-import { formatDateOnlyUtc, formatDateTimeNewlineUtc } from '../lib/dateUtils';
+import { formatDateOnlyUtc, formatDateTimeNewlineUtc, utcTimestamp } from '../lib/dateUtils';
 import authService from '../lib/authService';
 import { getPermissionRole, getRawRoleFromUser } from '../permissions/roleUtils';
 import '../styles/ListView.css';
@@ -352,9 +352,7 @@ export default function ViewReleaseRequestList() {
             let bVal = b[activeOrderBy] ?? '';
             let cmp = 0;
             if (DATE_COLUMN_IDS.includes(activeOrderBy)) {
-                const tA = aVal ? new Date(aVal + (aVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
-                const tB = bVal ? new Date(bVal + (bVal.endsWith('Z') ? '' : 'Z')).getTime() : 0;
-                cmp = tA - tB;
+                cmp = utcTimestamp(aVal) - utcTimestamp(bVal);
             } else {
                 cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase());
             }

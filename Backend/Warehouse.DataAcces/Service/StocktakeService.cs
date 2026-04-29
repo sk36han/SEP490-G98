@@ -16,6 +16,7 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         private static readonly string[] AllowedStatuses =
         {
@@ -23,11 +24,12 @@ namespace Warehouse.DataAcces.Service
         };
         private static readonly string[] AllowedModes = { "PERIODIC", "ADHOC" };
 
-        public StocktakeService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService)
+        public StocktakeService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null)
         {
             _context = context;
             _notificationService = notificationService;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -247,11 +249,11 @@ namespace Warehouse.DataAcces.Service
                     "(DRAFT hoặc IN_PROGRESS). Vui lòng hủy hoặc hoàn tất phiên đó trước.");
 
             // 3️⃣ Validate – ngày kiểm kê dự kiến không được ở quá khứ
-            if (request.PlannedAt.HasValue && request.PlannedAt.Value.Date < DateTime.UtcNow.Date)
+            if (request.PlannedAt.HasValue && request.PlannedAt.Value.Date < _dateTimeProvider.BusinessNow().Date)
                 throw new ArgumentException("Ngày kiểm kê dự kiến (PlannedAt) không được ở trong quá khứ.");
 
             // 4️⃣ Tạo mã phiếu tự động: ST-2025-0001
-            var year = DateTime.UtcNow.Year;
+            var year = _dateTimeProvider.BusinessNow().Year;
             var countThisYear = await _context.StocktakeSessions
                 .CountAsync(s => s.StocktakeCode.StartsWith($"ST-{year}-"));
             var newCode = $"ST-{year}-{(countThisYear + 1):D4}";
@@ -347,7 +349,7 @@ namespace Warehouse.DataAcces.Service
 
                 // 4. Cập nhật trạng thái Session
                 session.Status = "IN_PROGRESS";
-                session.StartedAt = DateTime.UtcNow;
+                session.StartedAt = _dateTimeProvider.UtcNow();
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -542,7 +544,7 @@ namespace Warehouse.DataAcces.Service
             {
                 // Không chênh lệch → hoàn tất ngay, không cần giám đốc duyệt kết quả
                 session.Status = "COMPLETED";
-                session.EndedAt = DateTime.UtcNow;
+                session.EndedAt = _dateTimeProvider.UtcNow();
 
                 await _context.SaveChangesAsync();
 
@@ -630,7 +632,7 @@ namespace Warehouse.DataAcces.Service
                         Decision = request.Decision,
                         Reason = request.Reason,
                         ActionBy = currentUserId,
-                        ActionAt = DateTime.UtcNow
+                        ActionAt = _dateTimeProvider.UtcNow()
                     };
                     await _context.DocumentApprovals.AddAsync(approval);
 
@@ -711,7 +713,7 @@ namespace Warehouse.DataAcces.Service
                         Decision = request.Decision,
                         Reason = request.Reason,
                         ActionBy = currentUserId,
-                        ActionAt = DateTime.UtcNow
+                        ActionAt = _dateTimeProvider.UtcNow()
                     };
                     await _context.DocumentApprovals.AddAsync(approval);
 
@@ -811,7 +813,7 @@ namespace Warehouse.DataAcces.Service
                     if (discrepancyLines.Any())
                     {
                         // 1. Tạo mã phiếu điều chỉnh: ADJ-2025-0001
-                        var year = DateTime.UtcNow.Year;
+                        var year = _dateTimeProvider.BusinessNow().Year;
                         var adjCount = await _context.InventoryAdjustmentRequests
                             .CountAsync(a => a.AdjustmentCode.StartsWith($"ADJ-{year}-"));
                         var adjCode = $"ADJ-{year}-{(adjCount + 1):D4}";
@@ -825,9 +827,9 @@ namespace Warehouse.DataAcces.Service
                             SubmittedBy = currentUserId,
                             Status = "POSTED",
                             Reason = $"Điều chỉnh tự động từ phiếu kiểm kê {session.StocktakeCode}",
-                            SubmittedAt = DateTime.UtcNow,
-                            ApprovedAt = DateTime.UtcNow,
-                            PostedAt = DateTime.UtcNow
+                            SubmittedAt = _dateTimeProvider.UtcNow(),
+                            ApprovedAt = _dateTimeProvider.UtcNow(),
+                            PostedAt = _dateTimeProvider.UtcNow()
                         };
                         await _context.InventoryAdjustmentRequests.AddAsync(adjRequest);
                         await _context.SaveChangesAsync();
@@ -853,14 +855,14 @@ namespace Warehouse.DataAcces.Service
                             if (onHand != null)
                             {
                                 onHand.OnHandQty += (line.VarianceQty ?? 0);
-                                onHand.UpdatedAt = DateTime.UtcNow;
+                                onHand.UpdatedAt = _dateTimeProvider.UtcNow();
                             }
                         }
                     }
 
                     // 5. Cập nhật trạng thái Stocktake thành COMPLETED
                     session.Status = "COMPLETED";
-                    session.EndedAt = DateTime.UtcNow;
+                    session.EndedAt = _dateTimeProvider.UtcNow();
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
@@ -930,7 +932,7 @@ namespace Warehouse.DataAcces.Service
             }
 
             session.Status = "COMPLETED";
-            session.EndedAt = DateTime.UtcNow;
+            session.EndedAt = _dateTimeProvider.UtcNow();
 
             await _context.SaveChangesAsync();
 
@@ -972,7 +974,7 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException($"Không thể hủy phiếu đang ở trạng thái {session.Status}.");
 
             session.Status = "CANCELLED";
-            session.EndedAt = DateTime.UtcNow;
+            session.EndedAt = _dateTimeProvider.UtcNow();
 
             await _context.SaveChangesAsync();
 

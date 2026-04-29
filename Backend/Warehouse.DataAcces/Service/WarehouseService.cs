@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System;
 using System.Text.Json;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
@@ -14,10 +15,12 @@ namespace Warehouse.DataAcces.Service
     {
 		private readonly IConfiguration _configuration;
 		private readonly IAuditLogService _auditLogService;
-		public WarehouseService(Mkiwms5Context context, IConfiguration configuration, IAuditLogService auditLogService) : base(context)
+		private readonly IDateTimeProvider _dateTimeProvider;
+		public WarehouseService(Mkiwms5Context context, IConfiguration configuration, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null) : base(context)
 		{
 			_configuration = configuration;
 			_auditLogService = auditLogService;
+			_dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
 		}
 
 
@@ -199,7 +202,7 @@ namespace Warehouse.DataAcces.Service
                 WarehouseName = request.WarehouseName,
                 Address = request.Address,
                 IsActive = request.IsActive,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _dateTimeProvider.UtcNow()
             };
 
             await CreateAsync(entity);

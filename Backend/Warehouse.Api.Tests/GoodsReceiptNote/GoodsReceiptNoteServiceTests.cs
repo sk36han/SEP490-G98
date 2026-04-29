@@ -18,6 +18,7 @@ public class GoodsReceiptNoteServiceTests : IDisposable
     private readonly GoodsReceiptNoteService _sut;
     private readonly Mock<IAuditLogService> _audit = new();
     private readonly Mock<INotificationService> _notify = new();
+    private readonly Mock<IDateTimeProvider> _dateTimeProvider = new();
 
     public GoodsReceiptNoteServiceTests()
     {
@@ -39,7 +40,11 @@ public class GoodsReceiptNoteServiceTests : IDisposable
                 It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<byte>(), It.IsAny<DateTime?>()))
             .Returns(Task.CompletedTask);
 
-        _sut = new GoodsReceiptNoteService(_context, _notify.Object, _audit.Object);
+        _dateTimeProvider.Setup(x => x.BusinessNow()).Returns(DateTime.UtcNow);
+        _dateTimeProvider.Setup(x => x.BusinessToday()).Returns(DateOnly.FromDateTime(DateTime.UtcNow));
+        _dateTimeProvider.Setup(x => x.UtcNow()).Returns(DateTime.UtcNow);
+
+        _sut = new GoodsReceiptNoteService(_context, _notify.Object, _audit.Object, _dateTimeProvider.Object);
         SeedBaseData();
     }
 

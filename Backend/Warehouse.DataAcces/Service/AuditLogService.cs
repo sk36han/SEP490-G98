@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Repositories;
 using Warehouse.DataAcces.Service.Interface;
@@ -9,8 +10,11 @@ namespace Warehouse.DataAcces.Service
 {
 	public class AuditLogService : GenericRepository<AuditLog>, IAuditLogService
 	{
-		public AuditLogService(Mkiwms5Context context) : base(context)
+		private readonly IDateTimeProvider _dateTimeProvider;
+
+		public AuditLogService(Mkiwms5Context context, IDateTimeProvider? dateTimeProvider = null) : base(context)
 		{
+			_dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
 		}
 
 		public async Task<PagedResponse<AuditLogResponse>> GetAuditLogsAsync(AuditLogFilterRequest filter)
@@ -106,7 +110,7 @@ namespace Warehouse.DataAcces.Service
 				Detail = detail,
 				OldValues = oldValues,
 				NewValues = newValues,
-				CreatedAt = DateTime.UtcNow
+				CreatedAt = _dateTimeProvider.UtcNow()
 			};
 
 			_context.AuditLogs.Add(auditLog);

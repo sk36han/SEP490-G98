@@ -17,6 +17,7 @@ public class PurchaseOrderServiceTests : IDisposable
     private readonly Mock<IAuditLogService> _mockAuditLogService;
     private readonly Mock<INotificationService> _mockNotificationService;
     private readonly Mock<IDocumentAttachmentService> _mockDocumentAttachmentService;
+    private readonly Mock<IDateTimeProvider> _mockDateTimeProvider;
 
     public PurchaseOrderServiceTests()
     {
@@ -30,6 +31,7 @@ public class PurchaseOrderServiceTests : IDisposable
         _mockAuditLogService = new Mock<IAuditLogService>();
         _mockNotificationService = new Mock<INotificationService>();
         _mockDocumentAttachmentService = new Mock<IDocumentAttachmentService>();
+        _mockDateTimeProvider = new Mock<IDateTimeProvider>();
         _mockDocumentAttachmentService
             .Setup(x => x.UploadAttachmentAsync(
                 It.IsAny<string>(),
@@ -39,12 +41,17 @@ public class PurchaseOrderServiceTests : IDisposable
                 It.IsAny<string>()))
             .ReturnsAsync((string docType, long docId, IFormFile file, long userId, string attachmentType)
                 => $"https://files.test/{docType}/{docId}/{attachmentType}/{file.FileName}");
+
+        _mockDateTimeProvider.Setup(x => x.BusinessNow()).Returns(DateTime.UtcNow);
+        _mockDateTimeProvider.Setup(x => x.BusinessToday()).Returns(DateOnly.FromDateTime(DateTime.UtcNow));
+        _mockDateTimeProvider.Setup(x => x.UtcNow()).Returns(DateTime.UtcNow);
         
         _service = new PurchaseOrderService(
             _context,
             _mockAuditLogService.Object,
             _mockNotificationService.Object,
-            _mockDocumentAttachmentService.Object);
+            _mockDocumentAttachmentService.Object,
+            _mockDateTimeProvider.Object);
 
         SeedData();
     }

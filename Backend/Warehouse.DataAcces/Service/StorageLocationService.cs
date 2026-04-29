@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Warehouse.DataAcces.Service.Interface;
@@ -12,11 +13,13 @@ namespace Warehouse.DataAcces.Service
     {
         private readonly Mkiwms5Context _context;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public StorageLocationService(Mkiwms5Context context, IAuditLogService auditLogService)
+        public StorageLocationService(Mkiwms5Context context, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null)
         {
             _context = context;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
         }
 
         public async Task<PagedResponse<StorageLocationResponse>> GetStorageLocationsAsync(
@@ -427,7 +430,7 @@ namespace Warehouse.DataAcces.Service
                 LocationName = request.LocationName?.Trim(),
                 MaxCapacityQty = request.MaxCapacityQty,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _dateTimeProvider.UtcNow()
             };
 
             _context.StorageLocations.Add(entity);
@@ -489,7 +492,7 @@ namespace Warehouse.DataAcces.Service
             entity.LocationName = request.LocationName?.Trim();
             entity.IsActive = request.IsActive;
             entity.MaxCapacityQty = request.MaxCapacityQty;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = _dateTimeProvider.UtcNow();
 
             await _context.SaveChangesAsync();
 
@@ -537,7 +540,7 @@ namespace Warehouse.DataAcces.Service
                 throw new InvalidOperationException("Trạng thái vị trí không thay đổi.");
 
             entity.IsActive = isActive;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = _dateTimeProvider.UtcNow();
             await _context.SaveChangesAsync();
 
             await _auditLogService.LogAsync(

@@ -20,12 +20,14 @@ namespace Warehouse.DataAcces.Service
         private readonly Mkiwms5Context _context;
         private readonly INotificationService _notificationService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService)
+        public GoodsReceiptNoteService(Mkiwms5Context context, INotificationService notificationService, IAuditLogService auditLogService, IDateTimeProvider dateTimeProvider)
         {
             _context = context;
             _notificationService = notificationService;
             _auditLogService = auditLogService;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<PagedResponse<GoodsReceiptNoteResponse>> GetGoodsReceiptNotesAsync(int page, int pageSize)
@@ -65,7 +67,7 @@ namespace Warehouse.DataAcces.Service
                     TotalAmount = grn.TotalGoodsAmount,
                     ShippingFee = grn.ShippingFee,
                     NetAmount = grn.TotalGoodsAmount + grn.ShippingFee,
-					CreatedAt = DateTime.UtcNow,
+					CreatedAt = _dateTimeProvider.UtcNow(),
 					Note = grn.Note
                 })
                 .ToListAsync();
@@ -448,8 +450,8 @@ namespace Warehouse.DataAcces.Service
 
             // Cập nhật GRN status thành POST
             grn.Status = "POSTED";
-            grn.PostedAt = DateTime.UtcNow;
-            grn.ApprovedAt = DateTime.UtcNow;
+            grn.PostedAt = _dateTimeProvider.UtcNow();
+            grn.ApprovedAt = _dateTimeProvider.UtcNow();
 
             // Thanh toán — lưu theo xác nhận kế toán khi duyệt
             grn.IsPaid = request.IsPaid;
@@ -466,13 +468,13 @@ namespace Warehouse.DataAcces.Service
                 inventoryTxn = new InventoryTransaction
                 {
                     TxnType = "INBOUND",
-                    TxnDate = DateTime.UtcNow,
+                    TxnDate = _dateTimeProvider.UtcNow(),
                     WarehouseId = grn.WarehouseId,
                     ReferenceType = "GRN",
                     ReferenceId = grn.Grnid,
                     Status = "POSTED",
                     PostedBy = userId,
-                    PostedAt = DateTime.UtcNow
+                    PostedAt = _dateTimeProvider.UtcNow()
                 };
                 _context.InventoryTransactions.Add(inventoryTxn);
                 await _context.SaveChangesAsync();
@@ -481,9 +483,9 @@ namespace Warehouse.DataAcces.Service
             {
                 inventoryTxn.Status = "POSTED";
                 inventoryTxn.TxnType = "INBOUND";
-                inventoryTxn.TxnDate = DateTime.UtcNow;
+                inventoryTxn.TxnDate = _dateTimeProvider.UtcNow();
                 inventoryTxn.PostedBy = userId;
-                inventoryTxn.PostedAt = DateTime.UtcNow;
+                inventoryTxn.PostedAt = _dateTimeProvider.UtcNow();
             }
 
             var existingTxnLines = await _context.InventoryTransactionLines
@@ -622,7 +624,7 @@ namespace Warehouse.DataAcces.Service
                         }
 
                         inventory.OnHandQty += newQty;
-                        inventory.UpdatedAt = DateTime.UtcNow;
+                        inventory.UpdatedAt = _dateTimeProvider.UtcNow();
                     }
                     else
                     {
@@ -634,7 +636,7 @@ namespace Warehouse.DataAcces.Service
                             OnHandQty = grnLine.ActualQty,
                             ReservedQty = 0,
                             UnitCost = costPrice,
-                            UpdatedAt = DateTime.UtcNow
+                            UpdatedAt = _dateTimeProvider.UtcNow()
                         };
                         _context.InventoryOnHands.Add(newInventory);
                     }
@@ -651,7 +653,7 @@ namespace Warehouse.DataAcces.Service
                         WarehouseId = grn.WarehouseId,
                         GrnlineId = grnLine.GrnlineId,
                         LocationId = selectedLocationId,
-                        ReceiptDate = DateTime.UtcNow,
+                        ReceiptDate = _dateTimeProvider.UtcNow(),
                         Quantity = grnLine.ActualQty,
                         UnitCost = costPrice,
                         IsActive = true
@@ -687,7 +689,7 @@ namespace Warehouse.DataAcces.Service
                     // Giá thực tế để bán nằm trong InventoryLot theo từng lô
                     if (purchasePrice.HasValue && purchasePrice > 0)
                     {
-                        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                        var today = _dateTimeProvider.BusinessToday();
 
                         // Deactive giá Purchase cũ chỉ khi đã active từ ngày trước
                         // Nếu cùng ngày thì giữ nguyên để tránh khoảng trống
@@ -713,7 +715,7 @@ namespace Warehouse.DataAcces.Service
                             EffectiveFrom = today,
                             EffectiveTo = null,
                             IsActive = true,
-                            CreatedAt = DateTime.UtcNow
+                            CreatedAt = _dateTimeProvider.UtcNow()
                         });
                     }
                 }
@@ -781,7 +783,7 @@ namespace Warehouse.DataAcces.Service
                 TotalAmount = grn.TotalGoodsAmount,
                 ShippingFee = grn.ShippingFee,
                 NetAmount = grn.TotalGoodsAmount + grn.ShippingFee,
-                CreatedAt = grn.PostedAt ?? DateTime.UtcNow,
+                CreatedAt = grn.PostedAt ?? _dateTimeProvider.UtcNow(),
                 Note = grn.Note
             };
         }
@@ -867,7 +869,7 @@ namespace Warehouse.DataAcces.Service
                 TotalAmount = grn.TotalGoodsAmount,
                 ShippingFee = grn.ShippingFee,
                 NetAmount = grn.TotalGoodsAmount + grn.ShippingFee,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = _dateTimeProvider.UtcNow(),
                 SubmittedAt = grn.SubmittedAt,
                 PostedAt = grn.PostedAt,
                 Note = grn.Note,
@@ -946,7 +948,7 @@ namespace Warehouse.DataAcces.Service
                         col.Item().AlignRight().Text($"Tong cong: {data.NetAmount:N0} VND").SemiBold();
                     });
 
-                    page.Footer().AlignCenter().Text($"In luc {DateTime.Now:dd/MM/yyyy HH:mm}");
+                    page.Footer().AlignCenter().Text($"In luc {_dateTimeProvider.BusinessNow():dd/MM/yyyy HH:mm}");
                 });
             }).GeneratePdf();
         }

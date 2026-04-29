@@ -16,12 +16,14 @@ namespace Warehouse.DataAcces.Service
 		private readonly Mkiwms5Context _context;
 		private readonly IWebHostEnvironment _env;
 		private readonly IAuditLogService _auditLogService;
+		private readonly IDateTimeProvider _dateTimeProvider;
 
-		public DocumentAttachmentService(Mkiwms5Context context, IWebHostEnvironment env, IAuditLogService auditLogService)
+		public DocumentAttachmentService(Mkiwms5Context context, IWebHostEnvironment env, IAuditLogService auditLogService, IDateTimeProvider? dateTimeProvider = null)
 		{
 			_context = context;
 			_env = env;
 			_auditLogService = auditLogService;
+			_dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
 		}
 
 		public async Task<string> UploadAttachmentAsync(string docType, long docId, IFormFile file, long userId, string attachmentType = "GENERAL")
@@ -63,7 +65,7 @@ namespace Warehouse.DataAcces.Service
 				FileName = file.FileName,
 				FileUrlOrPath = fileUrl,
 				UploadedBy = userId,
-				UploadedAt = DateTime.UtcNow
+				UploadedAt = _dateTimeProvider.UtcNow()
 			};
 
 			_context.DocumentAttachments.Add(attachment);

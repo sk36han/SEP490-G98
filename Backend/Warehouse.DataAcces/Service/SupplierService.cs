@@ -21,16 +21,18 @@ namespace Warehouse.DataAcces.Service
 
 		private readonly INotificationService _notificationService;
 		private readonly IAuditLogService _auditLogService;
+		private readonly IDateTimeProvider _dateTimeProvider;
 
 		// Các role sẽ nhận thông báo về supplier
 		private static readonly string[] _notifyRoleCodes = { UserRoleConstants.Admin, UserRoleConstants.Director, UserRoleConstants.SaleSupport };
 
-		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService, Mkiwms5Context context)
+		public SupplierService(IGenericRepository<Supplier> supplierRepository, INotificationService notificationService, IAuditLogService auditLogService, Mkiwms5Context context, IDateTimeProvider? dateTimeProvider = null)
 		{
 			_supplierRepository = supplierRepository;
 			_notificationService = notificationService;
 			_auditLogService = auditLogService;
 			_context = context;
+			_dateTimeProvider = dateTimeProvider ?? new DateTimeProvider("Asia/Ho_Chi_Minh", () => DateTime.UtcNow);
 		}
 
 		public async Task<SupplierResponse> CreateSupplierAsync(CreateSupplierRequest request, long currentUserId)
@@ -81,7 +83,7 @@ namespace Warehouse.DataAcces.Service
 				Ward = request.Ward,
 				District = request.District,
 				IsActive = true,
-				CreatedAt = DateTime.UtcNow
+				CreatedAt = _dateTimeProvider.UtcNow()
 			};
 
 			// 3️⃣ Save
@@ -506,7 +508,7 @@ namespace Warehouse.DataAcces.Service
 				CreatedBy = x.CreatedByNavigation.FullName,
 				ItemCount = x.GoodsReceiptNoteLines.Count,
 				TotalQuantity = x.GoodsReceiptNoteLines.Sum(l => (decimal?)l.ActualQty) ?? 0,
-				CreatedAt = x.SubmittedAt ?? x.PostedAt ?? x.ApprovedAt ?? DateTime.UtcNow
+				CreatedAt = x.SubmittedAt ?? x.PostedAt ?? x.ApprovedAt ?? _dateTimeProvider.UtcNow()
 			}).ToList();
 
 			// Merge and Filter further in memory
