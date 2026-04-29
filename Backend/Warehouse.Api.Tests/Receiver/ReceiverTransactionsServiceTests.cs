@@ -48,7 +48,8 @@ public class ReceiverTransactionsServiceTests
             RequestedBy = 111,
             RequestedDate = new DateOnly(2026, 1, 1),
             CreatedAt = new DateTime(2026, 1, 1),
-            Purpose = "Test RR"
+            Purpose = "Test RR",
+            LifecycleStatus = "IssuePending"
         };
         context.ReleaseRequests.Add(rr);
         context.ReleaseRequestLines.Add(new ReleaseRequestLine 
@@ -57,7 +58,8 @@ public class ReceiverTransactionsServiceTests
             ReleaseRequestId = 10, 
             ItemId = 1, 
             RequestedQty = 100, 
-            UomId = 1 
+            UomId = 1,
+            LineStatus = "Open"
         });
 
         var gdn = new GoodsDeliveryNote

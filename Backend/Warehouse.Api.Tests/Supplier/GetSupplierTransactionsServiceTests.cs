@@ -152,7 +152,7 @@ public class GetSupplierTransactionsServiceTests : IDisposable
         // Assert
         result.Detail.Should().NotBeNull();
         // Since result.Detail is dynamic/object, we check the structure if possible or just existence
-        var detailStr = Newtonsoft.Json.JsonConvert.SerializeObject(result.Detail);
+        var detailStr = Newtonsoft.Json.JsonConvert.SerializeObject(result.Detail, new Newtonsoft.Json.JsonSerializerSettings { ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore });
         detailStr.Should().Contain("PO-001");
         detailStr.Should().Contain("Lines");
     }

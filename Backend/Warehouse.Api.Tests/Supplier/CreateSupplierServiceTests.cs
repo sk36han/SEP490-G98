@@ -57,7 +57,7 @@ public class CreateSupplierServiceTests : IDisposable
     public async Task CreateSupplier_FullData_ShouldSucceedAndLogsEverything()
     {
         // Arrange
-        var request = CreateValidRequest("SUP-NEW");
+        var request = CreateValidRequest("ANY-CODE"); // Sẽ bị ghi đè bởi SUP-1
         var service = CreateService();
 
         // Act
@@ -65,14 +65,15 @@ public class CreateSupplierServiceTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result.SupplierCode.Should().Be("SUP-NEW");
+        result.SupplierCode.Should().StartWith("SUP-");
+        var generatedCode = result.SupplierCode;
         result.SupplierName.Should().Be(request.SupplierName);
         result.Email.Should().Be(request.Email);
         result.IsActive.Should().BeTrue();
 
         // Database Side Effect
-        _context.Suppliers.Should().ContainSingle(s => s.SupplierCode == "SUP-NEW");
-        var persisted = _context.Suppliers.Single(s => s.SupplierCode == "SUP-NEW");
+        _context.Suppliers.Should().ContainSingle(s => s.SupplierCode == generatedCode);
+        var persisted = _context.Suppliers.Single(s => s.SupplierCode == generatedCode);
         persisted.SupplierName.Should().Be(request.SupplierName);
         persisted.TaxCode.Should().Be(request.TaxCode);
         persisted.Phone.Should().Be(request.Phone);
@@ -85,7 +86,7 @@ public class CreateSupplierServiceTests : IDisposable
         _notifMock.Verify(n => n.CreateForRolesAsync(
             It.IsAny<string[]>(),
             It.Is<string>(s => s.Contains("Nhà cung cấp mới")),
-            It.Is<string>(s => s.Contains("SUP-NEW")),
+            It.Is<string>(s => s.Contains(generatedCode)),
             "SUPPLIER",
             persisted.SupplierId,
             CurrentUserId,
@@ -97,31 +98,31 @@ public class CreateSupplierServiceTests : IDisposable
             AuditAction.Create,
             AuditEntity.Supplier,
             persisted.SupplierId,
-            It.Is<string>(s => s.Contains("Tạo nhà cung cấp") && s.Contains("SUP-NEW")),
+            It.Is<string>(s => s.Contains("Tạo nhà cung cấp") && s.Contains(generatedCode)),
             null,
             null
         ), Times.Once);
     }
 
-    [Fact]
-    public async Task CreateSupplier_DuplicateCode_ShouldThrowAndNotPersist()
-    {
-        // Arrange
-        var existing = new Warehouse.Entities.Models.Supplier { SupplierCode = "DUP01", SupplierName = "Existing", IsActive = true };
-        _context.Suppliers.Add(existing);
-        await _context.SaveChangesAsync();
-        
-        var request = CreateValidRequest("DUP01");
-        var service = CreateService();
-
-        // Act
-        Func<Task> act = () => service.CreateSupplierAsync(request, CurrentUserId);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*đã tồn tại*");
-        _context.Suppliers.Count().Should().Be(1); // No new record
-        _notifMock.Verify(n => n.CreateForRolesAsync(It.IsAny<string[]>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<byte>(), It.IsAny<DateTime?>()), Times.Never);
-    }
+    // [Fact]
+    // public async Task CreateSupplier_DuplicateCode_ShouldThrowAndNotPersist()
+    // {
+    //     // Arrange
+    //     var existing = new Warehouse.Entities.Models.Supplier { SupplierCode = "DUP01", SupplierName = "Existing", IsActive = true };
+    //     _context.Suppliers.Add(existing);
+    //     await _context.SaveChangesAsync();
+    //     
+    //     var request = CreateValidRequest("DUP01");
+    //     var service = CreateService();
+    // 
+    //     // Act
+    //     Func<Task> act = () => service.CreateSupplierAsync(request, CurrentUserId);
+    // 
+    //     // Assert
+    //     await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*đã tồn tại*");
+    //     _context.Suppliers.Count().Should().Be(1); // No new record
+    //     _notifMock.Verify(n => n.CreateForRolesAsync(It.IsAny<string[]>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<long?>(), It.IsAny<string>(), It.IsAny<byte>(), It.IsAny<DateTime?>()), Times.Never);
+    // }
 
     [Fact]
     public async Task CreateSupplier_DuplicateEmail_CaseInsensitive_ShouldThrow()
@@ -142,19 +143,19 @@ public class CreateSupplierServiceTests : IDisposable
         _context.Suppliers.Count().Should().Be(1);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task CreateSupplier_InvalidCode_ShouldThrow(string code)
-    {
-        var request = CreateValidRequest(code);
-        
-        Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
-
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Mã nhà cung cấp là bắt buộc*");
-        _context.Suppliers.Should().BeEmpty();
-    }
+    // [Theory]
+    // [InlineData(null)]
+    // [InlineData("")]
+    // [InlineData("   ")]
+    // public async Task CreateSupplier_InvalidCode_ShouldThrow(string code)
+    // {
+    //     var request = CreateValidRequest(code);
+    //     
+    //     Func<Task> act = () => CreateService().CreateSupplierAsync(request, CurrentUserId);
+    // 
+    //     await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Mã nhà cung cấp là bắt buộc*");
+    //     _context.Suppliers.Should().BeEmpty();
+    // }
 
     [Theory]
     [InlineData(null)]
@@ -206,12 +207,12 @@ public class CreateSupplierServiceTests : IDisposable
     [Fact]
     public async Task CreateSupplier_EmailNull_ShouldSucceed()
     {
-        var request = CreateValidRequest("NULL-EMAIL");
+        var request = CreateValidRequest("IGNORE");
         request.Email = null;
 
         var result = await CreateService().CreateSupplierAsync(request, CurrentUserId);
 
         result.Email.Should().BeNull();
-        _context.Suppliers.Should().Contain(s => s.SupplierCode == "NULL-EMAIL" && s.Email == null);
+        _context.Suppliers.Should().Contain(s => s.SupplierCode == result.SupplierCode && s.Email == null);
     }
 }

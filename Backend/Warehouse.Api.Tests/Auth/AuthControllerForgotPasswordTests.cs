@@ -1,4 +1,4 @@
-﻿extern alias api;
+extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -35,8 +35,8 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Contain("email ton tai");
-		response.Message.Should().Contain("gui link");
+		response.Message.Should().Contain("email tồn tại");
+		response.Message.Should().Contain("gửi link");
 	}
 
 	[Fact]
@@ -55,7 +55,7 @@ public class AuthControllerForgotPasswordTests
 		var response = ok.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Contain("email ton tai");
+		response.Message.Should().Contain("email tồn tại");
 	}
 
 	[Fact]
@@ -151,7 +151,7 @@ public class AuthControllerForgotPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ForgotPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Contain("Co loi");
-		response.Message.Should().Contain("gui email");
+		response.Message.Should().Contain("Có lỗi");
+		response.Message.Should().Contain("gửi email");
 	}
 }

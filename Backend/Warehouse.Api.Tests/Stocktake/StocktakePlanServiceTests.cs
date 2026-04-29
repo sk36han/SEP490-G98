@@ -164,7 +164,15 @@ public class StocktakePlanServiceTests
         await service.SubmitStocktakePlanAsync(10, 111);
 
         session.Status.Should().Be("PENDING_APPROVAL");
-        context.AuditLogs.Any(a => a.Action == "SUBMIT_STOCKTAKE_PLAN").Should().BeTrue();
+        _auditLogServiceMock.Verify(a => a.LogAsync(
+            111,
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            10,
+            It.IsAny<string>(),
+            null,
+            null
+        ), Times.Once);
     }
 
     [Fact]

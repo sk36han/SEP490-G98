@@ -1,4 +1,4 @@
-﻿extern alias api;
+extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -41,8 +41,8 @@ public class AuthControllerResetPasswordTests
 		var response = ok.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeTrue();
-		response.Message.Should().Contain("Dat lai mat khau");
-		response.Message.Should().Contain("dang nhap");
+		response.Message.Should().Contain("Đặt lại mật khẩu");
+		response.Message.Should().Contain("đăng nhập");
 	}
 
 	[Fact]
@@ -66,7 +66,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Contain("Token khong hop le");
+		response.Message.Should().Contain("Token không hợp lệ");
 	}
 
 	[Fact]
@@ -90,7 +90,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Contain("Token khong hop le");
+		response.Message.Should().Contain("Token không hợp lệ");
 	}
 
 	[Fact]
@@ -106,7 +106,7 @@ public class AuthControllerResetPasswordTests
 
 		_authServiceMock
 			.Setup(x => x.ResetPasswordAsync(request.Token, request.NewPassword))
-			.ThrowsAsync(new InvalidOperationException("Khong tim thay tai khoan."));
+			.ThrowsAsync(new InvalidOperationException("Không tìm thấy tài khoản."));
 
 		var result = await controller.ResetPassword(request);
 
@@ -114,7 +114,7 @@ public class AuthControllerResetPasswordTests
 		var response = badRequest.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 
 		response.Success.Should().BeFalse();
-		response.Message.Should().Contain("Khong tim thay tai khoan");
+		response.Message.Should().Contain("Không tìm thấy tài khoản");
 	}
 
 	[Fact]
@@ -178,7 +178,7 @@ public class AuthControllerResetPasswordTests
 
 		var response = objectResult.Value.Should().BeOfType<ResetPasswordResponse>().Subject;
 		response.Success.Should().BeFalse();
-		response.Message.Should().Contain("Co loi");
-		response.Message.Should().Contain("dat lai mat khau");
+		response.Message.Should().Contain("Có lỗi");
+		response.Message.Should().Contain("đặt lại mật khẩu");
 	}
 }

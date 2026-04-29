@@ -1,4 +1,4 @@
-﻿extern alias api;
+extern alias api;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -100,7 +100,7 @@ public class AuthControllerLoginTests
 		var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
 		unauthorized.Value.Should().NotBeNull();
 		unauthorized.Value!.ToString().Should().Contain("Email/Username");
-		unauthorized.Value!.ToString().Should().Contain("khong dung");
+		unauthorized.Value!.ToString().Should().Contain("không đúng");
 		_authServiceMock.Verify(x => x.IssueTokensAsync(It.IsAny<User>(), It.IsAny<bool>()), Times.Never);
 		_mapperMock.Verify(x => x.Map<UserResponse>(It.IsAny<User>()), Times.Never);
 	}

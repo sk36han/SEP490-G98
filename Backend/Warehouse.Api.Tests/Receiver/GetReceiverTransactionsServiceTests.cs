@@ -92,7 +92,8 @@ public class GetReceiverTransactionsServiceTests : IDisposable
             RequestedDate = new DateOnly(2026, 3, 1),
             Purpose = "Production",
             Status = "APPROVED",
-            CreatedAt = new DateTime(2026, 3, 1, 10, 0, 0)
+            CreatedAt = new DateTime(2026, 3, 1, 10, 0, 0),
+            LifecycleStatus = "IssuePending"
         };
         var rr2 = new ReleaseRequest
         {
@@ -104,15 +105,16 @@ public class GetReceiverTransactionsServiceTests : IDisposable
             RequestedDate = new DateOnly(2026, 3, 15),
             Purpose = "Maintenance",
             Status = "DRAFT",
-            CreatedAt = new DateTime(2026, 3, 15, 10, 0, 0)
+            CreatedAt = new DateTime(2026, 3, 15, 10, 0, 0),
+            LifecycleStatus = "IssuePending"
         };
         _context.ReleaseRequests.AddRange(rr1, rr2);
 
         // Release Request Lines
         _context.ReleaseRequestLines.AddRange(
-            new ReleaseRequestLine { ReleaseRequestLineId = 1, ReleaseRequestId = 1, ItemId = 1, RequestedQty = 10, UomId = 1 },
-            new ReleaseRequestLine { ReleaseRequestLineId = 2, ReleaseRequestId = 1, ItemId = 1, RequestedQty = 20, UomId = 1 },
-            new ReleaseRequestLine { ReleaseRequestLineId = 3, ReleaseRequestId = 2, ItemId = 1, RequestedQty = 5, UomId = 1 }
+            new ReleaseRequestLine { ReleaseRequestLineId = 1, ReleaseRequestId = 1, ItemId = 1, RequestedQty = 10, UomId = 1, LineStatus = "Open" },
+            new ReleaseRequestLine { ReleaseRequestLineId = 2, ReleaseRequestId = 1, ItemId = 1, RequestedQty = 20, UomId = 1, LineStatus = "Open" },
+            new ReleaseRequestLine { ReleaseRequestLineId = 3, ReleaseRequestId = 2, ItemId = 1, RequestedQty = 5, UomId = 1, LineStatus = "Open" }
         );
 
         // GDN for receiver1 (via RR1)
